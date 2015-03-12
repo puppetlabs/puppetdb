@@ -11,11 +11,9 @@
   [version]
   (app
     [hash "events" &]
-    (let [projs ["new_value" "property" "file" "old_value"
-                 "containing_class" "line" "resource_type"
-                 "status" "resource_title" "timestamp"
-                 "containment_path" "message" ]]
-      (comp (e/events-app version) (partial http-q/project-query projs) (partial http-q/restrict-query-to-report hash)))
+    (comp (e/events-app version)
+          (partial http-q/restrict-query-to-report hash))
+
     []
     {:get  (fn [{:keys [params globals paging-options] :as request}]
              (produce-streaming-body
@@ -23,7 +21,8 @@
                version
                (params "query")
                paging-options
-               (:scf-read-db globals)))}))
+               (:scf-read-db globals)
+               (:url-prefix globals)))}))
 
 (defn reports-app
   [version]

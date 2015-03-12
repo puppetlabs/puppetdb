@@ -6,45 +6,44 @@
 
 (use-fixtures :each fixt/with-test-db)
 
-(deftest test-parenthize
-  (is (= " ( foo ) " (parenthize true "foo")))
-  (is (= "foo" (parenthize false "foo"))))
-
 (deftest test-plan-sql
   (are [sql plan] (= sql (plan->sql plan))
 
-       "foo = ?"
-       (->BinaryExpression "=" "foo" "?")
+       [:or [:= :foo "?"]]
+       (->BinaryExpression := :foo "?")
 
-       (su/sql-regexp-match "foo")
-       (->RegexExpression "foo" "?")
+       (su/sql-regexp-match :foo)
+       (->RegexExpression :foo "?")
 
-       (su/sql-array-query-string "foo")
-       (->ArrayBinaryExpression "foo" "?")
+       (su/sql-array-query-string :foo)
+       (->ArrayBinaryExpression :foo "?")
 
-       " ( foo = ? AND bar = ? ) "
-       (->AndExpression [(->BinaryExpression "=" "foo" "?")
-                         (->BinaryExpression "=" "bar" "?")])
+       [:and [:or [:= :foo "?"]] [:or [:= :bar "?"]]]
+       (->AndExpression [(->BinaryExpression := :foo "?")
+                         (->BinaryExpression := :bar "?")])
 
-       " ( foo = ? OR bar = ? ) "
-       (->OrExpression [(->BinaryExpression "=" "foo" "?")
-                        (->BinaryExpression "=" "bar" "?")])
+       [:or [:or [:= :foo "?"]] [:or [:= :bar "?"]]]
+       (->OrExpression [(->BinaryExpression := :foo "?")
+                        (->BinaryExpression := :bar "?")])
 
-       "NOT ( foo = ? )"
-       (->NotExpression (->BinaryExpression "=" "foo" "?"))
+       [:not [:or [:= :foo "?"]]]
+       (->NotExpression (->BinaryExpression := :foo "?"))
 
-       "foo IS NULL"
-       (->NullExpression "foo" true)
+       [:is :foo nil]
+       (->NullExpression :foo true)
 
-       "foo IS NOT NULL"
-       (->NullExpression "foo" false)
+       [:is-not :foo nil]
+       (->NullExpression :foo false)
 
-       "SELECT thefoo.foo FROM ( select foo from table ) AS thefoo WHERE 1 = 1"
-       (map->Query {:project {"foo" :string}
+       "SELECT table.foo AS foo FROM table WHERE (1 = 1)"
+       (map->Query {:projections {"foo" {:type :string
+                                         :queryable? true
+                                         :field :table.foo}}
                     :alias "thefoo"
                     :subquery? false
-                    :where (->BinaryExpression "=" 1 1)
-                    :source "select foo from table"})))
+                    :where (->BinaryExpression := 1 1)
+                    :selection {:from [:table]}
+                    :source-table "table"})))
 
 (deftest test-extract-params
 

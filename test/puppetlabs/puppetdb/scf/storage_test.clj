@@ -437,7 +437,7 @@
       (testing "with all metadata"
         (let [result (query-to-vec ["SELECT cr.type, cr.title, cr.exported, cr.tags, cr.file, cr.line FROM catalog_resources cr ORDER BY cr.type, cr.title"])]
           (is (= (map #(assoc % :tags (sort (:tags %))) result)
-                 [{:type "Class" :title "foobar" :tags [] :exported false :file nil :line nil}
+                 [{:type "Class" :title "foobar" :tags ["class" "foobar"] :exported false :file nil :line nil}
                   {:type "File" :title "/etc/foobar" :tags ["class" "file" "foobar"] :exported false :file "/tmp/foo" :line 10}
                   {:type "File" :title "/etc/foobar/baz" :tags ["class" "file" "foobar"] :exported false :file "/tmp/bar" :line 20}])))))))
 
@@ -506,13 +506,13 @@
 
       (testing "ensure catalog-edges-map returns a predictable value"
         (is (= (catalog-edges-map certname)
-               {["d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
+               {["ff0702ba8a7dc69d3fb17f9d151bf9bd265a9ed9"
                  "57495b553981551c5194a21b9a26554cd93db3d9"
                  "contains"] nil,
                  ["57495b553981551c5194a21b9a26554cd93db3d9"
                   "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
                   "required-by"] nil,
-                  ["d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
+                  ["ff0702ba8a7dc69d3fb17f9d151bf9bd265a9ed9"
                    "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
                    "contains"] nil})))
 
@@ -528,7 +528,7 @@
           (replace-edges! certname modified-edges refs-to-hash)
           (testing "ensure catalog-edges-map returns a predictable value"
             (is (= (catalog-edges-map certname)
-                   {["d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
+                   {["ff0702ba8a7dc69d3fb17f9d151bf9bd265a9ed9"
                      "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
                      "contains"] nil,
                      ["57495b553981551c5194a21b9a26554cd93db3d9"
@@ -541,7 +541,7 @@
           (testing "should only delete the 1 edge"
             (is (= [[:edges ["certname=? and source=? and target=? and type=?"
                              "basic.catalogs.com"
-                             "d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
+                             "ff0702ba8a7dc69d3fb17f9d151bf9bd265a9ed9"
                              "57495b553981551c5194a21b9a26554cd93db3d9"
                              "contains"]]]
                    @deletes)))
@@ -956,7 +956,7 @@
   (add-catalog! catalog)
 
   (is (= #{{:title "foobar"
-            :tags #{}
+            :tags #{"class" "foobar"}
             :line nil}
            {:title "/etc/foobar"
             :tags #{"file" "class" "foobar"}
@@ -975,7 +975,7 @@
                                  (assoc-in [{:type "File" :title "/etc/foobar"} :tags] #{"totally" "different" "tags"})
                                  (assoc-in [{:type "File" :title "/etc/foobar"} :line] 500)))))
   (is (= #{{:title "foobar"
-            :tags #{}
+            :tags #{"class" "foobar"}
             :line nil}
            {:title "/etc/foobar"
             :line 500
@@ -1324,11 +1324,10 @@
             report2-hash  (:hash (store-example-report! report2 timestamp))
             certname      (:certname report1)
             _             (delete-reports-older-than! (ago (days 3)))
-            expected      (map #(update-in % [:resource_events] munge-resource-events)
+            expected      (map #(dissoc % :resource_events :metrics :logs)
                                (expected-reports [(assoc report2 :hash report2-hash)]))
             actual        (->> (reports-query-result :v4 ["=" "certname" certname])
-                               (map (partial kitchensink/maptrans {[:resource_events] munge-resource-events
-                                                                   [:metrics :logs] walk/keywordize-keys})))]
+                               (map #(dissoc % :resource_events :metrics :logs)))]
         (is (= expected actual)))))
 
   (deftest resource-events-cleanup

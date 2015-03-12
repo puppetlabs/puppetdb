@@ -13,10 +13,10 @@
 
 (defn add-criteria [crit query]
   (cm/match [query]
-            [["extract" columns expr :guard nil?]]
+            [["extract" columns (expr :guard nil?)]]
             ["extract" columns crit]
 
-            [["extract" columns expr :guard identity]]
+            [["extract" columns (expr :guard identity)]]
             ["extract" columns ["and" expr crit]]
             :else
             (if query
@@ -53,27 +53,6 @@
                    ["=" "certname" node]
                    ["=" ["node" "active"] true]]
                   req))
-
-(defn add-extract [projections query]
-  (cm/match [query]
-            [["extract" columns expr :guard nil?]]
-            ["extract" columns projections]
-
-            [["extract" columns expr :guard identity]]
-            ["extract" columns ["extract" projections expr]]
-            :else
-            (if query
-              ["extract" projections query]
-              ["extract" projections])))
-
-(defn project-query
-  [projections {:keys [params] :as req}]
-  {:pre  [(coll? projections)]
-   :post [(are-queries-different? req %)]}
-  (let [restricted-query (let [query (params "query")
-                               q (when query (json/parse-strict-string query true))]
-                            (add-extract projections q))]
-    (assoc-in req [:params "query"] (json/generate-string restricted-query))))
 
 (defn restrict-query-to-report
   "Restrict the query parameter of the supplied request so that it

@@ -1,13 +1,14 @@
 (ns puppetlabs.puppetdb.facts
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [schema.core :as s]
-            [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
+  (:require [clojure.edn :as clj-edn]
+            [clojure.set :as set]
             [clojure.string :as str]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.utils :as utils]
-            [clojure.edn :as clj-edn]))
+            [schema.core :as s]))
 
 ;; SCHEMA
 
@@ -22,12 +23,12 @@
    :name s/Str
    :depth s/Int})
 
-(def fact-set
+(def fact-set-schema
   {s/Str s/Any})
 
 (def facts-schema
   {:certname String
-   :values fact-set
+   :values fact-set-schema
    :timestamp pls/Timestamp
    :environment (s/maybe s/Str)
    :producer_timestamp (s/either s/Str pls/Timestamp)})
@@ -190,7 +191,7 @@
          ;; Leaf
          (conj mem (leaf-fn path data))))))
 
-(defn-validated path->pathmap :- pathmap-schema
+(pls/defn-validated path->pathmap :- pathmap-schema
   [path :- fact-path]
   ;; Used by migration-legacy, so copy this function there before
   ;; making backward-incompatible changes.
@@ -198,11 +199,11 @@
    :name (first path)
    :depth (dec (count path))})
 
-(defn-validated facts->paths-and-valuemaps
+(pls/defn-validated facts->paths-and-valuemaps
   :- [(s/pair fact-path "path" valuemap-schema "valuemap")]
   "Returns [path valuemap] pairs for all
   facts. i.e. ([\"foo#~bar\" vm] ...)"
-  [facts :- fact-set]
+  [facts :- fact-set-schema]
   (flatten-facts-with (fn [fp leaf] [fp (value->valuemap leaf)]) facts))
 
 (pls/defn-validated unstringify-value

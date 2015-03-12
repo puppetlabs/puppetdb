@@ -115,12 +115,11 @@
 (defn munge-result-rows
   "Helper function to transform the event count subject data from the raw format that we get back from the
   database into the more structured format that the API specifies."
-  [_ _ paging-options]
-  (let [summarize_by (first paging-options)]
-    (fn [rows]
-      (mapv
-       (partial munge-subject summarize_by)
-       rows))))
+  [summarize_by]
+  (fn [rows]
+    (mapv
+     (partial munge-subject summarize_by)
+     rows)))
 
 (defn query->sql
   "Convert an event-counts `query` and a value to `summarize_by` into a SQL string.
@@ -168,7 +167,7 @@
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows summarize_by {})))}]
+                          (comp doall (munge-result-rows summarize_by)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

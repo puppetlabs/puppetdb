@@ -46,7 +46,11 @@
                         {:source       {:type "File" :title "/etc/foobar"}
                          :target       {:type "File" :title "/etc/foobar/baz"}
                          :relationship :required-by}}
-    :resources        {{:type "Class" :title "foobar"}         {:type "Class" :title "foobar" :exported false}
+    :resources        {{:type "Class" :title "foobar"}         {:type "Class"
+                                                                :title "foobar"
+                                                                :exported false
+                                                                :tags #{"class" "foobar"}
+                                                                :parameters {}}
                        {:type "File" :title "/etc/foobar"}     {:type       "File"
                                                                 :title      "/etc/foobar"
                                                                 :exported   false

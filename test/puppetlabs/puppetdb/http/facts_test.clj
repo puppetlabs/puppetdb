@@ -1,25 +1,26 @@
 (ns puppetlabs.puppetdb.http.facts-test
-  (:require [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.http :as http]
-            [cheshire.core :as json]
-            [clojure.java.jdbc :as sql]
-            [puppetlabs.puppetdb.http.server :as server]
-            [clojure.java.io :as io]
-            [flatland.ordered.map :as omap]
+  (:require [cheshire.core :as json]
             [clj-time.coerce :refer [to-timestamp to-string]]
-            [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.puppetdb.utils :as utils]
-            [clojure.test :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer :all]
-            [puppetlabs.puppetdb.examples :refer :all]
             [clj-time.core :refer [now]]
+            [clojure.java.jdbc :as sql]
+            [clojure.java.io :as io]
+            [clojure.test :refer :all]
+            [flatland.ordered.map :as omap]
+            [puppetlabs.puppetdb.scf.storage :as scf-store]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.examples :refer :all]
+            [puppetlabs.puppetdb.fixtures :refer :all]
+            [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.http.server :as server]
+            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.testutils :refer [get-request
                                                    assert-success!
                                                    paged-results
                                                    paged-results*
                                                    deftestseq
                                                    parse-result]]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]))
+            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.kitchensink.core :as ks]))
 
 (def v4-facts-endpoint "/v4/facts")
 (def v4-facts-environment "/v4/environments/DEV/facts")
@@ -48,13 +49,6 @@
     (is (= (count actual-result) (count expected-results)))
     (is (= (set actual-result) expected-results))
     (is (= status http/status-ok))))
-
-(defn munge-structured-response
-  [row]
-  (let [value (get row :value)]
-    (if (= (first value) \{)
-      (update-in row [:value] json/parse-string)
-      row)))
 
 (defn compare-structured-response
   "compare maps that may have been stringified differently."
@@ -194,7 +188,7 @@
            ;; vectored fact-contents subquery
            ["in" ["name" "certname"]
             ["extract" ["name" "certname"]
-             ["select-fact-contents"
+             ["select_fact_contents"
               ["and" ["<" "value" 10000] ["~>" "path" ["up.*"]]]]]]
            #{{:value 12, :name "uptime_seconds", :environment "DEV", :certname "bar"}}))))
 
@@ -204,20 +198,20 @@
                 ;; Extract using invalid fields should throw an error
                 ["in" "certname" ["extract" "nothing" ["select_resources"
                                                         ["=" "type" "Class"]]]]
-                "Can't extract unknown 'resources' field 'nothing'. Acceptable fields are: [\"certname\",\"environment\",\"resource\",\"type\",\"title\",\"tag\",\"exported\",\"file\",\"line\",\"parameters\"]"
+                "Can't extract unknown 'resources' field 'nothing'. Acceptable fields are: [\"certname\",\"environment\",\"exported\",\"file\",\"line\",\"parameters\",\"resource\",\"tag\",\"tags\",\"title\",\"type\"]"
 
                 ["in" "certname" ["extract" ["nothing" "nothing2" "certname"] ["select_resources"
                                                                                ["=" "type" "Class"]]]]
-                "Can't extract unknown 'resources' fields: 'nothing', 'nothing2'. Acceptable fields are: [\"certname\",\"environment\",\"resource\",\"type\",\"title\",\"tag\",\"exported\",\"file\",\"line\",\"parameters\"]"
+                "Can't extract unknown 'resources' fields: 'nothing', 'nothing2'. Acceptable fields are: [\"certname\",\"environment\",\"exported\",\"file\",\"line\",\"parameters\",\"resource\",\"tag\",\"tags\",\"title\",\"type\"]"
 
                 ;; In-query for invalid fields should throw an error
                 ["in" "nothing" ["extract" "certname" ["select_resources"
                                                         ["=" "type" "Class"]]]]
-                "Can't match on unknown 'facts' field 'nothing' for 'in'. Acceptable fields are: [\"name\",\"certname\",\"environment\",\"value\"]"
+                "Can't match on unknown 'facts' field 'nothing' for 'in'. Acceptable fields are: [\"certname\",\"environment\",\"name\",\"value\"]"
 
                 ["in" ["name" "nothing" "nothing2"] ["extract" "certname" ["select_resources"
                                                                             ["=" "type" "Class"]]]]
-                "Can't match on unknown 'facts' fields: 'nothing', 'nothing2' for 'in'. Acceptable fields are: [\"name\",\"certname\",\"environment\",\"value\"]")))
+                "Can't match on unknown 'facts' fields: 'nothing', 'nothing2' for 'in'. Acceptable fields are: [\"certname\",\"environment\",\"name\",\"value\"]")))
 
 (def versioned-invalid-projections
   (omap/ordered-map
@@ -978,31 +972,68 @@
                              :producer_timestamp test-time})
       (scf-store/deactivate-node! "foo4"))))
 
-(def factset-results
-  (map #(utils/assoc-when % "timestamp" reference-time "producer_timestamp" reference-time)
-       [{"facts" {"domain" "testing.com"
-                  "uptime_seconds" "4000"
-                  "test#~delimiter" "foo"
-                  "my_structured_fact" {"d" {"n" ""}, "e" "1", "c" ["a" "b" "c"]
-                                        "f" nil, "b" 3.14, "a" 1}},
+;; FACTSETS TRANSFORMATION
+
+(defn strip-expanded
+  "Strips out expanded data from the query results if the database is HSQLDB"
+  [{:strs [facts] :as record}]
+  (if (sutils/postgres?)
+    (update-in record ["facts" "data"] set)
+    (assoc record "facts" (dissoc facts "data"))))
+
+(defn munge-factset-response
+  [factset]
+  (if (sutils/postgres?)
+    (update-in factset ["facts" "data"] set)
+    factset))
+
+(defn munge-factsets-response
+  [factsets]
+  (map munge-factset-response
+       factsets))
+
+;; FACTSETS TESTS
+
+(defn factset-results
+  [version]
+  (map (comp strip-expanded
+             #(utils/assoc-when % "timestamp" reference-time "producer_timestamp" reference-time))
+       [{"facts" {"href" (str "/" (name version) "/factsets/foo1/facts")
+                  "data" [{"name" "domain"
+                           "value" "testing.com"}
+                          {"name" "uptime_seconds"
+                           "value" "4000"}
+                          {"name" "test#~delimiter"
+                           "value" "foo"}
+                          {"name" "my_structured_fact"
+                           "value" {"d" {"n" ""}, "e" "1", "c" ["a" "b" "c"]
+                                    "f" nil, "b" 3.14, "a" 1}}]},
          "environment" "DEV"
          "certname" "foo1"
          "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}
 
-        {"facts" {"uptime_seconds" "6000"
-                  "domain" "testing.com"
-                  "my_structured_fact" {"d" {"n" ""}, "b" 3.14, "c" ["a" "b" "c"]
-                                        "a" 1, "e" "1"}},
+        {"facts" {"href" (str "/" (name version) "/factsets/foo2/facts")
+                  "data" [{"name" "uptime_seconds"
+                           "value" "6000"}
+                          {"name" "domain"
+                           "value" "testing.com"}
+                          {"name" "my_structured_fact"
+                           "value" {"d" {"n" ""}, "b" 3.14, "c" ["a" "b" "c"]
+                                    "a" 1, "e" "1"}}]},
          "timestamp" "2013-01-01T00:00:00.000Z"
          "environment" "DEV"
          "certname" "foo2"
          "producer_timestamp" "2013-01-01T00:00:00.000Z"
          "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}
 
-        {"facts" {"domain" "testing.com"
-                  "operatingsystem" "Darwin"
-                  "my_structured_fact" {"e" "1", "b" 3.14, "f" nil, "a" 1,
-                                        "d" {"n" ""}, "" "g?", "c" ["a" "b" "c"]}},
+        {"facts" {"href" (str "/" (name version) "/factsets/foo3/facts")
+                  "data" [{"name" "domain"
+                           "value" "testing.com"}
+                          {"name" "operatingsystem"
+                           "value" "Darwin"}
+                          {"name" "my_structured_fact"
+                           "value" {"e" "1", "b" 3.14, "f" nil, "a" 1,
+                                    "d" {"n" ""}, "" "g?", "c" ["a" "b" "c"]}}]},
          "environment" "PROD"
          "certname" "foo3"
          "hash" "f1122885dd4393bd1b786751384728bd1ca97bab"}]))
@@ -1031,20 +1062,20 @@
                                                          [{"field" "invalid-field"
                                                            "order" "ASC"}])}))))))
       (testing "alphabetical fields"
-        (doseq [[order expected] [["ASC" (sort-by #(get % "certname") factset-results)]
-                                  ["DESC" (reverse (sort-by #(get % "certname") factset-results))]]]
+        (doseq [[order expected] [["ASC" (sort-by #(get % "certname") (factset-results version))]
+                                  ["DESC" (reverse (sort-by #(get % "certname") (factset-results version)))]]]
           (testing order
             (let [ordering {:order_by (json/generate-string [{"field" "certname" "order" order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil ordering))))]
-              (is (= actual expected))))))
+              (is (= (munge-factsets-response actual) expected))))))
 
       (testing "order on hash"
-        (doseq [[order expected] [["ASC" (sort-by #(get % "hash") factset-results)]
-                                  ["DESC" (reverse (sort-by #(get % "hash") factset-results))]]]
+        (doseq [[order expected] [["ASC" (sort-by #(get % "hash") (factset-results version))]
+                                  ["DESC" (reverse (sort-by #(get % "hash") (factset-results version)))]]]
           (testing order
             (let [ordering {:order_by (json/generate-string [{"field" "hash" "order" order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil ordering))))]
-              (is (= actual expected))))))
+              (is (= (munge-factsets-response actual) expected))))))
 
       (testing "multiple fields"
         (doseq [[[env-order certname-order] expected-order] [[["DESC" "ASC"]  [2 0 1]]
@@ -1056,7 +1087,7 @@
                           (json/generate-string [{"field" "environment" "order" env-order}
                                                  {"field" "certname" "order" certname-order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
-              (is (= actual (map #(nth factset-results %) expected-order))))))
+              (is (= (munge-factsets-response actual) (map #(nth (factset-results version) %) expected-order))))))
         (doseq [[[pt-order certname-order] expected-order] [[["DESC" "ASC"]  [0 2 1]]
                                                             [["DESC" "DESC"] [2 0 1]]
                                                             [["ASC" "DESC"]  [1 2 0]]
@@ -1066,7 +1097,7 @@
                           (json/generate-string [{"field" "producer_timestamp" "order" pt-order}
                                                  {"field" "certname" "order" certname-order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
-              (is (= actual (map #(nth factset-results %) expected-order))))))))
+              (is (= (munge-factsets-response actual) (map #(nth (factset-results version) %) expected-order))))))))
 
     (testing "offset"
       (doseq [[order expected-sequences] [["ASC"  [[0 [0 1 2]]
@@ -1080,7 +1111,7 @@
         (doseq [[offset expected-order] expected-sequences]
           (let [params {:order_by (json/generate-string [{"field" "certname" "order" order}]) :offset offset}
                 actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
-            (is (= actual (map #(nth factset-results %) expected-order)))))))))
+            (is (= (munge-factsets-response actual) (map #(nth (factset-results version) %) expected-order)))))))))
 
 (deftestseq factset-queries
   [[version endpoint] factsets-endpoints]
@@ -1105,85 +1136,114 @@
           responses (map (comp json/parse-string
                                slurp
                                :body
-                               (partial get-response endpoint)) queries)]
-      (is (= (into {} (first responses))
-             {"facts" {"my_structured_fact"
-                       {"a" 1
-                        "b" 3.14
-                        "c" ["a" "b" "c"]
-                        "d" {"n" ""}
-                        "e" "1"
-                        "f" nil}
-                       "domain" "testing.com"
-                       "uptime_seconds" "4000"
-                       "test#~delimiter" "foo"}
-              "timestamp" reference-time
-              "producer_timestamp" reference-time
-              "environment" "DEV"
-              "certname" "foo1"
-              "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}))
-      (is (= (into [] (nth responses 1))
-             [{"facts" {"my_structured_fact"
-                        {"a" 1
-                         "b" 3.14
-                         "c" ["a" "b" "c"]
-                         "d" {"n" ""}
-                         "e" "1"
-                         "f" nil}
-                        "domain" "testing.com"
-                        "uptime_seconds" "4000"
-                        "test#~delimiter" "foo"}
+                               (partial get-response endpoint))
+                         queries)]
+      (is (= (munge-factset-response (into {} (first responses)))
+             (strip-expanded
+              {"facts" {"href" (str "/" (name version) "/factsets/foo1/facts")
+                        "data" [{"name" "domain"
+                                 "value" "testing.com"}
+                                {"name" "my_structured_fact"
+                                 "value"
+                                 {"a" 1
+                                  "b" 3.14
+                                  "c" ["a" "b" "c"]
+                                  "d" {"n" ""}
+                                  "e" "1"
+                                  "f" nil}}
+                                {"name" "test#~delimiter"
+                                 "value" "foo"}
+                                {"name" "uptime_seconds"
+                                 "value" "4000"}]}
                "timestamp" reference-time
                "producer_timestamp" reference-time
                "environment" "DEV"
                "certname" "foo1"
-               "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}
+               "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"})))
+      (is (= (munge-factsets-response (into [] (second responses)))
+             (map strip-expanded
+                  [{"facts" {"href" (str "/" (name version) "/factsets/foo1/facts")
+                             "data" [{"name" "my_structured_fact"
+                                      "value"
+                                      {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"
+                                       "f" nil}}
+                                     {"name" "domain"
+                                      "value" "testing.com"}
+                                     {"name" "uptime_seconds"
+                                      "value" "4000"}
+                                     {"name" "test#~delimiter"
+                                      "value" "foo"}]}
+                    "timestamp" reference-time
+                    "producer_timestamp" reference-time
+                    "environment" "DEV"
+                    "certname" "foo1"
+                    "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}
 
-              {"facts" {"my_structured_fact"
-                        {"a" 1
-                         "b" 3.14
-                         "c" ["a" "b" "c"]
-                         "d" {"n" ""}
-                         "e" "1"}
-                        "domain" "testing.com"
-                        "uptime_seconds" "6000"}
-               "timestamp" (to-string (to-timestamp "2013-01-01"))
-               "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
-               "environment" "DEV"
-               "certname" "foo2"
-               "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}]))
+                   {"facts" {"href" (str "/" (name version) "/factsets/foo2/facts")
+                             "data" [{"name" "my_structured_fact"
+                                      "value"
+                                      {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"}}
+                                     {"name" "domain"
+                                      "value" "testing.com"}
+                                     {"name" "uptime_seconds"
+                                      "value" "6000"}]}
+                    "timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "environment" "DEV"
+                    "certname" "foo2"
+                    "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}])))
 
-      (is (= (into [] (nth responses 2))
-             [{"facts" {"my_structured_fact"
-                        {"a" 1
-                         "b" 3.14
-                         "c" ["a" "b" "c"]
-                         "d" {"n" ""}
-                         "e" "1"}
-                        "domain" "testing.com"
-                        "uptime_seconds" "6000"}
-               "timestamp" (to-string (to-timestamp "2013-01-01"))
-               "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
-               "environment" "DEV"
-               "certname" "foo2"
-               "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}]))
-      (is (= (into [] (nth responses 3))
-             [{"facts" {"my_structured_fact"
-                        {"a" 1
-                         "b" 3.14
-                         "c" ["a" "b" "c"]
-                         "d" {"n" ""}
-                         "e" "1"}
-                        "domain" "testing.com"
-                        "uptime_seconds" "6000"}
-               "timestamp" (to-string (to-timestamp "2013-01-01"))
-               "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
-               "environment" "DEV"
-               "certname" "foo2"
-               "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}]))
+      (is (= (munge-factsets-response (into [] (nth responses 2)))
+             (map strip-expanded
+                  [{"facts" {"href" (str "/" (name version) "/factsets/foo2/facts")
+                             "data" [{"name" "my_structured_fact"
+                                      "value"
+                                      {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"}}
+                                     {"name" "domain"
+                                      "value" "testing.com"}
+                                     {"name" "uptime_seconds"
+                                      "value" "6000"}]}
+                    "timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "environment" "DEV"
+                    "certname" "foo2"
+                    "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}])))
+      (is (= (munge-factsets-response (into [] (nth responses 3)))
+             (map strip-expanded
+                  [{"facts" {"href" (str "/" (name version) "/factsets/foo2/facts")
+                             "data" [{"name" "my_structured_fact"
+                                      "value"
+                                      {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"}}
+                                     {"name" "domain"
+                                      "value" "testing.com"}
+                                     {"name" "uptime_seconds"
+                                      "value" "6000"}]}
+                    "timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "environment" "DEV"
+                    "certname" "foo2"
+                    "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}])))
       (is (= (into [] (nth responses 4))
              [{"certname" "foo1"
                "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}])))))
+
+;; STRUCTURED FACTS TESTS
 
 (defn structured-fact-results
   [version endpoint]
@@ -1333,6 +1393,8 @@
            (sort-by (juxt :certname :name) response)
            (sort-by (juxt :certname :name) (get (structured-fact-results version endpoint) query))
            version))))))
+
+;; FACT-CONTENTS TESTS
 
 (defn fact-content-response [endpoint order-by-map]
   (fn [req]

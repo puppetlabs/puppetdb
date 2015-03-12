@@ -1,11 +1,11 @@
 (ns puppetlabs.puppetdb.anonymizer
-  (:require [puppetlabs.puppetdb.reports :as report]
-            [puppetlabs.puppetdb.utils :as utils]
-            [schema.core :as s]
-            [puppetlabs.puppetdb.schema :as pls]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [puppetlabs.kitchensink.core :refer [regexp? boolean? uuid string-contains?]]
-            [puppetlabs.puppetdb.random :refer :all]))
+            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.random :refer :all]
+            [puppetlabs.puppetdb.reports :as reports]
+            [puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]))
 
 ;; Validation functions, for use within pre/post conditions
 
@@ -18,10 +18,10 @@
    (contains? edge "target")
    (contains? edge "relationship")))
 
-(def resource-event-schema-str (utils/str-schema report/resource-event-schema))
-(def metric-schema-str (utils/str-schema report/metric-schema))
-(def log-schema-str (utils/str-schema report/log-schema))
-(def report-schema-str (utils/str-schema (assoc report/report-schema
+(def resource-event-schema-str (utils/str-schema reports/resource-event-wireformat-schema))
+(def metric-schema-str (utils/str-schema reports/metric-schema))
+(def log-schema-str (utils/str-schema reports/log-schema))
+(def report-schema-str (utils/str-schema (assoc reports/report-wireformat-schema
                                            :resource_events [resource-event-schema-str]
                                            :metrics (s/maybe [metric-schema-str])
                                            :logs (s/maybe [log-schema-str]))))

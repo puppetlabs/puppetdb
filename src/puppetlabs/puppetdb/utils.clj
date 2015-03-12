@@ -160,6 +160,13 @@
             (str prefix "/" (name (or version :v4))))
       .toURI .toASCIIString))
 
+(pls/defn-validated base-url->str-no-path :- s/Str
+  "Converts the `base-url' map to an ASCII URL minus the path element. This can
+  be used to build a full URL when you have an absolute path."
+  [{:keys [protocol host port] :as base-url} :- base-url-schema]
+  (-> (URL. protocol host port "")
+      .toURI .toASCIIString))
+
 (defn describe-bad-base-url
   "If a problem is detected with `base-url`, returns a string
   describing the issue. For example {:host \"x:y\" ...}."

@@ -1,5 +1,7 @@
 (ns puppetlabs.puppetdb.http.catalogs
-  (:require [puppetlabs.puppetdb.http :as http]
+  (:require [clojure.tools.logging :as log]
+            [puppetlabs.puppetdb.catalogs :as catalogs]
+            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.query.catalogs :as c]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [puppetlabs.puppetdb.middleware :as middleware]
@@ -15,21 +17,23 @@
 
 (defn catalog-status
   "Produce a response body for a request to retrieve the catalog for `node`."
-  [api-version node db]
+  [api-version node db url-prefix]
   (if-let [catalog (with-transacted-connection db
-                     (c/status api-version node))]
-    (http/json-response (s/validate (c/catalog-response-schema api-version) catalog))
+                     (c/status api-version node url-prefix))]
+    (http/json-response (s/validate catalogs/catalog-query-schema catalog))
     (http/json-response {:error (str "Could not find catalog for " node)} http/status-not-found)))
 
 (defn build-catalog-app
   [version entity]
-  (fn [{:keys [params globals paging-options]}]
-              (produce-streaming-body
-                entity
-                version
-                (params "query")
-                paging-options
-                (:scf-read-db globals))))
+  (comp (fn [{:keys [params globals paging-options]}]
+          (produce-streaming-body
+           entity
+           version
+           (params "query")
+           paging-options
+           (:scf-read-db globals)
+           (:url-prefix globals)))
+        http-q/restrict-query-to-active-nodes))
 
 (defn routes
   [version]
@@ -40,9 +44,8 @@
 
     [node]
     (fn [{:keys [globals]}]
-      (catalog-status version node (:scf-read-db globals)))
-
-    ;; TODO message if node does not exist
+      (catalog-status version node (:scf-read-db globals)
+                      (str (:url-prefix globals) "/" (name version))))
 
     [node "edges" &]
     (comp (edges/edges-app version) (partial http-q/restrict-query-to-node node))

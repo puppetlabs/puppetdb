@@ -1,82 +1,63 @@
 (ns puppetlabs.puppetdb.query.factsets
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.set :as set]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.facts :as facts]
+            [puppetlabs.puppetdb.factsets :as factsets]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.query :as query]
+            [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [schema.core :as s]
-            [clojure.set :refer [rename-keys]]
-            [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.facts :as facts]
-            [puppetlabs.puppetdb.zip :as zip]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.utils :as utils]
+            [schema.core :as s])
+  (:import  [org.postgresql.util PGobject]))
 
-;; SCHEMA
+;; MUNGE
 
-(def row-schema
-  {:certname String
-   :environment (s/maybe s/Str)
-   :hash (s/maybe s/Str)
-   :producer_timestamp pls/Timestamp
-   :timestamp pls/Timestamp
-   :facts (s/maybe org.postgresql.util.PGobject)})
-
-(def facts-schema
-  {:name s/Str
-   :value s/Any})
-
-(def factset-schema
-  {:certname String
-   :environment (s/maybe s/Str)
-   :timestamp pls/Timestamp
-   :producer_timestamp pls/Timestamp
-   :hash (s/maybe s/Str)
-   :facts (s/either [facts-schema]
-                    {:href String})})
-
-;; FUNCS
-
-(pls/defn-validated munge-facts :- facts-schema
-  [facts]
+(pls/defn-validated rtj->fact :- factsets/fact-query-schema
+  "Converts from the PG row_to_json format back to something real."
+  [facts :- {s/Str s/Any}]
   (facts/convert-row-type
    [:type :depth :value_integer :value_float]
    (-> facts
-       (rename-keys {"f1" :name
-                     "f2" :value
-                     "f3" :value_integer
-                     "f4" :value_float
-                     "f5" :type}))))
+       (set/rename-keys {"f1" :name
+                         "f2" :value
+                         "f3" :value_integer
+                         "f4" :value_float
+                         "f5" :type})
+       (update-in [:name] facts/unencode-path-segment))))
 
-(pls/defn-validated facts-to-json-final :- [facts-schema]
-  [obj :- (s/maybe org.postgresql.util.PGobject)]
-  (when obj
-    (map munge-facts
-         (json/parse-string (.getValue obj)))))
+(pls/defn-validated facts->expansion :- factsets/facts-expanded-query-schema
+  "Surround the facts response in the href/data format."
+  [obj :- (s/maybe PGobject)
+   certname :- s/Str
+   base-url :- s/Str]
+  (let [data-obj {:href (str base-url "/factsets/" certname "/facts")}]
+    (if obj
+      (assoc data-obj :data (map rtj->fact
+                                 (json/parse-string (.getValue obj))))
+      data-obj)))
 
-(pls/defn-validated convert-factset :- factset-schema
-  [row :- row-schema
-   {:keys [expand?]}]
-  (if expand?
-    (update-in row [:facts] facts-to-json-final)
-    (assoc row :facts {:href (str "/v4/factsets/" (:certname row) "/facts")})))
-
-(pls/defn-validated convert-factsets
-  [rows paging-options]
-  (map #(convert-factset % paging-options)
-       rows))
+(pls/defn-validated row->factset
+  "Convert factset query row into a final factset format."
+  [base-url :- s/Str]
+  (fn [row]
+    (utils/update-when row [:facts] facts->expansion (:certname row) base-url)))
 
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
-  [_
+  [version :- s/Keyword
    projected-fields :- [s/Keyword]
-   paging-options]
-  (fn [rows]
-    (if (empty? rows)
-      []
-      (map (qe/basic-project projected-fields)
-           (convert-factsets rows paging-options)))))
+   _
+   url-prefix :- s/Str]
+  (let [base-url (str url-prefix "/" (name version))]
+    (fn [rows]
+      (map (comp (qe/basic-project projected-fields)
+                 (row->factset base-url))
+           rows))))
+
+;; QUERY
 
 (pls/defn-validated query->sql
   "Compile a query into an SQL expression."

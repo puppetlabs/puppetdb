@@ -1,23 +1,23 @@
 (ns puppetlabs.puppetdb.query-eng.engine
-  (:require [clojure.string :as str]
-            [puppetlabs.puppetdb.zip :as zip]
-            [puppetlabs.puppetdb.scf.storage-utils :as su]
-            [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]
-            [puppetlabs.puppetdb.scf.hash :as hash]
-            [puppetlabs.puppetdb.facts :as facts]
-            [clojure.core.match :as cm]
-            [puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.puppetdb.query.paging :as paging]
+  (:require [clojure.core.match :as cm]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.honeysql :as h]
+            [honeysql.core :as hcore]
             [honeysql.helpers :as hsql]
             [honeysql.types :as htypes]
-            [honeysql.core :as hcore]))
+            [puppetlabs.kitchensink.core :as ks]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.facts :as facts]
+            [puppetlabs.puppetdb.honeysql :as h]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.query.paging :as paging]
+            [puppetlabs.puppetdb.scf.hash :as hash]
+            [puppetlabs.puppetdb.scf.storage-utils :as su]
+            [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]
+            [puppetlabs.puppetdb.zip :as zip]
+            [schema.core :as s])
+  (:import [honeysql.types SqlCall]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
@@ -26,7 +26,7 @@
                   subquery? entity late-project?])
 (defrecord BinaryExpression [operator column value])
 (defrecord RegexExpression [column value])
-(defrecord ArrayRegexExpression [table column value])
+(defrecord ArrayRegexExpression [table alias column value])
 (defrecord NullExpression [column null?])
 (defrecord ArrayBinaryExpression [column value])
 (defrecord InExpression [column subquery])
@@ -111,7 +111,7 @@
   "Query for the resource-params query, mostly used as a subquery"
   (map->Query {:projections {"type" {:type :string
                                      :queryable? true
-                                     :field [:distinct-on :type]}
+                                     :field :type}
                              "path" {:type :path
                                      :queryable? true
                                      :field :path}}
@@ -123,8 +123,9 @@
                                   [:= :f.fact_value_id :fv.id]
 
                                   [:value_types :vt]
-                                  [:= :fp.value_type_id :vt.id]]
-                           :where [:!= :fp.value_type_id 5]}
+                                  [:= :fv.value_type_id :vt.id]]
+                           :modifiers [:distinct]
+                           :where [:!= :fv.value_type_id 5]}
 
                :source-table "fact_paths"
                :alias "fact_paths"
@@ -155,12 +156,6 @@
                              "value_float" {:type :number
                                             :queryable? false
                                             :field :fv.value_float}
-                             "value_hash" {:type :string
-                                           :queryable? false
-                                           :field :fv.value_hash}
-                             "value_string" {:type :string
-                                             :queryable? false
-                                             :field :fv.value_string}
                              "name" {:type :string
                                      :queryable? true
                                      :field :fp.name}
@@ -182,7 +177,7 @@
                                   [:= :vt.id :fv.value_type_id]]
                            :left-join [[:environments :env]
                                        [:= :fs.environment_id :env.id]]
-                           :where [:= :depth 0]}
+                           :where [:= :fp.depth 0]}
 
                :alias "facts"
                :source-table "facts"
@@ -214,12 +209,6 @@
                              "value_float" {:type :number
                                             :queryable? false
                                             :field :fv.value_float}
-                             "value_string" {:type :string
-                                             :queryable? false
-                                             :field :fv.value_string}
-                             "value_hash" {:type :string
-                                           :queryable? false
-                                           :field :fv.value_hash}
                              "type" {:type :string
                                      :queryable? false
                                      :field :vt.type}}
@@ -235,10 +224,10 @@
                                   [:= :f.fact_path_id :fp.id]
 
                                   [:value_types :vt]
-                                  [:= :fp.value_type_id :vt.id]]
+                                  [:= :fv.value_type_id :vt.id]]
                            :left-join [[:environments :env]
                                        [:= :fs.environment_id :env.id]]
-                           :where [:!= :fp.value_type_id 5]}
+                           :where [:!= :fv.value_type_id 5]}
 
                :alias "fact_nodes"
                :source-table "facts"
@@ -271,7 +260,7 @@
                              "metrics"        {:type :json
                                                 :queryable? false
                                                 :field :reports.metrics}
-                             "logs"        {:type :json
+                             "logs"            {:type :json
                                                 :queryable? false
                                                 :field :reports.logs}
                              "receive_time"    {:type :timestamp
@@ -298,9 +287,9 @@
                                                 :field {:select [(h/json-agg
                                                                   (h/row-to-json
                                                                    (h/row
-                                                                    :re.status :re.timestamp :re.resource_type :re.resource_title :re.property
-                                                                    :re.new_value :re.old_value :re.message :re.file :re.line
-                                                                    :re.containment_path :re.containing_class)))]
+                                                                    :re.status (h/convert-to-iso8601-utc :re.timestamp)
+                                                                    :re.resource_type :re.resource_title :re.property :re.new_value :re.old_value :re.message
+                                                                    :re.file :re.line :re.containment_path :re.containing_class)))]
                                                         :from [[:resource_events :re]]
                                                         :where [:= :reports.id :re.report_id]}}}
                :selection {:from [:reports]
@@ -332,7 +321,7 @@
                              "environment" {:type :string
                                             :queryable? true
                                             :field :e.name}
-                             "producer_timestamp" {:type :string
+                             "producer_timestamp" {:type :timestamp
                                                    :queryable? true
                                                    :field :c.producer_timestamp}
                              "resources" {:type :json
@@ -342,7 +331,7 @@
                                                             (h/row-to-json
                                                              (h/row
                                                               :cr.resource :cr.type :cr.title :cr.tags :cr.exported
-                                                              :cr.file :cr.line :rpc.parameters)))]
+                                                              :cr.file :cr.line (keyword "rpc.parameters::json"))))]
                                                   :from [[:catalog_resources :cr]]
                                                   :join [[:resource_params_cache :rpc]
                                                          [:= :rpc.resource :cr.resource]]
@@ -357,10 +346,14 @@
                                                           :edges.type)))]
                                               :from [:edges]
                                               :join [[:catalog_resources :sources]
-                                                     [:= :edges.source :sources.resource]
+                                                     [:and
+                                                      [:= :edges.source :sources.resource]
+                                                      [:= :sources.catalog_id :c.id]]
 
                                                      [:catalog_resources :targets]
-                                                     [:= :edges.target :targets.resource]]
+                                                     [:and
+                                                      [:= :edges.target :targets.resource]
+                                                      [:= :targets.catalog_id :c.id]]]
                                               :where [:= :edges.certname :c.certname]}}}
 
                :selection {:from [[:catalogs :c]]
@@ -371,40 +364,42 @@
                :subquery? false
                :source-table "catalogs"}))
 
-
-;; TODO this is build on an assumption of 1:1 nodes to catalogs. To anticipate
-;; historical storage it may make more sense to key edges on catalog hash than
-;; certname (or maybe include both);
-
 (def edges-query
   "Query for catalog edges"
-  (map->Query {:projections {"relationship" {:type :string
+  (map->Query {:projections {"certname" {:type :string
+                                         :queryable? true
+                                         :field :edges.certname}
+                             "relationship" {:type :string
                                             :queryable? true
                                             :field :edges.type}
                              "source_title" {:type :string
                                              :queryable? true
                                              :field :sources.title}
-                             "target_title" {:type :string
-                                             :queryable? true
-                                             :field :targets.title}
                              "source_type" {:type :string
                                             :queryable? true
                                             :field :sources.type}
-                             "certname" {:type :string
-                                         :queryable? true
-                                         :field :edges.certname}
+                             "target_title" {:type :string
+                                             :queryable? true
+                                             :field :targets.title}
                              "target_type" {:type :string
                                             :queryable? true
                                             :field :targets.type}}
                :selection {:from [:edges]
-                           :join [[:catalog_resources :sources]
-                                  [:= :edges.source :sources.resource]
+                           :join [:catalogs
+                                  [:= :catalogs.certname :edges.certname]
+
+                                  [:catalog_resources :sources]
+                                  [:and
+                                   [:= :edges.source :sources.resource]
+                                   [:= :catalogs.id :sources.catalog_id]]
 
                                   [:catalog_resources :targets]
-                                  [:= :edges.target :targets.resource]]}
+                                  [:and
+                                   [:= :edges.target :targets.resource]
+                                   [:= :catalogs.id :targets.catalog_id]]]}
 
                :alias "edges"
-               :subquery? true
+               :subquery? false
                :source-table "edges"}))
 
 (def resources-query
@@ -417,13 +412,16 @@
                                             :field :e.name}
                              "resource" {:type :string
                                          :queryable? true
-                                         :field :cr.resource}
+                                         :field :resources.resource}
                              "type" {:type :string
                                      :queryable? true
                                      :field :type}
                              "title" {:type :string
                                       :queryable? true
                                       :field :title}
+                             "tag"   {:type :string
+                                      :queryable? true
+                                      :query-only? true}
                              "tags" {:type :array
                                      :queryable? true
                                      :field :tags}
@@ -437,20 +435,21 @@
                                      :queryable? true
                                      :field :line}
                              "parameters" {:type :string
-                                           :queryable true
+                                           :queryable? true
                                            :field :rpc.parameters}}
 
-               :selection {:from [[:catalog_resources :cr]]
+               :selection {:from [[:catalog_resources :resources]]
                            :join [[:catalogs :c]
-                                  [:= :cr.catalog_id :c.id]]
+                                  [:= :resources.catalog_id :c.id]]
                            :left-join [[:environments :e]
                                        [:= :c.environment_id :e.id]
 
                                        [:resource_params_cache :rpc]
-                                       [:= :rpc.resource :cr.resource]]}
+                                       [:= :rpc.resource :resources.resource]]}
 
                :alias "resources"
-               :subquery? false}))
+               :subquery? false
+               :source-table "catalog_resources"}))
 
 (def report-events-query
   "Query for the top level reports entity"
@@ -514,9 +513,9 @@
                              "latest_report?" {:type :boolean
                                                :queryable? true
                                                :query-only? true}}
-               :selection {:from [:resource_events]
+               :selection {:from [[:resource_events :events]]
                            :join [:reports
-                                  [:= :resource_events.report_id :reports.id]]
+                                  [:= :events.report_id :reports.id]]
                            :left-join [:environments
                                        [:= :reports.environment_id :environments.id]]}
 
@@ -575,7 +574,7 @@
                                                      [:= :fact_paths.id :facts.fact_path_id]
 
                                                      :value_types
-                                                     [:= :value_types.id :fact_paths.value_type_id]]
+                                                     [:= :value_types.id :fact_values.value_type_id]]
                                               :where [:and
                                                       [:= :depth 0]
                                                       [:= :facts.factset_id :factsets.id]]}}
@@ -609,11 +608,10 @@
 
   These are fields with the setting :queryable? set to true."
   [{:keys [projections]}]
-  ;; TODO: clean this up later, maybe generalize
   (->> projections
-       (remove (comp (complement :queryable?) val))
+       (filter (comp :queryable? val))
        keys
-       (into [])))
+       sort))
 
 (defn projectable-fields
   "Returns a list of projectable fields from a query record.
@@ -624,7 +622,7 @@
   (->> projections
        (remove (comp :query-only? val))
        keys
-       (into [])))
+       sort))
 
 (defn extract-fields
   [[name {:keys [query-only? expandable? field]}] expand?]
@@ -643,10 +641,10 @@
 (defn honeysql-from-query
   [{:keys [selection projections paging-options] :as query}]
   "Convert a query to honeysql format"
-  (let [expand? (:expand? paging-options)]
+  (let [expand? (su/postgres?)]
     (log/spy (-> selection
-                 (assoc :select (remove nil? (map #(extract-fields % expand?)
-                                                  projections)))))))
+                 (assoc :select (vec (remove nil? (map #(extract-fields % expand?)
+                                                       (sort projections)))))))))
 
 (pls/defn-validated sql-from-query :- String
   [query]
@@ -663,11 +661,6 @@
 (defprotocol SQLGen
   (-plan->sql [query] "Given the `query` plan node, convert it to a SQL string"))
 
-(defn parenthize
-  "Wrap `s` in parens"
-  [s]
-  (str " ( " s " ) "))
-
 (extend-protocol SQLGen
   Query
   (-plan->sql [query]
@@ -678,29 +671,25 @@
                           (update-in m ks f)
                           m))
           sql (-> query
-                  (update-when has-where? [:selection] #(hsql/merge-where % (htypes/raw (-plan->sql (:where query)))))
+                  (update-when has-where? [:selection] #(hsql/merge-where % (-plan->sql (:where query))))
                   (update-when has-projections? [:projections] #(select-keys % (:projected-fields query)))
                   sql-from-query)]
       (if (:subquery? query)
-        (parenthize sql)
+        (htypes/raw (str " ( " sql " ) "))
         sql)))
 
   InExpression
   (-plan->sql [expr]
-    (format "(%s) IN %s"
-            (str/join "," (sort (:column expr)))
-            (-plan->sql (:subquery expr))))
+    [:in (:column expr) (-plan->sql (:subquery expr))])
 
   BinaryExpression
   (-plan->sql [expr]
-    (str/join " OR "
-              (map
-               #(format "%s %s %s"
-                        (-plan->sql %1)
-                        (:operator expr)
-                        (-plan->sql %2))
-               (maybe-vectorize-string (:column expr))
-               (maybe-vectorize-string (:value expr)))))
+    (concat [:or] (map
+                    #(vector (:operator expr)
+                             (-plan->sql %1)
+                             (-plan->sql %2))
+                    (maybe-vectorize-string (:column expr))
+                    (maybe-vectorize-string (:value expr)))))
 
   ArrayBinaryExpression
   (-plan->sql [expr]
@@ -712,31 +701,30 @@
 
   ArrayRegexExpression
   (-plan->sql [expr]
-    (su/sql-regexp-array-match (:table expr) (:column expr)))
+    (su/sql-regexp-array-match (:table expr) (:alias expr) (:column expr)))
 
   NullExpression
   (-plan->sql [expr]
-    (format "%s IS %s"
-            (-plan->sql (:column expr))
-            (if (:null? expr)
-              "NULL"
-              "NOT NULL")))
+    (let [lhs (-plan->sql (:column expr))]
+      (if (:null? expr)
+        [:is lhs nil]
+        [:is-not lhs nil])))
 
   AndExpression
   (-plan->sql [expr]
-    (parenthize (str/join " AND " (map -plan->sql (:clauses expr)))))
+    (concat [:and] (map -plan->sql (:clauses expr))))
 
   OrExpression
   (-plan->sql [expr]
-    (parenthize (str/join " OR " (map -plan->sql (:clauses expr)))))
+    (concat [:or] (map -plan->sql (:clauses expr))))
 
   NotExpression
   (-plan->sql [expr]
-    (format "NOT ( %s )" (-plan->sql (:clause expr))))
+    [:not (-plan->sql (:clause expr))])
 
   Object
   (-plan->sql [obj]
-    (str obj)))
+    obj))
 
 (defn plan->sql
   "Convert `query` to a SQL string"
@@ -777,12 +765,12 @@
 (def user-query->logical-obj
   "Keypairs of the stringified subquery keyword (found in user defined queries) to the
   appropriate plan node"
-  {"select_nodes" (assoc nodes-query :subquery? true)
-   "select_resources" (assoc resources-query :subquery? true)
+  {"select_facts" (assoc facts-query :subquery? true)
+   "select_fact_contents" (assoc fact-contents-query :subquery? true)
+   "select_nodes" (assoc nodes-query :subquery? true)
+   "select_latest_report" (assoc latest-report-query :subquery? true)
    "select_params" (assoc resource-params-query :subquery? true)
-   "select_facts" (assoc facts-query :subquery? true)
-   "select-latest-report" (assoc latest-report-query :subquery? true)
-   "select-fact-contents" (assoc fact-contents-query :subquery? true)})
+   "select_resources" (assoc resources-query :subquery? true)})
 
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
@@ -812,7 +800,7 @@
               ["select_params"
                ["and"
                 [op "res_param_name" param-name]
-                [op "res_param_value" (db-serialize param-value)]]]]]
+                [op "res_param_value" (su/db-serialize param-value)]]]]]
 
             [[(op :guard #{"=" "~"}) ["fact" fact-name] (fact-value :guard #(or (string? %)
                                                                                 (instance? Boolean %)))]]
@@ -841,12 +829,12 @@
                                     :reports
                                     ["in" "hash"
                                      ["extract" "latest_report_hash"
-                                      ["select-latest-report"]]]
+                                      ["select_latest_report"]]]
 
                                     :events
                                     ["in" "report"
                                      ["extract" "latest_report_hash"
-                                      ["select-latest-report"]]]
+                                      ["select_latest_report"]]]
 
                                     (throw (IllegalArgumentException.
                                              (format "Field 'latest_report?' not supported on endpoint '%s'" entity))))]
@@ -855,7 +843,7 @@
                 ["not" expanded-latest]))
 
             [[op (field :guard #{"new_value" "old_value"}) value]]
-            [op field (db-serialize value)]
+            [op field (su/db-serialize value)]
 
             [["=" field nil]]
             ["null?" (jdbc/dashes->underscores field) true]
@@ -963,57 +951,64 @@
                  (user-node->plan-node (user-query->logical-obj subquery-name)
                                        (first subquery-expression)))))))
 
+(pls/defn-validated columns->fields :- [(s/either s/Keyword SqlCall)]
+  "Convert a list of columns to their true SQL field names."
+  [query-rec
+   columns :- [s/Str]]
+  (map #(get-in query-rec [:projections % :field])
+       (sort columns)))
+
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
   (cm/match [node]
             [["=" column value]]
-            (let [col-type (get-in query-rec [:projections column :type])]
+            (let [{:keys [type field]} (get-in query-rec [:projections column])]
               (cond
-               (= col-type :timestamp)
-               (map->BinaryExpression {:operator "="
-                                       :column column
+               (= type :timestamp)
+               (map->BinaryExpression {:operator :=
+                                       :column field
                                        :value (to-timestamp value)})
 
-               (= col-type :array)
-               (map->ArrayBinaryExpression {:column column
+               (= type :array)
+               (map->ArrayBinaryExpression {:column field
                                             :value value})
 
-               (= col-type :number)
-               (map->BinaryExpression {:operator "="
-                                       :column column
+               (= type :number)
+               (map->BinaryExpression {:operator :=
+                                       :column field
                                        :value (if (string? value)
                                                 (ks/parse-number (str value))
                                                 value)})
 
-               (= col-type :path)
-               (map->BinaryExpression {:operator "="
-                                       :column column
+               (= type :path)
+               (map->BinaryExpression {:operator :=
+                                       :column field
                                        :value (facts/factpath-to-string value)})
 
-               (= col-type :multi)
-               (map->BinaryExpression {:operator "="
-                                       :column (str column "_hash")
+               (= type :multi)
+               (map->BinaryExpression {:operator :=
+                                       :column (keyword (str column "_hash"))
                                        :value (hash/generic-identity-hash value)})
 
                :else
-               (map->BinaryExpression {:operator "="
-                                       :column column
+               (map->BinaryExpression {:operator :=
+                                       :column field
                                        :value value})))
 
             [[(op :guard #{">" "<" ">=" "<="}) column value]]
-            (let [col-type (get-in query-rec [:projections column :type])]
+            (let [{:keys [type field]} (get-in query-rec [:projections column])]
               (if value
-                (case col-type
+                (case type
                   :multi
-                  (map->BinaryExpression {:operator op
-                                          :column ["value_integer" "value_float"]
+                  (map->BinaryExpression {:operator (keyword op)
+                                          :column (columns->fields ["value_integer" "value_float"])
                                           :value (if (number? value) [value value]
                                                      (map ks/parse-number [value value]))})
 
-                  (map->BinaryExpression {:operator op
-                                          :column column
-                                          :value  (if (= :timestamp col-type)
+                  (map->BinaryExpression {:operator (keyword op)
+                                          :column field
+                                          :value  (if (= :timestamp type)
                                                     (to-timestamp value)
                                                     (ks/parse-number (str value)))}))
                 (throw (IllegalArgumentException.
@@ -1021,29 +1016,31 @@
 
 
             [["null?" column value]]
-            (map->NullExpression {:column column
-                                  :null? value})
+            (let [{:keys [field]} (get-in query-rec [:projections column])]
+              (map->NullExpression {:column field
+                                    :null? value}))
 
             [["~" column value]]
-            (let [col-type (get-in query-rec [:projections column :type])]
-              (case col-type
+            (let [{:keys [type field]} (get-in query-rec [:projections column])]
+              (case type
                 :array
                 (map->ArrayRegexExpression {:table (:source-table query-rec)
-                                            :column column
+                                            :alias (:alias query-rec)
+                                            :column field
                                             :value value})
 
                 :multi
-                (map->RegexExpression {:column (str column "_string")
+                (map->RegexExpression {:column (keyword (str column "_string"))
                                        :value value})
 
-                (map->RegexExpression {:column column
+                (map->RegexExpression {:column field
                                        :value value})))
 
             [["~>" column value]]
-            (let [col-type (get-in query-rec [:projections column :type])]
-              (case col-type
+            (let [{:keys [type field]} (get-in query-rec [:projections column])]
+              (case type
                 :path
-                (map->RegexExpression {:column column
+                (map->RegexExpression {:column field
                                        :value (facts/factpath-regexp-to-regexp value)})))
 
             [["and" & expressions]]
@@ -1052,11 +1049,12 @@
             [["or" & expressions]]
             (map->OrExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
 
-            [["in" column subquery-expression]]
-            (map->InExpression {:column (maybe-vectorize-string column)
-                                :subquery (user-node->plan-node query-rec subquery-expression)})
+            [["not" expression]]
+            (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
 
-            [["not" expression]] (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
+            [["in" column subquery-expression]]
+            (map->InExpression {:column (columns->fields query-rec (maybe-vectorize-string column))
+                                :subquery (user-node->plan-node query-rec subquery-expression)})
 
             [["extract" column expr]]
             (create-extract-node query-rec (maybe-vectorize-string column) expr)
@@ -1072,9 +1070,9 @@
     (if (instance? Query plan-node)
       plan-node
       (-> query-rec
-          (assoc :where plan-node)
-          (assoc :paging-options paging-options)
-          (assoc :projected-fields projections)))))
+          (assoc :where plan-node
+                 :paging-options paging-options
+                 :project-fields projections)))))
 
 (declare push-down-context)
 

@@ -4,10 +4,12 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 ---
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [catalog]: ../../wire_format/catalog_format_v4.html
+[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[edges]: ./edges.html
 [paging]: ./paging.html
 [query]: ./query.html
+[resources]: ./resources.html
 
 You can query catalogs by making an HTTP request to the
 `/catalogs` endpoint.
@@ -52,11 +54,44 @@ the form:
       "hash" : <sha1 sum of catalog resources>,
       "transaction_uuid" : <string to identify puppet run>,
       "producer_timestamp": <time of transmission by master>,
-      "resources" : <list of objects representing resources in the catalog>,
-      "edges" : <list of objects representing relationships between resources>
+      "resources" : <expanded resources>,
+      "edges" : <expanded edges>
     }
 
-**Note**: For more details refer to the [catalog wire format][catalog].
+> **Note: Expansion and the `data` field**
+>
+> For the following data structures the `data` field is only expanded for users running PostgreSQL. Expansion is not supported on HSQLDB, instead you must use
+> the `href` field to construct a secondary query to retrieve that information.
+
+The `<expanded resources>` object is of the following form:
+
+    {
+      "href": <url>,
+      "data": [ {
+        "certname": <string>,
+        "resource": <string>,
+        "type": <string>,
+        "title": <sttring>,
+        "exported": <boolean>,
+        "tags": [<tags>, ...],
+        "file": <string>,
+        "line": <number>,
+        "parameters": <any>
+      } ... ]
+    }
+
+The `<expanded edges>` object is of the follow form:
+
+    {
+      "href": <url>,
+      "data": [ {
+        "relationship": <string>,
+        "source_title": <string>,
+        "source_type": <string>,
+        "target_title": <string>,
+        "target_type": <string>
+      } ... ]
+    }
 
 ### Examples
 
@@ -71,8 +106,8 @@ This query will return the complete list of catalogs:
       "transaction_uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
       "producer_timestamp": "2014-10-13T20:46:00.000Z",
       "environment" : "production",
-      "edges" : [...],
-      "resources" : [...]
+      "edges" : {...},
+      "resources" : {...}
     },
     {
       "certname" : "foo.delivery.puppetlabs.net",
@@ -81,8 +116,8 @@ This query will return the complete list of catalogs:
       "transaction_uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
       "producer_timestamp": "2014-11-20T02:15:20.861Z",
       "environment" : "production",
-      "edges" : [...],
-      "resources" : [...]
+      "edges" : {...},
+      "resources" : {...}
     } ]
 
 This query will return all catalogs with producer_timestamp after 2014-11-19:
@@ -96,8 +131,8 @@ This query will return all catalogs with producer_timestamp after 2014-11-19:
       "transaction_uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
       "producer_timestamp": "2014-11-20T02:15:20.861Z",
       "environment" : "production",
-      "edges" : [...],
-      "resources" : [...]
+      "edges" : {...},
+      "resources" : {...}
     } ]
 
 
@@ -122,8 +157,8 @@ a JSON error message if the catalog is not found:
      "transaction_uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
      "producer_timestamp": "2014-10-13T20:46:00.000Z",
      "environment" : "production",
-     "edges" : [...],
-     "resources" : [...]
+     "edges" : {...},
+     "resources" : {...}
     }
 
     curl -X GET http://puppetdb:8080/v4/catalogs/my_fake_hostname
@@ -132,6 +167,33 @@ a JSON error message if the catalog is not found:
       "error" : "Could not find catalog for my_fake_hostname"
     }
 
+## `GET /v4/catalogs/<NODE>/edges`
+
+This will return all edges for a particular catalog, designated by a node certname.
+
+This is a shortcut to the [`/edges`][edges] endpoint. It behaves the same as a call to [`/edges`][edges] with a query string of `["=", "certname", "<NODE>"]`.
+
+### URL Parameters / Query Operators / Query Fields / Response Format
+
+This route is an extension of the [`edges`][edges] endpoint. It uses the exact same parameters, operators, fields, and response format.
+
+If you provide a `query` parameter, it will specify additional criteria, which will be
+used to return a subset of the information normally returned by
+this route.
+
+## `GET /v4/catalogs/<NODE>/resources`
+
+This will return all resources for a particular catalog, designated by a node certname.
+
+This is a shortcut to the [`/resources`][resources] endpoint. It behaves the same as a call to [`/resources`][resources] with a query string of `["=", "certname", "<NODE>"]`.
+
+### URL Parameters / Query Operators / Query Fields / Response Format
+
+This route is an extension of the [`/resources`][resources] endpoint. It uses the exact same parameters, operators, fields, and response format.
+
+If you provide a `query` parameter, it will specify additional criteria, which will be
+used to return a subset of the information normally returned by
+this route.
 
 ## Paging
 

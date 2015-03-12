@@ -64,6 +64,30 @@ stable release of PuppetDB, which included an experimental v4 API.
     responses from the /v4/catalogs endpoint, queries to it, and the
     "replace catalog" and "replace facts" commands.
 
+* Expanded data format is now more formalized. ([PDB-1228](https://tickets.puppetlabs.com/browse/PDB-1228))
+
+    In the past in the experimental /v4 endpoint we used to return related data for endpoints directly
+    in the JSON response with very little formality. However, due to internal changes that only work for
+    PostgreSQL we've decided to formalize the format of returning expanded/related data so that some of
+    it may be marked as optional from a contractual perspective.
+
+    In the past for example, report events would return an array of events, now it returns that data inside
+    the `data` key, and a link to the original data in a `href` key.
+
+    Note the `data` key is only supported on PostgreSQL, users of HSQLDB will be have to retrieve the related
+    data via the `href` URL in the response. Any support for expanding related data in the past for HSQLDB
+    has now been dropped in favor of less complexity and the better performance focus around PostgreSQL.
+
+    An example expanded block would look something like this:
+
+        {
+          "href": "/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/events",
+          "data": [ ... ]
+        }
+
+    For API consumers this means, the extra `data` key needs to be traversed to access the real related
+    object data.
+
 * Add "noop" flag to reports ([PDB-1177](https://tickets.puppetlabs.com/browse/PDB-1177))
 
     This adds a "noop" field to the reports object, which is a
@@ -150,6 +174,8 @@ stable release of PuppetDB, which included an experimental v4 API.
 * The load testing tool can now optionally use a default set of testing data or
 derive data from a PuppetDB export tarball.
 
+* We have now added [edges](./api/query/v4/edges.html) querying capability to the top-level namespace. You can also query edges specific to a particular catalog using the new `edges` suffix on the [catalogs](./api/query/v4/catalogs.html) endpoint. ([PDB-1228](https://tickets.puppetlabs.com/browse/PDB-954)).
+
 #### API changes
 
 * The query parameter for `/v4/events` is now optional ([PDB-1132](https://tickets.puppetlabs.com/browse/PDB-1132))
@@ -186,10 +212,6 @@ derive data from a PuppetDB export tarball.
 * Add the `[puppetdb] disable-update-checking` configuration key ([PDB-158](https://tickets.puppetlabs.com/browse/PDB-158))
 
     The value defaults to false; see the [configuration](./configure.html) documentation for more details.
-
-* Added ability to expand child data for reports/facts & catalogs endpoints.
-
-* The `reports` database table was using the hash string as its primary key, we know have switched to using a smaller bigint primary key for that table, which should result in faster joins in most cases, and hopefully smaller foreign key indexes sizes for tables relating to `reports`. ([PDB-1218](https://tickets.puppetlabs.com/browse/PDB-1218))
 
 * Support fallback PuppetDB connections ([PDB-954](https://tickets.puppetlabs.com/browse/PDB-954))
 

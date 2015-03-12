@@ -12,12 +12,11 @@
 
 (defn- raw-query-resources
   [version query paging-options]
-  (->> (s/query->sql version query paging-options)
-       (s/query-resources version)))
+  (s/query-resources version (s/query->sql version query paging-options) ""))
 
 (defn query-resources
   [version query]
-  (:result (s/query-resources version query)))
+  (:result (s/query-resources version query "")))
 
 (deftest test-query-resources
   (sql/insert-records

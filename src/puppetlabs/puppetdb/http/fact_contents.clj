@@ -16,7 +16,8 @@
                   version
                   (params "query")
                   paging-options
-                  (:scf-read-db globals)))
+                  (:scf-read-db globals)
+                  (:url-prefix globals)))
                http-q/restrict-query-to-active-nodes)}))
 
 (defn routes

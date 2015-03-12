@@ -170,13 +170,6 @@
   [paging-options]
   (update-in paging-options [:limit] #(when-not (nil? %) (validate-limit %))))
 
-(defn parse-expand
-  [paging-options]
-  (let [expand? (http/parse-boolean-query-param paging-options :expand)]
-    (-> paging-options
-        (dissoc :expand)
-        (assoc :expand? expand?))))
-
 (defn validate-offset
   "Validates that the offset string is a non-negative integer. Returns the integer
   form if validation was successful, otherwise an IllegalArgumentException is thrown."

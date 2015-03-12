@@ -365,6 +365,7 @@
           query-expr
           paging-options
           (get-in (service-context this) [:shared-globals :scf-read-db])
+          (get-in (service-context this) [:shared-globals :url-prefix])
           row-callback-fn))
   (submit-command [this command version payload]
                   (send-command! (command-names command) version payload)))

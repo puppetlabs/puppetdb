@@ -5,6 +5,7 @@ canonical: "/puppetdb/latest/api/query/v4/factsets.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[facts]: ./facts.html
 [paging]: ./paging.html
 [query]: ./query.html
 
@@ -12,7 +13,7 @@ You can query factsets by making an HTTP request to the `/factsets` endpoint.
 
 A factset is the set of all facts for a single certname.
 
-### `GET /v4/factsets`
+## `GET /v4/factsets`
 
 This will return all factsets matching the given query.
 
@@ -52,12 +53,24 @@ the form:
       "environment": <node environment>,
       "timestamp": <time of last fact submission>,
       "producer_timestamp": <time of command submission from master>,
-      "facts": <facts for node>,
+      "facts": <expanded facts>,
       "hash": <sha1 sum of "facts" value>
     }
 
-The value of "facts" is a map describing facts for the node. The array is
-unsorted.
+> **Note: Expansion and the `data` field**
+>
+> For the following data structures the `data` field is only expanded for users running PostgreSQL. Expansion is not supported on HSQLDB, instead you must use
+> the `href` field to construct a secondary query to retrieve that information.
+
+The `<expanded facts>` object is an expansion of the following form:
+
+    {
+      "href": <url>,
+      "data": [ {
+        "name": <string>,
+        "value": <any>
+      } ... ]
+    }
 
 ### Examples
 
@@ -81,35 +94,39 @@ which returns
 
     [ {
       "facts" : {
-        "blockdevice_sde_vendor" : "Generic",
-        "mtu_wlp5s0" : 1500,
-        "processor6" : "Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz",
-        "kernel" : "Linux",
-        "physicalprocessorcount" : 1,
-        "interfaces" : "br0,docker0,enp3s0,lo,tap0,wlp5s0",
-        "lsbdistcodename" : "n/a",
-        "rubyversion" : "1.9.3",
-        "blockdevice_sdb_vendor" : "ATA",
-        "trusted" : {
-          "authenticated" : "remote",
-          "certname" : "desktop.localdomain",
-          "extensions" : { }
-        },
-        "swapsize" : "0.00 MB",
-        "system_uptime" : {
-          "days" : 5,
-          "hours" : 120,
-          "seconds" : 433391,
-          "uptime" : "5 days"
-        },
-        "swapfree_mb" : "0.00",
-        "netmask_br0" : "255.255.255.0",
-        "gid" : "wyatt",
-        "processorcount" : 8,
-        "network_docker0" : "172.17.0.0",
-        "mtu_docker0" : 1500,
-        "swapfree" : "0.00 MB",
-        ...
+        "href": "/v4/factsets/desktop.localdomain/facts",
+        "data": [
+          {
+            "name": "blockdevice_sde_vendor",
+            "value": "Generic"
+          },
+          {
+            "name": "mtu_wlp5s0",
+            "value": 1500
+          },
+          {
+            "name": "processor6",
+            "value": "Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz"
+          },
+          {
+            "name": "trusted",
+            "value" : {
+              "authenticated" : "remote",
+              "certname" : "desktop.localdomain",
+              "extensions" : { }
+            },
+          },
+          {
+            "name": "system_uptime",
+            "value": {
+              "days" : 5,
+              "hours" : 120,
+              "seconds" : 433391,
+              "uptime" : "5 days"
+            },
+          },
+          ...
+        ]
       },
       "producer_timestamp" : "2015-03-06T00:20:14.833Z",
       "timestamp" : "2015-03-06T00:20:14.918Z",
@@ -117,6 +134,20 @@ which returns
       "certname" : "desktop.localdomain",
       "hash" : "d118d161990f202e911b6fda09f79d24f3a5d4f4"
     } ]
+
+## `GET /v4/factsets/<NODE>/facts`
+
+This will return all facts for a particular factset, designated by a node certname.
+
+This is a shortcut to the [`/facts`][facts] endpoint. It behaves the same as a call to [`/facts`][facts] with a query string of `["=", "certname", "<NODE>"]`.
+
+### URL Parameters / Query Operators / Query Fields / Response Format
+
+This route is an extension of the [`facts`][facts] endpoint. It uses the exact same parameters, operators, fields, and response format.
+
+If you provide a `query` parameter, it will specify additional criteria, which will be
+used to return a subset of the information normally returned by
+this route.
 
 ## Paging
 

@@ -26,8 +26,6 @@ The PuppetDB API consists of the following parts:
 Queries
 -----
 
-PuppetDB 1.3 (and later) supports versions 1 and 2 of the query API. Version 1 is backwards-compatible with PuppetDB 1.0.x, but version 2 has significant new capabilities, including subqueries.
-
 PuppetDB's data can be queried with a REST API.
 
 * [Specification of the General Query Structure](./query/v4/query.html)
@@ -51,6 +49,7 @@ This is the current stable API.
 * [Fact-Paths Endpoint](./query/v4/fact-paths.html)
 * [Fact-Contents Endpoint](./query/v4/fact-contents.html)
 * [Catalogs Endpoint](./query/v4/catalogs.html)
+* [Edges Endpoint](./query/v4/edges.html)
 * [Resources Endpoint](./query/v4/resources.html)
 * [Reports Endpoint](./query/v4/reports.html)
 * [Events Endpoint](./query/v4/events.html)

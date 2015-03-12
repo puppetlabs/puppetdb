@@ -35,6 +35,7 @@
   "Munge resulting rows for fact-contents endpoint."
   [_
    projected-fields :- [s/Keyword]
+   _
    _]
   (fn [rows]
     (map (comp (qe/basic-project projected-fields) munge-result-row) rows)))

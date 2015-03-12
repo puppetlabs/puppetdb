@@ -31,7 +31,8 @@
            version
            (params "query")
            paging-options
-           (:scf-read-db globals)))
+           (:scf-read-db globals)
+           (:url-prefix globals)))
         (validate-query-params
          {:optional (cons "query" paging/query-params)}))}
 

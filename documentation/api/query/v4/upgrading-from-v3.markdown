@@ -24,8 +24,14 @@ Each change below is marked with the corresponding release version.
 
 #### /v4/catalogs
 
+* (3.0) The v4 catalogs endpoint has changed the response of the `edges` and `resources` fields
+  to be expanded. For more information see [/v4/catalogs documentation](./catalogs.html).
+
 * (3.0) We have renamed the "name" key of the catalogs endpoint to "certname", for
   consistency with other endpoints.
+
+* (3.0) The v4 catalogs endpoint will now only return data about nodes that are active. This
+  provides the same consistency as other non-historical data returns.
 
 * (2.0.0) The v4 catalogs endpoint does not contain a `metadata` field
   or an `api_version` field. The contents of the v3 `data` field compose the v4
@@ -39,7 +45,11 @@ Each change below is marked with the corresponding release version.
 
 #### /v4/factsets
 
-* (3.0) The v4 factsets endpoint will contain a new field `hash`.
+* (2.2) The v4 factsets endpoint was added to facilitate the grouping of facts per node. For more information see the [/v4/factsets documentation](./api/query/v4/factsets.html).
+
+* (3.0) We added a `hash` field to the endpoint fields to support a unique identifer for factsets.
+
+* (3.0) The `facts` field is now expanded as per our new expansion convention, so the data format has changed. For more information see the [/v4/factsets documentation](./api/query/v4/factsets.html).
 
 #### /metrics/v1 (formerly /v3/metrics)
 
@@ -69,6 +79,12 @@ Each change below is marked with the corresponding release version.
 * (2.2.0) `/v4/fact-contents` This endpoint allows fine-grained querying of
   structured facts. For more information see the [/v4/fact-contents documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/fact-contents.html).
 
+* (3.0) `/v4/edges' This endpoint allows querying edges inside a catalog. For more information see the [/v4/edges documentation](./edges.html)
+
+* (3.0) `/v4/reports/<hash>/events` This convenience endpoint allows you to show events for a particular report by its hash. See the [/v4/reports documentation](./reports.html)
+
+* (3.0) `/v4/catalogs/<node>/[resources|edges]` Both of these endpoints provide convenience for drilling into resources & edges data specific to a particular catalog. See [/v4/catalogs documentation](./catalogs)
+
 #### Features affecting all endpoints
 
 * (3.0) Extract is available as a top-level query operator, useful for selecting only
@@ -87,7 +103,6 @@ Each change below is marked with the corresponding release version.
 
 * (3.0) The response of the reports endpoint includes the new fields `noop`,
   `environment`, `status`, `resource_events`, `logs`, and `metrics`.  For more information see the [documentation on the reports endpoint](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/reports.html). For comparison, see [an example of the new format](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/reports.html#examples) and [an example of the old format](https://docs.puppetlabs.com/puppetdb/latest/api/query/v3/reports.html#response-format).
-
 
 * (3.0) The reports endpoint takes a `latest_report?` query to return only reports
   associated with the most recent puppet run for their nodes. Similar to the

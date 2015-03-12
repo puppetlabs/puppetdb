@@ -1,34 +1,37 @@
 (ns puppetlabs.puppetdb.http.factsets
-  (:require [puppetlabs.puppetdb.http.query :as http-q]
-            [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
-            [net.cgrand.moustache :refer [app]]
+  (:require [net.cgrand.moustache :refer [app]]
+            [puppetlabs.puppetdb.http.facts :as facts]
+            [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
-                                                    wrap-with-paging-options]]))
+                                                    wrap-with-paging-options]]
+            [puppetlabs.puppetdb.query.paging :as paging]
+            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]))
 
-(defn query-app
+(defn build-factsets-app
+  [version entity]
+  (fn [{:keys [params globals paging-options]}]
+    (produce-streaming-body
+     entity
+     version
+     (params "query")
+     paging-options
+     (:scf-read-db globals)
+     (:url-prefix globals))))
+
+(defn routes
   [version]
   (app
-   [&]
-   {:get (comp (fn [{:keys [params globals paging-options] :as request}]
-                 (produce-streaming-body
-                  :factsets
-                  version
-                  (params "query")
-                  paging-options
-                  (:scf-read-db globals)))
-               http-q/restrict-query-to-active-nodes)}))
-
-(defn build-factset-app
-  [query-app]
-  (app
    []
-   (verify-accepts-json query-app)))
+   {:get (comp (build-factsets-app version :factsets)
+               http-q/restrict-query-to-active-nodes)}
+
+   [node "facts" &]
+   (comp (facts/facts-app version) (partial http-q/restrict-query-to-node node))))
 
 (defn factset-app
   [version]
-  (build-factset-app
-   (-> (query-app version)
-       (validate-query-params
-        {:optional (cons "query" paging/query-params)})
-       wrap-with-paging-options)))
+  (-> (routes version)
+      verify-accepts-json
+      (validate-query-params
+       {:optional (cons "query" paging/query-params)})
+      wrap-with-paging-options))

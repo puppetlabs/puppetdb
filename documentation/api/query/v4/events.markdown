@@ -10,7 +10,6 @@ canonical: "/puppetdb/latest/api/query/v4/events.html"
 [paging]: ./paging.html
 [query]: ./query.html
 [8601]: http://en.wikipedia.org/wiki/ISO_8601
-[event]: ./events.html
 
 Puppet agent nodes submit reports after their runs, and the puppet master forwards these to PuppetDB. Each report includes:
 

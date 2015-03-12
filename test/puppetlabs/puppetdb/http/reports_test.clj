@@ -1,28 +1,31 @@
 (ns puppetlabs.puppetdb.http.reports-test
-  (:require [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.http :as http :refer [status-bad-request]]
-            [clojure.walk :refer [keywordize-keys]]
+  (:require [clj-time.coerce :refer [to-date-time to-string] :as tcoerce]
+            [clj-time.core :refer [now]]
+            [clj-time.format :as tfmt]
+            [clojure.string :as str]
             [clojure.test :refer :all]
+            [clojure.walk :refer [keywordize-keys]]
+            [flatland.ordered.map :as omap]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.fixtures :as fixt]
+            [puppetlabs.puppetdb.http :as http :refer [status-bad-request]]
+            [puppetlabs.puppetdb.reports :as reports]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils :refer [response-equal?
                                                    assert-success!
                                                    get-request
                                                    paged-results
                                                    deftestseq]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
-                                                           munge-resource-events]]
-            [flatland.ordered.map :as omap]
-            [clj-time.coerce :refer [to-date-time to-string]]
-            [clj-time.core :refer [now]]
-            [clojure.string :as str]
-            [clj-time.format :as tfmt]
-            [clj-time.coerce :as tcoerce]))
+                                                           munge-resource-events]]))
 
 (def endpoints [[:v4 "/v4/reports"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
+
+;; RETRIEVAL
 
 (defn get-response
   [endpoint query]
@@ -30,6 +33,15 @@
     (if (string? (:body resp))
       resp
       (update-in resp [:body] slurp))))
+
+;; TRANSFORMATIONS
+
+(defn strip-expanded
+  "Strips out expanded data from the wire format if the database is HSQLDB"
+  [report]
+  (if (sutils/postgres?)
+    report
+    (dissoc report :resource_events)))
 
 (defn report-response
   [report]
@@ -43,32 +55,42 @@
    ;; out of the example report object before comparison
    (-> report
        (update-in [:resource_events] (comp keywordize-keys munge-resource-events))
-       (update-in [:metrics] keywordize-keys))))
+       (update-in [:metrics] keywordize-keys)
+       strip-expanded)))
 
 (defn reports-response
+  "Convert expected results to a comparable format"
   [version reports]
-  (set (map report-response reports)))
+  (set (map report-response
+            reports)))
+
+(defn munge-report-for-comparison
+  [report]
+  (-> report
+      (update-in [:resource_events] (comp keywordize-keys munge-resource-events))
+      strip-expanded))
 
 (defn munge-reports-for-comparison
+  "Convert actual results for reports queries to wire format ready for comparison."
   [reports]
-  ;; the example reports don't have a receive time (because this is
-  ;; calculated by the server), so we remove this field from the response
-  ;; for test comparison
-  (map (comp #(dissoc % :receive_time) #(update-in % [:resource_events] set)) reports))
+  (map munge-report-for-comparison
+       (reports/reports-query->wire-v5 reports)))
 
-(deftestseq query-by-certname
+;; TESTS
+
+(deftestseq query-by-parameters
   [[version endpoint] endpoints]
 
   (let [basic         (:basic reports)
         report-hash   (:hash (store-example-report! basic (now)))
-        basic (assoc basic :hash report-hash)]
+        basic-with-hash (assoc basic :hash report-hash)]
 
     (doseq [field ["certname" "hash" "puppet_version" "report_format"
                    "configuration_version" "start_time" "end_time"
                    "transaction_uuid" "status"]
             :let [field-kwd (keyword field)]]
       (testing (format "should return all reports for a %s" field)
-        (let [result (get-response endpoint ["=" field (get basic field-kwd)])]
+        (let [result (get-response endpoint ["=" field (get basic-with-hash field-kwd)])]
           (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
           (is (every? #(= "unchanged" (:status %)) (json/parse-string (:body result) true)))
           (response-equal?
@@ -105,10 +127,10 @@
 (deftestseq query-with-paging
   [[version endpoint] endpoints]
 
-  (let [basic1        (:basic reports)
-        basic1-hash   (:hash (store-example-report! basic1 (now)))
-        basic2        (:basic2 reports)
-        basic2-hash   (:hash (store-example-report! basic2 (now)))]
+  (let [basic1 (:basic reports)
+        _      (store-example-report! basic1 (now))
+        basic2 (:basic2 reports)
+        _      (store-example-report! basic2 (now))]
 
     (doseq [[label count?] [["without" false]
                             ["with" true]]]
@@ -122,8 +144,7 @@
                               :include_total  count?})]
           (is (= 2 (count results)))
           (is (= (reports-response version
-                                   [(assoc basic1 :hash basic1-hash)
-                                    (assoc basic2 :hash basic2-hash)])
+                                   [basic1 basic2])
                  (set (munge-reports-for-comparison results)))))))))
 
 (deftestseq invalid-queries
@@ -141,13 +162,13 @@
   [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
-        hash1 (:hash (store-example-report! basic (now)))
+        _ (store-example-report! basic (now))
         basic2 (:basic2 reports)
-        hash2 (:hash (store-example-report! basic2 (now)))
+        _ (store-example-report! basic2 (now))
         basic3 (assoc (:basic3 reports) :status "changed")
-        hash3 (:hash (store-example-report! basic3 (now)))
+        _ (store-example-report! basic3 (now))
         basic4 (assoc (:basic4 reports) :status "failed")
-        hash4 (:hash (store-example-report! basic4 (now)))]
+        _ (store-example-report! basic4 (now))]
 
     (testing "should return all reports for a certname"
       (let [unchanged-result (get-response endpoint ["=" "status" "unchanged"])
@@ -162,34 +183,33 @@
 
         (response-equal?
          unchanged-result
-         (reports-response version [(assoc basic :hash hash1)
-                                    (assoc basic2 :hash hash2)])
+         (reports-response version [basic basic2])
          munge-reports-for-comparison)
 
         (is (= 1 (count changed-reports)))
         (response-equal?
          changed-result
-         (reports-response version [(assoc basic3 :hash hash3)])
+         (reports-response version [basic3])
          munge-reports-for-comparison)
 
         (is (= 1 (count failed-reports)))
         (response-equal?
          failed-result
-         (reports-response version [(assoc basic4 :hash hash4)])
+         (reports-response version [basic4])
          munge-reports-for-comparison)))))
 
 (deftestseq query-by-certname-with-environment
   [[version endpoint] endpoints]
 
-  (let [basic         (:basic reports)
-        report-hash   (:hash (store-example-report! basic (now)))]
+  (let [basic (:basic reports)
+        _ (store-example-report! basic (now))]
 
     (testing "should return all reports for a certname"
       (let [result (get-response "/v4/environments/DEV/reports" ["=" "certname" (:certname basic)])]
         (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
         (response-equal?
          result
-         (reports-response version [(assoc basic :hash report-hash)])
+         (reports-response version [basic])
          munge-reports-for-comparison)))
     (testing "PROD environment"
       (is (empty? (json/parse-string
@@ -201,11 +221,11 @@
   [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
-        hash1 (:hash (store-example-report! basic (now)))
+        _ (store-example-report! basic (now))
         basic2 (assoc (:basic2 reports) :puppet_version "3.6.0")
-        hash2 (:hash (store-example-report! basic2 (now)))
+        _ (store-example-report! basic2 (now))
         basic3 (assoc (:basic3 reports) :puppet_version "3.0.3")
-        hash3 (:hash (store-example-report! basic3 (now)))
+        _ (store-example-report! basic3 (now))
 
         v301 (get-response endpoint ["=" "puppet_version" "3.0.1"])
         v301-body (json/parse-strict-string (:body v301) true)
@@ -217,31 +237,30 @@
     (is (= 1 (count v301-body)))
     (response-equal?
      v301
-     (reports-response version [(assoc basic :hash hash1)])
+     (reports-response version [basic])
      munge-reports-for-comparison)
 
     (is (= 1 (count v360-body)))
     (response-equal?
      v360
-     (reports-response version [(assoc basic2 :hash hash2)])
+     (reports-response version [basic2])
      munge-reports-for-comparison)
 
     (is (= 2 (count v30x-body)))
     (response-equal?
      v30x
-     (reports-response version [(assoc basic :hash hash1)
-                                (assoc basic3 :hash hash3)])
+     (reports-response version [basic basic3])
      munge-reports-for-comparison)))
 
 (deftestseq query-by-report-format
   [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
-        hash1 (:hash (store-example-report! basic (now)))
+        _ (store-example-report! basic (now))
         basic2 (assoc (:basic2 reports) :report_format 5)
-        hash2 (:hash (store-example-report! basic2 (now)))
+        _ (store-example-report! basic2 (now))
         basic3 (assoc (:basic3 reports) :report_format 6)
-        hash3 (:hash (store-example-report! basic3 (now)))
+        _ (store-example-report! basic3 (now))
 
         v4-format (get-response endpoint ["=" "report_format" 4])
         v4-format-body (json/parse-strict-string (:body v4-format) true)
@@ -257,29 +276,28 @@
     (is (= 1 (count v4-format-body)))
     (response-equal?
      v4-format
-     (reports-response version [(assoc basic :hash hash1)])
+     (reports-response version [basic])
      munge-reports-for-comparison)
 
     (is (= 1 (count v5-format-body)))
     (response-equal?
      v5-format
-     (reports-response version [(assoc basic2 :hash hash2)])
+     (reports-response version [basic2])
      munge-reports-for-comparison)
 
     (is (= 2 (count v6-format-body)))
     (response-equal?
      v6-format
-     (reports-response version [(assoc basic2 :hash hash2)
-                                (assoc basic3 :hash hash3)])
+     (reports-response version [basic2 basic3])
      munge-reports-for-comparison)))
 
 (deftestseq query-by-configuration-version
   [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
-        hash1 (:hash (store-example-report! basic (now)))
+        _ (store-example-report! basic (now))
         basic2 (:basic2 reports)
-        hash2 (:hash (store-example-report! basic2 (now)))
+        _ (store-example-report! basic2 (now))
 
         basic-result (get-response endpoint ["=" "configuration_version" "a81jasj123"])
         basic-result-body (json/parse-strict-string (:body basic-result) true)
@@ -289,23 +307,22 @@
     (is (= 1 (count basic-result-body)))
     (response-equal?
      basic-result
-     (reports-response version [(assoc basic :hash hash1)])
+     (reports-response version [basic])
      munge-reports-for-comparison)
 
     (is (= 2 (count basic2-result-body)))
     (response-equal?
      basic2-result
-     (reports-response version [(assoc basic :hash hash1)
-                                (assoc basic2 :hash hash2)])
+     (reports-response version [basic basic2])
      munge-reports-for-comparison)))
 
 (deftestseq query-by-start-and-end-time
   [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
-        hash1 (:hash (store-example-report! basic (now)))
+        _ (store-example-report! basic (now))
         basic2 (:basic2 reports)
-        hash2 (:hash (store-example-report! basic2 (now)))
+        _ (store-example-report! basic2 (now))
 
         basic-result (get-response endpoint ["=" "start_time" "2011-01-01T12:00:00-03:00"])
         basic-result-body (json/parse-strict-string (:body basic-result) true)
@@ -323,26 +340,25 @@
     (is (= 1 (count basic-result-body)))
     (response-equal?
      basic-result
-     (reports-response version [(assoc basic :hash hash1)])
+     (reports-response version [basic])
      munge-reports-for-comparison)
 
     (is (= 1 (count basic-range-body)))
     (response-equal?
      basic-range
-     (reports-response version [(assoc basic :hash hash1)])
+     (reports-response version [basic])
      munge-reports-for-comparison)
 
     (is (= 1 (count basic2-result-body)))
     (response-equal?
      basic2-result
-     (reports-response version [(assoc basic2 :hash hash2)])
+     (reports-response version [basic2])
      munge-reports-for-comparison)
 
     (is (= 2 (count all-reports-body)))
     (response-equal?
      all-reports
-     (reports-response version [(assoc basic :hash hash1)
-                                (assoc basic2 :hash hash2)])
+     (reports-response version [basic basic2])
      munge-reports-for-comparison)))
 
 (defn ts->str [ts]
@@ -353,7 +369,6 @@
 
   (let [basic (:basic reports)
         stored-basic (store-example-report! basic (now))
-        hash1 (:hash stored-basic)
 
         basic-result (get-response endpoint ["=" "receive_time" (ts->str (:receive_time stored-basic))])
         basic-result-body (json/parse-strict-string (:body basic-result) true)]
@@ -361,16 +376,16 @@
     (is (= 1 (count basic-result-body)))
     (response-equal?
      basic-result
-     (reports-response version [(assoc basic :hash hash1)])
+     (reports-response version [basic])
      munge-reports-for-comparison)))
 
 (deftestseq query-by-transaction-uuid
   [[version endpoint] endpoints]
 
   (let [basic (:basic reports)
-        hash1 (:hash (store-example-report! basic (now)))
+        _ (store-example-report! basic (now))
         basic2 (:basic2 reports)
-        hash2 (:hash (store-example-report! basic2 (now)))
+        _ (store-example-report! basic2 (now))
 
         basic-result (get-response endpoint ["=" "transaction_uuid" "68b08e2a-eeb1-4322-b241-bfdf151d294b"])
         basic-result-body (json/parse-strict-string (:body basic-result) true)
@@ -380,32 +395,32 @@
     (is (= 1 (count basic-result-body)))
     (response-equal?
      basic-result
-     (reports-response version [(assoc basic :hash hash1)])
+     (reports-response version [basic])
      munge-reports-for-comparison)
 
     (is (= 2 (count all-results-body)))
     (response-equal?
      all-results
-     (reports-response version [(assoc basic :hash hash1)
-                                (assoc basic2 :hash hash2)])
+     (reports-response version [basic basic2])
      munge-reports-for-comparison)))
 
 (deftestseq latest-report-queries
   [[version endpoint] endpoints]
   (let [basic (:basic reports)
-        hash1 (:hash (store-example-report! basic (now)))
+        _ (store-example-report! basic (now))
         basic2 (:basic2 reports)
-        hash2 (:hash (store-example-report! basic2 (now)))
+        _ (store-example-report! basic2 (now))
         latest (get-response endpoint ["=" "latest_report?" true])
         latest-body (json/parse-strict-string (:body latest) true)
         latest2 (get-response endpoint ["and" ["=" "latest_report?" true] ["=" "noop" false]])
         latest2-body (json/parse-strict-string (:body latest2) true)
         latest3 (get-response endpoint ["and" ["=" "latest_report?" true] ["=" "noop" true]])
         latest3-body (json/parse-strict-string (:body latest3) true) ]
+
     (is (= 1 (count latest-body)))
     (response-equal?
      latest
-     (reports-response version [(assoc basic2 :hash hash2)])
+     (reports-response version [basic2])
      munge-reports-for-comparison)
 
     (is (= 0 (count latest2-body)))
@@ -417,17 +432,17 @@
     (is (= 1 (count latest3-body)))
     (response-equal?
      latest3
-     (reports-response version [(assoc basic2 :hash hash2)])
+     (reports-response version [basic2])
      munge-reports-for-comparison)
 
     (let [basic4 (assoc (:basic4 reports) :certname "bar.local")
-          hash4 (:hash (store-example-report! basic4 (now)))
+          _ (store-example-report! basic4 (now))
           latest4 (get-response endpoint ["=" "latest_report?" true])
           latest4-body (json/parse-strict-string (:body latest4) true)]
       (is (= 2 (count latest4-body)))
       (response-equal?
         latest4
-        (reports-response version [(assoc basic2 :hash hash2) (assoc basic4 :hash hash4)])
+        (reports-response version [basic2 basic4])
         munge-reports-for-comparison))))
 
 (deftestseq query-by-hash
@@ -436,7 +451,7 @@
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
         basic2 (:basic2 reports)
-        hash2 (:hash (store-example-report! basic2 (now)))
+        _ (store-example-report! basic2 (now))
 
         basic-result (get-response endpoint ["=" "hash" hash1])
         basic-result-body (json/parse-strict-string (:body basic-result) true)]
@@ -444,7 +459,7 @@
     (is (= 1 (count basic-result-body)))
     (response-equal?
      basic-result
-     (reports-response version [(assoc basic :hash hash1)])
+     (reports-response version [basic])
      munge-reports-for-comparison)))
 
 (def invalid-projection-queries

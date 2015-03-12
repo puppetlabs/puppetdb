@@ -1,13 +1,32 @@
 (ns puppetlabs.puppetdb.query.events
   "SQL/query-related functions for events"
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.string :as string]
+  (:require [clojure.string :as string]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng.engine :as qe]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.utils :as utils]
+            [schema.core :as s]))
+
+;; MUNGE
+
+(pls/defn-validated munge-result-rows
+  "Returns a function that munges the resulting rows ready for final
+  presentation."
+  [_
+   projected-fields :- [s/Keyword]
+   _
+   _]
+  (fn [rows]
+    (map (comp (qe/basic-project projected-fields)
+               #(utils/update-when % [:old_value] json/parse-string)
+               #(utils/update-when % [:new_value] json/parse-string))
+         rows)))
+
+;; QUERY
 
 (defn default-select
   "Build the default SELECT statement that we use in the common case.  Returns
@@ -100,7 +119,6 @@
       (assoc result :count-query (apply vector (jdbc/count-sql sql) params))
       result)))
 
-
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
   [version query [query-options paging-options]]
@@ -120,20 +138,7 @@
     (legacy-query->sql version query-options query paging-options)
     (qe/compile-user-query->sql qe/report-events-query query paging-options)))
 
-;; Below this line the code is more about turning a query into results,
-;; above is the SQL engine code (as it stands).
-
-(defn munge-result-rows
-  "Returns a function that munges the resulting rows ready for final
-  presentation."
-  [_ projections _]
-  (fn [rows]
-    (map
-     #(-> %
-          (utils/update-when [:old_value] json/parse-string)
-          (utils/update-when [:new_value] json/parse-string)
-          ((qe/basic-project projections)))
-     rows)))
+;; QUERY + MUNGE
 
 (defn query-resource-events
   "Queries resource events and unstreams, used mainly for testing.
@@ -149,7 +154,7 @@
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows version projections nil)))}]
+                          (comp doall (munge-result-rows version projections nil nil)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

@@ -1,21 +1,20 @@
 (ns puppetlabs.puppetdb.cli.anonymize
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
             [clojure.string :as string]
-            [puppetlabs.puppetdb.scf.hash :as shash]
+            [clojure.walk :refer [keywordize-keys]]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.anonymizer :as anon]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.catalogs :as catalogs]
-            [puppetlabs.puppetdb.anonymizer :as anon]
-            [puppetlabs.puppetdb.schema :as pls]
-            [clojure.walk :refer [keywordize-keys]]
-            [schema.core :as s]
-            [slingshot.slingshot :refer [try+]]
-            [puppetlabs.puppetdb.utils :refer [export-root-dir add-tar-entry]]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.export :refer [export-metadata-file-name]]
-            [puppetlabs.puppetdb.cli.import :refer [parse-metadata]])
-  (:import [puppetlabs.puppetdb.archive TarGzReader TarGzWriter]
-           [org.apache.commons.compress.archivers.tar TarArchiveEntry]))
+            [puppetlabs.puppetdb.cli.import :refer [parse-metadata]]
+            [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.utils :refer [export-root-dir add-tar-entry]]
+            [schema.core :as s]
+            [slingshot.slingshot :refer [try+]])
+  (:import [org.apache.commons.compress.archivers.tar TarArchiveEntry]
+           [puppetlabs.puppetdb.archive TarGzReader TarGzWriter]))
 
 (def cli-description "Anonymize puppetdb dump files")
 
@@ -210,8 +209,6 @@
       (let [new-catalog  (->> (next-json-tar-entry tar-reader)
                               (anon/anonymize-catalog config))
             new-hostname (get new-catalog "certname")
-            new-hash (shash/catalog-similarity-hash (catalogs/transform (keywordize-keys new-catalog)))
-            new-catalog (assoc new-catalog "hash" new-hash)
             file-suffix  ["catalogs" (format "%s.json" new-hostname)]
             new-path     (.getPath (apply io/file export-root-dir file-suffix))]
         (println (format "Anonymizing catalog from archive entry '%s' into '%s'" path new-path))

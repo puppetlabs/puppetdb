@@ -9,7 +9,71 @@
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng.engine :as qe]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.utils :as utils]
+            [schema.core :as s]))
+
+;; SCHEMA
+
+(def row-schema
+  "Resource query row schema."
+  {(s/optional-key :certname) s/Str
+   (s/optional-key :environment) (s/maybe s/Str)
+   (s/optional-key :exported) s/Bool
+   (s/optional-key :file) (s/maybe s/Str)
+   (s/optional-key :line) (s/maybe s/Int)
+   (s/optional-key :parameters) (s/maybe s/Str)
+   (s/optional-key :resource) s/Str
+   (s/optional-key :tags) [(s/maybe s/Str)]
+   (s/optional-key :title) s/Str
+   (s/optional-key :type) s/Str})
+
+(def resource-parameters-schema
+  "Schema for resource parameters."
+  {s/Any s/Any})
+
+(def resource-schema
+  "Schema for validating a single resource."
+  {(s/optional-key :certname) s/Str
+   (s/optional-key :environment) (s/maybe s/Str)
+   (s/optional-key :exported) s/Bool
+   (s/optional-key :file) (s/maybe s/Str)
+   (s/optional-key :line) (s/maybe s/Int)
+   (s/optional-key :parameters) resource-parameters-schema
+   (s/optional-key :resource) s/Str
+   (s/optional-key :tags) [(s/maybe s/Str)]
+   (s/optional-key :title) s/Str
+   (s/optional-key :type) s/Str})
+
+;; MUNGE
+
+(pls/defn-validated parse-params :- resource-parameters-schema
+  "If there is a param string, parse it to JSON else return an empty hash."
+  [param-string :- (s/maybe s/Str)]
+  (if param-string
+    (json/parse-string param-string)
+    {}))
+
+(pls/defn-validated row->resource :- resource-schema
+  "Convert resource query row into a final resource format."
+  [row :- row-schema]
+  (utils/update-when row [:parameters] parse-params))
+
+(pls/defn-validated munge-result-rows
+  "Munge the result rows so that they will be compatible with the version
+  specified API specification"
+  [_
+   projected-fields :- [s/Keyword]
+   _
+   _]
+  (fn [rows]
+    (if (empty? rows)
+      []
+      (map (comp (qe/basic-project projected-fields)
+                 row->resource)
+           rows))))
+
+;; QUERY
 
 (defn query->sql
   "Compile a resource `query` and an optional `paging-options` map, using the
@@ -31,26 +95,14 @@
               (not (:count? paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
      (paging/validate-order-by! (map keyword (keys query/resource-columns)) paging-options)
-     (qe/compile-user-query->sql qe/resources-query query paging-options)))
+     (qe/compile-user-query->sql
+      qe/resources-query query paging-options)))
 
-(defn parse-params [param-string]
-  (if param-string
-    (json/parse-string param-string)
-    {}))
-
-(defn deserialize-params
-  [resources]
-  (map #(utils/update-when % [:parameters] parse-params) resources))
-
-(defn munge-result-rows
-  "Munge the result rows so that they will be compatible with the version
-  specified API specification"
-  [_ _ _]
-  deserialize-params)
+;; QUERY + MUNGE
 
 (defn query-resources
   "Search for resources satisfying the given SQL filter."
-  [version query-sql]
+  [version query-sql url-prefix]
   {:pre [(map? query-sql)]}
   (let [{[sql & params] :results-query
          count-query    :count-query
@@ -59,7 +111,7 @@
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows version projections {})))}]
+                          (comp doall (munge-result-rows version projections {} url-prefix)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))
