@@ -7,7 +7,6 @@ canonical: "/puppetdb/latest/configure.html"
 [logback]: http://logback.qos.ch/manual/configuration.html
 [dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
 [repl]: ./repl.html
-[pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
 [postgres_ssl]: ./postgres_ssl.html
 [module]: ./install_via_module.html
 [low_catalog_dupe]: ./trouble_low_catalog_duplication.html
@@ -228,10 +227,7 @@ Before using the PostgreSQL backend, you must set up a PostgreSQL server, ensure
     $ createdb -E UTF8 -O puppetdb puppetdb
     $ exit
 
-If you are running PostgreSQL 9.3 or above you should install the
-regexp optimized index extension [`pg_trgm`][pg_trgm]. This may
-require installing the `postgresql-contrib` (or equivalent) package,
-depending on your distribution:
+If you are running PostgreSQL 9.3 or above you should install the regexp optimized index extension pg_trgm. This may require the `postgresql-contrib` (or equivalent) package depending on your distribution:
 
     $ sudo -u postgres sh
     $ psql puppetdb -c 'create extension pg_trgm'
