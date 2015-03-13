@@ -43,9 +43,13 @@ To make secured requests from other hosts, you will need to supply the following
 
 Any node managed by puppet agent will already have all of these and you can re-use them for contacting PuppetDB. You can also generate a new cert on the CA puppet master with the `puppet cert generate` command.
 
-> **Note:** If you have turned on [certificate whitelisting][whitelist], you must make sure to authorize the certificate you are using.
+**Note:** If you have turned on [certificate whitelisting][whitelist], you must make sure to authorize the certificate you are using:
 
-    curl 'https://<your.puppetdb.server>:8081/v3/facts/<node>' --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/<node>.pem --key /etc/puppet/ssl/private_keys/<node>.pem --tslv1
+    curl 'https://<your.puppetdb.server>:8081/v3/facts/<node>' --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/<node>.pem --key /etc/puppet/ssl/private_keys/<node>.pem --tlsv1
+
+For Puppet Enterprise, the paths to the SSL certificates are different, so use the following example instead:
+
+    curl 'https://<your.puppetdb.server>:8081/v3/facts/<node>' --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem --cert /etc/puppetlabs/puppet/ssl/certs/<node>.pem --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem --tlsv1
 
 ### Locating Puppet Certificate Files
 
