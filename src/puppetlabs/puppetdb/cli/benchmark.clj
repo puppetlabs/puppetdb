@@ -346,7 +346,7 @@
     (let [options (-> (ks/cli! args supported-cli-options required-cli-options)
                       first
                       (validate-options #(System/exit 1)))]
-      (if (empty? (select-keys [:facts :reports :catalogs] options))
+      (if (empty? (select-keys options [:facts :reports :catalogs]))
         (default-options options)
         options))
 
