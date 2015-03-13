@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.sync.command-test
   (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.random :refer [random-string]]
+            [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
+            [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [clj-http.client :as http]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.testutils.services :as svcs]
@@ -191,7 +192,54 @@
       ;; We should see that the sync happened, and that only one factset query was made to PDB X
       (let [synced-factsets (get-json (utils/pdb-url) "/factsets")
             environments (->> synced-factsets (map :environment) (into #{}))]
-        (is (= #{"DEV" "PRODUCTION"} (set environments)))
+        (is (= #{"DEV" "PRODUCTION"} environments))
+        (is (= 2 (count @pdb-x-queries)))))))
+
+(deftest pull-catalogs-test
+  (let [catalog (get-in wire-catalogs [6 :basic])
+        pdb-x-queries (atom [])
+        stub-handler (logging-query-handler "/pdb-x/v4/catalogs" pdb-x-queries [(assoc catalog
+                                                                                       :certname "a.local"
+                                                                                       :environment "PRODUCTION")])]
+    (with-puppetdb-instance (utils/sync-config stub-handler)
+      ;; store catalogs in PDB Y
+      (doseq [c (map char (range (int \a) (int \f)))]
+        (svcs/sync-command-post (utils/pdb-url) "replace catalog" 6
+                                  (assoc catalog :certname (str c ".local"))))
+
+      (let [local-catalogs (index-by :certname (get-json (utils/pdb-url) "/catalogs"))
+            timestamps (ks/mapvals (comp to-date-time :producer_timestamp) local-catalogs)]
+        (is (= 5 (count local-catalogs)))
+
+        ;; Send a sync command to PDB Y
+        (svcs/sync-command-post (utils/pdb-url) "sync" 1
+                                  {:origin_host_path (utils/stub-url-str "/pdb-x/v4")
+                                   :entity :catalogs
+                                   :sync_data [;; time is newer than local, hash is different -> should pull
+                                               {:certname "a.local"
+                                                :hash "different"
+                                                :producer_timestamp (t/plus (timestamps "a.local") (t/days 1))}
+                                               ;; time is older than local, hash is different -> no pull
+                                               {:certname "b.local"
+                                                :hash "different"
+                                                :producer_timestamp (t/minus (timestamps "b.local") (t/days 1))}
+                                               ;; time is the same, hash is the same -> no pull
+                                               {:certname "c.local"
+                                                :hash (-> local-catalogs (get "c.local") :hash)
+                                                :producer_timestamp (timestamps "c.local")}
+                                               ;; time is the same, hash is lexically less -> no pull
+                                               {:certname "d.local"
+                                                :hash "0000000000000000000000000000000000000000"
+                                                :producer_timestamp (timestamps "d.local")}
+                                               ;; time is the same, hash is lexically greater -> should pull
+                                               {:certname "e.local"
+                                                :hash "ffffffffffffffffffffffffffffffffffffffff"
+                                                :producer_timestamp (timestamps "e.local")}]}))
+
+      ;; We should see that the sync happened, and that only one catalogs query was made to PDB X
+      (let [synced-catalogs (get-json (utils/pdb-url) "/catalogs")
+            environments (->> synced-catalogs (map :environment) (into #{}))]
+        (is (= #{"DEV" "PRODUCTION"} environments))
         (is (= 2 (count @pdb-x-queries)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -249,6 +297,30 @@
                                       :hash "d280ba770e32b852588711b87e141605c3d14cb6"
                                       :producer_timestamp actual-timestamp}]}}
               factset-sync-request))))))
+
+(deftest test-push-catalog
+  (let [catalog (get-in wire-catalogs [6 :basic])
+        requests-atom (atom [])]
+    (with-puppetdb-instance (utils/sync-config (logging-command-handler "/pdb-y/v4" requests-atom))
+     (svcs/sync-command-post (utils/pdb-url) "replace catalog" 6 catalog)
+     (trigger-sync (utils/stub-url-str "/pdb-y/v4"))
+
+     (let [catalog-sync-request (->> @requests-atom
+                                     (map :body)
+                                     (map #(json/parse-string % true))
+                                     (filter #(= (:command %) "sync"))
+                                     (filter #(= (get-in % [:payload :entity]) "catalogs"))
+                                     first)
+           actual-timestamp (get-in catalog-sync-request [:payload :sync_data 0 :producer_timestamp])]
+       (is (= {:command "sync",
+               :version 1,
+               :payload {:origin_host_path (utils/pdb-url-str)
+                         :entity "catalogs"
+                         :sync_data [{:certname "basic.wire-catalogs.com"
+                                      :hash "6b7ed1a8dfd0fd0575537f22d6ede9833f87ef65"
+                                      :producer_timestamp "2014-07-10T22:33:54Z"}]}}
+              catalog-sync-request))))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; End to end tests
