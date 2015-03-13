@@ -222,7 +222,7 @@ then
   done
 else
   # This should be run on the host with PuppetDB
-  PATH=/opt/puppet/bin:$PATH
+  PATH="<%= @labsbindir -%>:/opt/puppet/bin:$PATH"
   agent_confdir=`puppet agent --configprint confdir`
   agent_vardir=`puppet agent --configprint vardir`
 
@@ -392,7 +392,7 @@ else
   echo "Error: Unable to find PuppetDB Jetty configuration at ${jettyfile} so unable to provide automatic configuration for that file."
   echo
   echo "   Confirm the file exists in the path specified before running the"
-  echo "   tool again. The file should have been created automatically when" 
+  echo "   tool again. The file should have been created automatically when"
   echo "   the package was installed."
 fi
 
