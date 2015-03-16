@@ -22,7 +22,7 @@ Each change below is marked with the corresponding release version.
   underscore-separated. This change does not apply to dash-separated endpoint
   names such as `aggregate-event-counts`.
 
-#### `/v4/catalogs`
+#### /v4/catalogs
 
 * (3.0) We have renamed the "name" key of the catalogs endpoint to "certname", for
   consistency with other endpoints.
@@ -33,16 +33,16 @@ Each change below is marked with the corresponding release version.
   `environment`. The endpoint is documented here:
   https://docs.puppetlabs.com/puppetdb/master/api/query/v4/catalogs.html
 
-#### `/v4/facts`
+#### /v4/facts
 
 * (2.2.0) The v4 facts endpoint returns proper JSON rather than stringified JSON
   under the `value` field in the case of a structured fact.
 
-#### `/v4/factsets`
+#### /v4/factsets
 
 * (3.0) The v4 factsets endpoint will contain a new field `hash`.
 
-#### `/metrics/v1` (formerly `/v3/metrics`)
+#### /metrics/v1 (formerly /v3/metrics)
 
 * (3.0) The former metrics endpoint has been split off into a separate service, and
   reversioned at v1. This means if you are currently accessing mbeans at
@@ -53,7 +53,7 @@ Each change below is marked with the corresponding release version.
 * (3.0) PuppetDB's mbeans (listed at /metrics/v1/mbeans) are no longer prefixed with
   "com."
 
-#### `/v4/commands`
+#### /v4/commands
 
   * (3.0) For users posting commands directly to the /v4/commands endpoint, the
   only valid command submission versions for catalogs, reports, and facts
@@ -89,13 +89,13 @@ Each change below is marked with the corresponding release version.
   allowing more concise subquerying as explained here:
   https://github.com/puppetlabs/puppetdb/pull/1053
 
-#### `/v4/events`
+#### /v4/events
 
 * (3.0) The v4 events endpoint does not require a query parameter, so /v4/events is
   now a valid query. The endpoint is documented here:
   https://docs.puppetlabs.com/puppetdb/master/api/query/v4/events.html#get-v4events
 
-#### `/v4/reports`
+#### /v4/reports
 
 * (3.0) The response of the reports endpoint includes the new fields `noop`,
   `environment`, `status`, `resource_events`, `logs`, and `metrics`.  The
@@ -112,7 +112,7 @@ Each change below is marked with the corresponding release version.
   The report query fields are documented here:
   https://docs.puppetlabs.com/puppetdb/master/api/query/v4/reports.html#query-fields
 
-#### `/v4/catalogs`
+#### /v4/catalogs
 
 * (3.0) The v4 catalogs endpoint is queryable like the other endpoints, whereas
   before it could only return a catalog for a single host. The old query format
@@ -132,4 +132,3 @@ Each change below is marked with the corresponding release version.
   https://docs.puppetlabs.com/puppetdb/master/api/query/v4/operators.html#regexp-array-match.
   An example of usage is given at the bottom of the subquery-examples page
   linked just above.
-
