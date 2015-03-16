@@ -891,12 +891,20 @@
   (sql/do-commands
    ;; Build complete facts table as of migration 28.
 
-   "CREATE TABLE facts_transform
+   "CREATE TABLE facts_unique_transform
       (factset_id bigint NOT NULL,
-       fact_path_id bigint NOT NULL,
-       fact_value_id bigint NOT NULL)"
+       fact_path text NOT NULL,
+       fact_value_hash varchar(40) NOT NULL)"
 
-   ;; We need these indexes for the insertion and upcoming deletions.
+   "INSERT INTO facts_unique_transform (factset_id, fact_path, fact_value_hash)
+      SELECT f.factset_id, fp.path, fv.value_hash
+        FROM facts f
+        INNER JOIN fact_values fv on f.fact_value_id = fv.id
+        INNER JOIN fact_paths fp on fv.path_id = fp.id"
+
+   "DROP TABLE facts"
+
+   ;; We need these indexes for the upcoming deletions.
    ;; A deletion like this doesn't need the index, but it only works
    ;; with PostgreSQL:
    ;;   DELETE FROM fact_values t1 USING fact_values t2
@@ -904,21 +912,42 @@
    "CREATE INDEX fact_path_path_idx ON fact_paths(path)"
    "CREATE INDEX fact_values_value_hash_idx ON fact_values(value_hash)"
 
+   ;; Remove all the orphaned duplicates (all but the row in each set
+   ;; with min-id).
+   "DELETE FROM fact_paths t1
+      WHERE t1.id <> (SELECT MIN(t2.id) FROM fact_paths t2
+                        WHERE t1.path = t2.path)"
+   "DELETE FROM fact_values t1
+      WHERE t1.id <> (SELECT MIN(t2.id) FROM fact_values t2
+                        WHERE t1.value_hash = t2.value_hash)"
+
+   ;; Q: Is this right, or do we just keep the (redundant) indexes?
+   "DROP INDEX fact_path_path_idx"
+   "DROP INDEX fact_values_value_hash_idx"
+   "ALTER TABLE fact_paths
+      ADD CONSTRAINT fact_paths_path_key UNIQUE (path)"
+   "ALTER TABLE fact_values
+      ADD CONSTRAINT fact_values_value_hash_key UNIQUE (value_hash)"
+
+   "CREATE TABLE facts_transform
+      (factset_id bigint NOT NULL,
+       fact_path_id bigint NOT NULL,
+       fact_value_id bigint NOT NULL)"
+
    ;; Patch up facts refrences to refer to the min id path/value
    ;; wherever there's more than one option.
    "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
-      SELECT f.factset_id,
-             (SELECT MIN(id) FROM fact_paths fp2 WHERE fp2.path = fp.path),
-             (SELECT MIN(id) FROM fact_values fv2
-                WHERE fv2.value_hash = fv.value_hash)
-          FROM facts f
-            INNER JOIN fact_values fv on f.fact_value_id = fv.id
-            INNER JOIN fact_paths fp on fv.path_id = fp.id"
-   "DROP TABLE facts"
+      SELECT f.factset_id, fp.id, fv.id
+        FROM facts_unique_transform f
+        INNER JOIN fact_paths fp on f.fact_path = fp.path
+        INNER JOIN fact_values fv on f.fact_value_hash = fv.value_hash;"
+
+   "DROP TABLE facts_unique_transform"
 
    "ALTER TABLE facts_transform
       ADD CONSTRAINT facts_factset_id_fact_path_id_fact_key
         UNIQUE (factset_id, fact_path_id)"
+
    "ALTER TABLE facts_transform
       ADD CONSTRAINT factset_id_fk
         FOREIGN KEY (factset_id) REFERENCES factsets(id)
@@ -946,24 +975,7 @@
    "ALTER TABLE fact_values DROP CONSTRAINT fact_values_path_id_fk"
 
    "ALTER TABLE fact_paths DROP COLUMN value_type_id"
-   "ALTER TABLE fact_values DROP COLUMN path_id"
-
-   ;; Remove all the orphaned duplicates (all but the row in each set
-   ;; with min-id).
-   "DELETE FROM fact_paths t1
-      WHERE t1.id <> (SELECT MIN(t2.id) FROM fact_paths t2
-                        WHERE t1.path = t2.path)"
-   "DELETE FROM fact_values t1
-      WHERE t1.id <> (SELECT MIN(t2.id) FROM fact_values t2
-                        WHERE t1.value_hash = t2.value_hash)"
-
-   ;; Q: Is this right, or do we just keep the (redundant) indexes?
-   "DROP INDEX fact_path_path_idx"
-   "DROP INDEX fact_values_value_hash_idx"
-   "ALTER TABLE fact_paths
-      ADD CONSTRAINT fact_paths_path_key UNIQUE (path)"
-   "ALTER TABLE fact_values
-      ADD CONSTRAINT fact_values_value_hash_key UNIQUE (value_hash)"))
+   "ALTER TABLE fact_values DROP COLUMN path_id"))
 
 ;; The available migrations, as a map from migration version to migration function.
 (def migrations
