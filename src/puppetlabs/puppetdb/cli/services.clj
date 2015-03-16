@@ -232,8 +232,8 @@
 
 (defn add-max-framesize
   "Add a maxFrameSize to broker url for activemq."
-  [config url]
-  (format "%s&wireFormat.maxFrameSize=%s&marshal=true" url (:max-frame-size config)))
+  [max-frame-size url]
+  (format "%s&wireFormat.maxFrameSize=%s&marshal=true" url max-frame-size))
 
 (defn start-puppetdb
   [context config service add-ring-handler get-route shutdown-on-error]
@@ -243,32 +243,38 @@
          (ifn? shutdown-on-error)]
    :post [(map? %)
           (every? (partial contains? %) [:broker])]}
-  (let [{:keys [jetty database read-database global command-processing puppetdb]
-         :as config}                            (conf/process-config! config)
-         product-name                               (:product-name global)
-         update-server                              (:update-server global)
-         url-prefix                                 (get-route service)
-         write-db                                   (pl-jdbc/pooled-datasource database)
-         read-db                                    (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
-         gc-interval                                (get database :gc-interval)
-         node-ttl                                   (get database :node-ttl)
-         node-purge-ttl                             (get database :node-purge-ttl)
-         report-ttl                                 (get database :report-ttl)
-         dlo-compression-threshold                  (get command-processing :dlo-compression-threshold)
-         mq-dir                                     (str (file (:vardir global) "mq"))
-         discard-dir                                (file mq-dir "discarded")
-         globals                                    {:scf-read-db          read-db
-                                                     :scf-write-db         write-db
-                                                     :command-mq           {:connection-string (add-max-framesize command-processing mq-addr)
-                                                                            :endpoint          mq-endpoint}
-                                                     :update-server        update-server
-                                                     :product-name         product-name
-                                                     :url-prefix           url-prefix
-                                                     :discard-dir          (.getAbsolutePath discard-dir)
-                                                     :mq-addr              mq-addr
-                                                     :mq-dest              mq-endpoint
-                                                     :mq-threads           (:threads command-processing)
-                                                     :catalog-hash-debug-dir (:catalog-hash-debug-dir global)}]
+  (let [{:keys [global   jetty
+                database read-database
+                puppetdb command-processing]} (conf/process-config! config)
+        {:keys [product-name update-server
+                vardir catalog-hash-debug-dir]} global
+        {:keys [gc-interval    node-ttl
+                node-purge-ttl report-ttl]} database
+        {:keys [dlo-compression-threshold
+                 max-frame-size threads]} command-processing
+        {:keys [certificate-whitelist
+                disable-update-checking]} puppetdb
+        url-prefix (get-route service)
+        write-db (pl-jdbc/pooled-datasource database)
+        read-db (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
+        mq-dir (str (file vardir "mq"))
+        discard-dir (file mq-dir "discarded")
+        mq-connection-str (add-max-framesize max-frame-size mq-addr)
+        authorizer (when certificate-whitelist
+                     (build-whitelist-authorizer certificate-whitelist))
+        globals {:scf-read-db read-db
+                 :scf-write-db write-db
+                 :authorizer authorizer
+                 :command-mq {:connection-string mq-connection-str
+                              :endpoint mq-endpoint}
+                 :update-server update-server
+                 :product-name product-name
+                 :url-prefix url-prefix
+                 :discard-dir (.getAbsolutePath discard-dir)
+                 :mq-addr mq-addr
+                 :mq-dest mq-endpoint
+                 :mq-threads threads
+                 :catalog-hash-debug-dir catalog-hash-debug-dir}]
 
     (when (version)
       (log/info (format "PuppetDB version %s" (version))))
@@ -281,7 +287,7 @@
     (sql/with-connection write-db
       (scf-store/validate-database-version #(System/exit 1))
       (migrate!)
-      (indexes! (:product-name globals)))
+      (indexes! product-name))
 
     ;; Initialize database-dependent metrics and dlo metrics if existent.
     (pop/initialize-metrics write-db)
@@ -297,24 +303,22 @@
                       "PuppetDB troubleshooting guide.")
                      (throw e)))
           context (assoc context :broker broker)
-          updater (when-not (:disable-update-checking puppetdb)
+          updater (when-not disable-update-checking
                     (future (shutdown-on-error
                              (service-id service)
                              #(maybe-check-for-updates product-name update-server read-db)
                              error-shutdown!)))
           context (if updater
                     (assoc context :updater updater)
-                    context)
-          _       (let [authorizer (if-let [wl (:certificate-whitelist puppetdb)]
-                                     (build-whitelist-authorizer wl)
-                                     (constantly :authorized))
-                        app (server/build-app :globals globals :authorizer authorizer)]
-                    (log/info "Starting query server")
-                    (add-ring-handler service (compojure/context url-prefix [] app)))
-          job-pool (mk-pool)]
+                    context)]
+      (let [app (->> (server/build-app globals)
+                     (compojure/context url-prefix []))]
+        (log/info "Starting query server")
+        (add-ring-handler service app))
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
-      (let [gc-interval-millis (to-millis gc-interval)
+      (let [job-pool (mk-pool)
+            gc-interval-millis (to-millis gc-interval)
             gc-task #(interspaced gc-interval-millis % job-pool)
             db-maintenance-tasks [(when (pos? (to-secs node-ttl))
                                     (partial auto-deactivate-nodes! node-ttl))

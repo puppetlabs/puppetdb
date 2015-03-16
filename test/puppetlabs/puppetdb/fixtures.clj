@@ -67,13 +67,13 @@
      (with-http-app {} f))
   ([globals-overrides f]
      (binding [*app* (server/build-app
-                      :globals (merge
-                                {:scf-read-db          *db*
-                                 :scf-write-db         *db*
-                                 :command-mq           *mq*
-                                 :product-name         "puppetdb"
-                                 :url-prefix           ""}
-                                globals-overrides))]
+                       (merge
+                         {:scf-read-db          *db*
+                          :scf-write-db         *db*
+                          :command-mq           *mq*
+                          :product-name         "puppetdb"
+                          :url-prefix           ""}
+                         globals-overrides))]
        (f))))
 
 (defn defaulted-write-db-config

@@ -419,10 +419,10 @@
    (test-app read-write-db read-write-db))
   ([read-db write-db]
    (server/build-app
-    :globals {:scf-read-db          read-db
-              :scf-write-db         write-db
-              :command-mq           *mq*
-              :product-name         "puppetdb"})))
+     {:scf-read-db          read-db
+      :scf-write-db         write-db
+      :command-mq           *mq*
+      :product-name         "puppetdb"})))
 
 (defn with-shutdown-after [dbs f]
   (f)
