@@ -1,9 +1,5 @@
 #!/bin/bash
 
-<% if @pe -%>
-export PATH=/opt/puppet/bin:$PATH
-<% end -%>
-
 # Setup the SSL stuff
 <%= @sbin_dir -%>/puppetdb ssl-setup
 

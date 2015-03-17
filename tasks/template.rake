@@ -16,7 +16,8 @@ task :template => [ :clean ] do
     "ext/templates/puppetdb.erb"            => "ext/files/puppetdb",
     "ext/templates/puppetdb-legacy.erb"     => "ext/files/puppetdb-legacy",
     "ext/templates/init_debian.erb"         => "ext/files/#{@name}.debian.init",
-    "ext/templates/puppetdb-env.erb"        => "ext/files/puppetdb.env"
+    "ext/templates/puppetdb-env.erb"        => "ext/files/puppetdb.env",
+    "ext/templates/puppetdb-ssl-setup.erb"  => "ext/files/puppetdb-ssl-setup"
   }
 
   deb_templates = {
@@ -56,7 +57,6 @@ task :template => [ :clean ] do
   chmod 0700, "ext/files/puppetdb-import"
   chmod 0700, "ext/files/puppetdb-export"
   chmod 0700, "ext/files/puppetdb-anonymize"
-  cp_p "ext/templates/puppetdb-ssl-setup", "ext/files"
   chmod 0700, "ext/files/puppetdb-ssl-setup"
   chmod 0700, "ext/files/puppetdb"
   chmod 0700, "ext/files/puppetdb-legacy"
