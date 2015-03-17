@@ -1,10 +1,9 @@
 (ns puppetlabs.puppetdb.sync.services
-  (:require [compojure.core :as compojure]
-            [puppetlabs.puppetdb.sync.command :as command]
+  (:require [puppetlabs.puppetdb.sync.command :as command]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [get-service]]
-            [compojure.core :refer [routes POST context]]
+            [compojure.core :as compojure :refer [routes POST]]
             [puppetlabs.puppetdb.utils :as utils]))
 
 (defn sync-command?
@@ -12,15 +11,14 @@
   [x]
   (= (:command x) "sync"))
 
-(defn app
+(defn sync-app
   "Top level route for PuppetDB sync"
-  [context-root query-fn origin-path]
-  (compojure/context context-root []
-                     (routes
-                      (POST "/v1/trigger-sync" {:keys [body]}
-                            (let [{:strs [remote_host_path]} (json/parse-string (slurp body))]
-                              (command/sync-to-remote query-fn origin-path remote_host_path)
-                              {:status 200 :body "success"})))))
+  [query-fn origin-path]
+  (routes
+    (POST "/v1/trigger-sync" {:keys [body]}
+          (let [{:strs [remote_host_path]} (json/parse-string (slurp body))]
+            (command/sync-to-remote query-fn origin-path remote_host_path)
+            {:status 200 :body "success"}))))
 
 (defn sync-listener
   "Takes a `query-fn` for in-process querying this instance
@@ -39,7 +37,9 @@
          (let [base-url {:protocol "http"
                          :host "localhost"
                          :port (get-in-config [:jetty :port])
-                         :prefix (get-route (get-service this :PuppetDBServer))}]
-           (add-ring-handler this (app (get-route this) query (utils/base-url->str base-url)))
+                         :prefix (get-route (get-service this :PuppetDBServer))}
+               app (->> (sync-app query (utils/base-url->str base-url))
+                        (compojure/context (get-route this) []))]
+           (add-ring-handler this app)
            (register-listener sync-command? (sync-listener query submit-command))
            context)))
