@@ -2,20 +2,23 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.random :refer [random-string]]
-            [puppetlabs.puppetdb-sync.testutils :as utils]
             [clj-http.client :as http]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.testutils.jetty :as jutils]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :as rt]
-            [puppetlabs.puppetdb-sync.testutils :refer [requests request-catcher-service with-puppetdb-instance CannedResponse expect-response request-catcher-fixture]]
+            [puppetlabs.puppetdb-sync.testutils :as utils :refer [with-puppetdb-instance index-by json-request json-response get-json]]
             [puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.puppetdb-sync.command :as command]
             [puppetlabs.puppetdb.testutils.reports :as tur]
+            [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
-            [puppetlabs.puppetdb.client :as pdb-client]))
-
-(use-fixtures :each request-catcher-fixture)
+            [puppetlabs.puppetdb.client :as pdb-client]
+            [compojure.core :refer [POST routes ANY GET]]
+            [clojure.tools.logging :as log]
+            [clj-time.coerce :refer [to-date-time]]
+            [clj-time.core :as t]
+            [puppetlabs.kitchensink.core :as ks]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Sync stream comparison tests
@@ -56,36 +59,24 @@
       :remote [a1 a2 b1 b2 c1 c2]
       :record ["hash1" "hash2" "hash3" "hash4" "hash5" "hash6"]}]))
 
-(deftest command-test
+(deftest records-to-fetch-test
   (doseq [order orderings]
     (let [record (atom [])
           test-fn (fn [x] (swap! record conj (:hash x)))]
-      (doseq [x (command/compare-streams (:local order) (:remote order))]
+      (doseq [x (command/records-to-fetch (juxt :certname :hash) (constantly 0) (:local order) (:remote order))]
         (test-fn x))
       (is (= (set (:record order)) (set @record))))))
 
-(deftest laziness-of-comparison-seq
+(deftest laziness-of-records-to-fetch
   (let [ten-billion 10000000000]
     (is (= 10
            (count
             (take 10
-                  (command/compare-streams
+                  (command/records-to-fetch (juxt :certname :hash) (constantly 0)
                    [] (map generate-report (range ten-billion)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Tests for the test infrastructure
-
-(defn canned-url []
-  (assoc jutils/*base-url* :prefix "/canned-response" :version :v4))
-
-(defn pdb-url []
-  (assoc jutils/*base-url* :prefix "/pdb" :version :v4))
-
-(deftest canned-response-test
-  (utils/with-puppetdb-instance (utils/sync-config)
-    (let [response-service (get-service jutils/*server* :CannedResponse)]
-      (expect-response response-service "/canned-response/v4/foo" {:status 200 :body "all good"})
-      (is (= "all good" (:body (http/get (str (base-url->str (canned-url)) "/foo"))))))))
 
 (defmacro with-alt-mq [mq-name & body]
   `(with-redefs [puppetlabs.puppetdb.cli.services/mq-endpoint ~mq-name]
@@ -95,89 +86,205 @@
   (jutils/without-jmx
    (with-alt-mq "puppetlabs.puppetdb.commands-1"
      (let [config-1 (utils/sync-config)
-           config-2 (utils/sync-config)
-           port-1 (get-in config-1 [:jetty :port])
-           port-2 (get-in config-2 [:jetty :port])]
+           config-2 (utils/sync-config)]
        (with-puppetdb-instance config-1
          (let [report (tur/munge-example-report-for-storage (:basic reports))]
-           (pdb-client/submit-command-via-http! (assoc jutils/*base-url* :prefix "/pdb") "store report" 5 report)
-           @(rt/block-until-results 100 (export/reports-for-node (assoc jutils/*base-url* :prefix "/pdb") (:certname report)))
+           (pdb-client/submit-command-via-http! (utils/pdb-url) "store report" 5 report)
+           @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report)))
 
            (with-alt-mq "puppetlabs.puppetdb.commands-2"
              (with-puppetdb-instance config-2
-               (pdb-client/submit-command-via-http! (assoc jutils/*base-url* :prefix "/pdb") "store report" 5 report)
-               @(rt/block-until-results 100 (export/reports-for-node (assoc jutils/*base-url* :prefix "/pdb") (:certname report)))))))))))
+               (pdb-client/submit-command-via-http! (utils/pdb-url) "store report" 5 report)
+               @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report)))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Pull from remote instance tests
+;;; Pull changes tests
+;;;
+;;; These tests isolate PDB-Y. We store some fixture data in it, then synthesize
+;;; a sync command. We serve requests back to PDB-X with a mock so we can
+;;; check the right ones were made. Finally, we check that PDB-Y has the right data
+;;; after sync.
 
-(deftest round-trip-test
-  (utils/with-puppetdb-instance (utils/sync-config)
-    (let [response-service (get-service jutils/*server* :CannedResponse)
-          report-2 (-> reports
-                       :basic
-                       (assoc :certname "bar.local")
-                       tur/munge-example-report-for-storage)]
-      (expect-response response-service "/canned-response/v4/reports" {:status 200
-                                                                       :body (json/generate-string [(assoc report-2 :puppet_version "4.0.0")])})
-      (let [report-1 (tur/munge-example-report-for-storage (:basic reports))]
-        (jutils/sync-command-post (pdb-url) "store report" 5 report-1)
-        (jutils/sync-command-post (pdb-url) "store report" 5 report-2)
-        (is (= ["3.0.1"] (map :puppet_version (export/reports-for-node jutils/*base-url* (:certname report-2)))))
-        (jutils/sync-command-post (pdb-url) "sync" 1 {:origin_host_path (base-url->str (canned-url))
-                                                      :entity_type :reports
-                                                      :sync_data [{"certname" "bar.local"
-                                                                   "hash" "something totally different"
-                                                                   "start_time" "2011-01-03T15:00:00Z"}
-                                                                  {"certname" "foo.local"
-                                                                   "hash" "d694c8e38f8efec340a543a55b4448001dfc4184"
-                                                                   "start_time" "2011-01-01T15:00:00Z"}]})
+(defn logging-query-handler [path requests-atom response]
+  (routes (GET path {query-params :query-params}
+               (when-let [query (query-params "query")]
+                 (swap! requests-atom conj query)
+                 (json-response response)))))
 
-        (let [puppet-versions (map :puppet_version (export/reports-for-node jutils/*base-url* (:certname report-2)))]
-          (is (= 2 (count puppet-versions)))
-          (is (= #{"4.0.0" "3.0.1"} (set puppet-versions))))))))
+(deftest pull-reports-test
+  (let [report-1 (-> reports :basic tur/munge-example-report-for-storage)
+        report-2 (assoc report-1 :certname "bar.local")
+        newer-report-2 (assoc report-2 :puppet_version "4.0.0")
+        pdb-x-queries (atom [])
+        stub-handler (logging-query-handler "/pdb-x/v4/reports" pdb-x-queries [newer-report-2])]
+
+    (with-puppetdb-instance (utils/sync-config stub-handler)
+      ;; store two reports in PDB Y
+      (jutils/sync-command-post (utils/pdb-url) "store report" 5 report-1)
+      (jutils/sync-command-post (utils/pdb-url) "store report" 5 report-2)
+
+      (let [created-report-1 (first (export/reports-for-node (utils/pdb-url) (:certname report-1)))
+            created-report-2 (first (export/reports-for-node (utils/pdb-url) (:certname report-2)))]
+        (is (= "3.0.1" (:puppet_version created-report-2)))
+
+        ;; Send a sync command to PDB Y, where one hash is different than what's stored
+        (jutils/sync-command-post (utils/pdb-url) "sync" 1
+                                  {:origin_host_path (utils/stub-url-str "/pdb-x/v4")
+                                   :entity :reports
+                                   :sync_data [{"certname" "bar.local"
+                                                "hash" "something totally different"
+                                                "start_time" "2011-01-03T15:00:00Z"}
+                                               {"certname" "foo.local"
+                                                "hash" (:hash created-report-1)
+                                                "start_time" "2011-01-01T15:00:00Z"}]})
+
+        ;; We should see that the sync happened, and that only one report was pulled from PDB X
+        (let [puppet-versions (map :puppet_version (export/reports-for-node (utils/pdb-url) (:certname report-2)))]
+          (is (= #{"4.0.0" "3.0.1"} (set puppet-versions)))
+          (is (= 1 (count @pdb-x-queries))))))))
+
+(def facts {:certname "foo.local"
+            :environment "DEV"
+            :values tuf/base-facts
+            :producer_timestamp (new java.util.Date)})
+
+(deftest pull-factsets-test
+  (let [newer-facts (assoc facts :environment "PRODUCTION")
+        pdb-x-queries (atom [])
+        stub-handler (logging-query-handler "/pdb-x/v4/factsets" pdb-x-queries [newer-facts])]
+    (with-puppetdb-instance (utils/sync-config stub-handler)
+      ;; store factsets in PDB Y
+      (doseq [c (map char (range (int \a) (int \f)))]
+        (jutils/sync-command-post (utils/pdb-url) "replace facts" 4
+                                  (assoc facts :certname (str c ".local"))))
+
+      (let [local-factsets (index-by :certname (get-json (utils/pdb-url) "/factsets"))
+            timestamps (ks/mapvals (comp to-date-time :producer_timestamp) local-factsets)]
+        (is (= 5 (count local-factsets)))
+
+        ;; Send a sync command to PDB Y
+        (jutils/sync-command-post (utils/pdb-url) "sync" 1
+                                  {:origin_host_path (utils/stub-url-str "/pdb-x/v4")
+                                   :entity :factsets
+                                   :sync_data [;; time is newer than local, hash is different -> should pull
+                                               {:certname "a.local"
+                                                :hash "different"
+                                                :producer_timestamp (t/plus (timestamps "a.local") (t/days 1))}
+                                               ;; time is older than local, hash is different -> no pull
+                                               {:certname "b.local"
+                                                :hash "different"
+                                                :producer_timestamp (t/minus (timestamps "b.local") (t/days 1))}
+                                               ;; time is the same, hash is the same -> no pull
+                                               {:certname "c.local"
+                                                :hash (-> local-factsets (get "c.local") :hash)
+                                                :producer_timestamp (timestamps "c.local")}
+                                               ;; time is the same, hash is lexically less -> no pull
+                                               {:certname "d.local"
+                                                :hash "0000000000000000000000000000000000000000"
+                                                :producer_timestamp (timestamps "d.local")}
+                                               ;; time is the same, hash is lexically greater -> should pull
+                                               {:certname "e.local"
+                                                :hash "ffffffffffffffffffffffffffffffffffffffff"
+                                                :producer_timestamp (timestamps "e.local")}]}))
+
+      ;; We should see that the sync happened, and that only one factset query was made to PDB X
+      (let [synced-factsets (get-json (utils/pdb-url) "/factsets")
+            environments (->> synced-factsets (map :environment) (into #{}))]
+        (is (= #{"DEV" "PRODUCTION"} (set environments)))
+        (is (= 2 (count @pdb-x-queries)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Push to remote instance tests
+;;; Trigger sync tests
+;;;
+;;; These tests isolate PDB X. It is first started and populated with fixture data.
+;;; Then a sync is triggered, with the destination URL "/request-catcher/consume-request"
+;;; standing in place of PDB Y. This endpoint is made available in the with-puppetdb-instance
+;;; test helper function, and all requests to it end up in @requests. We can then use
+;;; that to check that the appropriate sync command was sent.
+(defn trigger-sync [remote-host-url-str]
+  (http/post (utils/trigger-sync-url-str)
+             (json-request {:remote_host_path remote-host-url-str})))
 
-(deftest test-push
-  (with-puppetdb-instance (utils/sync-config)
-    (let [report (tur/munge-example-report-for-storage (:basic reports))]
-      (jutils/sync-command-post (pdb-url) "store report" 5 report)
-      (http/post (str (base-url->str (assoc jutils/*base-url*
-                                       :prefix "/sync"
-                                       :version :v1)) "/trigger-sync")
-                 {:headers {"content-type" "application/json"}
-                  :throw-exceptions false
-                  :body (json/generate-string {:remote_host_path (str (base-url->str (assoc jutils/*base-url* :prefix "/request-catcher" :version :v1)) "/consume-request")})})
-      (is (= {"command" "sync",
-              "version" 1,
-              "payload" {"origin_host_path" (base-url->str (assoc jutils/*base-url* :prefix "/pdb"))
-                         "entity_type" "reports"
-                         "sync_data" [{"certname" "foo.local" "hash" "fe522613ab895955370f1c2b7b5d8b53c0e53ba5", "start_time" "2011-01-01T15:00:00Z"}]}}
-             (json/parse-string (:body (first @requests))))))))
+(defn logging-command-handler [path requests-atom]
+  (routes
+   (POST path {:as req}
+         (swap! requests-atom conj (update-in req [:body] slurp))
+         {:status 200 :body "Success"})))
+
+(deftest test-push-report
+  (let [requests-atom (atom [])]
+   (with-puppetdb-instance (utils/sync-config (logging-command-handler "/pdb-y/v4" requests-atom))
+     (let [report (tur/munge-example-report-for-storage (:basic reports))]
+       (jutils/sync-command-post (utils/pdb-url) "store report" 5 report)
+       (trigger-sync (utils/stub-url-str "/pdb-y/v4"))
+
+       (is (= {:command "sync",
+               :version 1,
+               :payload {:origin_host_path (utils/pdb-url-str)
+                         :entity "reports"
+                         :sync_data [{:certname "foo.local"
+                                      :hash "fe522613ab895955370f1c2b7b5d8b53c0e53ba5"
+                                      :start_time "2011-01-01T15:00:00Z"}]}}
+              (-> @requests-atom first :body (json/parse-string true))))))))
+
+(deftest test-push-factset
+  (let [requests-atom (atom [])]
+    (with-puppetdb-instance (utils/sync-config (logging-command-handler "/pdb-y/v4" requests-atom))
+     (jutils/sync-command-post (utils/pdb-url) "replace facts" 4 facts)
+     (trigger-sync (utils/stub-url-str "/pdb-y/v4"))
+
+     (let [factset-sync-request (->> @requests-atom
+                                     (map :body)
+                                     (map #(json/parse-string % true))
+                                     (filter #(= (:command %) "sync"))
+                                     (filter #(= (get-in % [:payload :entity]) "factsets"))
+                                     first)
+           actual-timestamp (get-in factset-sync-request [:payload :sync_data 0 :producer_timestamp])]
+       (is (= {:command "sync",
+               :version 1,
+               :payload {:origin_host_path (utils/pdb-url-str)
+                         :entity "factsets"
+                         :sync_data [{:certname "foo.local"
+                                      :hash "d280ba770e32b852588711b87e141605c3d14cb6"
+                                      :producer_timestamp actual-timestamp}]}}
+              factset-sync-request))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; End to end tests
 
-(deftest end-to-end-report-replication
-  (jutils/without-jmx
-   (with-alt-mq "puppetlabs.puppetdb.commands-1"
-     (let [config-1 (utils/sync-config)
-           config-2 (utils/sync-config)
-           port-1 (get-in config-1 [:jetty :port])
-           port-2 (get-in config-2 [:jetty :port])]
-       (with-puppetdb-instance config-1
-         (let [report (tur/munge-example-report-for-storage (:basic reports))]
-           (pdb-client/submit-command-via-http! (assoc jutils/*base-url* :prefix "/pdb") "store report" 5 report)
-           @(rt/block-until-results 100 (export/reports-for-node (assoc jutils/*base-url* :prefix "/pdb") (:certname report)))
-           (with-alt-mq "puppetlabs.puppetdb.commands-2"
-             (with-puppetdb-instance config-2
-               (http/post (str (base-url->str (assoc jutils/*base-url* :prefix "/sync" :port port-1 :version :v1))  "/trigger-sync")
-                          {:headers {"content-type" "application/json"}
-                           :body (json/generate-string {:remote_host_path (str (base-url->str (assoc jutils/*base-url* :prefix "/pdb")) "/commands") })
-                           :throw-exceptions false})
+(defn- with-n-pdbs
+  ([n f] (jutils/without-jmx
+          (with-n-pdbs n f [])))
+  ([n f pdb-infos]
+   (if (= n (count pdb-infos))
+     (apply f pdb-infos)
+     (let [config (utils/sync-config)
+           mq-name (str "puppetlabs.puppetdb.commands-" (inc (count pdb-infos)))]
+       (with-alt-mq mq-name
+         (with-puppetdb-instance config
+           (with-n-pdbs n f
+             (conj pdb-infos {:mq-name mq-name
+                              :config config
+                              :service-url (assoc jutils/*base-url* :prefix "/pdb" :version :v4)
+                              :sync-url    (assoc jutils/*base-url* :prefix "/sync" :version :v1)}))))))))
 
-               @(rt/block-until-results 200 (export/reports-for-node (assoc jutils/*base-url* :prefix "/pdb") (:certname report)))
-               (is (= (export/reports-for-node (assoc jutils/*base-url* :port port-1 :prefix "/pdb") (:certname report))
-                      (export/reports-for-node (assoc jutils/*base-url* :port port-2 :prefix "/pdb") (:certname report))))))))))))
+(deftest end-to-end-report-replication
+  (with-n-pdbs 2
+    (fn [pdb1 pdb2]
+      (let [report (tur/munge-example-report-for-storage (:basic reports))]
+        (with-alt-mq (:mq-name pdb1)
+          (pdb-client/submit-command-via-http! (:service-url pdb1) "store report" 5 report)
+          @(rt/block-until-results 100 (export/reports-for-node (:service-url pdb1) (:certname report))))
+
+        (with-alt-mq (:mq-name pdb2)
+          ;; pdb1 -> pdb2 "here's my hashes, pull from me what you need"
+          (http/post (str (base-url->str (:sync-url pdb1)) "/trigger-sync")
+                     {:headers {"content-type" "application/json"}
+                      :body (json/generate-string {:remote_host_path (str (base-url->str (:service-url pdb2)) "/commands") })
+                      :throw-entire-message true})
+
+          ;; now pdb2 receives the message, from pdb1, and works on queue #2
+          @(rt/block-until-results 200 (export/reports-for-node (:service-url pdb2) (:certname report)))
+
+          (is (= (export/reports-for-node (:service-url pdb1) (:certname report))
+                 (export/reports-for-node (:service-url pdb2) (:certname report)))))))))
