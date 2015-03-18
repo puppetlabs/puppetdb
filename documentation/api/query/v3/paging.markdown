@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.2 » API » v3 » Paged Queries"
+title: "PuppetDB 2.3 » API » v3 » Paged Queries"
 layout: default
 canonical: "/puppetdb/latest/api/query/v3/paging.html"
 ---
