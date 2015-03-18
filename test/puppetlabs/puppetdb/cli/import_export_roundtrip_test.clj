@@ -16,7 +16,7 @@
             [puppetlabs.puppetdb.client :as pdb-client]
             [slingshot.slingshot :refer [throw+ try+]]
             [slingshot.test]
-            [puppetlabs.puppetdb.testutils.jetty :as jutils :refer [*base-url*]]))
+            [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*base-url*]]))
 
 (use-fixtures :each fixt/with-test-logging-silenced)
 
@@ -36,10 +36,10 @@
 (defn block-until-queue-empty
   "Blocks the current thread until all messages from the queue have been processed."
   []
-  (loop [depth (jutils/current-queue-depth)]
+  (loop [depth (svc-utils/current-queue-depth)]
     (when (< 0 depth)
       (Thread/sleep 10)
-      (recur (jutils/current-queue-depth)))))
+      (recur (svc-utils/current-queue-depth)))))
 
 (defn block-until-results-fn
   "Executes `f`, if results are found, return them, otherwise
@@ -88,8 +88,8 @@
         catalog (-> (get-in wire-catalogs [6 :empty])
                     (assoc :certname "foo.local"))
         report (:basic reports)
-        with-server #(jutils/puppetdb-instance
-                      (assoc-in (jutils/create-config)
+        with-server #(svc-utils/puppetdb-instance
+                      (assoc-in (svc-utils/create-config)
                                 [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service] url-prefix)
                       %)]
 
@@ -97,15 +97,20 @@
       (fn []
         (is (empty? (export/get-nodes *base-url*)))
 
-        (jutils/sync-command-post *base-url* "replace catalog" 6 catalog)
-        (jutils/sync-command-post *base-url* "store report" 5 (tur/munge-example-report-for-storage report))
-        (jutils/sync-command-post *base-url* "replace facts" 4 facts)
+        (svc-utils/sync-command-post *base-url* "replace catalog" 6 catalog)
+        (svc-utils/sync-command-post *base-url* "store report" 5
+                                     (tur/munge-example-report-for-storage report))
+        (svc-utils/sync-command-post *base-url* "replace facts" 4 facts)
 
-        (is (testutils/=-after? munge-catalog catalog (-> (export/catalog-for-node *base-url* (:certname catalog))
-                                                          (json/parse-string true))))
+        (is (testutils/=-after? munge-catalog catalog
+                                (-> *base-url*
+                                    (export/catalog-for-node (:certname catalog))
+                                    (json/parse-string true))))
 
-        (is (testutils/=-after? munge-report report (-> (export/reports-for-node *base-url* (:certname report))
-                                                        first)))
+        (is (testutils/=-after? munge-report report
+                                (-> *base-url*
+                                    (export/reports-for-node (:certname report))
+                                    first)))
         (is (= facts (export/facts-for-node *base-url* "foo.local")))
 
         (apply #'export/main
@@ -117,7 +122,7 @@
       (fn []
         (is (empty? (export/get-nodes *base-url*)))
 
-        (jutils/until-consumed
+        (svc-utils/until-consumed
          3
          (fn []
            (apply #'import/main
@@ -125,8 +130,10 @@
                   "--host" (:host *base-url*) "--port" (:port *base-url*)
                   (when-not (empty? url-prefix) ["--url-prefix" url-prefix]))))
 
-        (is (testutils/=-after? munge-catalog catalog (-> (export/catalog-for-node *base-url* (:certname catalog))
-                                                          (json/parse-string true))))
+        (is (testutils/=-after? munge-catalog catalog
+                                (-> *base-url*
+                                    (export/catalog-for-node (:certname catalog))
+                                    (json/parse-string true))))
 
         ;; For some reason, although the fact's/report's message has
         ;; been consumed and committed, it's not immediately available
@@ -137,8 +144,10 @@
         @(block-until-results 100 (export/reports-for-node *base-url* (:certname report)))
 
         (is (= facts (export/facts-for-node *base-url* "foo.local")))
-        (is (testutils/=-after? munge-report report (-> (export/reports-for-node *base-url* (:certname report))
-                                                        first)))))))
+        (is (testutils/=-after? munge-report report
+                                (-> *base-url*
+                                    (export/reports-for-node (:certname report))
+                                    first)))))))
 
 (deftest basic-roundtrip
   (test-basic-roundtrip nil))
@@ -149,8 +158,8 @@
 (deftest test-max-frame-size
   (let [catalog (-> (get-in wire-catalogs [6 :empty])
                     (assoc :certname "foo.local"))]
-    (jutils/puppetdb-instance
-     (assoc-in (jutils/create-config) [:command-processing :max-frame-size] "1024")
+    (svc-utils/puppetdb-instance
+     (assoc-in (svc-utils/create-config) [:command-processing :max-frame-size] "1024")
      (fn []
        (is (empty? (export/get-nodes *base-url*)))
        (pdb-client/submit-command-via-http! *base-url* "replace catalog" 6 catalog)
