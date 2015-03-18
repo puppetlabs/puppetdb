@@ -1094,11 +1094,18 @@
     (is (= (map :name (query-to-vec "SELECT name FROM certnames ORDER BY name ASC"))
            ["node1" "node3"]))))
 
+(defn update-event-timestamps
+  "Changes each timestamp in the `report`'s resource-events to `new-timestamp`"
+  [report new-timestamp]
+  (update-in report [:resource-events]
+             (fn [events]
+               (map #(assoc % :timestamp new-timestamp) events))))
+
 ;; Report tests
 
 (let [timestamp     (now)
       report        (:basic reports)
-      report-hash   (shash/report-identity-hash report)
+      report-hash   (shash/report-identity-hash (normalize-report report))
       certname      (:certname report)]
 
   (deftest report-storage
@@ -1173,6 +1180,12 @@
             expected      (expected-reports [(assoc report2 :hash report2-hash)])
             actual        (reports-query-result :v4 ["=" "certname" certname])]
         (is (= expected actual)))))
+
+  (deftest report-with-event-timestamp
+    (let [z-report (update-event-timestamps report "2011-01-01T12:00:01Z")
+          offset-report (update-event-timestamps report "2011-01-01T12:00:01-0000")]
+      (is (= (shash/report-identity-hash (normalize-report z-report))
+             (shash/report-identity-hash (normalize-report offset-report))))))
 
   (deftest resource-events-cleanup
     (testing "should delete all events for reports older than the specified age"

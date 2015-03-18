@@ -285,7 +285,7 @@
         :new-value nil
         :containing-class "Foo"
         :report-receive-time "2014-04-16T12:44:40.978Z"
-        :report "e52935c051785ec6f3eeb67877aed320c90c2a88"
+        :report "93d449ce6907e55e463c5ff67b9019d9bdef8ae8"
         :resource-title "hi"
         :property nil
         :file "bar"
@@ -310,7 +310,7 @@
         :new-value nil
         :containing-class "Foo"
         :report-receive-time "2014-04-16T12:44:40.978Z"
-        :report "e52935c051785ec6f3eeb67877aed320c90c2a88"
+        :report "93d449ce6907e55e463c5ff67b9019d9bdef8ae8"
         :resource-title "hi"
         :property nil
         :file "bar"
@@ -337,7 +337,7 @@
         :new-value nil
         :containing-class "Foo"
         :report-receive-time "2014-04-16T12:44:40.978Z"
-        :report "e52935c051785ec6f3eeb67877aed320c90c2a88"
+        :report "93d449ce6907e55e463c5ff67b9019d9bdef8ae8"
         :resource-title "hi"
         :property nil
         :file "bar"

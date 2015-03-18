@@ -71,7 +71,7 @@
       a value for this."
   [validate-fn example-report timestamp update-latest-report?]
   (let [example-report  (munge-example-report-for-storage example-report)
-        report-hash     (shash/report-identity-hash example-report)]
+        report-hash     (shash/report-identity-hash (scf-store/normalize-report example-report))]
     (validate-fn)
     (scf-store/maybe-activate-node! (:certname example-report) timestamp)
     (scf-store/add-report!* example-report timestamp update-latest-report?)
