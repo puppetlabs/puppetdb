@@ -162,6 +162,7 @@
    "none" {
            "rules" {
                     "node" [ {"context" {} "anonymize" false} ]
+                    "log-message" [ {"context" {} "anonymize" false} ]
                     "type" [ {"context" {} "anonymize" false} ]
                     "title" [ {"context" {} "anonymize" false} ]
                     "parameter-name" [ {"context" {} "anonymize" false} ]

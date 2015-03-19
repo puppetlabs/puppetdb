@@ -237,7 +237,7 @@
 (deftest test-anonymize-tag
   (testing "should anonymize a tag"
     (let [input  "my::class"
-          result (anonymize-tag input {} {})]
+          result (anonymize-lowercase-type input {} {})]
       (is (not (= input result)))
       (is (string? result)))))
 
