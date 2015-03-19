@@ -48,13 +48,30 @@ Install Leiningen:
 
 Run the following commands:
 
+> **Note:**
+>
+> If you are using the Puppet all-in-one agent, the `rake` command below should
+> be replaced by the `rake` version supplied by the all-in-one agent at
+> `/opt/puppetlabs/puppet/bin/rake`
+
     $ mkdir -p ~/git && cd ~/git
     $ git clone git://github.com/puppetlabs/puppetdb
     $ cd puppetdb
     $ rake package:bootstrap
     $ sudo LEIN_ROOT=true rake install
 
-This will install PuppetDB, put a `puppetdb` init script in `/etc/init.d` and create a default configuration directory in `/etc/puppetdb`.
+This will install PuppetDB, putting a `puppetdb` init script in `/etc/init.d` on
+[sysvinit](http://en.wikipedia.org/wiki/Init#SysV-style) based systems or in
+`/etc/sysconfig` on [systemd](http://en.wikipedia.org/wiki/Systemd) based systems.
+This also creates a default configuration directory in `/etc/puppetdb`.
+
+The puppetdb service is set to run as the puppetdb user. You will need to add
+this user to your system.
+
+Create a `puppetdb` user and group:
+
+    $ sudo groupadd puppetdb
+    $ sudo useradd puppetdb -g puppetdb
 
 Step 2, Option B: Run Directly from Source
 -----
@@ -156,13 +173,17 @@ If this is a production deployment, you should confirm and configure your databa
 You can change PuppetDB's database at any time, but note that changing the database does not migrate PuppetDB's data, so the new database will be empty. However, as this data is automatically generated many times a day, PuppetDB should recover in a relatively short period of time.
 
 
+Set `puppetdb` ownership on puppetdb system files:
+
+    $ sudo chown -R puppetdb:puppetdb /etc/puppetdb
+    $ sudo chown -R puppetdb:puppetdb /var/lib/puppetdb
 
 Step 6: Start the PuppetDB Service
 -----
 
 If you _installed_ PuppetDB from source, you can start PuppetDB by running the following:
 
-    $ sudo /etc/init.d/puppetdb start
+    $ sudo service puppetdb start
 
 And if Puppet is installed, you can permanently enable PuppetDB by running:
 
