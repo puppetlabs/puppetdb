@@ -303,7 +303,7 @@
    ["-N" "--nummsgs NUMMSGS" "Number of commands and/or reports to send for each host"]])
 
 (def required-cli-options
-  [:config])
+  [:config :numhosts])
 
 (defn activate-logging!
   [options]
@@ -321,6 +321,11 @@
     (do
       (log/error
         "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
+      (action-on-error-fn))
+
+    (not-any? #{:nummsgs :runinterval} (keys options))
+    (do
+      (log/error "Error: Either -N/--nummsgs or -i/--runinterval is required.")
       (action-on-error-fn))
 
     (and (contains? options :archive)
