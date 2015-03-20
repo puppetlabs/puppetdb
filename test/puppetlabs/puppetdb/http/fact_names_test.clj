@@ -48,18 +48,18 @@
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp nil})
+                             :producer_timestamp (now)})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp nil})
+                             :producer_timestamp (now)})
       (scf-store/deactivate-node! "foo1")
       (scf-store/add-facts! {:certname "foo1"
                              :values  facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp nil}))
+                             :producer_timestamp (now)}))
 
     (testing "should retrieve all fact names, order alphabetically, including deactivated nodes"
       (let [request (get-request endpoint)
@@ -112,18 +112,18 @@
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp nil})
+                             :producer_timestamp (now)})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp nil})
+                             :producer_timestamp (now)})
       (scf-store/deactivate-node! "foo1")
       (scf-store/add-facts! {:certname "foo1"
                              :values  facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp nil}))
+                             :producer_timestamp (now)}))
 
     (testing "query should return appropriate results"
       (let [request (get-request

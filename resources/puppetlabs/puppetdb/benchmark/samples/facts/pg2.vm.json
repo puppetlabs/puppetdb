@@ -1,5 +1,6 @@
 {
   "certname" : "pg2.vm",
+  "producer_timestamp" : "2015-03-02T21:51:45.395Z",
   "values" : {
     "mtu_eth0" : "1500",
     "path" : "/usr/lib64/qt-3.3/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin",

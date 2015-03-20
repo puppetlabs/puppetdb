@@ -1,5 +1,6 @@
 {
   "certname" : "puppetdb1.vm",
+  "producer_timestamp" : "2015-03-02T21:51:45.395Z",
   "values" : {
     "mtu_eth0" : "1500",
     "path" : "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",

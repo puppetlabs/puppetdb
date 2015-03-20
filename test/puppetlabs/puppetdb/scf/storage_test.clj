@@ -77,7 +77,7 @@
                    :values facts
                    :timestamp previous-time
                    :environment nil
-                   :producer_timestamp nil})
+                   :producer_timestamp previous-time})
       (testing "should have entries for each fact"
         (is (= (query-to-vec
                 "SELECT fp.path as name,
@@ -106,9 +106,6 @@
       (testing "should add the certname if necessary"
         (is (= (query-to-vec "SELECT certname FROM certnames")
                [{:certname certname}])))
-      (testing "producer_timestamp should store nil"
-        (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
-               [{:producer_timestamp nil}])))
       (testing "replacing facts"
         ;;Ensuring here that new records are inserted, updated
         ;;facts are updated (not deleted and inserted) and that
@@ -169,7 +166,7 @@
         (replace-facts! {:certname certname
                          :values facts
                          :environment "DEV"
-                         :producer_timestamp nil
+                         :producer_timestamp (now)
                          :timestamp (now)})
         (is (= facts (factset-map "some_certname"))))
 
@@ -179,11 +176,11 @@
                      :values facts
                      :timestamp previous-time
                      :environment nil
-                     :producer_timestamp nil})
+                     :producer_timestamp previous-time})
         (replace-facts! {:certname certname
                          :values {"foo" "bar"}
                          :environment "DEV"
-                         :producer_timestamp nil
+                         :producer_timestamp (now)
                          :timestamp (now)})
         (is (= {"foo" "bar"} (factset-map "some_certname"))))
 
@@ -192,7 +189,7 @@
           (replace-facts! {:certname certname
                            :values (assoc fact-map "one more" "here")
                            :environment "DEV"
-                           :producer_timestamp nil
+                           :producer_timestamp (now)
                            :timestamp (now)})
           (is (= (assoc fact-map  "one more" "here")
                  (factset-map "some_certname")))))
@@ -202,7 +199,7 @@
           (replace-facts! {:certname certname
                            :values fact-map
                            :environment "DEV"
-                           :producer_timestamp nil
+                           :producer_timestamp (now)
                            :timestamp (now)})
           (is (= fact-map
                  (factset-map "some_certname")))))
@@ -244,7 +241,7 @@
                    :values facts
                    :timestamp previous-time
                    :environment "PROD"
-                   :producer_timestamp nil})
+                   :producer_timestamp previous-time})
 
       (testing "should have entries for each fact"
         (is (= facts
@@ -274,7 +271,7 @@
         :values facts
         :timestamp (-> 1 days ago)
         :environment "DEV"
-        :producer_timestamp nil})
+        :producer_timestamp (-> 1 days ago)})
 
       (testing "should have the same entries for each fact"
         (is (= facts
@@ -300,7 +297,7 @@
 (deftest fact-path-value-gc
   (letfn [(facts-now [c v]
             {:certname c :values v
-             :environment nil :timestamp (now) :producer_timestamp nil})
+             :environment nil :timestamp (now) :producer_timestamp (now)})
           (paths [& fact-sets]
             (set (for [k (mapcat keys fact-sets)] {:path k :name k :depth 0})))
           (values [& fact-sets] (set (mapcat vals fact-sets)))
@@ -655,7 +652,7 @@
                  :values facts
                  :timestamp (-> 2 days ago)
                  :environment "ENV3"
-                 :producer_timestamp nil}))
+                 :producer_timestamp (-> 2 days ago)}))
   (let [factset-id (:id (first (query-to-vec ["SELECT id from factsets"])))
         fact-value-ids (set (map :id (query-to-vec ["SELECT id from fact_values"])))]
 
@@ -715,7 +712,7 @@
                    :values facts
                    :timestamp (-> 2 days ago)
                    :environment "ENV3"
-                   :producer_timestamp nil})
+                   :producer_timestamp (-> 2 days ago)})
       (delete-certname-facts! certname))
 
     (is (= (query-to-vec ["SELECT COUNT(*) as c FROM environments"])
@@ -1503,3 +1500,7 @@
             {:line 20 :resource "bar hash"}}
 
            (merge-resource-hash ref->hash ref->resource)))))
+
+(deftest test-resources-exist?
+  (testing "With empty input"
+    (is (= #{}  (resources-exist? #{})))))

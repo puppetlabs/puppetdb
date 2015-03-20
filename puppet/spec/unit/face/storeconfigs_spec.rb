@@ -107,7 +107,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
 
           catalog = JSON.load(results['catalogs/foo.json'])
 
-          catalog.keys.should =~ ['metadata', 'environment', 'certname', 'version', 'edges', 'resources']
+          catalog.keys.should =~ ['metadata', 'environment', 'certname', 'version', 'edges', 'resources', 'timestamp', 'producer_timestamp']
 
           catalog['metadata'].should == {'api_version' => 1}
 

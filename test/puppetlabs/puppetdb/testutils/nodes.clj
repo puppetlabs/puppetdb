@@ -43,22 +43,22 @@
                            :values {"ipaddress" "192.168.1.100" "hostname" "web1" "operatingsystem" "Debian" "uptime_seconds" 10000}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-facts! {:certname web2
                            :values {"ipaddress" "192.168.1.101" "hostname" "web2" "operatingsystem" "Debian" "uptime_seconds" 13000}
                            :timestamp (plus (now) (secs 1))
                            :environment "DEV"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-facts! {:certname puppet
                            :values {"ipaddress" "192.168.1.110" "hostname" "puppet" "operatingsystem" "RedHat" "uptime_seconds" 15000}
                            :timestamp (plus (now) (secs 2))
                            :environment "DEV"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-facts! {:certname db
                            :values {"ipaddress" "192.168.1.111" "hostname" "db" "operatingsystem" "Debian"}
                            :timestamp (plus (now) (secs 3))
                            :environment "DEV"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/replace-catalog! (assoc web1-catalog :certname web1) (now))
     (scf-store/replace-catalog! (assoc puppet-catalog :certname puppet) (plus (now) (secs 1)))
     (scf-store/replace-catalog! (assoc db-catalog :certname db) (plus (now) (secs 2)))

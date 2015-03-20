@@ -40,10 +40,13 @@ test_name "structured and trusted facts should be available through facts termin
     end
 
     step "create a custom structured fact" do
+      time = Time.now.iso8601
       payload = <<-EOM
       -H "Accept: application/json" -H "Content-Type: application/json" \
       -d '{"command":"replace facts","version":4, \
       "payload":{"environment":"DEV","certname":"#{master}", \
+      "timestamp": "#{time}", \
+      "producer_timestamp": "#{time}", \
       "values":{"my_structured_fact":#{JSON.generate(structured_data)}}}}' http://localhost:8080/v4/commands
       EOM
       on database, %Q|curl -X POST #{payload}|

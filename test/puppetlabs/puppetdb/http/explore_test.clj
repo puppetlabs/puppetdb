@@ -57,17 +57,17 @@
                            :values facts1
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-facts! {:certname "host2"
                            :values facts2
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-facts! {:certname "host3"
                            :values facts3
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/deactivate-node! "host3")
 
     (let [version :v4

@@ -326,3 +326,37 @@
           (let [latest-ids (map :latest_report_id
                                 (query-to-vec "select latest_report_id from certnames order by name"))]
             (is (= [id1 id2] latest-ids))))))))
+
+(deftest migration-33
+  (sql/with-connection db
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 32)
+
+    (let [current-time (to-timestamp (now))]
+      (sql/insert-record :environments
+                         {:id 1
+                          :name "test env"})
+      (sql/insert-record :certnames
+                         {:certname "foo.local"})
+      (sql/insert-record :catalogs
+                         {:hash "18440af604d18536b1c77fd688dff8f0f9689d90"
+                          :api_version 1
+                          :catalog_version 1
+                          :transaction_uuid "95d132b3-cb21-4e0a-976d-9a65567696ba"
+                          :timestamp current-time
+                          :certname "foo.local"
+                          :environment_id 1
+                          :producer_timestamp nil})
+      (sql/insert-record :factsets
+                         {:hash "18440af604d18536b1c77fd688dff8f0f9689d90"
+                          :timestamp current-time
+                          :certname "foo.local"
+                          :environment_id 1
+                          :producer_timestamp nil})
+
+      (apply-migration-for-testing! 33)
+
+      (let [catalogs-response (query-to-vec "SELECT producer_timestamp FROM catalogs")
+            factsets-response (query-to-vec "SELECT producer_timestamp FROM factsets")]
+        (is (= catalogs-response [{:producer_timestamp current-time}]))
+        (is (= factsets-response [{:producer_timestamp current-time}]))))))

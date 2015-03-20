@@ -62,27 +62,27 @@
                            :values {"kernel" "Linux"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer_timestamp nil})
+                           :producer_timestamp timestamp})
     (scf-store/add-facts! {:certname "node_b"
                            :values {"kernel" "Linux"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer_timestamp nil})
+                           :producer_timestamp timestamp})
     (scf-store/add-facts! {:certname "node_c"
                            :values {"kernel" "Darwin"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer_timestamp nil})
+                           :producer_timestamp timestamp})
     (scf-store/add-facts! {:certname "node_d"
                            :values {"uptime_seconds" "10000"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer_timestamp nil})
+                           :producer_timestamp timestamp})
     (scf-store/add-facts! {:certname "node_e"
                            :values {"uptime_seconds" "10000"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer_timestamp nil})
+                           :producer_timestamp timestamp})
 
     (testing "basic combination testing"
       (let [test-cases {["=" ["fact" "kernel"] "Linux"]
@@ -109,9 +109,19 @@
                                              [3 "node_c" 3 1]
                                              [4 "node_d" 2 3]
                                              [5 "node_e" 5 2]]]
-      (sql/insert-record :certnames {:certname node})
-      (sql/insert-record :factsets {:certname node :timestamp (to-timestamp (-> facts-age days ago))})
-      (sql/insert-record :catalogs {:id id :hash node :api_version 0 :catalog_version 0 :certname node :timestamp (to-timestamp (minus right-now (-> catalog-age days)))})))
+      (let [factset-timestamp (to-timestamp (-> facts-age days ago))
+            catalog-timestamp (to-timestamp (minus right-now (-> catalog-age days)))]
+        (sql/insert-record :certnames {:certname node})
+        (sql/insert-record :factsets {:certname node
+                                      :timestamp factset-timestamp
+                                      :producer_timestamp factset-timestamp})
+        (sql/insert-record :catalogs {:id id
+                                      :hash node
+                                      :api_version 0
+                                      :catalog_version 0
+                                      :certname node
+                                      :timestamp catalog-timestamp
+                                      :producer_timestamp catalog-timestamp}))))
 
   (let [version [:v4]]
 

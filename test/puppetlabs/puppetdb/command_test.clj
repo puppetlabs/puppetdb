@@ -263,7 +263,8 @@
                                 {:hash "some_catalog_hash_existing"
                                  :api_version 1
                                  :catalog_version "foo"
-                                 :certname certname})
+                                 :certname certname
+                                 :producer_timestamp (to-timestamp (now))})
 
             (test-msg-handler command publish discard-dir
               (is (= (query-to-vec "SELECT certname, hash as catalog, environment_id FROM catalogs")
@@ -280,7 +281,8 @@
               (sql/insert-records :catalogs {:hash "some_catalog_hash"
                                              :api_version 1
                                              :catalog_version "foo"
-                                             :certname certname})
+                                             :certname certname
+                                             :producer_timestamp (to-timestamp (now))})
 
               (is (nil? (fs/list-dir debug-dir)))
               (test-msg-handler-with-opts command publish discard-dir {:catalog-hash-debug-dir debug-dir}
@@ -306,7 +308,8 @@
                                           :api_version 1
                                           :catalog_version "foo"
                                           :certname certname
-                                          :timestamp tomorrow})
+                                          :timestamp tomorrow
+                                          :producer_timestamp (to-timestamp (now))})
 
             (test-msg-handler command publish discard-dir
               (is (= (query-to-vec "SELECT certname, hash as catalog FROM catalogs")
@@ -462,7 +465,8 @@
                  :environment "DEV"
                  :values {"a" "1"
                           "b" "2"
-                          "c" "3"}}
+                          "c" "3"}
+                 :producer_timestamp (to-timestamp (now))}
       v4-command {:command (command-names :replace-facts)
                   :version 4
                   :payload facts}
@@ -550,7 +554,7 @@
        (scf-store/add-facts! {:certname certname
                               :values {"x" "24" "y" "25" "z" "26"}
                               :timestamp tomorrow
-                              :producer_timestamp nil
+                              :producer_timestamp (to-timestamp (now))
                               :environment "DEV"}))
 
       (testing "should ignore the message"
@@ -666,7 +670,9 @@
                           "fqdn" "myhost.mydomain.com"
                           "hostname" "myhost"
                           "kernel" "Linux"
-                          "operatingsystem" "Debian"}}
+                          "operatingsystem" "Debian"
+                          }
+                 :producer_timestamp (to-timestamp (now))}
           command   {:command (command-names :replace-facts)
                      :version 4
                      :payload facts}
@@ -680,7 +686,7 @@
                               :values (:values facts)
                               :timestamp (-> 2 days ago)
                               :environment nil
-                              :producer_timestamp nil}))
+                              :producer_timestamp (-> 2 days ago)}))
 
       (with-redefs [scf-store/update-facts! (fn [fact-data]
                                               (.put hand-off-queue "got the lock")
@@ -726,12 +732,14 @@
                   :environment nil
                   :values {"domain" "mydomain1.com"
                            "operatingsystem" "Debian"
-                           "mytimestamp" "1"}}
+                           "mytimestamp" "1"}
+                  :producer_timestamp (now)}
         facts-2a {:certname certname-2
                   :environment nil
                   :values {"domain" "mydomain2.com"
                            "operatingsystem" "Debian"
-                           "mytimestamp" "1"}}
+                           "mytimestamp" "1"}
+                  :producer_timestamp (now)}
 
         ;; same facts as before, but now certname-1 has a different
         ;; fact value for mytimestamp (this will force a new fact_value
@@ -740,7 +748,8 @@
                   :environment nil
                   :values {"domain" "mydomain1.com"
                            "operatingsystem" "Debian"
-                           "mytimestamp" "1b"}}
+                           "mytimestamp" "1b"}
+                  :producer_timestamp (now)}
 
         ;; with this, certname-1 and certname-2 now have their own
         ;; fact_value for mytimestamp that is different from the
@@ -749,7 +758,8 @@
                   :environment nil
                   :values {"domain" "mydomain2.com"
                            "operatingsystem" "Debian"
-                           "mytimestamp" "2b"}}
+                           "mytimestamp" "2b"}
+                  :producer_timestamp (now)}
 
         ;; this fact set will disassociate mytimestamp from the facts
         ;; associated to certname-1, it will do the same thing for
@@ -757,11 +767,13 @@
         facts-1c {:certname certname-1
                   :environment nil
                   :values {"domain" "mydomain1.com"
-                           "operatingsystem" "Debian"}}
+                           "operatingsystem" "Debian"}
+                  :producer_timestamp (now)}
         facts-2c {:certname certname-2
                   :environment nil
                   :values {"domain" "mydomain2.com"
-                           "operatingsystem" "Debian"}}
+                           "operatingsystem" "Debian"}
+                  :producer_timestamp (now)}
         command-1b   {:command (command-names :replace-facts)
                       :version 4
                       :payload facts-1b}
@@ -793,12 +805,12 @@
                             :values (:values facts-1a)
                             :timestamp (now)
                             :environment nil
-                            :producer_timestamp nil})
+                            :producer_timestamp (now)})
      (scf-store/add-facts! {:certname certname-2
                             :values (:values facts-2a)
                             :timestamp (now)
                             :environment nil
-                            :producer_timestamp nil}))
+                            :producer_timestamp (now)}))
 
     ;; At this point, there will be 4 fact_value rows, 1 for
     ;; mytimestamp, 1 for the operatingsystem, 2 for domain

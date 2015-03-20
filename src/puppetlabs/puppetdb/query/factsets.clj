@@ -20,7 +20,7 @@
    :hash (s/maybe s/Str)
    :value_float (s/maybe s/Num)
    :value_integer (s/maybe s/Int)
-   :producer_timestamp (s/maybe pls/Timestamp)
+   :producer_timestamp pls/Timestamp
    :type (s/maybe String)
    :timestamp pls/Timestamp})
 
@@ -30,14 +30,14 @@
    :path String
    :hash (s/maybe s/Str)
    :value s/Any
-   :producer_timestamp (s/maybe pls/Timestamp)
+   :producer_timestamp pls/Timestamp
    :timestamp pls/Timestamp})
 
 (def factset-schema
   {:certname String
    :environment (s/maybe s/Str)
    :timestamp pls/Timestamp
-   :producer_timestamp (s/maybe pls/Timestamp)
+   :producer_timestamp pls/Timestamp
    :hash (s/maybe s/Str)
    :facts {s/Str s/Any}})
 

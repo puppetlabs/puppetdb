@@ -7,7 +7,7 @@
     :version          "1330463884"
     :transaction_uuid nil
     :environment      nil
-    :producer_timestamp nil
+    :producer_timestamp "2014-07-10T22:33:54.781Z"
     :edges            #{{:source       {:type "Stage" :title "main"}
                          :target       {:type "Class" :title "Settings"}
                          :relationship :contains}
@@ -36,7 +36,7 @@
     :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :environment      "DEV"
     :version          "123456789"
-    :producer_timestamp nil
+    :producer_timestamp "2014-07-10T22:33:54.781Z"
     :edges            #{{:source       {:type "Class" :title "foobar"}
                          :target       {:type "File" :title "/etc/foobar"}
                          :relationship :contains}
