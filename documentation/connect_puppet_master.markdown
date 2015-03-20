@@ -43,7 +43,7 @@ Currently, puppet masters need additional Ruby plugins in order to use PuppetDB.
 If your puppet master isn't running Puppet from a supported package, you will need to install the plugins manually:
 
 * [Download the PuppetDB source code][puppetdb_download], unzip it and navigate into the resulting directory in your terminal.
-* Run `sudo cp -R ext/master/lib/puppet /usr/lib/ruby/site_ruby/1.8/puppet`. Replace the second path with the path to your Puppet installation if you have installed it somewhere other than `/usr/lib/ruby/site_ruby`.
+* Run `sudo cp -R ext/master/lib/puppet /usr/lib/ruby/site_ruby/1.8/puppet`. Replace the second path with the path to your Puppet installation if you have installed it somewhere other than `/usr/lib/ruby/site_ruby`. If you are using Puppet 4 or greater, replace the second path with the path to the ruby supplied by Puppet at `/opt/puppetlabs/puppet/lib/ruby/vendor_ruby/puppet`.
 
 ## Step 2: Edit Config Files
 
@@ -106,6 +106,7 @@ very basic querying.  For more information, see:
 More information about Puppet report processors in general can be found
 [here][report_processors].
 
+
 ### 3. Edit routes.yaml
 
 The [routes.yaml][routes_yaml] file will probably not exist yet. The path to this Puppet configuration file can be found with the command `puppet master --configprint route_file`.
@@ -117,6 +118,13 @@ Create it if necessary, and add the following:
       facts:
         terminus: puppetdb
         cache: yaml
+
+### Ensure proper ownership of the config files
+
+The files created above need to be owned by the `puppet` user. Ensure that
+this ownership is applied by running the following command.
+
+    $ sudo chown -R puppet:puppet `sudo puppet config print confdir`
 
 ## Step 3: Set Security Policy
 
