@@ -36,14 +36,29 @@
       (migrate!)
       (f))))
 
+;;Change this if you named your test database differently or have a
+;;different user
+(defn with-pg-test-db
+  "A fixture to start and migrate a test db before running tests."
+  [f]
+  (binding [*db* {:classname   "org.postgresql.Driver"
+                  :subprotocol "postgresql"
+                  :subname     "puppetdb_test"
+                  :user        "puppetdb"
+                  :password    "puppetdb"}]
+    (sql/with-connection *db*
+      (clear-db-for-testing!)
+      (migrate!)
+      (f))))
+
 (defn without-db-var
   "Binds the java.jdbc dtabase connection to nil. When running a unit
-   test using `with-test-db`, jint/*db* will be bound. If the routes
-   being tested don't explicitly bind the db connection, it will use
-   one bound in with-test-db. This causes a problem at runtime that
-   won't show up in the unit tests. This fixture can be used around
-   route testing code to ensure that the route has it's own db
-   connection."
+  test using `with-test-db`, jint/*db* will be bound. If the routes
+  being tested don't explicitly bind the db connection, it will use
+  one bound in with-test-db. This causes a problem at runtime that
+  won't show up in the unit tests. This fixture can be used around
+  route testing code to ensure that the route has it's own db
+  connection."
   [f]
   (binding [jint/*db* nil]
     (f)))
