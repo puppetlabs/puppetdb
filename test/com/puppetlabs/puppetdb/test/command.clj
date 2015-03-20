@@ -1105,7 +1105,17 @@
         ;; that fact path, when the mytimestamp 1 value is still in
         ;; there.
         (test-msg-handler command-2c publish discard-dir
-          (is (not (extract-error-message publish))))))))
+          (is (not (extract-error-message publish))))
+
+        ;; Can we see the orphaned value '1', and does the global gc remove it.
+        (is (= 1 (count
+                  (query-to-vec
+                   "select id from fact_values where value_string = '1'"))))
+        (scf-store/garbage-collect! *db*)
+        (is (zero?
+             (count
+              (query-to-vec
+               "select id from fact_values where value_string = '1'"))))))))
 
 (deftest concurrent-catalog-updates
   (testing "Should allow only one replace catalogs update for a given cert at a time"
