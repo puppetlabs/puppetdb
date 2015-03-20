@@ -41,7 +41,7 @@ lists of legal fields, please refer to the documentation for the specific query 
 This parameter can be used to restrict the result set to a maximum number of results.
 The value should be an integer.
 
-### `include-total`
+### `include_total`
 
 This parameter lets you request a count of how many total records would have been returned, had the query not been limited using the `limit` parameter. This is useful if you want your application to show how far the user has navigated (e.g. "page 3 of 15").
 
@@ -53,7 +53,7 @@ NOTE: setting this flag to `true` will introduce a minor performance hit on the 
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'limit=5' --data-urlencode 'include-total=true'
+    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'limit=5' --data-urlencode 'include_total=true'
 
 ### `offset`
 
