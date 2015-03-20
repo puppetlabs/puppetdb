@@ -50,8 +50,8 @@ Run the following commands:
 
 > **Note:**
 >
-> If you are using the Puppet all-in-one agent, the `rake` command below should
-> be replaced by the `rake` version supplied by the all-in-one agent at
+> If you are using Puppet 4 or greater, the `rake` command below should
+> be replaced by the `rake` version supplied by Puppet at
 > `/opt/puppetlabs/puppet/bin/rake`
 
     $ mkdir -p ~/git && cd ~/git
