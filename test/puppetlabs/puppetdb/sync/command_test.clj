@@ -10,7 +10,7 @@
             [puppetlabs.puppetdb.sync.testutils :as utils
              :refer [with-puppetdb-instance index-by json-request json-response get-json]]
             [puppetlabs.puppetdb.cli.export :as export]
-            [puppetlabs.puppetdb.sync.command :as command]
+            [puppetlabs.puppetdb.sync.command :refer :all]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
@@ -20,61 +20,67 @@
             [clojure.tools.logging :as log]
             [clj-time.coerce :refer [to-date-time]]
             [clj-time.core :as t]
-            [puppetlabs.kitchensink.core :as ks]))
+            [puppetlabs.kitchensink.core :as ks]
+            [slingshot.test]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Sync stream comparison tests
 
-(defn generate-report
-  [x]
-  {:hash (random-string 10) :certname (random-string 10) :producer-timestamp (rand)})
+(defn records-to-fetch' [local remote]
+  (records-to-fetch report-key (constantly 0) local remote))
 
-(def orderings
+(deftest records-to-fetch-test
   (let [a1 {:certname "a" :hash "hash1" :receive_time 1}
         a2 {:certname "a" :hash "hash2" :receive_time 2}
         b1 {:certname "b" :hash "hash3" :receive_time 1}
         b2 {:certname "b" :hash "hash4" :receive_time 1}
         c1 {:certname "c" :hash "hash5" :receive_time 1}
         c2 {:certname "c" :hash "hash6" :receive_time 2}]
-    [{:local [a2 b1 b2 c1 c2] ;; local missing a report
-      :remote [a1 a2 b1 b2 c1 c2]
-      :record ["hash1"]}
-     {:local [a1 a2 c1 c2] ;; local missing a certname/corresponding reports
-      :remote [a1 a2 b1 b2 c1 c2]
-      :record ["hash3" "hash4"]}
-     {:local [a1 a2 b1 b2 c1] ;; remote missing a certname/corresponding reports
-      :remote [a1 a2 c1 c2]
-      :record ["hash6"]}
-     {:local [a1 a2 b1 c2] ;; local missing a report for two certnames
-      :remote [a1 a2 b1 b2 c1 c2]
-      :record ["hash4" "hash5"]}
-     {:local [a1 a2 b1 c2] ;; remote empty
-      :remote []
-      :record []}
-     {:local [a1 a2 b1 b2] ;; local missing reports at end of list
-      :remote [a1 a2 b1 b2 c1 c2]
-      :record ["hash5" "hash6"]}
-     {:local [c1] ;; local missing reports at beginning of list
-      :remote [a1 a2 b1 b2 c1]
-      :record ["hash1" "hash2" "hash3" "hash4"]}
-     {:local [] ;; local empty
-      :remote [a1 a2 b1 b2 c1 c2]
-      :record ["hash1" "hash2" "hash3" "hash4" "hash5" "hash6"]}]))
+    (are [local remote result] (= result
+                                  (set (map :hash (records-to-fetch' local remote))))
 
-(deftest records-to-fetch-test
-  (doseq [order orderings]
-    (let [record (atom [])
-          test-fn (fn [x] (swap! record conj (:hash x)))]
-      (doseq [x (command/records-to-fetch (juxt :certname :hash) (constantly 0) (:local order) (:remote order))]
-        (test-fn x))
-      (is (= (set (:record order)) (set @record))))))
+         [a2 b1 b2 c1 c2] ;; local missing a report
+         [a1 a2 b1 b2 c1 c2]
+         #{"hash1"}
+
+         [a1 a2 c1 c2] ;; local missing a certname/corresponding reports
+         [a1 a2 b1 b2 c1 c2]
+         #{"hash3" "hash4"}
+
+         [a1 a2 b1 b2 c1] ;; remote missing a certname/corresponding reports
+         [a1 a2 c1 c2]
+         #{"hash6"}
+
+         [a1 a2 b1 c2] ;; local missing a report for two certnames
+         [a1 a2 b1 b2 c1 c2]
+         #{"hash4" "hash5"}
+
+         [a1 a2 b1 c2] ;; remote empty
+         []
+         #{}
+
+         [a1 a2 b1 b2] ;; local missing reports at end of list
+         [a1 a2 b1 b2 c1 c2]
+         #{"hash5" "hash6"}
+
+         [c1] ;; local missing reports at beginning of list
+         [a1 a2 b1 b2 c1]
+         #{"hash1" "hash2" "hash3" "hash4"}
+
+         [] ;; local empty
+         [a1 a2 b1 b2 c1 c2]
+         #{"hash1" "hash2" "hash3" "hash4" "hash5" "hash6"})))
+
+(defn generate-report
+  [x]
+  {:hash (random-string 10) :certname (random-string 10) :producer-timestamp (rand)})
 
 (deftest laziness-of-records-to-fetch
   (let [ten-billion 10000000000]
     (is (= 10
            (count
             (take 10
-                  (command/records-to-fetch (juxt :certname :hash) (constantly 0)
+                  (records-to-fetch (juxt :certname :hash) (constantly 0)
                    [] (map generate-report (range ten-billion)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -242,14 +248,21 @@
         (is (= #{"DEV" "PRODUCTION"} environments))
         (is (= 2 (count @pdb-x-queries)))))))
 
+(deftest query-remote-failure
+  (with-puppetdb-instance (utils/sync-config)
+    (is (thrown+-with-msg? [:type :puppetlabs.puppetdb.sync.command/remote-host-error]
+                           #"Error querying .*broken-url-here for catalogs with query.* status code 404.*"
+                           (query-remote (str (base-url->str (utils/pdb-url)) "/broken-url-here") :catalogs ["=" "hash" "1234"])))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Trigger sync tests
 ;;;
-;;; These tests isolate PDB X. It is first started and populated with fixture data.
-;;; Then a sync is triggered, with the destination URL "/request-catcher/consume-request"
-;;; standing in place of PDB Y. This endpoint is made available in the with-puppetdb-instance
-;;; test helper function, and all requests to it end up in @requests. We can then use
-;;; that to check that the appropriate sync command was sent.
+;;; These tests isolate PDB X. It is first started and populated with
+;;; fixture data.  Then a sync is triggered, with the destination URL
+;;; "/pdb-y/v4" standing in place of PDB Y. This endpoint is made
+;;; available in the with-puppetdb-instance test helper function, and
+;;; all requests to it end up in the let bound @requests-atom. We can
+;;; then use that to check that the appropriate sync command was sent.
 (defn trigger-sync [remote-host-url-str]
   (http/post (utils/trigger-sync-url-str)
              (json-request {:remote_host_path remote-host-url-str})))

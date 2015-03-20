@@ -4,11 +4,14 @@
             [clj-http.client :as http]
             [puppetlabs.puppetdb.cheshire :as json]
             [clj-time.coerce :refer [to-timestamp]]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [slingshot.slingshot :refer [try+ throw+]]))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; How to sync each entity
+
+(def report-key (juxt :certname :hash))
 
 (def sync-configs
   {:reports {:entity :reports
@@ -22,7 +25,7 @@
 
              ;; The above query is done on each side of the sync; the
              ;; two are joined on the result of this function
-             :record-id-fn (juxt :certname :hash)
+             :record-id-fn report-key
 
              ;; If the same record exists on both sides, the result of
              ;; this function is used to find which is newer
@@ -60,12 +63,17 @@
   "Queries a resource from `remote-url`/`entity`, where
   `entity-type` is a keyword like :reports, :factsets, etc. '"
   [remote-url entity query]
-  (let [encoded-query (url-encode (json/generate-string query))
-        url (str remote-url "/" (name entity) "?query=" encoded-query)
-        {:keys [status body]} (http/get url)]
-    (if (= status 200)
-      (json/parse-string body)
-      [])))
+  (try+
+   (let [{:keys [body]} (http/get (str remote-url "/" (name entity))
+                                  {:query-params {:query (json/generate-string query)}
+                                   :throw-exceptions true
+                                   :throw-entire-message true})]
+     (json/parse-string body))
+   (catch :status {:keys [body status] :as response}
+     (throw+ {:type ::remote-host-error
+              :error-response response}
+             (format "Error querying %s for %s with query %s. Received HTTP status code %s with the error message '%s'"
+                     remote-url (name entity) query status body)))))
 
 (defn strip-generated-fields
   "hash, receive_time, and timestamp are generated fields and need to
@@ -155,7 +163,7 @@
 (defn generate-sync-message
   "Returns a function suitable for use in the streaming query
   function. Streams the sync data from `rows` to the passed in
-  `piped-output-stream. This needs to be run from a separate thread
+  `piped-output-stream`. This needs to be run from a separate thread
   than where the associated PipedInputStream thread"
   [piped-out-stream origin-path entity]
   (fn [rows]
@@ -193,10 +201,13 @@
   "Entry point for syncing with another PuppetDB instance. Uses
   `query-fn` to query PuppetDB in process and `submit-command-fn` when
   new reports are found."
-  [query-fn submit-command-fn command-payload]
-  (let [{:keys [origin_host_path sync_data entity]} command-payload]
-    (pull-records-from-remote! query-fn submit-command-fn origin_host_path sync_data
-                              (get sync-configs (keyword entity)))))
+  [query-fn submit-command-fn {:keys [origin_host_path sync_data entity]}]
+  (try+
+   (pull-records-from-remote! query-fn submit-command-fn origin_host_path sync_data
+                              (get sync-configs (keyword entity)))
+   (catch [:type ::remote-host-error] _
+     (let [{:keys [throwable message]} &throw-context]
+       (log/error throwable (format "Sync to remote host failed due to: %s") message)))))
 
 (defn sync-to-remote
   "Queries the local instance using `query-fn` and constructs a sync
