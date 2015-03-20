@@ -187,6 +187,12 @@
          (s/validate database-config-out)
          (assoc config :read-database))))
 
+(defn configure-puppetdb
+  "Validates the [puppetdb] section of the config"
+  [{:keys [puppetdb] :as config :or {puppetdb {}}}]
+  (s/validate puppetdb-config-in puppetdb)
+  (assoc config :puppetdb puppetdb))
+
 (defn convert-config
   "Given a `config` map (created from the user defined config), validate, default and convert it
    to the internal Clojure format that PuppetDB expects"
@@ -196,7 +202,7 @@
       (configure-section :database write-database-config-in write-database-config-out)
       configure-read-db
       (configure-section :command-processing command-processing-in command-processing-out)
-      (configure-section :puppetdb puppetdb-config-in puppetdb-config-out)))
+      configure-puppetdb))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Global Config
@@ -297,15 +303,6 @@
              (update-in [:product-name] normalize-product-name)
              (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))
 
-(defn warn-if-sslv3
-  "If the ssl-protocols config is present and contains sslv3, warn the user. Logging
-   at this point may or may not be setup, so warning via *err* and logging is done."
-  [config-data]
-  (when-let [protocol-str (get-in config-data [:jetty :ssl-protocols])]
-    (when (some #(re-matches #"(?i).*sslv3.*" %) protocol-str)
-      (utils/println-err "`ssl-protocols` contains SSLv3, a protocol with known vulnerabilities and should be removed from the `ssl-protocols` list")))
-  config-data)
-
 (defn warn-url-prefix-deprecation
   [config-data]
   (when-let [cw (get-in config-data [:global :url-prefix])]
@@ -318,14 +315,6 @@
   (when-let [cw (get-in config-data [:repl])]
     (utils/println-err "The configuration block [repl] is now retired and will be ignored. Use [nrepl] instead. Consult the documentation for more details."))
   config-data)
-
-(defn default-ssl-protocols
-  "Provide a default for ssl-protocols (that does NOT include sslv3). If sslv3
-   is present in the user provided config, warn the user."
-  [config-data]
-  (if (get-in config-data [:jetty :ssl-protocols])
-    (warn-if-sslv3 config-data)
-    (assoc-in config-data [:jetty :ssl-protocols] ["TLSv1" "TLSv1.1" "TLSv1.2"])))
 
 (defn add-web-routing-config
   [config-data]
@@ -340,6 +329,20 @@
         (assoc-in url-prefix-path prefix)
         (assoc-in metrics-url-prefix-path metrics-prefix))))
 
+(defn move-cert-whitelist-to-puppetdb-section
+  "Trapperkeeper doesn't support `certificate-whitelist` in
+  the [jetty] section, but we need to do so for backwards
+  compatability. "
+  [config-data]
+  (if-let [cw (get-in config-data [:jetty :certificate-whitelist])]
+    (do
+      ;; Log to stderr, logging is not yet initialized (and may never be).
+      (utils/println-err "Option `certificate-whitelist` in [jetty] is now deprecated. The option must now be placed in [puppetdb].")
+      (-> config-data
+          (kitchensink/dissoc-in [:jetty :certificate-whitelist])
+          (assoc-in [:puppetdb :certificate-whitelist] cw)))
+    config-data))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -347,8 +350,8 @@
   (-> config
       warn-repl-retirement
       warn-url-prefix-deprecation
-      default-ssl-protocols
-      add-web-routing-config))
+      add-web-routing-config
+      move-cert-whitelist-to-puppetdb-section))
 
 (defn hook-tk-parse-config-data
   "This is a robert.hooke compatible hook that is designed to intercept

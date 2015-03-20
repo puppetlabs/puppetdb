@@ -212,24 +212,6 @@
     (is (thrown-with-msg? IllegalArgumentException #"product-name puppet is illegal"
                           (normalize-product-name "puppet")))))
 
-(deftest sslv3-warn-test
-  (testing "output to standard out"
-    (let [bad-config {:jetty {:ssl-protocols ["SSLv3" "TLSv1" "TLSv1.1" "TLSv1.2"]}}
-          out-str (with-out-str
-                    (binding [*err* *out*]
-                      (default-ssl-protocols bad-config)))]
-      (is (.contains out-str "contains SSLv3"))))
-
-  (testing "defaulted-config"
-    (tu-log/with-log-output log-output
-      (is (= {:jetty {:ssl-protocols ["TLSv1" "TLSv1.1" "TLSv1.2"]}}
-             (default-ssl-protocols {})))
-      (is (empty? @log-output))
-      (is (str/blank?
-            (with-out-str
-              (binding [*err* *out*]
-                (default-ssl-protocols {}))))))))
-
 (deftest warn-url-prefix-deprecation-test
   (testing "output to standard out"
     (let [bad-config {:global {:url-prefix "/bwahaha"}}

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.2 » Connecting Standalone Puppet Nodes to PuppetDB"
+title: "PuppetDB 2.3 » Connecting Standalone Puppet Nodes to PuppetDB"
 layout: default
 canonical: "/puppetdb/latest/connect_puppet_apply.html"
 ---

@@ -9,8 +9,8 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def tk-version "1.0.1")
-(def tk-jetty9-version "1.1.1")
+(def tk-version "1.1.0")
+(def tk-jetty9-version "1.2.0")
 (def ks-version "1.0.0")
 
 (defproject puppetlabs/puppetdb pdb-version

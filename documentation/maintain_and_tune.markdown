@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.2 » Maintaining and Tuning"
+title: "PuppetDB 2.3 » Maintaining and Tuning"
 layout: default
 canonical: "/puppetdb/latest/maintain_and_tune.html"
 ---
@@ -76,7 +76,7 @@ The good news is that memory starvation is actually not very destructive. It wil
 
 ## Tune the Number of Threads
 
-When viewing [the performance dashboard][dashboard], note the MQ depth. If it is rising and you have CPU cores to spare, [increasing the number of threads][threads] may help process the backlog faster.
+When viewing [the performance dashboard][dashboard], note the depth of the message queue (labeled 'Command Queue depth'). If it is rising and you have CPU cores to spare, [increasing the number of threads][threads] may help process the backlog faster.
 
 If you are saturating your CPU, we recommend [lowering the number of threads][threads].  This prevents other PuppetDB subsystems (such as the web server, or the MQ itself) from being starved of resources and can actually _increase_ throughput.
 
