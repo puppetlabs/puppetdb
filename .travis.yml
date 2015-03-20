@@ -1,0 +1,13 @@
+language: clojure
+lein: lein2
+install: ./ext/travisci/install.sh ~/.lein/profiles.clj
+jdk:
+    - oraclejdk7
+    - oraclejdk8
+    - openjdk7
+notifications:
+    email: false
+script: ./ext/travisci/test.sh lein2
+addons:
+  postgresql: "9.3"
+services: postgresql

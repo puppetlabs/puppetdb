@@ -5,29 +5,53 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def tk-version "0.5.2")
-(def tk-jetty9-version "0.9.0")
-(def ks-version "0.7.2")
+(def pe-pdb-version "0.1.0-SNAPSHOT")
+(def pdb-version "3.0.0-SNAPSHOT")
+
+(def tk-version "1.1.0")
+(def tk-jetty9-version "1.2.0")
+(def ks-version "1.0.0")
 
 
-(defproject puppetlabs/puppetdb-sync "0.1.0-SNAPSHOT"
+(defproject puppetlabs/pe-puppetdb-extensions pe-pdb-version
+  :pedantic? :abort
+
   :description "Library for replicating PuppetDB instances"
   :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
                  ["snapshots"  "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [puppetlabs/puppetdb "3.0.0-SNAPSHOT"]
+                 [puppetlabs/puppetdb ~pdb-version]
                  [puppetlabs/trapperkeeper ~tk-version]
                  [puppetlabs/kitchensink ~ks-version]
-                 [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]
-                 [prismatic/schema "0.2.2"]]
+                 [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]]
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
+  :resource-paths ["resources"]
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies [[ring-mock "0.1.5"]
+                                  [puppetlabs/puppetdb ~pdb-version :classifier "test"]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version :classifier "test"]]}
+
+             :ezbake {:dependencies ^:replace [
+                                               [puppetlabs/puppetdb ~pdb-version]
+                                               [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]
+                                               [org.clojure/tools.nrepl "0.2.3"]]
+                      :name "pe-puppetdb"
+                      :plugins [[puppetlabs/lein-ezbake "0.2.2"
+                                 :exclusions [org.clojure/clojure]]]
+                      }
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
   :lein-release {:scm :git, :deploy-via :lein-deploy}
-  :main ^:skip-aot puppetlabs.puppetdb-sync.core)
+
+  :uberjar-name "puppetdb-release.jar"
+  :lein-ezbake {:vars {:user "pe-puppetdb"
+                       :group "pe-puppetdb"
+                       :build-type "pe"
+                       :main-namespace "puppetlabs.puppetdb.core"
+                       :create-varlib true}
+                :config-dir "ext/config"}
+
+  :main ^:skip-aot puppetlabs.puppetdb.core)

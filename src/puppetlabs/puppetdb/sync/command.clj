@@ -1,8 +1,7 @@
-(ns puppetlabs.puppetdb-sync.command
+(ns puppetlabs.puppetdb.sync.command
   (:require [puppetlabs.puppetdb.utils :as utils]
             [clj-http.util :refer [url-encode]]
             [clj-http.client :as http]
-            [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.cheshire :as json]
             [clj-time.coerce :refer [to-timestamp]]
             [clojure.tools.logging :as log]))
@@ -164,7 +163,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(pls/defn-validated sync-from-remote
+(defn sync-from-remote
   "Entry point for syncing with another PuppetDB instance. Uses
   `query-fn` to query PuppetDB in process and `submit-command-fn` when
   new reports are found."
