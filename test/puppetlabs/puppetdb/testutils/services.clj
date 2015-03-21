@@ -1,7 +1,6 @@
-(ns puppetlabs.puppetdb.testutils.jetty
+(ns puppetlabs.puppetdb.testutils.services
   (:require [puppetlabs.puppetdb.testutils :refer [temp-dir temp-file]]
             [puppetlabs.puppetdb.fixtures :as fixt]
-            [puppetlabs.trapperkeeper.app :as tka]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
@@ -11,7 +10,6 @@
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service]]
             [puppetlabs.puppetdb.utils :as utils]
-            [clj-http.client :as client]
             [puppetlabs.puppetdb.config :as conf]
             [clj-http.util :refer [url-encode]]
             [clj-http.client :as client]
@@ -93,12 +91,11 @@
                                conf/adjust-tk-config
                                assoc-open-port
                                assoc-logging-config)
-         prefix (get-in config
-                        [:web-router-service
-                         ::svcs/puppetdb-service])]
+         prefix (get-in config [:web-router-service ::svcs/puppetdb-service])]
      (try
        (tkbs/with-app-with-config server
-         (concat [jetty9-service svcs/puppetdb-service message-listener-service command-service webrouting-service metrics-service]
+         (concat [jetty9-service svcs/puppetdb-service message-listener-service
+                  command-service webrouting-service metrics-service]
                  services)
          config
          (binding [*server* server
@@ -115,9 +112,10 @@
        (finally
          (let [log-contents (slurp log-file)]
            (when-not (str/blank? log-contents)
-             (utils/println-err "-------Begin PuppetDB Instance Log--------------------\n"
-                                log-contents
-                                "\n-------End PuppetDB Instance Log----------------------"))))))))
+             (utils/println-err
+               "-------Begin PuppetDB Instance Log--------------------\n"
+               log-contents
+               "\n-------End PuppetDB Instance Log----------------------"))))))))
 
 (defmacro with-puppetdb-instance
   "Convenience macro to launch a puppetdb instance"
@@ -131,10 +129,9 @@
 (defn command-mbean-name
   "The full mbean name of the MQ destination used for commands"
   [base-url]
-  (str "org.apache.activemq:BrokerName="
-       (url-encode (:host base-url))
-       ",Type=Queue,Destination="
-       svcs/mq-endpoint))
+  (format "org.apache.activemq:BrokerName=%s,Type=Queue,Destination=%s"
+          (url-encode (:host base-url))
+          svcs/mq-endpoint))
 
 (defn mq-mbeans-found?
   "Returns true if the ActiveMQ mbeans and the discarded command
@@ -150,11 +147,13 @@
   up, otherwise will continue to retry. Will fail after trying for
   roughly 5 seconds."
   []
-  (let [mbeans-url (str (utils/base-url->str (assoc *base-url* :prefix "/metrics" :version :v1))
-                        "/mbeans")]
+  (let [mbeans-url (-> *base-url*
+                       (assoc :prefix "/metrics" :version :v1)
+                       utils/base-url->str
+                       (str "/mbeans"))]
     (loop [attempts 0]
-      (let [{:keys [status body] :as response} (client/get mbeans-url {:as :json
-                                                                       :throw-exceptions false})]
+      (let [{:keys [status body]:as response}
+            (client/get mbeans-url {:as :json :throw-exceptions false})]
         (cond
 
          (and (= 200 status)
@@ -170,13 +169,14 @@
            (recur (inc attempts))))))))
 
 (defn queue-metadata
-  "Return command queue metadata (from the `puppetdb-instance` launched PuppetDB) as a map:
+  "Return command queue metadata (from the `puppetdb-instance` launched PuppetDB)
+   as a map:
 
-  EnqueueCount - the total number of messages sent to the queue since the last restart
-  DequeueCount - the total number of messages removed from the queue (ack'd by consumer) since last restart
-  InflightCount - the number of messages sent to a consumer session and have not received an ack
-  DispatchCount - the total number of messages sent to consumer sessions (Dequeue + Inflight)
-  ExpiredCount - the number of messages that were not delivered because they were expired
+  EnqueueCount - total number of messages sent to the queue since startup
+  DequeueCount - total number of messages dequeued (ack'd by consumer) since startup
+  InflightCount - number of messages sent to a consumer session but unacknowledged
+  DispatchCount - total number of messages sent to consumer sessions (Dequeue + Inflight)
+  ExpiredCount - number of messages that were not delivered because they were expired
 
   http://activemq.apache.org/how-do-i-find-the-size-of-a-queue.html"
   []
@@ -192,16 +192,18 @@
         :body)))
 
 (defn current-queue-depth
-  "Return the queue depth currently running PuppetDB instance (see `puppetdb-instance` for launching PuppetDB)"
+  "Return the queue depth currently running PuppetDB instance
+   (see `puppetdb-instance` for launching PuppetDB)"
   []
   (:QueueSize (queue-metadata)))
 
 (defn discard-count
-  "Return the number of discarded messages from the command queue for the current running `puppetdb-instance`"
+  "Return the number of discarded messages from the command queue for the current
+   running `puppetdb-instance`"
   []
   (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)]
-    (-> (str (utils/base-url->str base-metrics-url)
-             "/mbeans/puppetlabs.puppetdb.command:type=global,name=discarded")
+    (-> (utils/base-url->str base-metrics-url)
+        (str "/mbeans/puppetlabs.puppetdb.command:type=global,name=discarded")
         (client/get {:as :json})
         (get-in [:body :Count]))))
 
@@ -239,14 +241,16 @@
                  :original-discarded-count start-discarded-count
                  :current-queue-metadata curr-queue-metadata
                  :current-discarded-count curr-discarded-count}
-                "Found %s new message(s) in the DLO" (- curr-discarded-count start-discarded-count))
+                "Found %s new message(s) in the DLO"
+                (- curr-discarded-count start-discarded-count))
 
         (= attempts max-attempts)
         (let [fail-time (System/currentTimeMillis)]
           (throw+ {:attempts max-attempts
                    :start-time start-time
                    :end-time fail-time}
-                  "Failing after %s attempts and %s milliseconds" max-attempts (- fail-time start-time)))
+                  "Failing after %s attempts and %s milliseconds"
+                  max-attempts (- fail-time start-time)))
 
         (or (< 0 curr-queue-depth)
             (< curr-committed-msgs
@@ -259,7 +263,8 @@
         result)))))
 
 (defn dispatch-count
-  "Return the queue depth currently running PuppetDB instance (see `puppetdb-instance` for launching PuppetDB)"
+  "Return the queue depth currently running PuppetDB instance
+   (see `puppetdb-instance` for launching PuppetDB)"
   [dest-name]
   (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)]
     (-> (str (utils/base-url->str base-metrics-url)
@@ -279,7 +284,10 @@
                                                      (.setUseJmx broker# false))]
      (do ~@body)))
 
-(defn sync-command-post [base-url cmd version payload]
+(defn sync-command-post
+  "Syncronously post a command to PDB by blocking until the message is consumed
+   off the queue."
+  [base-url cmd version payload]
   (until-consumed
    (fn []
      (pdb-client/submit-command-via-http! base-url cmd version payload))))

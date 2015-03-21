@@ -8,7 +8,7 @@
             [puppetlabs.puppetdb.utils :as utils]
             [clojure.test :refer :all]
             [clj-time.core :refer [days hours minutes secs]]
-            [puppetlabs.puppetdb.testutils.jetty :as jutils :refer [*base-url*]]
+            [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*base-url*]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :refer [block-until-results]]
             [clj-time.coerce :refer [to-string]]
@@ -40,13 +40,13 @@
 
 (deftest url-prefix-test
   (testing "should mount web app at `/` by default"
-    (jutils/with-puppetdb-instance
+    (svc-utils/with-puppetdb-instance
       (let [url (str (utils/base-url->str *base-url*) "/version")
             response (client/get url)]
         (is (= 200 (:status response))))))
   (testing "should support mounting web app at alternate url prefix"
-    (jutils/puppetdb-instance
-     (assoc-in (jutils/create-config)
+    (svc-utils/puppetdb-instance
+     (assoc-in (svc-utils/create-config)
                [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service]
                "/puppetdb")
      (fn []
@@ -60,7 +60,7 @@
 
 (defn- check-service-query
   [endpoint version q pagination check-result]
-  (let [pdb-service (get-service jutils/*server* :PuppetDBServer)
+  (let [pdb-service (get-service svc-utils/*server* :PuppetDBServer)
         results (atom nil)
         before-slurp? (atom nil)
         after-slurp? (atom nil)]
@@ -79,8 +79,8 @@
     (is (false? @after-slurp?))))
 
 (deftest query-via-puppdbserver-service
-  (jutils/with-puppetdb-instance
-    (let [pdb-service (get-service jutils/*server* :PuppetDBServer)]
+  (svc-utils/with-puppetdb-instance
+    (let [pdb-service (get-service svc-utils/*server* :PuppetDBServer)]
       (submit-command pdb-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:foo "the foo"
@@ -108,8 +108,8 @@
                 (set result))))))))
 
 (deftest pagination-via-puppdbserver-service
-  (jutils/with-puppetdb-instance
-    (let [pdb-service (get-service jutils/*server* :PuppetDBServer)]
+  (svc-utils/with-puppetdb-instance
+    (let [pdb-service (get-service svc-utils/*server* :PuppetDBServer)]
       (submit-command pdb-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:a "a" :b "b" :c "c"}
@@ -135,7 +135,7 @@
                       result))))))))))
 
 (deftest api-retirements
-  (jutils/with-puppetdb-instance
+  (svc-utils/with-puppetdb-instance
     (letfn [(ping [v]
               (client/get
                (str (utils/base-url->str (assoc *base-url* :version v))
@@ -152,8 +152,8 @@
         (is (retirement-response? v (ping v)))))))
 
 (deftest in-process-command-submission
-  (jutils/with-puppetdb-instance
-    (let [pdb-service (get-service jutils/*server* :PuppetDBServer)]
+  (svc-utils/with-puppetdb-instance
+    (let [pdb-service (get-service svc-utils/*server* :PuppetDBServer)]
       (submit-command pdb-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:foo "the foo"
