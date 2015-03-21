@@ -329,20 +329,6 @@
         (assoc-in url-prefix-path prefix)
         (assoc-in metrics-url-prefix-path metrics-prefix))))
 
-(defn move-cert-whitelist-to-puppetdb-section
-  "Trapperkeeper doesn't support `certificate-whitelist` in
-  the [jetty] section, but we need to do so for backwards
-  compatability. "
-  [config-data]
-  (if-let [cw (get-in config-data [:jetty :certificate-whitelist])]
-    (do
-      ;; Log to stderr, logging is not yet initialized (and may never be).
-      (utils/println-err "Option `certificate-whitelist` in [jetty] is now deprecated. The option must now be placed in [puppetdb].")
-      (-> config-data
-          (kitchensink/dissoc-in [:jetty :certificate-whitelist])
-          (assoc-in [:puppetdb :certificate-whitelist] cw)))
-    config-data))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -350,8 +336,7 @@
   (-> config
       warn-repl-retirement
       warn-url-prefix-deprecation
-      add-web-routing-config
-      move-cert-whitelist-to-puppetdb-section))
+      add-web-routing-config))
 
 (defn hook-tk-parse-config-data
   "This is a robert.hooke compatible hook that is designed to intercept
