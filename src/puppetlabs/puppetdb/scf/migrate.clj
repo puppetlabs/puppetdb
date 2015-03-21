@@ -962,7 +962,7 @@
       "INSERT INTO certnames_transform(name,latest_report_id,deactivated)
        SELECT c.name, rt.id as latest_report_id, c.deactivated FROM
        certnames c left outer join latest_reports lr on c.name=lr.certname
-       inner join reports_transform rt on lr.report=rt.hash"
+       left outer join reports_transform rt on lr.report=rt.hash"
 
       "ALTER TABLE edges DROP CONSTRAINT edges_certname_fkey"
       "ALTER TABLE catalogs DROP CONSTRAINT catalogs_certname_fkey"
