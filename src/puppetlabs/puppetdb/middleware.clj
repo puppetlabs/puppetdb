@@ -35,13 +35,16 @@
   `authorizor` is :authorized; otherwise, its value is taken to be a
   message describing the reason that access is not allowed."
   [app authorizer]
-  (fn [req]
-    (let [auth-result (authorizer req)]
-     (if (= :authorized auth-result)
-       (app req)
-       (-> (str "Permission denied: " auth-result)
-           (rr/response)
-           (rr/status http/status-forbidden))))))
+  (let [authorizer (if-not (nil? authorizer)
+                     authorizer
+                     (constantly :authorized))]
+    (fn [req]
+      (let [auth-result (authorizer req)]
+        (if (= :authorized auth-result)
+          (app req)
+          (-> (str "Permission denied: " auth-result)
+              (rr/response)
+              (rr/status http/status-forbidden)))))))
 
 (defn wrap-with-certificate-cn
   "Ring middleware that will annotate the request with an

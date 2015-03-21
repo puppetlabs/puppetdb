@@ -23,16 +23,15 @@
 (defn build-app
   "Generate a Ring application that handles metrics requests
 
-  `options` is a list of keys and values where keys can be the following:
+   Takes an `options` map which may contain the following keys:
 
   * `authorizer` - a function that takes a request and returns a
     :authorized if the request is authorized, or a user-visible reason if not.
     If not supplied, we default to authorizing all requests."
-  [& options]
-  (let [opts (apply hash-map options)]
-    (-> (routes)
-        (wrap-params)
-        (wrap-with-authorization (opts :authorizer (constantly :authorized)))
-        (wrap-with-certificate-cn)
-        (wrap-with-default-body)
-        (wrap-with-debug-logging))))
+  [{:keys [authorizer]}]
+  (-> (routes)
+      wrap-params
+      (wrap-with-authorization authorizer)
+      wrap-with-certificate-cn
+      wrap-with-default-body
+      wrap-with-debug-logging))
