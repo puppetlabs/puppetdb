@@ -6,18 +6,6 @@
             [puppetlabs.kitchensink.core :refer [quotient]]
             [metrics.gauges :refer [gauge]]))
 
-(defn correlate-exported-resources
-  "Fetch a map of {exported-resource [#{exporting-nodes} #{collecting-nodes}]},
-  to correlate the nodes exporting and collecting resources."
-  []
-  ;; TODO: This needs to only return results for active nodes
-  (query-to-vec (str "SELECT DISTINCT exporters.type, exporters.title, "
-                     "(SELECT certname FROM catalogs WHERE id=exporters.catalog_id) AS exporter, "
-                     "(SELECT certname FROM catalogs WHERE id=collectors.catalog_id) AS collector "
-                     "FROM catalog_resources exporters, catalog_resources collectors "
-                     "WHERE exporters.resource=collectors.resource AND exporters.exported=true AND collectors.exported=false "
-                     "ORDER BY exporters.type, exporters.title, exporter, collector ASC")))
-
 (defn num-resources
   "The number of resources in the population"
   []
