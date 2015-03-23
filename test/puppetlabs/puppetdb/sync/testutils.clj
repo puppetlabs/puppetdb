@@ -5,7 +5,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [compojure.core :refer [context POST routes ANY]]
             [puppetlabs.puppetdb.client :as pdb-client]
-            [puppetlabs.puppetdb.testutils.jetty :as jutils]
+            [puppetlabs.puppetdb.testutils.services :as svcs]
             [ring.middleware.params :refer [wrap-params]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -24,7 +24,7 @@
   "Same as the core puppetdb-instance call but adds in the sync
   service and the request-catcher/canned-response service"
   [config & body]
-  `(jutils/puppetdb-instance
+  `(svcs/puppetdb-instance
     ~config
     [puppetdb-sync-service stub-server-service]
     (fn [] ~@body)))
@@ -36,7 +36,7 @@
   '/stub'."
   ([] (sync-config nil))
   ([stub-handler]
-   (-> (jutils/create-config)
+   (-> (svcs/create-config)
        (assoc :stub-server-service {:handler stub-handler}
               :web-router-service  {:puppetlabs.puppetdb.cli.services/puppetdb-service "/pdb"
                                     :puppetlabs.puppetdb.sync.services/puppetdb-sync-service "/sync"
@@ -45,21 +45,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; URL helper functions for inside a with-puppetdb-instance block
 (defn pdb-url []
-  (assoc jutils/*base-url* :prefix "/pdb" :version :v4))
+  (assoc svcs/*base-url* :prefix "/pdb" :version :v4))
 
 (defn pdb-url-str []
   (base-url->str (pdb-url)))
 
 (defn stub-url [prefix version]
-  (jutils/*base-url* :prefix (str "/stub/" prefix) :version version))
+  (svcs/*base-url* :prefix (str "/stub/" prefix) :version version))
 
 (defn stub-url-str [suffix]
-  (let [{:keys [protocol host port] :as base-url} jutils/*base-url*]
+  (let [{:keys [protocol host port] :as base-url} svcs/*base-url*]
    (-> (URL. protocol host port (str "/stub" suffix))
        .toURI .toASCIIString)))
 
 (defn sync-url []
-  (assoc jutils/*base-url* :prefix "/sync" :version :v1))
+  (assoc svcs/*base-url* :prefix "/sync" :version :v1))
 
 (defn trigger-sync-url-str []
   (str (base-url->str (sync-url)) "/trigger-sync"))

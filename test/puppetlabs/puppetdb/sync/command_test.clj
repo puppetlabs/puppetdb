@@ -4,7 +4,7 @@
             [puppetlabs.puppetdb.random :refer [random-string]]
             [clj-http.client :as http]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.testutils.jetty :as jutils]
+            [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :as rt]
             [puppetlabs.puppetdb.sync.testutils :as utils
              :refer [with-puppetdb-instance index-by json-request json-response get-json]]
@@ -84,7 +84,7 @@
      (do ~@body)))
 
 (deftest two-instance-test
-  (jutils/without-jmx
+  (svcs/without-jmx
    (with-alt-mq "puppetlabs.puppetdb.commands-1"
      (let [config-1 (utils/sync-config)
            config-2 (utils/sync-config)]
@@ -121,15 +121,15 @@
 
     (with-puppetdb-instance (utils/sync-config stub-handler)
       ;; store two reports in PDB Y
-      (jutils/sync-command-post (utils/pdb-url) "store report" 5 report-1)
-      (jutils/sync-command-post (utils/pdb-url) "store report" 5 report-2)
+      (svcs/sync-command-post (utils/pdb-url) "store report" 5 report-1)
+      (svcs/sync-command-post (utils/pdb-url) "store report" 5 report-2)
 
       (let [created-report-1 (first (export/reports-for-node (utils/pdb-url) (:certname report-1)))
             created-report-2 (first (export/reports-for-node (utils/pdb-url) (:certname report-2)))]
         (is (= "3.0.1" (:puppet_version created-report-2)))
 
         ;; Send a sync command to PDB Y, where one hash is different than what's stored
-        (jutils/sync-command-post (utils/pdb-url) "sync" 1
+        (svcs/sync-command-post (utils/pdb-url) "sync" 1
                                   {:origin_host_path (utils/stub-url-str "/pdb-x/v4")
                                    :entity :reports
                                    :sync_data [{"certname" "bar.local"
@@ -156,7 +156,7 @@
     (with-puppetdb-instance (utils/sync-config stub-handler)
       ;; store factsets in PDB Y
       (doseq [c (map char (range (int \a) (int \f)))]
-        (jutils/sync-command-post (utils/pdb-url) "replace facts" 4
+        (svcs/sync-command-post (utils/pdb-url) "replace facts" 4
                                   (assoc facts :certname (str c ".local"))))
 
       (let [local-factsets (index-by :certname (get-json (utils/pdb-url) "/factsets"))
@@ -164,7 +164,7 @@
         (is (= 5 (count local-factsets)))
 
         ;; Send a sync command to PDB Y
-        (jutils/sync-command-post (utils/pdb-url) "sync" 1
+        (svcs/sync-command-post (utils/pdb-url) "sync" 1
                                   {:origin_host_path (utils/stub-url-str "/pdb-x/v4")
                                    :entity :factsets
                                    :sync_data [;; time is newer than local, hash is different -> should pull
@@ -216,7 +216,7 @@
   (let [requests-atom (atom [])]
    (with-puppetdb-instance (utils/sync-config (logging-command-handler "/pdb-y/v4" requests-atom))
      (let [report (tur/munge-example-report-for-storage (:basic reports))]
-       (jutils/sync-command-post (utils/pdb-url) "store report" 5 report)
+       (svcs/sync-command-post (utils/pdb-url) "store report" 5 report)
        (trigger-sync (utils/stub-url-str "/pdb-y/v4"))
 
        (is (= {:command "sync",
@@ -231,7 +231,7 @@
 (deftest test-push-factset
   (let [requests-atom (atom [])]
     (with-puppetdb-instance (utils/sync-config (logging-command-handler "/pdb-y/v4" requests-atom))
-     (jutils/sync-command-post (utils/pdb-url) "replace facts" 4 facts)
+     (svcs/sync-command-post (utils/pdb-url) "replace facts" 4 facts)
      (trigger-sync (utils/stub-url-str "/pdb-y/v4"))
 
      (let [factset-sync-request (->> @requests-atom
@@ -254,7 +254,7 @@
 ;;; End to end tests
 
 (defn- with-n-pdbs
-  ([n f] (jutils/without-jmx
+  ([n f] (svcs/without-jmx
           (with-n-pdbs n f [])))
   ([n f pdb-infos]
    (if (= n (count pdb-infos))
@@ -266,8 +266,8 @@
            (with-n-pdbs n f
              (conj pdb-infos {:mq-name mq-name
                               :config config
-                              :service-url (assoc jutils/*base-url* :prefix "/pdb" :version :v4)
-                              :sync-url    (assoc jutils/*base-url* :prefix "/sync" :version :v1)}))))))))
+                              :service-url (assoc svcs/*base-url* :prefix "/pdb" :version :v4)
+                              :sync-url    (assoc svcs/*base-url* :prefix "/sync" :version :v1)}))))))))
 
 (deftest end-to-end-report-replication
   (with-n-pdbs 2
