@@ -6,6 +6,53 @@
             [clj-time.coerce :refer [to-timestamp]]
             [clojure.tools.logging :as log]))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; How to sync each entity
+
+(def sync-configs
+  {:reports {:entity :reports
+             ;; On each side of the sync, we use this query to get
+             ;; information about the identity of each record and a
+             ;; hash of its content.
+             :record-hashes-query {:version :v4
+                                   :query ["extract" ["hash" "certname" "start_time"]
+                                           ["null?" "start_time" false]]
+                                   :order {:order_by [[:certname :ascending] [:hash :ascending]]}}
+
+             ;; The above query is done on each side of the sync; the
+             ;; two are joined on the result of this function
+             :record-id-fn (juxt :certname :hash)
+
+             ;; If the same record exists on both sides, the result of
+             ;; this function is used to find which is newer
+             :record-ordering-fn (constantly 0) ; TODO: rename this, maybe to record-conflict-key-fn or something
+
+             ;; When a record is out-of-date, the whole thing is
+             ;; downloaded and then stored with this command
+             :submit-command {:command :store-report
+                              :version 5}}
+
+   :factsets {:entity :factsets
+              :record-hashes-query {:version :v4
+                                    :query ["extract" ["hash" "certname" "producer_timestamp"]
+                                            ["null?" "certname" false]] ; certname is never null, so this matches all factsets
+                                    :order {:order_by [[:certname :ascending]]}}
+              :record-id-fn :certname
+              :record-ordering-fn (juxt :producer_timestamp :hash)
+              :submit-command {:command :replace-facts
+                               :version 4}}
+
+   :catalogs {:entity :catalogs
+              :record-hashes-query {:version :v4
+                                    :query ["extract" ["hash" "certname" "producer_timestamp"]
+                                            ["null?" "certname" false]] ; certname is never null, so this matches all factsets
+                                    :order {:order_by [[:certname :ascending]]}}
+              :record-id-fn :certname
+              :record-ordering-fn (juxt :producer_timestamp :hash)
+              :submit-command {:command :replace-catalog
+                               :version 6}}})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Pull from remote instance
 
@@ -14,8 +61,8 @@
   `entity-type` is a keyword like :reports, :factsets, etc. '"
   [remote-url entity query]
   (let [encoded-query (url-encode (json/generate-string query))
-        response (http/get (str remote-url "/" (name entity) "?query=" encoded-query))
-        {:keys [status body]} response]
+        url (str remote-url "/" (name entity) "?query=" encoded-query)
+        {:keys [status body]} (http/get url)]
     (if (= status 200)
       (json/parse-string body)
       [])))
@@ -74,9 +121,9 @@
 
 (defn maybe-update-in
   "Like update-in, except it won't throw if the path doesn't exist. "
-  [x path fn]
+  [x path f]
   (if (get-in x path)
-    (update-in x path fn)
+    (update-in x path f)
     x))
 
 (defn parse-time-fields
@@ -86,44 +133,21 @@
       (maybe-update-in [:start_time] to-timestamp)
       (maybe-update-in [:producer_timestamp] to-timestamp)))
 
-(defn sync-records-with-remote
-  "Returns a function that is useful in the query streaming query
-  callback function in PuppetDB. This function will compare the state
-  of the local (in-process) instance with the remote (`remote-sync-data`)
-  instance"
-  [remote-sync-data origin-host-path entity record-id-fn record-ordering-fn submit-specific-command-fn]
-  (fn [local-sync-data]
-    (let [remote-sync-data (map parse-time-fields remote-sync-data)]
-      (doseq [x (records-to-fetch record-id-fn record-ordering-fn local-sync-data remote-sync-data)]
-        (query-record-and-transfer! origin-host-path entity (:hash x) submit-specific-command-fn)))))
+(defn query-result-handler
+  "Build a result handler function in the form that query-fn expects."
+  [handler-fn]
+  (fn [f] (f handler-fn)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Pull entities from remote (sync command handlers)
-
-(defmulti pull-records-from-remote (fn [query-fn submit-command-fn command-payload]
-                                     (keyword (:entity command-payload))))
-
-(defmethod pull-records-from-remote :reports
-  [query-fn submit-command-fn {:keys [origin_host_path sync_data]}]
-  (query-fn :reports :v4 ["extract" ["hash" "certname" "start_time"]
-                          ["null?" "start_time" false]] ; start_time is never null, so this matches all reports
-            {:order_by [[:certname :ascending] [:hash :ascending]]}
-            (fn [f]
-              (f (sync-records-with-remote sync_data
-                                           origin_host_path :reports
-                                           (juxt :certname :hash) (constantly 0)
-                                           (partial submit-command-fn :store-report 5))))))
-
-(defmethod pull-records-from-remote :factsets
-  [query-fn submit-command-fn {:keys [origin_host_path sync_data]}]
-  (query-fn :factsets :v4 ["extract" ["hash" "certname" "producer_timestamp"]
-                           ["null?" "certname" false]] ; certname is never null, so this matches all factsets
-            {:order_by [[:certname :ascending]]}
-            (fn [f]
-              (f (sync-records-with-remote sync_data
-                                           origin_host_path :factsets
-                                           :certname (juxt :producer_timestamp :hash)
-                                           (partial submit-command-fn :replace-facts 4))))) )
+(defn pull-records-from-remote!
+  [query-fn submit-command-fn origin-host-path remote-sync-data sync-config]
+  (let [{:keys [entity record-hashes-query record-id-fn record-ordering-fn submit-command]} sync-config
+        {:keys [version query order]} record-hashes-query
+        remote-sync-data (map parse-time-fields remote-sync-data)
+        submit-this-command-fn (partial submit-command-fn (:command submit-command) (:version submit-command))]
+    (query-fn entity version query order
+              (query-result-handler (fn [local-sync-data]
+                                      (doseq [x (records-to-fetch record-id-fn record-ordering-fn local-sync-data remote-sync-data)]
+                                        (query-record-and-transfer! origin-host-path entity (:hash x) submit-this-command-fn)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Trigger sync
@@ -149,16 +173,18 @@
   "Queries the local instance using `query-fn` and constructs a sync
   message to send to `remote-path`. The remote instance will use
   `origin-path` to query for any missing or out-of-date entities."
-  [query-fn origin-path remote-path api-version entity query order-clause]
-  (let [piped-input-stream (java.io.PipedInputStream.)
-        piped-output-stream (java.io.PipedOutputStream. piped-input-stream)
-        command-fut (future (query-fn entity api-version query order-clause
-                                      (fn [f]
-                                        (f (generate-sync-message piped-output-stream origin-path entity)))))
-        result (http/post remote-path {:accept-encoding [:application/json]
-                                       :content-type :application/json
-                                       :body piped-input-stream})]
-    (= 200 (:status result))))
+  [query-fn origin-path remote-path sync-config]
+  (let [{:keys [entity record-hashes-query]} sync-config
+        {:keys [:version :query :order]} record-hashes-query]
+   (let [piped-input-stream (java.io.PipedInputStream.)
+         piped-output-stream (java.io.PipedOutputStream. piped-input-stream)
+         command-fut (future (query-fn entity version query order
+                                       (query-result-handler
+                                         (generate-sync-message piped-output-stream origin-path entity))))
+         result (http/post remote-path {:accept-encoding [:application/json]
+                                        :content-type :application/json
+                                        :body piped-input-stream})]
+     (= 200 (:status result)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -168,17 +194,16 @@
   `query-fn` to query PuppetDB in process and `submit-command-fn` when
   new reports are found."
   [query-fn submit-command-fn command-payload]
-  (pull-records-from-remote query-fn submit-command-fn command-payload))
+  (let [{:keys [origin_host_path sync_data entity]} command-payload]
+    (pull-records-from-remote! query-fn submit-command-fn origin_host_path sync_data
+                              (get sync-configs (keyword entity)))))
 
 (defn sync-to-remote
   "Queries the local instance using `query-fn` and constructs a sync
   message to send to `remote-path`. The remote instance will use
   `origin-path` to query for the full report if it's out of date"
   [query-fn origin-path remote-path]
-  (let [trigger-sync (partial send-record-hashes-to-remote query-fn origin-path remote-path :v4)]
-   (and (trigger-sync :reports ["extract" ["hash" "certname" "start_time"]
-                                ["null?" "start_time" false]]
-                      {:order_by [[:certname :ascending]]})
-        (trigger-sync :factsets ["extract" ["hash" "certname" "producer_timestamp"]
-                                 ["null?" "certname" false]]
-                      {:order_by [[:certname :ascending]]}))))
+  (->> (vals sync-configs)
+       (map #(send-record-hashes-to-remote query-fn origin-path remote-path %))
+       doall
+       (every? identity)))
