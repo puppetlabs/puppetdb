@@ -132,16 +132,16 @@
   [{:keys [resource-type resource-title property timestamp status old-value
            new-value message file line] :as resource-event}]
   (generic-identity-string
-    { :resource-type resource-type
-      :resource-title resource-title
-      :property property
-      :timestamp timestamp
-      :status status
-      :old-value old-value
-      :new-value new-value
-      :message message
-      :file file
-      :line line}))
+    {:resource_type resource-type
+     :resource_title resource-title
+     :property property
+     :timestamp timestamp
+     :status status
+     :old_value old-value
+     :new_value new-value
+     :message message
+     :file file
+     :line line}))
 
 (defn report-identity-hash
   "Compute a hash for a report's content
@@ -154,11 +154,11 @@
            start-time end-time resource-events transaction-uuid] :as report}]
   (generic-identity-hash
     {:certname certname
-     :puppet-version puppet-version
-     :report-format report-format
-     :configuration-version configuration-version
-     :start-time start-time
-     :end-time end-time
-     :resource-events (sort (map resource-event-identity-string resource-events))
-     :transaction-uuid transaction-uuid}))
+     :puppet_version puppet-version
+     :report_format report-format
+     :configuration_version configuration-version
+     :start_time start-time
+     :end_time end-time
+     :resource_events (sort (map resource-event-identity-string resource-events))
+     :transaction_uuid transaction-uuid}))
 

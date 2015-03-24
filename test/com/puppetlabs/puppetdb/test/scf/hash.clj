@@ -101,7 +101,7 @@
 
       (testing "should return the same predictable string"
         (is (= (resource-event-identity-string sample)
-               "{\"file\":null,\"line\":null,\"message\":\"Name changed from baz to foo\",\"new-value\":\"foo\",\"old-value\":\"baz\",\"property\":\"name\",\"resource-title\":\"foo\",\"resource-type\":\"Type\",\"status\":\"skipped\",\"timestamp\":\"foo\"}")))))
+               "{\"file\":null,\"line\":null,\"message\":\"Name changed from baz to foo\",\"new_value\":\"foo\",\"old_value\":\"baz\",\"property\":\"name\",\"resource_title\":\"foo\",\"resource_type\":\"Type\",\"status\":\"skipped\",\"timestamp\":\"foo\"}")))))
 
   (testing "catalog-resource-identity-format"
     (let [sample {:type "Type"
@@ -145,7 +145,7 @@
 
       (testing "should return sorted predictable string output"
         (is (= (report-identity-hash sample)
-               "3504b79ff27eb17f4b83bf597d3944bb91cbb1ab")))
+               "7fddeb9eb1f4469acb9ea6c5d1bea15f8654326b")))
 
       (testing "should return the same value twice"
         (is (= (report-identity-hash sample)

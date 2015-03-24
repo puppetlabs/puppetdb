@@ -1094,48 +1094,70 @@
     (dissoc row-map :environment_id)
     row-map))
 
+(defn normalize-resource-event
+  "Prep `event` for comparison/computation of a hash"
+  [event]
+  (-> event
+      (utils/update-when [:timestamp] to-timestamp)
+      (utils/update-when [:old-value] sutils/db-serialize)
+      (utils/update-when [:new-value] sutils/db-serialize)
+      (assoc :containing-class (find-containing-class (:containment-path event)))))
+
+(defn normalize-report
+  "Prep the report for comparison/computation of a hash"
+  [report]
+  (-> report
+      (update-in [:start-time] to-timestamp)
+      (update-in [:end-time] to-timestamp)
+      (update-in [:resource-events] #(map normalize-resource-event %))))
+
+(defn convert-containment-path
+  "Convert the contain path from a collection to the jdbc array type"
+  [event]
+  (utils/update-when event
+                     [:containment-path]
+                     (fn [cp]
+                       (when cp
+                         (sutils/to-jdbc-varchar-array cp)))))
+
 (defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
-  is used to determine whether or not the `update-latest-report!` function will be called as part of
-  the transaction.  This should always be set to `true`, except during some very specific testing
-  scenarios."
-  [{:keys [puppet-version certname report-format configuration-version
-           start-time end-time resource-events transaction-uuid environment
-           status]
-    :as report}
-   timestamp update-latest-report?]
-  {:pre [(map? report)
+   is used to determine whether or not the `update-latest-report!` function will be called as part of
+   the transaction.  This should always be set to `true`, except during some very specific testing
+   scenarios."
+  [orig-report
+   timestamp
+   update-latest-report?]
+  {:pre [(map? orig-report)
          (kitchensink/datetime? timestamp)
          (kitchensink/boolean? update-latest-report?)]}
-  (let [report-hash         (shash/report-identity-hash report)
-        containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
-        resource-event-rows (map #(-> %
-                                      (update-in [:timestamp] to-timestamp)
-                                      (update-in [:old-value] sutils/db-serialize)
-                                      (update-in [:new-value] sutils/db-serialize)
-                                      (update-in [:containment-path] containment-path-fn)
-                                      (assoc :containing-class (find-containing-class (% :containment-path)))
-                                      (assoc :report report-hash) ((partial kitchensink/mapkeys dashes->underscores)))
-                                 resource-events)]
-    (time! (:store-report metrics)
+  (time! (:store-report metrics)
+         (let [{:keys [puppet-version certname report-format configuration-version
+                       start-time end-time resource-events transaction-uuid environment
+                       status] :as report} (normalize-report orig-report)
+               report-hash (shash/report-identity-hash report)
+               containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))]
            (sql/transaction
-            (sql/insert-record :reports
-                               (maybe-environment
-                                {:hash                   report-hash
-                                 :puppet_version         puppet-version
-                                 :certname               certname
-                                 :report_format          report-format
-                                 :configuration_version  configuration-version
-                                 :start_time             (to-timestamp start-time)
-                                 :end_time               (to-timestamp end-time)
-                                 :receive_time           (to-timestamp timestamp)
-                                 :transaction_uuid       transaction-uuid
-                                 :environment_id         (ensure-environment environment)
-                                 :status_id              (ensure-status status)}))
+             (sql/insert-record :reports
+                                (maybe-environment
+                                  {:hash                   report-hash
+                                   :puppet_version         puppet-version
+                                   :certname               certname
+                                   :report_format          report-format
+                                   :configuration_version  configuration-version
+                                   :start_time             start-time
+                                   :end_time               end-time
+                                   :receive_time           (to-timestamp timestamp)
+                                   :transaction_uuid       transaction-uuid
+                                   :environment_id         (ensure-environment environment)
+                                   :status_id              (ensure-status status)}))
 
-            (apply sql/insert-records :resource_events resource-event-rows)
-            (if update-latest-report?
-              (update-latest-report! certname))))))
+             (->> resource-events
+                  (map (comp (partial kitchensink/mapkeys jdbc/dashes->underscores)
+                             convert-containment-path #(assoc % :report report-hash)))
+                  (apply sql/insert-records :resource_events))
+             (when update-latest-report?
+               (update-latest-report! certname))))))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `end-time` that is prior to
