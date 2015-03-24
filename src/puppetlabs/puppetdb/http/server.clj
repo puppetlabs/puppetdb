@@ -6,7 +6,6 @@
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.v4 :refer [v4-app]]
-            [puppetlabs.puppetdb.http.experimental :refer [experimental-app]]
             [puppetlabs.puppetdb.middleware :refer
              [wrap-with-debug-logging wrap-with-authorization wrap-with-certificate-cn
               wrap-with-globals wrap-with-metrics wrap-with-default-body]]
@@ -38,7 +37,6 @@
   [url-prefix]
   (app
    ["v4" &] {:any v4-app}
-   ["experimental" &] {:any experimental-app}
    ["v1" &] {:any (refuse-retired-api "v1")}
    ["v2" &] {:any (refuse-retired-api "v2")}
    ["v3" &] {:any (refuse-retired-api "v3")}
