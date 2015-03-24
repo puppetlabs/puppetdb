@@ -1121,7 +1121,6 @@
       (update-in [:end_time] to-timestamp)
       (update-in [:resource_events] #(map normalize-resource-event %))))
 
-
 (defn convert-containment-path
   "Convert the contain path from a collection to the jdbc array type"
   [event]

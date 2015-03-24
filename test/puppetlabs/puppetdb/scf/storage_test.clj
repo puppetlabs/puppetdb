@@ -1217,6 +1217,12 @@
                                                                    [:metrics :logs] walk/keywordize-keys})))]
         (is (= expected actual)))))
 
+  (deftest report-with-event-timestamp
+    (let [z-report (update-event-timestamps report "2011-01-01T12:00:01Z")
+          offset-report (update-event-timestamps report "2011-01-01T12:00:01-0000")]
+      (is (= (shash/report-identity-hash (normalize-report z-report))
+             (shash/report-identity-hash (normalize-report offset-report))))))
+
   (deftest resource-events-cleanup
     (testing "should delete all events for reports older than the specified age"
       (let [report1       (assoc report :end_time (to-string (ago (days 5))))
