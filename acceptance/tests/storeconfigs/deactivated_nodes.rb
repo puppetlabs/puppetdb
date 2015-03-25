@@ -81,11 +81,13 @@ MANIFEST
 
     step "deactivate the exporter node" do
       # Deactivate the node and wait until it's been processed
-      on database, "puppet node deactivate '#{exporter.node_name}'"
+      # FYI `puppet node deactivate` and `puppet node status` rely on the the
+      # pdb terminus, so they can only be run on the master
+      on master, "puppet node deactivate '#{exporter.node_name}'"
       sleep_until_queue_empty database
 
       # Check that it's actually deactivated
-      on database, "puppet node status '#{exporter.node_name}'" do
+      on master, "puppet node status '#{exporter.node_name}'" do
         assert_match(/Deactivated at/, result.output, "#{exporter.node_name} was not properly deactivated")
       end
     end
@@ -100,7 +102,7 @@ MANIFEST
       # Wait until the catalog has been processed
       sleep_until_queue_empty database
 
-      on database, "puppet node status '#{exporter.node_name}'" do
+      on master, "puppet node status '#{exporter.node_name}'" do
         assert_match(/Currently active/, result.output, "#{exporter.node_name} was not properly reactivated")
       end
     end
