@@ -13,7 +13,7 @@ test_name "queries against deactivated nodes" do
 node "#{exporter}" {
   @@file { "#{dir}/from_exporter":
     ensure => present,
-    mode => 0777,
+    mode => "0777",
   }
 }
 

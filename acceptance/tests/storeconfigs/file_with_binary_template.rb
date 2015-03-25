@@ -15,7 +15,7 @@ test_name "submit a catalog that contains a file built from a binary template" d
 file { "/tmp/myfile":
   owner => "root",
   group => "root",
-  mode => 755,
+  mode => "755",
 
   content => template("foomodule/mytemplate.erb"),
   tag => "binary_file"
