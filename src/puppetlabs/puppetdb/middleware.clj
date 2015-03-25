@@ -7,6 +7,7 @@
             [ring.util.request :as request]
             [clojure.string :as s]
             [clojure.tools.logging :as log]
+            [ring.middleware.params :refer [wrap-params]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [clojure.set :as set]
             [pantomime.media :as media]
@@ -282,3 +283,13 @@
         (if-let [payload (params "payload")]
           (app (assoc req :body-string payload))
           (http/error-response (str "Missing required parameter 'payload'")))))))
+
+(defn wrap-with-puppetdb-middleware
+  "Default middleware for puppetdb webservers."
+  [app authorizer]
+  (-> app
+      wrap-params
+      (wrap-with-authorization authorizer)
+      wrap-with-certificate-cn
+      wrap-with-default-body
+      wrap-with-debug-logging))

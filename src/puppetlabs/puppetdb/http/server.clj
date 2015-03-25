@@ -7,11 +7,9 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.v4 :refer [v4-app]]
             [puppetlabs.puppetdb.middleware :refer
-             [wrap-with-debug-logging wrap-with-authorization wrap-with-certificate-cn
-              wrap-with-globals wrap-with-metrics wrap-with-default-body]]
+             [wrap-with-puppetdb-middleware wrap-with-globals wrap-with-metrics]]
             [net.cgrand.moustache :refer [app]]
             [ring.middleware.resource :refer [wrap-resource]]
-            [ring.middleware.params :refer [wrap-params]]
             [ring.util.response :refer [redirect header]]))
 
 (defn deprecated-app
@@ -54,11 +52,7 @@
     If not supplied, we default to authorizing all requests."
   [{:keys [authorizer url-prefix] :as globals}]
   (-> (routes url-prefix)
+      (wrap-with-puppetdb-middleware authorizer)
       (wrap-resource "public")
-      wrap-params
-      (wrap-with-authorization authorizer)
-      wrap-with-certificate-cn
-      wrap-with-default-body
       (wrap-with-metrics (atom {}) http/leading-uris)
-      (wrap-with-globals globals)
-      wrap-with-debug-logging))
+      (wrap-with-globals globals)))
