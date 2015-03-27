@@ -16,7 +16,7 @@
            "0.0-dev-build"))))))
 
 (def tk-version "1.1.0")
-(def tk-jetty9-version "1.2.0")
+(def tk-jetty9-version "1.3.0")
 (def ks-version "1.0.0")
 
 (defproject puppetdb (version-string)
