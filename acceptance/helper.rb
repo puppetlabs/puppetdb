@@ -763,10 +763,11 @@ EOS
   #
   # @api private
   def restore_puppet_conf host
-    on host, "if [ -f #{host['puppetpath']}/puppet.conf.bak ]; then " +
-               "cat #{host['puppetpath']}/puppet.conf.bak > " +
-               "#{host['puppetpath']}/puppet.conf; " +
-               "rm -rf #{host['puppetpath']}/puppet.conf.bak; " +
+    confdir = host.puppet['confdir']
+    on host, "if [ -f #{confdir}/puppet.conf.bak ]; then " +
+               "cat #{confdir}/puppet.conf.bak > " +
+               "#{confdir}/puppet.conf; " +
+               "rm -rf #{confdir}/puppet.conf.bak; " +
              "fi"
   end
 
@@ -976,9 +977,10 @@ EOS
 
   def install_puppet_conf
     hosts.each do |host|
-      puppetconf = File.join(host['puppetpath'], 'puppet.conf')
+      confdir = host.puppet['confdir']
+      puppetconf = File.join(confdir, 'puppet.conf')
 
-      on host, "mkdir -p #{host['puppetpath']}"
+      on host, "mkdir -p #{confdir}"
 
       conf = IniFile.new
       conf['agent'] = {
