@@ -87,35 +87,35 @@ Ryan Senior, and Wyatt Alt
 #### Documentation
 
 * The documentation for the `<=` and `>=`
-  [operators](./api/query/v2/operators) has been fixed (the
+  [operators](./api/query/v2/operators.html) has been fixed (the
   descriptions were incorrectly reversed).
 
 * The firewall and SELinux requirements have been documented
-  [here](./connect_puppet_master).
+  [here](./connect_puppet_master.html).
   ([PDB-137](https://tickets.puppetlabs.com/browse/PDB-137))
 
 * Broken links have been fixed in the
-  [connection](./connect_puppet_master) and [commands](./api/commands)
+  [connection](./connect_puppet_master.html) and [commands](./api/commands.html)
   documentation.
 
 * A missing `-L` option has been added to a curl invocation
-  [here](./install_from_souce).
+  [here](./install_from_souce.html).
 
 * An incorrect reference to "Java" has been changed to "JVM" in the
-  [configuration](./configure) documentation.
+  [configuration](./configure.html) documentation.
 
 * The relationship between "MQ depth" and "Command Queue depth" has
-  been clarified in the [tuning and maintenance](./maintain_and_tune)
+  been clarified in the [tuning and maintenance](./maintain_and_tune.html)
   documentation.
 
 * An example that uses curl with SSL to communicate with Puppet
-  Enterprise has been added to the [curl](./api/query/curl)
+  Enterprise has been added to the [curl](./api/query/curl.html)
   documentation.
 
 * Some minor edits have been made to the
-  [fact-contents](./api/query/v4/fact-contents),
-  [connection](./connect_puppet_master), and
-  [KahaDB Corruption](./trouble_kahadb_corruption) documentation.
+  [fact-contents](./api/query/v4/fact-contents.html),
+  [connection](./connect_puppet_master.html), and
+  [KahaDB Corruption](./trouble_kahadb_corruption.html) documentation.
 
 #### Testing
 
