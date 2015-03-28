@@ -12,7 +12,7 @@ test_name "Install Puppet" do
   master_facts = facts(master.name)
 
   if options[:type] == 'aio' then
-    on master, "service puppetserver start"
+    bounce_service( master, master['puppetservice'], 10 )
   else
     with_puppet_running_on(
       master,
