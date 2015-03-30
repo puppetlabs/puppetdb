@@ -162,8 +162,7 @@
   (try
     (kitchensink/demarcate
       "database garbage collection"
-      (with-transacted-connection db
-        (scf-store/garbage-collect!)))
+      (scf-store/garbage-collect! db))
     (catch Exception e
       (log/error e "Error during garbage collection"))))
 

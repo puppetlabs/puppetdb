@@ -1,6 +1,10 @@
 (ns com.puppetlabs.puppetdb.test.scf.migrate
-  (:require [com.puppetlabs.puppetdb.scf.migrate :as migrate]
-            [com.puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]
+  (:require [com.puppetlabs.puppetdb.scf.hash :as hash]
+            [com.puppetlabs.puppetdb.scf.migrate :as migrate]
+            [com.puppetlabs.puppetdb.scf.migration-legacy :as legacy]
+            [com.puppetlabs.puppetdb.scf.storage :as store]
+            [com.puppetlabs.puppetdb.scf.storage-utils
+             :refer [db-serialize postgres?]]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql])
   (:use [com.puppetlabs.puppetdb.scf.migrate]
@@ -11,7 +15,10 @@
         [puppetlabs.kitchensink.core :only [mapvals]]
         [com.puppetlabs.jdbc :only [query-to-vec with-transacted-connection]]
         [com.puppetlabs.puppetdb.testutils :only [clear-db-for-testing! test-db]]
-        [com.puppetlabs.puppetdb.testutils.reports :only [store-example-report! store-v2-example-report!]]))
+        [com.puppetlabs.puppetdb.testutils.reports
+         :only [store-example-report! store-v2-example-report!]])
+  (:import [java.sql SQLIntegrityConstraintViolationException]
+           [org.postgresql.util PSQLException]))
 
 (def db (test-db))
 
@@ -78,7 +85,6 @@
   (testing "building parameter cache"
     (sql/with-connection db
       (clear-db-for-testing!)
-      ;; Migrate to prior to the cache table
       (doseq [[i migration] (sort migrations)
               :while (< i 14)]
         (migration)
@@ -177,3 +183,84 @@
                  :timestamp (to-timestamp current-time) :value_string "true"}
                 {:path "baz" :environment_id 3 :environment "test_env_3"
                  :timestamp (to-timestamp current-time) :value_string "false"}]))))))
+
+
+(deftest migration-29
+  (sql/with-connection db
+    (clear-db-for-testing!)
+    (doseq [[i migration] (sort migrations)
+            :while (< i 28)]
+      (migration)
+      (record-migration! i))
+    (letfn [(one-row [db]
+              (first (query-to-vec (format "SELECT * FROM %s LIMIT 1" db))))
+            (facts-now [c v]
+              {:name c :values v
+               :environment nil :timestamp (now) :producer-timestamp nil})
+            (random-facts []
+              (into {}
+                    (for [i (range (+ 1000 (rand-int 100)))]
+                      [(str "path-" i "-" (rand-int 3))
+                       (str "value-" (rand-int 100))])))]
+      (store/add-certname! "c-x")
+      (store/add-certname! "c-y")
+      (store/add-certname! "c-z")
+      (legacy/add-facts-27! (facts-now "c-x" (random-facts)))
+      (legacy/add-facts-27! (facts-now "c-y" (random-facts)))
+      (legacy/add-facts-27! (facts-now "c-z" (random-facts)))
+      ;; Check shapes.
+      (is (= #{:factset_id :fact_value_id}
+             (set (keys (one-row "facts")))))
+      (is (= #{:id :depth :name :path :value_type_id}
+             (set (keys (one-row "fact_paths")))))
+      (is (= #{:id :value_hash :value_type_id :value_boolean :value_string
+               :value_float :value_json :value_integer
+               :path_id}
+             (set (keys (one-row "fact_values")))))
+      ;; Assumes random-facts won't produce a 'bar' value.
+      (store/add-certname! "probe-values")
+      (legacy/add-facts-27! (facts-now "probe-values" {"foo-1" "bar"
+                                                       "foo-2" "bar"}))
+      (testing "different paths produce different values"
+        (is (= 2
+               (count (query-to-vec
+                       "SELECT * FROM fact_values WHERE value_string = 'bar'")))))
+      ((migrations 28))
+      (record-migration! 28)
+      ;; Check shapes.
+      (is (= #{:factset_id :fact_path_id :fact_value_id}
+             (set (keys (one-row "facts")))))
+      (is (= #{:id :depth :name :path}
+             (set (keys (one-row "fact_paths")))))
+      (is (= #{:id :value_hash :value_type_id :value_boolean :value_string
+               :value_float :value_json :value_integer}
+             (set (keys (one-row "fact_values")))))
+      (testing "same value via different paths reduces to one row"
+        (is (= 1
+               (count
+                (query-to-vec
+                 "SELECT * FROM fact_values WHERE value_string = 'bar'")))))
+      (testing "fact_paths enforces path uniqueness"
+        (if (postgres?)
+          (is (thrown? PSQLException
+                       (sql/insert-records
+                        :fact_paths {:path "foo-1" :name "foo-1" :depth 0})))
+          (is (thrown? SQLIntegrityConstraintViolationException
+                       (sql/insert-records
+                        :fact_paths {:path "foo-1" :name "foo-1" :depth 0})))))
+      (testing "fact_values enforces value_hash uniqueness"
+        (if (postgres?)
+          (is (thrown?
+               PSQLException
+               (sql/insert-records
+                :fact_values
+                {:value_type_id 0
+                 :value_hash (hash/generic-identity-hash "bar")
+                 :value_string "bar"})))
+          (is (thrown?
+               SQLIntegrityConstraintViolationException
+               (sql/insert-records
+                :fact_values
+                {:value_type_id 0
+                 :value_hash (hash/generic-identity-hash "bar")
+                 :value_string "bar"}))))))))
