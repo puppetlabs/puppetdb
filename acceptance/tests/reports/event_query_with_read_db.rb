@@ -56,15 +56,8 @@ notify { "hi":
 MANIFEST
 
 
-  tmpdir = master.tmpdir('report_storage')
+  manifest_path = create_remote_site_pp(master, manifest)
 
-  manifest_file = File.join(tmpdir, 'site.pp')
-
-  create_remote_file(master, manifest_file, manifest)
-
-  File.open('/tmp/manifest-out.txt', 'w') {|f| f.write(manifest) }
-  
-  on master, "chmod -R +rX #{tmpdir}"
 
   # NOTE: this implementation assumes that the test coordinator machine and
   # all of the SUTs are using NTP, and that their system date/times are roughly
@@ -80,8 +73,11 @@ MANIFEST
       'storeconfigs' => 'true',
       'storeconfigs_backend' => 'puppetdb',
       'autosign' => 'true',
-      'manifest' => manifest_file
-    }} do
+    },
+    'main' => {
+      'environmentpath' => manifest_path,
+    }
+  } do
 
       step "Run agents once to submit reports" do
         run_agent_on agents, "--test --server #{master}", :acceptable_exit_codes => [0,2]

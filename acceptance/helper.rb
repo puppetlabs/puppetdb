@@ -1008,10 +1008,28 @@ EOS
   end
 
   def create_remote_site_pp(host, manifest)
-    tmpdir = host.tmpdir("remote-site-pp")
-    remote_path = File.join(tmpdir, 'site.pp')
-    create_remote_file(host, remote_path, manifest)
-    on master, "chmod -R +rX #{tmpdir}"
+    testdir = host.tmpdir("remote-site-pp")
+    manifest_file = "#{testdir}/environments/production/manifests/site.pp"
+    apply_manifest_on(host, <<-PP)
+    File {
+      ensure => directory,
+      mode => "0750",
+      owner => #{master.puppet['user']},
+      group => #{master.puppet['group']},
+    }
+
+    file {
+      '#{testdir}':;
+      '#{testdir}/environments':;
+      '#{testdir}/environments/production':;
+      '#{testdir}/environments/production/manifests':;
+      '#{testdir}/environments/production/modules':;
+    }
+PP
+    create_remote_file(host, manifest_file, manifest)
+    remote_path = "#{testdir}/environments"
+    on host, "chmod -R +rX #{testdir}"
+    on host, "chown -R #{master.puppet['user']}:#{master.puppet['user']} #{testdir}"
     remote_path
   end
 
@@ -1023,7 +1041,9 @@ EOS
         'storeconfigs' => 'true',
         'storeconfigs_backend' => 'puppetdb',
         'autosign' => 'true',
-        'manifest' => manifest_path
+      },
+      'main' => {
+        'environmentpath' => manifest_path,
       }} do
       #only some of the opts work on puppet_agent, acceptable exit codes does not
       agents.each{ |agent| on agent, puppet_agent("--test --server #{host}", { 'ENV' => env_vars }), :acceptable_exit_codes => [0,2] }

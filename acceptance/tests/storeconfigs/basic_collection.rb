@@ -16,19 +16,15 @@ node "#{name}" {
 
   manifest << "\nNotify <<| |>>"
 
-  tmpdir = master.tmpdir('storeconfigs')
-
-  manifest_file = File.join(tmpdir, 'site.pp')
-
-  create_remote_file(master, manifest_file, manifest)
-
-  on master, "chmod -R +rX #{tmpdir}"
-
+  manifest_path = create_remote_site_pp(master, manifest)
   with_puppet_running_on master, {
     'master' => {
       'autosign' => 'true',
-      'manifest' => manifest_file
-    }} do
+    },
+    'main' => {
+      'environmentpath' => manifest_path
+    }
+  } do
 
     step "Run agent once to populate database" do
       run_agent_on hosts, "--test --server #{master}", :acceptable_exit_codes => [0,2]
