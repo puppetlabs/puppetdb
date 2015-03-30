@@ -54,7 +54,7 @@ Use one of the following rules of thumb to choose an initial heap size; afterwar
 * If you are using PostgreSQL, allocate 128 MB of memory as a base, plus 1 MB for each Puppet node in your infrastructure.
 * If you are using the embedded database, allocate at least 1 GB of heap.
 
-Bottleneck: Node Checkin Interval
+Bottleneck: Node Check In Interval
 -----
 
 The more frequently your Puppet nodes check in, the heavier the load on your PuppetDB server.
