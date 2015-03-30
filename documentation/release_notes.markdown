@@ -31,7 +31,7 @@ notably increase performance for larger installations.
 ### Contributors
 
 John Duarte, Ken Barber, Matthaus Owens, Nick Fagerlund, Russell Mull,
-Wyatt Alt
+Wyatt Alt, Rob Browning, Ryan Senior, juniorsysadmin
 
 ### Changes
 
@@ -40,9 +40,11 @@ Wyatt Alt
 
 #### Bug Fixes and Maintenance
 
-* PuppetDB should no longer be able to produce fact values that it
-  can't delete when it's cleaning up unreferenced values.  That
-  situation would produce PostgreSQL log messages like this:
+* We have reworked out table schema and fact value garbage
+  collection to ensure that concurrent updates cannot lead
+  to fact GC failures.  Before this fix PuppetDB, under high load,
+  could end up in a situation which would produce PostgreSQL log
+  messages like this:
 
     ERROR:  update or delete on table "fact_paths" violates foreign key constraint "fact_values_path_id_fk" on table "fact_values"
     DETAIL:  Key (id)=(11) is still referenced from table "fact_values".
@@ -50,12 +52,11 @@ Wyatt Alt
 
   The fix for this problem may also significantly increase PuppetDB's
   performance in some situations.
-  ([PDB-1024](https://tickets.puppetlabs.com/browse/PDB-1024)
-   [PDB-1031](https://tickets.puppetlabs.com/browse/PDB-1031)
-   [PDB-1024](https://tickets.puppetlabs.com/browse/PDB-1024)
-   [PDB-1025](https://tickets.puppetlabs.com/browse/PDB-1025)
-   [PDB-1026](https://tickets.puppetlabs.com/browse/PDB-1026)
-   [PDB-1027](https://tickets.puppetlabs.com/browse/PDB-1027))
+  ([PDB-1031](https://tickets.puppetlabs.com/browse/PDB-1031)
+   [PDB-1224](https://tickets.puppetlabs.com/browse/PDB-1224)
+   [PDB-1225](https://tickets.puppetlabs.com/browse/PDB-1225)
+   [PDB-1226](https://tickets.puppetlabs.com/browse/PDB-1226)
+   [PDB-1227](https://tickets.puppetlabs.com/browse/PDB-1227))
 
 * Report timestamps should be hashed consistently now.
   ([PDB-1286](https://tickets.puppetlabs.com/browse/PDB-1286))
