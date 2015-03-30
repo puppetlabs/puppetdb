@@ -986,8 +986,13 @@ EOS
       conf['agent'] = {
         'server' => master,
       }
+      if options[:is_puppetserver] then
+        pidfile = '/var/run/puppetlabs/puppetserver/puppetserver.pid'
+      else
+        pidfile = master.puppet('master')['pidfile']
+      end
       conf['master'] = {
-        'pidfile' => '/var/run/puppet/master.pid',
+        'pidfile' => pidfile,
       }
       create_remote_file host, puppetconf, conf.to_s
     end
