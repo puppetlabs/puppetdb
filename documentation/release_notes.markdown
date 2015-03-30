@@ -7,6 +7,73 @@ canonical: "/puppetdb/latest/release_notes.html"
 [configure_postgres]: ./configure.html#using-postgresql
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
 
+2.3.1
+-----
+
+PuppetDB 2.3.1 is a backwards-compatible bugfix release that may
+notably increase performance for larger installations.
+
+### Upgrading
+
+* For the best-possible performance and scaling capacity, we recommend
+  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
+  extension enabled, as explained [here][configure_postgres], and we
+  have officially deprecated versions earlier than 9.2.  HSQLDB is
+  only recommended for local development because it has a number of
+  scaling and operational issues.
+
+* Make sure that all of your PuppetDB instances are shut down, and
+  only upgrade one at a time.
+
+* Make sure to upgrade your puppetdb-terminus package (on the host
+  where your Puppet master lives), and restart your master service.
+
+### Contributors
+
+John Duarte, Ken Barber, Matthaus Owens, Nick Fagerlund, Russell Mull,
+Wyatt Alt
+
+### Changes
+
+* The tk-jetty9-version has been upgraded from 1.2.0 to 1.3.0.
+  ([PDB-1307](https://tickets.puppetlabs.com/browse/PDB-1307))
+
+#### Bug Fixes and Maintenance
+
+* PuppetDB should no longer be able to produce fact values that it
+  can't delete when it's cleaning up unreferenced values.  That
+  situation would produce PostgreSQL log messages like this:
+
+    ERROR:  update or delete on table "fact_paths" violates foreign key constraint "fact_values_path_id_fk" on table "fact_values"
+    DETAIL:  Key (id)=(11) is still referenced from table "fact_values".
+    STATEMENT:  COMMIT
+
+  The fix for this problem may also significantly increase PuppetDB's
+  performance in some situations.
+  ([PDB-1024](https://tickets.puppetlabs.com/browse/PDB-1024)
+   [PDB-1031](https://tickets.puppetlabs.com/browse/PDB-1031)
+   [PDB-1024](https://tickets.puppetlabs.com/browse/PDB-1024)
+   [PDB-1025](https://tickets.puppetlabs.com/browse/PDB-1025)
+   [PDB-1026](https://tickets.puppetlabs.com/browse/PDB-1026)
+   [PDB-1027](https://tickets.puppetlabs.com/browse/PDB-1027))
+
+* Report timestamps should be hashed consistently now.
+  ([PDB-1286](https://tickets.puppetlabs.com/browse/PDB-1286))
+
+* The facter requirement has been removed from the RPM specfile.
+  ([PDB-1303](https://tickets.puppetlabs.com/browse/PDB-1303))
+
+#### Documentation
+
+* The documentation has been updated for Puppet 4.
+  ([PDB-1305](https://tickets.puppetlabs.com/browse/PDB-1305))
+
+* Omitted .html extensions have been added to some the links in the
+  2.3.0 release notes.
+
+* The documentation sidebar (TOC) is now hosted in the PuppetDB
+  repository. ([PDB-1319](https://tickets.puppetlabs.com/browse/PDB-1319))
+
 2.3.0
 -----
 
