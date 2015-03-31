@@ -302,6 +302,73 @@ derive data from a PuppetDB export tarball.
 
 TODO
 
+2.3.1
+-----
+
+PuppetDB 2.3.1 is a backwards-compatible bugfix release that may
+notably increase performance for larger installations.
+
+### Upgrading
+
+* For the best-possible performance and scaling capacity, we recommend
+  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
+  extension enabled, as explained [here][configure_postgres], and we
+  have officially deprecated versions earlier than 9.2.  HSQLDB is
+  only recommended for local development because it has a number of
+  scaling and operational issues.
+
+* Make sure that all of your PuppetDB instances are shut down, and
+  only upgrade one at a time.
+
+* Make sure to upgrade your puppetdb-terminus package (on the host
+  where your Puppet master lives), and restart your master service.
+
+### Contributors
+
+John Duarte, Ken Barber, Matthaus Owens, Nick Fagerlund, Russell Mull,
+Wyatt Alt, Rob Browning, Ryan Senior, juniorsysadmin
+
+### Changes
+
+* The tk-jetty9-version has been upgraded from 1.2.0 to 1.3.0.
+  ([PDB-1307](https://tickets.puppetlabs.com/browse/PDB-1307))
+
+#### Bug Fixes and Maintenance
+
+* We have reworked out table schema and fact value garbage
+  collection to ensure that concurrent updates cannot lead
+  to fact GC failures.  Before this fix PuppetDB, under high load,
+  could end up in a situation which would produce PostgreSQL log
+  messages like this:
+
+    ERROR:  update or delete on table "fact_paths" violates foreign key constraint "fact_values_path_id_fk" on table "fact_values"
+    DETAIL:  Key (id)=(11) is still referenced from table "fact_values".
+    STATEMENT:  COMMIT
+
+  The fix for this problem may also significantly increase PuppetDB's
+  performance in some situations.
+  ([PDB-1031](https://tickets.puppetlabs.com/browse/PDB-1031)
+   [PDB-1224](https://tickets.puppetlabs.com/browse/PDB-1224)
+   [PDB-1225](https://tickets.puppetlabs.com/browse/PDB-1225)
+   [PDB-1226](https://tickets.puppetlabs.com/browse/PDB-1226)
+   [PDB-1227](https://tickets.puppetlabs.com/browse/PDB-1227))
+
+* Report timestamps should be hashed consistently now.
+  ([PDB-1286](https://tickets.puppetlabs.com/browse/PDB-1286))
+
+* The facter requirement has been removed from the RPM specfile.
+  ([PDB-1303](https://tickets.puppetlabs.com/browse/PDB-1303))
+
+#### Documentation
+
+* The documentation has been updated for Puppet 4.
+  ([PDB-1305](https://tickets.puppetlabs.com/browse/PDB-1305))
+
+* Omitted .html extensions have been added to some the links in the
+  2.3.0 release notes.
+
+* The documentation sidebar (TOC) is now hosted in the PuppetDB
+  repository. ([PDB-1319](https://tickets.puppetlabs.com/browse/PDB-1319))
 
 2.3.0
 -----
@@ -383,35 +450,35 @@ Ryan Senior, and Wyatt Alt
 #### Documentation
 
 * The documentation for the `<=` and `>=`
-  [operators](./api/query/v2/operators) has been fixed (the
+  [operators](./api/query/v2/operators.html) has been fixed (the
   descriptions were incorrectly reversed).
 
 * The firewall and SELinux requirements have been documented
-  [here](./connect_puppet_master).
+  [here](./connect_puppet_master.html).
   ([PDB-137](https://tickets.puppetlabs.com/browse/PDB-137))
 
 * Broken links have been fixed in the
-  [connection](./connect_puppet_master) and [commands](./api/commands)
+  [connection](./connect_puppet_master.html) and [commands](./api/commands.html)
   documentation.
 
 * A missing `-L` option has been added to a curl invocation
-  [here](./install_from_souce).
+  [here](./install_from_souce.html).
 
 * An incorrect reference to "Java" has been changed to "JVM" in the
-  [configuration](./configure) documentation.
+  [configuration](./configure.html) documentation.
 
 * The relationship between "MQ depth" and "Command Queue depth" has
-  been clarified in the [tuning and maintenance](./maintain_and_tune)
+  been clarified in the [tuning and maintenance](./maintain_and_tune.html)
   documentation.
 
 * An example that uses curl with SSL to communicate with Puppet
-  Enterprise has been added to the [curl](./api/query/curl)
+  Enterprise has been added to the [curl](./api/query/curl.html)
   documentation.
 
 * Some minor edits have been made to the
-  [fact-contents](./api/query/v4/fact-contents),
-  [connection](./connect_puppet_master), and
-  [KahaDB Corruption](./trouble_kahadb_corruption) documentation.
+  [fact-contents](./api/query/v4/fact-contents.html),
+  [connection](./connect_puppet_master.html), and
+  [KahaDB Corruption](./trouble_kahadb_corruption.html) documentation.
 
 #### Testing
 

@@ -11,7 +11,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
 
   def get_trusted_info(node)
     trusted = Puppet.lookup(:trusted_information) do
-      Puppet::Context::TrustedInformation.local(request.node)
+      Puppet::Context::TrustedInformation.local(node)
     end
     trusted.to_h
   end

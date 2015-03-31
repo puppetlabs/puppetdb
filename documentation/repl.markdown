@@ -53,8 +53,7 @@ Within the REPL, you can interactively execute PuppetDB's functions. For example
     nil
     user=> (use 'clojure.java.jdbc)
     nil
-    user=> (with-connection (:database configuration)
-             (garbage-collect!))
+    user=> (garbage-collect! (:database configuration))
     (0)
 
 Redefining Functions
