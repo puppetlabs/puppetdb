@@ -49,14 +49,15 @@
    _TODO: consider using multimethods for migration funcs_"
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.scf.storage :as scf-store]
+            [clojure.string :as string]
+            [puppetlabs.puppetdb.scf.migration-legacy :as legacy]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.jdbc :as jdbc]))
+            [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]))
 
 (defn- drop-constraints
   "Drop all constraints of given `constraint-type` on `table`."
@@ -719,16 +720,14 @@
             environment (->> environment_id
                              (jdbc/query-to-vec "SELECT name FROM environments WHERE id = ?")
                              first
-                             :name)
-            include-hash? false]
+                             :name)]
         (when-not (empty? facts)
-          (scf-store/add-facts!
+          (legacy/add-facts-27!
             {:certname (str certname)
              :values facts
              :timestamp timestamp
              :environment environment
-             :producer_timestamp nil}
-            include-hash?))))))
+             :producer_timestamp nil}))))))
 
 (defn structured-facts []
   ;; -----------
@@ -1033,6 +1032,99 @@
       "ALTER TABLE reports ADD metrics text"
       "ALTER TABLE reports ADD logs text")))
 
+(defn lift-fact-paths-into-facts
+  "Pairs paths and values directly in facts, i.e. change facts from (id
+  value) to (id path value)."
+  []
+  (sql/do-commands
+   ;; Build complete facts table as of migration 28.
+
+   "CREATE TABLE facts_unique_transform
+      (factset_id bigint NOT NULL,
+       fact_path text NOT NULL,
+       fact_value_hash varchar(40) NOT NULL)"
+
+   "INSERT INTO facts_unique_transform (factset_id, fact_path, fact_value_hash)
+      SELECT f.factset_id, fp.path, fv.value_hash
+        FROM facts f
+        INNER JOIN fact_values fv on f.fact_value_id = fv.id
+        INNER JOIN fact_paths fp on fv.path_id = fp.id"
+
+   "DROP TABLE facts"
+
+   ;; We need these indexes for the upcoming deletions.
+   ;; A deletion like this doesn't need the index, but it only works
+   ;; with PostgreSQL:
+   ;;   DELETE FROM fact_values t1 USING fact_values t2
+   ;;     WHERE t1.value_hash = t2.value_hash AND t1.id > t2.id
+   "CREATE INDEX fact_path_path_idx ON fact_paths(path)"
+   "CREATE INDEX fact_values_value_hash_idx ON fact_values(value_hash)"
+
+   ;; Remove all the orphaned duplicates (all but the row in each set
+   ;; with min-id).
+   "DELETE FROM fact_paths t1
+      WHERE t1.id <> (SELECT MIN(t2.id) FROM fact_paths t2
+                        WHERE t1.path = t2.path)"
+   "DELETE FROM fact_values t1
+      WHERE t1.id <> (SELECT MIN(t2.id) FROM fact_values t2
+                        WHERE t1.value_hash = t2.value_hash)"
+
+   ;; Q: Is this right, or do we just keep the (redundant) indexes?
+   "DROP INDEX fact_path_path_idx"
+   "DROP INDEX fact_values_value_hash_idx"
+   "ALTER TABLE fact_paths
+      ADD CONSTRAINT fact_paths_path_key UNIQUE (path)"
+   "ALTER TABLE fact_values
+      ADD CONSTRAINT fact_values_value_hash_key UNIQUE (value_hash)"
+
+   "CREATE TABLE facts_transform
+      (factset_id bigint NOT NULL,
+       fact_path_id bigint NOT NULL,
+       fact_value_id bigint NOT NULL)"
+
+   ;; Patch up facts refrences to refer to the min id path/value
+   ;; wherever there's more than one option.
+   "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
+      SELECT f.factset_id, fp.id, fv.id
+        FROM facts_unique_transform f
+        INNER JOIN fact_paths fp on f.fact_path = fp.path
+        INNER JOIN fact_values fv on f.fact_value_hash = fv.value_hash;"
+
+   "DROP TABLE facts_unique_transform"
+
+   "ALTER TABLE facts_transform
+      ADD CONSTRAINT facts_factset_id_fact_path_id_fact_key
+        UNIQUE (factset_id, fact_path_id)"
+
+   "ALTER TABLE facts_transform
+      ADD CONSTRAINT factset_id_fk
+        FOREIGN KEY (factset_id) REFERENCES factsets(id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE"
+
+   "ALTER TABLE facts_transform
+         ADD CONSTRAINT fact_path_id_fk
+           FOREIGN KEY (fact_path_id) REFERENCES fact_paths(id)"
+   "ALTER TABLE facts_transform
+         ADD CONSTRAINT fact_value_id_fk
+           FOREIGN KEY (fact_value_id) REFERENCES fact_values(id)"
+
+   "ALTER TABLE facts_transform RENAME TO facts"
+   "CREATE INDEX facts_fact_path_id_idx ON facts(fact_path_id)"
+   "CREATE INDEX facts_fact_value_id_idx ON facts(fact_value_id)"
+
+   (if (scf-utils/postgres?) "ANALYZE facts" "SELECT 1")
+
+   ;; These are for the more pedantic HSQLDB.
+   "ALTER TABLE fact_paths DROP CONSTRAINT fact_paths_path_type_id_key"
+   "ALTER TABLE fact_paths DROP CONSTRAINT fact_paths_value_type_id"
+   "DROP INDEX fact_paths_value_type_id"
+   "ALTER TABLE fact_values DROP CONSTRAINT fact_values_path_id_value_key"
+   "ALTER TABLE fact_values DROP CONSTRAINT fact_values_path_id_fk"
+
+   "ALTER TABLE fact_paths DROP COLUMN value_type_id"
+   "ALTER TABLE fact_values DROP COLUMN path_id"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1062,10 +1154,11 @@
    25 structured-facts
    26 structured-facts-deferrable-constraints
    27 switch-value-string-index-to-gin
-   28 insert-factset-hash-column
-   29 migrate-to-report-id-and-noop-column-and-drop-latest-reports
-   30 change-name-to-certname
-   31 insert-report-metrics-and-logs})
+   28 lift-fact-paths-into-facts
+   29 insert-factset-hash-column
+   30 migrate-to-report-id-and-noop-column-and-drop-latest-reports
+   31 change-name-to-certname
+   32 insert-report-metrics-and-logs})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -1085,12 +1178,14 @@
   {:post  [(sorted? %)
            (set? %)
            (apply < 0 %)]}
-  (try
-    (let [query   "SELECT version FROM schema_migrations ORDER BY version"
-          results (sql/transaction (jdbc/query-to-vec query))]
-      (apply sorted-set (map :version results)))
-    (catch java.sql.SQLException e
-      (sorted-set))))
+  (sql/transaction
+   (if-not (some #(= (string/lower-case %) "schema_migrations")
+                 (scf-utils/sql-current-connection-table-names))
+     (sorted-set)
+     (apply sorted-set
+            (map :version
+                 (query-to-vec
+                  "SELECT version FROM schema_migrations ORDER BY version"))))))
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."

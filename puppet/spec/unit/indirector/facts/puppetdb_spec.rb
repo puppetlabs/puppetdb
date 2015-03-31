@@ -110,15 +110,30 @@ describe Puppet::Node::Facts::Puppetdb do
   end
 
   describe "#get_trusted_info" do
-
     it 'should return trusted data' do
+      node = Puppet::Node.new('my_certname')
+      trusted = subject.get_trusted_info(node)
+      expect(trusted).to eq({'authenticated'=>"local", 'certname'=>'testing', 'extensions'=>{}})
+    end
 
-      if Puppet::Util::Puppetdb.puppet3compat?
-        Puppet[:trusted_node_data] = true
+    it 'should return trusted data when falling back to the node' do
+      # This removes :trusted_information from the global context, triggering our fallback code.
+      if Puppet.methods.include? :rollback_context
+        Puppet.rollback_context('initial testing state')
+      else
+        Puppet.pop_context # puppet 3.5.1
       end
 
-      node = Puppet::Node.new("my_certname")
-      expect(subject.get_trusted_info(node)).to eq({"authenticated"=>"local", "certname"=>"testing", "extensions"=>{}})
+      node = Puppet::Node.new('my_certname', :parameters => {'clientcert' => 'trusted_certname'})
+      trusted = subject.get_trusted_info(node)
+
+      expect(trusted).to eq({'authenticated'=>'local', 'certname'=>'trusted_certname', 'extensions'=>{}})
+
+      # Put the context back the way the test harness expects
+      Puppet.push_context({}, 'context to make the tests happy')
+      if Puppet.methods.include? :mark_context
+        Puppet.mark_context('initial testing state')
+      end
     end
   end
 

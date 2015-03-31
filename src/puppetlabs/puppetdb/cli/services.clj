@@ -146,9 +146,8 @@
   {:pre [(map? db)]}
   (try
     (kitchensink/demarcate
-     "database garbage collection"
-     (with-transacted-connection db
-       (scf-store/garbage-collect!)))
+      "database garbage collection"
+      (scf-store/garbage-collect! db))
     (catch Exception e
       (log/error e "Error during garbage collection"))))
 

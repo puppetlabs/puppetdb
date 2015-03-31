@@ -1,6 +1,10 @@
 (ns puppetlabs.puppetdb.scf.migrate-test
-  (:require [puppetlabs.puppetdb.scf.migrate :as migrate]
-            [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]
+  (:require [puppetlabs.puppetdb.scf.hash :as hash]
+            [puppetlabs.puppetdb.scf.migrate :as migrate]
+            [puppetlabs.puppetdb.scf.migration-legacy :as legacy]
+            [puppetlabs.puppetdb.scf.storage :as store]
+            [puppetlabs.puppetdb.scf.storage-utils
+             :refer [db-serialize postgres?]]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.scf.migrate :refer :all]
@@ -9,7 +13,9 @@
             [clojure.test :refer :all]
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec with-transacted-connection]]
-            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db]]))
+            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db]])
+  (:import [java.sql SQLIntegrityConstraintViolationException]
+           [org.postgresql.util PSQLException]))
 
 (def db (test-db))
 
@@ -64,11 +70,11 @@
 
         (testing "should attempt a partial migration if there are migrations missing"
           (clear-db-for-testing!)
-          ;; We are using migration 28 here because it is isolated enough to be able
+          ;; We are using migration 29 here because it is isolated enough to be able
           ;; to execute on its own. This might need to be changed in the future.
-          (doseq [m (filter (fn [[i migration]] (not= i 28)) (pending-migrations))]
+          (doseq [m (filter (fn [[i migration]] (not= i 29)) (pending-migrations))]
             (apply-migration-for-testing! (first m)))
-          (is (= (keys (pending-migrations)) '(28)))
+          (is (= (keys (pending-migrations)) '(29)))
           (migrate!)
           (is (= (applied-migrations) expected-migrations))))))
 
@@ -175,11 +181,87 @@
                   {:path "baz" :environment_id 3 :environment "test_env_3"
                    :timestamp (to-timestamp current-time) :value_string "false"}])))))))
 
-(deftest migration-29
+(deftest migration-28
+  (sql/with-connection db
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 27)
+    (letfn [(one-row [db]
+              (first (query-to-vec (format "SELECT * FROM %s LIMIT 1" db))))
+            (facts-now [c v]
+              {:certname c :values v
+               :environment nil :timestamp (now) :producer_timestamp nil})
+            (random-facts []
+              (into {}
+                    (for [i (range (+ 1000 (rand-int 100)))]
+                      [(str "path-" i "-" (rand-int 3))
+                       (str "value-" (rand-int 100))])))]
+      (legacy/add-certname-27! "c-x")
+      (legacy/add-certname-27! "c-y")
+      (legacy/add-certname-27! "c-z")
+      (legacy/add-facts-27! (facts-now "c-x" (random-facts)))
+      (legacy/add-facts-27! (facts-now "c-y" (random-facts)))
+      (legacy/add-facts-27! (facts-now "c-z" (random-facts)))
+      ;; Check shapes.
+      (is (= #{:factset_id :fact_value_id}
+             (set (keys (one-row "facts")))))
+      (is (= #{:id :depth :name :path :value_type_id}
+             (set (keys (one-row "fact_paths")))))
+      (is (= #{:id :value_hash :value_type_id :value_boolean :value_string
+               :value_float :value_json :value_integer
+               :path_id}
+             (set (keys (one-row "fact_values")))))
+      ;; Assumes random-facts won't produce a 'bar' value.
+      (legacy/add-certname-27! "probe-values")
+      (legacy/add-facts-27! (facts-now "probe-values" {"foo-1" "bar"
+                                                       "foo-2" "bar"}))
+      (testing "different paths produce different values"
+        (is (= 2
+               (count (query-to-vec
+                       "SELECT * FROM fact_values WHERE value_string = 'bar'")))))
+      (apply-migration-for-testing! 28)
+      ;; Check shapes.
+      (is (= #{:factset_id :fact_path_id :fact_value_id}
+             (set (keys (one-row "facts")))))
+      (is (= #{:id :depth :name :path}
+             (set (keys (one-row "fact_paths")))))
+      (is (= #{:id :value_hash :value_type_id :value_boolean :value_string
+               :value_float :value_json :value_integer}
+             (set (keys (one-row "fact_values")))))
+      (testing "same value via different paths reduces to one row"
+        (is (= 1
+               (count
+                (query-to-vec
+                 "SELECT * FROM fact_values WHERE value_string = 'bar'")))))
+      (testing "fact_paths enforces path uniqueness"
+        (if (postgres?)
+          (is (thrown? PSQLException
+                       (sql/insert-records
+                        :fact_paths {:path "foo-1" :name "foo-1" :depth 0})))
+          (is (thrown? SQLIntegrityConstraintViolationException
+                       (sql/insert-records
+                        :fact_paths {:path "foo-1" :name "foo-1" :depth 0})))))
+      (testing "fact_values enforces value_hash uniqueness"
+        (if (postgres?)
+          (is (thrown?
+               PSQLException
+               (sql/insert-records
+                :fact_values
+                {:value_type_id 0
+                 :value_hash (hash/generic-identity-hash "bar")
+                 :value_string "bar"})))
+          (is (thrown?
+               SQLIntegrityConstraintViolationException
+               (sql/insert-records
+                :fact_values
+                {:value_type_id 0
+                 :value_hash (hash/generic-identity-hash "bar")
+                 :value_string "bar"}))))))))
+
+(deftest migration-30
   (testing "should contain same reports before and after migration"
     (sql/with-connection db
       (clear-db-for-testing!)
-      (fast-forward-to-migration! 28)
+      (fast-forward-to-migration! 29)
 
       (let [current-time (to-timestamp (now))]
         (sql/insert-records
@@ -223,7 +305,7 @@
           {:report                 "blahblah"
            :certname               "testing2"})
 
-        (apply-migration-for-testing! 29)
+        (apply-migration-for-testing! 30)
 
         (let [response
               (query-to-vec

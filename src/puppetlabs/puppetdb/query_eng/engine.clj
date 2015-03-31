@@ -80,7 +80,7 @@
                :source "select resource as res_param_resource, name as res_param_name, value as res_param_value from resource_params"}))
 
 (def fact-paths-query
-  "Query for the resource-params query, mostly used as a subquery"
+  "Queries fact-paths, mostly used for GUI autocompletion."
   (map->Query {:project {"type" :string
                          "path" :path}
                :queryable-fields ["type" "path"]
@@ -88,10 +88,12 @@
                :alias "fact_paths"
                :subquery? false
                :supports-extract? true
-               :source "SELECT path, type
+               :source "SELECT DISTINCT path, type
                         FROM fact_paths fp
-                        INNER JOIN value_types vt ON fp.value_type_id=vt.id
-                        WHERE fp.value_type_id != 5"}))
+                        INNER JOIN facts f ON f.fact_path_id = fp.id
+                        INNER JOIN fact_values fv ON f.fact_value_id = fv.id
+                        INNER JOIN value_types vt ON fv.value_type_id = vt.id
+                        WHERE fv.value_type_id != 5"}))
 
 (def facts-query
   "Query structured facts."
@@ -128,7 +130,7 @@
                 FROM factsets fs
                   INNER JOIN facts as f on fs.id = f.factset_id
                   INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                  INNER JOIN fact_paths as fp on fv.path_id = fp.id
+                  INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                   INNER JOIN value_types as vt on vt.id=fv.value_type_id
                   LEFT OUTER JOIN environments as env on fs.environment_id = env.id
                 WHERE depth = 0"}))
@@ -163,10 +165,10 @@
                 FROM factsets fs
                   INNER JOIN facts as f on fs.id = f.factset_id
                   INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                  INNER JOIN fact_paths as fp on fv.path_id = fp.id
-                  INNER JOIN value_types as vt on fp.value_type_id = vt.id
+                  INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
+                  INNER JOIN value_types as vt on fv.value_type_id = vt.id
                   LEFT OUTER JOIN environments as env on fs.environment_id = env.id
-                WHERE fp.value_type_id != 5"}))
+                WHERE fv.value_type_id != 5"}))
 
 (def reports-query
   "Query for the resource-events entity"
@@ -448,8 +450,8 @@
                         FROM factsets
                              INNER JOIN facts on factsets.id = facts.factset_id
                              INNER JOIN fact_values on facts.fact_value_id = fact_values.id
-                             INNER JOIN fact_paths on fact_values.path_id = fact_paths.id
-                             INNER JOIN value_types on fact_paths.value_type_id = value_types.id
+                             INNER JOIN fact_paths on facts.fact_path_id = fact_paths.id
+                             INNER JOIN value_types on fact_values.value_type_id = value_types.id
                              LEFT OUTER JOIN environments on factsets.environment_id = environments.id
                         WHERE depth = 0
                         ORDER BY factsets.certname"}))
