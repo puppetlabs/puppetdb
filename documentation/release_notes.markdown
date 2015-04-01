@@ -35,6 +35,8 @@ changes.
 
 Rob Browning
 
+### Changes
+
 #### Bug Fixes and Maintenance
 
 * The database migration required by the garbage collection fix
