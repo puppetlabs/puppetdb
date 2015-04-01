@@ -1,5 +1,5 @@
 
-unless (options[:vmrun])
+unless (options[:vmrun]) or (ENV['PUPPETDB_SKIP_PRESUITE_PROVISIONING'])
   step "Clean up configuration files on master" do
     on master, "rm -rf /etc/puppet/routes.yaml"
   end

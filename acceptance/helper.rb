@@ -54,6 +54,12 @@ module PuppetDBExtensions
           "'purge packages and perform exhaustive cleanup after run'",
           "PUPPETDB_PURGE_AFTER_RUN", :false)
 
+    skip_presuite_provisioning =
+        get_option_value(options[:puppetdb_skip_presuite_provisioning],
+          [:true, :false],
+          "'skip installation steps",
+          "PUPPETDB_SKIP_PRESUITE_PROVISIONING", :false)
+
     package_build_host =
         get_option_value(options[:puppetdb_package_build_host],
           nil,
@@ -112,6 +118,7 @@ module PuppetDBExtensions
       :repo_hiera => puppetdb_repo_hiera,
       :repo_facter => puppetdb_repo_facter,
       :git_ref => puppetdb_git_ref,
+      :skip_presuite_provisioning => skip_presuite_provisioning == :true,
     }
 
     pp_config = PP.pp(@config, "")

@@ -1,4 +1,4 @@
-if (test_config[:install_type] == :package)
+if (test_config[:install_type] == :package and not test_config[:skip_presuite_provisioning])
   databases.each do |database|
     os = test_config[:os_families][database.name]
     db_facts = facts(database.name)

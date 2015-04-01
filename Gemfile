@@ -57,8 +57,12 @@ group :acceptance do
     #use the specified version
     gem 'beaker', *location_for(beaker_version)
   else
-    #use the pinned version
-    gem 'beaker', '~>2.4'
+    # use the pinned version
+
+    # We're pinning to a a prerelease version of beaker that fixes errors when
+    # running with an OS X host. We only need to do this until a new version is
+    # released with the fix included.
+    gem 'beaker', :git => 'git://github.com/puppetlabs/beaker.git', :ref => '3e2e1e6d3e0234612c3a6af7dbfac06c797676f4'
   end
   # This forces google-api-client to not download retirable 2.0.0 which lacks
   # ruby 1.9.x support.

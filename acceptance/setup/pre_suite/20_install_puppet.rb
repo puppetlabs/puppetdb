@@ -1,6 +1,8 @@
 test_name "Install Puppet" do
-  step "Install Puppet" do
-    install_puppet
+  unless (test_config[:skip_presuite_provisioning])
+    step "Install Puppet" do
+      install_puppet
+    end
   end
 
   step "Populate facts from each host" do

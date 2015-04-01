@@ -55,8 +55,10 @@ gpgcheck=1
   end
 end
 
-step "Install Puppet Labs repositories" do
-  hosts.each do |host|
-    initialize_repo_on_host(host, test_config[:os_families][host.name])
+unless (test_config[:skip_presuite_provisioning])
+  step "Install Puppet Labs repositories" do
+    hosts.each do |host|
+      initialize_repo_on_host(host, test_config[:os_families][host.name])
+    end
   end
 end

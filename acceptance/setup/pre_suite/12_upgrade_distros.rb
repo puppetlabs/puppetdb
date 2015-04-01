@@ -14,8 +14,10 @@ def upgrade_pkgs_on_host(host, os)
   end
 end
 
-step "Upgrade each host" do
-  hosts.each do |host|
-    upgrade_pkgs_on_host(host, test_config[:os_families][host.name])
+unless (test_config[:skip_presuite_provisioning])
+  step "Upgrade each host" do
+    hosts.each do |host|
+      upgrade_pkgs_on_host(host, test_config[:os_families][host.name])
+    end
   end
 end
