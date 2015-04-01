@@ -1025,14 +1025,12 @@
   {:post  [(sorted? %)
            (set? %)
            (apply < 0 %)]}
-  (sql/transaction
-   (if-not (some #(= (string/lower-case %) "schema_migrations")
-                 (scf-utils/sql-current-connection-table-names))
-     (sorted-set)
-     (apply sorted-set
-            (map :version
-                 (query-to-vec
-                  "SELECT version FROM schema_migrations ORDER BY version"))))))
+  (try
+    (let [query   "SELECT version FROM schema_migrations ORDER BY version"
+          results (sql/transaction (query-to-vec query))]
+      (apply sorted-set (map :version results)))
+    (catch java.sql.SQLException e
+      (sorted-set))))
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."
