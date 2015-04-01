@@ -78,6 +78,7 @@
   that exist within it. Expects to be called from within a db binding.  You
   Exercise extreme caution when calling this function!"
   []
+  (sql/do-commands "DROP SCHEMA IF EXISTS pdbtestschema CASCADE")
   (doseq [table-name (cons "test" (sutils/sql-current-connection-table-names))]
     (drop-table! table-name))
   (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
