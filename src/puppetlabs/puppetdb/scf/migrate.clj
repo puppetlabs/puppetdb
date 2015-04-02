@@ -1037,7 +1037,6 @@
   value) to (id path value)."
   []
   (sql/do-commands
-   ;; Build complete facts table as of migration 28.
 
    "CREATE TABLE facts_unique_transform
       (factset_id bigint NOT NULL,
@@ -1062,6 +1061,7 @@
 
    ;; Remove all the orphaned duplicates (all but the row in each set
    ;; with min-id).
+   "ALTER TABLE fact_values DROP CONSTRAINT fact_values_path_id_fk"
    "DELETE FROM fact_paths t1
       WHERE t1.id <> (SELECT MIN(t2.id) FROM fact_paths t2
                         WHERE t1.path = t2.path)"
@@ -1120,7 +1120,6 @@
    "ALTER TABLE fact_paths DROP CONSTRAINT fact_paths_value_type_id"
    "DROP INDEX fact_paths_value_type_id"
    "ALTER TABLE fact_values DROP CONSTRAINT fact_values_path_id_value_key"
-   "ALTER TABLE fact_values DROP CONSTRAINT fact_values_path_id_fk"
 
    "ALTER TABLE fact_paths DROP COLUMN value_type_id"
    "ALTER TABLE fact_values DROP COLUMN path_id"))
@@ -1178,14 +1177,12 @@
   {:post  [(sorted? %)
            (set? %)
            (apply < 0 %)]}
-  (sql/transaction
-   (if-not (some #(= (string/lower-case %) "schema_migrations")
-                 (scf-utils/sql-current-connection-table-names))
-     (sorted-set)
-     (apply sorted-set
-            (map :version
-                 (query-to-vec
-                  "SELECT version FROM schema_migrations ORDER BY version"))))))
+  (try
+    (let [query   "SELECT version FROM schema_migrations ORDER BY version"
+          results (sql/transaction (query-to-vec query))]
+      (apply sorted-set (map :version results)))
+    (catch java.sql.SQLException e
+      (sorted-set))))
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."

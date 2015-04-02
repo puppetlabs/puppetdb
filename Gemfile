@@ -1,6 +1,17 @@
 source ENV['GEM_SOURCE'] || "https://rubygems.org"
 puppet_branch = ENV['puppet_branch'] || "latest"
 oldest_supported_puppet = "3.5.1"
+beaker_version = ENV['BEAKER_VERSION']
+
+def location_for(place, fake_version = nil)
+  if place =~ /^(git:[^#]*)#(.*)/
+    [fake_version, { :git => $1, :branch => $2, :require => false }].compact
+  elsif place =~ /^file:\/\/(.*)/
+    ['>= 0', { :path => File.expand_path($1), :require => false }]
+  else
+    [place, { :require => false }]
+  end
+end
 
 gem 'facter'
 
@@ -42,7 +53,13 @@ group :test do
 end
 
 group :acceptance do
-  gem 'beaker', '~> 2.4'
+  if beaker_version
+    #use the specified version
+    gem 'beaker', *location_for(beaker_version)
+  else
+    #use the pinned version
+    gem 'beaker', '~>2.4'
+  end
   # This forces google-api-client to not download retirable 2.0.0 which lacks
   # ruby 1.9.x support.
   gem 'retriable', '~> 1.4'

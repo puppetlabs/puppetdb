@@ -214,6 +214,25 @@
       (legacy/add-certname-27! "probe-values")
       (legacy/add-facts-27! (facts-now "probe-values" {"foo-1" "bar"
                                                        "foo-2" "bar"}))
+
+      ;; Add two facts with the same :path, but different values.
+      (let [[p1 p2] (map :id (sql/insert-records
+                              :fact_paths
+                              {:value_type_id 0
+                               :path "orphan" :name "orphan" :depth 0}
+                              {:value_type_id 1
+                               :path "orphan" :name "orphan" :depth 0}))]
+        (sql/insert-records
+         :fact_values
+         {:path_id p1
+          :value_type_id 0
+          :value_hash (hash/generic-identity-hash "1")
+          :value_string "1"}
+         {:path_id p2
+          :value_type_id 1
+          :value_hash (hash/generic-identity-hash 1)
+          :value_integer 1}))
+
       (testing "different paths produce different values"
         (is (= 2
                (count (query-to-vec

@@ -302,6 +302,52 @@ derive data from a PuppetDB export tarball.
 
 TODO
 
+2.3.2
+-----
+
+PuppetDB 2.3.2 is a backwards-compatible bugfix release that corrects
+two problems which could prevent migration to the database format
+introduced in 2.3.1.  Neither problem presented risk of data loss, and
+users that upgraded successfully will not be affected by these
+changes.
+
+### Upgrading
+
+* For the best-possible performance and scaling capacity, we recommend
+  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
+  extension enabled, as explained [here][configure_postgres], and we
+  have officially deprecated versions earlier than 9.2.  HSQLDB is
+  only recommended for local development because it has a number of
+  scaling and operational issues.
+
+* Make sure that all of your PuppetDB instances are shut down, and
+  only upgrade one at a time.
+
+* Make sure to upgrade your puppetdb-terminus package (on the host
+  where your Puppet master lives), and restart your master service.
+
+### Contributors
+
+Rob Browning
+
+### Changes
+
+#### Bug Fixes and Maintenance
+
+* The database migration required by the garbage collection fix
+  in 2.3.1 should no longer refuse to complete when the existing
+  database contains values with different types, but the same path, in
+  different factsets, i.e. (factset path value):
+
+      1 "pip_version" false
+      2 "pip_version" "1.5.6-5"
+
+  ([PDB-1362](https://tickets.puppetlabs.com/browse/PDB-1362))
+
+* PuppetDB won't assume that it can retrieve the public database table
+  names (initially assumed in 2.3.1).
+  ([PDB-1363](https://tickets.puppetlabs.com/browse/PDB-1363))
+
 2.3.1
 -----
 
