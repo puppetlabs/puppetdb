@@ -2,6 +2,8 @@ test_name "storeconfigs export and import" do
 
   confine :except, :platform => 'ubuntu-10.04-amd64'
 
+  skip_test "storeconfigs not supported in puppet >= 4.0" unless version_is_less(facts(master.name)['puppetversion'], '4.0.0')
+
   skip_test "Skipping test for PE because sqlite3 isn't available" if master.is_pe?
 
   db_path = master.tmpfile('storeconfigs.sqlite3')
@@ -16,9 +18,8 @@ test_name "storeconfigs export and import" do
     }
     MANIFEST
 
-    create_remote_file master, manifest_path, manifest
-    on master, "chmod ugo+r #{manifest_path}"
-    #on master, "mkdir -p #{db_path}"
+    manifest_path = create_remote_site_pp(master, manifest)
+
     on master, "chown puppet:puppet #{db_path}"
     on master, "chmod -R 777 #{db_path}"
   end
@@ -31,9 +32,12 @@ test_name "storeconfigs export and import" do
         'dblocation' => db_path,
         'storeconfigs_backend' => 'active_record',
         'debug' => 'true',
-        'manifest' => manifest_path,
         'autosign' => 'true'
-      }} do
+      },
+      'main' => {
+        'environmentpath' => manifest_path,
+      }
+    } do
       hosts.each do |host|
         run_agent_on host, "--test --server #{master}", :acceptable_exit_codes => [0,2]
       end

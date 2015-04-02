@@ -15,35 +15,31 @@ test_name "submit a catalog that contains a file built from a binary template" d
 file { "/tmp/myfile":
   owner => "root",
   group => "root",
-  mode => 755,
+  mode => "755",
 
   content => template("foomodule/mytemplate.erb"),
   tag => "binary_file"
 }
   EOF
 
-  tmpdir = master.tmpdir('storeconfigs')
-  moduledir = master.tmpdir('storeconfigs-moduledir')
+  manifest_path = create_remote_site_pp(master, manifest)
 
+  moduledir = File.join(manifest_path,'production','modules','foomodule')
   test_module = File.join(test_config[:acceptance_data_dir], "storeconfigs", "file_with_binary_template", "modules", "foomodule")
 
   scp_to(master, test_module, moduledir)
 
-  manifest_file = File.join(tmpdir, 'site.pp')
-  create_remote_file(master, manifest_file, manifest)
-
-  on master, "chmod -R +rX #{tmpdir}"
-  on master, "chmod -R +rX #{moduledir}"
-
-  result = on master, "puppet master --configprint modulepath"
-  resmod = "#{result.stdout.strip}:#{moduledir}"
+  on master, "chmod -R +rX #{manifest_path}"
+  on master, "chown -R #{master.puppet['user']}:#{master.puppet['user']} #{manifest_path}"
 
   with_puppet_running_on(master,
     'master' => {
       'autosign' => 'true',
-      'manifest' => manifest_file,
-      'modulepath' => resmod
+    },
+    'main' => {
+      'environmentpath' => manifest_path,
     }) do
+
     step "Run agent to submit catalog" do
       run_agent_on hosts, "--test --server #{master}", :acceptable_exit_codes => (0..4)
     end

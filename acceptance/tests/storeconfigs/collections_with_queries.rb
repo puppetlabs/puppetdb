@@ -13,25 +13,25 @@ test_name "collections with queries" do
 node "#{exporter}" {
   @@file { "#{dir}/file-a":
     ensure  => present,
-    mode    => 0777,
+    mode    => "0777",
     content => "foo"
   }
 
   @@file { "#{dir}/file-b":
     ensure  => present,
-    mode    => 0755,
+    mode    => "0755",
     content => "bar"
   }
 
   @@file { "#{dir}/file-c":
     ensure  => present,
-    mode    => 0744,
+    mode    => "0744",
     content => "foo",
   }
 
   @@file { "#{dir}/file-d":
     ensure  => present,
-    mode    => 0744,
+    mode    => "0744",
     content => "bar"
   }
 }
@@ -46,39 +46,37 @@ node #{collectors.map {|collector| "\"#{collector}\""}.join(', ')} {
 }
 
 class equal_query {
-  File <<| mode == 0744 |>>
+  File <<| mode == "0744" |>>
 }
 
 class not_equal_query {
-  File <<| mode != 0755 |>>
+  File <<| mode != "0755" |>>
 }
 
 class or_query {
-  File <<| mode == 0755 or content == "bar" |>>
+  File <<| mode == "0755" or content == "bar" |>>
 }
 
 class and_query {
-  File <<| mode == 0744 and content == "foo" |>>
+  File <<| mode == "0744" and content == "foo" |>>
 }
 
 class nested_query {
-  File <<| (mode == 0777 or mode == 0755) and content == "bar" |>>
+  File <<| (mode == "0777" or mode == "0755") and content == "bar" |>>
 }
 MANIFEST
 
-  tmpdir = master.tmpdir('storeconfigs')
 
-  manifest_file = File.join(tmpdir, 'site.pp')
-
-  create_remote_file(master, manifest_file, manifest)
-
-  on master, "chmod -R +rX #{tmpdir}"
+  manifest_path = create_remote_site_pp(master, manifest)
 
   with_puppet_running_on master, {
     'master' => {
       'autosign' => 'true',
-      'manifest' => manifest_file
-    }} do
+    },
+    'main' => {
+      'environmentpath' => manifest_path,
+    }
+  } do
 
     step "Run exporter to populate the database" do
       run_agent_on exporter, "--test --server #{master}", :acceptable_exit_codes => [0,2]
