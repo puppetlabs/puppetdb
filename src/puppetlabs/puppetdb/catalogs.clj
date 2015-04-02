@@ -92,7 +92,8 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
-            [clojure.core.match :refer [match]]))
+            [clojure.core.match :refer [match]]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]))
 
 (def ^:const catalog-version
   "Constant representing the version number of the PuppetDB
@@ -114,7 +115,8 @@
    :version s/Str
    :environment (s/maybe s/Str)
    :transaction_uuid (s/maybe s/Str)
-   :producer_timestamp (s/maybe pls/Timestamp)
+   :producer_timestamp pls/Timestamp
+
 
    ;; This is a crutch. We use sets for easier searching and avoid
    ;; reliance on ordering. We should pick one of the below (probably
@@ -149,7 +151,6 @@
   (utils/assoc-when catalog
                     :transaction_uuid nil
                     :environment nil
-                    :producer_timestamp nil
                     :api_version 1))
 
 (pls/defn-validated canonical-catalog

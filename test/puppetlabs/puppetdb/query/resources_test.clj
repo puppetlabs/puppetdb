@@ -4,7 +4,9 @@
             [puppetlabs.puppetdb.scf.storage :refer [ensure-environment]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]
-            [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize to-jdbc-varchar-array]]))
+            [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize to-jdbc-varchar-array]]
+            [clj-time.coerce :refer [to-timestamp]]
+            [clj-time.core :refer [now]]))
 
 (use-fixtures :each with-test-db)
 
@@ -51,8 +53,8 @@
    {:certname "subset.local"})
   (sql/insert-records
    :catalogs
-   {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "example.local" :environment_id (ensure-environment "DEV")}
-   {:id 2 :hash "bar" :api_version 1 :catalog_version "14" :certname "subset.local" :environment_id nil})
+   {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "example.local" :environment_id (ensure-environment "DEV") :producer_timestamp (to-timestamp (now))}
+   {:id 2 :hash "bar" :api_version 1 :catalog_version "14" :certname "subset.local" :environment_id nil :producer_timestamp (to-timestamp (now))})
 
   (sql/insert-records :catalog_resources
                       {:catalog_id 1 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 1}
@@ -280,7 +282,7 @@
   (sql/insert-records :certnames
                       {:certname "foo.local"})
   (sql/insert-records :catalogs
-                      {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "foo.local" :environment_id (ensure-environment "DEV")})
+                      {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "foo.local" :environment_id (ensure-environment "DEV") :producer_timestamp (to-timestamp (now))})
   (sql/insert-records :catalog_resources
                       {:catalog_id 1 :resource "1" :type "File" :title "alpha"   :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 1}
                       {:catalog_id 1 :resource "2" :type "File" :title "beta"    :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 4}

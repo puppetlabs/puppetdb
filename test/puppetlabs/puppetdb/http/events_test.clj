@@ -401,7 +401,7 @@
                            :values {"ipaddress" "1.1.1.1"}
                            :timestamp (now)
                            :environment nil
-                           :producer_timestamp nil}))
+                           :producer_timestamp (now)}))
 
   (doseq [[query results] (get versioned-subqueries endpoint)]
     (testing (str "query: " query " should match expected output")

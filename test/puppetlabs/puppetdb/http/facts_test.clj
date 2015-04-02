@@ -463,22 +463,22 @@
                              :values facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp nil})
+                             :producer_timestamp (now)})
       (scf-store/add-facts! {:certname  "foo2"
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp nil})
+                             :producer_timestamp (now)})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp nil})
+                             :producer_timestamp (now)})
       (scf-store/add-facts! {:certname "foo4"
                              :values facts4
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp nil})
+                             :producer_timestamp (now)})
       (scf-store/deactivate-node! "foo4"))
 
     (testing "query without param should not fail"
@@ -519,17 +519,17 @@
                          :values {"ipaddress" "192.168.1.100" "operatingsystem" "Debian" "osfamily" "Debian" "uptime_seconds" 11000}
                          :timestamp (now)
                          :environment "DEV"
-                         :producer_timestamp nil})
+                         :producer_timestamp (now)})
   (scf-store/add-facts! {:certname "bar"
                          :values {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu" "osfamily" "Debian" "uptime_seconds" 12}
                          :timestamp (now)
                          :environment "DEV"
-                         :producer_timestamp nil})
+                         :producer_timestamp (now)})
   (scf-store/add-facts! {:certname "baz"
                          :values {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS" "osfamily" "RedHat" "uptime_seconds" 50000}
                          :timestamp (now)
                          :environment "DEV"
-                         :producer_timestamp nil})
+                         :producer_timestamp (now)})
 
   (let [catalog (:empty catalogs)
         apache-resource {:type "Class" :title "Apache"}
@@ -576,7 +576,7 @@
                                    :values facts1
                                    :timestamp (now)
                                    :environment "DEV"
-                                   :producer_timestamp nil}))
+                                   :producer_timestamp (now)}))
 
           (testing "queries only use the read database"
             (let [request (get-request endpoint (json/parse-string nil))
@@ -629,12 +629,12 @@
                              :values facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp nil})
+                             :producer_timestamp (now)})
       (scf-store/add-facts! {:certname "foo2"
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp nil}))
+                             :producer_timestamp (now)}))
 
     (testing "should support fact paging"
       (doseq [[label counts?] [["without" false]
@@ -702,31 +702,31 @@
                            :values {"hostname" "c-host"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-certname! "a.local")
     (scf-store/add-facts! {:certname "a.local"
                            :values {"hostname" "a-host"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-certname! "d.local")
     (scf-store/add-facts! {:certname "d.local"
                            :values {"uptime_days" "2"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-certname! "b.local")
     (scf-store/add-facts! {:certname "b.local"
                            :values {"uptime_days" "4"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-certname! "e.local")
     (scf-store/add-facts! {:certname "e.local"
                            :values {"my_structured_fact" (:value f5)}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
 
     (testing "include total results count"
       (let [actual (:count (raw-query-endpoint endpoint nil {:include_total true}))]
@@ -810,31 +810,31 @@
                            :values {"my_structured_fact" (:value f3)}
                            :timestamp (now)
                            :environment "C"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-certname! "a.local")
     (scf-store/add-facts! {:certname "a.local"
                            :values {"hostname" "a-host"}
                            :timestamp (now)
                            :environment "A"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-certname! "b.local")
     (scf-store/add-facts! {:certname "b.local"
                            :values {"uptime_days" "4"}
                            :timestamp (now)
                            :environment "B"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-certname! "b2.local")
     (scf-store/add-facts! {:certname "b2.local"
                            :values {"max" "4"}
                            :timestamp (now)
                            :environment "B"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
     (scf-store/add-certname! "d.local")
     (scf-store/add-facts! {:certname "d.local"
                            :values {"min" "-4"}
                            :timestamp (now)
                            :environment "D"
-                           :producer_timestamp nil})
+                           :producer_timestamp (now)})
 
     (testing "ordering by environment should work"
       (doseq [[[env-order name-order] expected] [[["DESC" "ASC"]  [f5 f3 f4 f2 f1]]
@@ -886,22 +886,22 @@
                                :values facts1
                                :timestamp (now)
                                :environment "DEV"
-                               :producer_timestamp nil})
+                               :producer_timestamp (now)})
         (scf-store/add-facts! {:certname "foo2"
                                :values facts2
                                :timestamp (now)
                                :environment "DEV"
-                               :producer_timestamp nil})
+                               :producer_timestamp (now)})
         (scf-store/add-facts! {:certname "foo3"
                                :values facts3
                                :timestamp (now)
                                :environment "PROD"
-                               :producer_timestamp nil})
+                               :producer_timestamp (now)})
         (scf-store/add-facts! {:certname "foo4"
                                :values facts4
                                :timestamp (now)
                                :environment "PROD"
-                               :producer_timestamp nil}))
+                               :producer_timestamp (now)}))
 
       (doseq [query '[[= environment PROD]
                       [not [= environment DEV]]
@@ -1293,22 +1293,22 @@
                              :values facts1
                              :timestamp reference-time
                              :environment "DEV"
-                             :producer_timestamp nil})
+                             :producer_timestamp reference-time})
       (scf-store/add-facts! {:certname  "foo2"
                              :values facts2
                              :timestamp (to-timestamp "2013-01-01")
                              :environment "DEV"
-                             :producer_timestamp nil})
+                             :producer_timestamp reference-time})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp reference-time
                              :environment "PROD"
-                             :producer_timestamp nil})
+                             :producer_timestamp reference-time})
       (scf-store/add-facts! {:certname "foo4"
                              :values facts4
                              :timestamp reference-time
                              :environment "PROD"
-                             :producer_timestamp nil})
+                             :producer_timestamp reference-time})
       (scf-store/deactivate-node! "foo4"))
 
     (testing "query without param should not fail"

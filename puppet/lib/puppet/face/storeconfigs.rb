@@ -35,11 +35,13 @@ if Puppet::Util::Puppetdb.puppet3compat?
         begin
           Puppet::Rails.connect
 
+          timestamp = Time.now
+
           # Fetch all nodes, including exported resources and their params
           nodes = Puppet::Rails::Host.all(:include => {:resources => [:param_values, :puppet_tags]},
                                           :conditions => {:resources => {:exported => true}})
 
-          catalogs = nodes.map { |node| node_to_catalog_hash(node) }
+          catalogs = nodes.map { |node| node_to_catalog_hash(node, timestamp.iso8601(5)) }
 
           catalog_dir = File.join(workdir, 'catalogs')
           FileUtils.mkdir(catalog_dir)
@@ -53,8 +55,6 @@ if Puppet::Util::Puppetdb.puppet3compat?
           end
 
           node_names = nodes.map(&:name).sort
-
-          timestamp = Time.now
 
           File.open(File.join(workdir, 'export-metadata.json'), 'w') do |file|
             metadata = {
@@ -116,7 +116,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
       Puppet::Util::Execution.execute(command)
     end
 
-    def node_to_catalog_hash(node)
+    def node_to_catalog_hash(node, timestamp)
       resources = node.resources.map { |resource| resource_to_hash(resource) }
       edges = node.resources.map { |resource| resource_to_edge_hash(resource) }
 
@@ -129,6 +129,8 @@ if Puppet::Util::Puppetdb.puppet3compat?
         :version => node.last_compile || Time.now,
         :edges => edges,
         :resources => resources + [stage_main_hash],
+        :timestamp => timestamp,
+        :producer_timestamp => timestamp,
       }
     end
 

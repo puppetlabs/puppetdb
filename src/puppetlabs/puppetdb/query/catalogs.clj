@@ -32,7 +32,7 @@
    :transaction_uuid (s/maybe String)
    :environment (s/maybe String)
    :certname String
-   :producer_timestamp (s/maybe pls/Timestamp)
+   :producer_timestamp pls/Timestamp
    :resource (s/maybe String)
    :type (s/maybe String)
    :title (s/maybe String)

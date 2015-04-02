@@ -4,7 +4,9 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage :refer [deactivate-node!]]
             [puppetlabs.puppetdb.scf.storage-utils :refer [to-jdbc-varchar-array]]
-            [puppetlabs.puppetdb.fixtures :refer :all]))
+            [puppetlabs.puppetdb.fixtures :refer :all]
+            [clj-time.coerce :refer [to-timestamp]]
+            [clj-time.core :refer [now]]))
 
 (use-fixtures :each with-test-db)
 
@@ -23,8 +25,8 @@
 
       (sql/insert-records
        :catalogs
-       {:id 1 :hash "c1" :api_version 1 :catalog_version "1" :certname "h1"}
-       {:id 2 :hash "c2" :api_version 1 :catalog_version "1" :certname "h2"})
+       {:id 1 :hash "c1" :api_version 1 :catalog_version "1" :certname "h1" :producer_timestamp (to-timestamp (now))}
+       {:id 2 :hash "c2" :api_version 1 :catalog_version "1" :certname "h2" :producer_timestamp (to-timestamp (now))})
 
       (sql/insert-records
        :resource_params_cache
@@ -76,8 +78,8 @@
 
       (sql/insert-records
        :catalogs
-       {:id 1 :hash "c1" :api_version 1 :catalog_version "1" :certname "h1"}
-       {:id 2 :hash "c2" :api_version 1 :catalog_version "1" :certname "h2"})
+       {:id 1 :hash "c1" :api_version 1 :catalog_version "1" :certname "h1" :producer_timestamp (to-timestamp (now))}
+       {:id 2 :hash "c2" :api_version 1 :catalog_version "1" :certname "h2" :producer_timestamp (to-timestamp (now))})
 
       (sql/insert-records
        :resource_params_cache

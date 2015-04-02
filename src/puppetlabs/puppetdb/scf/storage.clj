@@ -360,12 +360,14 @@
   {:pre  [(coll? resource-hashes)
           (every? string? resource-hashes)]
    :post [(set? %)]}
-  (let [qmarks     (str/join "," (repeat (count resource-hashes) "?"))
-        query      (format "SELECT DISTINCT resource FROM resource_params_cache WHERE resource IN (%s)" qmarks)
-        sql-params (vec (cons query resource-hashes))]
-    (sql/with-query-results result-set
-      sql-params
-      (set (map :resource result-set)))))
+  (if (seq resource-hashes)
+    (let [qmarks     (str/join "," (repeat (count resource-hashes) "?"))
+          query      (format "SELECT DISTINCT resource FROM resource_params_cache WHERE resource IN (%s)" qmarks)
+          sql-params (vec (cons query resource-hashes))]
+      (sql/with-query-results result-set
+        sql-params
+        (set (map :resource result-set))))
+    #{}))
 
 ;;The schema definition of this function should be
 ;;resource-ref->resource-schema, but there are a lot of tests that

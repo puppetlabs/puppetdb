@@ -727,7 +727,7 @@
              :values facts
              :timestamp timestamp
              :environment environment
-             :producer_timestamp nil}))))))
+             :producer_timestamp timestamp}))))))
 
 (defn structured-facts []
   ;; -----------
@@ -1124,6 +1124,18 @@
    "ALTER TABLE fact_paths DROP COLUMN value_type_id"
    "ALTER TABLE fact_values DROP COLUMN path_id"))
 
+(defn fill-in-null-producer-timestamp
+  "The producer_timestamp column can sometimes contain null values,
+  especially when updating from older versions. New use cases require
+  a value in that position, so we'll use the value from the
+  'timestamp' column if it's not there. "
+  []
+  (sql/do-commands
+   "UPDATE catalogs SET producer_timestamp=timestamp WHERE producer_timestamp IS NULL"
+   "UPDATE factsets SET producer_timestamp=timestamp WHERE producer_timestamp IS NULL"
+   "ALTER TABLE catalogs ALTER COLUMN producer_timestamp SET NOT NULL"
+   "ALTER TABLE factsets ALTER COLUMN producer_timestamp SET NOT NULL"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1157,7 +1169,8 @@
    29 insert-factset-hash-column
    30 migrate-to-report-id-and-noop-column-and-drop-latest-reports
    31 change-name-to-certname
-   32 insert-report-metrics-and-logs})
+   32 insert-report-metrics-and-logs
+   33 fill-in-null-producer-timestamp})
 
 (def desired-schema-version (apply max (keys migrations)))
 

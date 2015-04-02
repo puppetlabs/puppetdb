@@ -79,8 +79,7 @@ This field may be `null`.
 #### `producer_timestamp`
 
 Datetime.  The time of catalog submission from the master to PuppetDB.  This
-field is currently populated by the master.  This field may be `null`.
-Versions prior to version 5 will populate this with a `null` value.
+field is currently populated by the master.
 
 ### Data Type: `<string>`
 
