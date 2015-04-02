@@ -1,22 +1,67 @@
 (ns puppetlabs.puppetdb.query.reports-test
-  (:require [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.examples.reports :refer [reports]]
+  (:require [clj-time.coerce :refer [to-string]]
+            [clj-time.core :refer [now ago days]]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.cheshire :as json]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
-            [puppetlabs.puppetdb.query.reports :as r]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.fixtures :refer :all]
-            [puppetlabs.puppetdb.testutils.reports :refer :all]
-            [clj-time.core :refer [now ago days]]))
+            [puppetlabs.puppetdb.query :as query]
+            [puppetlabs.puppetdb.query.reports :as r]
+            [puppetlabs.puppetdb.reports :as reports]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.testutils.reports :refer :all]))
 
 (use-fixtures :each with-test-db)
 
-(defn munge-report
+;; TRANSFORMATION
+
+(defn strip-expanded
+  "Strips out expanded data from the wire format if the database is HSQLDB"
   [report]
-  (sort-by :hash (map (partial kitchensink/maptrans {[:resource_events] munge-resource-events
-                                                     [:metrics :logs] keywordize-keys}) report)))
+  (if (sutils/postgres?)
+    report
+    (dissoc report :resource_events)))
+
+(defn normalize-time
+  "Normalize start_time end_time, by coercing it, it forces the timezone to
+  become consistent during comparison."
+  [record]
+  (kitchensink/mapvals
+   to-string
+   [:start_time :end_time]
+   record))
+
+(defn munge-expected-report
+  [report]
+  (-> report
+      (update-in [:resource_events] (comp keywordize-keys munge-resource-events))
+      normalize-time
+      strip-expanded))
+
+(defn munge-expected-reports
+  [reports]
+  (set (map munge-expected-report
+            reports)))
+
+(defn munge-actual-report
+  [report]
+  (-> report
+      (update-in [:resource_events] (comp keywordize-keys munge-resource-events))
+      normalize-time
+      strip-expanded))
+
+(defn munge-actual-reports
+  "Convert actual reports to a format ready for comparison"
+  [reports]
+  (set (map (comp munge-actual-report
+                  reports/report-query->wire-v5
+                  #(update-in % [:logs :data] keywordize-keys)
+                  #(update-in % [:metrics :data] keywordize-keys))
+            reports)))
+
+;; TESTS
 
 (def my-reports
   (-> reports
@@ -41,31 +86,30 @@
       (assoc-in [:basic3 :configuration_version] "xxx")
       (assoc-in [:basic4 :configuration_version] "yyy")))
 
-;; Begin tests
-
 (deftest reports-retrieval
-  (let [basic         (:basic reports)
-        report-hash   (:hash (store-example-report! basic (now)))]
+  (let [basic       (:basic reports)
+        report-hash (:hash (store-example-report! basic (now)))]
     (testing "should return reports based on certname"
-      (let [expected  (expected-reports [(assoc basic :hash report-hash)])
-            actual    (reports-query-result :v4 ["=" "certname" (:certname basic)])]
-        (is (= (munge-report expected) (munge-report actual)))))
+      (let [actual (reports-query-result :v4 ["=" "certname" (:certname basic)])]
+        (is (= (munge-expected-reports [basic])
+               (munge-actual-reports actual)))))
 
     (testing "should return reports based on hash"
-      (let [expected  (expected-reports [(assoc basic :hash report-hash)])
-            actual    (reports-query-result :v4 ["=" "hash" report-hash])]
-        (is (= (munge-report expected) (munge-report actual)))))))
+      (let [actual (reports-query-result :v4 ["=" "hash" report-hash])]
+        (is (= (munge-expected-reports [basic])
+               (munge-actual-reports actual)))))))
 
 (deftest paging-results
-  (let [hash1        (:hash (store-example-report! (:basic  my-reports) (now)))
-        hash2        (:hash (store-example-report! (:basic2 my-reports) (now)))
-        hash3        (:hash (store-example-report! (:basic3 my-reports) (now)))
-        hash4        (:hash (store-example-report! (:basic4 my-reports) (now)))
-        report1      (assoc (:basic  my-reports) :hash hash1)
-        report2      (assoc (:basic2 my-reports) :hash hash2)
-        report3      (assoc (:basic3 my-reports) :hash hash3)
-        report4      (assoc (:basic4 my-reports) :hash hash4)
+  (let [report1      (:basic my-reports)
+        report2      (:basic2 my-reports)
+        report3      (:basic3 my-reports)
+        report4      (:basic4 my-reports)
         report-count 4]
+
+    (store-example-report! report1 (now))
+    (store-example-report! report2 (now))
+    (store-example-report! report3 (now))
+    (store-example-report! report4 (now))
 
     (testing "include total results count"
       (let [actual (:count (raw-reports-query-result :v4 ["=" "certname" "foo.local"] {:count? true}))]
@@ -84,45 +128,45 @@
              (reports-query-result :v4 ["=" "certname" "foo.local"] {:order_by [[:invalid-field :ascending]]}))))
 
       (testing "numerical fields"
-        (doseq [[order expecteds] [[:ascending  [report1 report2 report4 report3]]
-                                   [:descending [report3 report4 report2 report1]]]]
+        (doseq [[order expected] [[:ascending  [report1 report2 report4 report3]]
+                                  [:descending [report3 report4 report2 report1]]]]
           (testing order
-            (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result :v4
-                                                 ["=" "certname" "foo.local"]
-                                                 {:order_by [[:report_format order]]})]
-              (is (= (munge-report actual) (munge-report expected)))))))
+            (let [actual (reports-query-result :v4
+                                               ["=" "certname" "foo.local"]
+                                               {:order_by [[:report_format order]]})]
+              (is (= (munge-actual-reports actual)
+                     (munge-expected-reports expected)))))))
 
       (testing "alphabetical fields"
-        (doseq [[order expecteds] [[:ascending  [report1 report2 report4 report3]]
-                                   [:descending [report3 report4 report2 report1]]]]
+        (doseq [[order expected] [[:ascending  [report1 report2 report4 report3]]
+                                  [:descending [report3 report4 report2 report1]]]]
           (testing order
-            (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result :v4
-                                                 ["=" "certname" "foo.local"]
-                                                 {:order_by [[:transaction_uuid order]]})]
-              (is (= (munge-report actual) (munge-report expected)))))))
+            (let [actual (reports-query-result :v4
+                                               ["=" "certname" "foo.local"]
+                                               {:order_by [[:transaction_uuid order]]})]
+              (is (= (munge-actual-reports actual)
+                     (munge-expected-reports expected)))))))
 
       (testing "timestamp fields"
-        (doseq [[order expecteds] [[:ascending  [report2 report3 report4 report1]]
-                                   [:descending [report1 report4 report3 report2]]]]
+        (doseq [[order expected] [[:ascending  [report2 report3 report4 report1]]
+                                  [:descending [report1 report4 report3 report2]]]]
           (testing order
-            (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result :v4
-                                                 ["=" "certname" "foo.local"]
-                                                 {:order_by [[:start_time order]]})]
-              (is (= (munge-report actual) (munge-report expected)))))))
+            (let [actual (reports-query-result :v4
+                                               ["=" "certname" "foo.local"]
+                                               {:order_by [[:start_time order]]})]
+              (is (= (munge-actual-reports actual)
+                     (munge-expected-reports expected)))))))
 
       (testing "multiple fields"
-        (doseq [[[puppet-version-order conf-version-order] expecteds] [[[:ascending :descending] [report1 report2 report4 report3]]
-                                                                       [[:descending :ascending] [report3 report4 report2 report1]]]]
+        (doseq [[[puppet-version-order conf-version-order] expected] [[[:ascending :descending] [report1 report2 report4 report3]]
+                                                                      [[:descending :ascending] [report3 report4 report2 report1]]]]
           (testing (format "puppet-version %s configuration-version %s" puppet-version-order conf-version-order)
-            (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result :v4
-                                                 ["=" "certname" "foo.local"]
-                                                 {:order_by [[:puppet_version puppet-version-order]
-                                                             [:configuration_version conf-version-order]]})]
-              (is (= (munge-report actual) (munge-report expected))))))))
+            (let [actual (reports-query-result :v4
+                                               ["=" "certname" "foo.local"]
+                                               {:order_by [[:puppet_version puppet-version-order]
+                                                           [:configuration_version conf-version-order]]})]
+              (is (= (munge-actual-reports actual)
+                     (munge-expected-reports expected))))))))
 
     (testing "offset"
       (doseq [[order expected-sequences] [[:ascending  [[0 [report1 report2 report4 report3]]
@@ -136,95 +180,9 @@
                                                         [3 [report1]]
                                                         [4 []]]]]]
         (testing order
-          (doseq [[offset expecteds] expected-sequences]
-            (let [expected (expected-reports expecteds)
-                  actual   (reports-query-result :v4
-                                                 ["=" "certname" "foo.local"]
-                                                 {:order_by [[:report_format order]] :offset offset})]
-              (is (= (munge-report actual) (munge-report expected))))))))))
-
-
-(def data-seq
-  (-> (slurp "./test-resources/puppetlabs/puppetdb/cli/export/reports-query-rows.json")
-      (json/parse-string true)))
-
-(def expected-result
-  [{:hash "89944d0dcac56d3ee641ca9b69c54b1c15ef01fe"
-    :puppet_version "3.7.3"
-    :receive_time "2014-12-24T00:00:50Z"
-    :report_format 4
-    :start_time "2014-12-24T00:00:49Z"
-    :end_time "2014-12-24T00:00:49Z"
-    :transaction_uuid "af4fb9ad-b267-4e0b-a295-53eba6b139b7"
-    :status "changed"
-    :noop false
-    :environment "production"
-    :configuration_version "1419379250"
-    :certname "foo.com"
-    :metrics nil
-    :logs nil
-    :resource_events [{:new_value "Hi world"
-                       :property "message"
-                       :file "/home/wyatt/.puppet/manifests/site.pp"
-                       :old_value "absent"
-                       :line 3
-                       :resource_type "Notify"
-                       :status "success"
-                       :resource_title "hi"
-                       :timestamp "2014-12-24T00:00:50Z"
-                       :containment_path ["Stage[main]" "Main" "Notify[hi]"]
-                       :message "defined 'message' as 'Hi world'"}
-                      {:new_value "file"
-                       :property "ensure"
-                       :file "/home/wyatt/.puppet/manifests/site.pp"
-                       :old_value "absent"
-                       :line 7
-                       :resource_type "File"
-                       :status "success"
-                       :resource_title "/home/wyatt/Desktop/foo"
-                       :timestamp "2014-12-24T00:00:50Z"
-                       :containment_path
-                       ["Stage[main]" "Main" "File[/home/wyatt/Desktop/foo]"]
-                       :message
-                       "defined content as '{md5}207995b58ba1956b97028ebb2f8caeba'"}]}
-   {:hash "afe03ad7377e3c44d0f1f2abcf0834778759afff"
-    :puppet_version "3.7.3"
-    :receive_time "2014-12-24T00:01:12Z"
-    :report_format 4
-    :start_time "2014-12-24T00:01:11Z"
-    :end_time "2014-12-24T00:01:11Z"
-    :transaction_uuid "f585ce01-0b5e-4ee3-b6d9-9d3ed6e42a05"
-    :status "changed"
-    :noop false
-    :environment "production"
-    :configuration_version "1419379250"
-    :certname "bar.com"
-    :metrics nil
-    :logs nil
-    :resource_events [{:new_value "Hi world"
-                       :property "message"
-                       :file "/home/wyatt/.puppet/manifests/site.pp"
-                       :old_value "absent"
-                       :line 3
-                       :resource_type "Notify"
-                       :status "success"
-                       :resource_title "hi"
-                       :timestamp "2014-12-24T00:01:12Z"
-                       :containment_path ["Stage[main]" "Main" "Notify[hi]"]
-                       :message "defined 'message' as 'Hi world'"}]}])
-
-(deftest structured-data-seq
-  (testing "structured data seq gets correct result"
-    (is (= (r/structured-data-seq :v4 data-seq) expected-result)))
-  (testing "laziness of collapsing fns"
-    (let [ten-billion 10000000000]
-      (is (= 10
-             (count (take 10
-                          (r/structured-data-seq
-                            :v4 (mapcat
-                                  (fn [certname]
-                                    (take 4
-                                          (-> (first data-seq)
-                                              (assoc :certname certname :hash certname)
-                                              repeat)))
-                                  (map #(str "foo" % ".com") (range 0 ten-billion)))))))))))
+          (doseq [[offset expected] expected-sequences]
+            (let [actual (reports-query-result :v4
+                                               ["=" "certname" "foo.local"]
+                                               {:order_by [[:report_format order]] :offset offset})]
+              (is (= (munge-actual-reports actual)
+                     (munge-expected-reports expected))))))))))

@@ -13,10 +13,10 @@
 
 (defn add-criteria [crit query]
   (cm/match [query]
-            [["extract" columns expr :guard nil?]]
+            [["extract" columns (expr :guard nil?)]]
             ["extract" columns crit]
 
-            [["extract" columns expr :guard identity]]
+            [["extract" columns (expr :guard identity)]]
             ["extract" columns ["and" expr crit]]
             :else
             (if query
@@ -30,11 +30,9 @@
   [restriction {:keys [params] :as req}]
   {:pre  [(coll? restriction)]
    :post [(are-queries-different? req %)]}
-  (let [restricted-query (if-let [query (params "query")]
-                           (if-let [q (json/parse-strict-string query true)]
-                             (add-criteria restriction q)
-                             restriction)
-                           restriction)]
+  (let [restricted-query (let [query (params "query")
+                               q     (when query (json/parse-strict-string query true))]
+                           (add-criteria restriction q))]
     (assoc-in req [:params "query"] (json/generate-string restricted-query))))
 
 (defn restrict-query-to-active-nodes
@@ -54,6 +52,15 @@
   (restrict-query ["and"
                    ["=" "certname" node]
                    ["=" ["node" "active"] true]]
+                  req))
+
+(defn restrict-query-to-report
+  "Restrict the query parameter of the supplied request so that it
+  only returns results for the supplied active node"
+  [hash req]
+  {:pre  [(string? hash)]
+   :post [(are-queries-different? req %)]}
+  (restrict-query ["=" "report" hash]
                   req))
 
 (defn restrict-catalog-query-to-node

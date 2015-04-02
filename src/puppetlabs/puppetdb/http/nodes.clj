@@ -15,9 +15,9 @@
 (defn node-status
   "Produce a response body for a request to obtain status information
   for the given node."
-  [version node db]
+  [version node db url-prefix]
   (if-let [status (jdbc/with-transacted-connection db
-                    (node/status version node))]
+                    (node/status version node url-prefix))]
     (http/json-response status)
     (http/json-response {:error (str "No information is known about " node)} http/status-not-found)))
 
@@ -32,13 +32,15 @@
              version
              (params "query")
              paging-options
-             (:scf-read-db globals)))
+             (:scf-read-db globals)
+             (:url-prefix globals)))
           http-q/restrict-query-to-active-nodes)}
 
    [node]
    {:get
     (-> (fn [{:keys [globals]}]
-          (node-status version node (:scf-read-db globals)))
+          (node-status version node (:scf-read-db globals)
+                       (:url-prefix globals)))
         ;; Being a singular item, querying and pagination don't really make
         ;; sense here
         (validate-query-params {}))}

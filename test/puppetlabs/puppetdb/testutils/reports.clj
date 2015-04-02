@@ -49,6 +49,21 @@
       (dissoc "hash")
       (dissoc "receive_time")))
 
+(defn report-for-hash
+  "Convenience function; given a report hash, return the corresponding report object
+  (without events)."
+  [version hash]
+  {:pre  [(string? hash)]
+   :post [(or (nil? %)
+              (map? %))]}
+  (let [query ["=" "hash" hash]]
+    (->> (query/query->sql version query)
+         (query/query-reports version "")
+         ;; We don't support paging in this code path, so we
+         ;; can just pull the results out of the return value
+         (:result)
+         (first))))
+
 (defn store-example-report!
   "Store an example report (from examples/report.clj) for use in tests.  Params:
 
@@ -66,7 +81,7 @@
          report-hash     (shash/report-identity-hash (scf-store/normalize-report example-report))]
      (scf-store/maybe-activate-node! (:certname example-report) timestamp)
      (scf-store/add-report!* example-report timestamp update-latest-report?)
-     (query/report-for-hash :v4 report-hash))))
+     (report-for-hash :v4 report-hash))))
 
 (defn expected-report
   [example-report]
@@ -81,8 +96,8 @@
 (defn munge-resource-events
   [xs]
   (set (map (fn [x] (-> x
-                        (update-in [:timestamp] time-coerce/to-string)
-                        (dissoc :environment :test_id :containing_class :certname))) xs)))
+                       (update-in [:timestamp] time-coerce/to-string)
+                       (dissoc :environment :test_id :containing_class :certname))) xs)))
 
 (defn expected-reports
   [example-reports]
@@ -96,7 +111,7 @@
     ;; the example reports don't have a receive time (because this is
     ;; calculated by the server), so we remove this field from the response
     ;; for test comparison
-    (update-in (query/query-reports version (query/query->sql version query paging-options))
+    (update-in (query/query-reports version "" (query/query->sql version query paging-options))
                [:result]
                munge-fn)))
 

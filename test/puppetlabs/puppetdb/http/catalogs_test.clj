@@ -1,11 +1,13 @@
 (ns puppetlabs.puppetdb.http.catalogs-test
   (:require [cheshire.core :as json]
-            [puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [clojure.java.io :refer [resource reader]]
-            [clojure.walk :refer [keywordize-keys]]
             [clojure.test :refer :all]
+            [clojure.walk :refer [keywordize-keys]]
+            [puppetlabs.puppetdb.catalogs :as catalogs]
+            [puppetlabs.puppetdb.fixtures :as fixt]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq strip-hash]]
-            [puppetlabs.puppetdb.fixtures :as fixt]))
+            [puppetlabs.puppetdb.testutils.catalogs :as testcat]))
 
 (def endpoints [[:v4 "/v4/catalogs"]])
 
@@ -22,7 +24,6 @@
    (fixt/*app* (get-request (str endpoint "/" node) query)))
   ([endpoint node query params]
    (fixt/*app* (get-request (str endpoint "/" node) query params))))
-
 
 (def catalog1
   (-> (slurp (resource "puppetlabs/puppetdb/cli/export/tiny-catalog.json"))
@@ -51,7 +52,7 @@
    ["~" "environment" "PR"]
    [catalog2]
 
-   []
+   nil
    [catalog1 catalog2]})
 
 (def paging-options
@@ -74,18 +75,20 @@
   [xs]
   (sort (flatten (map :tags (flatten (map :resources xs))))))
 
-(deftestseq v4-catalog-queries
-  [[version endpoint] [[:v4 "/v4/catalogs"]]]
+(deftestseq catalog-queries
+  [[version endpoint] endpoints]
   (testcat/replace-catalog (json/generate-string catalog1))
   (testcat/replace-catalog (json/generate-string catalog2))
-  (testing "v4 catalog endpoint is queryable"
+  (testing "catalog endpoint is queryable"
     (doseq [q (keys queries)]
       (let [{:keys [status body] :as response} (get-response endpoint nil q)
             response-body (strip-hash (json/parse-stream (reader body) true))
             expected (get queries q)]
         (is (= (count expected) (count response-body)))
         (is (= (sort (map :certname expected)) (sort (map :certname response-body))))
-        (is (= (extract-tags expected) (extract-tags response-body))))))
+        (when (sutils/postgres?)
+          (is (= (extract-tags expected)
+                 (extract-tags (catalogs/catalogs-query->wire-v6 response-body))))))))
 
   (testing "top-level extract works with catalogs"
     (let [query ["extract" ["certname"] ["~" "certname" ""]]
@@ -103,7 +106,7 @@
             expected (get paging-options p)]
         (is (= (map :certname expected) (map :certname response-body)))))))
 
-  (testing "/v4 endpoint is still responsive to old-style node queries"
-    (let [{:keys [body]} (get-response "/v4/catalogs" "myhost.localdomain")
+  (testing "endpoint is still responsive to old-style node queries"
+    (let [{:keys [body]} (get-response endpoint "myhost.localdomain")
           response-body  (json/parse-string body true)]
       (is (= "myhost.localdomain" (:certname response-body))))))

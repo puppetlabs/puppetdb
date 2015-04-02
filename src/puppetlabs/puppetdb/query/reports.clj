@@ -1,81 +1,95 @@
 (ns puppetlabs.puppetdb.query.reports
-  (:require [puppetlabs.puppetdb.query-eng.engine :as qe]
+  (:require [clojure.set :as set]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.query :as query]
+            [puppetlabs.puppetdb.query.events :as events]
+            [puppetlabs.puppetdb.query.paging :as paging]
+            [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [schema.core :as s]
-            [puppetlabs.puppetdb.query.events :refer [events-for-report-hash]]
-            [clojure.set :refer [rename-keys]]
-            [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.utils :as utils])
+            [puppetlabs.puppetdb.utils :as utils]
+            [schema.core :as s])
   (:import  [org.postgresql.util PGobject]))
 
-(def row-schema
-  {:hash String
-   :certname String
-   :puppet_version String
-   :report_format s/Int
-   :configuration_version String
-   :metrics (s/maybe (s/either String PGobject))
-   :logs (s/maybe (s/either String PGobject))
-   :start_time pls/Timestamp
-   :end_time pls/Timestamp
-   :receive_time pls/Timestamp
-   :transaction_uuid String
-   :event_status String
-   :timestamp pls/Timestamp
-   :resource_type String
-   :resource_title String
-   :new_value String
-   :old_value String
-   :status (s/maybe String)
-   :property (s/maybe String)
-   :message (s/maybe String)
-   :file (s/maybe String)
-   :line (s/maybe s/Int)
-   :containment_path (s/maybe [String])
-   :noop (s/maybe s/Bool)
-   (s/optional-key :environment) (s/maybe String)})
+;; MUNGE
 
-(def resource-event-schema
-  {:new_value s/Any
-   :old_value s/Any
-   :resource_title String
-   :resource_type String
-   :timestamp pls/Timestamp
-   :containment_path (s/maybe [String])
-   :property (s/maybe String)
-   :file (s/maybe String)
-   :line (s/maybe s/Int)
-   :status (s/maybe String)
-   :message (s/maybe String)})
+(pls/defn-validated rtj->event :- reports/resource-event-query-schema
+  "Convert row_to_json format to real data."
+  [event :- {s/Str s/Any}]
+  (-> event
+      (set/rename-keys {"f1" :status
+                        "f2" :timestamp
+                        "f3" :resource_type
+                        "f4" :resource_title
+                        "f5" :property
+                        "f6" :new_value
+                        "f7" :old_value
+                        "f8" :message
+                        "f9" :file
+                        "f10" :line
+                        "f11" :containment_path
+                        "f12" :containing_class})
+      (update-in [:old_value] json/parse-string)
+      (update-in [:new_value] json/parse-string)))
 
-(def json-metric-schema
-  (utils/str-schema reports/metric-schema))
+(pls/defn-validated events->expansion :- {:href s/Str (s/optional-key :data) [s/Any]}
+  "Convert events to the expanded format."
+  [obj :- (s/maybe PGobject)
+   hash :- s/Str
+   base-url :- s/Str]
+  (let [data-obj {:href (str base-url "/reports/" hash "/events")}]
+    (if obj
+      (assoc data-obj :data (map rtj->event
+                                 (json/parse-string (.getValue obj))))
+      data-obj)))
 
-(def json-log-schema
-  (utils/str-schema reports/log-schema))
+(pls/defn-validated logs->expansion :- {:href s/Str (s/optional-key :data) [s/Any]}
+  "Convert logs to the expanded format."
+  [data :- (s/maybe (s/either PGobject s/Str))
+   hash :- s/Str
+   base-url :- s/Str]
+  (let [parse-json (scf-utils/parse-db-json-fn)
+        data-obj {:href (str base-url "/reports/" hash "/logs")}]
+    (if data
+      (assoc data-obj :data (parse-json data))
+      data-obj)))
 
-(def report-schema
-  {:hash String
-   (s/optional-key :environment) (s/maybe String)
-   :certname String
-   :puppet_version String
-   :receive_time pls/Timestamp
-   :start_time pls/Timestamp
-   :end_time pls/Timestamp
-   :noop (s/maybe s/Bool)
-   :report_format s/Int
-   :configuration_version String
-   :resource_events [resource-event-schema]
-   :metrics (s/maybe [json-metric-schema])
-   :logs (s/maybe [json-log-schema])
-   :transaction_uuid String
-   :status (s/maybe String)})
+(pls/defn-validated metrics->expansion :- {:href s/Str (s/optional-key :data) [s/Any]}
+  "Convert metrics data to the expanded format."
+  [data :- (s/maybe (s/either PGobject s/Str))
+   hash :- s/Str
+   base-url :- s/Str]
+  (let [parse-json (scf-utils/parse-db-json-fn)
+        data-obj {:href (str base-url "/reports/" hash "/metrics")}]
+    (if data
+      (assoc data-obj :data (parse-json data))
+      data-obj)))
+
+(pls/defn-validated row->report
+  "Convert a report query row into a final report format."
+  [base-url :- s/Str]
+  (fn [row]
+    (-> row
+        (utils/update-when [:resource_events] events->expansion (:hash row) base-url)
+        (utils/update-when [:metrics] metrics->expansion (:hash row) base-url)
+        (utils/update-when [:logs] logs->expansion (:hash row) base-url))))
+
+(pls/defn-validated munge-result-rows
+  "Reassemble rows from the database into the final expected format."
+  [version :- s/Keyword
+   projected-fields :- [s/Keyword]
+   _
+   url-prefix :- s/Str]
+  (let [base-url (str url-prefix "/" (name version))]
+    (fn [rows]
+      (map (comp (qe/basic-project projected-fields)
+                 (row->report base-url))
+           rows))))
+
+;; QUERY
 
 (def report-columns
   [:hash
@@ -93,41 +107,6 @@
    :logs
    :certname])
 
-(defn create-report-pred
-  [rows]
-  (let [report-hash (:hash (first rows))]
-    (fn [row]
-      (= report-hash (:hash row)))))
-
-(defn collapse-resource-events
-  [acc row]
-  (let [resource-event (select-keys row [:containment_path :new_value
-                                         :old_value :resource_title :resource_type
-                                         :property :file :line :event_status :timestamp
-                                         :message])]
-    (into acc
-          [(-> resource-event
-               ((partial kitchensink/maptrans {[:new_value :old_value] json/parse-string}))
-               (rename-keys {:event_status :status}))])))
-
-(pls/defn-validated collapse-report :- report-schema
-  [version :- s/Keyword
-   report-rows :- [row-schema]]
-  (let [first-row (first report-rows)
-        resource-events (->> report-rows
-                             (reduce collapse-resource-events []))]
-    (-> (select-keys first-row report-columns)
-        ((partial kitchensink/maptrans {[:metrics :logs] (scf-utils/parse-db-json-fn)}))
-        (assoc :resource_events resource-events))))
-
-(pls/defn-validated structured-data-seq
-  "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"
-  [version :- s/Keyword
-   rows]
-  (utils/collapse-seq create-report-pred
-                      #(collapse-report version %)
-                      rows))
-
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
   return nodes matching the `query`."
@@ -143,22 +122,14 @@
    (qe/compile-user-query->sql
     qe/reports-query query paging-options)))
 
-(pls/defn-validated munge-result-rows
-  "Reassemble rows from the database into the final expected format."
-  [version :- s/Keyword
-   projections]
-  (fn [rows]
-    (if (empty? rows)
-      []
-      (map (qe/basic-project projections)
-           (structured-data-seq version rows)))))
+;; QUERY + MUNGE
 
 (defn query-reports
   "Queries reports and unstreams, used mainly for testing.
 
   This wraps the existing streaming query code but returns results
   and count (if supplied)."
-  [version query-sql]
+  [version url-prefix query-sql]
   {:pre [(map? query-sql)]}
   (let [{[sql & params] :results-query
          count-query    :count-query
@@ -167,42 +138,12 @@
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows version projections)))}]
+                          (comp doall (munge-result-rows version projections {} url-prefix)))}]
     (if count-query
-      (assoc result :count (jdbc/get-result-count count-query :reports))
+      (assoc result :count (jdbc/get-result-count count-query))
       result)))
 
-
-(defn reports-for-node
-  "Return reports for a particular node."
-  [version node]
-  {:pre  [(string? node)]
-   :post [(or (nil? %)
-              (seq? %))]}
-  (let [query ["=" "certname" node]
-        reports (->> (query->sql version query)
-                     (query-reports version)
-                     ;; We don't support paging in this code path, so we
-                     ;; can just pull the results out of the return value
-                     :result)]
-    (map
-     #(merge % {:resource_events (events-for-report-hash version (get % :hash))})
-     reports)))
-
-(defn report-for-hash
-  "Convenience function; given a report hash, return the corresponding report object
-  (without events)."
-  [version hash]
-  {:pre  [(string? hash)]
-   :post [(or (nil? %)
-              (map? %))]}
-  (let [query ["=" "hash" hash]]
-    (->> (query->sql version query)
-         (query-reports version)
-         ;; We don't support paging in this code path, so we
-         ;; can just pull the results out of the return value
-         (:result)
-         (first))))
+;; SPECIAL
 
 (defn is-latest-report?
   "Given a node and a report hash, return `true` if the report is the most recent one for the node,

@@ -68,11 +68,12 @@
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
                  [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]
-                 [prismatic/schema "0.2.2"]
+                 [prismatic/schema "0.2.6"]
                  [org.clojure/tools.macro "0.1.5"]
                  [com.novemberain/pantomime "2.1.0"]
                  [fast-zip-visit "1.0.2"]
-                 [robert/hooke "1.3.0"]]
+                 [robert/hooke "1.3.0"]
+                 [honeysql "0.5.2"]]
 
   :jvm-opts ["-XX:MaxPermSize=128M"]
 

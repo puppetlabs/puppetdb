@@ -19,7 +19,8 @@
               version
               query
               [summarize_by query-options]
-              (:scf-read-db globals))))}))
+              (:scf-read-db globals)
+              (:url-prefix globals))))}))
 
 (defn aggregate-event-counts-app
   "Ring app for querying for aggregated summary information about resource events."

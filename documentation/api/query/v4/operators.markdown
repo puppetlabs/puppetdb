@@ -202,10 +202,10 @@ Each subquery acts as a normal query to one of the PuppetDB endpoints. For info 
 
 The available subqueries are:
 
-* `select_resources` (queries the [resources][] endpoint)
 * `select_facts` (queries the [facts][] endpoint)
-* `select_nodes` (queries the [nodes][] endpoint)
 * `select_fact_contents` (queries the [fact-contents][] endpoint)
+* `select_nodes` (queries the [nodes][] endpoint)
+* `select_resources` (queries the [resources][] endpoint)
 
 ### Subquery Examples
 

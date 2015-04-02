@@ -1,9 +1,11 @@
 (ns puppetlabs.puppetdb.scf.storage-utils
-  (:require [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.java.jdbc :as sql]
+  (:require [clojure.java.jdbc :as sql]
+            [honeysql.core :as hcore]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s])
   (:import [org.postgresql.util PGobject]))
 
@@ -166,17 +168,17 @@ must be supplied as the value to be matched."
 
 (defmethod sql-as-numeric "PostgreSQL"
   [column]
-  (format (str "CASE WHEN %s~E'^\\\\d+$' THEN %s::bigint "
-               "WHEN %s~E'^\\\\d+\\\\.\\\\d+$' THEN %s::float "
-               "ELSE NULL END")
-          column column column column))
+  (hcore/raw (format (str "CASE WHEN %s~E'^\\\\d+$' THEN %s::bigint "
+                          "WHEN %s~E'^\\\\d+\\\\.\\\\d+$' THEN %s::float "
+                          "ELSE NULL END")
+                     column column column column)))
 
 (defmethod sql-as-numeric "HSQL Database Engine"
   [column]
-  (format (str "CASE WHEN REGEXP_MATCHES(%s, '^\\d+$') THEN CAST(%s AS BIGINT) "
-               "WHEN REGEXP_MATCHES(%s, '^\\d+\\.\\d+$') THEN CAST(%s AS FLOAT) "
-               "ELSE NULL END")
-          column column column column))
+  (hcore/raw (format (str "CASE WHEN REGEXP_MATCHES(%s, '^\\d+$') THEN CAST(%s AS BIGINT) "
+                          "WHEN REGEXP_MATCHES(%s, '^\\d+\\.\\d+$') THEN CAST(%s AS FLOAT) "
+                          "ELSE NULL END")
+                     column column column column)))
 
 (defmethod sql-array-type-string "PostgreSQL"
   [basetype]
@@ -188,23 +190,28 @@ must be supplied as the value to be matched."
 
 (defmethod sql-array-query-string "PostgreSQL"
   [column]
-  (format "ARRAY[?::text] <@ %s" column))
+  (hcore/raw
+   (format "ARRAY[?::text] <@ %s" (name column))))
 
 (defmethod sql-array-query-string "HSQL Database Engine"
   [column]
-  (format "? IN (UNNEST(%s))" column))
+  (hcore/raw
+   (format "? IN (UNNEST(%s))" (name column))))
 
 (defmethod sql-regexp-match "PostgreSQL"
   [column]
-  (format "(%s ~ ? AND %s IS NOT NULL)" column column))
+  [:and
+   [(keyword "~") column "?"]
+   [:is-not column nil]])
 
 (defmethod sql-regexp-match "HSQL Database Engine"
   [column]
-  (format "REGEXP_SUBSTRING(%s, ?) IS NOT NULL" column))
+  [:is-not (h/regexp-substring column "?") nil])
 
 (defmethod sql-regexp-array-match "PostgreSQL"
-  [orig-table query-table column]
-  (format "EXISTS(SELECT 1 FROM UNNEST(%s) WHERE UNNEST ~ ?)" column))
+  [orig-table _ column]
+  (hcore/raw
+   (format "EXISTS(SELECT 1 FROM UNNEST(%s) WHERE UNNEST ~ ?)" (name column))))
 
 (defmethod sql-regexp-array-match "HSQL Database Engine"
   [orig-table query-table column]
@@ -214,9 +221,11 @@ must be supplied as the value to be matched."
   ;; UNNEST operator referencing a column from an outer table. UNNEST
   ;; *has* to come after the parent table in the FROM clause of a
   ;; separate SQL statement.
-  (format (str "EXISTS(SELECT 1 FROM %s %s_copy, UNNEST(%s) AS T(the_tag) "
-               "WHERE %s.%s=%s_copy.%s AND REGEXP_SUBSTRING(the_tag, ?) IS NOT NULL)")
-          orig-table orig-table column query-table column orig-table column))
+  (let [col (name column)]
+    (hcore/raw
+     (format (str "EXISTS(SELECT 1 FROM %s %s_copy, UNNEST(%s) AS T(the_tag) "
+                  "WHERE %s.%s=%s_copy.%s AND REGEXP_SUBSTRING(the_tag, ?) IS NOT NULL)")
+             orig-table orig-table col query-table col orig-table col))))
 
 (defn db-serialize
   "Serialize `value` into a form appropriate for querying against a

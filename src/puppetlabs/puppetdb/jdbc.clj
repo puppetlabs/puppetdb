@@ -134,20 +134,7 @@
             (string/join ", "
                          (map order-by-term->sql order-by)))))
 
-(defn construct-inner-ordering
-  [entity clause]
-  (case entity
-    :factsets
-    (-> clause
-        (str/replace #"environment" "COALESCE(distinct_names.environment, '')")
-        (str/replace #"hash" "COALESCE(distinct_names.hash, '')"))
-    :reports
-    (-> clause
-        (str/replace #"environment" "COALESCE(distinct_names.environment, '')")
-        (str/replace #"status" "COALESCE(distinct_names.status, '')"))
-    clause))
-
-(defn paged-sql
+(pls/defn-validated paged-sql :- String
   "Given a sql string and a map of paging options, return a modified SQL string
   that contains the necessary LIMIT/OFFSET/ORDER BY clauses.  The map of paging
   options can contain any of the following keys:
@@ -160,88 +147,33 @@
 
   Note that if no paging options are specified, the original SQL will be
   returned completely unmodified."
-  ([sql {:keys [limit offset order_by]}]
-     (paged-sql sql {:limit limit :offset offset :order_by order_by} nil))
-  ([sql {:keys [limit offset order_by]} entity]
-     {:pre [(string? sql)
-            ((some-fn nil? integer?) limit)
-            ((some-fn nil? integer?) offset)
-            ((some-fn nil? sequential?) order_by)
-            (every? kitchensink/order-by-expr? order_by)]
-      :post [(string? %)]}
-     (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
-           offset-clause    (if offset (format " OFFSET %s" offset) "")
-           order-by-clause  (order-by->sql order_by)
-           inner-order-by   (construct-inner-ordering entity order-by-clause)]
-       (case entity
-         :factsets
-         (format "SELECT paged_results.* FROM (%s) paged_results
-                 WHERE
-                 (certname,
-                 COALESCE(paged_results.environment, ''),
-                 COALESCE(paged_results.hash, ''),
-                 timestamp,
-                 producer_timestamp) IN
-                 (SELECT DISTINCT
-                 certname,
-                 COALESCE(distinct_names.environment,''),
-                 COALESCE(distinct_names.hash, ''),
-                 timestamp,
-                 producer_timestamp FROM (%s)
-                 distinct_names %s%s%s) %s"
-                 sql sql inner-order-by limit-clause offset-clause order-by-clause)
+  [sql :- String
+   {:keys [limit offset order_by]}]
+  {:pre [((some-fn nil? integer?) limit)
+         ((some-fn nil? integer?) offset)
+         ((some-fn nil? sequential?) order_by)
+         (every? kitchensink/order-by-expr? order_by)]}
+  (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
+        offset-clause    (if offset (format " OFFSET %s" offset) "")
+        order-by-clause  (order-by->sql order_by)]
+    (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
+            sql order-by-clause limit-clause offset-clause)))
 
-         :reports
-         (format "SELECT paged_results.* FROM (%s) paged_results
-                 WHERE
-                 (hash, puppet_version, receive_time, report_format,
-                 start_time, end_time, transaction_uuid,
-                 COALESCE(paged_results.status, ''),
-                 COALESCE(paged_results.environment, ''),
-                 configuration_version, certname) IN
-                 (SELECT DISTINCT
-                 hash, puppet_version, receive_time, report_format,
-                 start_time, end_time, transaction_uuid,
-                 COALESCE(distinct_names.status, ''),
-                 COALESCE(distinct_names.environment,''),
-                 configuration_version, certname FROM (%s) distinct_names %s%s%s) %s"
-                 sql sql inner-order-by limit-clause offset-clause order-by-clause)
-
-         (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
-                 sql order-by-clause limit-clause offset-clause)))))
-
-(defn count-sql
+(pls/defn-validated count-sql :- String
   "Takes a sql string and returns a modified sql string that will select
   the count of results that would be returned by the original sql."
-  ([sql]
-     (count-sql nil sql))
-  ([entity sql]
-     {:pre   [(string? sql)]
-      :post  [(string? %)]}
-     (case entity
-       :factsets
-       (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT certname
-            from (%s) paged_sql) results_to_count" sql)
-       :reports
-       (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT transaction_uuid
-               from (%s) paged_sql) results_to_count" sql)
-       (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))))
+  [sql :- String]
+  (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))
 
-(defn get-result-count
+(pls/defn-validated get-result-count :- s/Num
   "Takes a sql string, executes a `COUNT` statement against the database,
   and returns the number of results that the original query would have returned."
-  ([[count-sql & params :as args]]
-   (get-result-count args nil))
-  ([[count-sql & params] entity]
-   {:pre [(string? count-sql)]
-    :post [(integer? %)]}
-   (let [fixed-params (if (and (not (nil? params)) (contains? #{:reports :factsets} entity))
-                        (take (/ (count params) 2) params)
-                        params)]
-   (-> (apply vector count-sql fixed-params)
-       query-to-vec
-       first
-       :result_count))))
+  [[count-sql & params]]
+  {:pre [(string? count-sql)]}
+  (-> (apply vector count-sql params)
+      query-to-vec
+      first
+      :result_count))
 
 (defn table-count
   "Returns the number of rows in the supplied table"

@@ -61,7 +61,13 @@
                                   [:resources {:type "File"
                                                :title "/etc/foobar/bazv2"}]
                                   {:type "File"
-                                   :title "/etc/foobar/bazv2"})
+                                   :title "/etc/foobar/bazv2"
+                                   :file nil
+                                   :line nil
+                                   :parameters {}
+                                   :resource "asdf"
+                                   :tags []
+                                   :exported false})
             new-hash (shash/catalog-similarity-hash new-catalog)]
 
         (is (nil? (fs/list-dir debug-dir)))

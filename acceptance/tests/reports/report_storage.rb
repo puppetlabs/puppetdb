@@ -55,8 +55,8 @@ test_name "basic validation of puppet report submission" do
     result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]' --data 'order_by=[{"field":"receive_time","order":"desc"}]'|
     reports = JSON.parse(result.stdout)
     report = reports[0]
-    metrics = report["metrics"]
-    logs = report["logs"]
+    metrics = report["metrics"]["data"]
+    logs = report["logs"]["data"]
 
     step "ensure that noop is false for #{agent}" do
       assert_equal(false, report["noop"], "noop does not match!")

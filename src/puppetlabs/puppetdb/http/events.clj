@@ -55,7 +55,8 @@
                 version
                 (params "query")
                 [query-options paging-options]
-                (:scf-read-db globals)))
+                (:scf-read-db globals)
+                (:url-prefix globals)))
              (catch IllegalArgumentException e
                (http/error-response e))))}))
 

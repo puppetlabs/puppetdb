@@ -102,16 +102,16 @@
                                      (tur/munge-example-report-for-storage report))
         (svc-utils/sync-command-post *base-url* "replace facts" 4 facts)
 
-        (is (testutils/=-after? munge-catalog catalog
-                                (-> *base-url*
-                                    (export/catalog-for-node (:certname catalog))
-                                    (json/parse-string true))))
+        (is (testutils/=-after? munge-catalog catalog (->> (:certname catalog)
+                                                           (export/catalogs-for-node *base-url*)
+                                                           first)))
 
-        (is (testutils/=-after? munge-report report
-                                (-> *base-url*
-                                    (export/reports-for-node (:certname report))
-                                    first)))
-        (is (= facts (export/facts-for-node *base-url* "foo.local")))
+        (is (testutils/=-after? munge-report report (->> (:certname report)
+                                                         (export/reports-for-node *base-url*)
+                                                         first)))
+        (is (= facts (->> (:certname facts)
+                          (export/facts-for-node *base-url*)
+                          first)))
 
         (apply #'export/main
                "--outfile" export-out-file
@@ -130,24 +130,26 @@
                   "--host" (:host *base-url*) "--port" (:port *base-url*)
                   (when-not (empty? url-prefix) ["--url-prefix" url-prefix]))))
 
-        (is (testutils/=-after? munge-catalog catalog
-                                (-> *base-url*
-                                    (export/catalog-for-node (:certname catalog))
-                                    (json/parse-string true))))
+        (is (testutils/=-after? munge-catalog catalog (->> (:certname catalog)
+                                                           (export/catalogs-for-node *base-url*)
+                                                           first)))
 
         ;; For some reason, although the fact's/report's message has
         ;; been consumed and committed, it's not immediately available
         ;; for querying. Maybe this is a race condition in our tests?
         ;; The next two lines ensure that the message is not only
         ;; consumed but present in the DB before proceeding
-        @(block-until-results 100 (export/facts-for-node *base-url* (:certname report)))
-        @(block-until-results 100 (export/reports-for-node *base-url* (:certname report)))
+        @(block-until-results 100 (->> (:certname facts)
+                                       (export/facts-for-node *base-url*)))
+        @(block-until-results 100 (->> (:certname report)
+                                       (export/reports-for-node *base-url*)))
 
-        (is (= facts (export/facts-for-node *base-url* "foo.local")))
-        (is (testutils/=-after? munge-report report
-                                (-> *base-url*
-                                    (export/reports-for-node (:certname report))
-                                    first)))))))
+        (is (= facts (->> (:certname facts)
+                          (export/facts-for-node *base-url*)
+                          first)))
+        (is (testutils/=-after? munge-report report (->> (:certname report)
+                                                         (export/reports-for-node *base-url*)
+                                                         first)))))))
 
 (deftest basic-roundtrip
   (test-basic-roundtrip nil))
@@ -166,9 +168,9 @@
        (is (thrown-with-msg?
             java.util.concurrent.ExecutionException #"Results not found"
             @(block-until-results 5
-                                  (json/parse-string
-                                   (export/catalog-for-node *base-url*
-                                                            "foo.local")))))))))
+                                  (->> (:certname catalog)
+                                       (export/catalogs-for-node *base-url*)
+                                       first))))))))
 
 (defn- check-invalid-url-handling [cmd expected-msg-re]
   (let [ex (is (thrown+-with-msg? #(and (map? %) (:utils/exit-status %))

@@ -10,7 +10,7 @@ canonical: "/puppetdb/latest/api/wire_format/facts_format_v4.html"
 Facts are represented as JSON. Unless otherwise noted, `null` is not
 allowed anywhere in the set of facts.
 
-    {"name": <string>,
+    {"certname": <string>,
      "environment": <string>,
      "producer_timestamp": <datetime>,
      "values": {
@@ -19,7 +19,7 @@ allowed anywhere in the set of facts.
          }
     }
 
-The `"name"` key is the certname the facts are associated with.
+The `"certname"` key is the certname the facts are associated with.
 
 The `"environment"` key is the environment associated to the node when the facts were collected.
 

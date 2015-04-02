@@ -237,7 +237,7 @@
   (let [id          (:id annotations)
 
         {:keys [certname puppet_version] :as report} (->> payload
-                                                          (s/validate report/report-schema)
+                                                          (s/validate report/report-wireformat-schema)
                                                           upon-error-throw-fatality)
         timestamp   (:received annotations)]
     (jdbc/with-transacted-connection db

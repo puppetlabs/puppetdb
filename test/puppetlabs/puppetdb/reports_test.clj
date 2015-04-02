@@ -11,17 +11,17 @@
   (deftest test-validate
 
     (testing "should accept a valid v5 report"
-      (is (= report (s/validate report-schema report))))
+      (is (= report (s/validate report-wireformat-schema report))))
 
     (testing "should fail when a report is missing a key"
       (is (thrown-with-msg?
            RuntimeException #"Value does not match schema: \{:certname missing-required-key\}$"
-           (s/validate report-schema (dissoc report :certname)))))
+           (s/validate report-wireformat-schema (dissoc report :certname)))))
 
     (testing "should fail when a resource event has the wrong data type for a key"
       (is (thrown-with-msg?
            RuntimeException #":timestamp \(not \(datetime\? \"foo\"\)\)"
-           (s/validate report-schema (assoc-in report [:resource_events 0 :timestamp] "foo")))))))
+           (s/validate report-wireformat-schema (assoc-in report [:resource_events 0 :timestamp] "foo")))))))
 
 (deftest test-sanitize-events
   (testing "ensure extraneous keys are removed"

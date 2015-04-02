@@ -85,15 +85,15 @@
         :edges       #(<dependency-spec>,
                        <dependency-spec>,
                        ...)}"
-  (:require [clojure.string :as string]
+  (:require [clojure.core.match :refer [match]]
             [clojure.set :as set]
+            [clojure.string :as string]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils]
-            [clojure.core.match :refer [match]]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]))
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [schema.core :as s]))
 
 (def ^:const catalog-version
   "Constant representing the version number of the PuppetDB
@@ -140,6 +140,49 @@
     :all full-catalog
     :v6 (dissoc full-catalog :api_version)
     (catalog-wireformat :v6)))
+
+(def edge-query-schema
+  "Schema for validating a single edge."
+  {(s/optional-key :certname) s/Str
+   :relationship s/Str
+   :source_title s/Str
+   :source_type s/Str
+   :target_title s/Str
+   :target_type s/Str})
+
+(def edges-expanded-query-schema
+  "Edges expanded format schema."
+  {(s/optional-key :data) [edge-query-schema]
+   :href s/Str})
+
+(def resource-query-schema
+  "Schema for validating a single resource."
+  {(s/optional-key :certname) s/Str
+   (s/optional-key :environment) s/Str
+   :exported s/Bool
+   :file (s/maybe s/Str)
+   :line (s/maybe s/Int)
+   :parameters {s/Any s/Any}
+   :resource s/Str
+   :tags [(s/maybe s/Str)]
+   :title s/Str
+   :type s/Str})
+
+(def resources-expanded-query-schema
+  "Resources expanded format schema."
+  {:href s/Str
+   (s/optional-key :data) [resource-query-schema]})
+
+(def catalog-query-schema
+  "Full catalog query result schema."
+  {(s/optional-key :certname) s/Str
+   (s/optional-key :edges) edges-expanded-query-schema
+   (s/optional-key :environment) (s/maybe s/Str)
+   (s/optional-key :hash) s/Str
+   (s/optional-key :producer_timestamp) (s/maybe pls/Timestamp)
+   (s/optional-key :resources) resources-expanded-query-schema
+   (s/optional-key :transaction_uuid) (s/maybe s/Str)
+   (s/optional-key :version) s/Str})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Conversion functions
@@ -342,3 +385,46 @@
 (defmethod parse-catalog :default
   [catalog version]
   (throw (IllegalArgumentException. (format "Unknown catalog version '%s'" version))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Catalog Query -> Wire format conversions
+
+(pls/defn-validated edge-query->wire-v6
+  [edge :- edge-query-schema]
+  {:source
+   {:title (:source_title edge)
+    :type (:source_type edge)}
+   :target
+   {:title (:target_title edge)
+    :type (:target_type edge)}
+   :relationship (:relationship edge)})
+
+(pls/defn-validated edges-expanded->wire-v6
+  [edges :- edges-expanded-query-schema]
+  (map edge-query->wire-v6
+       (:data edges)))
+
+(pls/defn-validated resource-query->wire-v6
+  [resource :- resource-query-schema]
+  (-> resource
+      (dissoc :resource :certname :environment)
+      (kitchensink/dissoc-if-nil :file :line)))
+
+(pls/defn-validated resources-expanded->wire-v6
+  [resources :- resources-expanded-query-schema]
+  (map resource-query->wire-v6
+       (:data resources)))
+
+(pls/defn-validated catalog-query->wire-v6 :- (catalog-wireformat :v6)
+  [catalog :- catalog-query-schema]
+  (-> catalog
+      (dissoc :hash)
+      (update-in [:edges] edges-expanded->wire-v6)
+      (update-in [:resources] resources-expanded->wire-v6)))
+
+(pls/defn-validated catalogs-query->wire-v6
+  [catalogs :- [catalog-query-schema]]
+  (map
+   catalog-query->wire-v6
+   catalogs))
+

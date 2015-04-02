@@ -1090,7 +1090,7 @@
   is used to determine whether or not the `update-latest-report!` function will be called as part of
   the transaction.  This should always be set to `true`, except during some very specific testing
   scenarios."
-  [orig-report :- reports/report-schema
+  [orig-report :- reports/report-wireformat-schema
    timestamp :- pls/Timestamp
    update-latest-report? :- s/Bool]
   (time! (:store-report performance-metrics)
@@ -1217,7 +1217,7 @@
 
 (pls/defn-validated add-report!
   "Add a report and all of the associated events to the database."
-  [report :- reports/report-schema
+  [report :- reports/report-wireformat-schema
    timestamp :- pls/Timestamp]
   (add-report!* report timestamp true))
 

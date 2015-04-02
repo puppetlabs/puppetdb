@@ -35,7 +35,7 @@ The entire catalog is serialized as JSON, which requires strict UTF-8 encoding. 
 ### Main Data Type: Catalog
 
      {
-      "name": <string>,
+      "certname": <string>,
       "version": <string>,
       "environment": <string>,
       "transaction_uuid": <string>,

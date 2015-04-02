@@ -7,7 +7,9 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [puppetlabs.puppetdb.query-eng.engine :as qe]
+            [puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]))
 
 (defn node-columns
   "Return node columns based on version"
@@ -30,16 +32,17 @@
      (paging/validate-order-by! (node-columns version) paging-options)
      (qe/compile-user-query->sql qe/nodes-query query paging-options)))
 
-(defn munge-result-rows
-  [version projections]
+(pls/defn-validated munge-result-rows
+  [_
+   projected-fields :- [s/Keyword]
+   _
+   _]
   (fn [rows]
-    (if (empty? rows)
-      []
-      (map (qe/basic-project projections) rows))))
+    (map (qe/basic-project projected-fields) rows)))
 
 (defn query-nodes
   "Search for nodes satisfying the given SQL filter."
-  [version query-sql]
+  [version query-sql url-prefix]
   {:pre  [(map? query-sql)
           (jdbc/valid-jdbc-query? (:results-query query-sql))]
    :post [(map? %)
@@ -49,7 +52,7 @@
          projections    :projections} query-sql
          result {:result (query/streamed-query-result
                           version sql params
-                          (comp doall (munge-result-rows version projections)))}]
+                          (comp doall (munge-result-rows version projections {} url-prefix)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))
@@ -58,8 +61,8 @@
   "Given a node's name, return the current status of the node.  Results
   include whether it's active and the timestamp of its most recent catalog, facts,
   and report."
-  [version node]
+  [version node url-prefix]
   {:pre  [string? node]}
   (let [sql (query->sql version ["=" "certname" node])
-        results (:result (query-nodes version sql))]
+        results (:result (query-nodes version sql url-prefix))]
     (first results)))

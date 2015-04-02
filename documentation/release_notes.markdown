@@ -56,13 +56,37 @@ stable release of PuppetDB, which included an experimental v4 API.
     This patch changes our API commands and responses to use underscores instead of
     dashes, which will make it easier to interface with PDB using languages like
     javascript and python.
-    
+
 * Change "name" key to "certname" ([PDB-1099](https://tickets.puppetlabs.com/browse/PDB-1099))
 
     For clarity and consistency across endpoints, the "name" key has
     been changed to "certname" where appropriate. This affects
     responses from the /v4/catalogs endpoint, queries to it, and the
     "replace catalog" and "replace facts" commands.
+
+* Expanded data format is now more formalized. ([PDB-1228](https://tickets.puppetlabs.com/browse/PDB-1228))
+
+    In the past in the experimental /v4 endpoint we used to return related data for endpoints directly
+    in the JSON response with very little formality. However, due to internal changes that only work for
+    PostgreSQL we've decided to formalize the format of returning expanded/related data so that some of
+    it may be marked as optional from a contractual perspective.
+
+    In the past for example, report events would return an array of events, now it returns that data inside
+    the `data` key, and a link to the original data in a `href` key.
+
+    Note the `data` key is only supported on PostgreSQL, users of HSQLDB will be have to retrieve the related
+    data via the `href` URL in the response. Any support for expanding related data in the past for HSQLDB
+    has now been dropped in favor of less complexity and the better performance focus around PostgreSQL.
+
+    An example expanded block would look something like this:
+
+        {
+          "href": "/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/events",
+          "data": [ ... ]
+        }
+
+    For API consumers this means, the extra `data` key needs to be traversed to access the real related
+    object data.
 
 * Add "noop" flag to reports ([PDB-1177](https://tickets.puppetlabs.com/browse/PDB-1177))
 
@@ -73,7 +97,7 @@ stable release of PuppetDB, which included an experimental v4 API.
 * Remove 'com.' prefix from JMX and ActiveMQ endpoints ([PDB-863](https://tickets.puppetlabs.com/browse/PDB-863))
 
     The 'com.' prefix has been removed from the JMX and ActiveMQ endpoints. They are now in the
-    puppetlabs.puppetdb namespace. 
+    puppetlabs.puppetdb namespace.
 
 * Retire support for PostgreSQL versions less than 9.3 ([PDB-775](https://tickets.puppetlabs.com/browse/PDB-775))
 
@@ -85,7 +109,7 @@ stable release of PuppetDB, which included an experimental v4 API.
 
 * Retire `[jetty]` configuration key certificate-whitelist ([PDB-886](https://tickets.puppetlabs.com/browse/PDB-886))
 
-    This now lives in the `[puppetdb]` section. 
+    This now lives in the `[puppetdb]` section.
 
 * PuppetDB now uses the Ezbake build system ([PDB-663](https://tickets.puppetlabs.com/browse/PDB-663))
 
@@ -104,7 +128,7 @@ stable release of PuppetDB, which included an experimental v4 API.
       depending on the distribution. This is to follow the ezbake standards.
     * Many symlinks were removed from /usr/share/puppetdb that were pointing
       at the /var/lib/puppetdb and /etc/puppetdb/ spaces. This finishes a partially
-      completed migration from the past. 
+      completed migration from the past.
 
 ### Deprecations
 
@@ -122,14 +146,14 @@ stable release of PuppetDB, which included an experimental v4 API.
         }
         ```
 
-    * Remove the `url-prefix` key from your main config file. 
-    * When starting puppetdb, pass your new config _directory_ after `-c` instead of your old config file. 
+    * Remove the `url-prefix` key from your main config file.
+    * When starting puppetdb, pass your new config _directory_ after `-c` instead of your old config file.
 
 ### New Features
 
 * Add support for hyphenated classnames, supported by Puppet 2.7.x - 3.7.x. ([PDB-1024](https://tickets.puppetlabs.com/browse/PDB-1024))
 
-* Add a '-v' flag to the CLI to get the PuppetDB version. 
+* Add a '-v' flag to the CLI to get the PuppetDB version.
 
 * The `reports` database table was using the hash string as its
   primary key, we know have switched to using a smaller bigint primary
@@ -150,19 +174,21 @@ stable release of PuppetDB, which included an experimental v4 API.
 * The load testing tool can now optionally use a default set of testing data or
 derive data from a PuppetDB export tarball.
 
+* We have now added [edges](./api/query/v4/edges.html) querying capability to the top-level namespace. You can also query edges specific to a particular catalog using the new `edges` suffix on the [catalogs](./api/query/v4/catalogs.html) endpoint. ([PDB-1228](https://tickets.puppetlabs.com/browse/PDB-954)).
+
 #### API changes
 
 * The query parameter for `/v4/events` is now optional ([PDB-1132](https://tickets.puppetlabs.com/browse/PDB-1132))
-    
+
 * Add pagination to service query method ([PDB-1071](https://tickets.puppetlabs.com/browse/PDB-1071))
 
     Add a `paging_options` argument to the service query method.
 
 * Make `/v4/catalogs` queryable ([PDB-1028](https://tickets.puppetlabs.com/browse/PDB-1028))
-    
+
 * Add `producer_timestamp` field to factsets and catalogs ([PDB-489](https://tickets.puppetlabs.com/browse/PDB-489))
 
-    On factsets the field is queryable and orderable. 
+    On factsets the field is queryable and orderable.
 
 * Add `resource_events` key to the `store report` command ([PDB-1072](https://tickets.puppetlabs.com/browse/PDB-1072))
 
@@ -181,15 +207,15 @@ derive data from a PuppetDB export tarball.
 
 * Add a `--url-prefix` option to the import and export commands in the PuppetDB CLI  ([PDB-1068](https://tickets.puppetlabs.com/browse/PDB-1068))
 
-    This allows import and export to work against a PuppetDB configured with a url prefix. 
+    This allows import and export to work against a PuppetDB configured with a url prefix.
 
 * Add the `[puppetdb] disable-update-checking` configuration key ([PDB-158](https://tickets.puppetlabs.com/browse/PDB-158))
 
-    The value defaults to false; see the [configuration](./configure.html) documentation for more details. 
+    The value defaults to false; see the [configuration](./configure.html) documentation for more details.
 
 * Support fallback PuppetDB connections ([PDB-954](https://tickets.puppetlabs.com/browse/PDB-954))
 
-    When configuring your connection to PuppetDB, you can now specify a fallback. 
+    When configuring your connection to PuppetDB, you can now specify a fallback.
     Instead of the old `server` and `port` config, you can now use a
     `server_urls` config that contains the full path to one or more PuppetDB
     URLs. The old server/port format is still supported.
@@ -264,7 +290,7 @@ derive data from a PuppetDB export tarball.
     pidfile storage. This will break on modern Fedora/RHEL and SUSE systems as
     /var/run (which is a symlink to /run) uses tmpfs and will not persist through a
     reboot.
-    
+
     As the systemd service type is "simple", meaning non-forking, systemd
     manages the process directly, and the PIDfile is not needed or used on
     those platforms.

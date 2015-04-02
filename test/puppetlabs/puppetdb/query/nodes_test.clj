@@ -14,7 +14,7 @@
 (defn- raw-retrieve-nodes
   [version filter-expr paging-options]
   (let [sql (node/query->sql version filter-expr paging-options)]
-    (node/query-nodes version sql)))
+    (node/query-nodes version sql "")))
 
 (defn- retrieve-node-names
   ([version filter-expr] (retrieve-node-names version filter-expr {}))
