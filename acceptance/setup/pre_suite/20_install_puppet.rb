@@ -11,13 +11,17 @@ test_name "Install Puppet" do
 
   master_facts = facts(master.name)
 
-  with_puppet_running_on(
-    master,
-    :master => {:dns_alt_names => "puppet,#{master_facts['hostname']},#{master_facts['fqdn']}",
-                :trace => 'true'}) do
-    # PID file exists?
-    step "PID file created?" do
-      on master, "[ -f #{pidfile} ]"
+  if options[:type] == 'aio' then
+    on master, "service puppetserver start"
+  else
+    with_puppet_running_on(
+      master,
+      :master => {:dns_alt_names => "puppet,#{master_facts['hostname']},#{master_facts['fqdn']}",
+                  :trace => 'true'}) do
+      # PID file exists?
+      step "PID file created?" do
+        on master, "[ -f #{pidfile} ]"
+      end
     end
   end
 end

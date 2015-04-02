@@ -862,12 +862,22 @@ EOS
 
       case os
       when :debian
-        on host, "apt-get install -y puppet puppetmaster-common"
+        if options[:type] == 'aio' then
+          on host, "apt-get install -y puppet-agent"
+          on host, "apt-get install -y puppetserver"
+        else
+          on host, "apt-get install -y puppet puppetmaster-common"
+        end
       # Puppet 3.7.4 is broken on fedora, pinning to 3.7.3 until it's fixed
       when :fedora
         on host, "yum install -y puppet-3.7.3"
       when :redhat
-        on host, "yum install -y puppet"
+        if options[:type] == 'aio' then
+          on host, "yum install -y puppet-agent"
+          on host, "yum install -y puppetserver"
+        else
+          on host, "yum install -y puppet"
+        end
       else
         raise ArgumentError, "Unsupported OS '#{os}'"
       end
