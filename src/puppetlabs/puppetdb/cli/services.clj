@@ -43,7 +43,7 @@
      database, compacting it and performing regular cleanup so we can
      maintain acceptable performance."
   (:require [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.command :as command]
+            [puppetlabs.puppetdb.command :refer [enqueue-command!]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.jdbc :as pl-jdbc]
@@ -66,7 +66,8 @@
             [puppetlabs.puppetdb.version :refer [version update-info]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.query-eng :as qeng]))
+            [puppetlabs.puppetdb.query-eng :as qeng])
+  (:import [javax.jms ExceptionListener]))
 
 (def cli-description "Main PuppetDB daemon")
 
@@ -78,15 +79,10 @@
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "puppetlabs.puppetdb.commands")
 
-(defn send-command!
-  "Send the command using the default MQ address and endpoint"
-  [command version payload]
-  (command/enqueue-command! mq-addr mq-endpoint command version payload))
-
 (defn auto-deactivate-nodes!
   "Deactivate nodes which haven't had any activity (catalog/fact submission)
   for more than `node-ttl`."
-  [node-ttl db]
+  [node-ttl db mq-connection]
   {:pre [(map? db)
          (period? node-ttl)]}
   (try
@@ -95,7 +91,9 @@
              (format-period node-ttl))
      (with-transacted-connection db
        (doseq [node (scf-store/stale-nodes (ago node-ttl))]
-         (send-command! (command-names :deactivate-node) 2 node))))
+         (enqueue-command! mq-connection
+                           mq-endpoint
+                           (command-names :deactivate-node) 2 node))))
     (catch Exception e
       (log/error e "Error while deactivating stale nodes"))))
 
@@ -151,16 +149,6 @@
     (catch Exception e
       (log/error e "Error during garbage collection"))))
 
-(defn perform-db-maintenance!
-  "Runs the full set of database maintenance tasks in `fns` on `db` in order.
-  Has no error-handling of its own, so all `fns` must handle their own errors.
-  The purpose of this function is primarily to serialize these tasks, to avoid
-  concurrent long-running database tasks."
-  [db & fns]
-  {:pre [(map? db)]}
-  (doseq [f fns]
-    (f db)))
-
 (defn check-for-updates
   "This will fetch the latest version number of PuppetDB and log if the system
   is out of date."
@@ -204,19 +192,19 @@
                        "listed in PuppetDB's certificate-whitelist file?")
                   ssl-client-cn))))))
 
-(defn shutdown-mq-broker
+(defn shutdown-mq
   "Explicitly shut down the queue `broker`"
-  [{:keys [broker]}]
+  [{:keys [broker mq-factory mq-connection]}]
   (when broker
-    (log/info "Shutting down message broker.")
-    ;; Stop the mq the old-fashioned way
+    (log/info "Shutting down the messsage queues.")
+    (.close mq-connection)
+    (.close mq-factory)
     (mq/stop-broker! broker)))
 
 (defn stop-puppetdb
-  "Callback to execute any necessary cleanup during a normal shutdown."
   [context]
   (log/info "Shutdown request received; puppetdb exiting.")
-  (shutdown-mq-broker context)
+  (shutdown-mq context)
   context)
 
 (defn error-shutdown!
@@ -226,8 +214,7 @@
   (when-let [updater (context :updater)]
     (log/info "Shutting down updater thread.")
     (future-cancel updater))
-
-  (shutdown-mq-broker context))
+  (shutdown-mq context))
 
 (defn add-max-framesize
   "Add a maxFrameSize to broker url for activemq."
@@ -264,8 +251,6 @@
         globals {:scf-read-db read-db
                  :scf-write-db write-db
                  :authorizer authorizer
-                 :command-mq {:connection-string mq-connection-str
-                              :endpoint mq-endpoint}
                  :update-server update-server
                  :product-name product-name
                  :url-prefix url-prefix
@@ -302,6 +287,23 @@
                       "PuppetDB troubleshooting guide.")
                      (throw e)))
           context (assoc context :broker broker)
+          mq-factory (mq/activemq-connection-factory
+                      (add-max-framesize max-frame-size mq-addr))
+          mq-connection (doto (.createConnection mq-factory)
+                          (.setExceptionListener
+                           (reify ExceptionListener
+                             (onException [this ex]
+                               ;; Q: desired semantics (when can this
+                               ;; *really* happen for an internal
+                               ;; connection)?
+                               (log/error
+                                ex "service queue connection error"))))
+                          .start)
+          context (assoc context
+                         :mq-factory mq-factory
+                         :mq-connection mq-connection)
+          globals (assoc globals :command-mq {:connection mq-connection
+                                              :endpoint mq-endpoint})
           updater (when-not disable-update-checking
                     (future (shutdown-on-error
                              (service-id service)
@@ -320,7 +322,8 @@
             gc-interval-millis (to-millis gc-interval)
             gc-task #(interspaced gc-interval-millis % job-pool)
             db-maintenance-tasks [(when (pos? (to-secs node-ttl))
-                                    (partial auto-deactivate-nodes! node-ttl))
+                                    #(auto-deactivate-nodes!
+                                      node-ttl % mq-connection))
                                   (when (pos? (to-secs node-purge-ttl))
                                     (partial purge-nodes! node-purge-ttl))
                                   (when (pos? (to-secs report-ttl))
@@ -329,8 +332,10 @@
                                   ;; anything referencing an env or resource
                                   ;; param is purged first
                                   garbage-collect!]]
-
-        (gc-task #(apply perform-db-maintenance! write-db (remove nil? db-maintenance-tasks)))
+        ;; Run database maintenance tasks seqentially to avoid
+        ;; competition. Each task must handle its own errors.
+        (gc-task #(doseq [maintain (remove nil? db-maintenance-tasks)]
+                    (maintain write-db)))
         (gc-task #(compress-dlo! dlo-compression-threshold discard-dir)))
 
       (assoc context :shared-globals globals))))
@@ -368,7 +373,9 @@
           (get-in (service-context this) [:shared-globals :url-prefix])
           row-callback-fn))
   (submit-command [this command version payload]
-                  (send-command! (command-names command) version payload)))
+                  (enqueue-command! (:mq-connection (service-context this))
+                                    mq-endpoint
+                                    (command-names command) version payload)))
 
 (defn -main
   "Calls the trapperkeeper main argument to initialize tk.
