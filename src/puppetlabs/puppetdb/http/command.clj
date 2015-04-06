@@ -4,10 +4,10 @@
             [puppetlabs.puppetdb.middleware :as mid]))
 
 (defn enqueue-command
-  "Enqueue the comman in the request parameters, return a UUID"
+  "Enqueues the command in request and returns a UUID"
   [{:keys [body-string globals] :as request}]
   (let [uuid (command/enqueue-raw-command!
-              (get-in globals [:command-mq :connection-string])
+              (get-in globals [:command-mq :connection])
               (get-in globals [:command-mq :endpoint])
               body-string)]
     (http/json-response {:uuid uuid})))

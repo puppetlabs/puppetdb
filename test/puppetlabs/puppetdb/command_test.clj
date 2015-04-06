@@ -74,7 +74,8 @@
   `(let [log-output#     (atom [])
          publish#        (call-counter)
          discard-dir#    (fs/temp-dir)
-         handle-message# (mql/produce-message-handler publish# discard-dir# #(process-command! % ~opts-map))
+         handle-message# (mql/create-message-handler
+                          publish# discard-dir# #(process-command! % ~opts-map))
          msg#            {:headers {:id "foo-id-1"
                                     :received (tfmt/unparse (tfmt/formatters :date-time) (now))}
                           :body (json/generate-string ~command)}]

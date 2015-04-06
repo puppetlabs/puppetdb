@@ -1,12 +1,10 @@
 (ns puppetlabs.puppetdb.mq-listener
+  (:import [javax.jms ExceptionListener JMSException MessageListener Session])
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
-            [clamq.protocol.consumer :as mq-cons]
-            [clamq.protocol.producer :as mq-producer]
-            [clamq.protocol.connection :as mq-conn]
             [slingshot.slingshot :refer [try+]]
             [metrics.meters :refer [meter mark!]]
             [metrics.histograms :refer [histogram update!]]
@@ -92,7 +90,6 @@
   exception or not."
   [exception]
   (:fatal exception))
-
 
 (defn global-metric
   "Returns the metric identified by `name` in the `\"global\"` metric
@@ -236,14 +233,6 @@
         (.setName t name))
       (f msg))))
 
-;; ## High-level functions
-;;
-;; The following functions represent the principal logic for
-;; command-processing.
-;;
-
-;; ### Parse error callback
-
 (defn handle-command-discard
   [{:keys [command annotations] :as msg} discard]
   (let [attempts (count (:attempts annotations))
@@ -265,8 +254,6 @@
         msg     (annotate-with-attempt msg e)]
     (log/error e (format "[%s] [%s] Fatal error on attempt %d" id command attempt))
     (discard msg e)))
-
-;; ### Retry callback
 
 ;; The number of times a message can be retried before we discard it
 (def maximum-allowable-retries 16)
@@ -302,10 +289,7 @@
 
     (publish-fn (json/generate-string msg) (mq/delay-property delay :seconds))))
 
-;; ### Message handler
-
-(defn produce-message-handler
-  "Produce a message handler suitable for use by `process-commands!`. "
+(defn create-message-handler
   [publish discarded-dir message-fn]
   (let [discard        #(dlo/store-failed-message %1 %2 discarded-dir)
         on-discard     #(handle-command-discard % discard)
@@ -318,52 +302,6 @@
         (wrap-with-command-parser on-parse-error)
         (wrap-with-meter (global-metric :seen))
         (wrap-with-thread-name "command-proc"))))
-
-;; ### Principal function
-
-(defn process-commands!
-  "Connect to an MQ an continually, sequentially process commands.
-
-  If the MQ consumption timeout is reached without any new data, the
-  function will terminate."
-  [connection endpoint discarded-dir message-fn]
-  (let [producer   (mq-conn/producer connection)
-        publish    (partial mq-producer/publish producer endpoint)
-        on-message (produce-message-handler publish discarded-dir message-fn)
-        mq-error   (promise)
-        consumer   (mq-conn/consumer connection
-                                     {:endpoint   endpoint
-                                      :on-message on-message
-                                      :transacted true
-                                      :on-failure #(deliver mq-error (:exception %))})]
-    (mq-cons/start consumer)
-
-    (try
-      (deref mq-error)
-      (throw @mq-error)
-      (finally
-        (mq-cons/close consumer)))))
-
-(defn error-shutdown! [context]
-  (when-let [command-procs (context :command-procs)]
-    (log/info "Shutting down command processing threads.")
-    (doseq [cp command-procs]
-      (future-cancel cp))))
-
-(defn load-from-mq
-  "Process commands from the indicated endpoint on the supplied message queue.
-
-  This function doesn't terminate. If we encounter an exception when
-  processing commands from the message queue, we retry the operation
-  after reopening a fresh connection with the MQ."
-  [mq mq-endpoint discard-dir process-msg-fn]
-  (kitchensink/keep-going
-   (fn [exception]
-     (log/error exception "Error during command processing; reestablishing connection after 10s")
-     (Thread/sleep 10000))
-
-   (with-open [conn (mq/activemq-connection mq)]
-     (process-commands! conn mq-endpoint discard-dir process-msg-fn))))
 
 (defprotocol MessageListenerService
   (register-listener [this schema listener-fn])
@@ -393,31 +331,69 @@
    handler-fn :- message-fn-schema]
   (swap! listener-atom conj [pred handler-fn]))
 
+(defn start-receiver
+  [connection endpoint discard-dir process-msg]
+  (let [sess (.createSession connection true Session/SESSION_TRANSACTED)
+        q (.createQueue sess endpoint)
+        consumer (.createConsumer sess q)
+        producer (.createProducer sess q)
+        send #(mq/commit-or-rollback sess
+                (.send producer (mq/to-jms-message sess %1 %2)))
+        handle (create-message-handler send discard-dir process-msg)]
+    (.setMessageListener
+     consumer
+     (reify MessageListener
+       (onMessage [this msg]
+         (try
+           (mq/commit-or-rollback sess (handle (mq/convert-jms-message msg)))
+           (catch Throwable ex
+             (log/error ex "message receive failed")
+             (throw ex))))))
+    {:session sess :consumer consumer :producer producer}))
+
 (defservice message-listener-service
   MessageListenerService
   [[:PuppetDBServer shared-globals]
-   [:ShutdownService shutdown-on-error]
    [:ConfigService get-config]]
+
   (init [this context]
         (assoc context :listeners (atom [])))
+
   (start [this context]
-         (let [{:keys [mq-addr mq-dest discard-dir mq-threads]} (shared-globals)]
-           (assoc context
-             :command-procs
-             (mapv (fn [_]
-                     (future
-                       (shutdown-on-error
-                        (service-id this)
-                        (fn []
-                          (load-from-mq mq-addr
-                                        mq-dest
-                                        discard-dir
-                                        #(process-message this %)))
-                        error-shutdown!)))
-                   (range mq-threads)))))
+    (let [{:keys [mq-addr mq-dest discard-dir mq-threads]} (shared-globals)
+          factory (mq/activemq-connection-factory mq-addr)
+          connection (.createConnection factory)
+          process-msg #(process-message this %)
+          receivers (doall (repeatedly mq-threads
+                                       #(start-receiver connection
+                                                        mq-dest
+                                                        discard-dir
+                                                        process-msg)))]
+      (.setExceptionListener
+       connection
+       (reify ExceptionListener
+         (onException [this ex]
+           (log/error ex "receiver queue connection error"))))
+      (.start connection)
+      (assoc context
+             :factory factory
+             :connection connection
+             :receivers receivers)))
+
+  (stop [this {:keys [factory connection receivers] :as context}]
+    (doseq [{:keys [session producer consumer]} receivers]
+      (.close producer)
+      (.close consumer)
+      (.close session))
+    (.close connection)
+    (.close factory)
+    context)
+
   (register-listener [this pred listener-fn]
-                     (conj-handler (:listeners (service-context this)) pred listener-fn))
+    (conj-handler (:listeners (service-context this)) pred listener-fn))
+
   (process-message [this message]
-                   (if-let [handler-fn (matching-handler @(:listeners (service-context this)) message)]
-                     (handler-fn message)
-                     (log/warn (format "No message handler found for %s" message)))))
+    (if-let [handler-fn (matching-handler @(:listeners (service-context this))
+                                          message)]
+      (handler-fn message)
+      (log/warn (format "No message handler found for %s" message)))))

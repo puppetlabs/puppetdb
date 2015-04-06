@@ -2,18 +2,12 @@
   (:import [org.apache.activemq.broker BrokerService]
            [org.apache.activemq ScheduledMessage]
            [org.apache.activemq.usage SystemUsage]
-           [javax.jms Message TextMessage BytesMessage ExceptionListener MessageListener]
+           [javax.jms Connection Message TextMessage BytesMessage Session]
            [org.apache.activemq ActiveMQConnectionFactory]
-           [org.springframework.jms.connection CachingConnectionFactory]
-           [org.springframework.jms.listener DefaultMessageListenerContainer])
-  (:require [puppetlabs.puppetdb.cheshire :as json]
-            [clamq.protocol.connection :as mq-conn]
-            [clamq.protocol.consumer :as mq-consumer]
-            [clamq.protocol.producer :as mq-producer]
+           [org.apache.activemq.pool PooledConnectionFactory])
+  (:require [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [clojure.tools.logging :as log]
-            [clamq.protocol.consumer :as consumer]
-            [clamq.jms :as jms]
-            [cheshire.custom :refer [JSONable]]))
+            [schema.core :as s]))
 
 (defn- set-usage!*
   "Internal helper function for setting `SystemUsage` values on a `BrokerService`
@@ -100,6 +94,7 @@
             (map? config)]
     :post  [(instance? BrokerService %)]}
    (let [mq (doto (BrokerService.)
+              (.setUseShutdownHook false)
               (.setBrokerName name)
               (.setDataDirectory dir)
               (.setSchedulerSupport true)
@@ -142,81 +137,125 @@
             "KahaDB corruption."))
       (start-broker! (build-embedded-broker brokername dir config)))))
 
-(defn connect-and-publish!
-  "Construct an MQ producer and send the indicated message.
+(defn extract-headers
+  "Creates a map of custom headers included in `message`, currently only
+  supports String headers."
+  [^Message msg]
+  (reduce (fn [acc k]
+            (assoc acc
+              (keyword k)
+              (.getStringProperty msg k)))
+          {} (enumeration-seq (.getPropertyNames msg))))
 
-  This function take the same arguments as
-  `clamq.protocol.producer/publish`, with an additional initial
-  argument of an active MQ connection"
-  [connection & args]
-  (let [producer (mq-conn/producer connection)]
-    (apply mq-producer/publish producer args)))
+(defn convert-message-body
+  "Convert the given `message` to a string using the type-specific method."
+  [^Message message]
+  (cond
+   (instance? javax.jms.TextMessage message)
+   (let [^TextMessage text-message message]
+     (.getText text-message))
+   (instance? javax.jms.BytesMessage message)
+   (let [^BytesMessage bytes-message message]
+     (.readUTF8 bytes-message))
+   :else
+   (throw (ex-info (str "Expected a text message, instead found: " (class message))))))
 
-(defn publish-json!
-  "Publish the `msg` to the queue identified by `endpoint` using an MQ
-  handle `connection`."
-  [connection endpoint msg]
-  {:pre [(string? endpoint)
-         (satisfies? JSONable msg)]}
-  (connect-and-publish! connection endpoint (json/generate-string msg)))
+(defn convert-jms-message [m]
+  {:headers (extract-headers m) :body (convert-message-body m)})
 
-(defn timed-drain-into-vec!
-  "Drains the indicated MQ endpoint into a vector
+(def jms-message-schema
+  {(s/required-key :headers) {s/Keyword s/Str}
+   (s/required-key :body) s/Str})
 
-  `connection` - established MQ connection
+(defprotocol JmsMessagePropertySetter
+  (-set-jms-property! [value name message]
+    "Sets the named JMS message property to value."))
 
-  `endpoint` - which MQ endpoint you wish to drain
+(extend String
+  JmsMessagePropertySetter
+  {:-set-jms-property! (fn [value name message]
+                         (.setStringProperty message name value))})
 
-  `timeout` - how many millis to wait for an incoming message before
-  we consider the endpoint drained."
-  [connection endpoint timeout]
-  {:pre  [(string? endpoint)
-          (integer? timeout)
-          (pos? timeout)]
-   :post [(vector? %)]}
-  (let [contents (atom [])
-        mq-error (promise)
-        consumer (mq-conn/consumer connection
-                                   {:endpoint   endpoint
-                                    :transacted true
-                                    :on-message #(swap! contents conj %)
-                                    :on-failure #(deliver mq-error (:exception %))})]
-    (mq-consumer/start consumer)
-    (deref mq-error timeout nil)
-    (mq-consumer/close consumer)
-    (if (realized? mq-error)
-      (throw @mq-error)
-      @contents)))
+(defn set-jms-property!
+  [message name value]
+  "Sets the named JMS message property to value."
+  (-set-jms-property! value name message))
 
-(defn bounded-drain-into-vec!
-  "Drains N messages from the indicated MQ endpoint into a vector
+(defprotocol ToJmsMessage
+  (-to-jms-message [x properties session]
+    "Converts x to a JMSMessage with the given properties via sesson."))
 
-  `connection` - established MQ connection
+(extend String
+  ToJmsMessage
+  {:-to-jms-message (fn [x properties session]
+                      (let [msg (.createTextMessage session x)]
+                        (doseq [[name value] properties]
+                          (-set-jms-property! value name msg))
+                        msg))})
 
-  `endpoint` - which MQ endpoint you wish to drain
+(extend (Class/forName "[B")
+  ToJmsMessage
+  {:-to-jms-message (fn [x properties session]
+                      (let [msg (.createBytesMessage session)]
+                        (.writeBytes msg x)
+                        (doseq [[name value] properties]
+                          (-set-jms-property! value name msg))
+                        msg))})
 
-  `limit` - block until this many message have been received."
-  [connection endpoint limit]
-  {:pre  [(string? endpoint)
-          (integer? limit)
-          (pos? limit)]
-   :post [(vector? %)
-          (= limit (count %))]}
-  (let [contents (atom [])
-        mq-error (promise)
-        consumer (mq-conn/consumer connection
-                                   {:endpoint   endpoint
-                                    :transacted true
-                                    :on-message #(swap! contents conj %)
-                                    :on-failure #(deliver mq-error (:exception %))})]
-    (mq-consumer/start consumer)
-    (while (> limit (count @contents))
-      (Thread/sleep 10))
+(defn to-jms-message
+  "Converts x to a JMSMessage with the given properties via session."
+  [session x properties]
+  (-to-jms-message x properties session))
 
-    (mq-consumer/close consumer)
-    (if (realized? mq-error)
-      (throw @mq-error)
-      (vec (take limit @contents)))))
+(defmacro commit-or-rollback
+  [session & body]
+  `(try (let [result# (do ~@body)]
+          (.commit ~session)
+          result#)
+        (catch Throwable ex# (.rollback ~session) (throw ex#))))
+
+(def connection-schema Connection)
+
+(defn send-message!
+  "Sends message with attributes via a new session (sessions are
+  single-threaded)."
+  ([connection endpoint message]
+   (send-message! connection endpoint message {}))
+  ([connection endpoint message attributes]
+   (with-open [s (.createSession connection true Session/SESSION_TRANSACTED)
+               pro (.createProducer s (.createQueue s endpoint))]
+     (commit-or-rollback s
+       (.send pro (to-jms-message s message attributes))))))
+
+(defn-validated timed-drain-into-vec! :- [jms-message-schema]
+  "Drains messages from the indicated endpoint into a vector via connection.
+  Gives up after timeout ms and returns whatever has accumulated at
+  that point.  The retrieved messages will have been committed."
+  [connection :- connection-schema
+   endpoint :- s/Str
+   timeout :- (s/both s/Int (s/pred pos?))]
+  (with-open [s (.createSession connection true Session/SESSION_TRANSACTED)
+              consumer (.createConsumer s (.createQueue s endpoint))]
+    (let [deadline (+ (System/currentTimeMillis) timeout)
+          next-msg #(commit-or-rollback s
+                      (let [remaining (- deadline (System/currentTimeMillis))]
+                        (when (pos? remaining)
+                          (.receive consumer remaining))))]
+      (loop [msg (next-msg) result []]
+        (if msg
+          (recur (next-msg) (conj result (convert-jms-message msg)))
+          result)))))
+
+(defn-validated bounded-drain-into-vec! :- [jms-message-schema]
+  "Drains n messages from the indicated endpoint into a vector via
+  connection.  The retrieved messages will have been committed."
+  [connection :- connection-schema
+   endpoint :- s/Str
+   n :- (s/both s/Int (s/pred pos?))]
+  (with-open [s (.createSession connection true Session/SESSION_TRANSACTED)
+              consumer (.createConsumer s (.createQueue s endpoint))]
+    (vec (repeatedly n #(commit-or-rollback s
+                          (convert-jms-message (.receive consumer)))))))
 
 (defn delay-property
   "Returns an ActiveMQ property map indicating a message should be
@@ -238,101 +277,7 @@
     :post [(map? %)]}
    {ScheduledMessage/AMQ_SCHEDULED_DELAY (str (long millis))}))
 
-(defn convert-message
-  "Convert the given `message` to a string using the type-specific method."
-  [^Message message]
-  (cond
-   (instance? javax.jms.TextMessage message)
-   (let [^TextMessage text-message message]
-     (.getText text-message))
-   (instance? javax.jms.BytesMessage message)
-   (let [^BytesMessage bytes-message message]
-     (.readUTF8 bytes-message))
-   :else
-   (throw (ex-info (str "Expected a text message, instead found: " (class message))))))
-
-(defn extract-headers
-  "Creates a map of custom headers included in `message`, currently only
-  supports String headers."
-  [^Message msg]
-  (reduce (fn [acc k]
-            (assoc acc
-              (keyword k)
-              (.getStringProperty msg k)))
-          {} (enumeration-seq (.getPropertyNames msg))))
-
-(defn create-message-listener
-  "Creates an implementation of the MessageListener interface needed by JMS for
-  consuming messages. This is based on a related clamq macro, but includes all
-  message headers"
-  [handler-fn failure-fn limit container]
-  (let [counter (atom 0)]
-    (reify MessageListener
-      (onMessage [this message]
-        (let [converted-message (convert-message message)]
-          (swap! counter inc)
-          (try
-            (handler-fn {:headers (extract-headers message)
-                         :body converted-message})
-            (catch Exception ex
-              (failure-fn {:message converted-message :exception ex}))
-            (finally
-              (when (= limit @counter)
-                (do (.stop container)
-                    (future (.shutdown container)))))))))))
-
-
-(defn message-consumer
-  "Instantiates the MQ listening container along with the
-  correct message listener"
-  [connection {endpoint :endpoint
-               handler-fn :on-message
-               transacted :transacted
-               pubSub :pubSub
-               limit :limit
-               failure-fn :on-failure
-               :or {pubSub false
-                    limit 0}}]
-  (let [container (DefaultMessageListenerContainer.)
-        listener (create-message-listener handler-fn failure-fn limit container)]
-    (doto container
-      (.setConnectionFactory connection)
-      (.setDestinationName endpoint)
-      (.setMessageListener listener)
-      (.setSessionTransacted transacted)
-      (.setPubSubDomain pubSub)
-      (.setConcurrentConsumers 1))
-    (reify consumer/Consumer
-      (start [self] (do
-                      (doto container
-                        (.start)
-                        (.initialize))
-                      nil))
-      (close [self] (do
-                      (.shutdown container)
-                      nil)))))
-
-(defn wrap-connection
-  "Provides a shim between the clamq JMS implementation and it's usage.
-  Most functions delegate directly to clamq ones, but the consumer function
-  uses the above functions instead to include all the headers in the message"
-  [conn-factory shutdown-fn]
-  (let [jms-conn (jms/jms-connection conn-factory shutdown-fn)]
-    (reify mq-conn/Connection
-      (producer [self]
-        (mq-conn/producer jms-conn))
-      (producer [self conf]
-        (mq-conn/producer jms-conn conf))
-      (consumer [self conf]
-        (message-consumer conn-factory conf))
-      (seqable [self conf]
-        (mq-conn/seqable jms-conn conf))
-      (close [self]
-        (mq-conn/close jms-conn)))))
-
-(defn activemq-connection [broker]
-  "Returns an ActiveMQ connection wrapped in our connection protocol shim"
-  (let [pool (-> broker
-                 ActiveMQConnectionFactory.
-                 CachingConnectionFactory.)]
-    (wrap-connection pool #(.destroy pool))))
+(defn activemq-connection-factory [spec]
+  (proxy [PooledConnectionFactory java.lang.AutoCloseable]
+      [(ActiveMQConnectionFactory. spec)]
+    (close [] (.stop this))))
