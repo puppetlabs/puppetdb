@@ -3,7 +3,7 @@
             [com.puppetlabs.puppetdb.scf.migrate :as migrate]
             [com.puppetlabs.puppetdb.scf.migration-legacy :as legacy]
             [com.puppetlabs.puppetdb.scf.storage :as store]
-            [com.puppetlabs.puppetdb.scf.storage-utils
+            [com.puppetlabs.puppetdb.scf.storage-utils :as storeutil
              :refer [db-serialize postgres?]]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql])
@@ -283,3 +283,18 @@
                 {:value_type_id 0
                  :value_hash (hash/generic-identity-hash "bar")
                  :value_string "bar"}))))))))
+
+(deftest migration-in-different-schema
+  (sql/with-connection db
+    (clear-db-for-testing!)
+    (sql/do-commands
+     ;; Cleaned up in clear-db-for-testing!
+     "CREATE SCHEMA pdbtestschema"
+     (format "SET SCHEMA %s"
+             (if (postgres?) "'pdbtestschema'" "pdbtestschema")))
+    ((migrations 1))
+    (record-migration! 1)
+    (let [tables (storeutil/sql-current-connection-table-names)]
+      ;; Currently sql-current-connection-table-names only looks in public.
+      (is (empty? (storeutil/sql-current-connection-table-names)))
+      (migrate!))))
