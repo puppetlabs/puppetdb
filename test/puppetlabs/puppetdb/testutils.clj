@@ -82,21 +82,9 @@
     (drop-sequence! sequence-name)))
 
 (defmacro with-test-broker
-  "Constructs and starts an embedded MQ, and evaluates `body` inside a
-  `with-open` expression that takes care of connection cleanup and MQ
-  tear-down.
-
-  `name` - The name to use for the embedded MQ
-
-  `conn-var` - Inside of `body`, the variable named `conn-var`
-  contains an active connection to the embedded broker.
-
-  Example:
-
-      (with-test-broker \"my-broker\" the-connetion
-        ;; Do something with the connection
-        (prn the-connection))
-  "
+  "Evaluates body with a connection to an embedded MQ broker with the
+  given name.  The broker and connection will only exist for the
+  duration of the call."
   [name conn-var & body]
   `(with-log-output broker-logs#
      (let [dir#                   (fs/absolute-path (fs/temp-dir))
@@ -108,13 +96,12 @@
                                    dir#
                                    {:store-usage size-megs#
                                     :temp-usage  size-megs#})]
-
        (.setUseJmx broker# false)
        (.setPersistent broker# false)
        (mq/start-broker! broker#)
-
        (try
-         (with-open [~conn-var (mq/activemq-connection conn-str#)]
+         (with-open [factory# (mq/activemq-connection-factory conn-str#)
+                     ~conn-var (doto (.createConnection factory#) .start)]
            ~@body)
          (finally
            (mq/stop-broker! broker#)

@@ -25,13 +25,14 @@
     (testing "should give out what it takes in"
       (let [tracer-msg "This is a test message"]
         (with-test-broker "test" conn
-          (connect-and-publish! conn "queue" tracer-msg)
-          (is (= [tracer-msg] (map :body (bounded-drain-into-vec! conn "queue" 1)))))))
+          (send-message! conn "queue" tracer-msg)
+          (is (= [tracer-msg]
+                 (map :body (bounded-drain-into-vec! conn "queue" 1)))))))
 
     (testing "should respect delayed message sending properties"
       (let [tracer-msg "This is a test message"]
         (with-test-broker "test" conn
-          (connect-and-publish! conn "queue" tracer-msg (delay-property 3 :seconds))
+          (send-message! conn "queue" tracer-msg (delay-property 3 :seconds))
           ;; After 500ms, there should be nothing in the queue
           (is (= [] (timed-drain-into-vec! conn "queue" 500)))
           (Thread/sleep 500)
@@ -40,7 +41,8 @@
           ;; scheduler resolves delays to a second tick boundary (ignoring
           ;; or diluting milliseconds) so may appear to take almost 4 seconds
           ;; sometimes. This is to avoid potential races in the test.
-          (is (= [tracer-msg] (map :body (timed-drain-into-vec! conn "queue" 3000)))))))))
+          (is (= [tracer-msg]
+                 (map :body (timed-drain-into-vec! conn "queue" 3000)))))))))
 
 (deftest corrupt-kahadb-journal
   (testing "corrupt kahadb journal handling"
@@ -105,17 +107,6 @@
       (is (.. broker (getPersistenceAdapter) (isChecksumJournalFiles)))
       (is (= size-bytes (.. broker (getSystemUsage) (getStoreUsage) (getLimit))))
       (is (= size-bytes (.. broker (getSystemUsage) (getTempUsage) (getLimit)))))))
-
-(deftest json-publish
-  (testing "publish-json!"
-    (testing "should fail when handed objects that can't be serialized"
-      (with-test-broker "test" conn
-        (is (thrown? AssertionError (publish-json! conn "queue" conn)))))
-
-    (testing "should published a serialized version of the object"
-      (with-test-broker "test" conn
-        (publish-json! conn "queue" "foo")
-        (is (= ["\"foo\""] (map :body (bounded-drain-into-vec! conn "queue" 1))))))))
 
 (deftest test-jmx-enabled
   (svc-utils/without-jmx

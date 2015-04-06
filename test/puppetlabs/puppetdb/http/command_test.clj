@@ -80,8 +80,11 @@
     (fixt/*app* (request good-payload good-checksum))
     (fixt/*app* (request bad-payload bad-checksum))
 
-    (let [[good-msg bad-msg] (mq/bounded-drain-into-vec! fixt/*conn* "puppetlabs.puppetdb.commands" 2)
-          good-command       (json/parse-string (:body good-msg) true)]
+    (let [[good-msg bad-msg] (mq/bounded-drain-into-vec!
+                              (:connection fixt/*mq*)
+                              "puppetlabs.puppetdb.commands"
+                              2)
+          good-command (json/parse-string (:body good-msg) true)]
       (testing "should be timestamped when parseable"
         (let [timestamp (get-in good-msg [:headers :received])]
           (time/parse (time/formatters :date-time) timestamp)))
