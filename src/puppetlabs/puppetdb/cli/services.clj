@@ -201,9 +201,22 @@
     (.close mq-factory)
     (mq/stop-broker! broker)))
 
+(defn shutdown-updater
+  [context]
+  (when-let [updater (context :updater)]
+    (log/info "Shutting down updater thread.")
+    (future-cancel updater)
+    (let [timeout (Object.)]
+      (try
+        (when (= timeout (deref updater 3000 timeout))
+          (log/error "waited for updater thread for 3s but it didn't finish"))
+        (catch java.util.concurrent.CancellationException ex
+          true)))))
+
 (defn stop-puppetdb
   [context]
   (log/info "Shutdown request received; puppetdb exiting.")
+  (shutdown-updater context)
   (shutdown-mq context)
   context)
 
@@ -211,9 +224,7 @@
   "Last-resort shutdown/cleanup code to execute when a fatal error has occurred."
   [context]
   (log/error "A fatal error occurred; shutting down all subsystems.")
-  (when-let [updater (context :updater)]
-    (log/info "Shutting down updater thread.")
-    (future-cancel updater))
+  (shutdown-updater context)
   (shutdown-mq context))
 
 (defn add-max-framesize
