@@ -15,7 +15,7 @@ Architecture: all
 <% if @pe -%>
 Depends: ${misc:Depends}, pe-java, adduser, pe-puppet (>= <%= @puppetminversion %>)
 <% else -%>
-Depends: ${misc:Depends},  java7-runtime-headless | j2re1.7, adduser, puppet (>= <%= @puppetminversion %>)
+Depends: ${misc:Depends},  java7-runtime-headless | j2re1.7, adduser, puppet (>= <%= @puppetminversion %>) | puppet-agent
 Suggests: postgresql
 <% end -%>
 Description:PuppetDB Centralized Storage.
@@ -25,6 +25,6 @@ Architecture: all
 <% if @pe -%>
 Depends:  ${misc:Depends}, pe-puppet (>= <%= @puppetminversion %>)
 <% else -%>
-Depends:  ${misc:Depends}, puppet-common (>= <%= @puppetminversion %>), libjson-ruby | ruby-json
+Depends:  ${misc:Depends}, puppet-common (>= <%= @puppetminversion %>) | puppet-agent, libjson-ruby | ruby-json
 <% end -%>
 Description:Connect Puppet to PuppetDB by setting up a terminus for PuppetDB.
