@@ -15,7 +15,6 @@
 
 (def ^:dynamic *db* nil)
 (def ^:dynamic *mq* nil)
-(def ^:dynamic *conn* nil)
 (def ^:dynamic *app* nil)
 
 (defn init-db [db read-only?]
@@ -49,13 +48,12 @@
     (f)))
 
 (defn with-test-mq
-  "A fixture to start an MQ broker, making the broker information available as
-  `*mq*` and the connection as `*conn*`."
+  "Calls f after starting an embedded MQ broker that will be available
+  for the duration of the call via *mq*."
   [f]
-  (with-test-broker "test" conn
-    (binding [*mq*   {:connection-string "vm://test"
-                      :endpoint          "puppetlabs.puppetdb.commands"}
-              *conn* conn]
+  (with-test-broker "test" connection
+    (binding [*mq* {:connection connection
+                    :endpoint "puppetlabs.puppetdb.commands"}]
       (f))))
 
 (defn with-http-app

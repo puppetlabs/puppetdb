@@ -63,6 +63,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [slingshot.slingshot :refer [try+ throw+]]
             [cheshire.custom :refer [JSONable]]
@@ -119,40 +120,30 @@
 
 ;; ## Command submission
 
-(defn enqueue-raw-command!
-  "Takes the given command and submits it to the `mq-endpoint`
-  location on the MQ identified by `mq-spec`. We will annotate the
-  command (see `annotate-command`) prior to submission.
-
-  If the given command can't be parsed, we submit it as-is without
-  annotating."
-  [mq-spec mq-endpoint raw-command]
-  {:pre  [(string? mq-spec)
-          (string? mq-endpoint)
-          (string? raw-command)]
-   :post [(string? %)]}
+(defn-validated enqueue-raw-command! :- s/Str
+  "Submits raw-command to the mq-endpoint of mq-connection and returns
+  its id."
+  [mq-connection :- mq/connection-schema
+   mq-endpoint :- s/Str
+   raw-command :- s/Str]
   (let [id (kitchensink/uuid)]
-    (with-open [conn (mq/activemq-connection mq-spec)]
-      (mq/connect-and-publish! conn mq-endpoint raw-command {"received" (kitchensink/timestamp)
-                                                             "id" id}))
+    (mq/send-message! mq-connection mq-endpoint
+                      raw-command
+                      {"received" (kitchensink/timestamp) "id" id})
     id))
 
-(defn enqueue-command!
-  "Takes the given command and submits it to the specified endpoint on
-  the indicated MQ.
-
-  If successful, this function returns a map containing the command's unique
-  id."
-  [mq-spec mq-endpoint command version payload]
-  {:pre  [(string? mq-spec)
-          (string? mq-endpoint)
-          (string? command)
-          (number? version)]
-   :post [(string? %)]}
-  (with-open [conn (mq/activemq-connection mq-spec)]
-    (let [command-map (annotate-command (assemble-command command version payload))]
-      (mq/publish-json! conn mq-endpoint command-map)
-      (get-in command-map [:annotations :id]))))
+(defn-validated enqueue-command! :- s/Str
+  "Submits command to the mq-endpoint of mq-connection and returns
+  its id. Annotates the command via annotate-command."
+  [mq-connection :- mq/connection-schema
+   mq-endpoint :- s/Str
+   command :- s/Str
+   version :- s/Int
+   payload]
+  (let [command-map (annotate-command (assemble-command command version payload))]
+    (mq/send-message! mq-connection mq-endpoint
+                      (json/generate-string command-map))
+    (get-in command-map [:annotations :id])))
 
 ;; ## Command processing exception classes
 
