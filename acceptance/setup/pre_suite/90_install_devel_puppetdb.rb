@@ -5,6 +5,7 @@ step "Install development build of PuppetDB on the PuppetDB server" do
     case test_config[:install_type]
     when :git
       Log.notify("Install puppetdb from source")
+      Log.error database
 
       if (test_config[:database] == :postgres)
         install_postgres(database)

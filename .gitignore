@@ -19,3 +19,6 @@ Vagrantfile
 *.tar.gz
 .blimpy.d
 version
+junit
+tmp
+vendor
