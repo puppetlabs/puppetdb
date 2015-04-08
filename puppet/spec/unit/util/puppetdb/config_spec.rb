@@ -2,6 +2,12 @@ require 'spec_helper'
 require 'puppet/util/puppetdb/config'
 require 'puppet/util/puppetdb/command_names'
 
+# Create a local copy of these constants so that we don't have to refer to them
+# by their full namespaced name
+CommandReplaceCatalog   = Puppet::Util::Puppetdb::CommandNames::CommandReplaceCatalog
+CommandReplaceFacts     = Puppet::Util::Puppetdb::CommandNames::CommandReplaceFacts
+CommandStoreReport      = Puppet::Util::Puppetdb::CommandNames::CommandStoreReport
+
 describe Puppet::Util::Puppetdb::Config do
   describe "#load" do
     let(:confdir) do
@@ -63,7 +69,7 @@ CONF
         config.server.should == 'main_server'
         config.port.should == 1234
         config.ignore_blacklisted_events?.should == false
-        config.soft_write_failure.should be_truthy
+        config.soft_write_failure.should be_true
         config.url_prefix.should == "/puppetdb"
       end
 
@@ -74,7 +80,7 @@ CONF
         config.server.should == 'puppetdb'
         config.port.should == 8081
         config.ignore_blacklisted_events?.should == true
-        config.soft_write_failure.should be_falsey
+        config.soft_write_failure.should be_false
         config.url_prefix.should == ""
       end
 
