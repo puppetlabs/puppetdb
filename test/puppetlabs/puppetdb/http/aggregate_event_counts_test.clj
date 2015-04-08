@@ -5,6 +5,7 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [clj-time.core :refer [now]]
+            [clj-time.coerce :as coerce]
             [puppetlabs.puppetdb.testutils :refer [assert-success! deftestseq]]
             [puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]))
@@ -52,23 +53,26 @@
 
 (deftestseq query-distinct-event-counts
   [[version endpoint] endpoints]
-
-  (store-example-report! (:basic reports) (now))
-  (store-example-report! (:basic3 reports) (now))
-  (testing "should only count the most recent event for each resource"
-    (let [expected  {:successes 1
-                     :skips 1
-                     :failures 1
-                     :noops 0
-                     :total 3}
-          response  (get-response endpoint
-                                  ["=" "certname" "foo.local"]
-                                  "resource"
-                                  {"distinct_resources" true
-                                   "distinct_start_time" 0
-                                   "distinct_end_time" (now)})]
-      (assert-success! response)
-      (is (= expected (json/parse-string (:body response) true))))))
+  (let [current-time (now)
+        current-time-str (coerce/to-string current-time)
+        expected  {:successes 1
+                   :skips 1
+                   :failures 1
+                   :noops 0
+                   :total 3}]
+    (store-example-report! (:basic reports) current-time)
+    (store-example-report! (:basic3 reports) current-time)
+    (are [query] (= expected
+                    (-> endpoint
+                        (get-response query "resource" {"distinct_resources" true
+                                                        "distinct_start_time" 0
+                                                        "distinct_end_time" (now)})
+                        :body
+                        (json/parse-string true)))
+         ["=" "certname" "foo.local"]
+         ["<=" "report_receive_time" current-time-str]
+         ["<=" "run_start_time" current-time-str]
+         ["<=" "run_end_time" current-time-str])))
 
 (deftestseq query-with-environment
   [[version endpoint] endpoints]
