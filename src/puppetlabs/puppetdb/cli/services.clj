@@ -202,19 +202,22 @@
     (mq/stop-broker! broker)))
 
 (defn stop-puppetdb
-  [context]
-  (log/info "Shutdown request received; puppetdb exiting.")
-  (shutdown-mq context)
-  context)
-
-(defn error-shutdown!
-  "Last-resort shutdown/cleanup code to execute when a fatal error has occurred."
-  [context]
-  (log/error "A fatal error occurred; shutting down all subsystems.")
+  "Shuts down PuppetDB, releasing resources when possible.  If this is
+  not a normal shutdown, emergency? must be set, which currently just
+  produces a fatal level level log message, instead of info."
+  [context emergency?]
+  (if emergency?
+    (log/error "A fatal error occurred; shutting down all subsystems.")
+    (log/info "Shutdown request received; puppetdb exiting."))
   (when-let [updater (context :updater)]
     (log/info "Shutting down updater thread.")
     (future-cancel updater))
-  (shutdown-mq context))
+  (shutdown-mq context)
+  (when-let [ds (get-in context [:shared-globals :scf-write-db :datasource])]
+    (.close ds))
+  (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
+    (.close ds))
+  context)
 
 (defn add-max-framesize
   "Add a maxFrameSize to broker url for activemq."
@@ -305,7 +308,7 @@
                     (future (shutdown-on-error
                              (service-id service)
                              #(maybe-check-for-updates product-name update-server read-db)
-                             error-shutdown!)))
+                             #(stop-puppetdb % true))))
           context (if updater
                     (assoc context :updater updater)
                     context)]
@@ -357,7 +360,7 @@
          (start-puppetdb context (get-config) this add-ring-handler get-route shutdown-on-error))
 
   (stop [this context]
-        (stop-puppetdb context))
+        (stop-puppetdb context false))
   (shared-globals [this]
                   (:shared-globals (service-context this)))
   (query [this query-obj version query-expr paging-options row-callback-fn]

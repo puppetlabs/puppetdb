@@ -422,7 +422,8 @@
   (f)
   (doseq [db dbs]
     (sql/with-connection db
-      (sql/do-commands "SHUTDOWN"))))
+      (sql/do-commands "SHUTDOWN"))
+    (.close (:datasource db))))
 
 (deftestseq fact-queries
   [[version endpoint] facts-endpoints]
