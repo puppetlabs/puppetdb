@@ -96,7 +96,7 @@ describe processor do
           result = subject.send(:report_to_hash)
           # the server will populate the report id, so we validate that the
           # client doesn't include one
-          result.has_key?("report").should be_falsey
+          result.has_key?("report").should be_false
           result["certname"].should == subject.host
           result["puppet-version"].should == subject.puppet_version
           result["report-format"].should == subject.report_format
