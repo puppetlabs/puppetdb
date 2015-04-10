@@ -84,7 +84,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
       it "should add nil transaction uuid if none was given" do
         result = subject.add_transaction_uuid(catalog_data_hash, nil)
-        result.has_key?('transaction_uuid').should be_truthy
+        result.has_key?('transaction_uuid').should be_true
         result['transaction_uuid'].should be_nil
       end
     end
