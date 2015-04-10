@@ -538,9 +538,9 @@
                                                                                                                  args))))))
 
   (let [timestamp-fields {"timestamp"           "resource_events.timestamp"
-                          "run-start-time"      "reports.start_time"
-                          "run-end-time"        "reports.end_time"
-                          "report-receive-time" "reports.receive_time"}]
+                          "run_start_time"      "reports.start_time"
+                          "run_end_time"        "reports.end_time"
+                          "report_receive_time" "reports.receive_time"}]
     (match [path]
            [(field :guard (kitchensink/keyset timestamp-fields))]
            (if-let [timestamp (to-timestamp value)]
