@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 2.3 » API » Catalog Wire Format, Version 5"
+title: "PuppetDB 3.0 » API » Catalog Wire Format, Version 6"
 layout: default
-canonical: "/puppetdb/latest/api/wire_format/catalog_format_v5.html"
+canonical: "/puppetdb/latest/api/wire_format/catalog_format_v6.html"
 ---
 
 [containment]: /puppet/latest/reference/lang_containment.html
