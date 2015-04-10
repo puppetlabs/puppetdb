@@ -85,6 +85,6 @@ Wire Formats
 
 All of PuppetDB's "replace" commands contain payload data, which must be in one of the following formats. These formats are also linked from the [commands](#commands) that use them.
 
-* [Facts wire format version 3](./wire_format/facts_format_v3.html)
-* [Catalog wire format version 5](./wire_format/catalog_format_v5.html)
-* [Report wire format version 3](./wire_format/report_format_v3.html)
+* [Facts wire format version 4](./wire_format/facts_format_v4.html)
+* [Catalog wire format version 6](./wire_format/catalog_format_v6.html)
+* [Report wire format version 5](./wire_format/report_format_v5.html)
