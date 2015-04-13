@@ -16,28 +16,39 @@
             [clojure.string :as str]
             [fs.core :as fs]
             [slingshot.slingshot :refer [throw+]]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [clojure.data.xml :as xml]))
 
 ;; See utils.clj for more information about base-urls.
 (def ^:dynamic *base-url* nil) ; Will not have a :version.
 
+;; Some useful knobs to control logging in your tests
+(def ^:dynamic *log-level* "ERROR")
+(def ^:dynamic *pdb-log-level* "ERROR")
+(def ^:dynamic *log-levels* {}) ; a map like {"puppetlabs.puppetdb.command" "ERROR"}
+(def ^:dynamic *extra-log-config* nil)
+(def ^:dynamic *extra-appender-config* nil)
+
 (defn log-config
-  "Returns a logback.xml string with the specified `log-file` and `log-level`."
-  [log-file log-level]
-  (str "<configuration>
+  "Returns a logback.xml string with the specified `log-file` `log-level`."
+  [log-file]
+  (-> [:configuration
+       [:appender {:name "FILE" :class "ch.qos.logback.core.FileAppender"}
+        [:file log-file]
+        [:append true]
+        [:encoder
+         [:pattern "%-4relative [%thread] %-5level %logger{35} - %msg%n"]]
+        *extra-appender-config*]
 
-  <appender name=\"FILE\" class=\"ch.qos.logback.core.FileAppender\">
-    <file>" log-file "</file>
-    <append>true</append>
-    <encoder>
-      <pattern>%-4relative [%thread] %-5level %logger{35} - %msg%n</pattern>
-    </encoder>
-  </appender>
+       (map (fn [[k v]] [:logger {:name k :level (name v)}])
+            *log-levels*)
+       [:logger {:name "puppetlabs.puppetdb" :level *pdb-log-level*}]
+       *extra-log-config*
 
-  <root level=\"" log-level "\">
-    <appender-ref ref=\"FILE\" />
-  </root>
-</configuration>"))
+       [:root {:level *log-level*}
+        [:appender-ref {:ref "FILE"}]]]
+      xml/sexp-as-element
+      xml/emit-str))
 
 (defn create-config
   "Creates a default config, populated with a temporary vardir and
@@ -57,7 +68,7 @@
   [config]
   (let [logback-file (fs/absolute-path (temp-file "logback" ".xml"))
         log-file (fs/absolute-path (temp-file "jett-test" ".log"))]
-    (spit logback-file (log-config log-file "ERROR"))
+    (spit logback-file (log-config log-file))
     [log-file (assoc-in config [:global :logging-config] logback-file)]))
 
 (defn open-port-num

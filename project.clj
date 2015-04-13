@@ -76,7 +76,8 @@
                  [com.novemberain/pantomime "2.1.0"]
                  [fast-zip-visit "1.0.2"]
                  [robert/hooke "1.3.0"]
-                 [honeysql "0.5.2"]]
+                 [honeysql "0.5.2"]
+                 [org.clojure/data.xml "0.0.8"]]
 
   :jvm-opts ["-XX:MaxPermSize=128M"]
 
