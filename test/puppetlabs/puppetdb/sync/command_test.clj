@@ -91,20 +91,32 @@
   `(with-redefs [puppetlabs.puppetdb.cli.services/mq-endpoint ~mq-name]
      (do ~@body)))
 
-(deftest two-instance-test
-  (svcs/without-jmx
-   (with-alt-mq "puppetlabs.puppetdb.commands-1"
-     (let [config-1 (utils/sync-config)
-           config-2 (utils/sync-config)]
-       (with-puppetdb-instance config-1
-         (let [report (tur/munge-example-report-for-storage (:basic reports))]
-           (pdb-client/submit-command-via-http! (utils/pdb-url) "store report" 5 report)
-           @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report)))
+(defmacro muting-amq-shutdown-log-noise [& body]
+  `(binding [svcs/*extra-appender-config* [:filter {:class "ch.qos.logback.core.filter.EvaluatorFilter"}
+                                          [:evaluator
+                                           [:expression (str "String m = throwable.getMessage(); "
+                                                             "return javax.jms.JMSException.class.isInstance(throwable) && "
+                                                             "  m.contains(\"peer\") && "
+                                                             "  m.contains(\"stopped\"); ")]]
+                                          [:OnMatch "DENY"]
+                                          [:OnMismatch "NEUTRAL"]]]
+     ~@body))
 
-           (with-alt-mq "puppetlabs.puppetdb.commands-2"
-             (with-puppetdb-instance config-2
-               (pdb-client/submit-command-via-http! (utils/pdb-url) "store report" 5 report)
-               @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report)))))))))))
+(deftest two-instance-test
+  (muting-amq-shutdown-log-noise
+   (svcs/without-jmx
+    (with-alt-mq "puppetlabs.puppetdb.commands-1"
+      (let [config-1 (utils/sync-config)
+            config-2 (utils/sync-config)]
+        (with-puppetdb-instance config-1
+          (let [report (tur/munge-example-report-for-storage (:basic reports))]
+            (pdb-client/submit-command-via-http! (utils/pdb-url) "store report" 5 report)
+            @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report)))
+
+            (with-alt-mq "puppetlabs.puppetdb.commands-2"
+              (with-puppetdb-instance config-2
+                (pdb-client/submit-command-via-http! (utils/pdb-url) "store report" 5 report)
+                @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report))))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Pull changes tests
@@ -324,13 +336,13 @@
         (is (= #{"DEV" "A" "E" "F"} environments))
         (is (= 4 (count @pdb-x-queries)))))))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; End to end tests
 
 (defn- with-n-pdbs
-  ([n f] (svcs/without-jmx
-          (with-n-pdbs n f [])))
+  ([n f] (muting-amq-shutdown-log-noise
+          (svcs/without-jmx
+           (with-n-pdbs n f []))))
   ([n f pdb-infos]
    (if (= n (count pdb-infos))
      (apply f pdb-infos)
