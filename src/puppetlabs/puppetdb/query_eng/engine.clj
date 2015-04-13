@@ -12,12 +12,13 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.scf.hash :as hash]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.scf.storage-utils :as su]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.zip :as zip]
             [schema.core :as s])
-  (:import [honeysql.types SqlCall]))
+  (:import [honeysql.types SqlCall SqlRaw]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
@@ -34,11 +35,26 @@
 (defrecord OrExpression [clauses])
 (defrecord NotExpression [clause])
 
+(defn hsql-hash-as-str
+  [column-keyword]
+  (->> column-keyword
+       name
+       su/sql-hash-as-str
+       hcore/raw))
+
+(defn hsql-uuid-as-str
+  [column-keyword]
+  (->> column-keyword
+       name
+       su/sql-uuid-as-str
+       hcore/raw))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Queryable Entities
 
-(def nodes-query
+(defn nodes-query
   "Query for nodes entities, mostly used currently for subqueries"
+  []
   (map->Query {:projections {"certname" {:type :string
                                          :queryable? true
                                          :field :certnames.certname}
@@ -90,11 +106,12 @@
                :alias "nodes"
                :subquery? false}))
 
-(def resource-params-query
+(defn resource-params-query
   "Query for the resource-params query, mostly used as a subquery"
+  []
   (map->Query {:projections {"res_param_resource" {:type :string
                                                    :queryable? true
-                                                   :field :resource}
+                                                   :field (hsql-hash-as-str :resource)}
                              "res_param_name" {:type :string
                                                :queryable? true
                                                :field :name}
@@ -107,8 +124,9 @@
                :alias "resource_params"
                :subquery? false}))
 
-(def fact-paths-query
+(defn fact-paths-query
   "Query for the resource-params query, mostly used as a subquery"
+  []
   (map->Query {:projections {"type" {:type :string
                                      :queryable? true
                                      :field :type}
@@ -131,8 +149,9 @@
                :alias "fact_paths"
                :subquery? false}))
 
-(def facts-query
+(defn facts-query
   "Query structured facts."
+  []
   (map->Query {:projections {"path" {:type :string
                                      :queryable? false
                                      :field :fp.path}
@@ -185,8 +204,9 @@
                :subquery? false
                :late-project? true}))
 
-(def fact-contents-query
+(defn fact-contents-query
   "Query for fact nodes"
+  []
   (map->Query {:projections {"path" {:type :path
                                      :queryable? true
                                      :field :fp.path}
@@ -234,11 +254,12 @@
                :subquery? false
                :late-project? true}))
 
-(def reports-query
+(defn reports-query
   "Query for the reports entity"
+  []
   (map->Query {:projections {"hash"            {:type :string
                                                 :queryable? true
-                                                :field :reports.hash}
+                                                :field (hsql-hash-as-str :reports.hash)}
                              "certname"        {:type :string
                                                 :queryable? true
                                                 :field :reports.certname}
@@ -268,7 +289,7 @@
                                                 :field :reports.receive_time}
                              "transaction_uuid" {:type :string
                                                  :queryable? true
-                                                 :field :reports.transaction_uuid}
+                                                 :field (hsql-uuid-as-str :reports.transaction_uuid)}
                              "noop"            {:type :boolean
                                                 :queryable? true
                                                 :field :reports.noop}
@@ -304,8 +325,9 @@
                :entity :reports
                :source-table "reports"}))
 
-(def catalog-query
+(defn catalog-query
   "Query for the top level catalogs entity"
+  []
   (map->Query {:projections {"version" {:type :string
                                         :queryable? true
                                         :field :c.catalog_version}
@@ -314,10 +336,10 @@
                                      :field :c.certname}
                              "hash" {:type :string
                                      :queryable? true
-                                     :field :c.hash}
+                                     :field (hsql-hash-as-str :c.hash)}
                              "transaction_uuid" {:type :string
                                                  :queryable? true
-                                                 :field :c.transaction_uuid}
+                                                 :field (hsql-uuid-as-str :c.transaction_uuid)}
                              "environment" {:type :string
                                             :queryable? true
                                             :field :e.name}
@@ -330,7 +352,8 @@
                                           :field {:select [(h/json-agg
                                                             (h/row-to-json
                                                              (h/row
-                                                              :cr.resource :cr.type :cr.title :cr.tags :cr.exported
+                                                              (hsql-hash-as-str :cr.resource) :cr.type
+                                                              :cr.title :cr.tags :cr.exported
                                                               :cr.file :cr.line (keyword "rpc.parameters::json"))))]
                                                   :from [[:catalog_resources :cr]]
                                                   :join [[:resource_params_cache :rpc]
@@ -364,8 +387,9 @@
                :subquery? false
                :source-table "catalogs"}))
 
-(def edges-query
+(defn edges-query
   "Query for catalog edges"
+  []
   (map->Query {:projections {"certname" {:type :string
                                          :queryable? true
                                          :field :edges.certname}
@@ -402,8 +426,9 @@
                :subquery? false
                :source-table "edges"}))
 
-(def resources-query
+(defn resources-query
   "Query for the top level resource entity"
+  []
   (map->Query {:projections {"certname" {:type  :string
                                          :queryable? true
                                          :field :c.certname}
@@ -412,7 +437,7 @@
                                             :field :e.name}
                              "resource" {:type :string
                                          :queryable? true
-                                         :field :resources.resource}
+                                         :field (hsql-hash-as-str :resources.resource)}
                              "type" {:type :string
                                      :queryable? true
                                      :field :type}
@@ -451,8 +476,9 @@
                :subquery? false
                :source-table "catalog_resources"}))
 
-(def report-events-query
+(defn report-events-query
   "Query for the top level reports entity"
+  []
   (map->Query {:projections {"certname" {:type :string
                                          :queryable? true
                                          :field :reports.certname}
@@ -470,7 +496,7 @@
                                                     :field :reports.receive_time}
                              "report" {:type :string
                                        :queryable? true
-                                       :field :reports.hash}
+                                       :field (hsql-hash-as-str :reports.hash)}
                              "status" {:type :string
                                        :queryable? true
                                        :field :status}
@@ -524,11 +550,12 @@
                :entity :events
                :source-table "resource_events"}))
 
-(def latest-report-query
+(defn latest-report-query
   "Usually used as a subquery of reports"
+  []
   (map->Query {:projections {"latest_report_hash" {:type :string
                                                    :queryable? true
-                                                   :field :reports.hash}}
+                                                   :field (hsql-hash-as-str :reports.hash)}}
                :selection {:from [:certnames]
                            :join [:reports
                                   [:= :reports.id :certnames.latest_report_id]]}
@@ -537,8 +564,9 @@
                :subquery? false
                :source-table "latest_report"}))
 
-(def environments-query
+(defn environments-query
   "Basic environments query, more useful when used with subqueries"
+  []
   (map->Query {:projections {"name" {:type :string
                                      :queryable? true
                                      :field :name}}
@@ -548,8 +576,9 @@
                :subquery? false
                :source-table "environments"}))
 
-(def factsets-query
+(defn factsets-query
   "Query for the top level facts query"
+  []
   (map->Query {:projections {"timestamp" {:type :timestamp
                                           :queryable? true
                                           :field :timestamp}
@@ -583,7 +612,7 @@
                                          :field :factsets.certname}
                              "hash" {:type :string
                                      :queryable? true
-                                     :field :factsets.hash}
+                                     :field (hsql-hash-as-str :factsets.hash)}
                              "producer_timestamp" {:type :timestamp
                                                    :queryable? true
                                                    :field :factsets.producer_timestamp}
@@ -654,7 +683,7 @@
                hcore/format
                first)))
 
-(defn maybe-vectorize-string
+(defn maybe-vectorize
   [arg]
   (if (vector? arg) arg [arg]))
 
@@ -666,13 +695,9 @@
   (-plan->sql [query]
     (let [has-where? (boolean (:where query))
           has-projections? (not (empty? (:projected-fields query)))
-          update-when (fn [m pred ks f]
-                        (if pred
-                          (update-in m ks f)
-                          m))
           sql (-> query
-                  (update-when has-where? [:selection] #(hsql/merge-where % (-plan->sql (:where query))))
-                  (update-when has-projections? [:projections] #(select-keys % (:projected-fields query)))
+                  (utils/update-cond has-where? [:selection] #(hsql/merge-where % (-plan->sql (:where query))))
+                  (utils/update-cond has-projections? [:projections] #(select-keys % (:projected-fields query)))
                   sql-from-query)]
       (if (:subquery? query)
         (htypes/raw (str " ( " sql " ) "))
@@ -688,8 +713,8 @@
                     #(vector (:operator expr)
                              (-plan->sql %1)
                              (-plan->sql %2))
-                    (maybe-vectorize-string (:column expr))
-                    (maybe-vectorize-string (:value expr)))))
+                    (maybe-vectorize (:column expr))
+                    (maybe-vectorize (:value expr)))))
 
   ArrayBinaryExpression
   (-plan->sql [expr]
@@ -762,15 +787,19 @@
 ;;; User Query - functions/transformations of the user defined query
 ;;;              language
 
-(def user-query->logical-obj
+(def user-name->query-rec-name
+  {"select_facts" facts-query
+   "select_fact_contents" fact-contents-query
+   "select_nodes" nodes-query
+   "select_latest_report" latest-report-query
+   "select_params" resource-params-query
+   "select_resources" resources-query})
+
+(defn user-query->logical-obj
   "Keypairs of the stringified subquery keyword (found in user defined queries) to the
-  appropriate plan node"
-  {"select_facts" (assoc facts-query :subquery? true)
-   "select_fact_contents" (assoc fact-contents-query :subquery? true)
-   "select_nodes" (assoc nodes-query :subquery? true)
-   "select_latest_report" (assoc latest-report-query :subquery? true)
-   "select_params" (assoc resource-params-query :subquery? true)
-   "select_resources" (assoc resources-query :subquery? true)})
+   appropriate plan node"
+  [subquery]
+  (assoc ((get user-name->query-rec-name subquery)) :subquery? true))
 
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
@@ -929,7 +958,7 @@
 (defn subquery-expression?
   "Returns true if expr is a subquery expression"
   [expr]
-  (contains? (ks/keyset user-query->logical-obj)
+  (contains? (ks/keyset user-name->query-rec-name)
              (first expr)))
 
 (defn create-extract-node
@@ -951,12 +980,15 @@
                  (user-node->plan-node (user-query->logical-obj subquery-name)
                                        (first subquery-expression)))))))
 
-(pls/defn-validated columns->fields :- [(s/either s/Keyword SqlCall)]
+(pls/defn-validated columns->fields :- [(s/either s/Keyword SqlCall SqlRaw)]
   "Convert a list of columns to their true SQL field names."
   [query-rec
    columns :- [s/Str]]
-  (map #(get-in query-rec [:projections % :field])
-       (sort columns)))
+  ; This case expression here could be eliminated if we just used a projections list
+  ; and had the InExpression use that to generate the sql, but as it is the zipper we
+  ; use to walk the plan won't see instances of hashes and uuids among fields that have
+  ; gone through this function
+  (map #(get-in query-rec [:projections % :field]) (sort columns)))
 
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
@@ -964,34 +996,33 @@
   (cm/match [node]
             [["=" column value]]
             (let [{:keys [type field]} (get-in query-rec [:projections column])]
-              (cond
-               (= type :timestamp)
+              (case type
+               :timestamp
                (map->BinaryExpression {:operator :=
                                        :column field
                                        :value (to-timestamp value)})
 
-               (= type :array)
+               :array
                (map->ArrayBinaryExpression {:column field
                                             :value value})
 
-               (= type :number)
+               :number
                (map->BinaryExpression {:operator :=
                                        :column field
                                        :value (if (string? value)
                                                 (ks/parse-number (str value))
                                                 value)})
 
-               (= type :path)
+               :path
                (map->BinaryExpression {:operator :=
                                        :column field
                                        :value (facts/factpath-to-string value)})
 
-               (= type :multi)
+               :multi
                (map->BinaryExpression {:operator :=
-                                       :column (keyword (str column "_hash"))
+                                       :column (hsql-hash-as-str (keyword (str column "_hash")))
                                        :value (hash/generic-identity-hash value)})
 
-               :else
                (map->BinaryExpression {:operator :=
                                        :column field
                                        :value value})))
@@ -1053,11 +1084,11 @@
             (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
 
             [["in" column subquery-expression]]
-            (map->InExpression {:column (columns->fields query-rec (maybe-vectorize-string column))
+            (map->InExpression {:column (columns->fields query-rec (maybe-vectorize column))
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
 
             [["extract" column expr]]
-            (create-extract-node query-rec (maybe-vectorize-string column) expr)
+            (create-extract-node query-rec (maybe-vectorize column) expr)
 
             :else nil))
 
@@ -1100,7 +1131,7 @@
     (when (vec? node)
       (cm/match [node]
                 [["extract" column
-                  [(subquery-name :guard (set (keys user-query->logical-obj))) subquery-expression]]]
+                  [(subquery-name :guard (set (keys user-name->query-rec-name))) subquery-expression]]]
                 (let [subquery-expr (push-down-context (user-query->logical-obj subquery-name) subquery-expression)
                       nested-qc (:query-context (meta subquery-expr))
                       column-validation-message (validate-query-operation-fields
@@ -1222,17 +1253,20 @@
   user provided query to SQL and extract the parameters, to be used
   in a prepared statement"
   [query-rec user-query & [{:keys [count?] :as paging-options}]]
-  (when paging-options
-    (paging/validate-order-by! (map keyword (queryable-fields query-rec)) paging-options))
-  (let [{:keys [plan params]} (->> user-query
-                                   (push-down-context query-rec)
-                                   expand-user-query
-                                   (convert-to-plan query-rec paging-options)
-                                   extract-all-params)
-        sql (plan->sql plan)
-        paged-sql (jdbc/paged-sql sql paging-options)
-        result-query {:results-query (apply vector paged-sql params)
-                      :projected-fields (map keyword (:late-projected-fields plan))}]
-    (if count?
-      (assoc result-query :count-query (apply vector (jdbc/count-sql sql) params))
-      result-query)))
+  ;; Call the query-rec so we can evaluate query-rec functions
+  ;; which depend on the db connection type
+  (let [query-rec (query-rec)]
+    (when paging-options
+      (paging/validate-order-by! (map keyword (queryable-fields query-rec)) paging-options))
+    (let [{:keys [plan params]} (->> user-query
+                                     (push-down-context query-rec)
+                                     expand-user-query
+                                     (convert-to-plan query-rec paging-options)
+                                     extract-all-params)
+          sql (plan->sql plan)
+          paged-sql (jdbc/paged-sql sql paging-options)
+          result-query {:results-query (apply vector paged-sql params)
+                        :projected-fields (map keyword (:late-projected-fields plan))}]
+      (if count?
+        (assoc result-query :count-query (apply vector (jdbc/count-sql sql) params))
+        result-query))))

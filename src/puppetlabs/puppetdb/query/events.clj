@@ -9,6 +9,7 @@
             [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [schema.core :as s]))
 
 ;; MUNGE
@@ -105,7 +106,9 @@
         select-fields           (string/join ", "
                                              (map
                                               (fn [[column [table alias]]]
-                                                (str table "." column
+                                                (str (if (= column "hash")
+                                                       (sutils/sql-hash-as-str (str table "." column))
+                                                       (str table "." column))
                                                      (if alias (format " AS %s" alias) "")))
                                               query/event-columns))
         [sql params]            (if (:distinct_resources? query-options)

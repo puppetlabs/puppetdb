@@ -39,8 +39,7 @@ to the result of the form supplied to this method."
 (deftestseq resource-endpoint-tests
   [[version endpoint] endpoints]
 
-  (let [result (store-example-resources)
-        {:keys [foo1 bar1 foo2 bar2] :as expected} result]
+  (let [{:keys [foo1 bar1 foo2 bar2] :as expected} (store-example-resources)]
     (testing "query without filter should not fail"
       (let [response (get-response endpoint)
             body     (get response :body "null")]

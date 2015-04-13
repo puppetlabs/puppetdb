@@ -3,6 +3,7 @@
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.catalogs :as catalog]
             [puppetlabs.puppetdb.examples.reports :as report-examples]
             [puppetlabs.puppetdb.scf.hash :as shash]
@@ -231,8 +232,6 @@
   "Currently supported catalog versions"
   [:v6])
 
-;; The two different versions of replace-catalog have exactly the same
-;; behavior, except different inputs.
 (deftest replace-catalog
   (doverseq [version catalog-versions
              :let [command {:command (command-names :replace-catalog)
@@ -261,14 +260,15 @@
                    []))
             (sql/insert-record :certnames {:certname certname})
             (sql/insert-records :catalogs
-                                {:hash "some_catalog_hash_existing"
+                                {:hash (sutils/munge-hash-for-storage "00")
                                  :api_version 1
                                  :catalog_version "foo"
                                  :certname certname
                                  :producer_timestamp (to-timestamp (now))})
 
             (test-msg-handler command publish discard-dir
-              (is (= (query-to-vec "SELECT certname, hash as catalog, environment_id FROM catalogs")
+              (is (= (query-to-vec (format "SELECT certname, %s as catalog, environment_id FROM catalogs"
+                                           (sutils/sql-hash-as-str "hash")))
                      [(with-env {:certname certname :catalog catalog-hash})]))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
@@ -279,15 +279,17 @@
 
             (let [debug-dir (fs/absolute-path (temp-dir))]
 
-              (sql/insert-records :catalogs {:hash "some_catalog_hash"
-                                             :api_version 1
-                                             :catalog_version "foo"
-                                             :certname certname
-                                             :producer_timestamp (to-timestamp (now))})
+              (sql/insert-records :catalogs
+                                  {:hash (sutils/munge-hash-for-storage "0000")
+                                   :api_version 1
+                                   :catalog_version "foo"
+                                   :certname certname
+                                   :producer_timestamp (to-timestamp (now))})
 
               (is (nil? (fs/list-dir debug-dir)))
               (test-msg-handler-with-opts command publish discard-dir {:catalog-hash-debug-dir debug-dir}
-                (is (= (query-to-vec "SELECT certname, hash as catalog, environment_id FROM catalogs")
+                (is (= (query-to-vec (format "SELECT certname, %s as catalog, environment_id FROM catalogs"
+                                             (sutils/sql-hash-as-str "hash")))
                        [(with-env {:certname certname :catalog catalog-hash})]))
                 (is (= 5 (count (fs/list-dir debug-dir))))
                 (is (= 0 (times-called publish)))
@@ -304,17 +306,19 @@
         (testing "with a newer catalog should ignore the message"
           (with-fixtures
             (sql/insert-record :certnames {:certname certname})
-            (sql/insert-record :catalogs {:id 1
-                                          :hash "some_catalog_hash_newer"
-                                          :api_version 1
-                                          :catalog_version "foo"
-                                          :certname certname
-                                          :timestamp tomorrow
-                                          :producer_timestamp (to-timestamp (now))})
+            (sql/insert-record :catalogs
+                               {:id 1
+                                :hash (sutils/munge-hash-for-storage "ab")
+                                :api_version 1
+                                :catalog_version "foo"
+                                :certname certname
+                                :timestamp tomorrow
+                                :producer_timestamp (to-timestamp (now))})
 
             (test-msg-handler command publish discard-dir
-              (is (= (query-to-vec "SELECT certname, hash as catalog FROM catalogs")
-                     [{:certname certname :catalog "some_catalog_hash_newer"}]))
+              (is (= (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                           (sutils/sql-hash-as-str "hash")))
+                     [{:certname certname :catalog "ab"}]))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
 
@@ -325,7 +329,8 @@
             (test-msg-handler command publish discard-dir
               (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                      [{:certname certname :deactivated nil}]))
-              (is (= (query-to-vec "SELECT certname, hash as catalog FROM catalogs")
+              (is (= (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                           (sutils/sql-hash-as-str "hash")))
                      [{:certname certname :catalog catalog-hash}]))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
@@ -336,7 +341,8 @@
           (test-msg-handler command publish discard-dir
             (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                    [{:certname certname :deactivated tomorrow}]))
-            (is (= (query-to-vec "SELECT certname, hash as catalog FROM catalogs")
+            (is (= (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                         (sutils/sql-hash-as-str "hash")))
                    [{:certname certname :catalog catalog-hash}]))
             (is (= 0 (times-called publish)))
             (is (empty? (fs/list-dir discard-dir)))))))))

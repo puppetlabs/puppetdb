@@ -3,6 +3,7 @@
             [puppetlabs.puppetdb.query.nodes :as node]
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [clojure.test :refer :all]
             [clj-time.core :refer [now ago days minus]]
             [clj-time.coerce :refer [to-timestamp]]
@@ -104,11 +105,11 @@
 
 (deftest paging-results
   (let [right-now (now)]
-    (doseq [[id node facts-age catalog-age] [[1 "node_a" 1 3]
-                                             [2 "node_b" 4 2]
-                                             [3 "node_c" 3 1]
-                                             [4 "node_d" 2 3]
-                                             [5 "node_e" 5 2]]]
+    (doseq [[id node hash facts-age catalog-age] [[1 "node_a" "b0" 1 3]
+                                                  [2 "node_b" "a0" 4 2]
+                                                  [3 "node_c" "c0" 3 1]
+                                                  [4 "node_d" "d0" 2 3]
+                                                  [5 "node_e" "e0" 5 2]]]
       (let [factset-timestamp (to-timestamp (-> facts-age days ago))
             catalog-timestamp (to-timestamp (minus right-now (-> catalog-age days)))]
         (sql/insert-record :certnames {:certname node})
@@ -116,7 +117,7 @@
                                       :timestamp factset-timestamp
                                       :producer_timestamp factset-timestamp})
         (sql/insert-record :catalogs {:id id
-                                      :hash node
+                                      :hash (sutils/munge-hash-for-storage hash)
                                       :api_version 0
                                       :catalog_version 0
                                       :certname node

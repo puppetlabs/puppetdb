@@ -3,7 +3,7 @@
             [puppetlabs.puppetdb.scf.migrate :as migrate]
             [puppetlabs.puppetdb.scf.migration-legacy :as legacy]
             [puppetlabs.puppetdb.scf.storage :as store]
-            [puppetlabs.puppetdb.scf.storage-utils :as storeutil
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils
              :refer [db-serialize postgres?]]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
@@ -276,11 +276,11 @@
                  :value_hash (hash/generic-identity-hash "bar")
                  :value_string "bar"}))))))))
 
-(deftest migration-30
+(deftest migration-29
   (testing "should contain same reports before and after migration"
     (sql/with-connection db
       (clear-db-for-testing!)
-      (fast-forward-to-migration! 29)
+      (fast-forward-to-migration! 28)
 
       (let [current-time (to-timestamp (now))]
         (sql/insert-records
@@ -296,8 +296,9 @@
 
         (sql/insert-records
           :reports
-          {:hash                   "thisisacoolhash"
+          {:hash                   "01"
            :configuration_version  "thisisacoolconfigversion"
+           :transaction_uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"
            :certname               "testing1"
            :puppet_version         "0.0.0"
            :report_format          1
@@ -306,7 +307,8 @@
            :receive_time           current-time
            :environment_id         1
            :status_id              1}
-          {:hash "blahblah"
+          {:hash "0000"
+           :transaction_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
            :configuration_version "blahblahblah"
            :certname "testing2"
            :puppet_version "911"
@@ -319,44 +321,44 @@
 
         (sql/insert-records
           :latest_reports
-          {:report                 "thisisacoolhash"
+          {:report                 "01"
            :certname               "testing1"}
-          {:report                 "blahblah"
+          {:report                 "0000"
            :certname               "testing2"})
 
-        (apply-migration-for-testing! 30)
+        (apply-migration-for-testing! 29)
 
         (let [response
               (query-to-vec
-                "SELECT r.hash, r.certname, e.name AS environment, rs.status
-                 FROM
-                 certnames c INNER JOIN reports r on c.latest_report_id=r.id AND c.name=r.certname
-                 INNER JOIN environments e on r.environment_id=e.id
-                 INNER JOIN report_statuses rs on r.status_id=rs.id
-                 order by c.name")]
+                (format "SELECT %s AS hash, r.certname, e.name AS environment, rs.status, %s AS uuid
+                         FROM
+                         certnames c INNER JOIN reports r on c.latest_report_id=r.id AND c.certname=r.certname
+                         INNER JOIN environments e on r.environment_id=e.id
+                         INNER JOIN report_statuses rs on r.status_id=rs.id
+                         order by c.certname" (sutils/sql-hash-as-str "r.hash") (sutils/sql-uuid-as-str "r.transaction_uuid")))]
           ;; every node should with facts should be represented
           (is (= response
-                 [{:hash "thisisacoolhash" :environment "testing1" :certname "testing1" :status "testing1"}
-                  {:hash "blahblah" :environment "testing1" :certname "testing2" :status "testing1"}])))
+                 [{:hash "01" :environment "testing1" :certname "testing1" :status "testing1" :uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"}
+                  {:hash "0000" :environment "testing1" :certname "testing2" :status "testing1" :uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"}])))
 
         (let [[id1 id2] (map :id
                               (query-to-vec "SELECT id from reports order by certname"))]
 
           (let [latest-ids (map :latest_report_id
-                                (query-to-vec "select latest_report_id from certnames order by name"))]
+                                (query-to-vec "select latest_report_id from certnames order by certname"))]
             (is (= [id1 id2] latest-ids))))))))
 
-(deftest migration-33
+(deftest migration-29-producer-timestamp-not-null
   (sql/with-connection db
     (clear-db-for-testing!)
-    (fast-forward-to-migration! 32)
+    (fast-forward-to-migration! 28)
 
     (let [current-time (to-timestamp (now))]
       (sql/insert-record :environments
                          {:id 1
                           :name "test env"})
       (sql/insert-record :certnames
-                         {:certname "foo.local"})
+                         {:name "foo.local"})
       (sql/insert-record :catalogs
                          {:hash "18440af604d18536b1c77fd688dff8f0f9689d90"
                           :api_version 1
@@ -367,13 +369,12 @@
                           :environment_id 1
                           :producer_timestamp nil})
       (sql/insert-record :factsets
-                         {:hash "18440af604d18536b1c77fd688dff8f0f9689d90"
-                          :timestamp current-time
+                         {:timestamp current-time
                           :certname "foo.local"
                           :environment_id 1
                           :producer_timestamp nil})
 
-      (apply-migration-for-testing! 33)
+      (apply-migration-for-testing! 29)
 
       (let [catalogs-response (query-to-vec "SELECT producer_timestamp FROM catalogs")
             factsets-response (query-to-vec "SELECT producer_timestamp FROM factsets")]
@@ -390,7 +391,7 @@
              (if (postgres?) "'pdbtestschema'" "pdbtestschema")))
     ((migrations 1))
     (record-migration! 1)
-    (let [tables (storeutil/sql-current-connection-table-names)]
+    (let [tables (sutils/sql-current-connection-table-names)]
       ;; Currently sql-current-connection-table-names only looks in public.
-      (is (empty? (storeutil/sql-current-connection-table-names)))
+      (is (empty? (sutils/sql-current-connection-table-names)))
       (migrate!))))

@@ -16,8 +16,7 @@
             [puppetlabs.puppetdb.query.fact-contents :as fact-contents]
             [puppetlabs.puppetdb.query.nodes :as nodes]
             [puppetlabs.puppetdb.query.reports :as reports]
-            [puppetlabs.puppetdb.query.resources :as resources]
-            [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]))
+            [puppetlabs.puppetdb.query.resources :as resources]))
 
 (defn ignore-engine-params
   "Query engine munge functions should take two arguments, a version

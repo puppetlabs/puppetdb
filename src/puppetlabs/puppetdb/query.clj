@@ -65,8 +65,10 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.kitchensink.core :refer [parse-number keyset valset order-by-expr?]]
-            [puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
-            [puppetlabs.puppetdb.jdbc :refer [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils
+             :refer [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
+            [puppetlabs.puppetdb.jdbc
+             :refer [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
             [puppetlabs.puppetdb.query.paging :refer [requires-paging?]]
             [clojure.core.match :refer [match]]))
 
@@ -331,14 +333,16 @@
   {:post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s
-                       FROM (SELECT c.hash as catalog, e.name as environment, catalog_id, resource,
+                       FROM (SELECT %s as catalog, e.name as environment, catalog_id, resource,
                                     type, title, tags, exported, file, line
                              FROM catalog_resources cr, catalogs c LEFT OUTER JOIN environments e
                                   on c.environment_id = e.id
                              WHERE c.id = cr.catalog_id) AS catalog_resources
                        JOIN catalogs ON catalog_resources.catalog_id = catalogs.id
                      WHERE %s"
-                    (column-map->sql resource-columns) where)]
+                    (column-map->sql resource-columns)
+                    (sutils/sql-hash-as-str "c.hash")
+                    where)]
     (apply vector sql params)))
 
 (defn fact-query->sql
@@ -567,7 +571,7 @@
               :params [value]}
 
              ["report"]
-             {:where "reports.hash = ?"
+             {:where (format "%s = ?" (sutils/sql-hash-as-str "reports.hash"))
               :params [value]}
 
              ["latest_report?"]

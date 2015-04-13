@@ -3,7 +3,7 @@
             [clojure.java.jdbc :as sql]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage :refer [deactivate-node!]]
-            [puppetlabs.puppetdb.scf.storage-utils :refer [to-jdbc-varchar-array]]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils :refer [to-jdbc-varchar-array]]
             [puppetlabs.puppetdb.fixtures :refer :all]
             [clj-time.coerce :refer [to-timestamp]]
             [clj-time.core :refer [now]]))
@@ -25,22 +25,24 @@
 
       (sql/insert-records
        :catalogs
-       {:id 1 :hash "c1" :api_version 1 :catalog_version "1" :certname "h1" :producer_timestamp (to-timestamp (now))}
-       {:id 2 :hash "c2" :api_version 1 :catalog_version "1" :certname "h2" :producer_timestamp (to-timestamp (now))})
+       {:id 1 :hash (sutils/munge-hash-for-storage "c1") :api_version 1 :catalog_version "1"
+        :certname "h1" :producer_timestamp (to-timestamp (now))}
+       {:id 2 :hash (sutils/munge-hash-for-storage "c2") :api_version 1 :catalog_version "1"
+        :certname "h2" :producer_timestamp (to-timestamp (now))})
 
       (sql/insert-records
        :resource_params_cache
-       {:resource "1" :parameters nil}
-       {:resource "2" :parameters nil}
-       {:resource "3" :parameters nil})
+       {:resource (sutils/munge-hash-for-storage "01") :parameters nil}
+       {:resource (sutils/munge-hash-for-storage "02") :parameters nil}
+       {:resource (sutils/munge-hash-for-storage "03") :parameters nil})
 
       (sql/insert-records
        :catalog_resources
-       {:catalog_id 1 :resource "1" :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
-       ;; c2's resource shouldn't be counted, as they don't correspond to an active node
-       {:catalog_id 2 :resource "1" :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
-       {:catalog_id 1 :resource "2" :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
-       {:catalog_id 1 :resource "3" :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
+       {:catalog_id 1 :resource (sutils/munge-hash-for-storage "01") :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
+       ;; c2's resource shouldn'sutils/munge-hash-for-storage t be counted, as they don't correspond to an active node
+       {:catalog_id 2 :resource (sutils/munge-hash-for-storage "01") :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
+       {:catalog_id 1 :resource (sutils/munge-hash-for-storage "02") :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
+       {:catalog_id 1 :resource (sutils/munge-hash-for-storage "03") :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
 
       (is (= 3 (pop/num-resources))))
 
@@ -78,21 +80,25 @@
 
       (sql/insert-records
        :catalogs
-       {:id 1 :hash "c1" :api_version 1 :catalog_version "1" :certname "h1" :producer_timestamp (to-timestamp (now))}
-       {:id 2 :hash "c2" :api_version 1 :catalog_version "1" :certname "h2" :producer_timestamp (to-timestamp (now))})
+       {:id 1 :hash (sutils/munge-hash-for-storage "c1") :api_version 1
+        :transaction_uuid (sutils/munge-uuid-for-storage "68b08e2a-eeb1-4322-b241-bfdf151d294b")
+        :catalog_version "1" :certname "h1" :producer_timestamp (to-timestamp (now))}
+       {:id 2 :hash (sutils/munge-hash-for-storage "c2") :api_version 1
+        :transaction_uuid (sutils/munge-uuid-for-storage "68b08e2a-eeb1-4322-b241-bfdf151d294b")
+        :catalog_version "1" :certname "h2" :producer_timestamp (to-timestamp (now))})
 
       (sql/insert-records
        :resource_params_cache
-       {:resource "1" :parameters nil}
-       {:resource "2" :parameters nil}
-       {:resource "3" :parameters nil})
+       {:resource (sutils/munge-hash-for-storage "01") :parameters nil}
+       {:resource (sutils/munge-hash-for-storage "02") :parameters nil}
+       {:resource (sutils/munge-hash-for-storage "03") :parameters nil})
 
       (sql/insert-records
        :catalog_resources
-       {:catalog_id 1 :resource "1" :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
-       {:catalog_id 2 :resource "1" :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
-       {:catalog_id 1 :resource "2" :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
-       {:catalog_id 1 :resource "3" :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
+       {:catalog_id 1 :resource  (sutils/munge-hash-for-storage "01") :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
+       {:catalog_id 2 :resource  (sutils/munge-hash-for-storage "01") :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
+       {:catalog_id 1 :resource  (sutils/munge-hash-for-storage "02") :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
+       {:catalog_id 1 :resource  (sutils/munge-hash-for-storage "03") :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
 
       (let [total  4
             unique 3

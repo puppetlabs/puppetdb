@@ -1,6 +1,8 @@
 (ns puppetlabs.puppetdb.http.event-counts-test
   (:require [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.fixtures :as fixt]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.cheshire :as json]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
@@ -71,7 +73,8 @@
                      {:app-fn  fixt/*app*
                       :path    endpoint
                       :query   [">" "timestamp" 0]
-                      :params  {:summarize_by "resource"}
+                      :params  {:summarize_by "resource"
+                                :order_by (json/generate-string [{"field" "resource_title"}])}
                       :limit   1
                       :total   (count expected)
                       :include_total count?})]
