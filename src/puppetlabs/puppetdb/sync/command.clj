@@ -23,6 +23,25 @@
                [:status :timestamp :resource_type :resource_title :property
                 :new_value :old_value :message :file :line :containment_path]))
 
+(defn clean-up-edge [edge]
+  {:source {:type (:source_type edge)
+            :title (:source_title edge)}
+   :target {:type (:target_type edge)
+            :title (:target_title edge)}
+   :relationship (:relationship edge)})
+
+(defn remove-nil-field [resource key]
+  (if (nil? (get resource key))
+    (dissoc resource key)
+    resource))
+
+(defn clean-up-resource [resource]
+  (-> resource
+      (select-keys [:type :title :aliases :exported
+                    :file :line :tags :parameters])
+      (remove-nil-field :line)
+      (remove-nil-field :file)))
+
 (def sync-configs
   [{:entity :reports
     ;; On each side of the sync, we use this query to get
@@ -65,9 +84,8 @@
     :clean-up-record-fn (fn clean-up-factset [factset]
                           (-> factset
                               (dissoc :facts)
-                              (assoc :values (->> (:facts factset)
-                                                  (map (juxt :name :value))
-                                                  (into {})))))
+                              (assoc :values (into {} (for [{:keys [name value]} (:facts factset)]
+                                                        [name value])))))
     :submit-command {:command :replace-facts
                      :version 4}}
 
@@ -79,7 +97,10 @@
     :record-id-fn :certname
     :record-fetch-key :certname
     :record-ordering-fn (juxt :producer_timestamp :hash)
-    :clean-up-record-fn identity
+    :clean-up-record-fn (fn clean-up-catalog [catalog]
+                          (-> catalog
+                              (maybe-update-in [:edges] #(map clean-up-edge %))
+                              (maybe-update-in [:resources] #(map clean-up-resource %))))
     :submit-command {:command :replace-catalog
                      :version 6}}])
 
@@ -182,9 +203,7 @@
   `store-record-locally-fn`''."
   [remote-url record-fetch-val submit-command-fn sync-config]
   (let [{:keys [entity record-fetch-key clean-up-record-fn submit-command]} sync-config
-        store-record-locally-fn (partial submit-command-fn
-                                         (get-in sync-config [:submit-command :command])
-                                         (get-in sync-config [:submit-command :version]))]
+        store-record-locally-fn (partial submit-command-fn (:command submit-command) (:version submit-command))]
    (-> (query-remote remote-url entity ["=" (name record-fetch-key) record-fetch-val])
        first
        (collapse-and-download-collections remote-url)
@@ -270,7 +289,7 @@
     (try
       (let [remote-sync-data (map parse-time-fields
                                   (-> summary-response-stream clojure.java.io/reader (json/parse-stream true)))
-            {:keys [entity record-hashes-query record-id-fn record-ordering-fn record-fetch-key submit-command]} sync-config
+            {:keys [entity record-hashes-query record-id-fn record-ordering-fn record-fetch-key]} sync-config
             {:keys [version query order]} record-hashes-query]
         (query-fn entity version query order
                   (query-result-handler (fn [local-sync-data]
