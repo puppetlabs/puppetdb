@@ -8,6 +8,20 @@
   (:import (honeysql.types SqlCall SqlRaw)))
 
 ;; SCHEMA
+;(hcore/format {:where [:and ["~" :reports.certname "?"] [:is-not :reports.certname nil]]
+;               :group-by status})
+;
+;(hcore/format {:where [:and ["~" :reports.certname "?"]  [:is-not :reports.certname nil]],
+;               :group-by  '("status"),
+;               :call  [:count :*],
+;               :left-join
+;               [:environments
+;                [:= :environments.id :reports.environment_id]
+;                :report_statuses
+;                [:= :reports.status_id :report_statuses.id]],
+;               :from  [:reports],
+;               :select  [[:report_statuses.status "status"]
+;                         (hcore/call :count :*)]})
 
 (def key-or-sql
   "Either a honeysql call, or a keyword argument"

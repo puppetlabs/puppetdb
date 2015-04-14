@@ -23,7 +23,7 @@
 ;;; Plan - functions/transformations of the internal query plan
 
 (defrecord Query [projections selection source-table alias where
-                  subquery? entity late-project?])
+                  subquery? entity late-project? call group-by])
 (defrecord BinaryExpression [operator column value])
 (defrecord RegexExpression [column value])
 (defrecord ArrayRegexExpression [table alias column value])
@@ -258,8 +258,8 @@
                                                 :queryable? true
                                                 :field :reports.end_time}
                              "metrics"        {:type :json
-                                                :queryable? false
-                                                :field :reports.metrics}
+                                               :queryable? false
+                                               :field :reports.metrics}
                              "logs"            {:type :json
                                                 :queryable? false
                                                 :field :reports.logs}
@@ -284,12 +284,23 @@
                              "resource_events" {:type :json
                                                 :queryable? false
                                                 :expandable? true
-                                                :field {:select [(h/json-agg
-                                                                  (h/row-to-json
-                                                                   (h/row
-                                                                    :re.status (h/convert-to-iso8601-utc :re.timestamp)
-                                                                    :re.resource_type :re.resource_title :re.property :re.new_value :re.old_value :re.message
-                                                                    :re.file :re.line :re.containment_path :re.containing_class)))]
+                                                :field {:select
+                                                        [(h/json-agg
+                                                           (h/row-to-json
+                                                             (h/row
+                                                               :re.status
+                                                               (h/convert-to-iso8601-utc
+                                                                 :re.timestamp)
+                                                               :re.resource_type
+                                                               :re.resource_title
+                                                               :re.property
+                                                               :re.new_value
+                                                               :re.old_value
+                                                               :re.message
+                                                               :re.file
+                                                               :re.line
+                                                               :re.containment_path
+                                                               :re.containing_class)))]
                                                         :from [[:resource_events :re]]
                                                         :where [:= :reports.id :re.report_id]}}}
                :selection {:from [:reports]
@@ -638,13 +649,23 @@
         [:null name]
         [field name]))))
 
+(defn assoc-if-call
+  [m call group-by]
+  (if call
+    (-> m
+        (assoc :group-by group-by)
+        (update-in [:select] conj (apply hcore/call call)))
+    m))
+
 (defn honeysql-from-query
-  [{:keys [selection projections paging-options] :as query}]
+  [{:keys [group-by call selection projections paging-options] :as query}]
   "Convert a query to honeysql format"
+  (println "HSQL QUERY IS" query)
   (let [expand? (su/postgres?)]
     (log/spy (-> selection
                  (assoc :select (vec (remove nil? (map #(extract-fields % expand?)
-                                                       (sort projections)))))))))
+                                                       (sort projections)))))
+                 (assoc-if-call call group-by)))))
 
 (pls/defn-validated sql-from-query :- String
   [query]
@@ -664,6 +685,7 @@
 (extend-protocol SQLGen
   Query
   (-plan->sql [query]
+    (println "QUERY IS" query)
     (let [has-where? (boolean (:where query))
           has-projections? (not (empty? (:projected-fields query)))
           update-when (fn [m pred ks f]
@@ -743,6 +765,8 @@
   "Extracts the node's expression value, puts it in state
   replacing it with `?`, used in a prepared statement"
   [node state]
+  (println "NODE IS" node)
+  (println "STATE IS " state)
   (when (binary-expression? node)
     {:node (assoc node :value "?")
      :state (conj state (:value node))}))
@@ -937,7 +961,7 @@
   `column-list`. Updating :projected-fields causes the select in the SQL query
   to be modified. Setting :late-projected-fields does not affect the SQL, but
   includes in the information for later removing the columns."
-  [query-rec column-list expr]
+  [{:keys [group-by call] :as query-rec} column-list expr]
   (if (or (nil? expr)
           (not (subquery-expression? expr)))
     (let [qr (assoc query-rec :where (user-node->plan-node query-rec expr))]
@@ -947,6 +971,8 @@
     (let [[subquery-name & subquery-expression] expr]
       (assoc (user-query->logical-obj subquery-name)
         :projected-fields column-list
+        :group-by group-by
+        :call call
         :where (when (seq subquery-expression)
                  (user-node->plan-node (user-query->logical-obj subquery-name)
                                        (first subquery-expression)))))))
@@ -1059,6 +1085,12 @@
             [["extract" column expr]]
             (create-extract-node query-rec (maybe-vectorize-string column) expr)
 
+            [["extract" column expr clause]]
+            (-> query-rec
+                (assoc :call [:count :*])
+                (assoc :group-by (rest clause))
+                (create-extract-node (maybe-vectorize-string ["status"]) expr))
+
             :else nil))
 
 (defn convert-to-plan
@@ -1067,6 +1099,11 @@
   [query-rec paging-options user-query]
   (let [plan-node (user-node->plan-node query-rec user-query)
         projections (projectable-fields query-rec)]
+    (println "PLAN IS")
+    (clojure.pprint/pprint plan-node)
+    (println "QUERY REC IS")
+    (clojure.pprint/pprint query-rec)
+    (println "PAGING OPTIoNS ARE " paging-options)
     (if (instance? Query plan-node)
       plan-node
       (-> query-rec
@@ -1082,7 +1119,8 @@
 
   Error-action and error-context parameters help in formatting different error messages."
   [field allowed-fields query-name error-action error-context]
-  (let [invalid-fields (remove (set allowed-fields) (ks/as-collection field))]
+  (let [invalid-fields (remove (set (concat allowed-fields [["function" "count"]]))
+                               (ks/as-collection field))]
     (when (> (count invalid-fields) 0)
       (format "%s unknown '%s' %s '%s'%s. Acceptable fields are: %s"
               error-action
