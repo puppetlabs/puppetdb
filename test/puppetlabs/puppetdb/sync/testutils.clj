@@ -79,5 +79,9 @@
    :headers {"Content-Type" "application/json"}
    :body (json/generate-string m)})
 
-(defn get-json [base-url suffix]
-  (-> (http/get (str (base-url->str base-url) suffix)) :body (json/parse-string true)))
+(defn get-json [base-url suffix & [opts]]
+  (let [opts (or opts {})]
+    (-> (str (base-url->str base-url) suffix)
+        (http/get opts)
+        :body
+        (json/parse-string true))))

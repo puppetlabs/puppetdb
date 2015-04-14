@@ -13,6 +13,16 @@
 
 (def report-key (juxt :certname :hash))
 
+(declare maybe-update-in)
+
+(defn clean-up-resource-event
+  "The resource events we get back from a query have a lot of derived fields;
+  only keep the ones we can re-submit."
+  [resource-event]
+  (select-keys resource-event
+               [:status :timestamp :resource_type :resource_title :property
+                :new_value :old_value :message :file :line :containment_path]))
+
 (def sync-configs
   [{:entity :reports
     ;; On each side of the sync, we use this query to get
@@ -36,6 +46,9 @@
     ;; this function is used to find which is newer
     :record-ordering-fn (constantly 0) ; TODO: rename this, maybe to record-conflict-key-fn or something
 
+    :clean-up-record-fn (fn clean-up-report [report]
+                          (maybe-update-in report [:resource_events] #(map clean-up-resource-event %)))
+
     ;; When a record is out-of-date, the whole thing is
     ;; downloaded and then stored with this command
     :submit-command {:command :store-report
@@ -49,6 +62,12 @@
     :record-id-fn :certname
     :record-fetch-key :certname
     :record-ordering-fn (juxt :producer_timestamp :hash)
+    :clean-up-record-fn (fn clean-up-factset [factset]
+                          (-> factset
+                              (dissoc :facts)
+                              (assoc :values (->> (:facts factset)
+                                                  (map (juxt :name :value))
+                                                  (into {})))))
     :submit-command {:command :replace-facts
                      :version 4}}
 
@@ -60,9 +79,9 @@
     :record-id-fn :certname
     :record-fetch-key :certname
     :record-ordering-fn (juxt :producer_timestamp :hash)
+    :clean-up-record-fn identity
     :submit-command {:command :replace-catalog
                      :version 6}}])
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utils
@@ -80,6 +99,7 @@
   failure status codes. '"
   [url opts error-message-fn]
   (try+
+   (log/debug (format "HTTP GET %s %s" url opts))
    (clj-http.client/get url opts)
    (catch :status  {:keys [body status] :as response}
      (throw+ {:type ::remote-host-error
@@ -142,14 +162,6 @@
   [record]
   (dissoc record :hash :receive_time :timestamp))
 
-(defn clean-up-resource-event
-  "The resource events we get back from a query have a lot of derived fields;
-  only keep the ones we can re-submit."
-  [resource-event]
-  (select-keys resource-event
-               [:status :timestamp :resource_type :resource_title :property
-                :new_value :old_value :message :file :line :containment_path]))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Pull from remote instance
 
@@ -165,15 +177,20 @@
     (json/parse-string body true)))
 
 (defn query-record-and-transfer!
-  "Queries for a record by `hash` from `remote`/`entity` and submits a command
-  locally to copy that record, via store-record-locally-fn."
-  [remote-url entity record-fetch-key record-fetch-val store-record-locally-fn]
-  (-> (query-remote remote-url entity ["=" (name record-fetch-key) record-fetch-val])
-      first
-      (collapse-and-download-collections remote-url)
-      strip-timestamp-and-hash
-      (maybe-update-in [:resource_events] #(map clean-up-resource-event %))
-      store-record-locally-fn))
+  "Query for a record where `record-fetch-key` (from `sync-config`) equals
+  `record-fetch-val` and submit a command locally to copy that record, via
+  `store-record-locally-fn`''."
+  [remote-url record-fetch-val submit-command-fn sync-config]
+  (let [{:keys [entity record-fetch-key clean-up-record-fn submit-command]} sync-config
+        store-record-locally-fn (partial submit-command-fn
+                                         (get-in sync-config [:submit-command :command])
+                                         (get-in sync-config [:submit-command :version]))]
+   (-> (query-remote remote-url entity ["=" (name record-fetch-key) record-fetch-val])
+       first
+       (collapse-and-download-collections remote-url)
+       strip-timestamp-and-hash
+       clean-up-record-fn
+       store-record-locally-fn)))
 
 (defn outer-join-unique-sorted-seqs
   "Outer join two seqs, `xs` and `ys`, that are sorted and unique under
@@ -253,24 +270,27 @@
     (try
       (let [remote-sync-data (map parse-time-fields
                                   (-> summary-response-stream clojure.java.io/reader (json/parse-stream true)))
-            {:keys [entity record-hashes-query record-id-fn record-ordering-fn submit-command]} sync-config
+            {:keys [entity record-hashes-query record-id-fn record-ordering-fn record-fetch-key submit-command]} sync-config
             {:keys [version query order]} record-hashes-query]
         (query-fn entity version query order
                   (query-result-handler (fn [local-sync-data]
                                           (let [to-fetch (records-to-fetch record-id-fn
                                                                            record-ordering-fn
                                                                            local-sync-data
-                                                                           remote-sync-data)
-                                                fetch-key (:record-fetch-key sync-config)
-                                                submit-this-command-fn (partial submit-command-fn (:command submit-command) (:version submit-command))]
+                                                                           remote-sync-data)]
                                             (doseq [x to-fetch]
                                               (query-record-and-transfer! remote-url
-                                                                          entity
-                                                                          fetch-key
-                                                                          (fetch-key x)
-                                                                          submit-this-command-fn)))))))
+                                                                          (get x record-fetch-key)
+                                                                          submit-command-fn
+                                                                          sync-config)))))))
       (finally
         (.close summary-response-stream)))))
+
+
+(defmacro wrap-with-logging [f level message]
+  `(fn [& args#]
+     (log/logp ~level (str ~message " " args#))
+     (apply ~f args#)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -280,10 +300,11 @@
   `query-fn` to query PuppetDB in process and `submit-command-fn` when
   new data is found."
   [query-fn submit-command-fn remote-url]
-  (doseq [sync-config sync-configs]
-    (try+
-     (pull-records-from-remote! query-fn submit-command-fn remote-url sync-config)
+  (let [submit-command-fn (wrap-with-logging submit-command-fn :debug "Submitting command")]
+   (doseq [sync-config sync-configs]
+     (try+
+      (pull-records-from-remote! query-fn submit-command-fn remote-url sync-config)
 
-     (catch [:type ::remote-host-error] _
-       (let [{:keys [throwable message]} &throw-context]
-         (log/errorf throwable "Sync from remote host failed due to: %s" message))))))
+      (catch [:type ::remote-host-error] _
+        (let [{:keys [throwable message]} &throw-context]
+          (log/errorf throwable "Sync from remote host failed due to: %s" message)))))))

@@ -374,3 +374,28 @@
 
           (is (= (export/reports-for-node (:service-url pdb1) (:certname report))
                  (export/reports-for-node (:service-url pdb2) (:certname report)))))))))
+
+(defn get-factset [base-url certname]
+  (first (get-json base-url "/factsets"
+                   {:query-params {:query (json/generate-string [:= :certname certname])}})))
+
+(defn without-timestamp [record]
+  (dissoc record :timestamp))
+
+(deftest end-to-end-factset-replication
+  (with-n-pdbs 2
+    (fn [pdb1 pdb2]
+      (with-alt-mq (:mq-name pdb1)
+        (pdb-client/submit-command-via-http! (:service-url pdb1) "replace facts" 4 facts)
+        @(rt/block-until-results 100 (get-factset (:service-url pdb1) (:certname facts))))
+
+      (with-alt-mq (:mq-name pdb2)
+        ;; pdb2 pulls data from pdb1
+        (trigger-sync (base-url->str (:service-url pdb1))
+                      (str (base-url->str (:sync-url pdb2)) "/trigger-sync"))
+
+        ;; let pdb2 chew on its queue
+        @(rt/block-until-results 200 (get-factset (:service-url pdb2) (:certname facts)))
+
+        (is (= (without-timestamp (get-factset (:service-url pdb1) (:certname facts)))
+               (without-timestamp (get-factset (:service-url pdb2) (:certname facts)))))))))
