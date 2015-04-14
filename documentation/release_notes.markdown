@@ -328,6 +328,39 @@ derive data from a PuppetDB export tarball.
 
 TODO
 
+2.3.3
+-----
+
+PuppetDB 2.3.3 is a backwards-compatible bugfix release that adds
+support for Puppet 4 on Debian and Ubuntu platforms.
+
+### Upgrading
+
+* For the best-possible performance and scaling capacity, we recommend
+  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
+  extension enabled, as explained [here][configure_postgres], and we
+  have officially deprecated versions earlier than 9.2.  HSQLDB is
+  only recommended for local development because it has a number of
+  scaling and operational issues.
+
+* Make sure that all of your PuppetDB instances are shut down, and
+  only upgrade one at a time.
+
+* Make sure to upgrade your puppetdb-terminus package (on the host
+  where your Puppet master lives), and restart your master service.
+
+### Contributors
+
+Matthaus Owens, Rob Browning
+
+### Changes
+
+#### Bug Fixes and Maintenance
+
+* PuppetDB now supports Puppet 4 on Debian and Ubuntu.
+  ([PDB-1389](https://tickets.puppetlabs.com/browse/PDB-1389))
+>>>>>>> stable
+
 2.3.2
 -----
 

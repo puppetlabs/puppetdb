@@ -3,7 +3,7 @@
             [puppetlabs.puppetdb.scf.migrate :as migrate]
             [puppetlabs.puppetdb.scf.migration-legacy :as legacy]
             [puppetlabs.puppetdb.scf.storage :as store]
-            [puppetlabs.puppetdb.scf.storage-utils
+            [puppetlabs.puppetdb.scf.storage-utils :as storeutil
              :refer [db-serialize postgres?]]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
@@ -379,3 +379,18 @@
             factsets-response (query-to-vec "SELECT producer_timestamp FROM factsets")]
         (is (= catalogs-response [{:producer_timestamp current-time}]))
         (is (= factsets-response [{:producer_timestamp current-time}]))))))
+
+(deftest migration-in-different-schema
+  (sql/with-connection db
+    (clear-db-for-testing!)
+    (sql/do-commands
+     ;; Cleaned up in clear-db-for-testing!
+     "CREATE SCHEMA pdbtestschema"
+     (format "SET SCHEMA %s"
+             (if (postgres?) "'pdbtestschema'" "pdbtestschema")))
+    ((migrations 1))
+    (record-migration! 1)
+    (let [tables (storeutil/sql-current-connection-table-names)]
+      ;; Currently sql-current-connection-table-names only looks in public.
+      (is (empty? (storeutil/sql-current-connection-table-names)))
+      (migrate!))))

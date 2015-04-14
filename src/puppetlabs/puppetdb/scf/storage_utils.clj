@@ -71,18 +71,20 @@
   (pos? (compare (sql-current-connection-database-version) version)))
 
 (defn sql-current-connection-table-names
-  "Return all of the table names that are present in the database based on the
-  current connection.  This is most useful for debugging / testing  purposes
-  to allow introspection on the database.  (Some of our unit tests rely on this.)"
+  "Returns the names of all of the tables in the public schema of the
+  current connection's database.  This is most useful for debugging /
+  testing purposes to allow introspection on the database.  (Some of
+  our unit tests rely on this.)."
   []
   (let [query   "SELECT table_name FROM information_schema.tables WHERE LOWER(table_schema) = 'public'"
         results (sql/transaction (jdbc/query-to-vec query))]
     (map :table_name results)))
 
 (defn sql-current-connection-sequence-names
-  "Return all of the sequences that are present in the database based on the
-  current connection.  This is most useful for debugging / testing  purposes
-  to allow introspection on the database.  (Some of our unit tests rely on this.)"
+  "Returns the names of all of the sequences in the public schema of
+  the current connection's database.  This is most useful for
+  debugging / testing purposes to allow introspection on the
+  database.  (Some of our unit tests rely on this.)."
   []
   (let [query   "SELECT sequence_name FROM information_schema.sequences WHERE LOWER(sequence_schema) = 'public'"
         results (sql/transaction (jdbc/query-to-vec query))]
