@@ -649,13 +649,11 @@
         [:null name]
         [field name]))))
 
-(defn assoc-if-call
-  [m call group-by]
-  (if call
-    (-> m
-        (assoc :group-by (map keyword group-by))
-        (update-in [:select] conj (apply hcore/call call)))
-    m))
+(defn merge-function-options
+  [m call grouping]
+  (-> m
+      (#(if call (update-in % [:select] conj (apply hcore/call call)) %))
+      (#(if grouping (assoc % :group-by (map keyword grouping))))))
 
 (defn honeysql-from-query
   [{:keys [group-by call selection projections paging-options] :as query}]
@@ -664,7 +662,7 @@
     (log/spy (-> selection
                  (assoc :select (vec (remove nil? (map #(extract-fields % expand?)
                                                        (sort projections)))))
-                 (assoc-if-call call group-by)))))
+                 (merge-function-options call group-by)))))
 
 (pls/defn-validated sql-from-query :- String
   [query]
