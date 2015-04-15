@@ -1,4 +1,5 @@
 (def pdb-version "3.0.0-SNAPSHOT")
+(def pe-pdb-version "0.1.0-SNAPSHOT")
 
 (defn deploy-info
   "Generate deployment information from the URL supplied and the username and
@@ -105,7 +106,7 @@
                        :build-type "foss"
                        :main-namespace "puppetlabs.puppetdb.main"
                        :create-varlib true}
-                :config-dir "ext/config"
+                :config-dir "ext/config/foss"
                 }
 
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
@@ -129,6 +130,17 @@
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "0.2.2"
                                  :exclusions [org.clojure/clojure]]]}
+             :pe {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
+                                           [org.clojure/tools.nrepl "0.2.3"]
+                                           [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]]
+                  :lein-ezbake {:vars {:user "pe-puppetdb"
+                                       :group "pe-puppetdb"
+                                       :build-type "pe"
+                                       :main-namespace "puppetlabs.puppetdb.core"
+                                       :create-varlib true}
+                                :config-dir "ext/config/pe"}
+                  :version ~pe-pdb-version
+                  :name "pe-puppetdb"}
              :testutils {:source-paths ^:replace ["test"]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
 
