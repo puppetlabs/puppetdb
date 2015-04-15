@@ -1,12 +1,12 @@
 (ns puppetlabs.puppetdb.sync.command
   (:require [puppetlabs.puppetdb.utils :as utils]
             [clj-http.util :refer [url-encode]]
-            [clj-http.client :as http]
+            [clj-http.client]
             [puppetlabs.puppetdb.cheshire :as json]
+            [cheshire.core :as cheshire]
             [clj-time.coerce :refer [to-timestamp]]
             [clojure.tools.logging :as log]
             [slingshot.slingshot :refer [try+ throw+]]))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; How to sync each entity
@@ -14,80 +14,165 @@
 (def report-key (juxt :certname :hash))
 
 (def sync-configs
-  {:reports {:entity :reports
-             ;; On each side of the sync, we use this query to get
-             ;; information about the identity of each record and a
-             ;; hash of its content.
-             :record-hashes-query {:version :v4
-                                   :query ["extract" ["hash" "certname" "start_time"]
-                                           ["null?" "start_time" false]]
-                                   :order {:order_by [[:certname :ascending] [:hash :ascending]]}}
+  [{:entity :reports
+    ;; On each side of the sync, we use this query to get
+    ;; information about the identity of each record and a
+    ;; hash of its content.
+    :record-hashes-query {:version :v4
+                          :query ["extract" ["hash" "certname" "start_time"]
+                                  ["null?" "start_time" false]]
+                          :order {:order_by [[:certname :ascending] [:hash :ascending]]}}
 
-             ;; The above query is done on each side of the sync; the
-             ;; two are joined on the result of this function
-             :record-id-fn report-key
+    ;; The above query is done on each side of the sync; the
+    ;; two are joined on the result of this function
+    :record-id-fn report-key
 
-             ;; If the same record exists on both sides, the result of
-             ;; this function is used to find which is newer
-             :record-ordering-fn (constantly 0) ; TODO: rename this, maybe to record-conflict-key-fn or something
+    ;; When pulling a record from a remote machine, use the value at this key to
+    ;; identify it; This shoud be part of the result you get with
+    ;; `record-hashes-query` above.
+    :record-fetch-key :hash
 
-             ;; When a record is out-of-date, the whole thing is
-             ;; downloaded and then stored with this command
-             :submit-command {:command :store-report
-                              :version 5}}
+    ;; If the same record exists on both sides, the result of
+    ;; this function is used to find which is newer
+    :record-ordering-fn (constantly 0) ; TODO: rename this, maybe to record-conflict-key-fn or something
 
-   :factsets {:entity :factsets
-              :record-hashes-query {:version :v4
-                                    :query ["extract" ["hash" "certname" "producer_timestamp"]
-                                            ["null?" "certname" false]] ; certname is never null, so this matches all factsets
-                                    :order {:order_by [[:certname :ascending]]}}
-              :record-id-fn :certname
-              :record-ordering-fn (juxt :producer_timestamp :hash)
-              :submit-command {:command :replace-facts
-                               :version 4}}
+    ;; When a record is out-of-date, the whole thing is
+    ;; downloaded and then stored with this command
+    :submit-command {:command :store-report
+                     :version 5}}
 
-   :catalogs {:entity :catalogs
-              :record-hashes-query {:version :v4
-                                    :query ["extract" ["hash" "certname" "producer_timestamp"]
-                                            ["null?" "certname" false]] ; certname is never null, so this matches all factsets
-                                    :order {:order_by [[:certname :ascending]]}}
-              :record-id-fn :certname
-              :record-ordering-fn (juxt :producer_timestamp :hash)
-              :submit-command {:command :replace-catalog
-                               :version 6}}})
+   {:entity :factsets
+    :record-hashes-query {:version :v4
+                          :query ["extract" ["hash" "certname" "producer_timestamp"]
+                                  ["null?" "certname" false]] ; certname is never null, so this matches all factsets
+                          :order {:order_by [[:certname :ascending]]}}
+    :record-id-fn :certname
+    :record-fetch-key :certname
+    :record-ordering-fn (juxt :producer_timestamp :hash)
+    :submit-command {:command :replace-facts
+                     :version 4}}
+
+   {:entity :catalogs
+    :record-hashes-query {:version :v4
+                          :query ["extract" ["hash" "certname" "producer_timestamp"]
+                                  ["null?" "certname" false]] ; certname is never null, so this matches all factsets
+                          :order {:order_by [[:certname :ascending]]}}
+    :record-id-fn :certname
+    :record-fetch-key :certname
+    :record-ordering-fn (juxt :producer_timestamp :hash)
+    :submit-command {:command :replace-catalog
+                     :version 6}}])
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Utils
+
+(defn maybe-update-in
+  "Like update-in, except it won't create `path` if it doesn't exist."
+  [x path f]
+  (if (get-in x path)
+    (update-in x path f)
+    x))
+
+(defn http-get
+  "A wrapper around clj-http.client/get which takes a custom error formatter,
+  `(fn [status body] ...)`, to provide a message which is written to the log on
+  failure status codes. '"
+  [url opts error-message-fn]
+  (try+
+   (clj-http.client/get url opts)
+   (catch :status  {:keys [body status] :as response}
+     (throw+ {:type ::remote-host-error
+              :error-response response
+              :throw-exceptions true
+              :throw-entire-message true}
+             (error-message-fn status body)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Data format transformations
+
+(defn order-by-clause-to-wire-format
+  "Given an internal order_by clause, of the form {:order_by [[:column :ascending]]},
+   convert it to the format we use on the wire: [{:field :column, :order :asc}]."
+  [internal-order-by-clause]
+  (map (fn [[key order]]
+         {:field key
+          :order (case order
+                   :ascending :asc
+                   :descending :desc)})
+       (:order_by internal-order-by-clause)))
+
+(defn url-with-path
+  "Return a url with path `path` based on the host, scheme, etc. from
+  `original-url-str`."
+  [path original-url-str]
+  (let [uri (java.net.URI. original-url-str)
+        new-uri (java.net.URI. (.getScheme uri)
+                               (.getUserInfo uri)
+                               (.getHost uri)
+                               (.getPort uri)
+                               path nil nil)]
+    (str new-uri)))
+
+(defn get-url-for-expansion [url key]
+  (http-get url {} (fn [status body]
+                     (format "Error getting URL %s, to expand record key %s. Received HTTP status code %s with the error message '%s'"
+                             url key status body))))
+
+(defn collapse-and-download-collections
+  "Look for values in `record` which are maps with `data` and `href`
+  keys. Transform these values to just be the contents of `data`, which is the
+  form needed when submitting a command. If `data` is absent, use the content at
+  `href` to fill it out."
+  [record remote-url]
+  (into {} (for [[key val] record]
+             (if (and (map? val) (contains? val :href))
+               (if (contains? val :data)
+                 [key (get val :data)]
+                 [key (-> (get val :href)
+                          (url-with-path remote-url)
+                          (get-url-for-expansion key)
+                          :body
+                          (json/parse-string true))])
+               [key val]))))
+
+(defn strip-timestamp-and-hash
+  "`hash`, `receive_time`, and `timestamp` are generated fields and need to be
+  removed before submitting commands locally"
+  [record]
+  (dissoc record :hash :receive_time :timestamp))
+
+(defn clean-up-resource-event
+  "The resource events we get back from a query have a lot of derived fields;
+  only keep the ones we can re-submit."
+  [resource-event]
+  (select-keys resource-event
+               [:status :timestamp :resource_type :resource_title :property
+                :new_value :old_value :message :file :line :containment_path]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Pull from remote instance
 
 (defn query-remote
   "Queries a resource from `remote-url`/`entity`, where
-  `entity-type` is a keyword like :reports, :factsets, etc. '"
+  `entity` is a keyword like :reports, :factsets, etc. '"
   [remote-url entity query]
-  (try+
-   (let [{:keys [body]} (http/get (str remote-url "/" (name entity))
-                                  {:query-params {:query (json/generate-string query)}
-                                   :throw-exceptions true
-                                   :throw-entire-message true})]
-     (json/parse-string body))
-   (catch :status {:keys [body status] :as response}
-     (throw+ {:type ::remote-host-error
-              :error-response response}
-             (format "Error querying %s for %s with query %s. Received HTTP status code %s with the error message '%s'"
-                     remote-url (name entity) query status body)))))
-
-(defn strip-generated-fields
-  "hash, receive_time, and timestamp are generated fields and need to
-  be removed before submitting commands locally"
-  [record]
-  (dissoc record "hash" "receive_time" "timestamp"))
+  (let [encoded-query (url-encode (json/generate-string query))
+        url (str remote-url "/" (name entity) "?query=" encoded-query)
+        error-message-fn (fn [status body] (format "Error querying %s for %s with query %s. Received HTTP status code %s with the error message '%s'"
+                                                   remote-url (name entity) query status body))
+        {:keys [status body]} (http-get url {} error-message-fn)]
+    (json/parse-string body true)))
 
 (defn query-record-and-transfer!
   "Queries for a record by `hash` from `remote`/`entity` and submits a command
   locally to copy that record, via store-record-locally-fn."
-  [remote entity hash store-record-locally-fn]
-  (-> (query-remote remote entity ["=" "hash" hash])
+  [remote-url entity record-fetch-key record-fetch-val store-record-locally-fn]
+  (-> (query-remote remote-url entity ["=" (name record-fetch-key) record-fetch-val])
       first
-      strip-generated-fields
+      (collapse-and-download-collections remote-url)
+      strip-timestamp-and-hash
+      (maybe-update-in [:resource_events] #(map clean-up-resource-event %))
       store-record-locally-fn))
 
 (defn outer-join-unique-sorted-seqs
@@ -127,13 +212,6 @@
                      (neg? (compare (ordering-fn local) (ordering-fn remote))))))
        (map (fn [[_ remote]] remote))))
 
-(defn maybe-update-in
-  "Like update-in, except it won't throw if the path doesn't exist. "
-  [x path f]
-  (if (get-in x path)
-    (update-in x path f)
-    x))
-
 (defn parse-time-fields
   "Convert time strings in a record to actual times. "
   [record]
@@ -146,75 +224,66 @@
   [handler-fn]
   (fn [f] (f handler-fn)))
 
-(defn pull-records-from-remote!
-  [query-fn submit-command-fn origin-host-path remote-sync-data sync-config]
-  (let [{:keys [entity record-hashes-query record-id-fn record-ordering-fn submit-command]} sync-config
+
+(defn streamed-summary-query
+  "Perform the summary query at `remote-url`, as specified in
+  `sync-config`. Returns a stream which must be closed."
+  [remote-url sync-config]
+  (let [{:keys [entity record-hashes-query ]} sync-config
         {:keys [version query order]} record-hashes-query
-        remote-sync-data (map parse-time-fields remote-sync-data)
-        submit-this-command-fn (partial submit-command-fn (:command submit-command) (:version submit-command))]
-    (query-fn entity version query order
-              (query-result-handler (fn [local-sync-data]
-                                      (doseq [x (records-to-fetch record-id-fn record-ordering-fn local-sync-data remote-sync-data)]
-                                        (query-record-and-transfer! origin-host-path entity (:hash x) submit-this-command-fn)))))))
+        url (str remote-url "/" (name entity))
+        error-message-fn (fn [status body]
+                           (format "Error querying %s for record summaries (%s). Received HTTP status code %s with the error message '%s'"
+                                   remote-url entity status body))]
+    (-> url
+        (http-get {:query-params {:query (json/generate-string query)
+                                       :order_by (order-by-clause-to-wire-format (json/generate-string order))}
+                        :as :stream
+                        :throw-entire-message true}
+                       error-message-fn)
+        :body)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Trigger sync
-
-(defn generate-sync-message
-  "Returns a function suitable for use in the streaming query
-  function. Streams the sync data from `rows` to the passed in
-  `piped-output-stream`. This needs to be run from a separate thread
-  than where the associated PipedInputStream thread"
-  [piped-out-stream origin-path entity]
-  (fn [rows]
-    (with-open [buffered-writer (-> piped-out-stream
-                                    java.io.OutputStreamWriter.
-                                    java.io.BufferedWriter.)]
-      (json/generate-stream {:command "sync"
-                             :version 1
-                             :payload {:origin_host_path origin-path
-                                       :entity entity
-                                       :sync_data rows}}
-                            buffered-writer))))
-
-(defn send-record-hashes-to-remote
-  "Queries the local instance using `query-fn` and constructs a sync
-  message to send to `remote-path`. The remote instance will use
-  `origin-path` to query for any missing or out-of-date entities."
-  [query-fn origin-path remote-path sync-config]
-  (let [{:keys [entity record-hashes-query]} sync-config
-        {:keys [:version :query :order]} record-hashes-query]
-   (let [piped-input-stream (java.io.PipedInputStream.)
-         piped-output-stream (java.io.PipedOutputStream. piped-input-stream)
-         command-fut (future (query-fn entity version query order
-                                       (query-result-handler
-                                         (generate-sync-message piped-output-stream origin-path entity))))
-         result (http/post remote-path {:accept-encoding [:application/json]
-                                        :content-type :application/json
-                                        :body piped-input-stream})]
-     (= 200 (:status result)))))
+(defn pull-records-from-remote!
+  "Query `remote-url` using the query api and the local PDB using `query-fn`,
+  using the entity and comparison information in `sync-config` (see comments
+  above). If the remote record is newer than the local one or it doesn't exist locally,
+  download it over http and place it in the queue with `submit-command-fn`."
+  [query-fn submit-command-fn remote-url sync-config]
+  (let [summary-response-stream (streamed-summary-query remote-url sync-config)]
+    (try
+      (let [remote-sync-data (map parse-time-fields
+                                  (-> summary-response-stream clojure.java.io/reader (json/parse-stream true)))
+            {:keys [entity record-hashes-query record-id-fn record-ordering-fn submit-command]} sync-config
+            {:keys [version query order]} record-hashes-query]
+        (query-fn entity version query order
+                  (query-result-handler (fn [local-sync-data]
+                                          (let [to-fetch (records-to-fetch record-id-fn
+                                                                           record-ordering-fn
+                                                                           local-sync-data
+                                                                           remote-sync-data)
+                                                fetch-key (:record-fetch-key sync-config)
+                                                submit-this-command-fn (partial submit-command-fn (:command submit-command) (:version submit-command))]
+                                            (doseq [x to-fetch]
+                                              (query-record-and-transfer! remote-url
+                                                                          entity
+                                                                          fetch-key
+                                                                          (fetch-key x)
+                                                                          submit-this-command-fn)))))))
+      (finally
+        (.close summary-response-stream)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(defn sync-from-remote
+(defn sync-from-remote!
   "Entry point for syncing with another PuppetDB instance. Uses
   `query-fn` to query PuppetDB in process and `submit-command-fn` when
-  new reports are found."
-  [query-fn submit-command-fn {:keys [origin_host_path sync_data entity]}]
-  (try+
-   (pull-records-from-remote! query-fn submit-command-fn origin_host_path sync_data
-                              (get sync-configs (keyword entity)))
-   (catch [:type ::remote-host-error] _
-     (let [{:keys [throwable message]} &throw-context]
-       (log/error throwable (format "Sync to remote host failed due to: %s") message)))))
+  new data is found."
+  [query-fn submit-command-fn remote-url]
+  (doseq [sync-config sync-configs]
+    (try+
+     (pull-records-from-remote! query-fn submit-command-fn remote-url sync-config)
 
-(defn sync-to-remote
-  "Queries the local instance using `query-fn` and constructs a sync
-  message to send to `remote-path`. The remote instance will use
-  `origin-path` to query for the full report if it's out of date"
-  [query-fn origin-path remote-path]
-  (->> (vals sync-configs)
-       (map #(send-record-hashes-to-remote query-fn origin-path remote-path %))
-       doall
-       (every? identity)))
+     (catch [:type ::remote-host-error] _
+       (let [{:keys [throwable message]} &throw-context]
+         (log/errorf throwable "Sync from remote host failed due to: %s" message))))))
