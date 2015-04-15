@@ -5,13 +5,12 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def pe-pdb-version "0.1.0-SNAPSHOT")
 (def pdb-version "3.0.0-SNAPSHOT")
 
 (def tk-version "1.1.0")
 (def ks-version "1.0.0")
 
-(defproject puppetlabs/pe-puppetdb-extensions pe-pdb-version
+(defproject puppetlabs/pe-puppetdb-extensions "0.1.0-SNAPSHOT"
   :pedantic? :abort
 
   :description "Library for replicating PuppetDB instances"
@@ -28,23 +27,7 @@
                                   [puppetlabs/puppetdb ~pdb-version :classifier "test"]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]]}
-
-             :ezbake {:dependencies ^:replace [
-                                               [puppetlabs/puppetdb ~pdb-version]
-                                               [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]
-                                               [org.clojure/tools.nrepl "0.2.3"]]
-                      :name "pe-puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "0.2.2"
-                                 :exclusions [org.clojure/clojure]]]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
   :lein-release {:scm :git, :deploy-via :lein-deploy}
-
-  :uberjar-name "puppetdb-release.jar"
-  :lein-ezbake {:vars {:user "pe-puppetdb"
-                       :group "pe-puppetdb"
-                       :build-type "pe"
-                       :main-namespace "puppetlabs.puppetdb.core"
-                       :create-varlib true}
-                :config-dir "ext/config"}
 
   :main ^:skip-aot puppetlabs.puppetdb.core)
