@@ -270,7 +270,7 @@ module PuppetDBExtensions
   def get_package_version(host, version = nil)
     return version unless version.nil?
 
-    version = PuppetDBExtensions.config[:package_build_version]
+    version = PuppetDBExtensions.config[:package_build_version].to_s
 
     # Rewrite version if its a SNAPSHOT in rc form
     if version.include?("SNAPSHOT")
