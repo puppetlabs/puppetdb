@@ -270,20 +270,27 @@ module PuppetDBExtensions
   def get_package_version(host, version = nil)
     return version unless version.nil?
 
+    version = PuppetDBExtensions.config[:package_build_version]
+
+    # Rewrite version if its a SNAPSHOT in rc form
+    if version.include?("SNAPSHOT")
+      version.sub(/^(.*)\.(SNAPSHOT\..*)$/, "\\1-0.1\\2")
+    end
+
     ## These 'platform' values come from the acceptance config files, so
     ## we're relying entirely on naming conventions here.  Would be nicer
     ## to do this using lsb_release or something, but...
     if host['platform'].include?('el-5')
-      "#{PuppetDBExtensions.config[:package_build_version]}-1.el5"
+      "#{version}-1.el5"
     elsif host['platform'].include?('el-6')
-      "#{PuppetDBExtensions.config[:package_build_version]}-1.el6"
+      "#{version}-1.el6"
     elsif host['platform'].include?('el-7')
-      "#{PuppetDBExtensions.config[:package_build_version]}-1.el7"
+      "#{version}-1.el7"
     elsif host['platform'].include?('fedora')
       version_tag = host['platform'].match(/^fedora-(\d+)/)[1]
-      "#{PuppetDBExtensions.config[:package_build_version]}-1.fc#{version_tag}"
+      "#{version}-1.fc#{version_tag}"
     elsif host['platform'].include?('ubuntu') or host['platform'].include?('debian')
-      "#{PuppetDBExtensions.config[:package_build_version]}-1puppetlabs1"
+      "#{version}-1puppetlabs1"
     else
       raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
     end
