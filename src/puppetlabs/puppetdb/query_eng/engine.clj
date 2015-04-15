@@ -653,14 +653,13 @@
   [m call group-by]
   (if call
     (-> m
-        (assoc :group-by group-by)
+        (assoc :group-by (map keyword group-by))
         (update-in [:select] conj (apply hcore/call call)))
     m))
 
 (defn honeysql-from-query
   [{:keys [group-by call selection projections paging-options] :as query}]
   "Convert a query to honeysql format"
-  (println "HSQL QUERY IS" query)
   (let [expand? (su/postgres?)]
     (log/spy (-> selection
                  (assoc :select (vec (remove nil? (map #(extract-fields % expand?)
@@ -685,7 +684,6 @@
 (extend-protocol SQLGen
   Query
   (-plan->sql [query]
-    (println "QUERY IS" query)
     (let [has-where? (boolean (:where query))
           has-projections? (not (empty? (:projected-fields query)))
           update-when (fn [m pred ks f]
@@ -765,9 +763,8 @@
   "Extracts the node's expression value, puts it in state
   replacing it with `?`, used in a prepared statement"
   [node state]
-  (println "NODE IS" node)
-  (println "STATE IS " state)
-  (when (binary-expression? node)
+  (cond
+    (binary-expression? node)
     {:node (assoc node :value "?")
      :state (conj state (:value node))}))
 
@@ -1086,10 +1083,18 @@
             (create-extract-node query-rec (maybe-vectorize-string column) expr)
 
             [["extract" column expr clause]]
-            (-> query-rec
-                (assoc :call [:count :*])
-                (assoc :group-by (rest clause))
-                (create-extract-node (maybe-vectorize-string ["status"]) expr))
+            (let [call (first column)
+                  fun (second (read-string call))]
+              (do
+                (println "COLUMN" column)
+                (println "F COLUMN" call)
+                (println (type call))
+                (println "REST" (rest column))
+                (println "FUN" (first call))
+                (-> query-rec
+                    (assoc :call [(keyword fun) :*])
+                    (assoc :group-by (rest clause))
+                    (create-extract-node (maybe-vectorize-string ["status"]) expr))))
 
             :else nil))
 
@@ -1099,11 +1104,8 @@
   [query-rec paging-options user-query]
   (let [plan-node (user-node->plan-node query-rec user-query)
         projections (projectable-fields query-rec)]
-    (println "PLAN IS")
     (clojure.pprint/pprint plan-node)
-    (println "QUERY REC IS")
     (clojure.pprint/pprint query-rec)
-    (println "PAGING OPTIoNS ARE " paging-options)
     (if (instance? Query plan-node)
       plan-node
       (-> query-rec
@@ -1267,6 +1269,7 @@
                                    expand-user-query
                                    (convert-to-plan query-rec paging-options)
                                    extract-all-params)
+
         sql (plan->sql plan)
         paged-sql (jdbc/paged-sql sql paging-options)
         result-query {:results-query (apply vector paged-sql params)
