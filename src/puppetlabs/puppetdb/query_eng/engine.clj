@@ -1083,18 +1083,12 @@
             (create-extract-node query-rec (maybe-vectorize-string column) expr)
 
             [["extract" column expr clause]]
-            (let [call (first column)
-                  fun (second (read-string call))]
-              (do
-                (println "COLUMN" column)
-                (println "F COLUMN" call)
-                (println (type call))
-                (println "REST" (rest column))
-                (println "FUN" (first call))
+            (let [[call & column] column
+                  fun (keyword (second (read-string call)))]
                 (-> query-rec
-                    (assoc :call [(keyword fun) :*])
+                    (assoc :call [fun :*])
                     (assoc :group-by (rest clause))
-                    (create-extract-node (maybe-vectorize-string ["status"]) expr))))
+                    (create-extract-node (maybe-vectorize-string (vec column)) expr)))
 
             :else nil))
 
@@ -1104,8 +1098,6 @@
   [query-rec paging-options user-query]
   (let [plan-node (user-node->plan-node query-rec user-query)
         projections (projectable-fields query-rec)]
-    (clojure.pprint/pprint plan-node)
-    (clojure.pprint/pprint query-rec)
     (if (instance? Query plan-node)
       plan-node
       (-> query-rec
