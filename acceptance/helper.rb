@@ -274,7 +274,7 @@ module PuppetDBExtensions
 
     # Rewrite version if its a SNAPSHOT in rc form
     if version.include?("SNAPSHOT")
-      version.sub(/^(.*)\.(SNAPSHOT\..*)$/, "\\1-0.1\\2")
+      version = version.sub(/^(.*)\.(SNAPSHOT\..*)$/, "\\1-0.1\\2")
     end
 
     ## These 'platform' values come from the acceptance config files, so
