@@ -42,7 +42,8 @@
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec dashes->underscores]]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]))
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]
+            [honeysql.core :as hcore]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -1184,17 +1185,25 @@
                     WHERE certname=? AND deactivated IS NULL"
                    [(to-timestamp (now)) certname]))
 
+
+(defn- timestamp-of-newest-record [entity certname]
+  (let [query {:select [:timestamp]
+               :from [entity]
+               :where [:= :certname certname]
+               :order-by [[:timestamp :desc]]
+               :limit 1}]
+    (sql/with-query-results result-set (hcore/format query)
+      (:timestamp (first result-set)))))
+
 (pls/defn-validated catalog-newer-than?
   "Returns true if the most current catalog for `certname` is more recent than
   `time`."
   [certname :- String
    time :- pls/Timestamp]
-  (let [timestamp (to-timestamp time)]
-    (sql/with-query-results result-set
-      ["SELECT timestamp FROM catalogs WHERE certname=? ORDER BY timestamp DESC LIMIT 1" certname]
-      (if-let [catalog-timestamp (:timestamp (first result-set))]
-        (.after catalog-timestamp timestamp)
-        false))))
+  (let [time (to-timestamp time)]
+    (if-let [db-timestamp (timestamp-of-newest-record :catalogs certname)]
+      (.after db-timestamp time)
+      false)))
 
 (pls/defn-validated replace-catalog!
   "Given a catalog, replace the current catalog, if any, for its
