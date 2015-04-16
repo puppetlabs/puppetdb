@@ -281,16 +281,16 @@ module PuppetDBExtensions
     ## we're relying entirely on naming conventions here.  Would be nicer
     ## to do this using lsb_release or something, but...
     if host['platform'].include?('el-5')
-      "#{version}-1.el5"
+      "#{version}.el5"
     elsif host['platform'].include?('el-6')
-      "#{version}-1.el6"
+      "#{version}.el6"
     elsif host['platform'].include?('el-7')
-      "#{version}-1.el7"
+      "#{version}.el7"
     elsif host['platform'].include?('fedora')
       version_tag = host['platform'].match(/^fedora-(\d+)/)[1]
-      "#{version}-1.fc#{version_tag}"
+      "#{version}.fc#{version_tag}"
     elsif host['platform'].include?('ubuntu') or host['platform'].include?('debian')
-      "#{version}-1puppetlabs1"
+      "#{version}puppetlabs1"
     else
       raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
     end
