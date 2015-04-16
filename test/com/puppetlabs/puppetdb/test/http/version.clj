@@ -2,6 +2,7 @@
   (:import (java.util.concurrent TimeUnit))
   (:require [com.puppetlabs.cheshire :as json]
             [clojure.test :refer :all]
+            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
             [com.puppetlabs.puppetdb.http.version :refer :all]
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.puppetdb.testutils :refer [get-request deftestseq]]
@@ -62,3 +63,13 @@
              false "newer"
              "99.0.0" "version"
              nil "link")))))
+
+(deftestseq test-latest-version
+  [[version endpoint] endpoints]
+
+  (testing "shouldn't log HTTP errors hitting update server at INFO"
+    (with-log-output logz
+      (let [response (app-with-update-server {:update-server "http://known.invalid.domain"}
+                                             (get-request (str endpoint "/latest")))
+            log-levels-emitted (set (map second @logz))]
+        (is (nil? (log-levels-emitted :info)))))))
