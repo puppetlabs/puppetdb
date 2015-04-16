@@ -15,9 +15,9 @@
            (s/trim out)
            "0.0-dev-build"))))))
 
-(def tk-version "1.1.0")
-(def tk-jetty9-version "1.3.0")
-(def ks-version "1.0.0")
+(def tk-version "1.1.1")
+(def tk-jetty9-version "1.3.1")
+(def ks-version "1.1.0")
 
 (defproject puppetdb (version-string)
   :description "Puppet-integrated catalog and fact storage"
@@ -70,7 +70,6 @@
                  [puppetlabs/trapperkeeper ~tk-version]
                  [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]
                  [prismatic/schema "0.4.0"]
-                 [prismatic/plumbing "0.4.2"]
                  [org.clojure/tools.macro "0.1.5"]
                  [com.novemberain/pantomime "2.1.0"]
                  [fast-zip-visit "1.0.2"]
