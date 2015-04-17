@@ -4,7 +4,8 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq]]
-            [puppetlabs.puppetdb.version :as version]))
+            [puppetlabs.puppetdb.version :as version]
+            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]))
 
 (use-fixtures :each fixt/with-test-db fixt/with-test-mq fixt/with-http-app)
 
@@ -59,3 +60,13 @@
              false "newer"
              "99.0.0" "version"
              nil "link")))))
+
+(deftestseq test-latest-version
+  [[version endpoint] endpoints]
+
+  (testing "shouldn't log HTTP errors hitting update server at INFO"
+    (with-log-output logz
+      (let [response (app-with-update-server {:update-server "http://known.invalid.domain"}
+                                             (get-request (str endpoint "/latest")))
+            log-levels-emitted (set (map second @logz))]
+        (is (nil? (log-levels-emitted :info)))))))

@@ -2,7 +2,6 @@
   (:require [puppetlabs.puppetdb.time :as pl-time]
             [clj-time.core :as time]
             [schema.core :as s]
-            [schema.macros :as sm]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.coerce :as sc]
             [schema.utils :as su]
@@ -21,7 +20,7 @@
 (defmacro defn-validated
   [fn-name & forms]
   (let [fn-name (vary-meta fn-name assoc :always-validate true)]
-    `(sm/defn ~fn-name ~@forms)))
+    `(s/defn ~fn-name ~@forms)))
 
 (defn defaulted-maybe
   "Create a new defaulted with `default` being used instead of `schema`. Defaulted

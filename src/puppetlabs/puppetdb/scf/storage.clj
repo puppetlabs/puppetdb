@@ -34,7 +34,6 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.scf.hash-debug :as hashdbg]
             [schema.core :as s]
-            [schema.macros :as sm]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [clj-time.core :refer [ago secs now before?]]
@@ -472,7 +471,7 @@
     (doseq [{:keys [type title]} refs-to-delete]
       (sql/delete-rows :catalog_resources ["catalog_id = ? and type = ? and title = ?" catalog-id type title]))))
 
-(sm/defn basic-diff
+(s/defn basic-diff
   "Basic diffing that returns only the keys/values of `right` whose values don't match those of `left`.
    This is different from clojure.data/diff in that it treats non-equal sets as completely different
    (rather than returning only the differing items of the set) and only returns differences from `right`."
@@ -484,7 +483,7 @@
                    (assoc acc k right-value))))
              {} right))
 
-(sm/defn diff-resources-metadata
+(s/defn diff-resources-metadata
   "Return resource references with values that are only the key/values that from `right` that
    are different from those of the `left`. The keys/values here are suitable for issuing update
    statements that will update resources to the correct (new) values."

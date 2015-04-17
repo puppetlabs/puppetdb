@@ -9,9 +9,9 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def tk-version "1.1.0")
-(def tk-jetty9-version "1.3.0")
-(def ks-version "1.0.0")
+(def tk-version "1.1.1")
+(def tk-jetty9-version "1.3.1")
+(def ks-version "1.1.0")
 
 (defproject puppetlabs/puppetdb pdb-version
   :description "Puppet-integrated catalog and fact storage"
@@ -71,7 +71,7 @@
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
                  [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]
-                 [prismatic/schema "0.2.6"]
+                 [prismatic/schema "0.4.0"]
                  [org.clojure/tools.macro "0.1.5"]
                  [com.novemberain/pantomime "2.1.0"]
                  [fast-zip-visit "1.0.2"]

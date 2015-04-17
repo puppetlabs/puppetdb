@@ -56,6 +56,7 @@
         query-string           (ring-codec/form-encode version-data)
         url                    (format "%s?product=puppetdb&%s" update-server query-string)
         {:keys [status body]}  (client/get url {:throw-exceptions false
+                                                :retry-handler    (constantly false)
                                                 :accept           :json})]
     (when (= status 200)
       (json/parse-string body true))))
