@@ -994,6 +994,11 @@ EOS
       conf['master'] = {
         'pidfile' => pidfile,
       }
+      if options[:type] == 'aio' then
+        hostname = fact_on(host, "hostname")
+        fqdn = fact_on(host, "fqdn")
+        conf['master']['dns_alt_names']="puppet,#{hostname},#{fqdn},#{host.hostname}"
+      end
       create_remote_file host, puppetconf, conf.to_s
     end
   end
