@@ -55,7 +55,7 @@ module Puppet::Util::Puppetdb
 
   # Submit a command to PuppetDB.
   #
-  # @param certname [String] hostname name of puppetdb instance
+  # @param certname [String] The certname this command operates on
   # @param payload [String] payload
   # @param command_name [String] name of command
   # @param version [Number] version number of command

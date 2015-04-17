@@ -7,6 +7,7 @@ canonical: "/puppetdb/latest/api/commands.html"
 [factsv4]: ./wire_format/facts_format_v4.html
 [catalogv6]: ./wire_format/catalog_format_v6.html
 [reportv5]: ./wire_format/report_format_v5.html
+[deactivatev3]: ./wire_format/deactivate_node_format_v3.html
 
 Commands are used to change PuppetDB's
 model of a population. Commands are represented by `command objects`,
@@ -88,11 +89,14 @@ or missing fields are an error.
 See [fact wire format v4][factsv4] for more information on the
 payload of this command.
 
-### "deactivate node", version 2
+### "deactivate node", version 3
 
-The payload is expected to be the certname of a node, as a raw JSON
-string, which will be deactivated effective as of the time the command
-is *processed*.
+* Previous versions of deactivate node required only the certname, as a raw JSON
+  string. It is now formatted as a JSON map, and the `producer_timestamp`
+  property has been added.
+
+See [deactivate node wire format v3][deactivatev3] for more information on the
+payload of this command.
 
 ### "store report", version 5
 

@@ -1180,20 +1180,30 @@
 (pls/defn-validated deactivate-node!
   "Deactivate the given host, recording the current time. If the node is
   currently inactive, no change is made."
-  [certname :- String]
-  (sql/do-prepared "UPDATE certnames SET deactivated = ?
+  [certname :- String & [timestamp :- pls/Timestamp]]
+  (let [timestamp (to-timestamp (or timestamp (now)))]
+   (sql/do-prepared "UPDATE certnames SET deactivated = ?
                     WHERE certname=? AND deactivated IS NULL"
-                   [(to-timestamp (now)) certname]))
+                    [timestamp certname])))
 
-
-(defn- timestamp-of-newest-record [entity certname]
-  (let [query {:select [:timestamp]
+(defn- timestamp-of-newest-record [entity certname time-field]
+  (let [query {:select [time-field]
                :from [entity]
                :where [:= :certname certname]
-               :order-by [[:timestamp :desc]]
+               :order-by [[time-field :desc]]
                :limit 1}]
     (sql/with-query-results result-set (hcore/format query)
-      (:timestamp (first result-set)))))
+      (time-field (first result-set)))))
+
+(pls/defn-validated have-record-produced-after?
+  [entity :- s/Keyword
+   certname :- String
+   time :- pls/Timestamp]
+  (let [time (to-timestamp time)
+        time-field (if (= entity :reports) :start_time :producer_timestamp)]
+    (if-let [db-timestamp (timestamp-of-newest-record entity certname time-field)]
+      (.after db-timestamp time)
+      false)))
 
 (pls/defn-validated catalog-newer-than?
   "Returns true if the most current catalog for `certname` is more recent than
@@ -1201,7 +1211,7 @@
   [certname :- String
    time :- pls/Timestamp]
   (let [time (to-timestamp time)]
-    (if-let [db-timestamp (timestamp-of-newest-record :catalogs certname)]
+    (if-let [db-timestamp (timestamp-of-newest-record :catalogs certname :timestamp)]
       (.after db-timestamp time)
       false)))
 

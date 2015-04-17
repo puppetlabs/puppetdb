@@ -15,9 +15,10 @@ describe Puppet::Node::Puppetdb do
   end
 
   let(:node) { "something.example.com" }
+  let(:producer_timestamp) { Time.now.iso8601(5) }
 
   def destroy
-    Puppet::Node.indirection.destroy(node)
+    Puppet::Node.indirection.destroy(node, {:producer_timestamp => producer_timestamp})
   end
 
   describe "#destroy" do
@@ -27,13 +28,14 @@ describe Puppet::Node::Puppetdb do
       Puppet::Network::HttpPool.expects(:http_instance).returns http
     end
 
-    it "should POST a '#{CommandDeactivateNode}' command as a URL-encoded JSON string" do
+    it "should POST a '#{CommandDeactivateNode}' command" do
       response.stubs(:body).returns '{"uuid": "a UUID"}'
 
       payload = {
         :command => CommandDeactivateNode,
-        :version => 2,
-        :payload => node,
+        :version => 3,
+        :payload => { :certname => node,
+                      :producer_timestamp => producer_timestamp },
       }.to_json
 
       http.expects(:post).with do |uri,body,headers|
