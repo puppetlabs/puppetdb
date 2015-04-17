@@ -8,7 +8,7 @@
 (def pe-pdb-version "0.1.0-SNAPSHOT")
 (def pdb-version "3.0.0-SNAPSHOT")
 
-(def tk-version "1.1.0")
+(def tk-version "1.1.1")
 (def ks-version "1.0.0")
 
 (defproject puppetlabs/pe-puppetdb-extensions pe-pdb-version
