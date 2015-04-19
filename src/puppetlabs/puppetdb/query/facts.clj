@@ -4,6 +4,7 @@
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.paging :as paging]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]))
@@ -51,7 +52,7 @@
 (defn munge-path-result-rows
   [_ _ _ _]
   (fn [rows]
-     (map #(update-in % [:path] facts/string-to-factpath) rows)))
+     (map #(utils/update-when % [:path] facts/string-to-factpath) rows)))
 
 ;; QUERY
 

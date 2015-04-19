@@ -23,7 +23,7 @@
 ;;; Plan - functions/transformations of the internal query plan
 
 (defrecord Query [projections selection source-table alias where
-                  subquery? entity late-project?])
+                  subquery? entity])
 (defrecord BinaryExpression [operator column value])
 (defrecord RegexExpression [column value])
 (defrecord ArrayRegexExpression [table alias column value])
@@ -161,7 +161,8 @@
                                      :field :fp.name}
                              "type" {:type  :string
                                      :queryable? false
-                                     :field :vt.type}}
+                                     :field :vt.type
+                                     :must-have? true}}
 
                :selection {:from [[:factsets :fs]]
                            :join [[:facts :f]
@@ -182,8 +183,7 @@
                :alias "facts"
                :source-table "facts"
                :entity :facts
-               :subquery? false
-               :late-project? true}))
+               :subquery? false}))
 
 (def fact-contents-query
   "Query for fact nodes"
@@ -211,7 +211,8 @@
                                             :field :fv.value_float}
                              "type" {:type :string
                                      :queryable? false
-                                     :field :vt.type}}
+                                     :field :vt.type
+                                     :must-have? true}}
 
                :selection {:from [[:factsets :fs]]
                            :join [[:facts :f]
@@ -231,8 +232,7 @@
 
                :alias "fact_nodes"
                :source-table "facts"
-               :subquery? false
-               :late-project? true}))
+               :subquery? false}))
 
 (def reports-query
   "Query for the reports entity"
@@ -941,8 +941,9 @@
   (if (or (nil? expr)
           (not (subquery-expression? expr)))
     (let [qr (assoc query-rec :where (user-node->plan-node query-rec expr))]
-      (if (:late-project? query-rec)
-        (assoc qr :late-projected-fields column-list)
+      (if-let [must-haves (seq (keys (filter (comp :must-have? val) (:projections query-rec))))]
+        (let [early-projects (distinct (concat must-haves column-list))]
+          (assoc qr :projected-fields early-projects :late-projected-fields column-list))
         (assoc qr :projected-fields column-list)))
     (let [[subquery-name & subquery-expression] expr]
       (assoc (user-query->logical-obj subquery-name)

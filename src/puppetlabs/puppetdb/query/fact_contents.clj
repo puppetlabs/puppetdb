@@ -2,6 +2,7 @@
   (:require [puppetlabs.puppetdb.facts :as f]
             [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]))
 
 (def row-schema
@@ -24,11 +25,10 @@
 (pls/defn-validated munge-result-row :- converted-row-schema
   "Coerce the value of a row to the proper type, and convert the path back to
    an array structure."
-  [row :- row-schema]
+  [{:keys [value_integer value_float type] :as row} :- row-schema]
   (-> row
-      (update-in [:value] #(or (:value_integer row) (:value_float row)
-                               (f/unstringify-value (:type row) %)))
-      (update-in [:path] f/string-to-factpath)
+      (utils/update-when [:value] #(or value_integer value_float (f/unstringify-value type %)))
+      (utils/update-when [:path] f/string-to-factpath)
       (dissoc :type :value_integer :value_float)))
 
 (pls/defn-validated munge-result-rows
