@@ -1,8 +1,8 @@
 AMI:
   el-7-x86_64-west:
     :image:
-      :pe: ami-bd420e8d
-      :foss: ami-bd420e8d
+      :pe: ami-d5c2e8e5
+      :foss: ami-d5c2e8e5
     :region: us-west-2
 
   el-6-x86_64-west:
