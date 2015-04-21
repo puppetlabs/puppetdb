@@ -37,6 +37,32 @@ EC2 build with packages on Debian 6:
     PUPPETDB_EXPECTED_DEB_VERSION="1.3.3.73-1puppetlabs1" \
     rake beaker:acceptance
 
+Note that the tests currently depend on the Puppet Labs internal
+lein-ezbake project, so running them requires either access to the
+Puppet Labs VPN during the test run, or a local copy of lein-ezbake.
+For the latter, run these commands once, while connected to the VPN:
+
+    repo='http://nexus.delivery.puppetlabs.net/content/repositories/releases/'
+    mvn org.apache.maven.plugins:maven-dependency-plugin:2.7:get \
+      -Dtransitive=false \
+      -DrepoUrl="$repo" \
+      -Dartifact=puppetlabs:lein-ezbake:0.2.2 \
+      -Ddest=lein-ezbake-0.2.2.jar
+    mvn org.apache.maven.plugins:maven-dependency-plugin:2.7:get \
+      -Dtransitive=false \
+      -DrepoUrl="$repo" \
+      -Dartifact=puppetlabs:lein-ezbake:0.2.2:pom \
+      -Ddest=lein-ezbake-0.2.2.pom
+
+And then this before every beaker:acceptance invocation:
+
+    mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file \
+      -DpomFile=lein-ezbake-0.2.2.pom \
+      -Dfile=lein-ezbake-0.2.2.jar \
+      -DlocalRepositoryPath=tmp/m2-local
+
+You can find the required version of ezbake in project.clj.
+
 ## How to set options
 
 ## PuppetDB Specific Options
