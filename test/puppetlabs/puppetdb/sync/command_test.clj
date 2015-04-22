@@ -91,20 +91,32 @@
   `(with-redefs [puppetlabs.puppetdb.cli.services/mq-endpoint ~mq-name]
      (do ~@body)))
 
-(deftest two-instance-test
-  (svcs/without-jmx
-   (with-alt-mq "puppetlabs.puppetdb.commands-1"
-     (let [config-1 (utils/sync-config)
-           config-2 (utils/sync-config)]
-       (with-puppetdb-instance config-1
-         (let [report (tur/munge-example-report-for-storage (:basic reports))]
-           (pdb-client/submit-command-via-http! (utils/pdb-url) "store report" 5 report)
-           @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report)))
+(defmacro muting-amq-shutdown-log-noise [& body]
+  `(binding [svcs/*extra-appender-config* [:filter {:class "ch.qos.logback.core.filter.EvaluatorFilter"}
+                                          [:evaluator
+                                           [:expression (str "String m = throwable.getMessage(); "
+                                                             "return javax.jms.JMSException.class.isInstance(throwable) && "
+                                                             "  m.contains(\"peer\") && "
+                                                             "  m.contains(\"stopped\"); ")]]
+                                          [:OnMatch "DENY"]
+                                          [:OnMismatch "NEUTRAL"]]]
+     ~@body))
 
-           (with-alt-mq "puppetlabs.puppetdb.commands-2"
-             (with-puppetdb-instance config-2
-               (pdb-client/submit-command-via-http! (utils/pdb-url) "store report" 5 report)
-               @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report)))))))))))
+(deftest two-instance-test
+  (muting-amq-shutdown-log-noise
+   (svcs/without-jmx
+    (with-alt-mq "puppetlabs.puppetdb.commands-1"
+      (let [config-1 (utils/sync-config)
+            config-2 (utils/sync-config)]
+        (with-puppetdb-instance config-1
+          (let [report (tur/munge-example-report-for-storage (:basic reports))]
+            (pdb-client/submit-command-via-http! (utils/pdb-url) "store report" 5 report)
+            @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report)))
+
+            (with-alt-mq "puppetlabs.puppetdb.commands-2"
+              (with-puppetdb-instance config-2
+                (pdb-client/submit-command-via-http! (utils/pdb-url) "store report" 5 report)
+                @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report))))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Pull changes tests
@@ -261,9 +273,21 @@
         (is (= #{"DEV" "A" "E" "F"} environments))
         (is (= 4 (count @pdb-x-queries)))))))
 
+(def catalog (get-in wire-catalogs [6 :basic]))
+
+;;  the catalogs we get as http responses have flattened edge definitions
+(def catalog-response
+  (update-in catalog [:edges]
+             #(map (fn [edge] {:relationship (:relationship edge)
+                               :source_type (get-in edge [:source :type])
+                               :source_title (get-in edge [:source :title])
+                               :target_type (get-in edge [:target :type])
+                               :target_title (get-in edge [:target :title])})
+                   %)))
+
+
 (deftest pull-catalogs-test
-  (let [catalog (get-in wire-catalogs [6 :basic])
-        pdb-x-queries (atom [])
+  (let [pdb-x-queries (atom [])
         stub-data-atom (atom [])
         stub-handler (logging-query-handler "/pdb-x/v4/catalogs" pdb-x-queries stub-data-atom :certname)]
 
@@ -282,36 +306,36 @@
                  {:certname "a.local"
                   :hash "a_ different"
                   :producer_timestamp (t/plus (timestamps "a.local") (t/days 1))
-                  :content (assoc catalog
+                  :content (assoc catalog-response
                                   :certname "a.local"
                                   :environment "A")}
                  ;; time is older than local, hash is different -> no pull
                  {:certname "b.local"
                   :hash "different"
                   :producer_timestamp (t/minus (timestamps "b.local") (t/days 1))
-                  :content (assoc catalog :certname "b.local")}
+                  :content (assoc catalog-response :certname "b.local")}
                  ;; time is the same, hash is the same -> no pull
                  {:certname "c.local"
                   :hash (-> local-catalogs (get "c.local") :hash)
                   :producer_timestamp (timestamps "c.local")
-                  :content (assoc catalog :certname "c.local")}
+                  :content (assoc catalog-response :certname "c.local")}
                  ;; time is the same, hash is lexically less -> no pull
                  {:certname "d.local"
                   :hash "0000000000000000000000000000000000000000"
                   :producer_timestamp (timestamps "d.local")
-                  :content (assoc catalog :certname "d.local")}
+                  :content (assoc catalog-response :certname "d.local")}
                  ;; time is the same, hash is lexically greater -> should pull
                  {:certname "e.local"
                   :hash "ffffffffffffffffffffffffffffffffffffffff"
                   :producer_timestamp (timestamps "e.local")
-                  :content (assoc catalog
+                  :content (assoc catalog-response
                                   :certname "e.local"
                                   :environment "E")}
                  ;; timer is newer than local, hash is the same -> should pull
                  {:certname "f.local"
                   :hash (-> local-catalogs (get "f.local") :hash)
                   :producer_timestamp (t/plus (timestamps "f.local") (t/days 1))
-                  :content (assoc catalog
+                  :content (assoc catalog-response
                                   :certname "f.local"
                                   :environment "F")}])
 
@@ -324,13 +348,13 @@
         (is (= #{"DEV" "A" "E" "F"} environments))
         (is (= 4 (count @pdb-x-queries)))))))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; End to end tests
 
 (defn- with-n-pdbs
-  ([n f] (svcs/without-jmx
-          (with-n-pdbs n f [])))
+  ([n f] (muting-amq-shutdown-log-noise
+          (svcs/without-jmx
+           (with-n-pdbs n f []))))
   ([n f pdb-infos]
    (if (= n (count pdb-infos))
      (apply f pdb-infos)
@@ -362,3 +386,50 @@
 
           (is (= (export/reports-for-node (:service-url pdb1) (:certname report))
                  (export/reports-for-node (:service-url pdb2) (:certname report)))))))))
+
+(defn get-factset [base-url certname]
+  (first (get-json base-url "/factsets"
+                   {:query-params {:query (json/generate-string [:= :certname certname])}})))
+
+(defn without-timestamp [record]
+  (dissoc record :timestamp))
+
+(deftest end-to-end-factset-replication
+  (with-n-pdbs 2
+    (fn [pdb1 pdb2]
+      (with-alt-mq (:mq-name pdb1)
+        (pdb-client/submit-command-via-http! (:service-url pdb1) "replace facts" 4 facts)
+        @(rt/block-until-results 100 (get-factset (:service-url pdb1) (:certname facts))))
+
+      (with-alt-mq (:mq-name pdb2)
+        ;; pdb2 pulls data from pdb1
+        (trigger-sync (base-url->str (:service-url pdb1))
+                      (str (base-url->str (:sync-url pdb2)) "/trigger-sync"))
+
+        ;; let pdb2 chew on its queue
+        @(rt/block-until-results 200 (get-factset (:service-url pdb2) (:certname facts)))
+
+        (is (= (without-timestamp (get-factset (:service-url pdb1) (:certname facts)))
+               (without-timestamp (get-factset (:service-url pdb2) (:certname facts)))))))))
+
+(defn get-catalog [base-url certname]
+  (first (get-json base-url "/catalogs"
+                   {:query-params {:query (json/generate-string [:= :certname certname])}})))
+
+(deftest end-to-end-catalog-replication
+  (with-n-pdbs 2
+    (fn [pdb1 pdb2]
+      (with-alt-mq (:mq-name pdb1)
+        (pdb-client/submit-command-via-http! (:service-url pdb1) "replace catalog" 6 catalog)
+        @(rt/block-until-results 100 (get-catalog (:service-url pdb1) (:certname catalog))))
+
+      (with-alt-mq (:mq-name pdb2)
+        ;; pdb2 pulls data from pdb1
+        (trigger-sync (base-url->str (:service-url pdb1))
+                      (str (base-url->str (:sync-url pdb2)) "/trigger-sync"))
+
+        ;; let pdb2 chew on its queue
+        @(rt/block-until-results 200 (get-catalog (:service-url pdb2) (:certname catalog)))
+
+        (is (= (without-timestamp (get-catalog (:service-url pdb1) (:certname catalog)))
+               (without-timestamp (get-catalog (:service-url pdb2) (:certname catalog)))))))))
