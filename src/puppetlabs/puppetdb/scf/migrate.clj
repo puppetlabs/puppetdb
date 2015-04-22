@@ -53,7 +53,7 @@
             [puppetlabs.puppetdb.scf.migration-legacy :as legacy]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [clj-time.core :refer [now]]
@@ -115,7 +115,7 @@
                     ["resource" "VARCHAR(40)"]
                     ["type" "TEXT" "NOT NULL"]
                     ["title" "TEXT" "NOT NULL"]
-                    ["tags" (scf-utils/sql-array-type-string "TEXT") "NOT NULL"]
+                    ["tags" (sutils/sql-array-type-string "TEXT") "NOT NULL"]
                     ["exported" "BOOLEAN" "NOT NULL"]
                     ["sourcefile" "TEXT"]
                     ["sourceline" "INT"]
@@ -214,7 +214,7 @@
    "CREATE INDEX idx_catalog_resources_catalog ON catalog_resources(catalog)"
    "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources(type,title)")
 
-  (when (scf-utils/postgres?)
+  (when (sutils/postgres?)
     (sql/do-commands
      "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)")))
 
@@ -236,7 +236,7 @@
   "Renames the `fact` column on `certname_facts` to `name`, for consistency."
   []
   (sql/do-commands
-   (if (scf-utils/postgres?)
+   (if (sutils/postgres?)
      "ALTER TABLE certname_facts RENAME COLUMN fact TO name"
      "ALTER TABLE certname_facts ALTER COLUMN fact RENAME TO name")
    "ALTER INDEX idx_certname_facts_fact RENAME TO idx_certname_facts_name"))
@@ -343,12 +343,12 @@
   encountered some version strings that are longer than 40 chars."
   []
   (sql/do-commands
-   (condp = (scf-utils/sql-current-connection-database-name)
+   (condp = (sutils/sql-current-connection-database-name)
      "PostgreSQL" "ALTER TABLE reports ALTER puppet_version TYPE VARCHAR(255)"
      "HSQL Database Engine" "ALTER TABLE reports ALTER puppet_version VARCHAR(255)"
      (throw (IllegalArgumentException.
              (format "Unsupported database engine '%s'"
-                     (scf-utils/sql-current-connection-database-name)))))))
+                     (sutils/sql-current-connection-database-name)))))))
 
 (defn burgundy-schema-changes
   "Schema changes for the initial release of Burgundy. These include:
@@ -364,7 +364,7 @@
    "ALTER TABLE resource_events ADD COLUMN file VARCHAR(1024) DEFAULT NULL"
    "ALTER TABLE resource_events ADD COLUMN line INTEGER DEFAULT NULL")
   (sql/do-commands
-   (format "ALTER TABLE resource_events ADD containment_path %s" (scf-utils/sql-array-type-string "TEXT"))
+   (format "ALTER TABLE resource_events ADD containment_path %s" (sutils/sql-array-type-string "TEXT"))
    "ALTER TABLE resource_events ADD containing_class VARCHAR(255)"
    "CREATE INDEX idx_resource_events_containing_class ON resource_events(containing_class)"
    "CREATE INDEX idx_resource_events_property ON resource_events(property)")
@@ -376,10 +376,10 @@
    "ALTER TABLE catalogs ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
    "CREATE INDEX idx_catalogs_transaction_uuid ON catalogs(transaction_uuid)")
   (sql/do-commands
-   (if (scf-utils/postgres?)
+   (if (sutils/postgres?)
      "ALTER TABLE catalog_resources RENAME COLUMN sourcefile TO file"
      "ALTER TABLE catalog_resources ALTER COLUMN sourcefile RENAME TO file")
-   (if (scf-utils/postgres?)
+   (if (sutils/postgres?)
      "ALTER TABLE catalog_resources RENAME COLUMN sourceline TO line"
      "ALTER TABLE catalog_resources ALTER COLUMN sourceline RENAME TO line")))
 
@@ -462,7 +462,7 @@
       resource character varying(40) NOT NULL,
       type text NOT NULL,
       title text NOT NULL,
-      tags " (scf-utils/sql-array-type-string "TEXT") " NOT NULL,
+      tags " (sutils/sql-array-type-string "TEXT") " NOT NULL,
       exported boolean NOT NULL,
       file text,
       line integer)")
@@ -488,7 +488,7 @@
    ;; catalogs: Add constraints to new catalogs table
    ;;   hsqldb automatically creates the primary key when we created the table
    ;;   with a bigserial so its only needed for pgsql.
-   (if (scf-utils/postgres?)
+   (if (sutils/postgres?)
      "ALTER TABLE catalogs
         ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)"
      "select 1")
@@ -549,7 +549,7 @@
   since the more common value is false its not useful to index this."
   []
   (sql/do-commands
-   (if (scf-utils/postgres?)
+   (if (sutils/postgres?)
      "CREATE INDEX idx_catalog_resources_exported_true
          ON catalog_resources (exported) WHERE exported = true"
      "CREATE INDEX idx_catalog_resources_exported
@@ -627,7 +627,7 @@
             ;;Rename catalogs_transform to catalogs, replace constraints
             "ALTER TABLE catalogs_transform RENAME to catalogs"
 
-            (when (scf-utils/postgres?)
+            (when (sutils/postgres?)
               "ALTER TABLE catalogs
                ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)")
 
@@ -653,7 +653,7 @@
             "ALTER TABLE catalog_resources ADD CONSTRAINT catalog_resources_pkey PRIMARY KEY (catalog_id, type, title)"])))
 
 (defn reset-catalog-sequence-to-latest-id []
-  (scf-utils/fix-identity-sequence "catalogs" "id"))
+  (sutils/fix-identity-sequence "catalogs" "id"))
 
 (defn add-environments []
   (sql/create-table :environments
@@ -664,7 +664,7 @@
 
    "ALTER TABLE catalogs ADD environment_id integer"
 
-   (if (scf-utils/postgres?)
+   (if (sutils/postgres?)
      "ALTER TABLE catalogs ALTER COLUMN api_version DROP NOT NULL"
      "ALTER TABLE catalogs ALTER COLUMN api_version SET NULL")
 
@@ -855,7 +855,7 @@
   (sql/delete-rows :fact_paths
                    ["ID NOT IN (SELECT path_id FROM fact_values)"])
 
-  (when (scf-utils/postgres?)
+  (when (sutils/postgres?)
     (sql/do-commands
 
      "ALTER TABLE fact_values DROP CONSTRAINT fact_values_path_id_fk"
@@ -877,160 +877,10 @@
   "This drops the fact_values_string_trgm index so that it can be recreated
   as a GIN index."
   []
-  (when (and (scf-utils/postgres?)
-             (scf-utils/index-exists? "fact_values_string_trgm"))
+  (when (and (sutils/postgres?)
+             (sutils/index-exists? "fact_values_string_trgm"))
     (sql/do-commands
       "DROP INDEX fact_values_string_trgm")))
-
-(defn insert-factset-hash-column
-  "Insert a column in factsets to be populated by a hash."
-  []
-  (sql/do-commands
-    "ALTER TABLE factsets ADD hash VARCHAR(40)"
-    "ALTER TABLE factsets ADD CONSTRAINT factsets_hash_key UNIQUE (hash)"))
-
-(defn migrate-to-report-id-and-noop-column-and-drop-latest-reports
-  "Migrate to report id and
-   insert a column in reports to be populated by boolean noop flag"
-  []
-    (sql/do-commands
-     "CREATE SEQUENCE reports_id_seq CYCLE")
-
-    (sql/create-table :reports_transform
-                      ["id"                    "bigint NOT NULL DEFAULT nextval('reports_id_seq')"]
-                      ["hash"                  "varchar(40) NOT NULL"]
-                      ["certname"              "text NOT NULL"]
-                      ["puppet_version"        "varchar(255) NOT NULL"]
-                      ["report_format"         "smallint NOT NULL"]
-                      ["configuration_version" "varchar(255) NOT NULL"]
-                      ["start_time"            "timestamp with time zone NOT NULL"]
-                      ["end_time"              "timestamp with time zone NOT NULL"]
-                      ["receive_time"          "timestamp with time zone NOT NULL"]
-                      ["transaction_uuid"      "varchar(255) DEFAULT NULL"]
-                      ["noop"                  "boolean"]
-                      ["environment_id"        "bigint"]
-                      ["status_id"             "bigint"])
-
-    (sql/create-table :resource_events_transform
-                      ["report_id"        "bigint NOT NULL"]
-                      ["status"           "varchar(40) NOT NULL"]
-                      ["timestamp"        "timestamp with time zone NOT NULL"]
-                      ["resource_type"    "text NOT NULL"]
-                      ["resource_title"   "text NOT NULL"]
-                      ["property"         "varchar (40)"]
-                      ["new_value"        "text"]
-                      ["old_value"        "text"]
-                      ["message"          "text"]
-                      ["file"             "varchar(1024) DEFAULT NULL"]
-                      ["line"             "integer"]
-                      ["containment_path" (scf-utils/sql-array-type-string "TEXT")]
-                      ["containing_class" "varchar(255)"])
-
-    (sql/create-table :certnames_transform
-                      ["name"  "text NOT NULL"]
-                      ["latest_report_id" "bigint"]
-                      ["deactivated" "timestamp with time zone"])
-
-    (sql/do-commands
-     "INSERT INTO reports_transform (
-       hash, certname, puppet_version, report_format, configuration_version,
-       start_time, end_time, receive_time, transaction_uuid, environment_id,
-       status_id)
-       SELECT hash, certname, puppet_version, report_format,
-         configuration_version, start_time, end_time, receive_time,
-         transaction_uuid, environment_id, status_id
-         FROM reports")
-
-    (sql/do-commands
-     "ALTER TABLE reports_transform
-       ADD CONSTRAINT reports_hash_key UNIQUE (hash)")
-
-    (sql/do-commands
-     "INSERT INTO resource_events_transform (
-        report_id, status, timestamp, resource_type, resource_title, property,
-        new_value, old_value, message, file, line, containment_path,
-        containing_class)
-        SELECT rt.id, status, timestamp, resource_type, resource_title,
-          property, new_value, old_value, message, file, line, containment_path,
-          containing_class
-          FROM resource_events AS re
-          INNER JOIN reports_transform rt on re.report = rt.hash")
-
-    (sql/do-commands
-
-      "INSERT INTO certnames_transform(name,latest_report_id,deactivated)
-       SELECT c.name, rt.id as latest_report_id, c.deactivated FROM
-       certnames c left outer join latest_reports lr on c.name=lr.certname
-       left outer join reports_transform rt on lr.report=rt.hash"
-
-      "ALTER TABLE edges DROP CONSTRAINT edges_certname_fkey"
-      "ALTER TABLE catalogs DROP CONSTRAINT catalogs_certname_fkey"
-      "ALTER TABLE factsets DROP CONSTRAINT factsets_certname_fk"
-
-      "DROP TABLE latest_reports"
-      "DROP TABLE certnames CASCADE"
-      "ALTER TABLE certnames_transform RENAME TO certnames")
-
-    (sql/do-commands
-     "DROP TABLE resource_events"
-     "DROP TABLE reports")
-
-    (sql/do-commands
-     "ALTER TABLE resource_events_transform RENAME to resource_events"
-     "ALTER TABLE reports_transform RENAME to reports")
-
-    (sql/do-commands
-     "ALTER TABLE reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id)"
-     "CREATE INDEX reports_certname_idx ON reports(certname)"
-     "CREATE INDEX reports_end_time_idx ON reports(end_time)"
-     "CREATE INDEX reports_environment_id_idx ON reports(environment_id)"
-     "CREATE INDEX reports_status_id_idx ON reports(status_id)"
-     "CREATE INDEX reports_transaction_uuid_idx ON reports(transaction_uuid)"
-     "ALTER TABLE reports ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"
-     "ALTER TABLE reports ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE")
-
-    (sql/do-commands
-     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"
-     "CREATE INDEX resource_events_containing_class_idx ON resource_events(containing_class)"
-     "CREATE INDEX resource_events_property_idx ON resource_events(property)"
-     "CREATE INDEX resource_events_reports_id_idx ON resource_events(report_id)"
-     "CREATE INDEX resource_events_resource_type_idx ON resource_events(resource_type)"
-     "CREATE INDEX resource_events_resource_title_idx ON resource_events(resource_title)"
-     "CREATE INDEX resource_events_status_idx ON resource_events(status)"
-     "CREATE INDEX resource_events_timestamp_idx ON resource_events(timestamp)"
-     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE")
-
-    (sql/do-commands
-      "ALTER TABLE certnames ADD CONSTRAINT certnames_pkey PRIMARY KEY (name)"
-      "CREATE INDEX certnames_latest_report_id_idx ON certnames(latest_report_id)"
-      "ALTER TABLE edges ADD CONSTRAINT edges_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON UPDATE NO ACTION ON DELETE CASCADE"
-      "ALTER TABLE catalogs ADD CONSTRAINT catalogs_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON UPDATE NO ACTION ON DELETE CASCADE"
-      "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_fk FOREIGN KEY (certname) REFERENCES certnames(name) ON UPDATE CASCADE ON DELETE CASCADE"
-      "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON DELETE CASCADE")
-
-    (when (scf-utils/postgres?)
-      (sql/do-commands
-        "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL")))
-
-(defn change-name-to-certname
-  "Rename the 'name' column of certnames to 'certname'."
-  []
-  (sql/do-commands
-   (if (scf-utils/postgres?)
-     "ALTER TABLE certnames RENAME COLUMN name TO certname"
-     "ALTER TABLE certnames ALTER COLUMN name RENAME TO certname")))
-
-(defn insert-report-metrics-and-logs
-  "Insert columns in reports to be populated by metrics and logs.
-  Text for hsql, JSON for postgres."
-  []
-  (if (scf-utils/postgres?)
-    (sql/do-commands
-      "ALTER TABLE reports ADD metrics json"
-      "ALTER TABLE reports ADD logs json")
-    (sql/do-commands
-      "ALTER TABLE reports ADD metrics text"
-      "ALTER TABLE reports ADD logs text")))
 
 (defn lift-fact-paths-into-facts
   "Pairs paths and values directly in facts, i.e. change facts from (id
@@ -1113,7 +963,7 @@
    "CREATE INDEX facts_fact_path_id_idx ON facts(fact_path_id)"
    "CREATE INDEX facts_fact_value_id_idx ON facts(fact_value_id)"
 
-   (if (scf-utils/postgres?) "ANALYZE facts" "SELECT 1")
+   (if (sutils/postgres?) "ANALYZE facts" "SELECT 1")
 
    ;; These are for the more pedantic HSQLDB.
    "ALTER TABLE fact_paths DROP CONSTRAINT fact_paths_path_type_id_key"
@@ -1124,17 +974,327 @@
    "ALTER TABLE fact_paths DROP COLUMN value_type_id"
    "ALTER TABLE fact_values DROP COLUMN path_id"))
 
-(defn fill-in-null-producer-timestamp
-  "The producer_timestamp column can sometimes contain null values,
-  especially when updating from older versions. New use cases require
-  a value in that position, so we'll use the value from the
-  'timestamp' column if it's not there. "
+(defn version-2yz-to-300-migration
+  ;; This migration includes:
+  ;;   Insertion of the factsets hash column
+  ;;   Using a report_id (surrogate key) instead of the reports.hash (natural key)
+  ;;   Insert a noop column into reports
+  ;;   Drop latest_report table, merge with certnames
+  ;;   Change name to certname where inconsistent
+  ;;   Insert reports metrics and logs
+  ;;   Ensuring producer_timestamp is NOT NULL
+  ;;   Changing the types of hashes and uuids in postgres to bytea and uuid respectively
   []
-  (sql/do-commands
-   "UPDATE catalogs SET producer_timestamp=timestamp WHERE producer_timestamp IS NULL"
-   "UPDATE factsets SET producer_timestamp=timestamp WHERE producer_timestamp IS NULL"
-   "ALTER TABLE catalogs ALTER COLUMN producer_timestamp SET NOT NULL"
-   "ALTER TABLE factsets ALTER COLUMN producer_timestamp SET NOT NULL"))
+  (let [hash-type (if (sutils/postgres?) "bytea" "varchar(40)")
+        uuid-type (if (sutils/postgres?) "uuid" "varchar(255)")
+        json-type (if (sutils/postgres?) "json" "text")
+        munge-hash (if (sutils/postgres?) (fn [column] (format "('\\x' || %s)::bytea" column)) identity)
+        munge-uuid (if (sutils/postgres?) (fn [column] (format "%s::uuid" column)) identity)]
+
+    (sql/do-commands
+      "UPDATE catalogs SET producer_timestamp=timestamp WHERE producer_timestamp IS NULL"
+      "UPDATE factsets SET producer_timestamp=timestamp WHERE producer_timestamp IS NULL")
+
+    (sql/create-table :factsets_transform
+                      ["id" "bigint NOT NULL DEFAULT nextval('factsets_id_seq')"]
+                      ["certname" "text NOT NULL"]
+                      ["timestamp" "timestamp with time zone NOT NULL"]
+                      ["environment_id" "bigint"]
+                      ["hash" hash-type]
+                      ["producer_timestamp" "timestamp with time zone NOT NULL"])
+
+    (sql/do-commands "INSERT INTO factsets_transform (id, certname, timestamp, environment_id, producer_timestamp)
+                      SELECT id, certname, timestamp, environment_id, timestamp
+                      FROM factsets fs")
+
+    (sql/create-table :fact_values_transform
+                      ["id" "bigint NOT NULL DEFAULT nextval('fact_values_id_seq')"]
+                      ["value_hash"    hash-type "NOT NULL"]
+                      ["value_type_id" "bigint NOT NULL"]
+                      ["value_integer" "bigint"]
+                      ["value_float"   "double precision"]
+                      ["value_string"  "text"]
+                      ["value_boolean" "boolean"]
+                      ["value_json"    "text"])
+
+    (sql/do-commands
+      (str "INSERT INTO fact_values_transform
+            (id, value_hash, value_type_id, value_integer, value_float, value_string, value_boolean, value_json)
+              SELECT id, " (munge-hash "value_hash") ", value_type_id, value_integer, value_float, value_string, value_boolean, value_json
+              FROM fact_values"))
+
+    (sql/create-table :resource_params_cache_transform
+                      ["resource" hash-type "NOT NULL"]
+                      ["parameters" "TEXT"])
+
+    (sql/do-commands
+      (str "INSERT INTO resource_params_cache_transform
+            (resource, parameters)
+              SELECT " (munge-hash "resource") ", parameters
+              FROM resource_params_cache"))
+
+    (sql/create-table :catalog_resources_transform
+                      ["catalog_id" "bigint NOT NULL"]
+                      ["resource"   hash-type "NOT NULL"]
+                      ["tags"       (sutils/sql-array-type-string "TEXT") "NOT NULL"]
+                      ["type"       "TEXT" "NOT NULL"]
+                      ["title"      "TEXT" "NOT NULL"]
+                      ["exported"   "BOOLEAN" "NOT NULL"]
+                      ["file" "TEXT"]
+                      ["line" "INT"])
+
+    (sql/do-commands
+      (str "INSERT INTO catalog_resources_transform
+            (resource, catalog_id, tags, type, title, exported, file, line)
+              SELECT " (munge-hash "resource") ", catalog_id, tags, type, title, exported, file, line
+              FROM catalog_resources"))
+
+    (sql/create-table :resource_params_transform
+                      ["resource" hash-type "NOT NULL"]
+                      ["name"  "TEXT" "NOT NULL"]
+                      ["value" "TEXT" "NOT NULL"])
+
+    (sql/do-commands
+      (str "INSERT INTO resource_params_transform
+            (resource, name, value)
+              SELECT " (munge-hash "resource") ", name, value
+              FROM resource_params"))
+
+    (sql/create-table :edges_transform
+                      ["certname" "TEXT" "NOT NULL"]
+                      ["source" hash-type "NOT NULL"]
+                      ["target" hash-type "NOT NULL"]
+                      ["type"     "TEXT" "NOT NULL"])
+
+    (sql/do-commands
+      (str "INSERT INTO edges_transform
+            (certname, source, target, type)
+              SELECT certname, " (munge-hash "source") ", " (munge-hash "target") ", type
+              FROM edges"))
+
+    (sql/do-commands
+      "CREATE SEQUENCE catalogs_id_seq CYCLE")
+
+    (sql/create-table :catalogs_transform
+                      ["id"                 "bigint NOT NULL DEFAULT nextval('catalogs_id_seq')"]
+                      ["hash"               hash-type "NOT NULL"]
+                      ["transaction_uuid"   uuid-type]
+                      ["certname"           "text NOT NULL"]
+                      ["producer_timestamp" "timestamp with time zone NOT NULL"]
+                      ["api_version"        "INTEGER NOT NULL"]
+                      ["timestamp"          "TIMESTAMP WITH TIME ZONE"]
+                      ["catalog_version"    "TEXT NOT NULL"]
+                      ["environment_id"     "bigint"])
+
+    (sql/do-commands
+      (str "INSERT INTO catalogs_transform
+            (id, hash, transaction_uuid, certname, producer_timestamp, api_version, timestamp, catalog_version, environment_id)
+              SELECT id, " (munge-hash "hash") ", " (munge-uuid "transaction_uuid") ", certname,
+              producer_timestamp, api_version, timestamp, catalog_version, environment_id
+              FROM catalogs"))
+
+    ;; Migrate to report id
+    (sql/do-commands
+      "CREATE SEQUENCE reports_id_seq CYCLE")
+
+    (sql/create-table :reports_transform
+                      ["id"                    "bigint NOT NULL DEFAULT nextval('reports_id_seq')"]
+                      ["hash"                  hash-type "NOT NULL"]
+                      ["transaction_uuid"      uuid-type]
+                      ["certname"              "text NOT NULL"]
+                      ["puppet_version"        "varchar(255) NOT NULL"]
+                      ["report_format"         "smallint NOT NULL"]
+                      ["configuration_version" "varchar(255) NOT NULL"]
+                      ["start_time"            "timestamp with time zone NOT NULL"]
+                      ["end_time"              "timestamp with time zone NOT NULL"]
+                      ["receive_time"          "timestamp with time zone NOT NULL"]
+                      ;; Insert a column in reports to be populated by boolean noop flag
+                      ["noop"                  "boolean"]
+                      ["environment_id"        "bigint"]
+                      ["status_id"             "bigint"]
+                      ;; Insert columns in reports to be populated by metrics and logs.
+                      ;; Text for hsql, JSON for postgres.
+                      ["metrics" json-type]
+                      ["logs"    json-type])
+
+    (sql/do-commands
+      (str "INSERT INTO reports_transform (
+            hash, certname, puppet_version, report_format, configuration_version,
+            start_time, end_time, receive_time, transaction_uuid, environment_id,
+            status_id)
+            SELECT " (munge-hash "hash") ", certname, puppet_version, report_format,
+            configuration_version, start_time, end_time, receive_time, "
+            (munge-uuid "transaction_uuid") ", environment_id, status_id
+            FROM reports"))
+
+    (sql/create-table :resource_events_transform
+                      ["report_id"        "bigint NOT NULL"]
+                      ["status"           "varchar(40) NOT NULL"]
+                      ["timestamp"        "timestamp with time zone NOT NULL"]
+                      ["resource_type"    "text NOT NULL"]
+                      ["resource_title"   "text NOT NULL"]
+                      ["property"         "varchar (40)"]
+                      ["new_value"        "text"]
+                      ["old_value"        "text"]
+                      ["message"          "text"]
+                      ["file"             "varchar(1024) DEFAULT NULL"]
+                      ["line"             "integer"]
+                      ["containment_path" (sutils/sql-array-type-string "TEXT")]
+                      ["containing_class" "varchar(255)"])
+
+    (sql/do-commands
+      (str "INSERT INTO resource_events_transform (
+            report_id, status, timestamp, resource_type, resource_title, property,
+            new_value, old_value, message, file, line, containment_path,
+            containing_class)
+            SELECT rt.id, status, timestamp, resource_type, resource_title,
+            property, new_value, old_value, message, file, line, containment_path,
+            containing_class
+            FROM resource_events AS re
+            INNER JOIN reports_transform rt on " (munge-hash "re.report") " = rt.hash"))
+
+    (sql/create-table :certnames_transform
+                      ;; Rename the 'name' column of certnames to 'certname'.
+                      ["certname"  "text NOT NULL"]
+                      ["latest_report_id" "bigint"]
+                      ["deactivated" "timestamp with time zone"])
+
+    (sql/do-commands
+      (str "INSERT INTO certnames_transform(certname,latest_report_id,deactivated)
+            SELECT c.name, rt.id as latest_report_id, c.deactivated FROM
+            certnames c left outer join latest_reports lr on c.name=lr.certname
+            left outer join reports_transform rt on " (munge-hash "lr.report") "=rt.hash"))
+
+    (sql/do-commands
+     "DROP TABLE edges"
+     "DROP TABLE catalog_resources"
+     "DROP TABLE resource_params"
+     "DROP TABLE resource_params_cache"
+     "DROP TABLE catalogs"
+     "ALTER TABLE facts DROP CONSTRAINT fact_value_id_fk"
+     "DROP TABLE fact_values"
+     "ALTER TABLE facts DROP CONSTRAINT factset_id_fk"
+     "DROP TABLE factsets"
+     "DROP TABLE latest_reports"
+     "DROP TABLE certnames CASCADE"
+     "DROP TABLE resource_events"
+     "DROP TABLE reports")
+
+    (sql/do-commands
+      "ALTER TABLE catalog_resources_transform RENAME TO catalog_resources"
+      "ALTER TABLE resource_params_transform RENAME TO resource_params"
+      "ALTER TABLE resource_params_cache_transform RENAME TO resource_params_cache"
+      "ALTER TABLE catalogs_transform RENAME TO catalogs"
+      "ALTER TABLE fact_values_transform RENAME TO fact_values"
+      "ALTER TABLE factsets_transform RENAME TO factsets"
+      "ALTER TABLE certnames_transform RENAME TO certnames"
+      "ALTER TABLE edges_transform RENAME TO edges"
+      "ALTER TABLE resource_events_transform RENAME to resource_events"
+      "ALTER TABLE reports_transform RENAME to reports")
+
+    (sql/do-commands
+      "ALTER TABLE edges
+       ADD CONSTRAINT edges_certname_source_target_type_unique_key UNIQUE (certname, source, target, type)")
+
+    (sql/do-commands
+      "CREATE INDEX idx_catalogs_transaction_uuid ON catalogs(transaction_uuid)"
+      "CREATE INDEX idx_catalogs_producer_timestamp ON catalogs(producer_timestamp)"
+      "CREATE INDEX idx_catalogs_env ON catalogs(environment_id)"
+      "ALTER TABLE catalogs ADD CONSTRAINT catalogs_hash_key UNIQUE (hash)"
+      "ALTER TABLE catalogs ADD CONSTRAINT catalogs_certname_key UNIQUE (certname)"
+      "ALTER TABLE catalogs ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)"
+      "ALTER TABLE catalogs
+       ADD CONSTRAINT catalogs_env_fkey FOREIGN KEY (environment_id)
+       REFERENCES environments (id) ON UPDATE NO ACTION ON DELETE CASCADE"
+      "ALTER TABLE catalog_resources
+       ADD CONSTRAINT catalog_resources_catalog_id_fkey FOREIGN KEY (catalog_id)
+       REFERENCES catalogs (id)
+       ON UPDATE NO ACTION ON DELETE CASCADE")
+
+    (sql/do-commands
+      "ALTER TABLE resource_params ADD CONSTRAINT resource_params_pkey PRIMARY KEY (resource, name)"
+      "CREATE INDEX idx_resources_params_resource ON resource_params(resource)"
+      "CREATE INDEX idx_resources_params_name ON resource_params(name)")
+
+    (sql/do-commands
+      "ALTER TABLE catalog_resources ADD CONSTRAINT catalog_resources_pkey PRIMARY KEY (catalog_id, type, title)"
+      (if (sutils/postgres?)
+        "CREATE INDEX idx_catalog_resources_exported_true
+         ON catalog_resources (exported) WHERE exported = true"
+        "CREATE INDEX idx_catalog_resources_exported
+         ON catalog_resources (exported)")
+      "CREATE INDEX idx_catalog_resources_type ON catalog_resources(type)"
+      "CREATE INDEX idx_catalog_resources_resource ON catalog_resources(resource)"
+      "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources(type,title)")
+
+
+    (sql/do-commands
+      "ALTER TABLE resource_params_cache ADD CONSTRAINT resource_params_cache_pkey PRIMARY KEY (resource)"
+      "ALTER TABLE catalog_resources
+       ADD CONSTRAINT catalog_resources_resource_fkey FOREIGN KEY (resource)
+       REFERENCES resource_params_cache (resource)
+       ON UPDATE NO ACTION ON DELETE CASCADE"
+      "ALTER TABLE resource_params
+       ADD CONSTRAINT resource_params_resource_fkey FOREIGN KEY (resource)
+       REFERENCES resource_params_cache (resource)
+       ON UPDATE NO ACTION ON DELETE CASCADE")
+
+    (sql/do-commands
+      "CREATE INDEX fact_values_value_integer_idx ON fact_values(value_integer)"
+      "CREATE INDEX fact_values_value_float_idx ON fact_values(value_float)"
+      "ALTER TABLE fact_values ADD CONSTRAINT fact_values_value_type_id_fk
+       FOREIGN KEY (value_type_id) REFERENCES value_types (id) MATCH SIMPLE
+       ON UPDATE RESTRICT ON DELETE RESTRICT"
+      "ALTER TABLE fact_values ADD CONSTRAINT fact_values_value_hash_key UNIQUE (value_hash)"
+      "ALTER TABLE fact_values ADD CONSTRAINT fact_values_pkey PRIMARY KEY (id)"
+      "ALTER TABLE facts ADD CONSTRAINT fact_value_id_fk
+       FOREIGN KEY (fact_value_id) REFERENCES fact_values(id)
+       ON UPDATE RESTRICT ON DELETE RESTRICT")
+
+    (sql/do-commands
+      "ALTER TABLE reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id)"
+      "CREATE INDEX reports_certname_idx ON reports(certname)"
+      "CREATE INDEX reports_end_time_idx ON reports(end_time)"
+      "CREATE INDEX reports_environment_id_idx ON reports(environment_id)"
+      "CREATE INDEX reports_status_id_idx ON reports(status_id)"
+      "CREATE INDEX reports_transaction_uuid_idx ON reports(transaction_uuid)"
+      "ALTER TABLE reports ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"
+      "ALTER TABLE reports ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE"
+      "ALTER TABLE reports ADD CONSTRAINT reports_hash_key UNIQUE (hash)")
+
+    (sql/do-commands
+      "ALTER TABLE factsets ADD CONSTRAINT factsets_pkey PRIMARY KEY (id)"
+      "ALTER TABLE factsets ADD CONSTRAINT factsets_environment_id_fk
+       FOREIGN KEY (environment_id) REFERENCES environments(id)
+       ON UPDATE RESTRICT ON DELETE RESTRICT"
+      "ALTER TABLE facts ADD CONSTRAINT factset_id_fk
+       FOREIGN KEY (factset_id) REFERENCES factsets(id)
+       ON UPDATE CASCADE ON DELETE CASCADE"
+      "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_idx UNIQUE (certname)"
+      "ALTER TABLE factsets ADD CONSTRAINT factsets_hash_key UNIQUE (hash)")
+
+    (sql/do-commands
+      "ALTER TABLE resource_events ADD CONSTRAINT resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"
+      "CREATE INDEX resource_events_containing_class_idx ON resource_events(containing_class)"
+      "CREATE INDEX resource_events_property_idx ON resource_events(property)"
+      "CREATE INDEX resource_events_reports_id_idx ON resource_events(report_id)"
+      "CREATE INDEX resource_events_resource_type_idx ON resource_events(resource_type)"
+      "CREATE INDEX resource_events_resource_title_idx ON resource_events(resource_title)"
+      "CREATE INDEX resource_events_status_idx ON resource_events(status)"
+      "CREATE INDEX resource_events_timestamp_idx ON resource_events(timestamp)"
+      "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE")
+
+    (sql/do-commands
+      "ALTER TABLE certnames ADD CONSTRAINT certnames_pkey PRIMARY KEY (certname)"
+      "CREATE INDEX certnames_latest_report_id_idx ON certnames(latest_report_id)"
+      "ALTER TABLE edges ADD CONSTRAINT edges_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON UPDATE NO ACTION ON DELETE CASCADE"
+      "ALTER TABLE catalogs ADD CONSTRAINT catalogs_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON UPDATE NO ACTION ON DELETE CASCADE"
+      "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_fk FOREIGN KEY (certname) REFERENCES certnames(certname) ON UPDATE CASCADE ON DELETE CASCADE"
+      "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE")
+
+    (when (sutils/postgres?)
+      (sql/do-commands
+        "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL"))))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
@@ -1166,11 +1326,7 @@
    26 structured-facts-deferrable-constraints
    27 switch-value-string-index-to-gin
    28 lift-fact-paths-into-facts
-   29 insert-factset-hash-column
-   30 migrate-to-report-id-and-noop-column-and-drop-latest-reports
-   31 change-name-to-certname
-   32 insert-report-metrics-and-logs
-   33 fill-in-null-producer-timestamp})
+   29 version-2yz-to-300-migration})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -1237,11 +1393,11 @@
 (defn trgm-indexes!
   "Create trgm indexes if they do not currently exist."
   []
-  (when-not (scf-utils/index-exists? "fact_paths_path_trgm")
+  (when-not (sutils/index-exists? "fact_paths_path_trgm")
     (log/info "Creating additional index `fact_paths_path_trgm`")
     (sql/do-commands
      "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
-  (when-not (scf-utils/index-exists? "fact_values_string_trgm")
+  (when-not (sutils/index-exists? "fact_values_string_trgm")
     (log/info "Creating additional index `fact_values_string_trgm`")
     (sql/do-commands
      "CREATE INDEX fact_values_string_trgm ON fact_values USING gin (value_string gin_trgm_ops)")))
@@ -1249,10 +1405,10 @@
 (defn indexes!
   "Create missing indexes for applicable database platforms."
   [product-name]
-  (if (and (scf-utils/postgres?)
-           (scf-utils/db-version-newer-than? [9 2]))
+  (if (and (sutils/postgres?)
+           (sutils/db-version-newer-than? [9 2]))
     (sql/transaction
-     (if (scf-utils/pg-extension? "pg_trgm")
+     (if (sutils/pg-extension? "pg_trgm")
        (trgm-indexes!)
        (log/warn
         (str

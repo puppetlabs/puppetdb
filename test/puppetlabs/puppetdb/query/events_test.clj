@@ -5,6 +5,7 @@
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! get-events-map]]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils.events :refer :all]
             [puppetlabs.puppetdb.testutils :refer [deftestseq]]
             [clj-time.coerce :refer [to-string to-timestamp to-long]]
@@ -21,7 +22,7 @@
     (let [ops (query/resource-event-ops version)]
       (testing "should succesfully compile a valid equality query"
         (is (= (query/compile-term ops ["=" "report" "blah"])
-               {:where   "reports.hash = ?"
+               {:where   (format "%s = ?" (sutils/sql-hash-as-str "reports.hash"))
                 :params  ["blah"]})))
       (testing "should fail with an invalid equality query"
         (is (thrown-with-msg?

@@ -150,7 +150,8 @@
                            :hash "cf56e1d01b3517d26f875855da4459ce19f8cd18"
                            :producer_timestamp (to-timestamp reference-time)}}
                         ;; Again we grab the pertinent non-id bits
-                        (map (fn [itm] (last itm)) @updates)))
+                        (map (fn [itm] (-> (last itm)
+                                           (update-in [:hash] sutils/parse-db-hash))) @updates)))
               (is (some (fn [update-call]
                           (and (= :factsets (first update-call))
                                (:timestamp (last update-call))))
@@ -205,20 +206,20 @@
                  (factset-map "some_certname")))))
       (testing "stable hash when no facts change"
         (let [fact-map (factset-map "some_certname")
-              {old-hash :hash} (first (query-to-vec "SELECT hash FROM factsets where certname=?" certname))]
+              {old-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
           (replace-facts! {:certname certname
                            :values fact-map
                            :environment "DEV"
                            :producer_timestamp (now)
                            :timestamp (now)})
-          (let [{new-hash :hash} (first (query-to-vec "SELECT hash FROM factsets where certname=?" certname))]
+          (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
             (is (= old-hash new-hash)))
           (replace-facts! {:certname certname
                            :values (assoc fact-map "another thing" "goes here")
                            :environment "DEV"
                            :producer_timestamp (now)
                            :timestamp (now)})
-          (let [{new-hash :hash} (first (query-to-vec "SELECT hash FROM factsets where certname=?" certname))]
+          (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
             (is (not= old-hash new-hash))))))))
 
 (deftest fact-persistance-with-environment
@@ -371,17 +372,18 @@
                        "select count(id) as c from fact_paths")))))))
     (testing "values - globally, incrementally"
       (reset-db!)
-      (sql/insert-records :fact_values (value->valuemap "foo"))
+      (sql/insert-records :fact_values (update-in (value->valuemap "foo") [:value_hash] sutils/munge-hash-for-storage))
       (delete-orphaned-values! 0)
       (is (= (db-vals) #{"foo"}))
       (delete-orphaned-values! 1)
       (is (empty? (db-vals)))
-      (sql/insert-records :fact_values (value->valuemap "foo"))
+      (sql/insert-records :fact_values (update-in (value->valuemap "foo") [:value_hash] sutils/munge-hash-for-storage))
       (delete-orphaned-values! 11)
       (is (empty? (db-vals)))
       (apply
        sql/insert-records :fact_values
-       (for [x (range 10)] (value->valuemap (str "foo-" x))))
+       (for [x (range 10)] (update-in (value->valuemap (str "foo-" x))
+                                      [:value_hash] sutils/munge-hash-for-storage)))
       (delete-orphaned-values! 3)
       (is (= 7 (:c (first
                     (query-to-vec
@@ -486,7 +488,7 @@
       (is (= (query-to-vec ["SELECT certname FROM certnames"])
              [{:certname certname}]))
 
-      (is (= (query-to-vec ["SELECT hash FROM catalogs"])
+      (is (= (query-to-vec [(format "SELECT %s AS hash FROM catalogs" (sutils/sql-hash-as-str "hash"))])
              [{:hash hash}])))))
 
 (deftest edge-replacement-differential
@@ -519,7 +521,7 @@
       ;; Lets intercept the insert/update/delete level so we can test it later
       ;; Here we only replace edges, so we can capture those specific SQL
       ;; operations
-      (tu/with-wrapped-fn-args [adds sql/insert-rows
+      (tu/with-wrapped-fn-args [adds sql/insert-records
                                 deletes sql/delete-rows]
         (let [resources    (:resources modified-catalog)
               refs-to-hash (reduce-kv (fn [i k v]
@@ -539,17 +541,19 @@
                        "before"] nil})))
 
           (testing "should only delete the 1 edge"
-            (is (= [[:edges ["certname=? and source=? and target=? and type=?"
+            (is (= [[:edges [(format "certname=? and %s=? and %s=? and type=?"
+                                     (sutils/sql-hash-as-str "source")
+                                     (sutils/sql-hash-as-str "target"))
                              "basic.catalogs.com"
                              "ff0702ba8a7dc69d3fb17f9d151bf9bd265a9ed9"
                              "57495b553981551c5194a21b9a26554cd93db3d9"
                              "contains"]]]
                    @deletes)))
           (testing "should only insert the 1 edge"
-            (is (= [[:edges ["basic.catalogs.com"
-                             "57495b553981551c5194a21b9a26554cd93db3d9"
-                             "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
-                             "before"]]]
+            (is (= [[:edges {:certname "basic.catalogs.com"
+                             :source (sutils/munge-hash-for-storage "57495b553981551c5194a21b9a26554cd93db3d9")
+                             :target (sutils/munge-hash-for-storage "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1")
+                             :type "before"}]]
                    @adds)))
           (testing "when reran to check for idempotency"
             (reset! adds [])
@@ -580,7 +584,7 @@
       (is (= (query-to-vec ["SELECT certname FROM certnames"])
              [{:certname certname}]))
 
-      (is (= (query-to-vec ["SELECT certname, hash FROM catalogs"])
+      (is (= (query-to-vec [(format "SELECT certname, %s AS hash FROM catalogs" (sutils/sql-hash-as-str "hash"))])
              [{:hash hash
                :certname certname}]))
 
@@ -789,10 +793,11 @@
     (testing "changing a resource title"
       (let [{orig-id :id
              orig-tx-id :transaction_uuid
-             orig-timestamp :timestamp} (first (query-to-vec "SELECT id from catalogs where certname=?" certname))
-             updated-catalog (walk/prewalk foobar->foobar2 (:basic catalogs))
-             new-uuid (kitchensink/uuid)
-             metrics-map performance-metrics]
+             orig-timestamp :timestamp}
+            (first (query-to-vec (format "SELECT id, timestamp, transaction_uuid%s from catalogs where certname=?" (if (sutils/postgres?) "::text" "")) certname))
+            updated-catalog (walk/prewalk foobar->foobar2 (:basic catalogs))
+            new-uuid (kitchensink/uuid)
+            metrics-map performance-metrics]
 
         (is (= #{{:type "Class" :title "foobar"}
                  {:type "File" :title "/etc/foobar"}
@@ -815,11 +820,12 @@
             ;; 1 catalog_resource delete
             (is (= 8.0 (apply + (sample (:catalog-volatility performance-metrics))))))
 
-          (is (sort= [:resource_params_cache :resource_params :catalog_resources]
+          (is (sort= [:resource_params_cache :resource_params :catalog_resources :edges]
                      (table-args @inserts)))
           (is (= [:catalogs]
                  (table-args @updates)))
-          (is (= [[:catalog_resources ["catalog_id = ? and type = ? and title = ?" 1 "File" "/etc/foobar"]]]
+          (is (= [[:catalog_resources ["catalog_id = ? and type = ? and title = ?"
+                                       ((comp second second first) @updates) "File" "/etc/foobar"]]]
                  (remove-edge-changes @deletes))))
 
         (is (= #{{:type "Class" :title "foobar"}
@@ -829,7 +835,9 @@
                                    FROM catalogs c INNER JOIN catalog_resources cr ON c.id = cr.catalog_id
                                    WHERE c.certname=?" certname))))
 
-        (let [results (query-to-vec "SELECT id, timestamp, transaction_uuid from catalogs where certname=?" certname)
+        (let [results (query-to-vec (format "SELECT id, timestamp, %s from catalogs where certname=?"
+                                            (sutils/sql-uuid-as-str "transaction_uuid"))
+                                    certname)
               {new-timestamp :timestamp
                new-tx-id :transaction_uuid
                new-id :id} (first results)]
@@ -1054,9 +1062,10 @@
 
 (defn foobar-param-hash []
   (sql/with-query-results result-set
-    ["SELECT cr.resource hash
-      FROM catalog_resources cr, catalogs c
-      WHERE cr.catalog_id = c.id AND certname=? AND cr.type=? AND cr.title=?"
+    [(format "SELECT %s AS hash
+              FROM catalog_resources cr, catalogs c
+              WHERE cr.catalog_id = c.id AND certname=? AND cr.type=? AND cr.title=?"
+             (sutils/sql-hash-as-str "cr.resource"))
      (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
     (-> result-set
         first
@@ -1087,7 +1096,7 @@
 
         (is (empty? (remove-edge-changes @deletes)))
 
-        (is (sort= [:resource_params_cache :resource_params]
+        (is (sort= [:resource_params_cache :resource_params :edges]
                    (table-args @inserts))))
 
       (is (not= orig-resource-hash (foobar-param-hash)))
@@ -1102,7 +1111,7 @@
                                 deletes sql/delete-rows]
         (add-catalog! catalog nil old-date)
 
-        (is (empty? @inserts))
+        (is (empty? (remove #(= :edges (first %)) @inserts)))
         (is (empty? (remove #(= :edges (first %)) @deletes)))
         (is (= (sort [:catalog_resources :catalogs])
                (sort (map first @updates)))))
@@ -1256,7 +1265,7 @@
       (is (= (query-to-vec ["SELECT certname FROM reports"])
              [{:certname (:certname report)}]))
 
-      (is (= (query-to-vec ["SELECT hash FROM reports"])
+      (is (= (query-to-vec [(format "SELECT %s AS hash FROM reports" (sutils/sql-hash-as-str "hash"))])
              [{:hash report-hash}])))
 
     (testing "should store report with long puppet version string"

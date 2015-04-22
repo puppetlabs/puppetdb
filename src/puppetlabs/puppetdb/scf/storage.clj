@@ -23,7 +23,7 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
             [clojure.set :as set]
@@ -315,7 +315,8 @@
   [certname]
   {:pre [certname]}
   (sql/with-query-results result-set
-    ["SELECT id, hash FROM catalogs WHERE certname=?" certname]
+    [(format "SELECT id, %s AS hash FROM catalogs WHERE certname=?" (sutils/sql-hash-as-str "catalogs.hash"))
+     certname]
     (first result-set)))
 
 (pls/defn-validated catalog-row-map
@@ -323,10 +324,10 @@
   [hash
    {:keys [api_version version transaction_uuid environment producer_timestamp]} :- catalog-schema
    timestamp :- pls/Timestamp]
-  {:hash hash
+  {:hash (sutils/munge-hash-for-storage hash)
    :api_version api_version
    :catalog_version  version
-   :transaction_uuid transaction_uuid
+   :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
    :timestamp (to-timestamp timestamp)
    :environment_id (ensure-environment environment)
    :producer_timestamp (to-timestamp producer_timestamp)})
@@ -356,15 +357,15 @@
   "Given a collection of resource-hashes, return the subset that
   already exist in the database."
   [resource-hashes :- #{String}]
-  {:pre  [(coll? resource-hashes)
-          (every? string? resource-hashes)]
-   :post [(set? %)]}
   (if (seq resource-hashes)
-    (let [qmarks     (str/join "," (repeat (count resource-hashes) "?"))
-          query      (format "SELECT DISTINCT resource FROM resource_params_cache WHERE resource IN (%s)" qmarks)
-          sql-params (vec (cons query resource-hashes))]
+    (let [query (apply vector
+                       (format "SELECT DISTINCT %s AS resource FROM resource_params_cache WHERE %s %s"
+                               (sutils/sql-hash-as-str "resource")
+                               (sutils/sql-hash-as-str "resource")
+                               (jdbc/in-clause resource-hashes))
+                       resource-hashes)]
       (sql/with-query-results result-set
-        sql-params
+        query
         (set (map :resource result-set))))
     #{}))
 
@@ -376,9 +377,9 @@
   "Returns the resource hashes keyed by resource reference"
   [catalog-id :- Number]
   (sql/with-query-results result-set
-    ["SELECT type, title, tags, exported, file, line, resource
-      FROM catalog_resources
-      WHERE catalog_id = ?" catalog-id]
+    [(format "SELECT type, title, tags, exported, file, line, %s AS resource
+              FROM catalog_resources
+              WHERE catalog_id = ?" (sutils/sql-hash-as-str "resource")) catalog-id]
     (zipmap (map #(select-keys % [:type :title]) result-set)
             (jdbc/convert-result-arrays set result-set))))
 
@@ -415,14 +416,14 @@
     (insert-records*
      :resource_params_cache
      (map (fn [[resource-hash params]]
-            {:resource resource-hash :parameters (when params (sutils/db-serialize params))})
+            {:resource (sutils/munge-hash-for-storage resource-hash) :parameters (when params (sutils/db-serialize params))})
           new-params))
 
     (insert-records*
      :resource_params
      (for [[resource-hash params] new-params
            [k v] params]
-       {:resource resource-hash :name (name k) :value (sutils/db-serialize v)}))))
+       {:resource (sutils/munge-hash-for-storage resource-hash) :name (name k) :value (sutils/db-serialize v)}))))
 
 (def resource-ref?
   "Returns true of the map is a resource reference"
@@ -451,7 +452,7 @@
             (let [{:keys [type title exported parameters tags file line] :as resource} (get refs-to-resources resource-ref)]
               (convert-tags-array
                {:catalog_id catalog-id
-                :resource (get refs-to-hashes resource-ref)
+                :resource (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
                 :type type
                 :title title
                 :tags tags
@@ -511,7 +512,8 @@
   (fn [maybe-updated-refs]
     {:pre [(every? resource-ref? maybe-updated-refs)]}
     (let [new-resources-with-hash (merge-resource-hash refs-to-hashes (select-keys refs-to-resources maybe-updated-refs))
-          updated-resources (diff-resources-metadata old-resources new-resources-with-hash)]
+          updated-resources (->> (diff-resources-metadata old-resources new-resources-with-hash)
+                                 (kitchensink/mapvals #(utils/update-when % [:resource] sutils/munge-hash-for-storage)))]
 
       (update! (:catalog-volatility performance-metrics) (count updated-resources))
 
@@ -545,7 +547,9 @@
   "Return all edges for a given catalog id as a map"
   [certname :- String]
   (sql/with-query-results result-set
-    ["SELECT source, target, type FROM edges WHERE certname=?" certname]
+    [(format "SELECT %s AS source, %s AS target, type FROM edges WHERE certname=?"
+             (sutils/sql-hash-as-str "source")
+             (sutils/sql-hash-as-str "target")) certname]
     ;; Transform the result-set into a map with [source,target,type] as the key
     ;; and nil as always the value. This just feeds into clojure.data/diff
     ;; better this way.
@@ -568,7 +572,9 @@
     ;; This is relatively inefficient. If we have id's for edges, we could do
     ;; this in 1 statement.
     (sql/delete-rows :edges
-                     ["certname=? and source=? and target=? and type=?" certname source target type])))
+                     [(format "certname=? and %s=? and %s=? and type=?"
+                              (sutils/sql-hash-as-str "source")
+                              (sutils/sql-hash-as-str "target")) certname source target type])))
 
 (pls/defn-validated insert-edges!
   "Insert edges for a given certname.
@@ -584,10 +590,13 @@
   ;; earlier.
   (when (seq edges)
     (let [rows (for [[source target type] edges]
-                 [certname source target type])]
+                 {:certname certname
+                  :source (sutils/munge-hash-for-storage source)
+                  :target (sutils/munge-hash-for-storage target)
+                  :type type})]
 
       (update! (:catalog-volatility performance-metrics) (count rows))
-      (apply sql/insert-rows :edges rows))))
+      (apply sql/insert-records :edges rows))))
 
 (pls/defn-validated replace-edges!
   "Persist the given edges in the database
@@ -701,13 +710,14 @@
 (defn delete-catalog!
   "Remove the catalog identified by the following hash"
   [catalog-hash]
-  (sql/delete-rows :catalogs ["hash=?" catalog-hash]))
+  (sql/delete-rows :catalogs [(str (sutils/sql-hash-as-str "hash") "=?")
+                              catalog-hash]))
 
 (defn catalog-hash-for-certname
   "Returns the hash for the `certname` catalog"
   [certname]
   (sql/with-query-results result-set
-    ["SELECT hash as catalog FROM catalogs WHERE certname=?" certname]
+    ["SELECT %s as catalog FROM catalogs WHERE certname=?" (sutils/sql-hash-as-str "hash") certname]
     (:catalog (first result-set))))
 
 ;; ## Database compaction
@@ -867,17 +877,14 @@
 (defn existing-row-ids
   "Returns a map from value to id for each value that's already in the
   named database column."
-  [database column values]
-  (let [k (keyword column)]
-    (into {}
-          (for [rec (apply query-to-vec
-                           (format "SELECT %s, id FROM %s WHERE %s %s"
-                                   column
-                                   (if (keyword? database) (name database))
-                                   column
-                                   (jdbc/in-clause values))
-                           values)]
-            [(k rec) (:id rec)]))))
+  [table column values]
+  (into {}
+   (for [{:keys [value id]}
+         (apply query-to-vec
+                (format "SELECT %s AS value, id FROM %s WHERE %s %s"
+                        column (name table) column (jdbc/in-clause values))
+                values)]
+     [value id])))
 
 (defn realize-records!
   "Inserts the records (maps) into the named database and returns them
@@ -910,16 +917,18 @@
   [valuemaps]
   (if-let [valuemaps (seq valuemaps)]
     (let [vhashes (map :value_hash valuemaps)
-          existing-vhash-ids (existing-row-ids :fact_values "value_hash" vhashes)
+          existing-vhash-ids (existing-row-ids :fact_values (sutils/sql-hash-as-str "value_hash") vhashes)
           missing-vhashes (set/difference (set vhashes)
                                           (set (keys existing-vhash-ids)))]
       (merge existing-vhash-ids
              (into {}
-                   (map #(vector (:value_hash %) (:id %))
+                   (map #(vector (sutils/parse-db-hash (:value_hash %)) (:id %))
                         (realize-records!
                          :fact_values
-                         (set (filter #(missing-vhashes (:value_hash %))
-                                      valuemaps)))))))
+                         (->> valuemaps
+                              (filter (comp missing-vhashes :value_hash))
+                              set
+                              (map #(update-in % [:value_hash] sutils/munge-hash-for-storage))))))))
     {}))
 
 (pls/defn-validated add-facts!
@@ -938,8 +947,9 @@
        :environment_id (ensure-environment environment)
        :producer_timestamp (to-timestamp producer_timestamp)}
       (when include-hash?
-        {:hash (shash/generic-identity-hash
-                (dissoc fact-data :timestamp :producer_timestamp))})))
+        {:hash (sutils/munge-hash-for-storage
+                (shash/generic-identity-hash
+                 (dissoc fact-data :timestamp :producer_timestamp)))})))
     ;; Ensure that all the required paths and values exist, and then
     ;; insert the new facts.
     (let [paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
@@ -949,8 +959,8 @@
           paths-to-ids (realize-paths! pathstrs)
           vhashes-to-ids (realize-values! valuemaps)]
       (insert-facts-pv-pairs! (certname-to-factset-id certname)
-                              (map #(vector (paths-to-ids %1)
-                                            (vhashes-to-ids %2))
+                              (map #(vector (get paths-to-ids %1)
+                                            (get vhashes-to-ids %2))
                                    pathstrs vhashes))))))
 
 (defn-validated update-facts!
@@ -963,10 +973,10 @@
   (sql/transaction
    (let [factset-id (certname-to-factset-id certname)
          initial-factset-paths-vhashes
-         (query-to-vec "SELECT fp.path, fv.value_hash FROM facts f
-                          INNER JOIN fact_paths fp ON f.fact_path_id = fp.id
-                          INNER JOIN fact_values fv ON f.fact_value_id = fv.id
-                          WHERE factset_id = ?"
+         (query-to-vec (format "SELECT fp.path, %s AS value_hash FROM facts f
+                                INNER JOIN fact_paths fp ON f.fact_path_id = fp.id
+                                INNER JOIN fact_values fv ON f.fact_value_id = fv.id
+                                WHERE factset_id = ?" (sutils/sql-hash-as-str "fv.value_hash"))
                        factset-id)
          ;; Ensure that all the required paths and values exist.
          paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
@@ -1004,8 +1014,9 @@
       {:timestamp (to-timestamp timestamp)
        :environment_id (ensure-environment environment)
        :producer_timestamp (to-timestamp producer_timestamp)
-       :hash (shash/generic-identity-hash
-              (dissoc fact-data :timestamp :producer_timestamp))}))))
+       :hash (-> (dissoc fact-data :timestamp :producer_timestamp)
+                 shash/generic-identity-hash
+                 sutils/munge-hash-for-storage)}))))
 
 (pls/defn-validated factset-timestamp :- (s/maybe pls/Timestamp)
   "Return the factset timestamp for the given certname, nil if not found"
@@ -1096,23 +1107,22 @@
          (let [{:keys [puppet_version certname report_format configuration_version
                        start_time end_time resource_events transaction_uuid environment
                        status noop metrics logs] :as report} (normalize-report orig-report)
-                report-hash         (shash/report-identity-hash report)]
+                report-hash (shash/report-identity-hash report)]
            (sql/transaction
              (let [{:keys [id]} (sql/insert-record :reports
                                  (maybe-environment
-                                   {:hash                   report-hash
+                                   {:hash                   (sutils/munge-hash-for-storage report-hash)
+                                    :transaction_uuid       (sutils/munge-uuid-for-storage transaction_uuid)
+                                    :metrics                (sutils/munge-json-for-storage metrics)
+                                    :logs                   (sutils/munge-json-for-storage logs)
                                     :noop                   noop
                                     :puppet_version         puppet_version
                                     :certname               certname
                                     :report_format          report_format
                                     :configuration_version  configuration_version
-                                    :metrics                (scf-utils/munge-json-for-storage
-                                                              metrics)
-                                    :logs                   (scf-utils/munge-json-for-storage logs)
                                     :start_time             start_time
                                     :end_time               end_time
                                     :receive_time           (to-timestamp timestamp)
-                                    :transaction_uuid       transaction_uuid
                                     :environment_id         (ensure-environment environment)
                                     :status_id              (ensure-status status)}))]
                (->> resource_events

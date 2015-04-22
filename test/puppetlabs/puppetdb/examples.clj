@@ -5,7 +5,7 @@
    {:certname         "empty.catalogs.com"
     :api_version      1
     :version          "1330463884"
-    :transaction_uuid nil
+    :transaction_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
     :environment      nil
     :producer_timestamp "2014-07-10T22:33:54.781Z"
     :edges            #{{:source       {:type "Stage" :title "main"}

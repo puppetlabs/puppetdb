@@ -118,13 +118,18 @@
   [m ks f]
   (reduce #(update-in %1 [%2] f) m ks))
 
+(defn update-cond
+  "Works like update, but only if pred is satisfied"
+  [m pred ks f & args]
+  (if pred
+    (apply update-in m ks f args)
+    m))
+
 (defn update-when
   "Works like update, but only if ks is found in the map(s)"
   [m ks f & args]
   (let [val (get-in m ks ::not-found)]
-    (if (= val ::not-found)
-      m
-      (assoc-in m ks (apply f val args)))))
+   (apply update-cond m (not= val ::not-found) ks f args)))
 
 (defn vector-maybe
   "Vectorize an argument if it's not already vector"

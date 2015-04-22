@@ -265,29 +265,62 @@ must be supplied as the value to be matched."
         (str "ALTER TABLE " table " ALTER COLUMN " column
              " RESTART WITH " restartid))))))
 
-(pls/defn-validated clj->pgjson :- PGobject
-  "Convert a clojure object to a json PGobject"
-  [value :- (s/maybe (s/either {s/Any s/Any} [{s/Any s/Any}]))]
-  (doto (PGobject.)
-    (.setType "json")
-    (.setValue (json/generate-string value))))
+(defn sql-hash-as-str
+  [column]
+  (if (postgres?)
+    (format "trim(leading '\\x' from %s::text)" column)
+    column))
 
-(pls/defn-validated pgjson->clj
-  "Convert a json PGobject to a clojure object"
-  [value :- (s/maybe PGobject)]
-  (when value
-    (json/parse-string (.getValue value))))
+(defn sql-uuid-as-str
+  [column]
+  (if (postgres?)
+    (format "%s::text" column)
+    column))
+
+(defn parse-db-hash
+  [db-hash]
+  (if (postgres?)
+    (clojure.string/replace (.getValue db-hash) "\\x" "")
+    db-hash))
+
+(defn parse-db-uuid
+  [db-uuid]
+  (if (postgres?)
+    (.toString db-uuid)
+    db-uuid))
+
+(pls/defn-validated parse-db-json
+  "Produce a function for parsing an object stored as json."
+  [db-json :- (s/maybe (s/either s/Str PGobject))]
+  (if-let [json (if (postgres?)
+                  (when db-json (.getValue db-json))
+                  db-json)]
+    (json/parse-string json)))
+
+(pls/defn-validated str->pgobject :- PGobject
+  [type :- s/Str
+   value]
+  (doto (PGobject.)
+    (.setType type)
+    (.setValue value)))
+
+(defn munge-uuid-for-storage
+  [value]
+  (if (postgres?)
+    (str->pgobject "uuid" value)
+    value))
+
+(defn munge-hash-for-storage
+  [hash]
+  (if (postgres?)
+    (str->pgobject "bytea" (format "\\x%s" hash))
+    hash))
 
 (defn munge-json-for-storage
   "Prepare a clojure object for storage depending on db type."
   [value]
-  (if (postgres?)
-    (clj->pgjson value)
-    (json/generate-string value)))
+  (let [json-str (json/generate-string value)]
+    (if (postgres?)
+      (str->pgobject "json" json-str)
+      json-str)))
 
-(defn parse-db-json-fn
-  "Produce a function for parsing an object stored as json."
-  []
-  (if (postgres?)
-    pgjson->clj
-    json/parse-string))

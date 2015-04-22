@@ -33,7 +33,7 @@
 (def catalog2 (merge catalog1
                  {:certname "host2.localdomain"
                   :producer_timestamp "2010-07-10T22:33:54.781Z"
-                  :transaction_uuid "000000000000000000000000000"
+                  :transaction_uuid "00000000-0000-0000-0000-000000000000"
                   :environment "PROD"}))
 
 (def queries

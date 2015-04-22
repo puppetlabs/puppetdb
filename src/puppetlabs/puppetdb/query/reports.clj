@@ -8,7 +8,7 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.reports :as reports]
-            [puppetlabs.puppetdb.scf.storage-utils :as scf-utils]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s])
@@ -51,10 +51,9 @@
   [data :- (s/maybe (s/either PGobject s/Str))
    hash :- s/Str
    base-url :- s/Str]
-  (let [parse-json (scf-utils/parse-db-json-fn)
-        data-obj {:href (str base-url "/reports/" hash "/logs")}]
+  (let [data-obj {:href (str base-url "/reports/" hash "/logs")}]
     (if data
-      (assoc data-obj :data (parse-json data))
+      (assoc data-obj :data (sutils/parse-db-json data))
       data-obj)))
 
 (pls/defn-validated metrics->expansion :- {:href s/Str (s/optional-key :data) [s/Any]}
@@ -62,10 +61,9 @@
   [data :- (s/maybe (s/either PGobject s/Str))
    hash :- s/Str
    base-url :- s/Str]
-  (let [parse-json (scf-utils/parse-db-json-fn)
-        data-obj {:href (str base-url "/reports/" hash "/metrics")}]
+  (let [data-obj {:href (str base-url "/reports/" hash "/metrics")}]
     (if data
-      (assoc data-obj :data (parse-json data))
+      (assoc data-obj :data (sutils/parse-db-json data))
       data-obj)))
 
 (pls/defn-validated row->report
@@ -153,8 +151,10 @@
           (string? report-hash)]
    :post [(kitchensink/boolean? %)]}
   (= 1 (count (jdbc/query-to-vec
-               ["SELECT reports.hash as latest_report_hash
-                 FROM certnames
-                 INNER JOIN reports ON reports.id = certnames.latest_report_id
-                 WHERE certnames.certname = ? AND reports.hash = ?"
+                [(format "SELECT %s as latest_report_hash
+                          FROM certnames
+                          INNER JOIN reports ON reports.id = certnames.latest_report_id
+                          WHERE certnames.certname = ? AND %s = ?"
+                         (sutils/sql-hash-as-str "reports.hash")
+                         (sutils/sql-hash-as-str "reports.hash"))
                 node report-hash]))))
