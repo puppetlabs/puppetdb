@@ -128,7 +128,7 @@
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "0.2.2"
+                      :plugins [[puppetlabs/lein-ezbake "0.2.9"
                                  :exclusions [org.clojure/clojure]]]}
              :pe {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                            [org.clojure/tools.nrepl "0.2.3"]
@@ -139,7 +139,7 @@
                                        :main-namespace "puppetlabs.puppetdb.core"
                                        :create-varlib true}
                                 :config-dir "ext/config/pe"}
-                  :version ~pe-pdb-version
+                  :version ~pdb-version
                   :name "pe-puppetdb"}
              :testutils {:source-paths ^:replace ["test"]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
