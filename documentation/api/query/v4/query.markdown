@@ -96,8 +96,8 @@ Different operators may take different numbers (and types) of arguments. Each en
 >     field:          string, which is the name of a valid FIELD listed in the endpoint's doc page
 >     value:          string
 >     bool:           "or" | "and"
->     binary_op:      "=" | "~" | ">" | ">=" | "<" | "<=" | "null?"
->     subquery_name:  "select_resources" | "select_facts" | "select_nodes"
+>     binary_op:      "=" | "~" | ">" | ">=" | "<" | "<=" | "~>" | "null?"
+>     subquery_name:  "select_resources" | "select_facts" | "select_nodes | select_fact_contents"
 
 > ### Note on JSON Formatting
 >
