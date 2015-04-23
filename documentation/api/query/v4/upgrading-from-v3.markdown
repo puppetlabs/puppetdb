@@ -83,6 +83,10 @@ Each change below is marked with the corresponding release version.
 
 * (3.0) `/v4/reports/<hash>/events` This convenience endpoint allows you to show events for a particular report by its hash. See the [/v4/reports documentation](./reports.html)
 
+* (3.0) `/v4/reports/<hash>/metrics` This endpoint allows you to show metrics for a particular report by its hash. See the [/v4/reports documentation](./reports.html)
+
+* (3.0) `/v4/reports/<hash>/logs` This endpoint allows you to show logs for a particular report by its hash. See the [/v4/reports documentation](./reports.html)
+
 * (3.0) `/v4/catalogs/<node>/[resources|edges]` Both of these endpoints provide convenience for drilling into resources & edges data specific to a particular catalog. See [/v4/catalogs documentation](./catalogs)
 
 #### Features affecting all endpoints

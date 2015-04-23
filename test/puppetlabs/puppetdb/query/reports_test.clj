@@ -22,7 +22,7 @@
   [report]
   (if (sutils/postgres?)
     report
-    (dissoc report :resource_events)))
+    (dissoc report :resource_events :metrics :logs)))
 
 (defn normalize-time
   "Normalize start_time end_time, by coercing it, it forces the timezone to

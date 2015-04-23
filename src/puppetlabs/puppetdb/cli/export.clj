@@ -164,8 +164,7 @@
 (pls/defn-validated reports-expansion :- {s/Keyword s/Any}
   [record :- {s/Keyword s/Any}
    base-url :- utils/base-url-schema]
-  (-> record
-      (update-in [:resource_events] complete-unexpanded base-url)))
+  (kitchensink/mapvals #(complete-unexpanded % base-url) [:resource_events :metrics :logs] record))
 
 (pls/defn-validated reports-for-node-query :- (s/maybe (s/pred seq? 'seq?))
   "Given a node name, retrieves the reports for the node."
@@ -179,10 +178,7 @@
                            (url-encode (format "[\"=\",\"certname\",\"%s\"]"
                                                node)))
                       {:accept :json}))]
-      (map
-       reports-expansion
-       body
-       (repeat base-url)))))
+      (map #(reports-expansion % base-url) body))))
 
 (pls/defn-validated reports-for-node :- (s/maybe (s/pred seq? 'seq?))
   "Given a node name, retrieves the reports for the node and converts it

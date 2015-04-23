@@ -150,7 +150,7 @@ In the resource_event schema above, `containment_path`, `new_value`, `old_value`
 **Note on querying resource events, metrics, and logs**
 
 The `reports` endpoint does not support querying on the value of `resource_events`, `logs`,
-or `metrics`. In the case of `resource_events` the same information can be accessed by querying the `events` endpoint for events with field `report` equal to a given report's `hash`.
+or `metrics`. For `resource_events` the same information can be accessed by querying the `events` endpoint for events with field `report` equal to a given report's `hash`.
 Making metrics and logs queryable may be the target of future work.
 
 ### Examples
@@ -325,6 +325,16 @@ Query for all reports:
 This will return all events for a particular report, designated by its unique hash.
 
 This is a shortcut to the [`/events`][events] endpoint. It behaves the same as a call to [`/events`][events] with a query string of `["=", "report", "<HASH>"]`.
+
+## `GET /v4/reports/<HASH>/metrics`
+
+This will return all metrics for a particular report, designated by its unique hash.
+This endpoint does not currently support querying or paging.
+
+## `GET /v4/reports/<HASH>/logs`
+
+This will return all logs for a particular report, designated by its unique hash.
+This endpoint does not currently support querying or paging.
 
 ### URL Parameters / Query Operators / Query Fields / Response Format
 
