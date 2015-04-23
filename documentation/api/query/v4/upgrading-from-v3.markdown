@@ -6,12 +6,12 @@ canonical: "/puppetdb/latest/api/query/v4/upgrading-from-v3.html"
 
 This document describes changes that users will need to be aware of
 to make their code compliant with the changes in PuppetDB 3.0. Most of these
-changes are around the v4 query API, which has been marked 'experimental' since
+changes are observable in released versions of the v4 query API, which has been marked 'experimental' since
 2.0.0 but will be the only API available in 3.0. Note that this document
 focuses on API changes only. For a more complete description of the changes see
 the [release notes](https://docs.puppetlabs.com/puppetdb/latest/release_notes.html).
 
-Each change below is marked with the corresponding release version.
+Each change below is marked with the corresponding release version. Changes marked (3.0) are only visible in our [nightly snapshots](http://nightlies.puppetlabs.com/puppetdb/) (not currently fit for production).
 
 ### Backwards-incompatible changes
 
@@ -42,6 +42,8 @@ Each change below is marked with the corresponding release version.
 
 * (2.2.0) The v4 facts endpoint returns proper JSON rather than stringified JSON
   under the `value` field in the case of a structured fact.
+
+* (2.2.0) Queries against fact values must use the appropriate type. Possible types are integer, float, boolean, string, json, and null. Where the v3 API would return the same results for [">","value","10"] and [">","value",10], only the second form will work on v4. The same applies for equality queries on boolean values.
 
 #### /v4/factsets
 
