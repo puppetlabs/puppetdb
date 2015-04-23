@@ -20,12 +20,14 @@
    (s/optional-key :value_integer) (s/maybe s/Int)
    (s/optional-key :value_float) (s/maybe s/Num)
    (s/optional-key :value) s/Any
+   (s/optional-key :count) s/Int
    (s/optional-key :type) (s/maybe s/Str)})
 
 (def converted-row-schema
   {(s/optional-key :certname) s/Str
    (s/optional-key :path) s/Str
    (s/optional-key :name) s/Str
+   (s/optional-key :count) s/Int
    (s/optional-key :value) s/Any
    (s/optional-key :environment) (s/maybe s/Str)})
 

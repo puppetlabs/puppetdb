@@ -212,59 +212,9 @@ Query for all reports:
           "category" : "resources",
           "name" : "failed",
           "value" : 0
-        }, {
-          "category" : "resources",
-          "name" : "failed_to_restart",
-          "value" : 0
-        }, {
-          "category" : "resources",
-          "name" : "out_of_sync",
-          "value" : 2
-        }, {
-          "category" : "resources",
-          "name" : "restarted",
-          "value" : 0
-        }, {
-          "category" : "resources",
-          "name" : "scheduled",
-          "value" : 0
-        }, {
-          "category" : "resources",
-          "name" : "skipped",
-          "value" : 0
-        }, {
-          "category" : "resources",
-          "name" : "total",
-          "value" : 9
-        }, {
-          "category" : "time",
-          "name" : "config_retrieval",
-          "value" : 0.476064209
-        }, {
-          "category" : "time",
-          "name" : "filebucket",
-          "value" : 3.8841E-5
-        }, {
-          "category" : "time",
-          "name" : "notify",
-          "value" : 7.54224E-4
-        }, {
-          "category" : "time",
-          "name" : "schedule",
-          "value" : 2.0780000000000004E-4
-        }, {
-          "category" : "time",
-          "name" : "total",
-          "value" : 0.47706507400000003
-        }, {
-          "category" : "changes",
-          "name" : "total",
-          "value" : 2
-        }, {
-          "category" : "events",
-          "name" : "failure",
-          "value" : 0
-        }, {
+        },
+        ...
+        {
           "category" : "events",
           "name" : "success",
           "value" : 2
@@ -284,31 +234,9 @@ Query for all reports:
           "source" : "//mbp.local/Puppet",
           "tags" : [ "info" ],
           "time" : "2015-02-26T16:27:48.416642000-08:00"
-        }, {
-          "file" : null,
-          "line" : null,
-          "level" : "info",
-          "message" : "Applying configuration version '1424996868'",
-          "source" : "//mbp.local/Puppet",
-          "tags" : [ "info" ],
-          "time" : "2015-02-26T16:27:48.474162000-08:00"
-        }, {
-          "file" : null,
-          "line" : null,
-          "level" : "notice",
-          "message" : "Hi mbp.local",
-          "source" : "//mbp.local/Puppet",
-          "tags" : [ "notice" ],
-          "time" : "2015-02-26T16:27:48.475656000-08:00"
-        }, {
-          "file" : "/Users/wyatt/.puppet/manifests/site.pp",
-          "line" : 3,
-          "level" : "notice",
-          "message" : "defined 'message' as 'Hi mbp.local'",
-          "source" : "//mbp.local//Stage[main]/Main/Notify[hi]/message",
-          "tags" : [ "notice", "notify", "hi", "class" ],
-          "time" : "2015-02-26T16:27:48.475825000-08:00"
-        }, {
+        },
+        ...
+        {
           "file" : null,
           "line" : null,
           "level" : "notice",
@@ -318,6 +246,21 @@ Query for all reports:
           "time" : "2015-02-26T16:27:48.483317000-08:00"
         } ]
       }
+    } ]
+
+## Get counts of reports by grouped by status
+
+    curl -X GET http://localhost:8080/v4/reports -d 'query=["extract",[["function","count"], "status"], ["~","certname",""],["group_by", "status"]]'
+
+    [ {
+      "status" : "failed",
+      "count" : 10
+    }, {
+      "status" : "changed",
+      "count" : 72
+    }, {
+      "status" : "unchanged",
+      "count" : 20
     } ]
 
 ## `GET /v4/reports/<HASH>/events`

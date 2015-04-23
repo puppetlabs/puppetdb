@@ -90,6 +90,26 @@
           (is (= (extract-tags expected)
                  (extract-tags (catalogs/catalogs-query->wire-v6 response-body))))))))
 
+  (testing "projection queries"
+    (are [query expected]
+         (is (= (-> (reader (:body (get-response endpoint nil query)))
+                    (json/parse-stream true)
+                    strip-hash
+                    set)
+                expected))
+
+         ["extract" ["certname"] ["~" "certname" ""]]
+         #{{:certname "myhost.localdomain"}
+           {:certname "host2.localdomain"}}
+
+         ["extract" [["function" "count"] "environment"]
+          ["~" "certname" ""]
+          ["group_by" "environment"]]
+         #{{:environment "DEV"
+            :count 1}
+           {:environment "PROD"
+            :count 1}}))
+
   (testing "top-level extract works with catalogs"
     (let [query ["extract" ["certname"] ["~" "certname" ""]]
           {:keys [body]} (get-response endpoint nil query)
