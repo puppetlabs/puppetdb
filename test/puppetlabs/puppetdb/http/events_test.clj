@@ -223,6 +223,14 @@
         (is (= (:status response) http/status-bad-request))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
+             body)))
+      
+      (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct_start_time 0
+                                                                           :distinct_end_time 0})
+            body      (get response :body "null")]
+        (is (= (:status response) http/status-bad-request))
+        (is (re-find
+             #"'distinct_resources' query parameter must accompany parameters 'distinct_start_time' and 'distinct_end_time'"
              body))))
 
     (testing "should return only one event for a given resource"
