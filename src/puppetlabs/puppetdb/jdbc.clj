@@ -86,8 +86,8 @@
       sql-query-and-params
       (let [limited-result-set (limit-result-set! limit result-set)]
         (-> limited-result-set
-            (convert-result-arrays)
-            (vec))))))
+            convert-result-arrays
+            vec)))))
 
 (defn query-to-vec
   "Take an SQL query and parameters, and return the result of the
