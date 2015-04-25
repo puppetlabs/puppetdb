@@ -27,7 +27,7 @@
   ;; requires lein 2.2.0+.
   :pedantic? :abort
 
-  :dependencies [[org.clojure/clojure "1.6.0"]
+  :dependencies [[org.clojure/clojure "1.7.0-beta2"]
                  [cheshire "5.4.0"]
                  [org.clojure/core.match "0.2.0-rc5"]
                  [org.clojure/math.combinatorics "0.0.4"]
