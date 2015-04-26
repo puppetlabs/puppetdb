@@ -569,7 +569,7 @@ Enabling a remote [REPL](http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93
     [repl]
     enabled = true
     type = nrepl
-    port = 8081
+    port = 8082
 
 ### `enabled`
 
