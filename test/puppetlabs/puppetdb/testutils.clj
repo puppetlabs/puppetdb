@@ -371,3 +371,25 @@
 (defn strip-hash
   [xs]
   (map #(dissoc % :hash) xs))
+
+(defn select-keys'
+  "Similar to clojure.core/select-keys, adds selected keys an empty
+  instance of `map`, whereas clojure.core/select-keys will use an
+  arraymap (and promote to hash-map). Passing in an ordered or sorted
+  version of `map` will preserve order."
+  [map keyseq]
+  (loop [ret (empty map)
+         keys (seq keyseq)]
+    (if keys
+      (let [entry (. clojure.lang.RT (find map (first keys)))]
+        (recur
+         (if entry
+           (conj ret entry)
+           ret)
+         (next keys)))
+      (with-meta ret (meta map)))))
+
+(def select-values'
+  "Like kitchensink.core/select-values but will preserve the order of the map
+  if an orderd/sorted map is passed in"
+  (comp vals select-keys'))

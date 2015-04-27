@@ -7,7 +7,7 @@
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! get-events-map]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils.events :refer :all]
-            [puppetlabs.puppetdb.testutils :refer [deftestseq]]
+            [puppetlabs.puppetdb.testutils :refer [deftestseq select-values']]
             [clj-time.coerce :refer [to-string to-timestamp to-long]]
             [clj-time.core :refer [now ago days]]))
 
@@ -446,8 +446,7 @@
   (let [basic4        (store-example-report! (:basic4 reports) (now))
         events        (get-in reports [:basic4 :resource_events])
         event-count   (count events)
-        select-values #(reverse (kitchensink/select-values
-                                  (get-events-map (:basic4 reports)) %))]
+        select-values #(select-values' (get-events-map (:basic4 reports)) %)]
     (let [version :v4]
       (testing "include total results count"
         (let [actual (:count (raw-resource-events-query-result

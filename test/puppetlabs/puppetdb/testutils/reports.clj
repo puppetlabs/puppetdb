@@ -5,7 +5,8 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.reports :as query]
             [clj-time.coerce :as time-coerce]
-            [puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage]]))
+            [puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage]]
+            [flatland.ordered.map :as omap]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that
@@ -123,6 +124,6 @@
 
 (defn get-events-map
   [example-report]
-  (into {}
+  (into (omap/ordered-map)
         (for [ev (:resource_events example-report)]
           [(:test_id ev) ev])))
