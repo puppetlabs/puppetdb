@@ -7,8 +7,8 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :as rt]
-            [puppetlabs.puppetdb.sync.testutils :as utils
-             :refer [with-puppetdb-instance index-by json-request json-response get-json]]
+            [puppetlabs.puppetdb.testutils.extensions :as utils
+             :refer [with-puppetdb-instance index-by json-request json-response get-json blocking-command-post]]
             [puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.puppetdb.sync.command :refer :all]
             [puppetlabs.puppetdb.testutils.reports :as tur]
@@ -166,9 +166,6 @@
 
 (defn perform-sync [source-pdb-url dest-sync-url]
   (svcs/until-consumed #(trigger-sync source-pdb-url dest-sync-url)))
-
-;; alias to a different name because 'sync' means 'synchronous' here, and that's REALLY confusing.
-(def blocking-command-post svcs/sync-command-post)
 
 (defn get-first-report [pdb-url certname]
   (first (get-json pdb-url (str "/reports/?query=" (json/generate-string [:= :certname certname])))))
