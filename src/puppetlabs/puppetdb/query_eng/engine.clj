@@ -61,6 +61,9 @@
                              "deactivated" {:type :string
                                             :queryable? true
                                             :field :certnames.deactivated}
+                             "expired" {:type :timestamp
+                                        :queryable? true
+                                        :field :certnames.expired}
                              "facts_environment" {:type :string
                                                   :queryable? true
                                                   :field :facts_environment.name}
@@ -871,7 +874,11 @@
             ["in" "certname"
              ["extract" "certname"
               ["select_nodes"
-               ["null?" "deactivated" value]]]]
+               (if value
+                 ["and" ["null?" "deactivated" true]
+                        ["null?" "expired" true]]
+                 ["or" ["null?" "deactivated" false]
+                       ["null?" "expired" false]])]]]
 
             [[(op :guard #{"=" "~"}) ["parameter" param-name] param-value]]
             ["in" "resource"

@@ -221,6 +221,7 @@
                                        LEFT OUTER JOIN catalogs clogs ON c.certname=clogs.certname
                                        LEFT OUTER JOIN factsets fs ON c.certname=fs.certname
                                        WHERE c.deactivated IS NULL
+                                       AND c.expired IS NULL
                                        AND (clogs.timestamp IS NULL OR clogs.timestamp < ?)
                                        AND (fs.timestamp IS NULL OR fs.timestamp < ?)"
                                       ts ts))))
@@ -234,15 +235,24 @@
     ["SELECT deactivated FROM certnames WHERE certname=?" certname]
     (:deactivated (first result-set))))
 
-(defn purge-deactivated-nodes!
+(defn node-expired-time
+  "Returns the time the node specified by `certname` expired, or nil if
+  the node is currently active."
+  [certname]
+  {:pre [(string? certname)]}
+  (sql/with-query-results result-set
+    ["SELECT expired FROM certnames WHERE certname=?" certname]
+    (:expired (first result-set))))
+
+(defn purge-deactivated-and-expired-nodes!
   "Delete nodes from the database which were deactivated before `time`."
   [time]
   {:pre [(kitchensink/datetime? time)]}
   (let [ts (to-timestamp time)]
-    (sql/delete-rows :certnames ["deactivated < ?" ts])))
+    (sql/delete-rows :certnames ["deactivated < ? OR expired < ?" ts ts])))
 
 (defn activate-node!
-  "Reactivate the given host.  Adds the host to the database if it was not
+  "Reactivate the given host. Adds the host to the database if it was not
   already present."
   [certname]
   {:pre [(string? certname)]}
@@ -250,8 +260,7 @@
     (add-certname! certname))
   (sql/update-values :certnames
                      ["certname=?" certname]
-                     {:deactivated nil}))
-
+                     {:deactivated nil, :expired nil}))
 
 (pls/defn-validated create-row :- s/Int
   "Creates a row using `row-map` for `table`, returning the PK that was created upon insert"
@@ -1163,8 +1172,8 @@
   (sql/insert-record :certnames {:certname certname}))
 
 (pls/defn-validated maybe-activate-node!
-  "Reactivate the given host, only if it was deactivated before `time`.
-  Returns true if the node is activated, or if it was already active.
+  "Reactivate the given host, only if it was deactivated or expired before
+  `time`.  Returns true if the node is activated, or if it was already active.
 
   Adds the host to the database if it was not already present."
   [certname :- String
@@ -1173,8 +1182,9 @@
     (add-certname! certname))
   (let [timestamp (to-timestamp time)
         replaced  (sql/update-values :certnames
-                                     ["certname=? AND (deactivated<? OR deactivated IS NULL)" certname timestamp]
-                                     {:deactivated nil})]
+                                     ["certname=? AND (deactivated<? OR deactivated IS NULL) AND (expired<? OR expired IS NULL)"
+                                      certname timestamp timestamp]
+                                     {:deactivated nil, :expired nil})]
     (pos? (first replaced))))
 
 (pls/defn-validated deactivate-node!
@@ -1184,6 +1194,15 @@
   (let [timestamp (to-timestamp (or timestamp (now)))]
    (sql/do-prepared "UPDATE certnames SET deactivated = ?
                     WHERE certname=? AND deactivated IS NULL"
+                    [timestamp certname])))
+
+(pls/defn-validated expire-node!
+  "Expire the given host, recording the current time. If the node is
+  currently expired, no change is made."
+  [certname :- String & [timestamp :- pls/Timestamp]]
+  (let [timestamp (to-timestamp (or timestamp (now)))]
+   (sql/do-prepared "UPDATE certnames SET expired = ?
+                    WHERE certname=? AND expired IS NULL"
                     [timestamp certname])))
 
 (defn- timestamp-of-newest-record [entity certname time-field]

@@ -15,8 +15,8 @@ Nodes can be queried by making an HTTP request to the `/nodes` endpoint.
 
 ## `GET /v4/nodes`
 
-This will return all nodes matching the given query. Deactivated nodes
-aren't included in the response.
+This will return all nodes matching the given query. Deactivated and expired
+nodes aren't included in the response.
 
 ### URL Parameters
 
@@ -106,6 +106,7 @@ The response is a single hash, of the same form used for the plain `nodes` endpo
 
     {"certname": <string>,
      "deactivated": <timestamp|null>,
+     "expired": <timestamp|null>,
      "catalog_timestamp": <timestamp>,
      "facts_timestamp": <timestamp>,
      "report_timestamp": <timestamp>,
@@ -121,8 +122,8 @@ If a node of that certname doesn't exist, the response will instead be a hash of
 
 [facts]: ./facts.html
 
-This will return the facts for the given node. Facts from deactivated
-nodes aren't included in the response.
+This will return the facts for the given node. Facts from deactivated and
+expired nodes aren't included in the response.
 
 This is a shortcut to the [`/v4/facts`][facts] endpoint. It behaves the same as a call to [`/v4/facts`][facts] with a query string of `["=", "certname", "<NODE>"]`.
 
@@ -137,8 +138,8 @@ this route.
 
 ## `GET /v4/nodes/<NODE>/facts/<NAME>`
 
-This will return facts with the given name for the given node. Facts
-from deactivated nodes aren't included in the response.
+This will return facts with the given name for the given node. Facts from
+deactivated and expired nodes aren't included in the response.
 
 This is a shortcut to the [`/v4/facts`][facts] endpoint. It behaves the same as a call to [`/v4/facts`][facts] with a query string of:
 
@@ -156,9 +157,8 @@ this route.
 
 ## `GET /v4/nodes/<NODE>/facts/<NAME>/<VALUE>`
 
-This will return facts with the given name and value for the given
-node. Facts from deactivated nodes aren't included in the
-response.
+This will return facts with the given name and value for the given node. Facts
+from deactivated and expired nodes aren't included in the response.
 
 This is a shortcut to the [`/v4/facts`][facts] endpoint. It behaves the same as a call to [`/v4/facts`][facts] with a query string of:
 
@@ -180,8 +180,8 @@ this route.
 
 ## `GET /v4/nodes/<NODE>/resources`
 
-This will return the resources for the given node. Resources from
-deactivated nodes aren't included in the response.
+This will return the resources for the given node. Resources from deactivated
+and expired nodes aren't included in the response.
 
 This is a shortcut to the [`/v4/resources`][resource] route. It behaves the same as a call to [`/v4/resources`][resource] with a query string of `["=", "certname", "<NODE>"]`.
 
@@ -196,7 +196,7 @@ this route.
 ## `GET /v4/nodes/<NODE>/resources/<TYPE>`
 
 This will return the resources of the indicated type for the given
-node. Resources from deactivated nodes aren't included in the
+node. Resources from deactivated and expired nodes aren't included in the
 response.
 
 This is a shortcut to the [`/v4/resources/<TYPE>`][resource] route. It behaves the same as a call to [`/v4/resources`][resource] with a query string of:
@@ -215,8 +215,8 @@ this route.
 
 ## `GET /v4/nodes/<NODE>/resources/<TYPE>/<TITLE>`
 
-This will return the resource of the indicated type and title for the
-given node. Resources from deactivated nodes aren't included in the
+This will return the resource of the indicated type and title for the given
+node. Resources from deactivated and expired nodes aren't included in the
 response.
 
 This is a shortcut to the [`/v4/resources/<TYPE>/<TITLE>`][resource] route. It behaves the same as a call to [`/v4/resources`][resource] with a query string of:

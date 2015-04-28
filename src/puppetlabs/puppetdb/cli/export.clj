@@ -36,7 +36,8 @@
                :facts_environment (s/maybe String)
                :report_environment (s/maybe String)
                :certname String
-               :deactivated (s/maybe String)})
+               :deactivated (s/maybe String)
+               :expired (s/maybe String)})
 
 (def cli-description "Export all PuppetDB catalog data to a backup file")
 

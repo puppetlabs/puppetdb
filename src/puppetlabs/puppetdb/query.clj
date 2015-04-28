@@ -375,6 +375,11 @@
                     WHERE %s" (column-map->sql fact-columns) where)]
     (apply vector sql params)))
 
+(defn certname-names-query [active]
+  (if active
+    "SELECT name FROM certnames WHERE deactivated IS NULL AND expired IS NULL"
+    "SELECT name FROM certnames WHERE deactivated IS NOT NULL OR expired IS NOT NULL") )
+
 (defn compile-resource-equality
   "Compile an = operator for a resource query. `path` represents the field
   to query against, and `value` is the value."
@@ -401,8 +406,7 @@
 
          ;; {in,}active nodes.
          [["node" "active"]]
-         {
-          :where (format "catalogs.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)" (if value "NULL" "NOT NULL"))}
+         {:where (format "catalogs.certname IN (%s)" (certname-names-query value))}
 
          ;; param joins.
          [["parameter" (name :guard string?)]]
@@ -473,8 +477,7 @@
             :params [value]}
 
            [["node" "active"]]
-           {:where (format "facts.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)"
-                           (if value "NULL" "NOT NULL"))}
+           {:where (format "facts.certname IN (%s)" (certname-names-query value))}
 
            :else
            (throw (IllegalArgumentException.

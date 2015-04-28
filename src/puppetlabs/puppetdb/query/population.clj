@@ -12,7 +12,7 @@
   {:post [(number? %)]}
   (-> (str "SELECT COUNT(*) AS c "
            "FROM catalogs clogs, catalog_resources cr, certnames c "
-           "WHERE clogs.id=cr.catalog_id AND c.certname=clogs.certname AND c.deactivated IS NULL")
+           "WHERE clogs.id=cr.catalog_id AND c.certname=clogs.certname AND c.deactivated IS NULL AND c.expired IS NULL")
       (query-to-vec)
       (first)
       :c))
@@ -21,7 +21,7 @@
   "The number of unique certnames in the population"
   []
   {:post [(number? %)]}
-  (-> "SELECT COUNT(*) AS c FROM certnames WHERE deactivated IS NULL"
+  (-> "SELECT COUNT(*) AS c FROM certnames WHERE deactivated IS NULL AND expired IS NULL"
       (query-to-vec)
       (first)
       :c))
@@ -38,7 +38,7 @@
   {:post [(number? %)]}
   (let [num-unique (-> (query-to-vec (str "SELECT COUNT(*) AS c FROM "
                                           "(SELECT DISTINCT resource FROM catalog_resources cr, catalogs clogs, certnames c "
-                                          " WHERE cr.catalog_id=clogs.id AND clogs.certname=c.certname AND c.deactivated IS NULL) r"))
+                                          " WHERE cr.catalog_id=clogs.id AND clogs.certname=c.certname AND c.deactivated IS NULL AND c.expired IS NULL) r"))
                        (first)
                        (:c))
         num-total  (num-resources)]

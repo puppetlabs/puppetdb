@@ -13,7 +13,7 @@ def restart_to_gc(database)
   end
 end
 
-test_name "validate that nodes are deactivated and deleted based on ttl settings" do
+test_name "validate that nodes are expired and deleted based on ttl settings" do
 
   step "clear puppetdb database so that we can import into a clean db" do
     clear_and_restart_puppetdb(database)
@@ -66,7 +66,7 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
 
   restart_to_gc database
 
-  step "Verify that the nodes were deactivated but not deleted" do
+  step "Verify that the nodes were expired but not deleted" do
     result = on database, %Q|curl -G http://localhost:8080/v4/nodes|
     result_node_statuses = JSON.parse(result.stdout)
     assert_equal(0, result_node_statuses.length, "Expected query to return '0' active nodes; returned '#{result_node_statuses.length}'")
@@ -77,7 +77,7 @@ test_name "validate that nodes are deactivated and deleted based on ttl settings
 
       assert_equal(agent.node_name, result_node_status['certname'],
                    "Didn't get a node back for #{agent.node_name}")
-      assert_not_nil(result_node_status['deactivated'], "Expected #{agent.node_name} to be present but deactivated, and it wasn't deactivated")
+      assert_not_nil(result_node_status['expired'], "Expected #{agent.node_name} to be present but expired, and it wasn't expired")
     end
   end
 
