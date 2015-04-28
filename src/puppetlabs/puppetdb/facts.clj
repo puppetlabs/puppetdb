@@ -259,6 +259,6 @@
                      "json" json/parse-string
                      ("string" "null") identity
                      identity)]
-    (reduce #(dissoc %1 %2)
-            (utils/update-when row [:value] conversion)
-            dissociated-fields)))
+    (apply dissoc
+           (utils/update-when row [:value] conversion)
+           dissociated-fields)))
