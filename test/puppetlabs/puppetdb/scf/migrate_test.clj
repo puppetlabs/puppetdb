@@ -9,7 +9,7 @@
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.scf.migrate :refer :all]
             [clj-time.coerce :refer [to-timestamp]]
-            [clj-time.core :refer [now ago days secs]]
+            [clj-time.core :refer [now ago days]]
             [clojure.test :refer :all]
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec with-transacted-connection]]

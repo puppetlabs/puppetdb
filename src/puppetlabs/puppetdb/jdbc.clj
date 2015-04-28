@@ -328,7 +328,7 @@
   (let [;; Load the database driver class explicitly, to avoid jar load ordering
         ;; issues.
         _ (Class/forName classname)
-        log-slow-statements-duration (pl-time/to-secs log-slow-statements)
+        log-slow-statements-duration (pl-time/to-seconds log-slow-statements)
         config          (doto (new BoneCPConfig)
                           (.setDefaultAutoCommit false)
                           (.setLazyInit true)

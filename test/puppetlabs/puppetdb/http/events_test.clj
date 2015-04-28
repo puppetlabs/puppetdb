@@ -6,7 +6,7 @@
             [puppetlabs.puppetdb.testutils.events :refer [http-expected-resource-events]]
             [flatland.ordered.map :as omap]
             [puppetlabs.puppetdb.examples :refer [catalogs]]
-            [clj-time.core :refer [ago now secs]]
+            [clj-time.core :refer [ago now seconds]]
             [clojure.set :as clj-set]
             [clj-time.coerce :refer [to-string to-long to-timestamp]]
             [puppetlabs.puppetdb.testutils :refer [response-equal?
@@ -290,7 +290,7 @@
 (deftestseq query-by-report-receive-timestamp
   [[version endpoint] endpoints]
 
-  (let [test-start-time (ago (secs 1))
+  (let [test-start-time (ago (seconds 1))
 
         basic           (store-example-report! (:basic reports) (now))
         basic-events    (get-in reports [:basic :resource_events])]

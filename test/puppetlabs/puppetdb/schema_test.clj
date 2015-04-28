@@ -166,8 +166,8 @@
     (time/minutes 10) Minutes String "10"
     (time/minutes 10) Minutes Number 10
 
-    (time/secs 10) Seconds String "10"
-    (time/secs 10) Seconds Number 10
+    (time/seconds 10) Seconds String "10"
+    (time/seconds 10) Seconds Number 10
 
     (time/days 10) Days String "10"
     (time/days 10) Days Number 10
@@ -193,7 +193,7 @@
 
           result {:foo (time/days 10)
                   :bar (time/minutes 20)
-                  :baz (time/secs 30)}]
+                  :baz (time/seconds 30)}]
       (is (= result
              (convert-to-schema schema {:foo 10
                                         :bar 20

@@ -131,7 +131,7 @@
 (defn format-period
   "Convert a `Period` object into a human-readable String; e.g.:
 
-      `(format-period (clj-time.core/secs 120))`
+      `(format-period (clj-time.core/seconds 120))`
 
   returns '2 minutes'.  The `Period` will only be normalized to
   the largest round unit; e.g., a `Period` of 121 seconds will
@@ -197,7 +197,7 @@
   "Given an instance of `Period`, return an integer representing the number of minutes"
   (partial to-unit #(.getStandardMinutes %)))
 
-(def to-secs
+(def to-seconds
   "Given an instance of `Period`, return an integer representing the number of seconds"
   (partial to-unit #(.getStandardSeconds %)))
 

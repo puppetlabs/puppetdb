@@ -36,7 +36,7 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
-            [clj-time.core :refer [ago secs now before?]]
+            [clj-time.core :refer [now]]
             [metrics.counters :refer [counter inc! value]]
             [metrics.gauges :refer [gauge]]
             [metrics.histograms :refer [histogram update!]]
