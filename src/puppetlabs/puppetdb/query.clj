@@ -353,23 +353,13 @@
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s FROM (
                       SELECT fs.certname,
-                             fp.path as path,
                              fp.name as name,
-                             fp.depth as depth,
-                             fv.value_integer as value_integer,
-                             fv.value_float as value_float,
-                             COALESCE(fv.value_string,
-                                      fv.value_json,
-                                      cast(fv.value_integer as text),
-                                      cast(fv.value_float as text),
-                                      cast(fv.value_boolean as text)) as value,
-                             vt.type as type,
+                             fv.value,
                              env.name as environment
                       FROM factsets fs
                         INNER JOIN facts as f on fs.id = f.factset_id
                         INNER JOIN fact_values as fv on f.fact_value_id = fv.id
                         INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                        INNER JOIN value_types as vt on vt.id=fv.value_type_id
                         LEFT OUTER JOIN environments as env on fs.environment_id = env.id
                       WHERE depth = 0) AS facts
                     WHERE %s" (column-map->sql fact-columns) where)]

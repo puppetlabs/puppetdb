@@ -64,16 +64,11 @@
 (pls/defn-validated munge-result-rows
   "Munge the result rows so that they will be compatible with the version
   specified API specification"
-  [_
-   projected-fields :- [s/Keyword]
-   _
-   _]
+  [_ _]
   (fn [rows]
     (if (empty? rows)
       []
-      (map (comp (qe/basic-project projected-fields)
-                 row->resource)
-           rows))))
+      (map row->resource rows))))
 
 ;; QUERY
 
@@ -107,13 +102,12 @@
   [version query-sql url-prefix]
   {:pre [(map? query-sql)]}
   (let [{[sql & params] :results-query
-         count-query    :count-query
-         projections    :projections} query-sql
+         count-query    :count-query} query-sql
          result {:result (query/streamed-query-result
                           version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows version projections {} url-prefix)))}]
+                          (comp doall (munge-result-rows version url-prefix)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

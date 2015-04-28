@@ -72,14 +72,10 @@
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
   [version :- s/Keyword
-   projected-fields :- [s/Keyword]
-   _
    url-prefix :- s/Str]
   (let [base-url (str url-prefix "/" (name version))]
     (fn [rows]
-      (map (comp (qe/basic-project projected-fields)
-                 (row->catalog base-url))
-           rows))))
+      (map (row->catalog base-url) rows))))
 
 ;; QUERY
 
@@ -118,12 +114,11 @@
    :post [(map? %)
           (sequential? (:result %))]}
   (let [{[sql & params] :results-query
-         count-query    :count-query
-         projections    :projections} query-sql
+         count-query    :count-query} query-sql
          result {:result (query/streamed-query-result
                           version sql params
                           (comp doall
-                                (munge-result-rows version projections {} url-prefix)))}]
+                                (munge-result-rows version url-prefix)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

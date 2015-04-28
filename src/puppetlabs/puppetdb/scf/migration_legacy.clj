@@ -4,10 +4,12 @@
   break a migration."
   (:require [puppetlabs.puppetdb.facts
              :refer [flatten-facts-with
-                     path->pathmap
-                     value->valuemap]]
+                     path->pathmap]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.scf.hash :as hash]
             [clojure.string :as str]
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls]
@@ -15,6 +17,41 @@
 
 ;; Note: this still relies on some code from facts, so changes to
 ;; those functions could break the related migration(s).
+
+(pls/defn-validated value-type-id :- s/Int
+  "Given a piece of standard hierarchical data, returns the type as an id."
+  [data :- s/Any]
+  (cond
+   (keyword? data) 0
+   (string? data) 0
+   (integer? data) 1
+   (float? data) 2
+   (kitchensink/boolean? data) 3
+   (nil? data) 4
+   (coll? data) 5))
+
+(defn value->valuemap
+  [value]
+  (let [type-id (value-type-id value)
+        initial-map {:value_type_id type-id
+                     :value_hash (hash/generic-identity-hash value)
+                     :value_string nil
+                     :value_integer nil
+                     :value_float nil
+                     :value_boolean nil
+                     :value_json nil}]
+    (if (nil? value)
+      initial-map
+      (let [value-keyword (case type-id
+                            0 :value_string
+                            1 :value_integer
+                            2 :value_float
+                            3 :value_boolean
+                            5 :value_json)
+            value (if (coll? value)
+                    (sutils/db-serialize value)
+                    value)]
+        (assoc initial-map value-keyword value)))))
 
 (pls/defn-validated add-certname-27!
   "Add the given host to the db"

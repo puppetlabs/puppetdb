@@ -71,11 +71,11 @@
                 ;; so we have to ensure the first element and the rest have been realized, not just the first
                 ;; element on its own.
                 (reset! before-slurp? (and (realized? result-set) (realized? (rest result-set))))
-                (reset! results result-set)
+                (reset! results (vec result-set))
                 (reset! after-slurp? (and (realized? result-set) (realized? (rest result-set))))))))
     (is (false? @before-slurp?))
     (check-result @results)
-    (is (false? @after-slurp?))))
+    (is (true? @after-slurp?))))
 
 (deftest query-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance

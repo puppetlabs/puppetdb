@@ -18,15 +18,10 @@
 (pls/defn-validated rtj->fact :- factsets/fact-query-schema
   "Converts from the PG row_to_json format back to something real."
   [facts :- {s/Str s/Any}]
-  (facts/convert-row-type
-   [:type :depth :value_integer :value_float]
-   (-> facts
-       (set/rename-keys {"f1" :name
-                         "f2" :value
-                         "f3" :value_integer
-                         "f4" :value_float
-                         "f5" :type})
-       (update-in [:name] facts/unencode-path-segment))))
+  (-> facts
+      (set/rename-keys {"f1" :name
+                        "f2" :value})
+      (update-in [:value] json/parse-string)))
 
 (pls/defn-validated facts->expansion :- factsets/facts-expanded-query-schema
   "Surround the facts response in the href/data format."
@@ -48,14 +43,10 @@
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
   [version :- s/Keyword
-   projected-fields :- [s/Keyword]
-   _
    url-prefix :- s/Str]
   (let [base-url (str url-prefix "/" (name version))]
     (fn [rows]
-      (map (comp (qe/basic-project projected-fields)
-                 (row->factset base-url))
-           rows))))
+      (map (row->factset base-url) rows))))
 
 ;; QUERY
 

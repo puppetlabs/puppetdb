@@ -1303,6 +1303,34 @@
   (sql/do-commands
    "ALTER TABLE certnames ADD COLUMN expired TIMESTAMP WITH TIME ZONE DEFAULT NULL"))
 
+(defn coalesce-values
+  [value-keys row]
+  (let [updated-row (update-in row [:value_json] json/parse-string)]
+    (->> (first (remove nil? (vals (select-keys updated-row value-keys))))
+         (assoc updated-row :value))))
+
+(defn update-value-json
+  [{:keys [id value] :as arg}]
+  (sql/update-values :fact_values
+                     ["id=?" id]
+                     {:value_json (json/generate-string value)}))
+
+(defn coalesce-fact-values
+  []
+  (let [query "select * from fact_values"
+        value-keys [:value_string :value_integer
+                    :value_json :value_boolean
+                    :value_float]]
+    (jdbc/with-query-results-cursor query [] rs
+      (->> rs
+           (map (partial coalesce-values value-keys))
+           (map update-value-json)
+           dorun))
+    (sql/do-commands
+      (if (sutils/postgres?)
+        "ALTER TABLE fact_values RENAME COLUMN value_json TO value"
+        "ALTER TABLE fact_values ALTER COLUMN value_json RENAME TO value"))))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1334,7 +1362,8 @@
    27 switch-value-string-index-to-gin
    28 lift-fact-paths-into-facts
    29 version-2yz-to-300-migration
-   30 add-expired-to-certnames})
+   30 add-expired-to-certnames
+   31 coalesce-fact-values})
 
 (def desired-schema-version (apply max (keys migrations)))
 
