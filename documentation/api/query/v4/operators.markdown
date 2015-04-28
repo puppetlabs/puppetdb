@@ -223,7 +223,7 @@ all nodes with `Class[Apache]`:
 
 This query string queries the `/nodes` endpoint for all nodes with `Class[Apache]`:
 
-    ["in", "name",
+    ["in", "certname",
       ["extract", "certname",
         ["select_resources",
           ["and",
