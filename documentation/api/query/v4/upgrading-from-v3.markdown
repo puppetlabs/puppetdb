@@ -81,7 +81,7 @@ Each change below is marked with the corresponding release version. Changes mark
 * (2.2.0) `/v4/fact-contents` This endpoint allows fine-grained querying of
   structured facts. For more information see the [/v4/fact-contents documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/fact-contents.html).
 
-* (3.0) `/v4/edges' This endpoint allows querying edges inside a catalog. For more information see the [/v4/edges documentation](./edges.html)
+* (3.0) `/v4/edges` This endpoint allows querying edges inside a catalog. For more information see the [/v4/edges documentation](./edges.html)
 
 * (3.0) `/v4/reports/<hash>/events` This convenience endpoint allows you to show events for a particular report by its hash. See the [/v4/reports documentation](./reports.html)
 
