@@ -293,12 +293,38 @@
     {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
     {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}]
 
-   ;; Verify that we're enforcing that
-   ;; facts from inactive nodes are never
-   ;; returned, even if you ask for them
-   ;; specifically.
+   ;; Verify that we can explicitly ask for inactive nodes
    ["=" ["node" "active"] false]
-   []))
+   [{:certname "foo4", :environment "DEV", :name "operatingsystem", :value "RedHat"}
+    {:certname "foo4", :environment "DEV", :name "kernel", :value "Linux"}
+    {:certname "foo4", :environment "DEV", :name "domain", :value "testing.com"}
+    {:certname "foo4", :environment "DEV", :name "uptime_seconds", :value 6000}
+    {:certname "foo4", :environment "DEV", :name "hostname", :value "foo4"}]
+
+   ;; ...and for all nodes, regardless of active/inactive status
+   ["or" ["=" ["node" "active"] true]
+         ["=" ["node" "active"] false]]
+   [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
+    {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
+    {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
+    {:certname "foo1" :name "uptime_seconds" :value 4000 :environment "DEV"}
+    {:certname "foo2" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo2" :name "hostname" :value "foo2" :environment "DEV"}
+    {:certname "foo2" :name "kernel" :value "Linux" :environment "DEV"}
+    {:certname "foo2" :name "operatingsystem" :value "RedHat" :environment "DEV"}
+    {:certname "foo2" :name "uptime_seconds" :value 6000 :environment "DEV"}
+    {:certname "foo3" :name "domain" :value "testing.com" :environment "DEV"}
+    {:certname "foo1" :name "bigstr" :value "1000000" :environment "DEV"}
+    {:certname "foo3" :name "hostname" :value "foo3" :environment "DEV"}
+    {:certname "foo3" :name "kernel" :value "Darwin" :environment "DEV"}
+    {:certname "foo3" :name "operatingsystem" :value "Darwin" :environment "DEV"}
+    {:certname "foo4", :environment "DEV", :name "operatingsystem", :value "RedHat"}
+    {:certname "foo4", :environment "DEV", :name "kernel", :value "Linux"}
+    {:certname "foo4", :environment "DEV", :name "domain", :value "testing.com"}
+    {:certname "foo4", :environment "DEV", :name "uptime_seconds", :value 6000}
+    {:certname "foo4", :environment "DEV", :name "hostname", :value "foo4"}]))
 
 
 (defn versioned-well-formed-tests

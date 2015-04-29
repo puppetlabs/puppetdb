@@ -11,25 +11,48 @@
   (not= (get-in req1 [:params "query"])
         (get-in req2 [:params "query"])))
 
-(defn add-criteria [crit query]
+(defn query-criteria
+  "Extract the 'criteria' (select) part of the given query"
+  [query]
   (cm/match [query]
-            [["extract" columns (expr :guard nil?)]]
-            ["extract" columns crit]
+    [["extract" _ expr]] expr
+    :else query))
 
-            [["extract" columns (expr :guard identity)]]
-            ["extract" columns ["and" expr crit]]
+(defn is-active-node-criteria? [criteria]
+  (cm/match [criteria]
+    [["=" ["node" "active"] _]] criteria
+    :else false))
 
-            [["extract" columns subquery clauses]]
-            ["extract" columns ["and" subquery crit] clauses]
-            :else
-            (if query
-              ["and" query crit]
-              crit)))
+(defn find-active-node-restriction-criteria
+  "Find the first criteria in the given query that explicitly deals with
+  active/deactivated nodes. Return nil if the query has no such criteria."
+  [query]
+  (let [criteria (query-criteria query)]
+    (some is-active-node-criteria?
+          (tree-seq vector? rest criteria))))
+
+(defn add-criteria
+  "Add a criteria to the given query, taking top-level extract queries into
+  account."
+  [crit query]
+  (cm/match [query]
+    [["extract" columns nil]]
+    ["extract" columns crit]
+
+    [["extract" columns subquery]]
+    ["extract" columns ["and" subquery crit]]
+
+    [["extract" columns subquery clauses]]
+    ["extract" columns ["and" subquery crit] clauses]
+
+    :else (if query
+            ["and" query crit]
+            crit)))
 
 (defn restrict-query
-  "Given a clause that will restrict a query, modify the supplied
-   request so that its query parameter is now restricted according to
-   the clause."
+  "Given a criteria that will restrict a query, modify the supplied
+  request so that its query parameter is now restricted according to
+  the criteria."
   [restriction {:keys [params] :as req}]
   {:pre  [(coll? restriction)]
    :post [(are-queries-different? req %)]}
@@ -39,12 +62,16 @@
     (assoc-in req [:params "query"] (json/generate-string restricted-query))))
 
 (defn restrict-query-to-active-nodes
-  "Restrict the query parameter of the supplied request so that it
-  only returns results for the supplied node"
+  "Restrict the query parameter of the supplied request so that it only returns
+  results for the supplied node, unless a node-active criteria is already
+  explicitly specified."
   [req]
-  {:post [(are-queries-different? req %)]}
-  (restrict-query ["=" ["node" "active"] true]
-                  req))
+  (if (some-> (get-in req [:params "query"])
+              (json/parse-strict-string true)
+              find-active-node-restriction-criteria)
+    req
+    (restrict-query ["=" ["node" "active"] true] req)))
+
 
 (defn restrict-query-to-node
   "Restrict the query parameter of the supplied request so that it
