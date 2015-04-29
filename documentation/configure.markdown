@@ -649,7 +649,7 @@ Enabling a remote [REPL](http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93
 
     [nrepl]
     type = nrepl
-    port = 8081
+    port = 8082
     host = 127.0.0.1
 
 ### `enabled`
