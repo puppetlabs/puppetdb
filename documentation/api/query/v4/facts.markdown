@@ -82,7 +82,7 @@ Subquery against `/fact-contents` to get all remotely-authenticated trusted fact
 
     curl -X GET http://localhost:8080/v4/facts --data-urlencode 'query=["in", ["name","certname"],
       ["extract",["name","certname"],
-        ["select-fact-contents", ["~>", "path", [".*", "authenticated"]]]]]'
+        ["select-fact-contents", ["and",["~>", "path", [".*", "authenticated"]],["=","value","remote"]]]]]'
 
     [ {
         "value" : {
