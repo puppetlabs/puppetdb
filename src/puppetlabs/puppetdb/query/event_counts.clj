@@ -116,10 +116,9 @@
   "Helper function to transform the event count subject data from the raw format that we get back from the
   database into the more structured format that the API specifies."
   [summarize_by]
-  (fn [rows]
-    (mapv
-     (partial munge-subject summarize_by)
-     rows)))
+  (fn [_ _] 
+   (fn [rows]
+     (map (partial munge-subject summarize_by) rows))))
 
 (defn query->sql
   "Convert an event-counts `query` and a value to `summarize_by` into a SQL string.
@@ -163,11 +162,12 @@
   {:pre  [(map? query-sql)]}
   (let [{[sql & params] :results-query
          count-query    :count-query} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params
-                          ;; The doall simply forces the seq to be traversed
-                          ;; fully.
-                          (comp doall (munge-result-rows summarize_by)))}]
+         result {:result
+                 (query/streamed-query-result
+                  version sql params
+                  ;; The doall simply forces the seq to be traversed fully.
+                  (comp doall
+                        ((munge-result-rows summarize_by) nil nil)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

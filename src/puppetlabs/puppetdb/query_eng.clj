@@ -19,62 +19,35 @@
             [puppetlabs.puppetdb.query.report-data :as report-data]
             [puppetlabs.puppetdb.query.resources :as resources]))
 
-(defn ignore-engine-params
-  "Query engine munge functions should take two arguments, a version
-   and a list of columns to project. Some of the munge funcitons don't
-   currently adhere to that contract, so this function will wrap the
-   given function `f` and ignore those arguments"
-  [f]
-  (constantly f))
+(defn entity->sql-fns
+  [entity version paging-options url-prefix]
+  (let [[query->sql munge-fn]
+        (case entity
+          :aggregate-event-counts [aggregate-event-counts/query->sql aggregate-event-counts/munge-result-rows]
+          :event-counts [event-counts/query->sql (event-counts/munge-result-rows (first paging-options))]
+          :facts [facts/query->sql facts/munge-result-rows]
+          :fact-contents [fact-contents/query->sql fact-contents/munge-result-rows]
+          :fact-paths [facts/fact-paths-query->sql facts/munge-path-result-rows]
+          :factsets [factsets/query->sql factsets/munge-result-rows]
+          :catalogs [catalogs/query->sql catalogs/munge-result-rows]
+          :nodes [nodes/query->sql (constantly identity)]
+          :environments [environments/query->sql (constantly identity)]
+          :events [events/query->sql events/munge-result-rows]
+          :edges [edges/query->sql edges/munge-result-rows]
+          :reports [reports/query->sql reports/munge-result-rows]
+          :report-metrics [report-data/metrics-query->sql (report-data/munge-result-rows :metrics)]
+          :report-logs [report-data/logs-query->sql (report-data/munge-result-rows :logs)]
+          :resources [resources/query->sql resources/munge-result-rows])]
+    [#(query->sql version % paging-options) (munge-fn version url-prefix)]))
 
 (defn stream-query-result
   "Given a query, and database connection, return a Ring response with the query
-  results.
-
-  If the query can't be parsed, a 400 is returned."
-  [entity version query paging-options db url-prefix output-fn]
-  (let [[query->sql munge-fn]
-        (case entity
-          :facts [facts/query->sql facts/munge-result-rows]
-          :event-counts [event-counts/query->sql (ignore-engine-params (event-counts/munge-result-rows (first paging-options)))]
-          :aggregate-event-counts [aggregate-event-counts/query->sql (ignore-engine-params (comp (partial kitchensink/mapvals #(if (nil? %) 0 %)) first))]
-          :fact-contents [fact-contents/query->sql fact-contents/munge-result-rows]
-          :fact-paths [facts/fact-paths-query->sql facts/munge-path-result-rows]
-          :events [events/query->sql events/munge-result-rows]
-          :nodes [nodes/query->sql (ignore-engine-params identity)]
-          :environments [environments/query->sql (ignore-engine-params identity)]
-          :reports [reports/query->sql reports/munge-result-rows]
-          :report-metrics [report-data/metrics-query->sql (ignore-engine-params (report-data/munge-result-rows :metrics))]
-          :report-logs [report-data/logs-query->sql (ignore-engine-params (report-data/munge-result-rows :logs))]
-          :factsets [factsets/query->sql factsets/munge-result-rows]
-          :resources [resources/query->sql resources/munge-result-rows]
-          :edges [edges/query->sql edges/munge-result-rows]
-          :catalogs [catalogs/query->sql catalogs/munge-result-rows])]
-
+  results."
+  [entity version query paging-options db url-prefix row-fn]
+  (let [[query->sql munge-fn] (entity->sql-fns entity version paging-options url-prefix)]
     (jdbc/with-transacted-connection db
-      (let [{[sql & params] :results-query
-             count-query :count-query} (query->sql version query paging-options)
-             query-error (promise)
-             resp (output-fn
-                   (fn [f]
-                     (try
-                       (jdbc/with-transacted-connection db
-                         (query/streamed-query-result version sql params
-                           (comp
-                             f
-                             #(do
-                                (first %)
-                                (deliver query-error nil)
-                                %)
-                             (munge-fn version url-prefix))))
-                       (catch java.sql.SQLException e
-                         (deliver query-error e)
-                         nil))))]
-        (when @query-error
-          (throw @query-error))
-        (if count-query
-          (http/add-headers resp {:count (jdbc/get-result-count count-query)})
-          resp)))))
+      (let [{:keys [results-query]} (query->sql query)]
+        (query/streamed-query-result results-query (comp row-fn munge-fn))))))
 
 (defn produce-streaming-body
   "Given a query, and database connection, return a Ring response with the query
@@ -83,15 +56,29 @@
   If the query can't be parsed, a 400 is returned."
   [entity version query paging-options db url-prefix]
   (try
-    (let [parsed-query (json/parse-strict-string query true)]
-      (stream-query-result entity version parsed-query paging-options db url-prefix http/stream-json-response))
+    (jdbc/with-transacted-connection db
+      (let [[query->sql munge-fn] (entity->sql-fns entity version paging-options url-prefix)
+            {:keys [results-query count-query]} (-> query (json/parse-strict-string true) query->sql)
+            query-error (promise)
+            resp (http/streamed-response
+                  buffer
+                  (try (jdbc/with-transacted-connection db
+                         (query/streamed-query-result
+                          results-query (comp #(http/stream-json % buffer)
+                                              #(do (first %) (deliver query-error nil) %)
+                                              munge-fn)))
+                       (catch java.sql.SQLException e
+                         (deliver query-error e))))]
+        (if @query-error
+          (throw @query-error)
+          (cond-> (http/json-response* resp)
+            count-query (http/add-headers {:count (jdbc/get-result-count count-query)})))))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (http/error-response e))
     (catch IllegalArgumentException e
       (http/error-response e))
     (catch org.postgresql.util.PSQLException e
       (if (= (.getSQLState e) "2201B")
-        (do
-          (log/debug e "Caught PSQL processing exception")
-          (http/error-response (.getMessage e)))
+        (do (log/debug e "Caught PSQL processing exception")
+            (http/error-response (.getMessage e)))
         (throw e)))))

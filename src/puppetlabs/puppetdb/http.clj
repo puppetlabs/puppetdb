@@ -17,8 +17,8 @@
 
 (def http-constants
   (->> java.net.HttpURLConnection
-       (r/reflect)
-       (:members)
+       r/reflect
+       :members
        (map :name)
        (map str)
        (filter #(.startsWith % "HTTP_"))))
@@ -29,11 +29,11 @@
   [name]
   (-> name
       (s/split #"HTTP_")
-      (second)
+      second
       ((partial str "status-"))
       (.replace "_" "-")
       (.toLowerCase)
-      (symbol)))
+      symbol))
 
 ;; Define constants for all of the HTTP status codes defined in the
 ;; java class
@@ -91,7 +91,7 @@
     (if (acceptable-content-type content-type (headers "accept"))
       (f req)
       (-> (format "must accept %s" content-type)
-          (rr/response)
+          rr/response
           (rr/status status-not-acceptable)))))
 
 (defn json-response*
@@ -103,7 +103,7 @@
      (json-response* body status-ok))
   ([body code]
      (-> body
-         (rr/response)
+         rr/response
          (rr/header "Content-Type" "application/json")
          (rr/charset "utf-8")
          (rr/status code))))
@@ -197,35 +197,6 @@
           (catch Exception e#
             (log/error e# "Error streaming response")))))))
 
-(defn stream-json-response
-  "Converts streaming results from function `f` into a streaming Ring response.
-
-  This works in tandem with query/query-stream-results. So usually `f` is the
-  result of a call to this function, normally to achieve streaming from a DB
-  cursor.
-
-  It wraps the execution of `f` and subsequent results in a Ring
-  piped-input-stream thread allowing the cursor stream and JSON encoding to
-  continue while the web server starts serving the content immediately (using
-  chunked encoding usually).
-
-  `f` is a function of one argument, which is another function. The
-  the function `f` will accept one argument that is a LazySeq
-  result set. This result set will be piped through a JSON stream.
-
-  Returns a Ring response map with the :body containing a Buffer. Processing
-  and conversion into the JSON stream will continue in another thread and update
-  the Buffer as results are returned."
-  [f]
-  {:post [(rr/response? %)]}
-  ;; json-response here creates a Ring response putting the Buffer into
-  ;; the :body so that ring can stream from it.
-  (json-response*
-   (streamed-response buffer
-     ;; We pass the stream function back to the stream-query-result so that
-     ;; it gets executed inside the cursor function.
-     (f #(stream-json % buffer)))))
-
 (defn parse-boolean-query-param
   "Utility method for parsing a query parameter whose value is expected to be
   a boolean.  In the case where the HTTP request contains the query parameter but
@@ -276,6 +247,5 @@
   {:pre [(map? query-result)
          (contains? query-result :result)]
    :post [(rr/response? %)]}
-  (->
-   (json-response (:result query-result))
-   (add-headers (dissoc query-result :result))))
+  (-> (json-response (:result query-result))
+      (add-headers (dissoc query-result :result))))
