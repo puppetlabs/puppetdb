@@ -254,6 +254,42 @@
                :source-table "facts"
                :subquery? false}))
 
+(defn report-logs-query
+  "Query intended to be used by the `/reports/<hash>/logs` endpoint
+  used for digging into the logs for a specific report."
+  []
+  (map->Query {:projections {"logs" {:type :json
+                                     :queryable? false
+                                     :field :reports.logs}
+                             "hash" {:type :string
+                                     :queryable? true
+                                     :query-only? true
+                                     :field (hsql-hash-as-str :reports.hash)}}
+               :selection {:from [:reports]}
+
+               :alias "logs"
+               :subquery? false
+               :entity :reports
+               :source-table "reports"}))
+
+(defn report-metrics-query
+  "Query intended to be used by the `/reports/<hash>/metrics` endpoint
+  used for digging into the metrics for a specific report."
+  []
+  (map->Query {:projections {"metrics" {:type :json
+                                        :queryable? false
+                                        :field :reports.metrics}
+                             "hash" {:type :string
+                                     :queryable? true
+                                     :query-only? true
+                                     :field (hsql-hash-as-str :reports.hash)}}
+               :selection {:from [:reports]}
+
+               :alias "metrics"
+               :subquery? false
+               :entity :reports
+               :source-table "reports"}))
+
 (defn reports-query
   "Query for the reports entity"
   []
@@ -280,10 +316,12 @@
                                                 :field :reports.end_time}
                              "metrics"        {:type :json
                                                 :queryable? false
-                                                :field :reports.metrics}
+                                                :field :reports.metrics
+                                                :expandable? true}
                              "logs"            {:type :json
                                                 :queryable? false
-                                                :field :reports.logs}
+                                                :field :reports.logs
+                                                :expandable? true}
                              "receive_time"    {:type :timestamp
                                                 :queryable? true
                                                 :field :reports.receive_time}
@@ -1167,15 +1205,15 @@
   [node state]
   (cm/match [node]
             [[(:or "=" "~" ">" "<" "<=" ">=") field _]]
-            (let [query-context (:query-context (meta node))
+            (let [{:keys [alias] :as query-context} (:query-context (meta node))
                   qfields (queryable-fields query-context)]
-              (when (and (not (vec? field))
-                         (not (contains? (set qfields) field)))
+              (when-not (or (vec? field) (contains? (set qfields) field))
                 {:node node
-                 :state (conj state (format "'%s' is not a queryable object for %s, known queryable objects are %s"
-                                            field
-                                            (:alias query-context)
-                                            (json/generate-string qfields)))}))
+                 :state (conj state
+                              (format "'%s' is not a queryable object for %s, %s" field alias 
+                                      (if (empty? qfields)
+                                        (format "%s has no queryable objects" alias)
+                                        (format "known queryable objects are %s" (json/generate-string qfields)))))}))
 
             ; This validation is only for top-level extract operator
             ; For in-extract operator validation, please see annotate-with-context function

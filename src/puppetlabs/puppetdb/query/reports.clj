@@ -35,33 +35,13 @@
       (update-in [:old_value] json/parse-string)
       (update-in [:new_value] json/parse-string)))
 
-(pls/defn-validated events->expansion :- {:href s/Str (s/optional-key :data) [s/Any]}
-  "Convert events to the expanded format."
-  [obj :- (s/maybe PGobject)
-   hash :- s/Str
-   base-url :- s/Str]
-  (let [data-obj {:href (str base-url "/reports/" hash "/events")}]
-    (if obj
-      (assoc data-obj :data (map rtj->event
-                                 (json/parse-string (.getValue obj))))
-      data-obj)))
-
-(pls/defn-validated logs->expansion :- {:href s/Str (s/optional-key :data) [s/Any]}
-  "Convert logs to the expanded format."
+(pls/defn-validated child->expansion :- {:href s/Str (s/optional-key :data) [s/Any]}
+  "Convert child to the expanded format."
   [data :- (s/maybe (s/either PGobject s/Str))
+   child :- s/Keyword
    hash :- s/Str
    base-url :- s/Str]
-  (let [data-obj {:href (str base-url "/reports/" hash "/logs")}]
-    (if data
-      (assoc data-obj :data (sutils/parse-db-json data))
-      data-obj)))
-
-(pls/defn-validated metrics->expansion :- {:href s/Str (s/optional-key :data) [s/Any]}
-  "Convert metrics data to the expanded format."
-  [data :- (s/maybe (s/either PGobject s/Str))
-   hash :- s/Str
-   base-url :- s/Str]
-  (let [data-obj {:href (str base-url "/reports/" hash "/metrics")}]
+  (let [data-obj {:href (str base-url "/reports/" hash "/" (name child))}]
     (if data
       (assoc data-obj :data (sutils/parse-db-json data))
       data-obj)))
@@ -69,14 +49,15 @@
 (pls/defn-validated row->report
   "Convert a report query row into a final report format."
   [base-url :- s/Str]
-  (fn [row]
+  (fn [{:keys [hash] :as row}]
     (-> row
-        (utils/update-when [:resource_events] events->expansion (:hash row) base-url)
-        (utils/update-when [:metrics] metrics->expansion (:hash row) base-url)
-        (utils/update-when [:logs] logs->expansion (:hash row) base-url))))
+        (utils/update-when [:resource_events] child->expansion :events hash base-url)
+        (utils/update-when [:resource_events :data] (partial map rtj->event))
+        (utils/update-when [:metrics] child->expansion :metrics hash base-url)
+        (utils/update-when [:logs] child->expansion :logs hash base-url))))
 
 (pls/defn-validated munge-result-rows
-  "Reassemble rows from the database into the final expected format."
+  "Reassemble report rows from the database into the final expected format."
   [version :- s/Keyword
    projected-fields :- [s/Keyword]
    _

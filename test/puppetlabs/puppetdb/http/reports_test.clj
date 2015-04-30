@@ -41,7 +41,7 @@
   [report]
   (if (sutils/postgres?)
     report
-    (dissoc report :resource_events)))
+    (dissoc report :resource_events :metrics :logs)))
 
 (defn report-response
   [report]
@@ -123,6 +123,15 @@
        (get-response endpoint ["extract" ["hash" "certname" "transaction_uuid"]
                                ["=" "certname" (:certname basic)]])
        #{(select-keys basic [:hash :certname :transaction_uuid])}))))
+
+(deftestseq query-report-data
+  [[version field] [[:v4 :logs] [:v4 :metrics]]]
+  (let [report-hash (:hash (store-example-report! (:basic reports) (now)))
+        basic (assoc (:basic reports) :hash report-hash)
+        get-data (fn [hash field]
+                   (get-response (format "/v4/reports/%s/%s" hash field) nil))]
+    (testing (format "%s endpoint returns the proper data" (name field))
+      (response-equal? (get-data report-hash (name field))  (-> basic field set)))))
 
 (deftestseq query-with-paging
   [[version endpoint] endpoints]

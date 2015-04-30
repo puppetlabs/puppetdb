@@ -27,6 +27,12 @@
    (string? (first q))
    (every? (complement coll?) (rest q))))
 
+(def valid-results-query-schema
+  "Schema type for compiled query-eng queries"
+  (s/pred
+   #(and (map? %)
+         (valid-jdbc-query? (:results-query %)))))
+
 ;; ## String operations
 
 (defn dashes->underscores

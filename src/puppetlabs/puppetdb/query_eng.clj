@@ -16,6 +16,7 @@
             [puppetlabs.puppetdb.query.fact-contents :as fact-contents]
             [puppetlabs.puppetdb.query.nodes :as nodes]
             [puppetlabs.puppetdb.query.reports :as reports]
+            [puppetlabs.puppetdb.query.report-data :as report-data]
             [puppetlabs.puppetdb.query.resources :as resources]))
 
 (defn ignore-engine-params
@@ -24,8 +25,7 @@
    currently adhere to that contract, so this function will wrap the
    given function `f` and ignore those arguments"
   [f]
-  (fn [_ _ _ _]
-    f))
+  (constantly f))
 
 (defn stream-query-result
   "Given a query, and database connection, return a Ring response with the query
@@ -44,6 +44,8 @@
           :nodes [nodes/query->sql nodes/munge-result-rows]
           :environments [environments/query->sql (ignore-engine-params identity)]
           :reports [reports/query->sql reports/munge-result-rows]
+          :report-metrics [report-data/metrics-query->sql (ignore-engine-params (report-data/munge-result-rows :metrics))]
+          :report-logs [report-data/logs-query->sql (ignore-engine-params (report-data/munge-result-rows :logs))]
           :factsets [factsets/query->sql factsets/munge-result-rows]
           :resources [resources/query->sql resources/munge-result-rows]
           :edges [edges/query->sql edges/munge-result-rows]
