@@ -40,6 +40,7 @@
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.trapperkeeper.logging :as logutils]
+            [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.puppetdb.cheshire :as json]
             [fs.core :as fs]
             [clojure.java.io :as io]
@@ -292,7 +293,7 @@
   (assoc factset "certname" hostname))
 
 (def supported-cli-options
-  [["-c" "--config CONFIG" "Path to config.ini or conf.d directory (required)"]
+  [["-c" "--config CONFIG" "Path to config or conf.d directory (required)"]
    ["-F" "--facts FACTS" "Path to a directory containing sample JSON facts (files must end with .json)"]
    ["-C" "--catalogs CATALOGS" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
    ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
@@ -308,9 +309,9 @@
 (defn activate-logging!
   [options]
   (-> (:config options)
-      (ks/inis-to-map)
+      config/load-config
       (get-in [:global :logging-config])
-      (logutils/configure-logging!)))
+      logutils/configure-logging!))
 
 (defn validate-options
   [options action-on-error-fn]
@@ -395,7 +396,7 @@
   [& args]
   (let [options         (validate-cli! args)
         config          (-> (:config options)
-                            (ks/inis-to-map))
+                            config/load-config)
 
         {:keys [catalogs reports facts]} (load-data-from-options options)
         nhosts          (:numhosts options)
