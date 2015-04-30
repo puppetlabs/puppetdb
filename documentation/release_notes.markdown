@@ -15,7 +15,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 * For the best-possible performance and scaling capacity, we recommend
  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
  extension enabled, as explained [here][configure_postgres], and we
- have officially deprecated versions earlier than 9.2. HSQLDB is
+ have officially retired versions earlier than 9.3. HSQLDB is
  only recommended for local development because it has a number of
  scaling and operational issues.
 
