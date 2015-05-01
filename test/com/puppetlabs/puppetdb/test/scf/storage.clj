@@ -340,6 +340,13 @@
         (add-certname! "c-x")
         (replace-facts! (facts-now "c-x" facts))
         (replace-facts! (facts-now "c-x" (assoc facts "b" "2")))))
+    (testing "during replace - values only in one factset, and all paths change"
+      (reset-db!)
+      (let [facts {"a" "1" "b" "2"}
+            facts-swapped {"a" "2" "b" "1"}]
+        (add-certname! "c-x")
+        (replace-facts! (facts-now "c-x" facts))
+        (replace-facts! (facts-now "c-x" facts-swapped))))
     (testing "paths - globally, incrementally"
       (letfn [(str->pathmap [s] (-> s string-to-factpath path->pathmap))]
         (reset-db!)
