@@ -7,7 +7,6 @@
             [puppetlabs.puppetdb.cli.services :refer :all]
             [puppetlabs.puppetdb.utils :as utils]
             [clojure.test :refer :all]
-            [clj-time.core :refer [days hours minutes secs]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*base-url*]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :refer [block-until-results]]

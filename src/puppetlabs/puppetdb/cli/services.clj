@@ -60,7 +60,7 @@
             [clojure.java.io :refer [file]]
             [clj-time.core :refer [ago]]
             [overtone.at-at :refer [mk-pool interspaced]]
-            [puppetlabs.puppetdb.time :refer [to-secs to-millis parse-period format-period period?]]
+            [puppetlabs.puppetdb.time :refer [to-seconds to-millis parse-period format-period period?]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
             [puppetlabs.puppetdb.version :refer [version update-info]]
@@ -321,12 +321,12 @@
       (let [job-pool (mk-pool)
             gc-interval-millis (to-millis gc-interval)
             gc-task #(interspaced gc-interval-millis % job-pool)
-            db-maintenance-tasks [(when (pos? (to-secs node-ttl))
+            db-maintenance-tasks [(when (pos? (to-seconds node-ttl))
                                     #(auto-deactivate-nodes!
                                       node-ttl % mq-connection))
-                                  (when (pos? (to-secs node-purge-ttl))
+                                  (when (pos? (to-seconds node-purge-ttl))
                                     (partial purge-nodes! node-purge-ttl))
-                                  (when (pos? (to-secs report-ttl))
+                                  (when (pos? (to-seconds report-ttl))
                                     (partial sweep-reports! report-ttl))
                                   ;; Order is important here to ensure
                                   ;; anything referencing an env or resource

@@ -117,7 +117,7 @@
       (testing "should default to zero (no expiration)"
         (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs {}))]
           (is (pl-time/period? node-ttl))
-          (is (= 0 (pl-time/to-secs node-ttl))))))
+          (is (= 0 (pl-time/to-seconds node-ttl))))))
     (testing "report-ttl"
       (testing "should parse report-ttl and produce report-ttl"
         (let [{:keys [report-ttl]} (:database (configure-dbs { :database { :report-ttl "10d" }}))]

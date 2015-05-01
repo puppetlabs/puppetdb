@@ -38,7 +38,7 @@
                  [vimclojure/server "2.3.6" :exclusions [org.clojure/clojure]]
                  [clj-stacktrace "0.2.6"]
                  [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
-                 [clj-time "0.5.1"]
+                 [clj-time "0.9.0"]
                  [org.clojure/java.jmx "0.3.1"]
                  ;; Filesystem utilities
                  [fs "1.1.2"]
@@ -65,9 +65,9 @@
                  [org.slf4j/jcl-over-slf4j "1.7.10"]
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
-                 [compojure "1.1.6"]
+                 [compojure "1.3.3"]
                  [clj-http "1.0.1"]
-                 [ring/ring-core "1.2.1" :exclusions [javax.servlet/servlet-api]]
+                 [ring/ring-core "1.3.2" :exclusions [javax.servlet/servlet-api]]
                  [org.apache.commons/commons-compress "1.8"]
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]

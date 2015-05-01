@@ -2,7 +2,7 @@
   (:require [fs.core :as fs]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.test :refer :all]
-            [clj-time.core :refer [years days secs ago now]]
+            [clj-time.core :refer [years days seconds ago now]]
             [puppetlabs.puppetdb.command.dlo :refer :all]))
 
 (deftest dlo-compression-introspection
@@ -95,7 +95,7 @@
 (deftest dlo-compression
   (let [dlo (fs/temp-dir)
         threshold (days 7)
-        short-threshold (secs 0)
+        short-threshold (seconds 0)
         stale-timestamp (.getMillis (ago (days 8)))]
     (testing "should work with no subdirectories"
       (compress! "non-existent-dir" (days 7))
