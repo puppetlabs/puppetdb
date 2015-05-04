@@ -42,6 +42,10 @@
       (remove-nil-field :line)
       (remove-nil-field :file)))
 
+(def include-inactive-nodes-criteria
+  ["or" ["=" ["node" "active"] true]
+        ["=" ["node" "active"] false]])
+
 (def sync-configs
   [{:entity :reports
     ;; On each side of the sync, we use this query to get
@@ -49,7 +53,8 @@
     ;; hash of its content.
     :record-hashes-query {:version :v4
                           :query ["extract" ["hash" "certname" "start_time"]
-                                  ["null?" "start_time" false]]
+                                  ["and" ["null?" "start_time" false]
+                                         include-inactive-nodes-criteria]]
                           :order {:order_by [[:certname :ascending] [:hash :ascending]]}}
 
     ;; The above query is done on each side of the sync; the
@@ -76,7 +81,7 @@
    {:entity :factsets
     :record-hashes-query {:version :v4
                           :query ["extract" ["hash" "certname" "producer_timestamp"]
-                                  ["null?" "certname" false]] ; certname is never null, so this matches all factsets
+                                            include-inactive-nodes-criteria]
                           :order {:order_by [[:certname :ascending]]}}
     :record-id-fn :certname
     :record-fetch-key :certname
@@ -92,7 +97,7 @@
    {:entity :catalogs
     :record-hashes-query {:version :v4
                           :query ["extract" ["hash" "certname" "producer_timestamp"]
-                                  ["null?" "certname" false]] ; certname is never null, so this matches all factsets
+                                            include-inactive-nodes-criteria]
                           :order {:order_by [[:certname :ascending]]}}
     :record-id-fn :certname
     :record-fetch-key :certname
@@ -102,7 +107,16 @@
                               (maybe-update-in [:edges] #(map clean-up-edge %))
                               (maybe-update-in [:resources] #(map clean-up-resource %))))
     :submit-command {:command :replace-catalog
-                     :version 6}}])
+                     :version 6}}
+
+   {:entity :nodes
+    :record-hashes-query {:version :v4
+                          :query include-inactive-nodes-criteria
+                          :order {:order_by [[:certname :ascending]]}}
+    :record-id-fn :certname
+    :record-fetch-key :certname
+    :record-ordering-fn :deactivated
+    :clean-up-record-fn identity}])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utils
@@ -190,26 +204,36 @@
   "Queries a resource from `remote-url`/`entity`, where
   `entity` is a keyword like :reports, :factsets, etc. '"
   [remote-url entity query]
-  (let [encoded-query (url-encode (json/generate-string query))
-        url (str remote-url "/" (name entity) "?query=" encoded-query)
+  (let [json-query (json/generate-string query)
+        url (str remote-url "/" (name entity))
         error-message-fn (fn [status body] (format "Error querying %s for %s with query %s. Received HTTP status code %s with the error message '%s'"
                                                    remote-url (name entity) query status body))
-        {:keys [status body]} (http-get url {} error-message-fn)]
+        {:keys [status body]} (http-get url {:query-params {:query json-query}} error-message-fn)]
     (json/parse-string body true)))
 
 (defn query-record-and-transfer!
   "Query for a record where `record-fetch-key` (from `sync-config`) equals
   `record-fetch-val` and submit a command locally to copy that record, via
-  `store-record-locally-fn`''."
+  `store-record-locally-fn`."
   [remote-url record-fetch-val submit-command-fn sync-config]
   (let [{:keys [entity record-fetch-key clean-up-record-fn submit-command]} sync-config
         store-record-locally-fn (partial submit-command-fn (:command submit-command) (:version submit-command))]
-   (-> (query-remote remote-url entity ["=" (name record-fetch-key) record-fetch-val])
-       first
-       (collapse-and-download-collections remote-url)
-       strip-timestamp-and-hash
-       clean-up-record-fn
-       store-record-locally-fn)))
+    (-> (query-remote remote-url entity ["and" ["=" (name record-fetch-key) record-fetch-val]
+                                               include-inactive-nodes-criteria])
+        first
+        (collapse-and-download-collections remote-url)
+        strip-timestamp-and-hash
+        clean-up-record-fn
+        store-record-locally-fn)))
+
+(defn set-local-deactivation-status!
+  [{:keys [certname deactivated] :as remote-record} submit-command-fn]
+  ;; deactivated never goes false (null) by itself; one of the other entities
+  ;; will change, reactivating it as a side effect
+  (when deactivated
+    (submit-command-fn :deactivate-node 3
+                       {:certname certname
+                        :producer_timestamp deactivated})))
 
 (defn outer-join-unique-sorted-seqs
   "Outer join two seqs, `xs` and `ys`, that are sorted and unique under
@@ -260,7 +284,6 @@
   [handler-fn]
   (fn [f] (f handler-fn)))
 
-
 (defn streamed-summary-query
   "Perform the summary query at `remote-url`, as specified in
   `sync-config`. Returns a stream which must be closed."
@@ -271,13 +294,13 @@
         error-message-fn (fn [status body]
                            (format "Error querying %s for record summaries (%s). Received HTTP status code %s with the error message '%s'"
                                    remote-url entity status body))]
-    (-> url
-        (http-get {:query-params {:query (json/generate-string query)
-                                       :order_by (order-by-clause-to-wire-format (json/generate-string order))}
-                        :as :stream
-                        :throw-entire-message true}
-                       error-message-fn)
-        :body)))
+        (-> url
+            (http-get {:query-params {:query (json/generate-string query)
+                                      :order_by (order-by-clause-to-wire-format (json/generate-string order))}
+                       :as :stream
+                       :throw-entire-message true}
+                      error-message-fn)
+            :body)))
 
 (defn pull-records-from-remote!
   "Query `remote-url` using the query api and the local PDB using `query-fn`,
@@ -293,18 +316,19 @@
             {:keys [version query order]} record-hashes-query]
         (query-fn entity version query order
                   (query-result-handler (fn [local-sync-data]
-                                          (let [to-fetch (records-to-fetch record-id-fn
-                                                                           record-ordering-fn
-                                                                           local-sync-data
-                                                                           remote-sync-data)]
-                                            (doseq [x to-fetch]
-                                              (query-record-and-transfer! remote-url
-                                                                          (get x record-fetch-key)
-                                                                          submit-command-fn
-                                                                          sync-config)))))))
+                                          (let [records-to-fetch (records-to-fetch record-id-fn
+                                                                                   record-ordering-fn
+                                                                                   local-sync-data
+                                                                                   remote-sync-data)]
+                                            (doseq [record records-to-fetch]
+                                              (if (= entity :nodes)
+                                                (set-local-deactivation-status! record submit-command-fn)
+                                                (query-record-and-transfer! remote-url
+                                                                            (get record record-fetch-key)
+                                                                            submit-command-fn
+                                                                            sync-config))))))))
       (finally
         (.close summary-response-stream)))))
-
 
 (defmacro wrap-with-logging [f level message]
   `(fn [& args#]

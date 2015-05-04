@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.sync.command-test
-  (:require [clojure.test :refer :all]
+  (:refer-clojure :exclude [sync])
+  (:require [clojure.test :exclude [report] :refer :all]
             [puppetlabs.puppetdb.random :refer [random-string]]
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
@@ -119,6 +120,19 @@
                 @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report))))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Test data
+
+(def facts {:certname "foo.local"
+            :environment "DEV"
+            :values tuf/base-facts
+            :producer_timestamp (new java.util.Date)})
+
+(def catalog (assoc (get-in wire-catalogs [6 :basic])
+                    :certname "foo.local"))
+
+(def report (-> reports :basic tur/munge-example-report-for-storage))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Pull changes tests
 ;;;
 ;;; These tests isolate PDB-Y. We store some fixture data in it, then synthesize
@@ -148,15 +162,17 @@
                      (= "extract" (first query))
                      (json-response summary-data)
 
-                     (= ["=" (name record-identity-key)] (take 2 query))
-                     (let [[_ _ record-hash] query]
+                     (and (= "and") (first query)
+                          (= ["=" (name record-identity-key)] (take 2 (second query))))
+                     (let [[_ [_ _ record-hash]] query]
                        (json-response [(get-in stub-data-index [record-hash :content])]))))))
 
           ;; fallback routes, for data that wasn't explicitly stubbed
           (context "/pdb-x/v4" []
                    (GET "/reports" [] (json-response []))
                    (GET "/factsets" [] (json-response []))
-                   (GET "/catalogs" [] (json-response [])))))
+                   (GET "/catalogs" [] (json-response []))
+                   (GET "/nodes" [] (json-response [])))))
 
 (defn trigger-sync [source-pdb-url dest-sync-url]
  (http/post dest-sync-url
@@ -203,11 +219,6 @@
         (let [puppet-versions (map :puppet_version (export/reports-for-node (utils/pdb-url) (:certname report-2)))]
           (is (= #{"4.0.0" "3.0.1"} (set puppet-versions)))
           (is (= 2 (count @pdb-x-queries))))))))
-
-(def facts {:certname "foo.local"
-            :environment "DEV"
-            :values tuf/base-facts
-            :producer_timestamp (new java.util.Date)})
 
 (deftest pull-factsets-test
   (let [pdb-x-queries (atom [])
@@ -269,8 +280,6 @@
             environments (->> synced-factsets (map :environment) (into #{}))]
         (is (= #{"DEV" "A" "E" "F"} environments))
         (is (= 4 (count @pdb-x-queries)))))))
-
-(def catalog (get-in wire-catalogs [6 :basic]))
 
 ;;  the catalogs we get as http responses have flattened edge definitions
 (def catalog-response
@@ -346,7 +355,51 @@
         (is (= 4 (count @pdb-x-queries)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; End to end tests
+;;; End to end test utils
+
+(defn- get-reports [base-url certname]
+  (first (get-json base-url "/reports"
+                   {:query-params {:query (json/generate-string [:= :certname certname])}})))
+
+(defn- get-factset [base-url certname]
+  (first (get-json base-url "/factsets"
+                   {:query-params {:query (json/generate-string [:= :certname certname])}})))
+
+(defn- get-catalog [base-url certname]
+  (first (get-json base-url "/catalogs"
+                   {:query-params {:query (json/generate-string [:= :certname certname])}})))
+
+(defn- get-node [base-url certname]
+  (get-json base-url (str "/nodes/" certname)))
+
+(defn- submit-catalog [endpoint catalog]
+  (pdb-client/submit-command-via-http! (:service-url endpoint) "replace catalog" 6 catalog)
+  @(rt/block-until-results 100 (get-catalog (:service-url endpoint) (:certname catalog))))
+
+(defn- submit-factset [endpoint facts]
+  (pdb-client/submit-command-via-http! (:service-url endpoint) "replace facts" 4 facts)
+  @(rt/block-until-results 101 (get-factset (:service-url endpoint) (:certname facts))))
+
+(defn- submit-report [endpoint report]
+  (pdb-client/submit-command-via-http! (:service-url endpoint) "store report" 5 report)
+  @(rt/block-until-results 102 (get-reports (:service-url endpoint) (:certname report))))
+
+(defn- deactivate-node [endpoint certname]
+  (pdb-client/submit-command-via-http! (:service-url endpoint) "deactivate node" 3
+                                       {:certname certname
+                                        :producer_timestamp (t/plus (t/now) (t/years 10))})
+  @(rt/block-until-results 103 (:deactivated (get-node (:service-url endpoint) certname))))
+
+(defn- sync [& {:keys [from to check-with check-for]}]
+  ;; pdb2 pulls data from pdb1
+  (trigger-sync (base-url->str (:service-url from))
+                (str (base-url->str (:sync-url to)) "/trigger-sync"))
+
+  ;; let pdb2 chew on its queue
+  @(rt/block-until-results 200 (check-with (:service-url to) check-for)))
+
+(defn- without-timestamp [record]
+  (dissoc record :timestamp))
 
 (defn- with-pdbs
   "Repeatedly call (gen-config [previously-started-instance-info...])
@@ -377,71 +430,84 @@
 (defn- default-pdb-configs [n]
   #(when (< (count %) n) (utils/sync-config)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; End to end tests
+
 (deftest end-to-end-report-replication
   (with-pdbs (default-pdb-configs 2)
     (fn [pdb1 pdb2]
-      (let [report (tur/munge-example-report-for-storage (:basic reports))]
-        (with-alt-mq (:mq-name pdb1)
-          (pdb-client/submit-command-via-http! (:service-url pdb1) "store report" 5 report)
-          @(rt/block-until-results 100 (export/reports-for-node (:service-url pdb1) (:certname report))))
+      (with-alt-mq (:mq-name pdb1)
+        (submit-report pdb1 report))
 
-        (with-alt-mq (:mq-name pdb2)
-          ;; pdb2 pulls data from pdb1
-          (trigger-sync (base-url->str (:service-url pdb1))
-                        (str (base-url->str (:sync-url pdb2)) "/trigger-sync"))
+      (with-alt-mq (:mq-name pdb2)
+        (sync :from pdb1 :to pdb2 :check-with get-reports :check-for (:certname report)))
 
-          ;; let pdb2 chew on its queue
-          @(rt/block-until-results 200 (export/reports-for-node (:service-url pdb2) (:certname report)))
-
-          (is (= (export/reports-for-node (:service-url pdb1) (:certname report))
-                 (export/reports-for-node (:service-url pdb2) (:certname report)))))))))
-
-(defn get-factset [base-url certname]
-  (first (get-json base-url "/factsets"
-                   {:query-params {:query (json/generate-string [:= :certname certname])}})))
-
-(defn without-timestamp [record]
-  (dissoc record :timestamp))
+      (is (= (export/reports-for-node (:service-url pdb1) (:certname report))
+             (export/reports-for-node (:service-url pdb2) (:certname report)))))))
 
 (deftest end-to-end-factset-replication
   (with-pdbs (default-pdb-configs 2)
     (fn [pdb1 pdb2]
       (with-alt-mq (:mq-name pdb1)
-        (pdb-client/submit-command-via-http! (:service-url pdb1) "replace facts" 4 facts)
-        @(rt/block-until-results 100 (get-factset (:service-url pdb1) (:certname facts))))
+        (submit-factset pdb1 facts))
 
       (with-alt-mq (:mq-name pdb2)
-        ;; pdb2 pulls data from pdb1
-        (trigger-sync (base-url->str (:service-url pdb1))
-                      (str (base-url->str (:sync-url pdb2)) "/trigger-sync"))
+        (sync :from pdb1 :to pdb2 :check-with get-factset :check-for (:certname facts)))
 
-        ;; let pdb2 chew on its queue
-        @(rt/block-until-results 200 (get-factset (:service-url pdb2) (:certname facts)))
-
-        (is (= (without-timestamp (get-factset (:service-url pdb1) (:certname facts)))
-               (without-timestamp (get-factset (:service-url pdb2) (:certname facts)))))))))
-
-(defn get-catalog [base-url certname]
-  (first (get-json base-url "/catalogs"
-                   {:query-params {:query (json/generate-string [:= :certname certname])}})))
+      (is (= (without-timestamp (get-factset (:service-url pdb1) (:certname facts)))
+             (without-timestamp (get-factset (:service-url pdb2) (:certname facts))))))))
 
 (deftest end-to-end-catalog-replication
   (with-pdbs (default-pdb-configs 2)
     (fn [pdb1 pdb2]
       (with-alt-mq (:mq-name pdb1)
-        (pdb-client/submit-command-via-http! (:service-url pdb1) "replace catalog" 6 catalog)
-        @(rt/block-until-results 100 (get-catalog (:service-url pdb1) (:certname catalog))))
+        (submit-catalog pdb1 catalog))
 
       (with-alt-mq (:mq-name pdb2)
-        ;; pdb2 pulls data from pdb1
-        (trigger-sync (base-url->str (:service-url pdb1))
-                      (str (base-url->str (:sync-url pdb2)) "/trigger-sync"))
+        (sync :from pdb1 :to pdb2 :check-with get-catalog :check-for (:certname catalog)))
 
-        ;; let pdb2 chew on its queue
-        @(rt/block-until-results 200 (get-catalog (:service-url pdb2) (:certname catalog)))
+      (is (= (without-timestamp (get-catalog (:service-url pdb1) (:certname catalog)))
+             (without-timestamp (get-catalog (:service-url pdb2) (:certname catalog))))))))
 
-        (is (= (without-timestamp (get-catalog (:service-url pdb1) (:certname catalog)))
-               (without-timestamp (get-catalog (:service-url pdb2) (:certname catalog)))))))))
+(deftest deactivate-then-sync
+  (let [certname (:certname catalog)]
+    (with-n-pdbs 2
+      (fn [pdb1 pdb2]
+        ;; sync a node
+        (with-alt-mq (:mq-name pdb1)
+          (submit-catalog pdb1 catalog)
+          (submit-factset pdb1 facts)
+          (submit-report pdb1 report)
+          (deactivate-node pdb1 certname))
+
+        (with-alt-mq (:mq-name pdb2)
+          (sync :from pdb1 :to pdb2 :check-with get-node :check-for certname)
+          (let [node (get-node (:service-url pdb2) certname)]
+            (is (:deactivated node))))))))
+
+(deftest sync-after-deactivate
+  (let [certname (:certname catalog)]
+    (with-n-pdbs 2
+      (fn [pdb1 pdb2]
+        ;; sync a node
+        (with-alt-mq (:mq-name pdb1)
+          (submit-catalog pdb1 catalog)
+          (submit-factset pdb1 facts)
+          (submit-report pdb1 report))
+
+        (with-alt-mq (:mq-name pdb2)
+          (sync :from pdb1 :to pdb2 :check-with get-node :check-for certname)
+          (let [node (get-node (:service-url pdb2) certname)]
+            (is (nil? (:deactivated node)))))
+
+        ;; then deactivate and sync
+        (with-alt-mq (:mq-name pdb1)
+          (deactivate-node pdb1 certname))
+
+        (with-alt-mq (:mq-name pdb2)
+          (sync :from pdb1 :to pdb2 :check-with get-node :check-for certname)
+          (let [node (get-node (:service-url pdb2) certname)]
+            (is (:deactivated node))))))))
 
 (deftest periodic-sync
   (let [sync-interval 2]
