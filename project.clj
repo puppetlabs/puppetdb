@@ -17,13 +17,13 @@
   :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
                  ["snapshots"  "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
   :source-paths ["src"]
-  :dependencies [[org.clojure/clojure "1.6.0"]
-                 [puppetlabs/puppetdb ~pdb-version]]
+  :dependencies [[puppetlabs/puppetdb ~pdb-version]]
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
   :resource-paths ["resources"]
-  :profiles {:dev {:resource-paths ["test-resources"],
-                   :dependencies [[ring-mock "0.1.5"]
+  :profiles {:dev {:resource-paths ["test-resources"]
+                   :dependencies [[org.flatland/ordered "1.5.2"]
+                                  [ring-mock "0.1.5"]
                                   [puppetlabs/puppetdb ~pdb-version :classifier "test"]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]]}
