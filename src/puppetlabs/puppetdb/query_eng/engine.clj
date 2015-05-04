@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.query-eng.engine
   (:require [clojure.core.match :as cm]
-            [clojure.string :as str]
+            [clojure.string :as string]
             [clojure.tools.logging :as log]
             [honeysql.core :as hcore]
             [honeysql.helpers :as hsql]
@@ -24,7 +24,7 @@
 ;;; Plan - functions/transformations of the internal query plan
 
 (defrecord Query [projections selection source-table alias where
-                  subquery? entity])
+                  subquery? entity call group-by])
 (defrecord BinaryExpression [operator column value])
 (defrecord RegexExpression [column value])
 (defrecord ArrayRegexExpression [table alias column value])
@@ -705,13 +705,28 @@
         [:null name]
         [field name]))))
 
+(defn merge-function-options
+  "Optionally merge call and grouping into an existing query map.
+   Alias function calls with escape-quoted function name for hsqldb compatability.
+   For instance, (merge-function-options {} ['count' :*] ['status'])"
+  [selection call grouping]
+  (cond-> selection
+    call (hsql/merge-select [(apply hcore/call call) (format "\"%s\"" (first call))])
+    grouping (assoc :group-by (map keyword grouping))))
+
 (defn honeysql-from-query
-  [{:keys [selection projections paging-options] :as query}]
+  [{:keys [projected-fields group-by call selection projections]}]
   "Convert a query to honeysql format"
-  (let [expand? (su/postgres?)]
+  (let [expand? (su/postgres?)
+        call (when-let [[f & args] (when call (utils/vector-maybe call))]
+               (apply vector f (map keyword (or args [:*]))))
+        new-select (if (and call (empty? projected-fields))
+                     []
+                     (vec (remove nil? (map #(extract-fields % expand?)
+                                            (sort projections)))))]
     (log/spy (-> selection
-                 (assoc :select (vec (remove nil? (map #(extract-fields % expand?)
-                                                       (sort projections)))))))))
+                 (assoc :select new-select)
+                 (merge-function-options call group-by)))))
 
 (pls/defn-validated sql-from-query :- String
   [query]
@@ -720,10 +735,6 @@
                honeysql-from-query
                hcore/format
                first)))
-
-(defn maybe-vectorize
-  [arg]
-  (if (vector? arg) arg [arg]))
 
 (defprotocol SQLGen
   (-plan->sql [query] "Given the `query` plan node, convert it to a SQL string"))
@@ -737,6 +748,7 @@
                   (utils/update-cond has-where? [:selection] #(hsql/merge-where % (-plan->sql (:where query))))
                   (utils/update-cond has-projections? [:projections] #(select-keys % (:projected-fields query)))
                   sql-from-query)]
+
       (if (:subquery? query)
         (htypes/raw (str " ( " sql " ) "))
         sql)))
@@ -751,8 +763,8 @@
                     #(vector (:operator expr)
                              (-plan->sql %1)
                              (-plan->sql %2))
-                    (maybe-vectorize (:column expr))
-                    (maybe-vectorize (:value expr)))))
+                    (utils/vector-maybe (:column expr))
+                    (utils/vector-maybe (:value expr)))))
 
   ArrayBinaryExpression
   (-plan->sql [expr]
@@ -916,7 +928,7 @@
             ["null?" (jdbc/dashes->underscores field) true]
 
             [[op "tag" array-value]]
-            [op "tags" (str/lower-case array-value)]
+            [op "tags" (string/lower-case array-value)]
 
             :else nil))
 
@@ -1029,6 +1041,12 @@
   ; gone through this function
   (map #(get-in query-rec [:projections % :field]) (sort columns)))
 
+(defn strip-function-calls
+  [column]
+  (let [{functions true nonfunctions false} (group-by #(= "function" (first %)) column)]
+    [(into [] (rest (first functions)))
+     nonfunctions]))
+
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
@@ -1123,11 +1141,23 @@
             (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
 
             [["in" column subquery-expression]]
-            (map->InExpression {:column (columns->fields query-rec (maybe-vectorize column))
+            (map->InExpression {:column (columns->fields query-rec (utils/vector-maybe column))
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
 
+            [["extract" [["function" & fargs]] expr]]
+            (-> query-rec
+                (assoc :call fargs)
+                (create-extract-node [] expr))
+
             [["extract" column expr]]
-            (create-extract-node query-rec (maybe-vectorize column) expr)
+            (create-extract-node query-rec (utils/vector-maybe column) expr)
+
+            [["extract" columns expr ["group_by" & clauses]]]
+            (let [[fargs cols] (strip-function-calls columns)]
+              (-> query-rec
+                  (assoc :call fargs)
+                  (assoc :group-by clauses)
+                  (create-extract-node cols expr)))
 
             :else nil))
 
@@ -1146,19 +1176,26 @@
 
 (declare push-down-context)
 
+(defn unsupported-fields
+  [field allowed-fields]
+  (let [supported-fns ["count"]
+        supported-calls (set (map #(vector "function" %) supported-fns))]
+    (remove #(or (contains? (set allowed-fields) %) (contains? supported-calls (take 2 %)))
+            (ks/as-collection field))))
+
 (defn validate-query-operation-fields
   "Checks if query operation contains allowed fields. Returns error
   message string if some of the fields are invalid.
 
   Error-action and error-context parameters help in formatting different error messages."
   [field allowed-fields query-name error-action error-context]
-  (let [invalid-fields (remove (set allowed-fields) (ks/as-collection field))]
+  (let [invalid-fields (unsupported-fields field allowed-fields)]
     (when (> (count invalid-fields) 0)
       (format "%s unknown '%s' %s '%s'%s. Acceptable fields are: %s"
               error-action
               query-name
               (if (> (count invalid-fields) 1) "fields:" "field")
-              (str/join "', '" invalid-fields)
+              (string/join "', '" invalid-fields)
               (if (empty? error-context) "" (str " " error-context))
               (json/generate-string allowed-fields)))))
 
@@ -1252,13 +1289,20 @@
              :state state}
             :else {:node node :state state}))
 
+(pls/defn-validated op-to-string
+  "Convert an operator to a lowercase string or vector of such."
+  [op]
+  (if (vector? op)
+    (vec (map string/lower-case op))
+    (string/lower-case op)))
+
 (defn ops-to-lower
   "Lower cases operators (such as and/or)."
   [node state]
   (cm/match [node]
             [[op & stmt-rest]]
-            {:node (with-meta (vec (cons (str/lower-case op) stmt-rest))
-                     (meta node))
+            {:node (with-meta (vec (cons (op-to-string op) stmt-rest))
+                              (meta node))
              :state state}
             :else {:node node :state state}))
 
@@ -1273,7 +1317,7 @@
                                               validate-query-fields
                                               dashes-to-underscores ops-to-lower])]
     (when (seq errors)
-      (throw (IllegalArgumentException. (str/join \newline errors))))
+      (throw (IllegalArgumentException. (string/join \newline errors))))
 
     annotated-query))
 

@@ -187,19 +187,25 @@ For all events in the report with hash
 To retrieve all of the events within a given time period:
 
     ["and", ["<", "timestamp", "2011-01-01T12:01:00-03:00"],
-            [">", "timestamp", "2011-01-01T12:00:00-03:00"]]
+      [">", "timestamp", "2011-01-01T12:00:00-03:00"]]
 
-To retrieve all of the 'failure' events for nodes named 'foo.*' and resources of
-type 'Service':
+To retrieve all of the 'failure' events for nodes with name matching 'foo.\*'
+and resources of type 'Service':
 
     ["and", ["=", "status", "failure"],
-            ["~", "certname", "^foo\\."],
-            ["=", "resource_type", "Service"]]
+      ["~", "certname", "foo.\*"],
+      ["=", "resource_type", "Service"]]
 
 To retrieve latest events that are tied to the class found in your update.pp file:
 
     ["and", ["=", "latest_report?", true],
-            ["~", "file", "update.pp"]]
+      ["~", "file", "update.pp"]]
+
+To retrieve counts by event status for a particular node:
+
+    ["extract", [["function", "count"], "status"],
+      ["=", "certname", "foo.com"],
+      ["group_by", "status"]]
 
 ## Paging
 

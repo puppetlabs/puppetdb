@@ -118,6 +118,27 @@
                                ["not" ["=" "certname" (:certname basic)]]])
        #{{:hash bar-report-hash}}))
 
+    (testing "projected aggregate function call"
+      (response-equal?
+        (get-response endpoint ["extract" [["function" "count"] "status"]
+                                ["~" "certname" ".*"]
+                                ["group_by" "status"]])
+        #{{:status "unchanged", :count 2}}))
+
+    (testing "projected aggregate function call with two column groupings"
+      (response-equal?
+        (get-response endpoint ["extract" [["function" "count"] "status" "certname"]
+                                ["~" "certname" ".*"]
+                                ["group_by" "status" "certname"]])
+        #{{:certname "bar.local" :status "unchanged" :count 1}
+          {:certname "foo.local" :status "unchanged" :count 1}}))
+
+    (testing "projected function call with no grouping"
+      (response-equal?
+        (get-response endpoint ["extract" [["function" "count"]]
+                                ["~" "certname" ".*"]])
+        #{{:count 2}}))
+
     (testing "three projected columns"
       (response-equal?
        (get-response endpoint ["extract" ["hash" "certname" "transaction_uuid"]

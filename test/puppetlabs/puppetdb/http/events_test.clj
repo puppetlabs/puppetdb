@@ -49,6 +49,10 @@
     (catch Throwable e
       body)))
 
+(defn strip-count-fields
+  [responses]
+  (map #(dissoc % :count) responses))
+
 (defn is-query-result
   [endpoint query expected-results]
   (let [request (get-request endpoint (json/generate-string query))
@@ -146,6 +150,7 @@
                   ["=" "status" "success"]]]
                 [1]
                 [:status]]
+
                [["extract" ["status" "line"]
                  ["and"
                   ["or"
@@ -153,12 +158,21 @@
                    ["=" "resource_title" "notify, yo"]]
                   ["=" "status" "success"]]]
                 [1]
-                [:status :line]]]]
+                [:status :line]]
+
+               [["extract" ["status" ["function" "count"]]
+                 ["or"
+                  ["=" "resource_title" "hi"]
+                  ["=" "resource_title" "notify,yo"]]
+                 ["group_by" "status"]]
+               [3]
+               [:status]]]]
+
         (let [response (get-response endpoint query)
               expected (->> (kitchensink/select-values basic-events-map matches)
                             (map #(select-keys % ks))
                             set)]
-          (response-equal? response expected))))
+          (response-equal? response expected strip-count-fields))))
 
 
     (doseq [[label count?] [["without" false]

@@ -251,11 +251,18 @@ to the result of the form supplied to this method."
 
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
     (testing "querying by equality and regexp should be allowed"
-      (are [query] (is-response-equal (get-response endpoint query)
-                                      #{{:type (:type foo1)}
-                                        {:type (:type foo2)}})
+      (are [query expected] (is-response-equal
+                              (get-response endpoint query) expected)
            ["extract" "type"
-            ["=" "environment" "DEV"]]))))
+            ["=" "environment" "DEV"]]
+           #{{:type (:type foo1)}
+             {:type (:type foo2)}}
+
+           ["extract" [["function" "count"] "type"]
+            ["=" "environment" "DEV"]
+            ["group_by" "type"]]
+           #{{:type "File" :count 1}
+             {:type "Notify" :count 1}}))))
 
 (deftestseq query-null-environments
   [[version endpoint] endpoints]

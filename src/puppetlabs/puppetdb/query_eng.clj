@@ -50,11 +50,13 @@
           :resources [resources/query->sql resources/munge-result-rows]
           :edges [edges/query->sql edges/munge-result-rows]
           :catalogs [catalogs/query->sql catalogs/munge-result-rows])]
+
     (jdbc/with-transacted-connection db
       (let [{[sql & params] :results-query
              count-query :count-query
              projected-fields :projected-fields} (query->sql version query
                                                              paging-options)
+
              query-error (promise)
              resp (output-fn
                    (fn [f]

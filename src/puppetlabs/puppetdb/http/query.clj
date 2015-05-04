@@ -18,6 +18,9 @@
 
             [["extract" columns (expr :guard identity)]]
             ["extract" columns ["and" expr crit]]
+
+            [["extract" columns subquery clauses]]
+            ["extract" columns ["and" subquery crit] clauses]
             :else
             (if query
               ["and" query crit]
@@ -25,8 +28,8 @@
 
 (defn restrict-query
   "Given a clause that will restrict a query, modify the supplied
-  request so that its query parameter is now restricted according to
-  the clause."
+   request so that its query parameter is now restricted according to
+   the clause."
   [restriction {:keys [params] :as req}]
   {:pre  [(coll? restriction)]
    :post [(are-queries-different? req %)]}

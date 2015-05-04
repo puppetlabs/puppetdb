@@ -125,15 +125,40 @@ Every argument of these operators should be a **complete query string** in its o
 
 To reduce the keypairs returned for each result in the response, you can use **extract**. Using extract outside of a subquery (which is discussed below) has the form below:
 
-    ["extract" ["hash" "certname" "transaction_uuid"]
-      ["=" "certname" "foo.com"]]
+    ["extract", ["hash", "certname", "transaction_uuid"]
+      ["=", "certname", "foo.com"]]
 
 When only extracting a single column, the [] are optional
 
-    ["extract" "transaction_uuid"
-      ["=" "certname" "foo.com"]]
+    ["extract", "transaction_uuid"
+      ["=", "certname", "foo.com"]]
+
+When applying an aggregate function over a group-by clause, an extract
+statement takes the form
+
+    ["extract", [["function", "count"], "status"],
+      ["=", "certname", "foo.com"],
+      ["group_by", "status"]]
+
+Extract can also be used with a standalone function application:
+
+    ["extract", [["function", "count"]], ["~", "certname", ".\*.com"]]
 
 At this time extract must always have an expression to extract from, like `["=" "certname" "foo.com"]` above.
+
+### `function`
+
+The **function** operator is used to call a function on the result of a
+subquery. Currently the only supported function is `count`. The function operator
+is applied within the first argument of an extract, as in the examples above.
+
+### `group_by`
+
+The **group_by** operator must be applied as the last argument of an extract,
+and takes one or more column names as arguments.
+
+**Note** Currently function and `group_by` are not supported on the facts or
+fact-contents endpoints.
 
 ## Subquery Operators
 

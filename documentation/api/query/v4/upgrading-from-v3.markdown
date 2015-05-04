@@ -133,3 +133,6 @@ Each change below is marked with the corresponding release version. Changes mark
   the `fact-contents` or `fact-paths endpoints`. This is documented with the other [operators](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/operators.html#regexp-array-match).
   An example of usage is given at the bottom of the subquery-examples page
   linked just above.
+
+* (3.0) We have added the `group_by` and `function` operators, as well as
+  support for the `count` function. For more information, see the [operators documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/operators.html#function).
