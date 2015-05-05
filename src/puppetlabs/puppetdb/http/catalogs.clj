@@ -45,7 +45,7 @@
     [node]
     (fn [{:keys [globals]}]
       (catalog-status version node (:scf-read-db globals)
-                      (str (:url-prefix globals) "/" (name version))))
+                      (str (:url-prefix globals))))
 
     [node "edges" &]
     (comp (edges/edges-app version) (partial http-q/restrict-query-to-node node))
