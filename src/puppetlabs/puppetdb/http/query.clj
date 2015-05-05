@@ -75,14 +75,11 @@
 
 (defn restrict-query-to-node
   "Restrict the query parameter of the supplied request so that it
-  only returns results for the supplied active node"
+  only returns results for the supplied node"
   [node req]
   {:pre  [(string? node)]
    :post [(are-queries-different? req %)]}
-  (restrict-query ["and"
-                   ["=" "certname" node]
-                   ["=" ["node" "active"] true]]
-                  req))
+  (restrict-query ["=" "certname" node] req))
 
 (defn restrict-query-to-report
   "Restrict the query parameter of the supplied request so that it
