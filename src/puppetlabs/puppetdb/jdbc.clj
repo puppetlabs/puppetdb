@@ -162,7 +162,7 @@
   (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
         offset-clause    (if offset (format " OFFSET %s" offset) "")
         order-by-clause  (order-by->sql order_by)]
-    (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
+    (format "SELECT paged_results.* FROM (%s %s%s%s) paged_results"
             sql order-by-clause limit-clause offset-clause)))
 
 (pls/defn-validated count-sql :- String
