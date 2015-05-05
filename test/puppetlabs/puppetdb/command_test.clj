@@ -17,7 +17,7 @@
             [puppetlabs.puppetdb.testutils.reports :refer [munge-example-report-for-storage]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [clj-time.coerce :refer [to-timestamp]]
-            [clj-time.core :refer [days ago now]]
+            [clj-time.core :as t :refer [days ago now]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
             [slingshot.slingshot :refer [throw+]]
@@ -236,7 +236,8 @@
   (doverseq [version catalog-versions
              :let [command {:command (command-names :replace-catalog)
                             :version 6
-                            :payload (get-in wire-catalogs [6 :empty])}]]
+                            :payload (-> (get-in wire-catalogs [6 :empty])
+                                         (assoc :producer_timestamp (now)))}]]
     (testing (str (command-names :replace-catalog) " " version)
       (let [certname (get-in command [:payload :certname])
             catalog-hash (shash/catalog-similarity-hash
@@ -249,8 +250,8 @@
         (testing "with no catalog should store the catalog"
           (with-fixtures
             (test-msg-handler command publish discard-dir
-              (is (= (query-to-vec "SELECT certname, environment_id FROM catalogs")
-                     [(with-env {:certname certname})]))
+              (is (= [(with-env {:certname certname})]
+                     (query-to-vec "SELECT certname, environment_id FROM catalogs")))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
 
@@ -264,12 +265,12 @@
                                  :api_version 1
                                  :catalog_version "foo"
                                  :certname certname
-                                 :producer_timestamp (to-timestamp (now))})
+                                 :producer_timestamp (to-timestamp (-> 1 days ago))})
 
             (test-msg-handler command publish discard-dir
-              (is (= (query-to-vec (format "SELECT certname, %s as catalog, environment_id FROM catalogs"
-                                           (sutils/sql-hash-as-str "hash")))
-                     [(with-env {:certname certname :catalog catalog-hash})]))
+              (is (= [(with-env {:certname certname :catalog catalog-hash})]
+                     (query-to-vec (format "SELECT certname, %s as catalog, environment_id FROM catalogs"
+                                           (sutils/sql-hash-as-str "hash")))))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
 
@@ -284,13 +285,13 @@
                                    :api_version 1
                                    :catalog_version "foo"
                                    :certname certname
-                                   :producer_timestamp (to-timestamp (now))})
+                                   :producer_timestamp (to-timestamp (t/minus (now) (-> 1 days)))})
 
               (is (nil? (fs/list-dir debug-dir)))
               (test-msg-handler-with-opts command publish discard-dir {:catalog-hash-debug-dir debug-dir}
-                (is (= (query-to-vec (format "SELECT certname, %s as catalog, environment_id FROM catalogs"
-                                             (sutils/sql-hash-as-str "hash")))
-                       [(with-env {:certname certname :catalog catalog-hash})]))
+                (is (= [(with-env {:certname certname :catalog catalog-hash})]
+                       (query-to-vec (format "SELECT certname, %s as catalog, environment_id FROM catalogs"
+                                             (sutils/sql-hash-as-str "hash")))))
                 (is (= 5 (count (fs/list-dir debug-dir))))
                 (is (= 0 (times-called publish)))
                 (is (empty? (fs/list-dir discard-dir)))))))
@@ -316,9 +317,9 @@
                                 :producer_timestamp (to-timestamp (now))})
 
             (test-msg-handler command publish discard-dir
-              (is (= (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
-                                           (sutils/sql-hash-as-str "hash")))
-                     [{:certname certname :catalog "ab"}]))
+              (is (= [{:certname certname :catalog "ab"}]
+                     (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                           (sutils/sql-hash-as-str "hash")))))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
 
@@ -327,11 +328,11 @@
           (with-fixtures
             (sql/insert-record :certnames {:certname certname :deactivated yesterday})
             (test-msg-handler command publish discard-dir
-              (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
-                     [{:certname certname :deactivated nil}]))
-              (is (= (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
-                                           (sutils/sql-hash-as-str "hash")))
-                     [{:certname certname :catalog catalog-hash}]))
+              (is (= [{:certname certname :deactivated nil}]
+                     (query-to-vec "SELECT certname,deactivated FROM certnames")))
+              (is (= [{:certname certname :catalog catalog-hash}]
+                     (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                           (sutils/sql-hash-as-str "hash")))))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
 
@@ -339,11 +340,11 @@
           (scf-store/delete-certname! certname)
           (sql/insert-record :certnames {:certname certname :deactivated tomorrow})
           (test-msg-handler command publish discard-dir
-            (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
-                   [{:certname certname :deactivated tomorrow}]))
-            (is (= (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
-                                         (sutils/sql-hash-as-str "hash")))
-                   [{:certname certname :catalog catalog-hash}]))
+            (is (= [{:certname certname :deactivated tomorrow}]
+                   (query-to-vec "SELECT certname,deactivated FROM certnames")))
+            (is (= [{:certname certname :catalog catalog-hash}]
+                   (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                         (sutils/sql-hash-as-str "hash")))))
             (is (= 0 (times-called publish)))
             (is (empty? (fs/list-dir discard-dir)))))))))
 
@@ -740,13 +741,13 @@
                   :values {"domain" "mydomain1.com"
                            "operatingsystem" "Debian"
                            "mytimestamp" "1"}
-                  :producer_timestamp (now)}
+                  :producer_timestamp (-> 2 days ago)}
         facts-2a {:certname certname-2
                   :environment nil
                   :values {"domain" "mydomain2.com"
                            "operatingsystem" "Debian"
                            "mytimestamp" "1"}
-                  :producer_timestamp (now)}
+                  :producer_timestamp (-> 2 days ago)}
 
         ;; same facts as before, but now certname-1 has a different
         ;; fact value for mytimestamp (this will force a new fact_value
@@ -756,7 +757,7 @@
                   :values {"domain" "mydomain1.com"
                            "operatingsystem" "Debian"
                            "mytimestamp" "1b"}
-                  :producer_timestamp (now)}
+                  :producer_timestamp (-> 1 days ago)}
 
         ;; with this, certname-1 and certname-2 now have their own
         ;; fact_value for mytimestamp that is different from the
@@ -766,7 +767,7 @@
                   :values {"domain" "mydomain2.com"
                            "operatingsystem" "Debian"
                            "mytimestamp" "2b"}
-                  :producer_timestamp (now)}
+                  :producer_timestamp (-> 1 days ago)}
 
         ;; this fact set will disassociate mytimestamp from the facts
         ;; associated to certname-1, it will do the same thing for
@@ -812,12 +813,12 @@
                             :values (:values facts-1a)
                             :timestamp (now)
                             :environment nil
-                            :producer_timestamp (now)})
+                            :producer_timestamp (:producer_timestamp facts-1a)})
      (scf-store/add-facts! {:certname certname-2
                             :values (:values facts-2a)
                             :timestamp (now)
                             :environment nil
-                            :producer_timestamp (now)}))
+                            :producer_timestamp (:producer_timestamp facts-2a)}))
 
     ;; At this point, there will be 4 fact_value rows, 1 for
     ;; mytimestamp, 1 for the operatingsystem, 2 for domain

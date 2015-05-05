@@ -86,7 +86,8 @@
                :producer_timestamp (to-string (now))}
         export-out-file (testutils/temp-file "export-test" ".tar.gz")
         catalog (-> (get-in wire-catalogs [6 :empty])
-                    (assoc :certname "foo.local"))
+                    (assoc :certname "foo.local"
+                           :producer_timestamp (now)))
         report (:basic reports)
         with-server #(svc-utils/puppetdb-instance
                       (assoc-in (svc-utils/create-config)
