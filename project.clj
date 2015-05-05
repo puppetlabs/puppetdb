@@ -136,7 +136,6 @@
                   :lein-ezbake {:vars {:user "pe-puppetdb"
                                        :group "pe-puppetdb"
                                        :build-type "pe"
-                                       :main-namespace "puppetlabs.puppetdb.core"
                                        :create-varlib true}
                                 :config-dir "ext/config/pe"}
                   :version ~pdb-version
