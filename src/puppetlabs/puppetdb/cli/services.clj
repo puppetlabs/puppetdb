@@ -93,7 +93,7 @@
        (doseq [node (scf-store/stale-nodes (ago node-ttl))]
          (enqueue-command! mq-connection
                            mq-endpoint
-                           (command-names :deactivate-node) 2 node))))
+                           (command-names :deactivate-node) 3 {:certname node}))))
     (catch Exception e
       (log/error e "Error while deactivating stale nodes"))))
 

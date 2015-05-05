@@ -971,43 +971,54 @@
           (is (true? @first-message?))
           (is (true? @second-message?)))))))
 
-(let [certname "foo.example.com"
-      command {:command (command-names :deactivate-node)
-               :version 2
-               :payload certname}]
-  (deftest deactivate-node-node-active
-    (sql/insert-record :certnames {:certname certname})
 
+(let [cases [{:certname "foo.example.com"
+              :command {:command (command-names :deactivate-node)
+                        :version 3
+                        :payload {:certname "foo.example.com"}}}
+             {:certname "bar.example.com"
+              :command {:command (command-names :deactivate-node)
+                        :version 3
+                        :payload {:certname "bar.example.com"
+                                  :producer_timestamp (now)}}}]]
+
+  (deftest deactivate-node-node-active
     (testing "should deactivate the node"
-      (test-msg-handler command publish discard-dir
-        (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
-              result  (first results)]
-          (is (= (:certname result) certname))
-          (is (instance? java.sql.Timestamp (:deactivated result)))
-          (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir)))))))
+      (doseq [{:keys [certname command]} cases]
+        (sql/insert-record :certnames {:certname certname})
+        (test-msg-handler command publish discard-dir
+          (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
+                result  (first results)]
+            (is (= (:certname result) certname))
+            (is (instance? java.sql.Timestamp (:deactivated result)))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))
+            (sql/do-prepared "delete from certnames"))))))
 
   (deftest deactivate-node-node-inactive
-    (let [one-day   (* 24 60 60 1000)
-          yesterday (to-timestamp (- (System/currentTimeMillis) one-day))]
-      (sql/insert-record :certnames {:certname certname :deactivated yesterday})
-
+    (doseq [{:keys [certname command]} cases]
       (testing "should leave the node alone"
-        (test-msg-handler command publish discard-dir
-          (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
-                 [{:certname certname :deactivated yesterday}]))
-          (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir)))))))
+       (let [one-day   (* 24 60 60 1000)
+             yesterday (to-timestamp (- (System/currentTimeMillis) one-day))]
+         (sql/insert-record :certnames {:certname certname :deactivated yesterday})
+         (test-msg-handler command publish discard-dir
+           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
+                  [{:certname certname :deactivated yesterday}]))
+           (is (= 0 (times-called publish)))
+           (is (empty? (fs/list-dir discard-dir)))
+           (sql/do-prepared "delete from certnames"))))))
 
   (deftest deactivate-node-node-missing
     (testing "should add the node and deactivate it"
-      (test-msg-handler command publish discard-dir
-        (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
-              result  (first results)]
-          (is (= (:certname result) certname ))
-          (is (instance? java.sql.Timestamp (:deactivated result)))
-          (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir))))))))
+      (doseq [{:keys [certname command]} cases]
+        (test-msg-handler command publish discard-dir
+          (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
+                result  (first results)]
+            (is (= (:certname result) certname ))
+            (is (instance? java.sql.Timestamp (:deactivated result)))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))
+            (sql/do-prepared "delete from certnames")))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

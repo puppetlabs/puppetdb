@@ -70,7 +70,8 @@
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.trapperkeeper.services :refer [defservice]]
             [schema.core :as s]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]))
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]
+            [clj-time.core :refer [now]]))
 
 ;; ## Command parsing
 
@@ -213,13 +214,18 @@
 
 ;; Node deactivation
 
-(defmethod process-command! [(command-names :deactivate-node) 2]
-  [{certname :payload {:keys [id]} :annotations} {:keys [db]}]
-  (jdbc/with-transacted-connection db
-    (when-not (scf-storage/certname-exists? certname)
-      (scf-storage/add-certname! certname))
-    (scf-storage/deactivate-node! certname))
-  (log/info (format "[%s] [%s] %s" id (command-names :deactivate-node) certname)))
+(defmethod process-command! [(command-names :deactivate-node) 3]
+  [{:keys [payload annotations]} {:keys [db]}]
+  (let [certname (:certname payload)
+        producer_timestamp (to-timestamp (:producer_timestamp payload (now)))
+        id  (:id annotations)
+        newer-record-exists? (fn [entity] (scf-storage/have-record-produced-after? entity certname producer_timestamp))]
+    (jdbc/with-transacted-connection db
+      (when-not (scf-storage/certname-exists? certname)
+        (scf-storage/add-certname! certname))
+      (when (not-any? newer-record-exists? [:catalogs :factsets :reports])
+        (scf-storage/deactivate-node! certname producer_timestamp)))
+    (log/info (format "[%s] [%s] %s" id (command-names :deactivate-node) certname))))
 
 ;; Report submission
 
