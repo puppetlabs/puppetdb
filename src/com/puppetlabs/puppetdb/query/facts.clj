@@ -43,19 +43,18 @@
   [value]
   (if (string? value) value (json/generate-string value)))
 
-(pls/defn-validated convert-types :- [converted-row-schema]
+(pls/defn-validated convert-types :- fact-schema
   "Coerce values for each row to the proper stored type."
-  [rows :- [row-schema]]
-  (map (partial facts/convert-row-type [:type :depth :value_integer :value_float]) rows))
+  [row :- row-schema]
+  (-> (facts/convert-row-type [:type :depth :value_integer :value_float] row)
+      (select-keys [:certname :environment :name :value])))
 
 (defn munge-result-rows
   [version]
   (fn [rows]
     (if (empty? rows)
       []
-      (let [new-rows (->> rows
-                          convert-types
-                          (map #(select-keys % [:certname :environment :timestamp :name :value])))]
+      (let [new-rows (map convert-types rows)]
         (case version
           (:v2 :v3) (map #(update-in % [:value] stringify-value) new-rows)
           new-rows)))))
