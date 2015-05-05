@@ -359,11 +359,10 @@
   [resource-hashes :- #{String}]
   (if (seq resource-hashes)
     (let [query (apply vector
-                       (format "SELECT DISTINCT %s AS resource FROM resource_params_cache WHERE %s %s"
-                               (sutils/sql-hash-as-str "resource")
+                       (format "SELECT DISTINCT %s AS resource FROM resource_params_cache WHERE resource %s"
                                (sutils/sql-hash-as-str "resource")
                                (jdbc/in-clause resource-hashes))
-                       resource-hashes)]
+                       (map sutils/munge-hash-for-storage resource-hashes))]
       (sql/with-query-results result-set
         query
         (set (map :resource result-set))))
@@ -876,13 +875,14 @@
 
 (defn existing-row-ids
   "Returns a map from value to id for each value that's already in the
-  named database column."
-  [table column values]
+  named database column.
+   `column-transform` is used to modify the sql for the values"
+  [table column values column-transform]
   (into {}
    (for [{:keys [value id]}
          (apply query-to-vec
                 (format "SELECT %s AS value, id FROM %s WHERE %s %s"
-                        column (name table) column (jdbc/in-clause values))
+                        (column-transform column) (name table) column (jdbc/in-clause values))
                 values)]
      [value id])))
 
@@ -899,7 +899,7 @@
   paths to ids."
   [pathstrs]
   (if-let [pathstrs (seq pathstrs)]
-    (let [existing-path-ids (existing-row-ids :fact_paths "path" pathstrs)
+    (let [existing-path-ids (existing-row-ids :fact_paths "path" pathstrs identity)
           missing-db-paths (set/difference (set pathstrs)
                                            (set (keys existing-path-ids)))]
       (merge existing-path-ids
@@ -917,7 +917,7 @@
   [valuemaps]
   (if-let [valuemaps (seq valuemaps)]
     (let [vhashes (map :value_hash valuemaps)
-          existing-vhash-ids (existing-row-ids :fact_values (sutils/sql-hash-as-str "value_hash") vhashes)
+          existing-vhash-ids (existing-row-ids :fact_values "value_hash" (map sutils/munge-hash-for-storage vhashes) sutils/sql-hash-as-str)
           missing-vhashes (set/difference (set vhashes)
                                           (set (keys existing-vhash-ids)))]
       (merge existing-vhash-ids
