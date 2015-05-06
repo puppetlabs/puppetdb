@@ -323,6 +323,8 @@
         url-prefix   (normalize-url-prefix (get global :url-prefix ""))]
     (when (:event-query-limit global)
       (log/warn "The configuration item `event-query-limit` in the [global] section is deprecated and now ignored. It will be removed in the future."))
+    (when url-prefix
+      (log/warn "The configuration item `url-prefix` in the [global] section is deprecated. It will be removed in the future."))
     (update-in config [:global]
                (fn [global-config]
                  (-> global-config
