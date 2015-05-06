@@ -91,9 +91,8 @@
              (format-period node-ttl))
      (with-transacted-connection db
        (doseq [node (scf-store/stale-nodes (ago node-ttl))]
-         (enqueue-command! mq-connection
-                           mq-endpoint
-                           (command-names :deactivate-node) 3 {:certname node}))))
+         (log/infof "Auto-deactivating node %s" node)
+         (scf-store/deactivate-node! node))))
     (catch Exception e
       (log/error e "Error while deactivating stale nodes"))))
 
