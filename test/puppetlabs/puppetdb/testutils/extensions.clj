@@ -1,10 +1,10 @@
-(ns puppetlabs.puppetdb.sync.testutils
+(ns puppetlabs.puppetdb.testutils.extensions
   (:require [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [service-context service-id]]
             [puppetlabs.puppetdb.sync.services :refer [puppetdb-sync-service]]
+            [puppetlabs.puppetdb.extensions.server :refer [pe-puppetdb-service]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [compojure.core :refer [context POST routes ANY]]
-            [puppetlabs.puppetdb.client :as pdb-client]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [ring.middleware.params :refer [wrap-params]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
@@ -26,7 +26,7 @@
   [config & body]
   `(svcs/puppetdb-instance
     ~config
-    [puppetdb-sync-service stub-server-service]
+    [puppetdb-sync-service pe-puppetdb-service stub-server-service]
     (fn [] ~@body)))
 
 (defn sync-config
@@ -39,8 +39,9 @@
    (-> (svcs/create-config)
        (assoc :stub-server-service {:handler stub-handler}
               :web-router-service  {:puppetlabs.puppetdb.cli.services/puppetdb-service "/pdb"
+                                    :puppetlabs.puppetdb.extensions.server/pe-puppetdb-service "/pe-pdb"
                                     :puppetlabs.puppetdb.sync.services/puppetdb-sync-service "/sync"
-                                    :puppetlabs.puppetdb.sync.testutils/stub-server-service "/stub"}))))
+                                    :puppetlabs.puppetdb.testutils.extensions/stub-server-service "/stub"}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; URL helper functions for inside a with-puppetdb-instance block
@@ -49,6 +50,12 @@
 
 (defn pdb-url-str []
   (base-url->str (pdb-url)))
+
+(defn pe-pdb-url []
+  (assoc svcs/*base-url* :prefix "/pe-pdb" :version :v1))
+
+(defn pe-pdb-url-str []
+  (base-url->str (pe-pdb-url)))
 
 (defn stub-url [prefix version]
   (svcs/*base-url* :prefix (str "/stub/" prefix) :version version))
@@ -85,3 +92,6 @@
         (http/get opts)
         :body
         (json/parse-string true))))
+
+;; alias to a different name because 'sync' means 'synchronous' here, and that's REALLY confusing.
+(def blocking-command-post svcs/sync-command-post)
