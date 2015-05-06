@@ -6,6 +6,68 @@ canonical: "/puppetdb/latest/release_notes.html"
 
 [configure_postgres]: ./configure.html#using-postgresql
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
+[upgrading]: ./api/query/v4/preparing-for-3.0.html
+
+2.3.4
+-----
+
+PuppetDB 2.3.4 is a backwards-compatible bugfix release that addresses an issue
+that would prevent fact storage for nodes under certain circumstances.
+
+### Upgrading
+
+* For the best-possible performance and scaling capacity, we recommend
+  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
+  extension enabled, as explained [here][configure_postgres], and we
+  have officially deprecated versions earlier than 9.2.  HSQLDB is
+  only recommended for local development because it has a number of
+  scaling and operational issues.
+
+* Make sure that all of your PuppetDB instances are shut down, and
+  only upgrade one at a time.
+
+* Make sure to upgrade your puppetdb-terminus package (on the host
+  where your Puppet master lives), and restart your master service.
+
+### Contributors
+
+Andrew Roetker, Deepak Giridharagopal, Ken Barber, Melissa Stone, Rob Browning,
+Wyatt Alt
+
+### Changes
+
+#### Bug Fixes and Maintenance
+
+* We have fixed a bug where if any of the facts for a given node exchange values
+within a single puppet run, and none of values are referred to by another node,
+the facts update for the node would fail. ([PDB-1448](https://tickets.puppetlabs.com/browse/PDB-1448))
+
+* We have fixed a streaming issue with our facts response, so facts queries
+  will not consume as much memory. ([PDB-1470](https://tickets.puppetlabs.com/browse/PDB-1470))
+
+* We no longer log failures to connect to the puppetlabs update service at the
+  info level. ([PDB-1428](https://tickets.puppetlabs.com/browse/PDB-1428))
+
+* We have removed Ubuntu 10.04 and Fedora 19 from our build targets as they are
+  end of life and no longer supported by Puppet Labs. ([PDB-1449](https://tickets.puppetlabs.com/browse/PDB-1449))
+
+* We have upgraded to the latest version of prismatic/schema.
+  ([PDB-1432](https://tickets.puppetlabs.com/browse/PDB-1432))
+
+* We have upgraded to the latest versions of and trapperkeeper-jetty9-webserver. ([PDB-1439](https://tickets.puppetlabs.com/browse/PDB-1439))
+
+#### Documentation
+
+* We have documented the upgrade process from the v3 API to the v4 API [here][upgrading]. ([PDB-1421](https://tickets.puppetlabs.com/browse/PDB-1421))
+
+#### Deprecations
+
+* We have marked the `url-prefix` setting as deprecated and will remove it in a
+  future release. ([PDB-1485](https://tickets.puppetlabs.com/browse/PDB-1485))
+
+* We have marked the event-counts and aggregate-event-counts endpoints as experimental,
+  and may change or remove them in a future release.
+  ([PDB-1479](https://tickets.puppetlabs.com/browse/PDB-1479))
 
 2.3.3
 -----
@@ -498,7 +560,7 @@ Justin Holguin, Ken Barber, Kylo Ginsberg, Russell Sim, Ryan Senior and Wyatt Al
     I've also cleaned up a couple of other typos and style items, plus
     removed one more case of < v4 report format checking.
 
-* [PDB-904](https://tickets.puppetlabs.com/browse/PDB-904) Switch fact_values.value_string trgm index to be GIN not GIST 
+* [PDB-904](https://tickets.puppetlabs.com/browse/PDB-904) Switch fact_values.value_string trgm index to be GIN not GIST
 
     There were reports of crashing due to a bug in pg_trgm indexing when a
     large fact value was loaded into PuppetDB.
@@ -516,7 +578,7 @@ Justin Holguin, Ken Barber, Kylo Ginsberg, Russell Sim, Ryan Senior and Wyatt Al
 
 * [DOCUMENT-18](https://tickets.puppetlabs.com/browse/DOCUMENT-18) Mention DLO cleanup in docs
 
-* [PDB-347](https://tickets.puppetlabs.com/browse/PDB-347) Add docs for new CRL and cert-chain TK features 
+* [PDB-347](https://tickets.puppetlabs.com/browse/PDB-347) Add docs for new CRL and cert-chain TK features
 
 * Updated contributor link to https://cla.puppetlabs.com/
 
