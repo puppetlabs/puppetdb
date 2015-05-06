@@ -223,7 +223,7 @@
     (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
-      (when (not-any? newer-record-exists? [:catalogs :factsets :reports])
+      (when (not-any? newer-record-exists? [:catalogs :factsets])
         (scf-storage/deactivate-node! certname producer_timestamp)))
     (log/info (format "[%s] [%s] %s" id (command-names :deactivate-node) certname))))
 
