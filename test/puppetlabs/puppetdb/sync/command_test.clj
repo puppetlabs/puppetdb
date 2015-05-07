@@ -348,25 +348,37 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; End to end tests
 
-(defn- with-n-pdbs
-  ([n f] (muting-amq-shutdown-log-noise
-          (svcs/without-jmx
-           (with-n-pdbs n f []))))
-  ([n f pdb-infos]
-   (if (= n (count pdb-infos))
-     (apply f pdb-infos)
-     (let [config (utils/sync-config)
-           mq-name (str "puppetlabs.puppetdb.commands-" (inc (count pdb-infos)))]
-       (with-alt-mq mq-name
-         (with-puppetdb-instance config
-           (with-n-pdbs n f
-             (conj pdb-infos {:mq-name mq-name
-                              :config config
-                              :service-url (assoc svcs/*base-url* :prefix "/pdb" :version :v4)
-                              :sync-url    (assoc svcs/*base-url* :prefix "/sync" :version :v1)}))))))))
+(defn- with-pdbs
+  "Repeatedly call (gen-config [previously-started-instance-info...])
+  and start a pdb instance for each returned config.  When gen-config
+  returns false, call (f instance-1-info instance-2-info...)."
+  [gen-config f]
+  (letfn [(spawn-pdbs [infos]
+            (if-let [config (gen-config infos)]
+              (let [mq-name (str "puppetlabs.puppetdb.commands-"
+                                 (inc (count infos)))]
+                (with-alt-mq mq-name
+                  (with-puppetdb-instance config
+                    (spawn-pdbs (conj infos
+                                      {:mq-name mq-name
+                                       :config config
+                                       :server svcs/*server*
+                                       :service-url (assoc svcs/*base-url*
+                                                           :prefix "/pdb"
+                                                           :version :v4)
+                                       :sync-url (assoc svcs/*base-url*
+                                                        :prefix "/sync"
+                                                        :version :v1)})))))
+              (apply f infos)))]
+    (muting-amq-shutdown-log-noise
+     (svcs/without-jmx
+      (spawn-pdbs [])))))
+
+(defn- default-pdb-configs [n]
+  #(when (< (count %) n) (utils/sync-config)))
 
 (deftest end-to-end-report-replication
-  (with-n-pdbs 2
+  (with-pdbs (default-pdb-configs 2)
     (fn [pdb1 pdb2]
       (let [report (tur/munge-example-report-for-storage (:basic reports))]
         (with-alt-mq (:mq-name pdb1)
@@ -392,7 +404,7 @@
   (dissoc record :timestamp))
 
 (deftest end-to-end-factset-replication
-  (with-n-pdbs 2
+  (with-pdbs (default-pdb-configs 2)
     (fn [pdb1 pdb2]
       (with-alt-mq (:mq-name pdb1)
         (pdb-client/submit-command-via-http! (:service-url pdb1) "replace facts" 4 facts)
@@ -414,7 +426,7 @@
                    {:query-params {:query (json/generate-string [:= :certname certname])}})))
 
 (deftest end-to-end-catalog-replication
-  (with-n-pdbs 2
+  (with-pdbs (default-pdb-configs 2)
     (fn [pdb1 pdb2]
       (with-alt-mq (:mq-name pdb1)
         (pdb-client/submit-command-via-http! (:service-url pdb1) "replace catalog" 6 catalog)
@@ -430,3 +442,27 @@
 
         (is (= (without-timestamp (get-catalog (:service-url pdb1) (:certname catalog)))
                (without-timestamp (get-catalog (:service-url pdb2) (:certname catalog)))))))))
+
+(deftest periodic-sync
+  (let [sync-interval 2]
+    (let [periodic-sync-configs
+          (fn [infos]
+            (case (count infos)
+              ;; infos length tells us which server we're handling.
+              0 (utils/sync-config)
+              1 (let [url (base-url->str (:service-url (infos 0)))]
+                  (assoc (utils/sync-config)
+                         :sync {:remotes [{:endpoint url
+                                           :interval sync-interval}]}))
+              nil))
+          facts-from #(without-timestamp
+                       (get-factset (:service-url %) (:certname facts)))]
+      (with-pdbs periodic-sync-configs
+        (fn [master mirror]
+          (with-alt-mq (:mq-name master)
+            (pdb-client/submit-command-via-http! (:service-url master)
+                                                 "replace facts" 4 facts)
+            @(rt/block-until-results 100 (facts-from master)))
+          (is (nil? (facts-from mirror)))
+          @(rt/block-until-results 100 (facts-from mirror))
+          (is (= (facts-from mirror) (facts-from master))))))))
