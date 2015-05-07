@@ -177,6 +177,8 @@ When this is set to true, debugging information will be written to `<vardir>/deb
 
 ### `url-prefix`
 
+> **Deprecated:** This setting should not be necessary in most cases and will not be supported in a future release.
+
 This optional setting may be used to mount the PuppetDB web application at a URL other than "/".  This should not be necessary
 unless you intend to run additional web applications in the same server with your PuppetDB instance.  **NOTE:** if you change
 this setting, you must also set the corresponding setting in your Puppet Master's [puppetdb.conf][puppetdb.conf] file.
