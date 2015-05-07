@@ -38,17 +38,17 @@ You can use the following URL parameters to change the attributes of the dashboa
 
 E.g.: `http://puppetdb.example.com:8080/dashboard/index.html?height=240&pollingInterval=1000`
 
-## Deactivate Decommissioned Nodes
+## Deactivate or Expire Decommissioned Nodes
 
 When you remove a node from your Puppet deployment, it should be marked as **deactivated** in PuppetDB. This will ensure that any resources exported by that node will stop appearing in the catalogs served to the remaining agent nodes.
 
-* PuppetDB can automatically deactivate nodes that haven't checked in recently. To enable this, set the [`node-ttl` setting][node_ttl].
+* PuppetDB can automatically mark nodes that haven't checked in recently as **expired**. Expiration is simply the automatic version of deactivation; the distinction is is important only for record keeping. Expired nodes behave the same as deactivated nodes. To enable this, set the [`node-ttl` setting][node_ttl].
 * If you prefer to manually deactivate nodes, use the following command on your puppet master:
 
         $ sudo puppet node deactivate <node> [<node> ...]
-* Any deactivated node will be reactivated if PuppetDB receives new catalogs or facts for it.
+* Any deactivated or expired node will be reactivated if PuppetDB receives new catalogs or facts for it.
 
-Although deactivated nodes will be excluded from storeconfigs queries, their data is still preserved.
+Although deactivated and expired nodes will be excluded from storeconfigs queries, their data is still preserved.
 
 > **Note:** Deactivating a node does not remove (e.g. `ensure => absent`) exported resources from other systems; it only stops _managing_ those resources. If you want to actively destroy resources from deactivated nodes, you will probably need to purge that resource type using the [`resources` metatype][resources_type]. Note that some types cannot be purged (e.g. ssh authorized keys), and several others usually **should not** be purged (e.g. users).
 

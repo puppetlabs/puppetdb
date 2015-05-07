@@ -171,7 +171,9 @@ a JSON error message if the catalog is not found:
 
 This will return all edges for a particular catalog, designated by a node certname.
 
-This is a shortcut to the [`/edges`][edges] endpoint. It behaves the same as a call to [`/edges`][edges] with a query string of `["=", "certname", "<NODE>"]`.
+This is a shortcut to the [`/edges`][edges] endpoint. It behaves the same as a
+call to [`/edges`][edges] with a query string of `["=", "certname", "<NODE>"]`,
+except results are returned even if the node is deactivated or expired.
 
 ### URL Parameters / Query Operators / Query Fields / Response Format
 
@@ -185,7 +187,10 @@ this route.
 
 This will return all resources for a particular catalog, designated by a node certname.
 
-This is a shortcut to the [`/resources`][resources] endpoint. It behaves the same as a call to [`/resources`][resources] with a query string of `["=", "certname", "<NODE>"]`.
+This is a shortcut to the [`/resources`][resources] endpoint. It behaves the
+same as a call to [`/resources`][resources] with a query string of
+`["=", "certname", "<NODE>"]`, except results are returned even if the node is
+deactivated or expired.
 
 ### URL Parameters / Query Operators / Query Fields / Response Format
 

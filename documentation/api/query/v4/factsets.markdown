@@ -139,7 +139,9 @@ which returns
 
 This will return all facts for a particular factset, designated by a node certname.
 
-This is a shortcut to the [`/facts`][facts] endpoint. It behaves the same as a call to [`/facts`][facts] with a query string of `["=", "certname", "<NODE>"]`.
+This is a shortcut to the [`/facts`][facts] endpoint. It behaves the same as a
+call to [`/facts`][facts] with a query string of `["=", "certname", "<NODE>"]`,
+except results are returned even if the node is deactivated or expired.
 
 ### URL Parameters / Query Operators / Query Fields / Response Format
 

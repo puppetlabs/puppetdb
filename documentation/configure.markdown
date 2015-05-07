@@ -280,9 +280,11 @@ This controls how often, in minutes, to compact the database. The compaction pro
 
 ### `node-ttl`
 
-Auto-deactivate nodes that haven't seen any activity (no new catalogs,
-facts, etc) in the specified amount of time. You may specify the time
-as a string using any of the following suffixes:
+Mark as 'expired' nodes that haven't seen any activity (no new catalogs,
+facts, etc) in the specified amount of time. Expired nodes behave the same
+as manually-deactivated nodes.
+
+You may specify the time as a string using any of the following suffixes:
 
     `d`  - days
     `h`  - hours
@@ -296,13 +298,13 @@ So, e.g., a value of `30d` would set the time-to-live to 30 days, and a value of
 Nodes will be checked for staleness every `gc-interval` minutes. Manual
 deactivation will continue to work as always.
 
-If unset, auto-deactivation of nodes is disabled.
+If unset, auto-expiration of nodes is disabled.
 
 ### `node-purge-ttl`
 
-Automatically delete nodes that have been _deactivated_ for the specified
-amount of time. This will also delete all facts, catalogs and reports for the
-node. This ttl may be specified the same way as `node-ttl` above.
+Automatically delete nodes that have been _deactivated_ or _expired_ for the
+specified amount of time. This will also delete all facts, catalogs and reports
+for the node. This ttl may be specified the same way as `node-ttl` above.
 
 If unset, auto-deletion of nodes is disabled.
 
