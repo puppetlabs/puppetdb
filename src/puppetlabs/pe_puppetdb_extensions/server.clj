@@ -1,6 +1,5 @@
-(ns puppetlabs.puppetdb.extensions.server
-  (:require [compojure.core]
-            [puppetlabs.puppetdb.extensions.state-overview :as state-overview]
+(ns puppetlabs.pe-puppetdb-extensions.server
+  (:require [puppetlabs.pe-puppetdb-extensions.state-overview :as state-overview]
             [puppetlabs.puppetdb.middleware :refer
              [wrap-with-puppetdb-middleware wrap-with-globals]]
             [clojure.tools.logging :as log]

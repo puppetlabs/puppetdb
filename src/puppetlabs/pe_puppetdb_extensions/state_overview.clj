@@ -1,4 +1,4 @@
-(ns puppetlabs.puppetdb.extensions.state-overview
+(ns puppetlabs.pe-puppetdb-extensions.state-overview
   (:require [clj-time.core :refer [hours seconds ago]]
             [puppetlabs.kitchensink.core :refer [parse-number]]
             [puppetlabs.puppetdb.http :as http]

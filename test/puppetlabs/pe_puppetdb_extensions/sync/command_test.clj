@@ -1,4 +1,4 @@
-(ns puppetlabs.puppetdb.sync.command-test
+(ns puppetlabs.pe-puppetdb-extensions.sync.command-test
   (:refer-clojure :exclude [sync])
   (:require [clojure.test :exclude [report] :refer :all]
             [puppetlabs.puppetdb.random :refer [random-string]]
@@ -9,10 +9,10 @@
             [puppetlabs.puppetdb.testutils :as testutils :refer [=-after?]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :as rt]
-            [puppetlabs.puppetdb.testutils.extensions :as utils
+            [puppetlabs.pe-puppetdb-extensions.sync.command :refer :all]
+            [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [with-puppetdb-instance index-by json-request json-response get-json blocking-command-post]]
             [puppetlabs.puppetdb.cli.export :as export]
-            [puppetlabs.puppetdb.sync.command :refer :all]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.trapperkeeper.app :refer [get-service app-context]]
@@ -420,20 +420,17 @@
                 (with-alt-mq mq-name
                   (with-puppetdb-instance config
                     (spawn-pdbs (conj infos
-                                      {:mq-name mq-name
-                                       :config config
-                                       :server svcs/*server*
-                                       :db (-> svcs/*server*
-                                               (get-service :PuppetDBServer)
-                                               service-context
-                                               :shared-globals
-                                               :scf-write-db)
-                                       :service-url (assoc svcs/*base-url*
-                                                           :prefix "/pdb"
-                                                           :version :v4)
-                                       :sync-url (assoc svcs/*base-url*
-                                                        :prefix "/sync"
-                                                        :version :v1)})))))
+                                      (let [db (-> svcs/*server*
+                                                   (get-service :PuppetDBServer)
+                                                   service-context
+                                                   :shared-globals
+                                                   :scf-write-db)]
+                                        {:mq-name mq-name
+                                         :config config
+                                         :server svcs/*server*
+                                         :db db
+                                         :service-url (utils/pdb-url)
+                                         :sync-url (utils/sync-url)}))))))
               (apply f infos)))]
     (muting-amq-shutdown-log-noise
      (svcs/without-jmx

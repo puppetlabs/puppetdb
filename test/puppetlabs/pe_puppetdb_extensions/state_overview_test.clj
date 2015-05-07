@@ -1,8 +1,8 @@
-(ns puppetlabs.puppetdb.extensions.state-overview-test
+(ns puppetlabs.pe-puppetdb-extensions.state-overview-test
   (:require [clojure.test :refer :all]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
-            [puppetlabs.puppetdb.testutils.extensions :as utils
+            [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [get-json with-puppetdb-instance blocking-command-post]]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.reports :as tur]))
