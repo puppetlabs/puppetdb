@@ -1,12 +1,16 @@
 (ns puppetlabs.puppetdb.sync.command
+  (:import [org.joda.time Period])
   (:require [puppetlabs.puppetdb.utils :as utils]
             [clj-http.util :refer [url-encode]]
             [clj-http.client]
             [puppetlabs.puppetdb.cheshire :as json]
             [cheshire.core :as cheshire]
-            [clj-time.coerce :refer [to-timestamp]]
+            [clj-time.core :as t]
+            [clj-time.coerce :as tc :refer [to-timestamp from-sql-date]]
+            [clj-time.format :as tf]
             [clojure.tools.logging :as log]
-            [slingshot.slingshot :refer [try+ throw+]]))
+            [slingshot.slingshot :refer [try+ throw+]]
+            [puppetlabs.puppetdb.time :refer [parse-period]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; How to sync each entity
@@ -259,18 +263,29 @@
   (->> (outer-join-unique-sorted-seqs id-fn xs ys)
        (filter second)))
 
+(defn would-be-expired-locally?
+  "If this record existed locally, would it be expired according to our local
+  node-ttl settings?"
+  [record now node-ttl]
+  (when-not (= Period/ZERO node-ttl)
+    (some-> record
+            :producer_timestamp
+            tc/from-date
+            (t/before? (t/minus now node-ttl)))))
+
 (defn records-to-fetch
   "Compare two lazy seqs of records. Returns the list of records from
   `remote-records-seq` that `local-records-seq` is missing or out of date. Records are
   matched with each other via the result of `id-fn`, and compared for newness by
   running `clojure.core/compare` on the results of `ordering-fn`."
-  [id-fn ordering-fn local-records-seq remote-records-seq]
+  [id-fn ordering-fn local-records-seq remote-records-seq now node-ttl]
   (->> (right-join-unique-sorted-seqs id-fn local-records-seq remote-records-seq)
        ;; Keep the records that either don't exist locally or are more up-to-date remotely
        (filter (fn [[local remote]]
                  (or (nil? local)
                      (neg? (compare (ordering-fn local) (ordering-fn remote))))))
-       (map (fn [[_ remote]] remote))))
+       (map (fn [[_ remote]] remote))
+       (remove #(would-be-expired-locally? % now node-ttl))))
 
 (defn parse-time-fields
   "Convert time strings in a record to actual times. "
@@ -307,7 +322,7 @@
   using the entity and comparison information in `sync-config` (see comments
   above). If the remote record is newer than the local one or it doesn't exist locally,
   download it over http and place it in the queue with `submit-command-fn`."
-  [query-fn submit-command-fn remote-url sync-config]
+  [query-fn submit-command-fn remote-url sync-config now node-ttl]
   (let [summary-response-stream (streamed-summary-query remote-url sync-config)]
     (try
       (let [remote-sync-data (map parse-time-fields
@@ -319,7 +334,9 @@
                                           (let [records-to-fetch (records-to-fetch record-id-fn
                                                                                    record-ordering-fn
                                                                                    local-sync-data
-                                                                                   remote-sync-data)]
+                                                                                   remote-sync-data
+                                                                                   now
+                                                                                   node-ttl)]
                                             (doseq [record records-to-fetch]
                                               (if (= entity :nodes)
                                                 (set-local-deactivation-status! record submit-command-fn)
@@ -342,11 +359,12 @@
   "Entry point for syncing with another PuppetDB instance. Uses
   `query-fn` to query PuppetDB in process and `submit-command-fn` when
   new data is found."
-  [query-fn submit-command-fn remote-url]
-  (let [submit-command-fn (wrap-with-logging submit-command-fn :debug "Submitting command")]
+  [query-fn submit-command-fn remote-url node-ttl]
+  (let [submit-command-fn (wrap-with-logging submit-command-fn :debug "Submitting command")
+        now (t/now)]
    (doseq [sync-config sync-configs]
      (try+
-      (pull-records-from-remote! query-fn submit-command-fn remote-url sync-config)
+      (pull-records-from-remote! query-fn submit-command-fn remote-url sync-config now node-ttl)
 
       (catch [:type ::remote-host-error] _
         (let [{:keys [throwable message]} &throw-context]

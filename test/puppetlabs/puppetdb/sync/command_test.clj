@@ -6,6 +6,7 @@
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [clj-http.client :as http]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.testutils :as testutils :refer [=-after?]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :as rt]
             [puppetlabs.puppetdb.testutils.extensions :as utils
@@ -14,7 +15,8 @@
             [puppetlabs.puppetdb.sync.command :refer :all]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
-            [puppetlabs.trapperkeeper.app :refer [get-service]]
+            [puppetlabs.trapperkeeper.app :refer [get-service app-context]]
+            [puppetlabs.trapperkeeper.services :refer [service-context]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
             [puppetlabs.puppetdb.client :as pdb-client]
             [compojure.core :refer [POST routes ANY GET context]]
@@ -23,13 +25,16 @@
             [clj-time.core :as t]
             [puppetlabs.kitchensink.core :as ks]
             [slingshot.test]
-            [clojure.core.match :refer [match]]))
+            [clojure.core.match :refer [match]]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.scf.storage :as scf-store]
+            [puppetlabs.puppetdb.time :refer [parse-period]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Sync stream comparison tests
 
 (defn records-to-fetch' [local remote]
-  (records-to-fetch report-key (constantly 0) local remote))
+  (records-to-fetch report-key (constantly 0) local remote (t/now) (parse-period "0s")))
 
 (deftest records-to-fetch-test
   (let [a1 {:certname "a" :hash "hash1" :receive_time 1}
@@ -83,7 +88,9 @@
            (count
             (take 10
                   (records-to-fetch (juxt :certname :hash) (constantly 0)
-                   [] (map generate-report (range ten-billion)))))))))
+                                    [] (map generate-report (range ten-billion))
+                                    (t/now)
+                                    (parse-period "0s"))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Tests for the test infrastructure
@@ -416,6 +423,11 @@
                                       {:mq-name mq-name
                                        :config config
                                        :server svcs/*server*
+                                       :db (-> svcs/*server*
+                                               (get-service :PuppetDBServer)
+                                               service-context
+                                               :shared-globals
+                                               :scf-write-db)
                                        :service-url (assoc svcs/*base-url*
                                                            :prefix "/pdb"
                                                            :version :v4)
@@ -454,8 +466,9 @@
       (with-alt-mq (:mq-name pdb2)
         (sync :from pdb1 :to pdb2 :check-with get-factset :check-for (:certname facts)))
 
-      (is (= (without-timestamp (get-factset (:service-url pdb1) (:certname facts)))
-             (without-timestamp (get-factset (:service-url pdb2) (:certname facts))))))))
+      (is (=-after? without-timestamp
+                    (get-factset (:service-url pdb1) (:certname facts))
+                    (get-factset (:service-url pdb2) (:certname facts)))))))
 
 (deftest end-to-end-catalog-replication
   (with-pdbs (default-pdb-configs 2)
@@ -466,12 +479,13 @@
       (with-alt-mq (:mq-name pdb2)
         (sync :from pdb1 :to pdb2 :check-with get-catalog :check-for (:certname catalog)))
 
-      (is (= (without-timestamp (get-catalog (:service-url pdb1) (:certname catalog)))
-             (without-timestamp (get-catalog (:service-url pdb2) (:certname catalog))))))))
+      (is (=-after? without-timestamp
+                    (get-catalog (:service-url pdb1) (:certname catalog))
+                    (get-catalog (:service-url pdb2) (:certname catalog)))))))
 
 (deftest deactivate-then-sync
   (let [certname (:certname catalog)]
-    (with-n-pdbs 2
+    (with-pdbs (default-pdb-configs 2)
       (fn [pdb1 pdb2]
         ;; sync a node
         (with-alt-mq (:mq-name pdb1)
@@ -487,7 +501,7 @@
 
 (deftest sync-after-deactivate
   (let [certname (:certname catalog)]
-    (with-n-pdbs 2
+    (with-pdbs (default-pdb-configs 2)
       (fn [pdb1 pdb2]
         ;; sync a node
         (with-alt-mq (:mq-name pdb1)
@@ -521,8 +535,7 @@
                          :sync {:remotes [{:endpoint url
                                            :interval sync-interval}]}))
               nil))
-          facts-from #(without-timestamp
-                       (get-factset (:service-url %) (:certname facts)))]
+          facts-from #(get-factset (:service-url %) (:certname facts))]
       (with-pdbs periodic-sync-configs
         (fn [master mirror]
           (with-alt-mq (:mq-name master)
@@ -531,4 +544,52 @@
             @(rt/block-until-results 100 (facts-from master)))
           (is (nil? (facts-from mirror)))
           @(rt/block-until-results 100 (facts-from mirror))
-          (is (= (facts-from mirror) (facts-from master))))))))
+          (is (=-after? without-timestamp
+                        (facts-from mirror)
+                        (facts-from master))))))))
+
+(deftest pull-record-that-wouldnt-be-expired-locally
+  (let [certname (:certname catalog)]
+    (with-pdbs (default-pdb-configs 2)
+      (fn [pdb1 pdb2]
+        ;; add a node to pdb1
+        (with-alt-mq (:mq-name pdb1)
+          (submit-catalog pdb1 catalog))
+
+        ;; expire it manually
+        (jdbc/with-transacted-connection (:db pdb1)
+          (scf-store/expire-node! certname))
+
+        (with-alt-mq (:mq-name pdb2)
+          (sync :from pdb1 :to pdb2 :check-with get-node :check-for certname)
+          ;; the node shouldn't be expired from pdb2's perspective, so it
+          ;; should be pulled.
+          (let [node (get-node (:service-url pdb2) certname)]
+            (is (not (:expired node)))))))))
+
+(deftest dont-pull-record-that-would-be-expired-locally
+  (let [certname (:certname catalog)
+        pdb-configs (fn [infos]
+                      (case (count infos)
+                        ;; infos length tells us which server we're handling.
+                        0 (utils/sync-config)
+                        1 (assoc (utils/sync-config)
+                                 :node-ttl "1d")
+                        nil))]
+    (with-pdbs pdb-configs
+      (fn [pdb1 pdb2]
+        ;; add a node to pdb1 in the distant past
+        (with-alt-mq (:mq-name pdb1)
+          (submit-catalog pdb1 (assoc catalog :producer_timestamp (-> 3 t/weeks t/ago))))
+
+        (with-alt-mq (:mq-name pdb2)
+          (trigger-sync (base-url->str (:service-url pdb1))
+                        (str (base-url->str (:sync-url pdb2)) "/trigger-sync"))
+          ;; the other tests poll until a record exists to make sure sync worked, but that
+          ;; doesn't make sense here. Just wait a little while instead.
+          (Thread/sleep 5000)
+
+          ;; the node should be expired from pdb2's perspective. So it
+          ;; shouldn't get pulled
+          (is (thrown+? [:status 404]
+                        (get-node (:service-url pdb2) certname))))))))
