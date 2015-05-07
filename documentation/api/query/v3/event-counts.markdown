@@ -9,6 +9,9 @@ canonical: "/puppetdb/latest/api/query/v3/event-counts.html"
 [curl]: ../curl.html
 [query]: ./query.html
 
+> **Experimental Endpoint**: The event-counts endpoint is designated
+> as experimental. It may be altered or removed in a future release.
+
 Puppet agent nodes submit reports after their runs, and the puppet master forwards these to PuppetDB. Each report includes:
 
 * Some data about the entire run

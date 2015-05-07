@@ -3,6 +3,7 @@
             [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.http.events :as events-http]
+            [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params
@@ -59,11 +60,12 @@
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."
   [version]
+  (log/warn "The event-counts endpoint is experimental and may be altered or removed in the future.")
   (-> (routes version)
       verify-accepts-json
       (validate-query-params {:required ["query" "summarize-by"]
                               :optional (concat ["counts-filter" "count-by"
                                                  "distinct-resources" "distinct-start-time"
                                                  "distinct-end-time"]
-                                          paging/query-params) })
+                                          paging/query-params)})
       wrap-with-paging-options))
