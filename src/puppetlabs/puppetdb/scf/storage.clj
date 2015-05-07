@@ -790,11 +790,9 @@
   [factset-id removed-pid-vid-pairs]
   (when-let [removed-pid-vid-pairs (seq removed-pid-vid-pairs)]
     (let [vids (map second removed-pid-vid-pairs)
-          fp-id-pairs (map vector
-                           (repeat factset-id )
-                           (map first removed-pid-vid-pairs))
+          rm-facts (map cons (repeat factset-id) removed-pid-vid-pairs)
           in-vids (jdbc/in-clause vids)
-          in-fp-id-pairs (jdbc/in-clause-multi fp-id-pairs 2)]
+          in-rm-facts (jdbc/in-clause-multi rm-facts 3)]
       (sql/do-prepared
        (format
         "DELETE FROM fact_values fv
@@ -802,9 +800,11 @@
              AND NOT EXISTS (SELECT 1 FROM facts f
                                WHERE f.fact_value_id %s
                                  AND f.fact_value_id = fv.id
-                                 AND (f.factset_id, f.fact_path_id) NOT %s)"
-        in-vids in-vids in-fp-id-pairs)
-       (flatten [vids vids fp-id-pairs])))))
+                                 AND (f.factset_id,
+                                      f.fact_path_id,
+                                      f.fact_value_id) NOT %s)"
+        in-vids in-vids in-rm-facts)
+       (flatten [vids vids rm-facts])))))
 
 (defn-validated delete-orphaned-paths! :- s/Int
   "Deletes up to n paths that are no longer mentioned by any factsets,
