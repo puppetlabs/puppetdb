@@ -50,7 +50,7 @@ The below fields are allowed as filter criteria and are returned in all response
 
 * `report-timestamp` (timestamp): last time a report run was complete. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `["fact", <FACT NAME>]` (string, coercible to number): the value of `<FACT NAME>` for a node. Inequality operators are allowed, and will skip non-numeric values.
+* `["fact", <FACT NAME>]` (string, number, boolean): the value of `<FACT NAME>` for a node. Inequality operators are allowed, and will skip non-numeric values.
 
     Note that nodes which are missing a fact referenced by a `not` query will match
     the query.
