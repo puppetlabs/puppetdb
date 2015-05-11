@@ -79,8 +79,8 @@
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "puppetlabs.puppetdb.commands")
 
-(defn auto-deactivate-nodes!
-  "Deactivate nodes which haven't had any activity (catalog/fact submission)
+(defn auto-expire-nodes!
+  "Expire nodes which haven't had any activity (catalog/fact submission)
   for more than `node-ttl`."
   [node-ttl db mq-connection]
   {:pre [(map? db)
@@ -91,24 +91,24 @@
              (format-period node-ttl))
      (with-transacted-connection db
        (doseq [node (scf-store/stale-nodes (ago node-ttl))]
-         (log/infof "Auto-deactivating node %s" node)
-         (scf-store/deactivate-node! node))))
+         (log/infof "Auto-expiring node %s" node)
+         (scf-store/expire-node! node))))
     (catch Exception e
       (log/error e "Error while deactivating stale nodes"))))
 
 (defn purge-nodes!
-  "Delete nodes which have been *deactivated* longer than `node-purge-ttl`."
+  "Delete nodes which have been *deactivated or expired* longer than `node-purge-ttl`."
   [node-purge-ttl db]
   {:pre [(map? db)
          (period? node-purge-ttl)]}
   (try
     (kitchensink/demarcate
-     (format "purge deactivated nodes (threshold: %s)"
+     (format "purge deactivated and expired nodes (threshold: %s)"
              (format-period node-purge-ttl))
      (with-transacted-connection db
-       (scf-store/purge-deactivated-nodes! (ago node-purge-ttl))))
+       (scf-store/purge-deactivated-and-expired-nodes! (ago node-purge-ttl))))
     (catch Exception e
-      (log/error e "Error while purging deactivated nodes"))))
+      (log/error e "Error while purging deactivated and expired nodes"))))
 
 (defn sweep-reports!
   "Delete reports which are older than than `report-ttl`."
@@ -321,7 +321,7 @@
             gc-interval-millis (to-millis gc-interval)
             gc-task #(interspaced gc-interval-millis % job-pool)
             db-maintenance-tasks [(when (pos? (to-seconds node-ttl))
-                                    #(auto-deactivate-nodes!
+                                    #(auto-expire-nodes!
                                       node-ttl % mq-connection))
                                   (when (pos? (to-seconds node-purge-ttl))
                                     (partial purge-nodes! node-purge-ttl))

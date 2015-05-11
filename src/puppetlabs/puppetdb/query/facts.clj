@@ -77,7 +77,8 @@
 
 (defn fact-names
   "Returns the distinct list of known fact names, ordered alphabetically
-  ascending. This includes facts which are known only for deactivated nodes."
+  ascending. This includes facts which are known only for deactivated and
+  expired nodes."
   ([]
      (fact-names {}))
   ([paging-options]

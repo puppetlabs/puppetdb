@@ -26,7 +26,7 @@
                http-q/restrict-query-to-active-nodes)}
 
    [node "facts" &]
-   (comp (facts/facts-app version) (partial http-q/restrict-query-to-node node))))
+   (comp (facts/facts-app version false) (partial http-q/restrict-query-to-node node))))
 
 (defn factset-app
   [version]

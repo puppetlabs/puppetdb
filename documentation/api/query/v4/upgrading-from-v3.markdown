@@ -30,8 +30,10 @@ Each change below is marked with the corresponding release version. Changes mark
 * (3.0) We have renamed the "name" key of the catalogs endpoint to "certname", for
   consistency with other endpoints.
 
-* (3.0) The v4 catalogs endpoint will now only return data about nodes that are active. This
-  provides the same consistency as other non-historical data returns.
+* (3.0) The top-level v4 catalogs endpoint will now only return data about nodes
+  that are active. This provides the same consistency as other non-historical
+  data returns. Endpoints which specify the node explicitly will return results
+  even for deactivated or expired nodes.
 
 * (2.0.0) The v4 catalogs endpoint does not contain a `metadata` field
   or an `api_version` field. The contents of the v3 `data` field compose the v4
@@ -52,6 +54,9 @@ Each change below is marked with the corresponding release version. Changes mark
 * (3.0) We added a `hash` field to the endpoint fields to support a unique identifer for factsets.
 
 * (3.0) The `facts` field is now expanded as per our new expansion convention, so the data format has changed. For more information see the [/v4/factsets documentation](./api/query/v4/factsets.html).
+
+* (3.0) The `/v4/factsets/<node>/facts` endpoints will now return results even for
+  deactivated or expired nodes.
 
 #### /metrics/v1 (formerly /v3/metrics)
 

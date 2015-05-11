@@ -1296,6 +1296,13 @@
       (sql/do-commands
         "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL"))))
 
+(defn add-expired-to-certnames
+  "Add a 'expired' column to the 'certnames' table, to track
+  which nodes have been automatically expired because of inactivity."
+  []
+  (sql/do-commands
+   "ALTER TABLE certnames ADD COLUMN expired TIMESTAMP WITH TIME ZONE DEFAULT NULL"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1326,7 +1333,8 @@
    26 structured-facts-deferrable-constraints
    27 switch-value-string-index-to-gin
    28 lift-fact-paths-into-facts
-   29 version-2yz-to-300-migration})
+   29 version-2yz-to-300-migration
+   30 add-expired-to-certnames})
 
 (def desired-schema-version (apply max (keys migrations)))
 

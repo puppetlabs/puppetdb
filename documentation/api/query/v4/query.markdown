@@ -91,13 +91,19 @@ Different operators may take different numbers (and types) of arguments. Each en
 >
 > More explicitly, the following grammar describes a query string (before it is URL-encoded):
 >
->     query: [ {bool}, {query}+ ] | [ "not", {query} ] | [ {binary_op}, {field}, {value} ] |
->                 [ "in", {field}, [ "extract", {field}, [ {subquery_name}, {query} ] ] ]
->     field:          string, which is the name of a valid FIELD listed in the endpoint's doc page
->     value:          string
->     bool:           "or" | "and"
->     binary_op:      "=" | "~" | ">" | ">=" | "<" | "<=" | "~>" | "null?"
->     subquery_name:  "select_resources" | "select_facts" | "select_nodes | select_fact_contents"
+>     query : [ {bool}, {query}+ ]
+>           | [ "not", {query} ]
+>           | [ {binary_op}, {field}, {value} ]
+>           | [ "in", {field}, [ "extract", {field}, [ {subquery_name}, {query} ] ] ]
+>
+>     field : string, which is the name of a valid FIELD listed in the endpoint's doc page
+>     value : string
+>     bool : "or" | "and"
+>     binary_op : "=" | "~" | ">" | ">=" | "<" | "<=" | "~>" | "null?"
+>     subquery_name : "select_resources"
+>                   | "select_facts"
+>                   | "select_nodes"
+>                   | "select_fact_contents"
 
 > ### Note on JSON Formatting
 >

@@ -15,7 +15,7 @@
   "Return node columns based on version"
   [version]
   [:certname :deactivated :catalog_timestamp :facts_timestamp :report_timestamp
-   :catalog_environment :facts_environment :report_environment])
+   :catalog_environment :facts_environment :report_environment :expired])
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will

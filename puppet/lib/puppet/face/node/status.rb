@@ -48,6 +48,8 @@ Puppet::Face.define(:node, '0.0.1') do
 
         if status['deactivated']
           lines << "Deactivated at #{status['deactivated']}"
+        elsif status['expired']
+          lines << "Expired at #{status['expired']}"
         else
           lines << "Currently active"
         end

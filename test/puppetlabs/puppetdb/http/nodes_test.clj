@@ -55,7 +55,7 @@
         (str "Query was: " query))
 
     (doseq [res result]
-      (is (= #{:certname :deactivated :catalog_timestamp :facts_timestamp :report_timestamp
+      (is (= #{:certname :deactivated :expired :catalog_timestamp :facts_timestamp :report_timestamp
                :catalog_environment :facts_environment :report_environment} (keyset res))
           (str "Query was: " query))
       (is (= (set expected) (set (mapv :certname result)))
@@ -69,7 +69,9 @@
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
     (testing "status objects should reflect fact/catalog activity"
       (testing "when node is active"
-        (is (nil? (:deactivated (status-for-node endpoint web1)))))
+        (let [status (status-for-node endpoint web1)]
+          (is (nil? (:deactivated status)))
+          (is (nil? (:expired status)))))
 
       (testing "when node has facts, but no catalog"
         (is (:facts_timestamp (status-for-node endpoint web2)))

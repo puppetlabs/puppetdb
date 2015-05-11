@@ -69,7 +69,9 @@
           ["in" "certname"
            ["extract" "certname"
             ["select_nodes"
-             ["null?" "deactivated" true]]]]]
+             ["and"
+              ["null?" "deactivated" true]
+              ["null?" "expired" true]]]]]]
          (expand-user-query [["=" "prop" "foo"]
                              ["=" ["node" "active"] true]])))
   (is (= [["=" "prop" "foo"]

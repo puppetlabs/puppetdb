@@ -217,9 +217,9 @@ describe Puppet::Node::Facts::Puppetdb do
       }
 
       response.stubs(:body).returns '["foo", "bar", "baz"]'
-      response.stubs(:body).returns '[{"name": "foo", "deactivated": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null},
-                                      {"name": "bar", "deactivated": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null},
-                                      {"name": "baz", "deactivated": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null}]'
+      response.stubs(:body).returns '[{"name": "foo", "deactivated": null, "expired": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null},
+                                      {"name": "bar", "deactivated": null, "expired": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null},
+                                      {"name": "baz", "deactivated": null, "expired": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null}]'
 
       query = CGI.escape("[\"and\",[\"=\",[\"fact\",\"kernel\"],\"Linux\"]]")
       http.stubs(:get).with("/v4/nodes?query=#{query}",  subject.headers).returns(response)

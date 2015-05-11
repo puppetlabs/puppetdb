@@ -48,10 +48,10 @@
                       (str (:url-prefix globals))))
 
     [node "edges" &]
-    (comp (edges/edges-app version) (partial http-q/restrict-query-to-node node))
+    (comp (edges/edges-app version false) (partial http-q/restrict-query-to-node node))
 
     [node "resources" &]
-    (comp (resources/resources-app version) (partial http-q/restrict-query-to-node node))))
+    (comp (resources/resources-app version false) (partial http-q/restrict-query-to-node node))))
 
 (defn catalog-app
   [version]
