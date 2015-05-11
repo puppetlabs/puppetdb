@@ -312,8 +312,7 @@
 (deftestseq query-by-report-receive-timestamp
   [[version endpoint] endpoints]
 
-  (let [test-start-time (ago (seconds 1))
-
+  (let [test-start-time (-> 1 seconds ago)
         basic           (store-example-report! (:basic reports) (now))
         basic-events    (get-in reports [:basic :resource_events])]
     (testing "query by report receive time"
