@@ -1384,7 +1384,7 @@
   (if-let [pending (seq (pending-migrations))]
     (sql/transaction
      (doseq [[version migration] pending]
-       (log/info (format "Applying database migration version %d" version))
+       (log/infof "Applying database migration version %d" version)
        (try
          (migration)
          (record-migration! version)

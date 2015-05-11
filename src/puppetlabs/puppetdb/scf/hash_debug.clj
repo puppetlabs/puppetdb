@@ -98,7 +98,7 @@
         uuid (kitchensink/uuid)
         file-path-fn #(debug-file-path debug-output-dir certname uuid %)]
 
-    (log/warn (format "Writing catalog debugging info for %s to %s" certname debug-output-dir))
+    (log/warnf "Writing catalog debugging info for %s to %s" certname debug-output-dir)
     (json/spit-json (file-path-fn "catalog-metadata.json")
                     (-> {"new catalog hash" new-hash
                          "old catalog hash" (-> old-catalog json/generate-string kitchensink/utf8-string->sha1)

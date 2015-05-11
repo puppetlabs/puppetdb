@@ -237,12 +237,12 @@
   [{:keys [command annotations] :as msg} discard]
   (let [attempts (count (:attempts annotations))
         id       (:id annotations)]
-    (log/error (format "[%s] [%s] Exceeded max %d attempts" id command attempts))
+    (log/errorf "[%s] [%s] Exceeded max %d attempts" id command attempts)
     (discard msg nil)))
 
 (defn handle-parse-error
   [msg e discard]
-  (log/error e (format "Fatal error parsing command" msg))
+  (log/errorf e "Fatal error parsing command: %s" msg)
   (discard msg e))
 
 (defn handle-command-failure
@@ -252,7 +252,7 @@
   (let [attempt (count (:attempts annotations))
         id      (:id annotations)
         msg     (annotate-with-attempt msg e)]
-    (log/error e (format "[%s] [%s] Fatal error on attempt %d" id command attempt))
+    (log/errorf e "[%s] [%s] Fatal error on attempt %d" id command attempt)
     (discard msg e)))
 
 ;; The number of times a message can be retried before we discard it
@@ -396,4 +396,4 @@
     (if-let [handler-fn (matching-handler @(:listeners (service-context this))
                                           message)]
       (handler-fn message)
-      (log/warn (format "No message handler found for %s" message)))))
+      (log/warnf "No message handler found for %s" message))))

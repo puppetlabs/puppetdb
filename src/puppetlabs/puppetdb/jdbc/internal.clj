@@ -34,12 +34,12 @@
   "Called *after* a query completes, if the elapsed time of a query exceeds
    the configure timeout."
   [conn stmt sql params time-elapsed log-statements? query-execution-limit]
-  (log/warn (format (str "Query slower than %ss threshold:  "
-                         "actual execution time: %.4f seconds; Query: %s; "
-                         (query-params->str log-statements? params))
-                    query-execution-limit
-                    (/ time-elapsed 1000000000.0)
-                    sql)))
+  (log/warnf (str "Query slower than %ss threshold:  "
+                  "actual execution time: %.4f seconds; Query: %s; "
+                  (query-params->str log-statements? params))
+             query-execution-limit
+             (/ time-elapsed 1000000000.0)
+             sql))
 
 (defn connection-hook
   "Helper method for building up a `ConnectionHook` for our connection pool.

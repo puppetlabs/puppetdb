@@ -61,7 +61,7 @@
   (try
     (json/parse-string (slurp file))
     (catch Exception e
-      (log/error (format "Error parsing %s; skipping" file)))))
+      (log/errorf "Error parsing %s; skipping" file))))
 
 (defn error-if
   [pred msg x]
@@ -199,23 +199,23 @@
         (future
           (try
             (client/submit-catalog base-url 6 (json/generate-string catalog))
-            (log/info (format "[%s] submitted catalog" host))
+            (log/infof "[%s] submitted catalog" host)
             (catch Exception e
-              (log/error (format "[%s] failed to submit catalog: %s" host e))))))
+              (log/errorf "[%s] failed to submit catalog: %s" host e)))))
       (when report
         (future
           (try
             (client/submit-report base-url 5 (json/generate-string report))
-            (log/info (format "[%s] submitted report" host))
+            (log/infof "[%s] submitted report" host)
             (catch Exception e
-              (log/error (format "[%s] failed to submit report: %s" host e))))))
+              (log/errorf "[%s] failed to submit report: %s" host e)))))
       (when factset
         (future
           (try
             (client/submit-facts base-url 4 (json/generate-string factset))
-            (log/info (format "[%s] submitted factset" host))
+            (log/infof "[%s] submitted factset" host)
             (catch Exception e
-              (log/error (format "[%s] failed to submit factset: %s" host e))))))
+              (log/errorf "[%s] failed to submit factset: %s" host e)))))
       (assoc state
         :lastrun clock
         :catalog catalog))
@@ -244,8 +244,8 @@
    is recursive to accumulate possible catalog mutations (i.e. changing a previously
    mutated catalog as opposed to different mutations of the same catalog)."
   [hosts num-msgs]
-  (log/info (format "Sending %s messages for %s hosts, will exit upon completion"
-                    num-msgs (count hosts)))
+  (log/infof "Sending %s messages for %s hosts, will exit upon completion"
+             num-msgs (count hosts))
   (loop [mutated-hosts hosts
          msgs-to-send num-msgs]
     (when-not (zero? msgs-to-send)
@@ -265,7 +265,7 @@
       (doseq [host hosts]
         (send host timed-update-host curr-time)
         (when-let [error (agent-error host)]
-          (log/error error (format "[%s] agent failed; restarting" host))
+          (log/errorf error "[%s] agent failed; restarting" host)
           ;; Restart it with exactly the same state. Hopefully that's okay!
           (restart-agent host @host)))
 
