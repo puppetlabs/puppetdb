@@ -19,7 +19,6 @@
             [puppetlabs.puppetdb.zip :as zip]
             [schema.core :as s])
   (:import [honeysql.types SqlCall SqlRaw]))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
 
@@ -307,137 +306,176 @@
 (defn reports-query
   "Query for the reports entity"
   []
-  (map->Query {:projections {"hash"            {:type :string
-                                                :queryable? true
-                                                :field (hsql-hash-as-str :reports.hash)}
-                             "certname"        {:type :string
-                                                :queryable? true
-                                                :field :reports.certname}
-                             "puppet_version"  {:type :string
-                                                :queryable? true
-                                                :field :reports.puppet_version}
-                             "report_format"   {:type :number
-                                                :queryable? true
-                                                :field :reports.report_format}
-                             "configuration_version" {:type :string
-                                                      :queryable? true
-                                                      :field :reports.configuration_version}
-                             "start_time"      {:type :timestamp
-                                                :queryable? true
-                                                :field :reports.start_time}
-                             "end_time"        {:type :timestamp
-                                                :queryable? true
-                                                :field :reports.end_time}
-                             "metrics"        {:type :json
-                                                :queryable? false
-                                                :field :reports.metrics
-                                                :expandable? true}
-                             "logs"            {:type :json
-                                                :queryable? false
-                                                :field :reports.logs
-                                                :expandable? true}
-                             "receive_time"    {:type :timestamp
-                                                :queryable? true
-                                                :field :reports.receive_time}
-                             "transaction_uuid" {:type :string
-                                                 :queryable? true
-                                                 :field (hsql-uuid-as-str :reports.transaction_uuid)}
-                             "noop"            {:type :boolean
-                                                :queryable? true
-                                                :field :reports.noop}
-                             "environment"     {:type :string
-                                                :queryable? true
-                                                :field :environments.name}
-                             "status"          {:type :string
-                                                :queryable? true
-                                                :field :report_statuses.status}
-                             "latest_report?"   {:type :string
-                                                 :queryable? true
-                                                 :query-only? true}
-                             "resource_events" {:type :json
-                                                :queryable? false
-                                                :expandable? true
-                                                :field {:select [(h/json-agg
-                                                                  (h/row-to-json
-                                                                   (h/row
-                                                                    :re.status (h/convert-to-iso8601-utc :re.timestamp)
-                                                                    :re.resource_type :re.resource_title :re.property :re.new_value :re.old_value :re.message
-                                                                    :re.file :re.line :re.containment_path :re.containing_class)))]
-                                                        :from [[:resource_events :re]]
-                                                        :where [:= :reports.id :re.report_id]}}}
-               :selection {:from [:reports]
-                           :left-join [:environments
-                                       [:= :environments.id :reports.environment_id]
+  (map->Query
+    {:projections
+     {"hash"            {:type :string
+                         :queryable? true
+                         :field (hsql-hash-as-str :reports.hash)}
+      "certname"        {:type :string
+                         :queryable? true
+                         :field :reports.certname}
+      "puppet_version"  {:type :string
+                         :queryable? true
+                         :field :reports.puppet_version}
+      "report_format"   {:type :number
+                         :queryable? true
+                         :field :reports.report_format}
+      "configuration_version" {:type :string
+                               :queryable? true
+                               :field :reports.configuration_version}
+      "start_time"      {:type :timestamp
+                         :queryable? true
+                         :field :reports.start_time}
+      "end_time"        {:type :timestamp
+                         :queryable? true
+                         :field :reports.end_time}
+      "metrics"        {:type :json
+                        :queryable? false
+                        :field {:select [(h/row-to-json
+                                           (h/row :metrics
+                                                  (hsql-hash-as-str :hash)))]}
+                        :expandable? true}
+      "logs"            {:type :json
+                         :queryable? false
+                         :field {:select [(h/row-to-json
+                                              (h/row :logs
+                                                     (hsql-hash-as-str :hash)))]}
+                         :expandable? true}
+      "receive_time"    {:type :timestamp
+                         :queryable? true
+                         :field :reports.receive_time}
+      "transaction_uuid" {:type :string
+                          :queryable? true
+                          :field (hsql-uuid-as-str :reports.transaction_uuid)}
+      "noop"            {:type :boolean
+                         :queryable? true
+                         :field :reports.noop}
+      "environment"     {:type :string
+                         :queryable? true
+                         :field :environments.name}
+      "status"          {:type :string
+                         :queryable? true
+                         :field :report_statuses.status}
+      "latest_report?"   {:type :string
+                          :queryable? true
+                          :query-only? true}
+      "resource_events" {:type :json
+                         :queryable? false
+                         :expandable? true
+                         :field {:select [(h/row-to-json (h/row :data (hsql-hash-as-str :hash)))]
+                                 :from [[{:select
+                                          [[(h/json-agg
+                                              (h/row-to-json
+                                                (h/row
+                                                  :re.status
+                                                  (h/convert-to-iso8601-utc
+                                                    :re.timestamp)
+                                                  :re.resource_type
+                                                  :re.resource_title
+                                                  :re.property
+                                                  :re.new_value
+                                                  :re.old_value
+                                                  :re.message
+                                                  :re.file
+                                                  :re.line
+                                                  :re.containment_path
+                                                  :re.containing_class)))
+                                            :data]]
+                                          :from [[:resource_events :re]]
+                                          :where [:= :reports.id :re.report_id]}
+                                         :event_data]]}}}
+     :selection {:from [:reports]
+                 :left-join [:environments
+                             [:= :environments.id :reports.environment_id]
 
-                                       :report_statuses
-                                       [:= :reports.status_id :report_statuses.id]]}
+                             :report_statuses
+                             [:= :reports.status_id :report_statuses.id]]}
 
-               :alias "reports"
-               :subquery? false
-               :entity :reports
-               :source-table "reports"}))
+     :alias "reports"
+     :subquery? false
+     :entity :reports
+     :source-table "reports"}))
 
 (defn catalog-query
   "Query for the top level catalogs entity"
   []
-  (map->Query {:projections {"version" {:type :string
-                                        :queryable? true
-                                        :field :c.catalog_version}
-                             "certname" {:type :string
-                                     :queryable? true
-                                     :field :c.certname}
-                             "hash" {:type :string
-                                     :queryable? true
-                                     :field (hsql-hash-as-str :c.hash)}
-                             "transaction_uuid" {:type :string
-                                                 :queryable? true
-                                                 :field (hsql-uuid-as-str :c.transaction_uuid)}
-                             "environment" {:type :string
-                                            :queryable? true
-                                            :field :e.name}
-                             "producer_timestamp" {:type :timestamp
-                                                   :queryable? true
-                                                   :field :c.producer_timestamp}
-                             "resources" {:type :json
-                                          :queryable? false
-                                          :expandable? true
-                                          :field {:select [(h/json-agg
-                                                            (h/row-to-json
-                                                             (h/row
-                                                              (hsql-hash-as-str :cr.resource) :cr.type
-                                                              :cr.title :cr.tags :cr.exported
-                                                              :cr.file :cr.line (keyword "rpc.parameters::json"))))]
-                                                  :from [[:catalog_resources :cr]]
-                                                  :join [[:resource_params_cache :rpc]
-                                                         [:= :rpc.resource :cr.resource]]
-                                                  :where [:= :cr.catalog_id :c.id]}}
-                             "edges" {:type :json
-                                      :queryable? false
-                                      :expandable? true
-                                      :field {:select [(h/json-agg
-                                                        (h/row-to-json
-                                                         (h/row
-                                                          :sources.type :sources.title :targets.type :targets.title
-                                                          :edges.type)))]
-                                              :from [:edges]
-                                              :join [[:catalog_resources :sources]
-                                                     [:and
-                                                      [:= :edges.source :sources.resource]
-                                                      [:= :sources.catalog_id :c.id]]
+  (map->Query
+    {:projections
+     {"version" {:type :string
+                 :queryable? true
+                 :field :c.catalog_version}
+      "certname" {:type :string
+                  :queryable? true
+                  :field :c.certname}
+      "hash" {:type :string
+              :queryable? true
+              :field (hsql-hash-as-str :c.hash)}
+      "transaction_uuid" {:type :string
+                          :queryable? true
+                          :field (hsql-uuid-as-str :c.transaction_uuid)}
+      "environment" {:type :string
+                     :queryable? true
+                     :field :e.name}
+      "producer_timestamp" {:type :timestamp
+                            :queryable? true
+                            :field :c.producer_timestamp}
+      "resources" {:type :json
+                   :queryable? false
+                   :expandable? true
+                   :field {:select [(h/row-to-json
+                                      (h/row :data :certname))]
+                           :from [[{:select
+                                    [[(h/json-agg
+                                        (h/row-to-json
+                                          (h/row
+                                            (hsql-hash-as-str :cr.resource)
+                                            :cr.type
+                                            :cr.title
+                                            :cr.tags
+                                            :cr.exported
+                                            :cr.file
+                                            :cr.line
+                                            (keyword "rpc.parameters::json"))))
+                                      :data]]
+                                    :from [[:catalog_resources :cr]]
+                                    :join [[:resource_params_cache :rpc]
+                                           [:= :rpc.resource :cr.resource]]
+                                    :where [:= :cr.catalog_id :c.id]}
+                                   :resource_data]]}}
+      "edges" {:type :json
+               :queryable? false
+               :expandable? true
+               :field {:select [(h/row-to-json
+                                  (h/row :data :certname))]
+                       :from [[{:select [[(h/json-agg
+                                            (h/row-to-json
+                                              (h/row
+                                                :sources.type
+                                                :sources.title
+                                                :targets.type
+                                                :targets.title
+                                                :edges.type))) :data]]
+                                :from [:edges]
+                                :join [[:catalog_resources :sources]
+                                       [:and
+                                        [:= :edges.source :sources.resource]
+                                        [:= :sources.catalog_id :c.id]]
 
-                                                     [:catalog_resources :targets]
-                                                     [:and
-                                                      [:= :edges.target :targets.resource]
-                                                      [:= :targets.catalog_id :c.id]]]
-                                              :where [:= :edges.certname :c.certname]}}}
+                                       [:catalog_resources :targets]
+                                       [:and
+                                        [:= :edges.target :targets.resource]
+                                        [:= :targets.catalog_id :c.id]]]
+                                :where [:= :edges.certname :c.certname]}
+                               :edge_data]]}}}
 
-               :selection {:from [[:catalogs :c]]
-                           :left-join [[:environments :e]
-                                       [:= :c.environment_id :e.id]]}
+     :selection {:from [[:catalogs :c]]
+                 :left-join [[:environments :e]
+                             [:= :c.environment_id :e.id]]}
 
-               :alias "catalogs"
-               :subquery? false
-               :source-table "catalogs"}))
+     :alias "catalogs"
+     :entity :catalogs
+     :subquery? false
+     :source-table "catalogs"}))
 
 (defn edges-query
   "Query for catalog edges"
@@ -631,49 +669,51 @@
 (defn factsets-query
   "Query for the top level facts query"
   []
-  (map->Query {:projections {"timestamp" {:type :timestamp
-                                          :queryable? true
-                                          :field :timestamp}
-                             "facts" {:type :json
-                                      :queryable? true
-                                      :expandable? true
-                                      :field {:select [(h/json-agg
-                                                        (h/row-to-json
-                                                         (h/row :fact_paths.name
-                                                                :fact_values.value)))]
-                                              :from [:facts]
-                                              :join [:fact_values
-                                                     [:= :fact_values.id :facts.fact_value_id]
+  (map->Query
+    {:projections
+     {"timestamp" {:type :timestamp
+                   :queryable? true
+                   :field :timestamp}
+      "facts" {:type :json
+               :queryable? true
+               :expandable? true
+               :field {:select [(h/row-to-json (h/row :data :certname))]
+                       :from [[{:select
+                                [[(h/json-agg
+                                    (h/row-to-json
+                                      (h/row
+                                        :fp.name
+                                        :fv.value)))
+                                  :data]]
+                       :from [[:facts :f]]
+                       :join [[:fact_values :fv] [:= :fv.id :f.fact_value_id]
+                              [:fact_paths :fp] [:= :fp.id :f.fact_path_id]
+                              [:value_types :vt] [:= :vt.id :fv.value_type_id]]
+                       :where [:and
+                               [:= :depth 0]
+                               [:= :f.factset_id :factsets.id]]}
+                               :facts_data]]}}
+      "certname" {:type :string
+                  :queryable? true
+                  :field :factsets.certname}
+      "hash" {:type :string
+              :queryable? true
+              :field (hsql-hash-as-str :factsets.hash)}
+      "producer_timestamp" {:type :timestamp
+                            :queryable? true
+                            :field :factsets.producer_timestamp}
+      "environment" {:type :string
+                     :queryable? true
+                     :field :environments.name}}
 
-                                                     :fact_paths
-                                                     [:= :fact_paths.id :facts.fact_path_id]
+     :selection {:from [:factsets]
+                 :left-join [:environments
+                             [:= :factsets.environment_id :environments.id]]}
 
-                                                     :value_types
-                                                     [:= :value_types.id :fact_values.value_type_id]]
-                                              :where [:and
-                                                      [:= :depth 0]
-                                                      [:= :facts.factset_id :factsets.id]]}}
-                             "certname" {:type :string
-                                         :queryable? true
-                                         :field :factsets.certname}
-                             "hash" {:type :string
-                                     :queryable? true
-                                     :field (hsql-hash-as-str :factsets.hash)}
-                             "producer_timestamp" {:type :timestamp
-                                                   :queryable? true
-                                                   :field :factsets.producer_timestamp}
-                             "environment" {:type :string
-                                            :queryable? true
-                                            :field :environments.name}}
-
-               :selection {:from [:factsets]
-                           :left-join [:environments
-                                       [:= :factsets.environment_id :environments.id]]}
-
-               :alias "factsets"
-               :entity :factsets
-               :source-table "factsets"
-               :subquery? false}))
+     :alias "factsets"
+     :entity :factsets
+     :source-table "factsets"
+     :subquery? false}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion from plan to SQL
@@ -700,18 +740,24 @@
        sort))
 
 (defn extract-fields
-  [[name {:keys [query-only? expandable? field]}] expand?]
+  [[name {:keys [query-only? expandable? field]}] entity expand?]
   "Return all fields from a projection, if expand? true. If expand? false,
-  returns all fields except for expanded ones, which are returned as [:null k].
+   returns all fields except for expanded ones, which are returned as
+   [<identifier> k], where identifier is the component used to make the href.
 
-  Return nil for fields which are query-only? since these can't be projected
-  either."
-  (when-not query-only?
-    (if expand?
-      [field name]
-      (if expandable?
-        [:null name]
-        [field name]))))
+   Return nil for fields which are query-only? since these can't be projected
+   either."
+  (let [href-key (case entity
+                       :catalogs :certname
+                       :factsets :certname
+                       :reports :hash
+                       nil)]
+    (when-not query-only?
+      (if expand?
+        [field name]
+        (if expandable?
+          [href-key name]
+          [field name])))))
 
 (defn merge-function-options
   "Optionally merge call and grouping into an existing query map.
@@ -723,14 +769,14 @@
     grouping (assoc :group-by (map keyword grouping))))
 
 (defn honeysql-from-query
-  [{:keys [projected-fields group-by call selection projections]}]
+  [{:keys [projected-fields group-by call selection projections entity]}]
   "Convert a query to honeysql format"
   (let [expand? (su/postgres?)
         call (when-let [[f & args] (when call (utils/vector-maybe call))]
                (apply vector f (map keyword (or args [:*]))))
         new-select (if (and call (empty? projected-fields))
                      []
-                     (vec (remove nil? (map #(extract-fields % expand?)
+                     (vec (remove nil? (map #(extract-fields % entity expand?)
                                             (sort projections)))))]
     (log/spy (-> selection
                  (assoc :select new-select)

@@ -29,17 +29,6 @@
                         "f7" :line
                         "f8" :parameters})))
 
-(pls/defn-validated resources->expansion :- {:href s/Str (s/optional-key :data) [s/Any]}
-  "Convert the resources data to a href/data style object."
-  [obj :- (s/maybe PGobject)
-   certname :- s/Str
-   base-url :- s/Str]
-  (let [data-obj {:href (str base-url "/catalogs/" certname "/resources")}]
-    (if obj
-      (assoc data-obj :data (map rtj->resource
-                                 (json/parse-string (.getValue obj))))
-      data-obj)))
-
 (pls/defn-validated rtj->edge :- catalogs/edge-query-schema
   "Convert the row_to_json PG output to real data."
   [edge :- {s/Str s/Any}]
@@ -50,24 +39,15 @@
                         "f4" :target_title
                         "f5" :relationship})))
 
-(pls/defn-validated edges->expansion :- {:href s/Str (s/optional-key :data) [s/Any]}
-  "Convert the edges data to the expanded format."
-  [obj :- (s/maybe PGobject)
-   certname :- s/Str
-   base-url :- s/Str]
-  (let [data-obj {:href (str base-url "/catalogs/" certname "/edges")}]
-    (if obj
-      (assoc data-obj :data (map rtj->edge
-                                 (json/parse-string (.getValue obj))))
-      data-obj)))
-
 (pls/defn-validated row->catalog
   "Return a function that will convert a catalog query row into a final catalog format."
   [base-url :- s/Str]
   (fn [row]
     (-> row
-        (utils/update-when [:edges] edges->expansion (:certname row) base-url)
-        (utils/update-when [:resources] resources->expansion (:certname row) base-url))))
+        (utils/update-when [:edges] utils/child->expansion :catalogs :edges base-url)
+        (utils/update-when [:edges :data] (partial map rtj->edge))
+        (utils/update-when [:resources] utils/child->expansion :catalogs :resources base-url)
+        (utils/update-when [:resources :data] (partial map rtj->resource)))))
 
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."

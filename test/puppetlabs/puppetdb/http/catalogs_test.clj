@@ -102,6 +102,15 @@
          #{{:certname "myhost.localdomain"}
            {:certname "host2.localdomain"}}
 
+         ["extract" ["edges"] ["=" "certname" "host2.localdomain"]]
+         #{{:edges (merge {:href "/v4/catalogs/host2.localdomain/edges"}
+                          (when (sutils/postgres?)
+                            {:data [{:source_type "Apt::Pin"
+                                     :source_title "puppetlabs"
+                                     :target_type "File"
+                                     :target_title "/etc/apt/preferences.d/puppetlabs.pref"
+                                     :relationship "contains"}]}))}}
+
          ["extract" [["function" "count"] "environment"]
           ["~" "certname" ""]
           ["group_by" "environment"]]

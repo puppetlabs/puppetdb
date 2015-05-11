@@ -72,9 +72,9 @@ test_name "basic validation of puppet report submission" do
       total_events = metrics.detect {|m| m["name"] == "total" && m["category"] == "events"}
       total_changes = metrics.detect {|m| m["name"] == "total" && m["category"] == "changes"}
       resources_changed = metrics.detect {|m| m["name"] == "changed" && m["category"] == "resources"}
-      assert(total_events["value"] == 1, "metrics do not match")
-      assert(total_changes["value"] == 1, "metrics do not match")
-      assert(total_changes["value"] == 1, "metrics do not match")
+      assert(total_events["value"] == 1, "metric total in events category should be 1")
+      assert(total_changes["value"] == 1, "metric total in changes category should be 1")
+      assert(resources_changed["value"] == 1, "metric changed in resources category should be 1")
     end
 
     step "ensure that logs check out for #{agent}" do

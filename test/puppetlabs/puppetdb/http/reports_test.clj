@@ -11,6 +11,7 @@
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.http :as http :refer [status-bad-request]]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils :refer [response-equal?
@@ -111,6 +112,20 @@
        (get-response endpoint ["extract" "hash"
                                ["=" "certname" (:certname basic)]])
        #{{:hash report-hash}}))
+
+    (testing "logs projected"
+      (response-equal?
+        (get-response endpoint ["extract" "logs"
+                                ["=" "certname" (:certname basic)]])
+        #{{:logs (merge {:href (utils/as-path "/v4/reports" report-hash "logs")}
+                         (when (sutils/postgres?) {:data (:logs basic)}))}}))
+
+    (testing "metrics projected"
+      (response-equal?
+        (get-response endpoint ["extract" "metrics"
+                                ["=" "certname" (:certname basic)]])
+        #{{:metrics (merge {:href (utils/as-path "/v4/reports" report-hash "metrics")}
+                         (when (sutils/postgres?) {:data (:metrics basic)}))}}))
 
     (testing "one projected column with a not"
       (response-equal?
