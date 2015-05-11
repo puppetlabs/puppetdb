@@ -2,29 +2,52 @@
   "Population-wide queries
 
    Contains queries and metrics that apply across an entire population."
-  (:require [puppetlabs.puppetdb.jdbc :refer [query-to-vec table-count with-transacted-connection]]
+  (:require [puppetlabs.puppetdb.jdbc :refer [query-to-vec
+                                              table-count
+                                              with-transacted-connection]]
             [puppetlabs.kitchensink.core :refer [quotient]]
-            [metrics.gauges :refer [gauge]]))
+            [metrics.gauges :refer [gauge]]
+            [honeysql.core :as hcore]
+            [honeysql.helpers :as hh]))
+
+;;; Query library
+
+(def ^:private from-all-resources-and-their-nodes
+  (hcore/build :from [:catalogs :catalog_resources :certnames]
+               :merge-where [:and
+                             [:= :catalogs.id :catalog_resources.catalog_id]
+                             [:= :certnames.certname :catalogs.certname]]))
+
+(defn- where-nodes-are-active [q]
+  (hh/merge-where q [:and
+                     [:= :certnames.deactivated nil]
+                     [:= :certnames.expired nil]]))
+
+(defn- select-count [q]
+  (-> q
+      (hh/select [:%count.* :c])
+      hcore/format
+      query-to-vec
+      first
+      :c))
+
+;;; Public
 
 (defn num-resources
   "The number of resources in the population"
   []
   {:post [(number? %)]}
-  (-> (str "SELECT COUNT(*) AS c "
-           "FROM catalogs clogs, catalog_resources cr, certnames c "
-           "WHERE clogs.id=cr.catalog_id AND c.certname=clogs.certname AND c.deactivated IS NULL AND c.expired IS NULL")
-      (query-to-vec)
-      (first)
-      :c))
+  (-> from-all-resources-and-their-nodes
+      where-nodes-are-active
+      select-count))
 
 (defn num-nodes
   "The number of unique certnames in the population"
   []
   {:post [(number? %)]}
-  (-> "SELECT COUNT(*) AS c FROM certnames WHERE deactivated IS NULL AND expired IS NULL"
-      (query-to-vec)
-      (first)
-      :c))
+  (-> (hh/from :certnames)
+      where-nodes-are-active
+      select-count))
 
 (defn avg-resource-per-node
   "The average number of resources per node"
@@ -36,12 +59,13 @@
   "What percentage of resources in the population are duplicates"
   []
   {:post [(number? %)]}
-  (let [num-unique (-> (query-to-vec (str "SELECT COUNT(*) AS c FROM "
-                                          "(SELECT DISTINCT resource FROM catalog_resources cr, catalogs clogs, certnames c "
-                                          " WHERE cr.catalog_id=clogs.id AND clogs.certname=c.certname AND c.deactivated IS NULL AND c.expired IS NULL) r"))
-                       (first)
-                       (:c))
-        num-total  (num-resources)]
+  (let [distinct-resources-q (-> from-all-resources-and-their-nodes
+                                 where-nodes-are-active
+                                 (hh/select :catalog_resources.resource)
+                                 (hh/modifiers :distinct))
+        num-unique (-> (hh/from [distinct-resources-q :r])
+                       select-count)
+        num-total (num-resources)]
     (quotient (- num-total num-unique) num-total)))
 
 ;; ## Population-wide metrics
