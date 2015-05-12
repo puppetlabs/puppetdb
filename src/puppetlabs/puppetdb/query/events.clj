@@ -16,14 +16,10 @@
 
 (pls/defn-validated munge-result-rows
   "Returns a function that munges the resulting rows ready for final
-  presentation."
-  [_
-   projected-fields :- [s/Keyword]
-   _
-   _]
+   presentation."
+  [_ _]
   (fn [rows]
-    (map (comp (qe/basic-project projected-fields)
-               #(utils/update-when % [:old_value] json/parse-string)
+    (map (comp #(utils/update-when % [:old_value] json/parse-string)
                #(utils/update-when % [:new_value] json/parse-string))
          rows)))
 
@@ -140,42 +136,3 @@
     ;; fall back to the old
     (legacy-query->sql version query-options query paging-options)
     (qe/compile-user-query->sql qe/report-events-query query paging-options)))
-
-;; QUERY + MUNGE
-
-(defn query-resource-events
-  "Queries resource events and unstreams, used mainly for testing.
-
-  This wraps the existing streaming query code but returns results
-  and count (if supplied)."
-  [version query-sql]
-  {:pre [(map? query-sql)]}
-  (let [{[sql & params] :results-query
-         count-query    :count-query
-         projections    :projections} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params
-                          ;; The doall simply forces the seq to be traversed
-                          ;; fully.
-                          (comp doall (munge-result-rows version projections nil nil)))}]
-    (if count-query
-      (assoc result :count (jdbc/get-result-count count-query))
-      result)))
-
-(defn events-for-report-hash
-  "Given a particular report hash, this function returns all events for that
-   given hash."
-  [version report-hash]
-  {:pre [(string? report-hash)]
-   :post [(vector? %)]}
-  (let [query          ["=" "report" report-hash]
-        ;; we aren't actually supporting paging through this code path for now
-        paging-options {}]
-    (->> (query->sql version query [nil paging-options])
-         (query-resource-events version)
-         :result
-         (mapv #(dissoc %
-                        :run_start_time
-                        :run_end_time
-                        :report_receive_time
-                        :environment)))))

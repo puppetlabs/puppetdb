@@ -41,7 +41,7 @@
           :fact-contents [fact-contents/query->sql fact-contents/munge-result-rows]
           :fact-paths [facts/fact-paths-query->sql facts/munge-path-result-rows]
           :events [events/query->sql events/munge-result-rows]
-          :nodes [nodes/query->sql nodes/munge-result-rows]
+          :nodes [nodes/query->sql (ignore-engine-params identity)]
           :environments [environments/query->sql (ignore-engine-params identity)]
           :reports [reports/query->sql reports/munge-result-rows]
           :report-metrics [report-data/metrics-query->sql (ignore-engine-params (report-data/munge-result-rows :metrics))]
@@ -53,10 +53,7 @@
 
     (jdbc/with-transacted-connection db
       (let [{[sql & params] :results-query
-             count-query :count-query
-             projected-fields :projected-fields} (query->sql version query
-                                                             paging-options)
-
+             count-query :count-query} (query->sql version query paging-options)
              query-error (promise)
              resp (output-fn
                    (fn [f]
@@ -69,7 +66,7 @@
                                 (first %)
                                 (deliver query-error nil)
                                 %)
-                             (munge-fn version projected-fields paging-options url-prefix))))
+                             (munge-fn version url-prefix))))
                        (catch java.sql.SQLException e
                          (deliver query-error e)
                          nil))))]

@@ -52,6 +52,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Queryable Entities
 
+(defn augment-for-subquery
+  [{:keys [entity] :as query-rec}]
+  (cond-> query-rec
+    (= :facts entity) (assoc-in [:projections "value" :field]
+                        (h/coalesce :fv.value_string
+                                    (h/scast :fv.value_boolean :text)))))
+
 (defn nodes-query
   "Query for nodes entities, mostly used currently for subqueries"
   []
@@ -157,14 +164,15 @@
   []
   (map->Query {:projections {"path" {:type :string
                                      :queryable? false
+                                     :query-only? true
                                      :field :fp.path}
+
                              "value" {:type :multi
                                       :queryable? true
-                                      :field (h/coalesce :fv.value_string
-                                                         :fv.value_json
-                                                         (h/scast :fv.value_boolean :text))}
+                                      :field :fv.value}
                              "depth" {:type :integer
                                       :queryable? false
+                                      :query-only? true
                                       :field :fp.depth}
                              "certname" {:type :string
                                          :queryable? true
@@ -173,18 +181,20 @@
                                             :queryable? true
                                             :field :env.name}
                              "value_integer" {:type :number
+                                              :query-only? true
                                               :queryable? false
                                               :field :fv.value_integer}
                              "value_float" {:type :number
+                                            :query-only? true
                                             :queryable? false
                                             :field :fv.value_float}
                              "name" {:type :string
                                      :queryable? true
                                      :field :fp.name}
                              "type" {:type  :string
+                                     :query-only? true
                                      :queryable? false
-                                     :field :vt.type
-                                     :must-have? true}}
+                                     :field :vt.type}}
 
                :selection {:from [[:factsets :fs]]
                            :join [[:facts :f]
@@ -215,8 +225,7 @@
                                      :field :fp.path}
                              "value" {:type :multi
                                       :queryable? true
-                                      :field (h/coalesce :fv.value_string
-                                                         (h/scast :fv.value_boolean :text))}
+                                      :field :fv.value}
                              "certname" {:type :string
                                          :queryable? true
                                          :field :fs.certname}
@@ -228,14 +237,16 @@
                                             :field :env.name}
                              "value_integer" {:type :number
                                               :queryable? false
-                                              :field :fv.value_integer}
+                                              :field :fv.value_integer
+                                              :query-only? true}
                              "value_float" {:type :number
                                             :queryable? false
-                                            :field :fv.value_float}
+                                            :field :fv.value_float
+                                            :query-only? true}
                              "type" {:type :string
                                      :queryable? false
                                      :field :vt.type
-                                     :must-have? true}}
+                                     :query-only? true}}
 
                :selection {:from [[:factsets :fs]]
                            :join [[:facts :f]
@@ -628,14 +639,8 @@
                                       :expandable? true
                                       :field {:select [(h/json-agg
                                                         (h/row-to-json
-                                                         (h/row
-                                                          :fact_paths.path
-                                                          (h/coalesce :fact_values.value_string
-                                                                      :fact_values.value_json
-                                                                      (h/scast :fact_values.value_boolean :text))
-                                                          :fact_values.value_integer
-                                                          :fact_values.value_float
-                                                          :value_types.type)))]
+                                                         (h/row :fact_paths.name
+                                                                :fact_values.value)))]
                                               :from [:facts]
                                               :join [:fact_values
                                                      [:= :fact_values.id :facts.fact_value_id]
@@ -852,7 +857,7 @@
   "Keypairs of the stringified subquery keyword (found in user defined queries) to the
    appropriate plan node"
   [subquery]
-  (assoc ((get user-name->query-rec-name subquery)) :subquery? true))
+  (augment-for-subquery (assoc ((get user-name->query-rec-name subquery)) :subquery? true)))
 
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
@@ -1020,17 +1025,13 @@
 
 (defn create-extract-node
   "Returns a `query-rec` that has the correct projection for the given
-  `column-list`. Updating :projected-fields causes the select in the SQL query
-  to be modified. Setting :late-projected-fields does not affect the SQL, but
-  includes in the information for later removing the columns."
+   `column-list`. Updating :projected-fields causes the select in the SQL query
+   to be modified."
   [query-rec column-list expr]
   (if (or (nil? expr)
           (not (subquery-expression? expr)))
-    (let [qr (assoc query-rec :where (user-node->plan-node query-rec expr))]
-      (if-let [must-haves (seq (keys (filter (comp :must-have? val) (:projections query-rec))))]
-        (let [early-projects (distinct (concat must-haves column-list))]
-          (assoc qr :projected-fields early-projects :late-projected-fields column-list))
-        (assoc qr :projected-fields column-list)))
+    (assoc query-rec :where (user-node->plan-node query-rec expr)
+      :projected-fields column-list)
     (let [[subquery-name & subquery-expression] expr]
       (assoc (user-query->logical-obj subquery-name)
         :projected-fields column-list
@@ -1254,7 +1255,7 @@
               (when-not (or (vec? field) (contains? (set qfields) field))
                 {:node node
                  :state (conj state
-                              (format "'%s' is not a queryable object for %s, %s" field alias 
+                              (format "'%s' is not a queryable object for %s, %s" field alias
                                       (if (empty? qfields)
                                         (format "%s has no queryable objects" alias)
                                         (format "known queryable objects are %s" (json/generate-string qfields)))))}))
@@ -1328,13 +1329,6 @@
 
     annotated-query))
 
-(pls/defn-validated basic-project
-  "Returns a function will remove non-projected columns if projections is specified."
-  [projected-fields :- [s/Keyword]]
-  (if (seq projected-fields)
-    #(select-keys % projected-fields)
-    identity))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -1355,8 +1349,7 @@
                                      extract-all-params)
           sql (plan->sql plan)
           paged-sql (jdbc/paged-sql sql paging-options)
-          result-query {:results-query (apply vector paged-sql params)
-                        :projected-fields (map keyword (:late-projected-fields plan))}]
+          result-query {:results-query (apply vector paged-sql params)}]
       (if count?
         (assoc result-query :count-query (apply vector (jdbc/count-sql sql) params))
         result-query))))

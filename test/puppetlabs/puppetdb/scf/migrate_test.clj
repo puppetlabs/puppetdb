@@ -70,11 +70,11 @@
 
         (testing "should attempt a partial migration if there are migrations missing"
           (clear-db-for-testing!)
-          ;; We are using migration 29 here because it is isolated enough to be able
+          ;; We are using migration 19 here because it is isolated enough to be able
           ;; to execute on its own. This might need to be changed in the future.
-          (doseq [m (filter (fn [[i migration]] (not= i 29)) (pending-migrations))]
+          (doseq [m (filter (fn [[i migration]] (not= i 27)) (pending-migrations))]
             (apply-migration-for-testing! (first m)))
-          (is (= (keys (pending-migrations)) '(29)))
+          (is (= (keys (pending-migrations)) '(27)))
           (migrate!)
           (is (= (applied-migrations) expected-migrations))))))
 
@@ -395,3 +395,24 @@
       ;; Currently sql-current-connection-table-names only looks in public.
       (is (empty? (sutils/sql-current-connection-table-names)))
       (migrate!))))
+
+(deftest test-coalesce-fact-values
+  (sql/with-connection db
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 30)
+    (sql/insert-records :fact_values
+                        {:value_type_id 0
+                         :value_hash (sutils/munge-hash-for-storage "aaaa")
+                         :value_string "foobar"}
+                        {:value_type_id 5
+                         :value_hash (sutils/munge-hash-for-storage "bbbb")
+                         :value_json (json/generate-string {:foo "bar"})}
+                        {:value_type_id 1
+                         :value_hash (sutils/munge-hash-for-storage "cccc")
+                         :value_integer 1})
+    (let [pre-migration-values (query-to-vec "SELECT * FROM fact_values")
+          value-keys [:value_string :value_integer]]
+      (apply-migration-for-testing! 31)
+      (let [post-migration-values (query-to-vec "SELECT * FROM fact_values")]
+        (is (= (map :value (sort-by :hash post-migration-values))
+               (map json/generate-string ["foobar" {:foo "bar"} 1])))))))

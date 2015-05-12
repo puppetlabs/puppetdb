@@ -7,52 +7,42 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]))
 
 ;; SCHEMA
 
 (def row-schema
   {(s/optional-key :certname) s/Str
-   (s/optional-key :environment) (s/maybe s/Str)
-   (s/optional-key :path) s/Str
-   (s/optional-key :name) s/Str
-   (s/optional-key :depth) s/Int
-   (s/optional-key :value_integer) (s/maybe s/Int)
-   (s/optional-key :value_float) (s/maybe s/Num)
-   (s/optional-key :value) s/Any
    (s/optional-key :count) s/Int
-   (s/optional-key :type) (s/maybe s/Str)})
+   (s/optional-key :environment) (s/maybe s/Str)
+   (s/optional-key :name) s/Str
+   (s/optional-key :value) s/Str})
 
 (def converted-row-schema
   {(s/optional-key :certname) s/Str
-   (s/optional-key :path) s/Str
-   (s/optional-key :name) s/Str
    (s/optional-key :count) s/Int
-   (s/optional-key :value) s/Any
-   (s/optional-key :environment) (s/maybe s/Str)})
+   (s/optional-key :environment) (s/maybe s/Str)
+   (s/optional-key :name) s/Str
+   (s/optional-key :value) s/Any})
 
 ;; MUNGE
 
-(pls/defn-validated convert-types :- [converted-row-schema]
+(pls/defn-validated deserialize-fact-value :- converted-row-schema
   "Coerce values for each row to the proper stored type."
-  [rows :- [row-schema]]
-  (map (partial facts/convert-row-type [:type :depth :value_integer :value_float]) rows))
+  [row :- row-schema]
+  (utils/update-when row [:value] json/parse-string))
 
-(pls/defn-validated munge-result-rows
-  [_
-   projected-fields :- [s/Keyword]
-   _
-   _]
+(defn munge-result-rows
+  [_ _]
   (fn [rows]
     (if (empty? rows)
       []
       (->> rows
-        convert-types
-        (map #(select-keys % (or (seq projected-fields)
-                                 [:certname :environment :timestamp :name :value])))))))
+           (map deserialize-fact-value)))))
 
 (defn munge-path-result-rows
-  [_ _ _ _]
+  [_ _]
   (fn [rows]
      (map #(utils/update-when % [:path] facts/string-to-factpath) rows)))
 

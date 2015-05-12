@@ -39,7 +39,7 @@
    :value_string (s/maybe s/Str)
    :value_integer (s/maybe s/Int)
    :value_boolean (s/maybe s/Bool)
-   :value_json (s/maybe s/Str)
+   :value (s/maybe s/Str)
    :value_type_id s/Int})
 
 ;; GLOBALS
@@ -135,8 +135,6 @@
 
 (defn value->valuemap
   [value]
-  ;; Used by migration-legacy, so copy this function there before
-  ;; making backward-incompatible changes.
   (let [type-id (value-type-id value)
         initial-map {:value_type_id type-id
                      :value_hash (hash/generic-identity-hash value)
@@ -144,7 +142,7 @@
                      :value_integer nil
                      :value_float nil
                      :value_boolean nil
-                     :value_json nil}]
+                     :value nil}]
     (if (nil? value)
       initial-map
       (let [value-keyword (case type-id
@@ -152,11 +150,9 @@
                             1 :value_integer
                             2 :value_float
                             3 :value_boolean
-                            5 :value_json)
-            value (if (coll? value)
-                    (sutils/db-serialize value)
-                    value)]
-        (assoc initial-map value-keyword value)))))
+                            5 :value)]
+        (assoc initial-map value-keyword value
+          :value (sutils/db-serialize value))))))
 
 (defn flatten-facts-with
   "Returns a collection of (leaf-fn path leaf) for all of the paths
@@ -248,17 +244,3 @@
            factpath-regexp-elements-to-regexp
            factpath-to-string)
        "$"))
-
-(defn convert-row-type
-  "Coerce the value of a row to the proper type."
-  [dissociated-fields row]
-  (let [conversion (case (:type row)
-                     "boolean" clj-edn/read-string
-                     "float" (constantly (:value_float row))
-                     "integer" (constantly (:value_integer row))
-                     "json" json/parse-string
-                     ("string" "null") identity
-                     identity)]
-    (apply dissoc
-           (utils/update-when row [:value] conversion)
-           dissociated-fields)))

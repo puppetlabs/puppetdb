@@ -60,8 +60,10 @@
     (doseq [env ["foo" "bar" "baz"]]
       (storage/ensure-environment env))
 
-    (are [query expected] (= expected (json/parse-string (slurp (:body (fixt/*app* (get-request endpoint query))))
-                                                         true))
+    (are [query expected] (= expected
+                             (-> (:body (fixt/*app* (get-request endpoint query)))
+                                 slurp
+                                 (json/parse-string true)))
 
          ["in" "name"
           ["extract" "environment"

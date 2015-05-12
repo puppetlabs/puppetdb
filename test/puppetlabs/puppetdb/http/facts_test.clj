@@ -999,6 +999,12 @@
                              :producer_timestamp test-time})
       (scf-store/deactivate-node! "foo4"))))
 
+(def db {:classname "org.postgresql.Driver"
+           :subprotocol "postgresql"
+           :subname "//localhost:5432/puppetdb"
+           :username "puppetdb"
+           :password "puppetdb"})
+
 ;; FACTSETS TRANSFORMATION
 
 (defn strip-expanded

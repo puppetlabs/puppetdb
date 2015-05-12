@@ -32,14 +32,6 @@
      (paging/validate-order-by! (node-columns version) paging-options)
      (qe/compile-user-query->sql qe/nodes-query query paging-options)))
 
-(pls/defn-validated munge-result-rows
-  [_
-   projected-fields :- [s/Keyword]
-   _
-   _]
-  (fn [rows]
-    (map (qe/basic-project projected-fields) rows)))
-
 (defn query-nodes
   "Search for nodes satisfying the given SQL filter."
   [version query-sql url-prefix]
@@ -48,11 +40,10 @@
    :post [(map? %)
           (sequential? (:result %))]}
   (let [{[sql & params] :results-query
-         count-query    :count-query
-         projections    :projections} query-sql
+         count-query    :count-query} query-sql
          result {:result (query/streamed-query-result
                           version sql params
-                          (comp doall (munge-result-rows version projections {} url-prefix)))}]
+                          doall)}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

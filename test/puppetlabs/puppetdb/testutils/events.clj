@@ -1,5 +1,7 @@
 (ns puppetlabs.puppetdb.testutils.events
-  (:require [puppetlabs.puppetdb.query.events :as query]
+  (:require [puppetlabs.puppetdb.query.events :as events]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.query :as query]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
             [clj-time.coerce :refer [to-timestamp to-string]]))
@@ -71,6 +73,23 @@
   [version example-resource-events report]
   (set (raw-expected-resource-events version example-resource-events report)))
 
+(defn query-resource-events
+  "Queries resource events and unstreams, used mainly for testing.
+
+  This wraps the existing streaming query code but returns results
+  and count (if supplied)."
+  [version query-sql]
+  {:pre [(map? query-sql)]}
+  (let [{[sql & params] :results-query count-query :count-query} query-sql
+         result {:result (query/streamed-query-result
+                          version sql params
+                          ;; The doall simply forces the seq to be traversed
+                          ;; fully.
+                          (comp doall (events/munge-result-rows version nil)))}]
+    (if count-query
+      (assoc result :count (jdbc/get-result-count count-query))
+      result)))
+
 (defn resource-events-query-result
   "Utility function that executes a resource events query and returns a set of
   results for use in test comparisons."
@@ -79,8 +98,8 @@
   ([version query paging-options]
      (resource-events-query-result version query paging-options nil))
   ([version query paging-options query-options]
-     (->> (query/query->sql version query [query-options paging-options])
-          (query/query-resource-events version)
+     (->> (events/query->sql version query [query-options paging-options])
+          (query-resource-events version)
           :result
           set)))
 
@@ -91,5 +110,5 @@
   ([version query paging-options]
      (raw-resource-events-query-result version query paging-options nil))
   ([version query paging-options query-options]
-     (->> (query/query->sql version query [query-options paging-options])
-          (query/query-resource-events version))))
+     (->> (events/query->sql version query [query-options paging-options])
+          (query-resource-events version))))
