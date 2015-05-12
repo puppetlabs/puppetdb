@@ -23,7 +23,7 @@
                         :failed 0
                         :noop 1
                         :unresponsive 1
-                        :success 0
+                        :changed 0
                         :unreported 0}]
           (is (= expected actual))))
       (testing "query with unresponsive_threshold correctly changes counts"
@@ -36,6 +36,6 @@
                           :failed 0
                           :noop 0
                           :unresponsive 2
-                          :success 0
+                          :changed 0
                           :unreported 0}]
             (is (= expected actual))))))))
