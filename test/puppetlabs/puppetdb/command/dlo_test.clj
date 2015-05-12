@@ -26,7 +26,7 @@
 
   (testing "a directory with a few new messages"
     (let [dir (fs/temp-dir)
-          threshold (years 20)]
+          threshold (-> 20 years)]
       (fs/touch (fs/file dir "foo"))
       (fs/touch (fs/file dir "bar"))
       (fs/touch (fs/file dir "baz"))
@@ -42,8 +42,8 @@
 
   (testing "a directory with some old and new messages"
     (let [dir (fs/temp-dir)
-          threshold (days 7)
-          stale-timestamp (.getMillis (ago (days 8)))]
+          threshold (-> 7 days)
+          stale-timestamp (.getMillis (-> 8 days ago))]
       (fs/touch (fs/file dir "foo") stale-timestamp)
       (fs/touch (fs/file dir "bar") stale-timestamp)
       (fs/touch (fs/file dir "baz"))
@@ -94,9 +94,9 @@
 
 (deftest dlo-compression
   (let [dlo (fs/temp-dir)
-        threshold (days 7)
-        short-threshold (seconds 0)
-        stale-timestamp (.getMillis (ago (days 8)))]
+        threshold (-> 7 days)
+        short-threshold (-> 0 seconds)
+        stale-timestamp (.getMillis (-> 8 days ago))]
     (testing "should work with no subdirectories"
       (compress! "non-existent-dir" (days 7))
       (is (empty? (fs/list-dir dlo))))

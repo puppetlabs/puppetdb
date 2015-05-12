@@ -707,11 +707,11 @@
     (let [timestamp     (now)
           report        (-> (:basic reports)
                             (assoc :environment "ENV2")
-                            (assoc :end_time (to-string (ago (days 5)))))
+                            (assoc :end_time (to-string (-> 5 days ago))))
           report-hash   (shash/report-identity-hash report)
           certname      (:certname report)]
       (store-example-report! report timestamp)
-      (delete-reports-older-than! (ago (days 2))))
+      (delete-reports-older-than! (-> 2 days ago)))
 
     ;; Add some facts
     (let [facts {"domain" "mydomain.com"
@@ -745,7 +745,7 @@
 
     (is (= [{:c 1}] (query-to-vec ["SELECT COUNT(*) as c FROM report_statuses"])))
 
-    (delete-reports-older-than! (ago (days 2)))
+    (delete-reports-older-than! (-> 2 days ago))
 
     (is (= [{:c 1}] (query-to-vec ["SELECT COUNT(*) as c FROM report_statuses"])))
     (garbage-collect! *db*)
@@ -781,8 +781,8 @@
 
 (deftest existing-catalog-update
   (let [{certname :certname :as catalog} (:basic catalogs)
-        old-date (ago (days 2))
-        yesterday (ago (days 1))]
+        old-date (-> 2 days ago)
+        yesterday (-> 1 days ago)]
 
     (testing "inserting new catalog with resources"
 
@@ -858,8 +858,8 @@
 
 (deftest add-resource-to-existing-catalog
   (let [{certname :certname :as catalog} (:basic catalogs)
-        old-date (ago (days 2))
-        yesterday (ago (days 1))]
+        old-date (-> 2 days ago)
+        yesterday (-> 1 days ago)]
     (add-certname! certname)
     (add-catalog! catalog nil old-date)
 
@@ -1005,8 +1005,8 @@
 
 (deftest removing-resources
   (let [{certname :certname :as catalog} (:basic catalogs)
-        old-date (ago (days 2))
-        yesterday (ago (days 1))
+        old-date (-> 2 days ago)
+        yesterday (-> 1 days ago)
         catalog-with-extra-resource (assoc-in catalog
                                               [:resources {:type "File" :title "/etc/the-foo"}]
                                               {:type       "File"
@@ -1080,8 +1080,8 @@
 
 (deftest catalog-resource-parameter-changes
   (let [{certname :certname :as catalog} (:basic catalogs)
-        old-date (ago (days 2))
-        yesterday (ago (days 1))]
+        old-date (-> 2 days ago)
+        yesterday (-> 1 days ago)]
     (add-certname! certname)
     (add-catalog! catalog nil old-date)
 
@@ -1170,8 +1170,8 @@
           (is (= original (query-certnames))))))
 
     (testing "auto-reactivated based on a command"
-      (let [before-deactivating (to-timestamp (ago (days 1)))
-            after-deactivating  (to-timestamp (from-now (days 1)))]
+      (let [before-deactivating (to-timestamp (-> 1 days ago))
+            after-deactivating  (to-timestamp (-> 1 days from-now))]
         (testing "should activate the node if the command happened after it was deactivated"
           (deactivate-node! certname)
           (is (= true (maybe-activate-node! certname after-deactivating)))
@@ -1199,30 +1199,30 @@
               certname (:certname catalog)]
           (add-certname! certname)
           (replace-catalog! catalog (now))
-          (is (= (stale-nodes (ago (days 1))) [])))))))
+          (is (= (stale-nodes (-> 1 days ago)) [])))))))
 
 (deftest node-stale-catalogs-facts
   (testing "should return nodes with a mixture of stale catalogs and facts (or neither)"
-    (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :certname "node1") (ago (days 2)))
+    (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :certname "node1") (-> 2 days ago))
                     #(replace-facts! {:certname "node1"
                                       :values {"foo" "bar"}
                                       :environment "DEV"
                                       :producer_timestamp "2014-07-10T22:33:54.781Z"
-                                      :timestamp (ago (days 2))})]]
+                                      :timestamp (-> 2 days ago)})]]
       (add-certname! "node1")
       (doseq [func-set (subsets mutators)]
         (dorun (map #(%) func-set))
-        (is (= (stale-nodes (ago (days 1))) ["node1"]))))))
+        (is (= (stale-nodes (-> 1 days ago)) ["node1"]))))))
 
 (deftest node-max-age
   (testing "should only return nodes older than max age, and leave others alone"
     (let [catalog (:empty catalogs)]
       (add-certname! "node1")
       (add-certname! "node2")
-      (replace-catalog! (assoc catalog :certname "node1") (ago (days 2)))
+      (replace-catalog! (assoc catalog :certname "node1") (-> 2 days ago))
       (replace-catalog! (assoc catalog :certname "node2") (now))
 
-      (is (= (set (stale-nodes (ago (days 1)))) #{"node1"})))))
+      (is (= (set (stale-nodes (-> 1 days ago))) #{"node1"})))))
 
 (deftest node-purge
   (testing "should purge nodes which were deactivated before the specified date"
@@ -1230,10 +1230,10 @@
     (add-certname! "node2")
     (add-certname! "node3")
     (deactivate-node! "node1")
-    (with-redefs [now (constantly (ago (days 10)))]
+    (with-redefs [now (constantly (-> 10 days ago))]
       (deactivate-node! "node2"))
 
-    (purge-deactivated-and-expired-nodes! (ago (days 5)))
+    (purge-deactivated-and-expired-nodes! (-> 5 days ago))
 
     (is (= (map :certname (query-to-vec "SELECT certname FROM certnames ORDER BY certname ASC"))
            ["node1" "node3"]))))
@@ -1244,24 +1244,24 @@
     (add-certname! "node2")
     (add-certname! "node3")
     (expire-node! "node1")
-    (with-redefs [now (constantly (ago (days 10)))]
+    (with-redefs [now (constantly (-> 10 days ago))]
       (expire-node! "node2"))
 
-    (purge-deactivated-and-expired-nodes! (ago (days 5)))
+    (purge-deactivated-and-expired-nodes! (-> 5 days ago))
 
     (is (= (map :certname (query-to-vec "SELECT certname FROM certnames ORDER BY certname ASC"))
            ["node1" "node3"]))))
 
 (deftest report-sweep-nullifies-latest-report
   (testing "ensure that if the latest report is swept, latest_report_id is updated to nil"
-    (let [report1 (assoc (:basic reports) :end_time (ago (days 12)))
+    (let [report1 (assoc (:basic reports) :end_time (-> 12 days ago))
           report2 (assoc (:basic reports) :certname "bar.local" :end_time (now))]
       (add-certname! "foo.local")
       (add-certname! "bar.local")
-      (store-example-report! report1 (ago (days 12)))
+      (store-example-report! report1 (-> 12 days ago))
       (store-example-report! report2 (now))
       (let [ids (map :latest_report_id (query-to-vec "select latest_report_id from certnames order by certname"))
-            _ (delete-reports-older-than! (ago (days 11)))
+            _ (delete-reports-older-than! (-> 11 days ago))
             ids2 (map :latest_report_id (query-to-vec "select latest_report_id from certnames order by certname"))]
         (is (= ids2 [(first ids) nil]))))))
 
@@ -1348,12 +1348,12 @@
 
   (deftest report-cleanup
     (testing "should delete reports older than the specified age"
-      (let [report1       (assoc report :end_time (to-string (ago (days 5))))
+      (let [report1       (assoc report :end_time (to-string (-> 5 days ago)))
             report1-hash  (:hash (store-example-report! report1 timestamp))
-            report2       (assoc report :end_time (to-string (ago (days 2))))
+            report2       (assoc report :end_time (to-string (-> 2 days ago)))
             report2-hash  (:hash (store-example-report! report2 timestamp))
             certname      (:certname report1)
-            _             (delete-reports-older-than! (ago (days 3)))
+            _             (delete-reports-older-than! (-> 3 days ago))
             expected      (map #(dissoc % :resource_events :metrics :logs)
                                (expected-reports [(assoc report2 :hash report2-hash)]))
             actual        (->> (reports-query-result :v4 ["=" "certname" certname])
@@ -1362,12 +1362,12 @@
 
   (deftest resource-events-cleanup
     (testing "should delete all events for reports older than the specified age"
-      (let [report1       (assoc report :end_time (to-string (ago (days 5))))
+      (let [report1       (assoc report :end_time (to-string (-> 5 days ago)))
             report1-hash  (:hash (store-example-report! report1 timestamp))
-            report2       (assoc report :end_time (to-string (ago (days 2))))
+            report2       (assoc report :end_time (to-string (-> 2 days ago)))
             report2-hash  (:hash (store-example-report! report2 timestamp))
             certname      (:certname report1)
-            _             (delete-reports-older-than! (ago (days 3)))
+            _             (delete-reports-older-than! (-> 3 days ago))
             expected      #{}
             actual        (resource-events-query-result :latest ["=" "report" report1-hash])]
         (is (= expected actual))))))

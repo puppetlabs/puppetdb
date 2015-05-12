@@ -14,7 +14,7 @@
 (deftestseq server-time-response
   [[version endpoint] endpoints]
 
-  (let [test-time (ago (seconds 1))
+  (let [test-time (-> 1 seconds ago)
         response  (fixt/*app* (get-request endpoint))]
     (assert-success! response)
     (let [server-time (-> response
