@@ -184,12 +184,12 @@
       ;; Only store a catalog if it's newer than the current catalog
       (if-not (scf-storage/catalog-newer-than? certname timestamp)
         (scf-storage/replace-catalog! catalog timestamp catalog-hash-debug-dir)))
-    (log/info (format "[%s] [%s] %s" id (command-names :replace-catalog) certname))))
+    (log/infof "[%s] [%s] %s" id (command-names :replace-catalog) certname)))
 
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"
   [version command]
-  (log/warn (format "command '%s' version %s is deprecated, use the latest version" command version)))
+  (log/warnf "command '%s' version %s is deprecated, use the latest version" command version))
 
 (defmethod process-command! [(command-names :replace-catalog) 6]
   [{:keys [version] :as command} options]
@@ -210,7 +210,7 @@
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname timestamp)
       (scf-storage/replace-facts! fact-data))
-    (log/info (format "[%s] [%s] %s" id (command-names :replace-facts) certname))))
+    (log/infof "[%s] [%s] %s" id (command-names :replace-facts) certname)))
 
 ;; Node deactivation
 
@@ -225,7 +225,7 @@
         (scf-storage/add-certname! certname))
       (when (not-any? newer-record-exists? [:catalogs :factsets])
         (scf-storage/deactivate-node! certname producer_timestamp)))
-    (log/info (format "[%s] [%s] %s" id (command-names :deactivate-node) certname))))
+    (log/infof "[%s] [%s] %s" id (command-names :deactivate-node) certname)))
 
 ;; Report submission
 
@@ -240,9 +240,9 @@
     (jdbc/with-transacted-connection db
       (scf-storage/maybe-activate-node! certname timestamp)
       (scf-storage/add-report! report timestamp))
-    (log/info (format "[%s] [%s] puppet v%s - %s"
-                      id (command-names :store-report)
-                      puppet_version certname))))
+    (log/infof "[%s] [%s] puppet v%s - %s"
+               id (command-names :store-report)
+               puppet_version certname)))
 
 (defmethod process-command! [(command-names :store-report) 5]
   [{:keys [version] :as command} {:keys [db]}]

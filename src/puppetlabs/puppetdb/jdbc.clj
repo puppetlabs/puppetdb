@@ -221,12 +221,12 @@
 
    :else
    (do
-     (log/debug (format "Caught %s: '%s'. SQL Error code: '%s'. Attempt: %s of %s."
-                        (.getName (class exception))
-                        (.getMessage exception)
-                        (.getSQLState exception)
-                        (inc current)
-                        (+ current remaining)))
+     (log/debugf "Caught %s: '%s'. SQL Error code: '%s'. Attempt: %s of %s."
+                 (.getName (class exception))
+                 (.getMessage exception)
+                 (.getSQLState exception)
+                 (inc current)
+                 (+ current remaining))
      (exponential-sleep! current 1.3)
      false)))
 

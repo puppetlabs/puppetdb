@@ -155,7 +155,7 @@
   (let [{:keys [version newer link]} (try
                                        (update-info update-server db)
                                        (catch Throwable e
-                                         (log/debug e (format "Could not retrieve update information (%s)" update-server))))
+                                         (log/debugf e "Could not retrieve update information (%s)" update-server)))
         link-str                     (if link
                                        (format " Visit %s for details." link)
                                        "")
@@ -263,7 +263,7 @@
                  :catalog-hash-debug-dir catalog-hash-debug-dir}]
 
     (when (version)
-      (log/info (format "PuppetDB version %s" (version))))
+      (log/infof "PuppetDB version %s" (version)))
 
     ;; Ensure the database is migrated to the latest version, and warn
     ;; if it's deprecated, log and exit if it's unsupported. We do

@@ -27,7 +27,7 @@
 (defn warn-unknown-keys
   [schema data]
   (doseq [k (pls/unknown-keys schema data)]
-    (log/warn (format "The configuration item `%s` does not exist and should be removed from the config." k))))
+    (log/warnf "The configuration item `%s` does not exist and should be removed from the config." k)))
 
 (defn warn-and-validate
   "Warns a user about unknown configurations items, removes them and validates the config."
@@ -251,10 +251,10 @@
   (try
     (str (fs/mkdirs path))
     (catch SecurityException e
-      (log/warn e
-                (format (str "catalog-hash-conflig-debugging was enabled, "
-                             "but PuppetDB was not able to create a directory at %s")
-                        path)))))
+      (log/warnf e
+                (str "catalog-hash-conflig-debugging was enabled, "
+                     "but PuppetDB was not able to create a directory at %s")
+                path))))
 
 (def ^{:doc "Create the directory for catalog debug info if it does not already
               exist, returning the path if successful (or it already exists)"}

@@ -37,13 +37,12 @@
 
                             :else
                             (do
-                              (log/debug (format
-                                          "Unable to determine latest version via update-server: '%s'"
-                                          update-server))
+                              (log/debugf "Unable to determine latest version via update-server: '%s'"
+                                          update-server)
                               (http/error-response "Could not find version" 404)))
 
       (catch java.io.IOException e
-        (log/debug (format "Error when checking for latest version: %s" e))
+        (log/debugf "Error when checking for latest version: %s" e)
         (http/error-response
          (format "Error when checking for latest version: %s" e))))))
 
