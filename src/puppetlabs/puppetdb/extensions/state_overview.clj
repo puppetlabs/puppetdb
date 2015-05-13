@@ -33,5 +33,5 @@
                                                  ["null?" "report_environment" true]]])]
      (->> (for [{:keys [status count]} basics] [(keyword status) count])
           (into {:unresponsive unresponsives :unreported unreporteds :noop noops})
-          (merge {:failed 0 :unchanged 0 :unresponsive 0 :noop 0 :success 0 :unreported 0})
+          (merge {:failed 0 :unchanged 0 :unresponsive 0 :noop 0 :changed 0 :unreported 0})
           http/json-response))))
