@@ -6,15 +6,15 @@
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]))
 
 (defn fn-produce-body
-  [query-fn entity callback]
+  [query-fn entity]
   (fn [query]
-    (query-fn entity :v4 query nil callback)))
+    (query-fn entity :v4 query nil doall)))
 
 (defn state-overview-app
   [query-fn]
   (fn [{:keys [params] :as request}]
-   (let [produce-reports (fn-produce-body query-fn :reports (fn [f] (f doall)))
-         produce-nodes (fn-produce-body query-fn :nodes (fn [f] (f doall)))
+   (let [produce-reports (fn-produce-body query-fn :reports)
+         produce-nodes (fn-produce-body query-fn :nodes)
          unresponsive-threshold (let [urt (get params "unresponsive_threshold")]
                                   (if (seq urt)
                                     (-> urt parse-number seconds ago)

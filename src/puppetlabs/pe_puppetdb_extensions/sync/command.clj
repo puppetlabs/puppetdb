@@ -17,8 +17,6 @@
 
 (def report-key (juxt :certname :hash))
 
-(declare maybe-update-in)
-
 (defn clean-up-resource-event
   "The resource events we get back from a query have a lot of derived fields;
   only keep the ones we can re-submit."
@@ -75,7 +73,7 @@
     :record-ordering-fn (constantly 0) ; TODO: rename this, maybe to record-conflict-key-fn or something
 
     :clean-up-record-fn (fn clean-up-report [report]
-                          (maybe-update-in report [:resource_events] #(map clean-up-resource-event %)))
+                          (utils/update-when report [:resource_events] #(map clean-up-resource-event %)))
 
     ;; When a record is out-of-date, the whole thing is
     ;; downloaded and then stored with this command
@@ -108,8 +106,8 @@
     :record-ordering-fn (juxt :producer_timestamp :hash)
     :clean-up-record-fn (fn clean-up-catalog [catalog]
                           (-> catalog
-                              (maybe-update-in [:edges] #(map clean-up-edge %))
-                              (maybe-update-in [:resources] #(map clean-up-resource %))))
+                              (utils/update-when [:edges] #(map clean-up-edge %))
+                              (utils/update-when [:resources] #(map clean-up-resource %))))
     :submit-command {:command :replace-catalog
                      :version 6}}
 
@@ -124,13 +122,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utils
-
-(defn maybe-update-in
-  "Like update-in, except it won't create `path` if it doesn't exist."
-  [x path f]
-  (if (get-in x path)
-    (update-in x path f)
-    x))
 
 (defn http-get
   "A wrapper around clj-http.client/get which takes a custom error formatter,
@@ -291,13 +282,8 @@
   "Convert time strings in a record to actual times. "
   [record]
   (-> record
-      (maybe-update-in [:start_time] to-timestamp)
-      (maybe-update-in [:producer_timestamp] to-timestamp)))
-
-(defn query-result-handler
-  "Build a result handler function in the form that query-fn expects."
-  [handler-fn]
-  (fn [f] (f handler-fn)))
+      (utils/update-when [:start_time] to-timestamp)
+      (utils/update-when [:producer_timestamp] to-timestamp)))
 
 (defn streamed-summary-query
   "Perform the summary query at `remote-url`, as specified in
@@ -330,20 +316,20 @@
             {:keys [entity record-hashes-query record-id-fn record-ordering-fn record-fetch-key]} sync-config
             {:keys [version query order]} record-hashes-query]
         (query-fn entity version query order
-                  (query-result-handler (fn [local-sync-data]
-                                          (let [records-to-fetch (records-to-fetch record-id-fn
-                                                                                   record-ordering-fn
-                                                                                   local-sync-data
-                                                                                   remote-sync-data
-                                                                                   now
-                                                                                   node-ttl)]
-                                            (doseq [record records-to-fetch]
-                                              (if (= entity :nodes)
-                                                (set-local-deactivation-status! record submit-command-fn)
-                                                (query-record-and-transfer! remote-url
-                                                                            (get record record-fetch-key)
-                                                                            submit-command-fn
-                                                                            sync-config))))))))
+                  (fn [local-sync-data]
+                    (let [records-to-fetch (records-to-fetch record-id-fn
+                                                             record-ordering-fn
+                                                             local-sync-data
+                                                             remote-sync-data
+                                                             now
+                                                             node-ttl)]
+                      (doseq [record records-to-fetch]
+                        (if (= entity :nodes)
+                          (set-local-deactivation-status! record submit-command-fn)
+                          (query-record-and-transfer! remote-url
+                                                      (get record record-fetch-key)
+                                                      submit-command-fn
+                                                      sync-config)))))))
       (finally
         (.close summary-response-stream)))))
 
