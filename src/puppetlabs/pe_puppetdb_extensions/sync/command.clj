@@ -1,8 +1,8 @@
-(ns puppetlabs.puppetdb.sync.command
+(ns puppetlabs.pe-puppetdb-extensions.sync.command
   (:import [org.joda.time Period])
   (:require [puppetlabs.puppetdb.utils :as utils]
             [clj-http.util :refer [url-encode]]
-            [clj-http.client]
+            [clj-http.client :as client]
             [puppetlabs.puppetdb.cheshire :as json]
             [cheshire.core :as cheshire]
             [clj-time.core :as t]
@@ -139,7 +139,7 @@
   [url opts error-message-fn]
   (try+
    (log/debug (format "HTTP GET %s %s" url opts))
-   (clj-http.client/get url opts)
+   (client/get url opts)
    (catch :status  {:keys [body status] :as response}
      (throw+ {:type ::remote-host-error
               :error-response response
