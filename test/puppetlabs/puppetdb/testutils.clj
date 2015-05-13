@@ -11,7 +11,7 @@
             [slingshot.slingshot :refer [throw+]]
             [ring.mock.request :as mock]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset]]
+            [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset mapvals]]
             [clojure.test :refer :all]
             [clojure.set :refer [difference]]))
 
@@ -219,54 +219,74 @@
               :body body
               :params params))))
 
+(defn query-request
+  "Create a ring request map for a PuppetDB query. `http-method` indicates :get or :post.
+  Parameters or headers are optional"
+  ([http-method path query]
+   (query-request http-method path query {}))
+  ([http-method path query {:keys [params headers]}]
+   (if (= :get http-method)
+     (get-request path query params headers)
+     (post-request path nil nil headers
+                   (-> params
+                       (assoc :query query)
+                       json/generate-string
+                       (.getBytes "UTF-8")
+                       java.io.ByteArrayInputStream.)))))
+
 (defn content-type
   "Returns the content type of the ring response"
   [resp]
   (get-in resp [:headers "Content-Type"]))
 
 (defn paged-results*
-  "Makes a ring request to `path` using the `app-fn` ring handler. Sets the necessary parameters
+   "Makes a ring request to `path` using the `app-fn` ring handler. Sets the necessary parameters
    for paged results.  Returns the ring response, with the body converted from the stream/JSON
-   to clojure data structures."
-  [{:keys [app-fn path query params limit total include_total offset] :as paged-test-params}]
-  {:pre [(= #{} (difference
-                 (keyset paged-test-params)
-                 #{:app-fn :path :query :params :limit :total :include_total :offset}))]}
-  (let [params  (merge params
-                       {:limit limit
-                        :offset offset})
-        request (get-request path query
-                             (if include_total
-                               (assoc params :include_total true)
-                               params))
-        resp (app-fn request)
-        body    (if (string? (:body resp))
-                  (:body resp)
-                  (slurp (:body resp)))]
-    (assoc resp :body (json/parse-string body true))))
+  to clojure data structures."
+   ([paged-test-params]
+    (paged-results* :get paged-test-params))
+   ([method {:keys [app-fn path query params limit total include_total offset] :as paged-test-params}]
+    {:pre [(= #{} (difference
+                   (keyset paged-test-params)
+                   #{:app-fn :path :query :params :limit :total :include_total :offset}))]}
+    (let [params  (merge params
+                         {:limit limit
+                          :offset offset})
+          request (query-request method path query
+                                 {:params
+                                  (if include_total
+                                    (assoc params :include_total true)
+                                    params)})
+          resp (app-fn request)
+          body    (if (string? (:body resp))
+                    (:body resp)
+                    (slurp (:body resp)))]
+      (assoc resp :body (json/parse-string body true)))))
 
 (defn paged-results
   "This function makes multiple calls to the ring handler `app-fn` to consume all of the
    results for `query`, a `limit` number of records at a time using the built in paging
    functions. See paged-results* for the code making the GET requests, this function
-   drives the pages and the assertions of the result."
-  [{:keys [app-fn path query params limit total include_total] :as paged-test-params}]
-  {:pre [(= #{} (difference
-                 (keyset paged-test-params)
-                 #{:app-fn :path :query :params :limit :total :include_total}))]}
-  (reduce
-   (fn [coll n]
-     (let [{:keys [status body headers] :as resp} (paged-results* (assoc paged-test-params :offset (* limit n)))]
-       (assert-success! resp)
-       (is (>= limit (count body)))
-       (if include_total
-         (do
-           (is (contains? headers paging/count-header))
-           (is (= total (parse-int (headers paging/count-header)))))
-         (is (excludes? headers paging/count-header)))
-       (concat coll body)))
-   []
-   (range (java.lang.Math/ceil (/ total (float limit))))))
+  drives the pages and the assertions of the result."
+  ([paged-test-params]
+   (paged-results :get paged-test-params))
+  ([method {:keys [app-fn path query params limit total include_total] :as paged-test-params}]
+   {:pre [(= #{} (difference
+                  (keyset paged-test-params)
+                  #{:app-fn :path :query :params :limit :total :include_total}))]}
+   (reduce
+    (fn [coll n]
+      (let [{:keys [status body headers] :as resp} (paged-results* method (assoc paged-test-params :offset (* limit n)))]
+        (assert-success! resp)
+        (is (>= limit (count body)))
+        (if include_total
+          (do
+            (is (contains? headers paging/count-header))
+            (is (= total (parse-int (headers paging/count-header)))))
+          (is (excludes? headers paging/count-header)))
+        (concat coll body)))
+    []
+    (range (java.lang.Math/ceil (/ total (float limit)))))))
 
 (defn delete-on-exit
   "Will delete file `f` on shutdown of the JVM"

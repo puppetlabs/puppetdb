@@ -30,16 +30,7 @@
   [version]
   (app
    []
-   {:get (comp
-          (fn [{:keys [params globals paging-options]}]
-            (produce-streaming-body
-             :nodes
-             version
-             (params "query")
-             paging-options
-             (:scf-read-db globals)
-             (:url-prefix globals)))
-          http-q/restrict-query-to-active-nodes)}
+   (http-q/query-route :nodes version http-q/restrict-query-to-active-nodes')
 
    [node]
    {:get

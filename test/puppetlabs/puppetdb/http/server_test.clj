@@ -17,7 +17,7 @@
   [version versions]
 
   (testing "provides a useful error message"
-    (let [endpoint (str "/" (name version) "/nodes")
+    (let [endpoint (str "/" (name version) "/reports")
           request (header (request :post endpoint) "Accept" c-t)
           {:keys [status body]} (*app* request)]
       (is (= status http/status-bad-method))

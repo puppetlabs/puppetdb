@@ -8,7 +8,9 @@
             [clojure.string :as string]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.kitchensink.core :as kitchensink :refer [keyset seq-contains? parse-int order-by-expr?]]
-            [puppetlabs.puppetdb.honeysql :as h]))
+            [puppetlabs.puppetdb.honeysql :as h]
+            [puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]))
 
 (def query-params ["limit" "offset" "order_by" "include_total"])
 (def count-header "X-Records")
@@ -113,8 +115,34 @@
                  "unknown key '" (name (first (keys (dissoc bad-order-by :field :order)))) "'.")))
     order_by))
 
+(defn parse-order-by'
+  "Given a list of order-by clauses that conform to the PuppetDB
+  paging API, validate and convert the order-by to our internal
+  format. Incoming is of the form:
+
+  {:field String (s/optional-key :order) String}
+
+  outgoing is of the form:
+
+  [(s/one s/Keyword \"field-name\") (s/one (s/enum :ascending :descending) \"sort-order\")]
+
+  Not applying schema here until the original parse-order-by fn is
+  replaced by this one. There are tests that require bad input
+  parameters to be handled properly inside this function
+
+  If validation fails, this function will throw an exception with
+  an informative error message as to the cause of the failure."
+  [order-by]
+  {:post [(every? order-by-expr? %)]}
+  (when order-by
+    (->> order-by
+         validate-order-by-data-structure
+         validate-no-invalid-order-by-fields
+         parse-required-order-by-fields)))
+
 (defn parse-order-by
-  "Given a map of paging-options, validates that the order_by field conforms to
+  "DEPRECATED - this function will be replaced by parse-order-by'
+  Given a map of paging-options, validates that the order_by field conforms to
   our specifications:
 
   * Must be a JSON string
@@ -130,6 +158,7 @@
 
   If validation fails, this function will throw an exception with
   an informative error message as to the cause of the failure."
+  {:deprecated "3.0.0"}
   [paging-options]
   {:post [(map? %)
           (= (keyset %) (keyset paging-options))
@@ -137,9 +166,7 @@
   (if-let [order_by (paging-options :order_by)]
     (->> order_by
          (parse-order-by-json)
-         (validate-order-by-data-structure)
-         (validate-no-invalid-order-by-fields)
-         (parse-required-order-by-fields)
+         parse-order-by'
          (assoc paging-options :order_by))
     paging-options))
 
@@ -152,43 +179,70 @@
         (dissoc :include_total)
         (assoc :count? count?))))
 
+(defn coerce-to-int
+  "Parses the int unless it's already an int"
+  [i]
+  (if (string? i)
+    (parse-int i)
+    i))
+
 (defn validate-limit
   "Validates that the limit string is a positive non-zero integer. Returns the integer
   form if validation was successful, otherwise an IllegalArgumentException is thrown."
   [limit]
-  {:pre  [(string? limit)]
+  {:pre  [(or (string? limit)
+              (integer? limit))]
    :post [(and (integer? %) (> % 0))]}
-  (let [l (parse-int limit)]
+  (let [l (coerce-to-int limit)]
     (if ((some-fn nil? neg? zero?) l)
       (throw (IllegalArgumentException.
               (format "Illegal value '%s' for :limit; expected a positive non-zero integer." limit)))
       l)))
 
+(pls/defn-validated parse-limit' :- (s/maybe s/Int)
+  "Parse the optional `limit` query parameter. Returns an integer
+  version of `limit` upon successful validation. Throws an exception
+  if provided `limit` is not a positive integer"
+  [limit :- (s/maybe (s/either String s/Int))]
+  (when limit (validate-limit limit)))
+
 (defn parse-limit
-  "Parse the optional `limit` query parameter in the paging options map,
+  "DEPRECATED - this function will be replaced by parse-limit'
+
+  Parse the optional `limit` query parameter in the paging options map,
   and return an updated map with the correct integer value.
   Throws an exception if the provided limit is not a positive non-zero integer."
+  {:deprecated "3.0.0"}
   [paging-options]
-  (update-in paging-options [:limit] #(when-not (nil? %) (validate-limit %))))
+  (update paging-options :limit parse-limit'))
 
 (defn validate-offset
   "Validates that the offset string is a non-negative integer. Returns the integer
   form if validation was successful, otherwise an IllegalArgumentException is thrown."
   [offset]
-  {:pre  [(string? offset)]
+  {:pre  [(or (integer? offset) (string? offset))]
    :post [(and (integer? %) (>= % 0))]}
-  (let [o (parse-int offset)]
+  (let [o (coerce-to-int offset)]
     (if ((some-fn nil? neg?) o)
       (throw (IllegalArgumentException.
               (format "Illegal value '%s' for :offset; expected a non-negative integer." offset)))
       o)))
 
-(defn parse-offset
+(defn parse-offset'
   "Parse the optional `offset` query parameter in the paging options map,
   and return an updated map with the correct integer value.
   Throws an exception if the provided offset is not a non-negative integer."
+  [offset]
+  (when offset (validate-offset offset)))
+
+(defn parse-offset
+  "DEPRECATED - this function will be replaced by parse-offset'
+  Parse the optional `offset` query parameter in the paging options map,
+  and return an updated map with the correct integer value.
+  Throws an exception if the provided offset is not a non-negative integer."
+  {:deprecated "3.0.0"}
   [paging-options]
-  (update-in paging-options [:offset] #(when-not (nil? %) (validate-offset %))))
+  (update paging-options :offset parse-offset'))
 
 (defn validate-order-by!
   "Given a list of keywords representing legal fields for ordering a query, and a map of
