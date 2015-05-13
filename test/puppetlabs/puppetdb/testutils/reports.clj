@@ -46,6 +46,7 @@
       (clojure.walk/stringify-keys)
       (update-in ["start_time"] time-coerce/to-string)
       (update-in ["end_time"] time-coerce/to-string)
+      (update-in ["producer_timestamp"] time-coerce/to-string)
       (update-in ["resource_events"] munge-events-for-comparison)
       (dissoc "hash")
       (dissoc "receive_time")))
@@ -89,7 +90,7 @@
   (kitchensink/mapvals
    ;; we need to map the datetime fields to timestamp objects for comparison
    time-coerce/to-timestamp
-   [:start_time :end_time]
+   [:start_time :end_time :producer_timestamp]
    ;; the response won't include individual events, so we need to pluck those
    ;; out of the example report object before comparison
    example-report))

@@ -139,7 +139,8 @@
   (assoc report
     "configuration_version" (ks/uuid)
     "start_time" (time/now)
-    "end_time" (time/now)))
+    "end_time" (time/now)
+    "producer_timestamp" (time/now)))
 
 (defn randomize-map-leaf
   "Randomizes a fact leaf based on a percentage provided with `rp`."
@@ -172,7 +173,7 @@
 (defn update-factset
   "Updates the producer_timestamp to be current, and randomly updates the leaves
    of the factset based on a percentage provided in `rand-percentage`."
-  [factset rand-percentage ]
+  [factset rand-percentage]
   (-> factset
       (assoc "producer_timestamp" (time/now))
       (update-in ["values"] (partial randomize-map-leaves rand-percentage))))
@@ -195,7 +196,7 @@
     (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port}
           catalog (some-> catalog update-catalog (maybe-tweak-catalog rand-percentage))
           report (some-> report update-report-run-fields)
-          factset (some-> factset (update-factset rand-percentage ))]
+          factset (some-> factset (update-factset rand-percentage))]
       ;; Submit the catalog and reports in separate threads, so as to not
       ;; disturb the world-loop and otherwise distort the space-time continuum.
       (when catalog
@@ -233,7 +234,7 @@
   (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port}
         catalog (some-> catalog (maybe-tweak-catalog rand-percentage))
         report (some-> report update-report-run-fields)
-        factset (some-> factset (update-factset factset rand-percentage))]
+        factset (some-> factset (update-factset rand-percentage))]
     (when catalog
       (client/submit-catalog base-url 6 (json/generate-string catalog)))
     (when report

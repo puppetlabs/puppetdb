@@ -9,6 +9,7 @@
     :configuration_version  "a81jasj123"
     :start_time             "2011-01-01T12:00:00-03:00"
     :end_time               "2011-01-01T12:10:00-03:00"
+    :producer_timestamp     "2011-01-01T12:11:00-03:00"
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   false
@@ -96,6 +97,7 @@
     :configuration_version  "bja3985a23"
     :start_time             "2013-08-28T19:00:00-03:00"
     :end_time               "2013-08-28T19:10:00-03:00"
+    :producer_timestamp     "2013-08-28T19:11:00-03:00"
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   true
@@ -180,6 +182,7 @@
     :configuration_version  "a81jasj123"
     :start_time             "2011-01-03T12:00:00-03:00"
     :end_time               "2011-01-03T12:10:00-03:00"
+    :producer_timestamp     "2011-01-03T12:11:00-03:00"
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   false
@@ -264,6 +267,7 @@
     :configuration_version  "a81jasj123"
     :start_time             "2011-01-03T12:00:00-03:00"
     :end_time               "2011-01-03T12:10:00-03:00"
+    :producer_timestamp     "2011-01-03T12:11:00-03:00"
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   false

@@ -1331,6 +1331,13 @@
         "ALTER TABLE fact_values RENAME COLUMN value_json TO value"
         "ALTER TABLE fact_values ALTER COLUMN value_json RENAME TO value"))))
 
+(defn add-producer-timestamp-to-reports []
+  (sql/do-commands
+   "ALTER TABLE reports ADD producer_timestamp TIMESTAMP WITH TIME ZONE"
+   "UPDATE reports SET producer_timestamp=end_time"
+   "ALTER TABLE reports ALTER COLUMN producer_timestamp SET NOT NULL"
+   "CREATE INDEX idx_reports_producer_timestamp ON reports(producer_timestamp)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1363,7 +1370,8 @@
    28 lift-fact-paths-into-facts
    29 version-2yz-to-300-migration
    30 add-expired-to-certnames
-   31 coalesce-fact-values})
+   31 coalesce-fact-values
+   32 add-producer-timestamp-to-reports})
 
 (def desired-schema-version (apply max (keys migrations)))
 

@@ -30,7 +30,7 @@
   [record]
   (kitchensink/mapvals
    to-string
-   [:start_time :end_time]
+   [:start_time :end_time :producer_timestamp]
    record))
 
 (defn munge-expected-report

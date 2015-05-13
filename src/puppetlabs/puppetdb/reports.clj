@@ -43,6 +43,7 @@
    :configuration_version    s/Str
    :start_time               pls/Timestamp
    :end_time                 pls/Timestamp
+   :producer_timestamp       pls/Timestamp
    :resource_events          [resource-event-wireformat-schema]
    :noop                     (s/maybe s/Bool)
    :transaction_uuid         (s/maybe s/Str)
@@ -106,6 +107,7 @@
    (s/optional-key :receive_time) pls/Timestamp
    (s/optional-key :start_time) pls/Timestamp
    (s/optional-key :end_time) pls/Timestamp
+   (s/optional-key :producer_timestamp) pls/Timestamp
    (s/optional-key :noop) (s/maybe s/Bool)
    (s/optional-key :report_format) s/Int
    (s/optional-key :configuration_version) s/Str

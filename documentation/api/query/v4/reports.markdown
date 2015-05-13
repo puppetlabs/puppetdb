@@ -56,9 +56,11 @@ The below fields are allowed as filter criteria and are returned in all response
 
 * `configuration_version` (string): an identifier string that Puppet uses to match a specific catalog for a node to a specific Puppet run.
 
-* `start_time` (timestamp): is the time at which the Puppet run began. Timestamps are always [ISO-8601][8601] compatible date/time strings.
+* `start_time` (timestamp): is the time on the agent at which the Puppet run began. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `end_time` (timestamp): is the time at which the Puppet run ended. Timestamps are always [ISO-8601][8601] compatible date/time strings.
+* `end_time` (timestamp): is the time on the agent at which the Puppet run ended. Timestamps are always [ISO-8601][8601] compatible date/time strings.
+
+* `producer_timestamp` (timestamp): is the time of catalog submission from the master to PuppetDB.  This field is currently populated by the master. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
 * `receive_time` (timestamp): is the time at which PuppetDB received the report. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 

@@ -331,6 +331,9 @@
       "end_time"        {:type :timestamp
                          :queryable? true
                          :field :reports.end_time}
+      "producer_timestamp" {:type :timestamp
+                            :queryable? true
+                            :field :reports.producer_timestamp}
       "metrics" {:type :json
                  :queryable? false
                  :field {:select [(h/row-to-json :t)]

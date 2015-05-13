@@ -235,15 +235,13 @@
   [version db {:keys [payload annotations]}]
   (let [id (:id annotations)
         received-timestamp (:received annotations)
-
         {:keys [certname puppet_version] :as report}
         (->> payload
              (s/validate report/report-wireformat-schema)
-             upon-error-throw-fatality)]
+             upon-error-throw-fatality)
+        producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
     (jdbc/with-transacted-connection db
-      ;; This is using received-timestamp because the store-report command
-      ;; doesn't yet have a producer_timestamp field. It will be added soon.
-      (scf-storage/maybe-activate-node! certname received-timestamp)
+      (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/add-report! report received-timestamp))
     (log/infof "[%s] [%s] puppet v%s - %s"
                id (command-names :store-report)
