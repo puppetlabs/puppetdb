@@ -1,5 +1,7 @@
 require 'json'
 
+puppetdb_url = "http://localhost:8080"
+puppetdb_query_url = "http://localhost:8080/pdb/query"
 test_name "basic validation of puppet report submission" do
 
   manifest = <<-MANIFEST
@@ -17,14 +19,14 @@ test_name "basic validation of puppet report submission" do
 
   agents.each do |agent|
     # Query for all of the reports for this node:
-    result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]' --data 'order_by=[{"field":"receive_time","order":"desc"}]'|
+    result = on database, %Q|curl -G #{puppetdb_query_url}/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]' --data 'order_by=[{"field":"receive_time","order":"desc"}]'|
 
     reports = JSON.parse(result.stdout)
 
     report = reports[0]
 
     # Now query for all of the events in this report
-    result = on database, %Q|curl -G 'http://localhost:8080/v4/events' --data 'query=["=",%20"report",%20"#{report["hash"]}"]'|
+    result = on database, %Q|curl -G '#{puppetdb_query_url}/v4/events' --data 'query=["=",%20"report",%20"#{report["hash"]}"]'|
     events = JSON.parse(result.stdout)
 
     # This is a bit weird as well; all "skipped" resources during a puppet
@@ -52,16 +54,16 @@ test_name "basic validation of puppet report submission" do
 
   agents.each do |agent|
 
-    result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]' --data 'order_by=[{"field":"receive_time","order":"desc"}]'|
+    result = on database, %Q|curl -G #{puppetdb_query_url}/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]' --data 'order_by=[{"field":"receive_time","order":"desc"}]'|
     reports = JSON.parse(result.stdout)
     report = reports[0]
     metrics_endpoint = report["metrics"]["href"]
     logs_endpoint = report["logs"]["href"]
 
-    result = on database, %Q|curl -G http://localhost:8080#{metrics_endpoint}|
+    result = on database, %Q|curl -G #{puppetdb_url}#{metrics_endpoint}|
     metrics = JSON.parse(result.stdout)
 
-    result = on database, %Q|curl -G http://localhost:8080#{logs_endpoint}|
+    result = on database, %Q|curl -G #{puppetdb_url}#{logs_endpoint}|
     logs = JSON.parse(result.stdout)
 
     step "ensure that noop is false for #{agent}" do

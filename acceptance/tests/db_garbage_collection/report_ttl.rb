@@ -1,6 +1,7 @@
 require 'json'
   confd = "#{puppetdb_confdir(database)}/conf.d"
 
+puppetdb_query_url = "http://localhost:8080/pdb/query"
 test_name "validate that reports are deleted based on report-ttl setting" do
   step "setup a test manifest for the master and perform agent runs" do
     manifest = <<-MANIFEST
@@ -19,7 +20,7 @@ test_name "validate that reports are deleted based on report-ttl setting" do
   step "Verify that we have reports for every agent" do
     agents.each do |agent|
       # Query for all of the reports for this node:
-      result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
+      result = on database, %Q|curl -G #{puppetdb_query_url}/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
       reports = JSON.parse(result.stdout)
       assert(reports.length > 0, "Expected at least one report for node '#{agent.node_name}'")
     end
@@ -51,7 +52,7 @@ test_name "validate that reports are deleted based on report-ttl setting" do
   step "Verify that the reports for every agent have been deleted" do
     agents.each do |agent|
       # Query for all of the reports for this node:
-      result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
+      result = on database, %Q|curl -G #{puppetdb_query_url}/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
       reports = JSON.parse(result.stdout)
       assert(0, "Expected zero reports for node '#{agent.node_name}'")
     end

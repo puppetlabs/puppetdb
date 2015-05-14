@@ -1277,7 +1277,7 @@
    received-timestamp :- pls/Timestamp]
   (add-report!* report received-timestamp true))
 
-(defn fail-on-unsupported
+(defn validate-database-version
   "Log an error message to the log and console if the currently
   configured database is unsupported, then call fail-fn  (probably to
   exit)."
@@ -1287,12 +1287,6 @@
       (utils/println-err attn-msg)
       (log/error attn-msg)
       (fail-fn))))
-
-(defn validate-database-version
-  "Checks to ensure that the database is supported, fails if supported, logs
-  if deprecated"
-  [action-for-unsupported-fn]
-  (fail-on-unsupported action-for-unsupported-fn))
 
 (def ^:dynamic *orphaned-path-gc-limit* 200)
 (def ^:dynamic *orphaned-value-gc-limit* 200)

@@ -2,6 +2,7 @@ require 'json'
 require 'time'
 require 'cgi'
 
+puppetdb_query_url = "http://localhost:8080/pdb/query"
 test_name "validation of basic PuppetDB resource event queries" do
 
   skip_test "Skipping read-db test for HyperSQL.  This feature is only available for Postgres" if test_config[:database] == :embedded
@@ -121,7 +122,7 @@ EOM
       query = CGI.escape(query)
 
       # Now query for all of the event for this agent
-      result = on database, %Q|curl -G 'http://localhost:8080/v4/events' --data 'query=#{query}'|
+      result = on database, %Q|curl -G '#{puppetdb_query_url}/v4/events' --data 'query=#{query}'|
 
       events = JSON.parse(result.stdout)    
 

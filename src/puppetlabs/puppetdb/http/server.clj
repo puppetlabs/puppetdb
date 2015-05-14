@@ -9,20 +9,19 @@
             [puppetlabs.puppetdb.middleware :refer
              [wrap-with-puppetdb-middleware wrap-with-globals wrap-with-metrics]]
             [net.cgrand.moustache :refer [app]]
-            [ring.middleware.resource :refer [wrap-resource]]
-            [ring.util.response :refer [redirect header]]))
+            [ring.util.response :as rr]))
 
 (defn deprecated-app
   [app msg request]
   (let [result (app request)]
     (log/warn msg)
-    (header result "X-Deprecation" msg)))
+    (rr/header result "X-Deprecation" msg)))
 
 (defn experimental-warning
   [app msg request]
   (let [result (app request)]
     (log/warn msg)
-    (header result "Warning" msg)))
+    (rr/header result "Warning" msg)))
 
 (defn- refuse-retired-api
   [version]
@@ -31,15 +30,12 @@
     (format "The %s API has been retired; please use v4" version)
     404)))
 
-(defn routes
-  [url-prefix]
+(def routes
   (app
    ["v4" &] {:any v4-app}
    ["v1" &] {:any (refuse-retired-api "v1")}
    ["v2" &] {:any (refuse-retired-api "v2")}
-   ["v3" &] {:any (refuse-retired-api "v3")}
-   [""] {:get (constantly
-               (redirect (format "%s/dashboard/index.html" url-prefix)))}))
+   ["v3" &] {:any (refuse-retired-api "v3")}))
 
 (defn build-app
   "Generate a Ring application that handles PuppetDB requests
@@ -50,9 +46,8 @@
   * `authorizer` - a function that takes a request and returns a
     :authorized if the request is authorized, or a user-visible reason if not.
     If not supplied, we default to authorizing all requests."
-  [{:keys [authorizer url-prefix] :as globals}]
-  (-> (routes url-prefix)
+  [{:keys [authorizer] :as globals}]
+  (-> routes
       (wrap-with-puppetdb-middleware authorizer)
-      (wrap-resource "public")
       (wrap-with-metrics (atom {}) http/leading-uris)
       (wrap-with-globals globals)))

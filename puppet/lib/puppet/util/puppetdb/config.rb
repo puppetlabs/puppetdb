@@ -12,7 +12,6 @@ module Puppet::Util::Puppetdb
       defaults = {
         :server                    => "puppetdb",
         :port                      => 8081,
-        :url_prefix                => "",
         :soft_write_failure        => false,
         :ignore_blacklisted_events => true,
         :server_url_timeout        => 30
@@ -55,23 +54,26 @@ module Puppet::Util::Puppetdb
       main_section = main_section.inject({}) {|h, (k,v)| h[k.to_sym] = v ; h}
       # merge with defaults but filter out anything except the legal settings
       config_hash = defaults.merge(main_section).reject do |k, v|
-        !([:server, :port, :url_prefix, :ignore_blacklisted_events, :soft_write_failure, :server_urls, :server_url_timeout].include?(k))
+        !([:server,
+           :port,
+           :ignore_blacklisted_events,
+           :soft_write_failure,
+           :server_urls,
+           :server_url_timeout].include?(k))
       end
 
       if config_hash[:server_urls]
         uses_server_urls = true
-        config_hash[:server_urls] = convert_and_validate_urls(config_hash[:server_urls].split(",").map {|s| s.strip})
+        config_hash[:server_urls] = config_hash[:server_urls].split(",").map {|s| s.strip}
       else
         uses_server_urls = false
-        config_hash[:server_urls] = [URI("https://" + config_hash[:server].strip + ':' + config_hash[:port].to_s + normalize_url_prefix(config_hash[:url_prefix].strip))]
+        config_hash[:server_urls] = ["https://#{config_hash[:server].strip}:#{config_hash[:port].to_s}"]
       end
-
+      config_hash[:server_urls] = convert_and_validate_urls(config_hash[:server_urls])
+      
       config_hash[:server_url_timeout] = config_hash[:server_url_timeout].to_i
-      config_hash[:url_prefix] = normalize_url_prefix(config_hash[:url_prefix].strip)
-      config_hash[:ignore_blacklisted_events] =
-        Puppet::Util::Puppetdb.to_bool(config_hash[:ignore_blacklisted_events])
-      config_hash[:soft_write_failure] =
-        Puppet::Util::Puppetdb.to_bool(config_hash[:soft_write_failure])
+      config_hash[:ignore_blacklisted_events] = Puppet::Util::Puppetdb.to_bool(config_hash[:ignore_blacklisted_events])
+      config_hash[:soft_write_failure] = Puppet::Util::Puppetdb.to_bool(config_hash[:soft_write_failure])
 
       self.new(config_hash, uses_server_urls)
     rescue => detail
@@ -88,10 +90,6 @@ module Puppet::Util::Puppetdb
       if !uses_server_urls
         Puppet.warning("Specification of server and port in puppetdb.conf is deprecated. Use the setting server_urls.")
       end
-      if config_hash[:url_prefix] != ''
-        Puppet.warning("Specification of url_prefix in puppetdb.conf is deprecated. Use the setting server_urls.")
-      end
-
       # To provide accurate error messages to users about HTTP failures, we
       # need to know whether they initially defined their config via the old
       # server/port combo or the new server_urls. This boolean keeps track
@@ -112,10 +110,6 @@ module Puppet::Util::Puppetdb
       config[:server_url_timeout]
     end
 
-    def url_prefix
-      config[:url_prefix]
-    end
-
     def ignore_blacklisted_events?
       config[:ignore_blacklisted_events]
     end
@@ -126,17 +120,6 @@ module Puppet::Util::Puppetdb
 
     def soft_write_failure
       config[:soft_write_failure]
-    end
-
-    # @!group Private class methods
-    def self.normalize_url_prefix(prefix)
-      if prefix == ""
-        prefix
-      elsif prefix.start_with?("/")
-        prefix
-      else
-        "/" + prefix
-      end
     end
 
     # @!group Private instance methods
@@ -165,6 +148,11 @@ module Puppet::Util::Puppetdb
           raise "PuppetDB 'server_urls' must be https, found '#{uri_string}'"
         end
 
+        if uri.path != '' && uri.path != '/'
+          raise "PuppetDB 'server_urls' cannot contain URL paths, found '#{uri_string}'"
+        end
+        uri.path = '/pdb/query'
+        
         uri
       end
     end

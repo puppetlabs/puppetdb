@@ -107,7 +107,7 @@
   []
   (-> (kitchensink/num-cpus)
       (/ 2)
-      (int)
+      int
       (max 1)))
 
 (def half-the-cores
@@ -157,8 +157,8 @@
   "Adds each of `hsql-default-connection` keypairs to `database` if classname, subprotocol and subname
    are not found in the `database` config"
   [{:keys [global database] :as config :or {database {}}}]
-  (conj config (when (not-any? database [:classname :subprotocol :subname])
-                 [:database (into database (hsql-default-connection (:vardir global)))])))
+  (cond-> config (not-any? database [:classname :subprotocol :subname])
+    (update :database merge (hsql-default-connection (:vardir global)))))
 
 (defn convert-section-config
   "validates and converts a `section-config` to `section-schema-out` using defaults from `section-schema-in`."
@@ -190,8 +190,9 @@
 (defn configure-puppetdb
   "Validates the [puppetdb] section of the config"
   [{:keys [puppetdb] :as config :or {puppetdb {}}}]
-  (s/validate puppetdb-config-in puppetdb)
-  (assoc config :puppetdb puppetdb))
+  (->> puppetdb
+       (s/validate puppetdb-config-in)
+       (assoc config :puppetdb)))
 
 (defn convert-config
   "Given a `config` map (created from the user defined config), validate, default and convert it
@@ -239,9 +240,9 @@
 (defn catalog-debug-path
   "Given a `config` create the path to the directory directory to store
    catalog debug info."
-  [config]
-  {:pre [(not (str/blank? (get-in config [:global :vardir])))]}
-  (fs/file (get-in config [:global :vardir]) "debug" "catalog-hashes"))
+  [{{vardir :vardir} :global}]
+  {:pre [(not (str/blank? vardir))]}
+  (fs/file vardir "debug" "catalog-hashes"))
 
 (defn create-catalog-debug-dir
   "Attempt to crate the catalog debug directory at `path`. Failing to create the
@@ -287,56 +288,48 @@
               (format "product-name %s is illegal; either puppetdb or pe-puppetdb are allowed" product-name))))
     lower-product-name))
 
-(defn normalize-url-prefix
-  [url-prefix]
-  (cond
-   (empty? url-prefix) url-prefix
-   (.startsWith url-prefix "/") url-prefix
-   :else (str "/" url-prefix)))
-
 (defn configure-globals
   "Configures the global properties from the user defined config"
-  [{:keys [global] :as config}]
-  (assoc config :global
-         (-> global
-             (utils/assoc-when :product-name "puppetdb")
-             (update-in [:product-name] normalize-product-name)
-             (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))
+  [config]
+  (update config :global
+          #(-> %
+               (utils/assoc-when :product-name "puppetdb")
+               (update :product-name normalize-product-name)
+               (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))
 
-(defn warn-url-prefix-deprecation
-  [config-data]
-  (when-let [cw (get-in config-data [:global :url-prefix])]
-    (utils/println-err "The configuration item `url-prefix` in the [global] section is deprecated. It will be removed in the future."))
-  config-data)
-
-(defn warn-repl-retirement
+(defn warn-retirements
   "Warn a user they are using the old [repl] block, instead of [nrepl]."
   [config-data]
-  (when-let [cw (get-in config-data [:repl])]
-    (utils/println-err "The configuration block [repl] is now retired and will be ignored. Use [nrepl] instead. Consult the documentation for more details."))
+  (when (get-in config-data [:repl])
+    (utils/println-err (str "The configuration block [repl] is now retired and will be ignored."
+                            " Use [nrepl] instead. Consult the documentation for more details.")))
+  (when (get-in config-data [:global :url-prefix])
+    (utils/println-err (str "The configuration item `url-prefix` in the [global] section is retired,"
+                            " please remove this item from your config."
+                            " PuppetDB has a non-configurable context route of `/pdb`."
+                            " Consult the documentation for more details."))
+    (System/exit 1))
   config-data)
 
-(defn add-web-routing-config
+(defn add-web-routing-service-config
   [config-data]
-  (let [url-prefix-path [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service]
-        prefix (or (get-in config-data url-prefix-path)
-                   ;; Setting url-prefix in [global] is deprecated
-                   (normalize-url-prefix (get-in config-data [:global :url-prefix]))
-                   "")
-        metrics-url-prefix-path [:web-router-service :puppetlabs.puppetdb.metrics/metrics-service]
-        metrics-prefix (get-in config-data metrics-url-prefix-path "/metrics")]
-    (-> config-data
-        (assoc-in url-prefix-path prefix)
-        (assoc-in metrics-url-prefix-path metrics-prefix))))
+  (let [default-web-router-service
+        {:puppetlabs.puppetdb.cli.services/puppetdb-service "/pdb/query"
+         :puppetlabs.puppetdb.dashboard/dashboard-service "/pdb"
+         :puppetlabs.puppetdb.metrics/metrics-service "/metrics"}]
+    (doseq [[svc route] default-web-router-service]
+      (when (get-in config-data [:web-router-service svc])
+        (-> (format "Configuration of the `%s` route is not allowed. This setting defaults to `%s`." svc route)
+            utils/println-err)))
+    ;; We override the users settings as to make the above routes *not* configurable
+    (update config-data :web-router-service merge default-web-router-service)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(defn adjust-tk-config [config]
-  (-> config
-      warn-repl-retirement
-      warn-url-prefix-deprecation
-      add-web-routing-config))
+(def adjust-tk-config
+  (comp add-web-routing-service-config
+        warn-retirements))
 
 (defn hook-tk-parse-config-data
   "This is a robert.hooke compatible hook that is designed to intercept

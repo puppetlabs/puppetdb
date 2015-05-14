@@ -8,8 +8,6 @@ canonical: "/puppetdb/latest/puppetdb_connection.html"
 [connect_to_puppetdb]: ./connect_puppet_master.html
 [confdir]: /puppet/latest/reference/dirs_confdir.html
 [puppetdb_conf]: ./connect_puppet_master.html#edit-puppetdb\.conf
-[url_prefix_setting]: ./configure.html#url-prefix
-[web_router_setting]: ./configure.html#:web-router-service
 
 The `puppetdb.conf` file contains the hostname and port of the [PuppetDB][puppetdb_root] server. It is only used if you are using PuppetDB and have [connected your Puppet master to it][connect_to_puppetdb].
 
@@ -27,7 +25,7 @@ The location of the `confdir` varies; it depends on the OS, Puppet distribution,
 ## Example
 
     [main]
-    server_urls = https://puppetdb.example.com:8081/
+    server_urls = https://puppetdb.example.com:8081
 
 ## Format
 
@@ -42,17 +40,17 @@ The `[main]` section defines all of the PuppetDB terminus settings.
 
 This setting specifies how the Puppet master should connect to PuppetDB. The configuration should look something like this example:
 
-    server_urls = https://puppetdb.example.com:8081/
+    server_urls = https://puppetdb.example.com:8081
 
-Puppet _requires_ the use of PuppetDB's secure, HTTPS port. You cannot use the unencrypted, plain HTTP port. If you have specified a [`web-router-service` setting in your PuppetDB configuration][web_router_setting], that prefix must be reflected in your URLs. (You might have also used the deprecated [`url-prefix` setting][url_prefix_setting] to change PuppetDB's URLs.
+Puppet _requires_ the use of PuppetDB's secure, HTTPS port. You cannot use the unencrypted, plain HTTP port.
 
 You can use a comma separated list of URLs if there are multiple PuppetDB instances available. A `server_urls` config that supports two PuppetDBs would look like:
 
-    server_urls = https://puppetdb1.example.com:8081/,https://puppetdb2.example.com:8081/
+    server_urls = https://puppetdb1.example.com:8081,https://puppetdb2.example.com:8081
 
 The PuppetDB terminus will always attempt to connect to the first PuppetDB instance specified (listed above as puppetdb1). If a server-side exception occurs, or the request takes too long (see [`server_url_timeout`](#server_url_timeout)), the PuppetDB terminus will attempt the same operation on the next instance in the list.
 
-The default value is https://puppetdb:8081/
+The default value is https://puppetdb:8081
 
 ### `server_url_timeout`
 
@@ -66,20 +64,9 @@ This setting can let the Puppet master stay partially available during a PuppetD
 
 The default value is false.
 
-### `server`
+### `server` and `port`
 
-> **Deprecated:** `server_urls` replaces this setting. This setting will be removed in the future.
+> **Deprecated:** `server_urls` replaces these setting. These settings will be removed in the future.
 
-Hostname of the PuppetDB instance. `server_urls` takes precedence if both are defined.
+Hostname and port of the PuppetDB instance. `server_urls` takes precedence if both are defined.
 
-### `port`
-
-> **Deprecated:** `server_urls` replaces this setting. This setting will be removed in the future.
-
-SSL port of the PuppetDB instance. `server_urls` takes precedence if both are defined.
-
-### `url_prefix`
-
-> **Deprecated:** `server_urls` replaces this setting. This setting will be removed in the future.
-
-You may also, optionally, specify a setting named url_prefix if you have configured your PuppetDB server to run the web application at a URL other than “/”. This should not be necessary in most cases, and should only be used if you have modified the corresponding [url-prefix setting in your PuppetDB configuration][url_prefix_setting]. `server_urls` takes precedence if both are defined.

@@ -75,8 +75,7 @@
             ;; Ignore
             ))))))
 
-(defn- test-basic-roundtrip
-  [url-prefix]
+(deftest test-basic-roundtrip
   (let [facts {:certname "foo.local"
                :environment "DEV"
                :values {:foo "the foo"
@@ -90,8 +89,7 @@
                            :producer_timestamp (now)))
         report (:basic reports)
         with-server #(svc-utils/puppetdb-instance
-                      (assoc-in (svc-utils/create-config)
-                                [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service] url-prefix)
+                      (svc-utils/create-config)
                       %)]
 
     (with-server
@@ -114,10 +112,9 @@
                           (export/facts-for-node *base-url*)
                           first)))
 
-        (apply #'export/main
-               "--outfile" export-out-file
-               "--host" (:host *base-url*) "--port" (:port *base-url*)
-               (when-not (empty? url-prefix) ["--url-prefix" url-prefix]))) )
+        (#'export/main "--outfile" export-out-file
+                       "--host" (:host *base-url*)
+                       "--port" (:port *base-url*))))
 
     (with-server
       (fn []
@@ -126,10 +123,8 @@
         (svc-utils/until-consumed
          3
          (fn []
-           (apply #'import/main
-                  "--infile" export-out-file
-                  "--host" (:host *base-url*) "--port" (:port *base-url*)
-                  (when-not (empty? url-prefix) ["--url-prefix" url-prefix]))))
+           (#'import/main "--infile" export-out-file
+                          "--host" (:host *base-url*) "--port" (:port *base-url*))))
 
         (is (testutils/=-after? munge-catalog catalog (->> (:certname catalog)
                                                            (export/catalogs-for-node *base-url*)
@@ -151,12 +146,6 @@
         (is (testutils/=-after? munge-report report (->> (:certname report)
                                                          (export/reports-for-node *base-url*)
                                                          first)))))))
-
-(deftest basic-roundtrip
-  (test-basic-roundtrip nil))
-
-(deftest url-prefixed-roundtrip
-  (test-basic-roundtrip "/foo"))
 
 (deftest test-max-frame-size
   (let [catalog (-> (get-in wire-catalogs [6 :empty])
