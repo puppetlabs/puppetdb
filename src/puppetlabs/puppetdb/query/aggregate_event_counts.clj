@@ -37,11 +37,14 @@
           (= (count %) 1)]}
   (jdbc/query-to-vec (apply vector sql params)))
 
+(defn munge-result-rows
+  [_ _]
+  (comp (partial kitchensink/mapvals #(if (nil? %) 0 %)) first))
+
 (defn query-aggregate-event-counts
   "Given a SQL query and its parameters, return the single matching result map."
   [{:keys [results-query]}]
   {:pre  [(string? (first results-query))]
    :post [(map? %)]}
   (->> (perform-query results-query)
-       first
-       (kitchensink/mapvals #(if (nil? %) 0 %))))
+       ((munge-result-rows nil nil))))

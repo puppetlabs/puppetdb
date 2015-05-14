@@ -9,10 +9,11 @@
   "Intended to be used for parsing the results
   from either the report :metrics or :logs queries."
   [data :- s/Keyword]
-  (fn [rows]
-    (if-let [maybe-json (-> rows first data)]
-      (sutils/parse-db-json maybe-json)
-      [])))
+  (fn [_ _]
+   (fn [rows]
+     (if-let [maybe-json (-> rows first data)]
+       (sutils/parse-db-json maybe-json)
+       []))))
 
 (pls/defn-validated logs-query->sql :- jdbc/valid-results-query-schema
   "Converts a vector-structured `query` to a corresponding SQL query which will

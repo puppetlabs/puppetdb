@@ -744,5 +744,7 @@
    If all you want is an unstreamed Seq, pass the function `doall` as `f` to
    convert the LazySeq to a Seq by full traversing it. This is useful for tests,
    that cannot analyze results easily in a streamed way."
-  [version sql params f]
-  (jdbc/with-query-results-cursor sql params rs (f rs)))
+  ([[sql & params] f]
+   (streamed-query-result nil sql params f))
+  ([version sql params f]
+   (jdbc/with-query-results-cursor sql params rs (f rs))))

@@ -64,15 +64,13 @@
         before-slurp? (atom nil)
         after-slurp? (atom nil)]
     (query pdb-service endpoint version q pagination
-           (fn [f]
-             (f
-              (fn [result-set]
-                ;; We evaluate the first element from lazy-seq just to check if DB query was successful or not
-                ;; so we have to ensure the first element and the rest have been realized, not just the first
-                ;; element on its own.
-                (reset! before-slurp? (and (realized? result-set) (realized? (rest result-set))))
-                (reset! results (vec result-set))
-                (reset! after-slurp? (and (realized? result-set) (realized? (rest result-set))))))))
+           (fn [result-set]
+             ;; We evaluate the first element from lazy-seq just to check if DB query was successful or not
+             ;; so we have to ensure the first element and the rest have been realized, not just the first
+             ;; element on its own.
+             (reset! before-slurp? (and (realized? result-set) (realized? (rest result-set))))
+             (reset! results (vec result-set))
+             (reset! after-slurp? (and (realized? result-set) (realized? (rest result-set))))))
     (is (false? @before-slurp?))
     (check-result @results)
     (is (true? @after-slurp?))))
