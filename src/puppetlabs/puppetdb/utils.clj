@@ -1,14 +1,19 @@
 (ns puppetlabs.puppetdb.utils
   (:require [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.scf.storage-utils]
             [clojure.tools.logging :as log]
+            [clojure.string :as string]
             [schema.core :as s]
             [clojure.data :as data]
             [puppetlabs.puppetdb.schema :as pls]
+            [clojure.set :as set]
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.java.io :as io]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [clojure.walk :as walk]
             [slingshot.slingshot :refer [try+]])
-  (:import [java.net MalformedURLException URISyntaxException URL]))
+  (:import [java.net MalformedURLException URISyntaxException URL]
+           [org.postgresql.util PGobject]))
 
 (defn jdk6?
   "Returns true when the current JDK version is 1.6"
@@ -232,3 +237,24 @@
   (reduce-kv (fn [acc k v]
                (assoc acc (schema.core/required-key (puppetlabs.puppetdb.utils/kwd->str k)) v))
              {} kwd-schema))
+
+(defn as-path
+  "Create a url path from arguments. Does not append a slash to the beginning
+   or end. Example:
+   (as-path '/v4' 'facts' "
+  [root & path]
+  (apply str root "/" (string/join "/" path)))
+
+(pls/defn-validated child->expansion
+  "Convert child to the expanded format."
+  [data :- (s/maybe (s/either PGobject s/Str))
+   parent :- s/Keyword
+   child :- s/Keyword
+   url-prefix :- s/Str]
+  (let [to-href #(as-path url-prefix (name parent) % (name child))]
+    (if (string? data)
+      ;; if it's a string it's just an identifier
+      {:href (to-href data)}
+      (-> (sutils/parse-db-json data)
+          (set/rename-keys {"f1" :data "f2" :href})
+          (update :href to-href)))))

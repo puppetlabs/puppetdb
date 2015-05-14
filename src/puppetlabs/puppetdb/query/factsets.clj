@@ -23,22 +23,13 @@
                         "f2" :value})
       (update-in [:value] json/parse-string)))
 
-(pls/defn-validated facts->expansion :- factsets/facts-expanded-query-schema
-  "Surround the facts response in the href/data format."
-  [obj :- (s/maybe PGobject)
-   certname :- s/Str
-   base-url :- s/Str]
-  (let [data-obj {:href (str base-url "/factsets/" certname "/facts")}]
-    (if obj
-      (assoc data-obj :data (map rtj->fact
-                                 (json/parse-string (.getValue obj))))
-      data-obj)))
-
 (pls/defn-validated row->factset
   "Convert factset query row into a final factset format."
   [base-url :- s/Str]
   (fn [row]
-    (utils/update-when row [:facts] facts->expansion (:certname row) base-url)))
+    (-> row
+        (utils/update-when [:facts] utils/child->expansion :factsets :facts base-url)
+        (utils/update-when [:facts :data] (partial map rtj->fact)))))
 
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."

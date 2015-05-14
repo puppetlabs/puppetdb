@@ -35,26 +35,15 @@
       (update-in [:old_value] json/parse-string)
       (update-in [:new_value] json/parse-string)))
 
-(pls/defn-validated child->expansion :- {:href s/Str (s/optional-key :data) [s/Any]}
-  "Convert child to the expanded format."
-  [data :- (s/maybe (s/either PGobject s/Str))
-   child :- s/Keyword
-   hash :- s/Str
-   base-url :- s/Str]
-  (let [data-obj {:href (str base-url "/reports/" hash "/" (name child))}]
-    (if data
-      (assoc data-obj :data (sutils/parse-db-json data))
-      data-obj)))
-
 (pls/defn-validated row->report
   "Convert a report query row into a final report format."
   [base-url :- s/Str]
-  (fn [{:keys [hash] :as row}]
+  (fn [row]
     (-> row
-        (utils/update-when [:resource_events] child->expansion :events hash base-url)
+        (utils/update-when [:resource_events] utils/child->expansion :reports :events base-url)
         (utils/update-when [:resource_events :data] (partial map rtj->event))
-        (utils/update-when [:metrics] child->expansion :metrics hash base-url)
-        (utils/update-when [:logs] child->expansion :logs hash base-url))))
+        (utils/update-when [:metrics] utils/child->expansion :reports :metrics base-url)
+        (utils/update-when [:logs] utils/child->expansion :reports :logs base-url))))
 
 (pls/defn-validated munge-result-rows
   "Reassemble report rows from the database into the final expected format."
