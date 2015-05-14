@@ -740,24 +740,21 @@
        sort))
 
 (defn extract-fields
-  [[name {:keys [query-only? expandable? field]}] entity expand?]
   "Return all fields from a projection, if expand? true. If expand? false,
    returns all fields except for expanded ones, which are returned as
    [<identifier> k], where identifier is the component used to make the href.
 
    Return nil for fields which are query-only? since these can't be projected
    either."
+  [[name {:keys [expandable? field]}] entity expand?]
   (let [href-key (case entity
                        :catalogs :certname
                        :factsets :certname
                        :reports :hash
                        nil)]
-    (when-not query-only?
-      (if expand?
-        [field name]
-        (if expandable?
-          [href-key name]
-          [field name])))))
+    (if (or expand? (not expandable?))
+      [field name]
+      [href-key name])))
 
 (defn merge-function-options
   "Optionally merge call and grouping into an existing query map.
@@ -769,26 +766,29 @@
     grouping (assoc :group-by (map keyword grouping))))
 
 (defn honeysql-from-query
-  [{:keys [projected-fields group-by call selection projections entity]}]
   "Convert a query to honeysql format"
+  [{:keys [projected-fields group-by call selection projections entity]}]
   (let [expand? (su/postgres?)
-        call (when-let [[f & args] (when call (utils/vector-maybe call))]
-               (apply vector f (map keyword (or args [:*]))))
+        call (when-let [[f & args] (some-> call utils/vector-maybe)]
+               (apply vector f (or (seq (map keyword args)) [:*])))
         new-select (if (and call (empty? projected-fields))
                      []
-                     (vec (remove nil? (map #(extract-fields % entity expand?)
-                                            (sort projections)))))]
-    (log/spy (-> selection
-                 (assoc :select new-select)
-                 (merge-function-options call group-by)))))
+                     (->> (sort projections)
+                          (remove (comp :query-only? val))
+                          (mapv #(extract-fields % entity expand?))))]
+    (-> selection
+        (assoc :select new-select)
+        (merge-function-options call group-by)
+        log/spy)))
 
 (pls/defn-validated sql-from-query :- String
-  [query]
   "Convert a query to honeysql, then to sql"
-  (log/spy (-> query
-               honeysql-from-query
-               hcore/format
-               first)))
+  [query]
+  (-> query
+      honeysql-from-query
+      hcore/format
+      first
+      log/spy))
 
 (defprotocol SQLGen
   (-plan->sql [query] "Given the `query` plan node, convert it to a SQL string"))
@@ -1281,9 +1281,7 @@
                    ;;longer traverse the tree, which was causing
                    ;;problems with the validation below when it was
                    ;;included in the validate-query-fields function
-                   :state (if column-validation-message
-                            (conj state column-validation-message)
-                            state)
+                   :state (cond-> state column-validation-message (conj column-validation-message))
                    :cut true})
 
                 :else
@@ -1348,7 +1346,7 @@
   "Convert an operator to a lowercase string or vector of such."
   [op]
   (if (vector? op)
-    (vec (map string/lower-case op))
+    (mapv string/lower-case op)
     (string/lower-case op)))
 
 (defn ops-to-lower
@@ -1397,8 +1395,6 @@
                                    (convert-to-plan query-rec paging-options)
                                    extract-all-params)
         sql (plan->sql plan)
-        paged-sql (jdbc/paged-sql sql paging-options)
-        result-query {:results-query (apply vector paged-sql params)}]
-    (if count?
-      (assoc result-query :count-query (apply vector (jdbc/count-sql sql) params))
-      result-query)))
+        paged-sql (jdbc/paged-sql sql paging-options)]
+    (cond-> {:results-query (apply vector paged-sql params)}
+      count? (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))

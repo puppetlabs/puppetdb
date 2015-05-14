@@ -158,7 +158,7 @@
    (let [^BytesMessage bytes-message message]
      (.readUTF8 bytes-message))
    :else
-   (throw (ex-info (str "Expected a text message, instead found: " (class message))))))
+   (throw (ex-info (str "Expected a text message, instead found: " (class message)) {}))))
 
 (defn convert-jms-message [m]
   {:headers (extract-headers m) :body (convert-message-body m)})
@@ -177,8 +177,8 @@
                          (.setStringProperty message name value))})
 
 (defn set-jms-property!
-  [message name value]
   "Sets the named JMS message property to value."
+  [message name value]
   (-set-jms-property! value name message))
 
 (defprotocol ToJmsMessage

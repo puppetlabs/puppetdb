@@ -155,13 +155,10 @@
   (let [{:keys [version newer link]} (try
                                        (update-info update-server db)
                                        (catch Throwable e
-                                         (log/debugf e "Could not retrieve update information (%s)" update-server)))
-        link-str                     (if link
-                                       (format " Visit %s for details." link)
-                                       "")
-        update-msg                   (format "Newer version %s is available!%s" version link-str)]
+                                         (log/debugf e "Could not retrieve update information (%s)" update-server)))]
     (when newer
-      (log/info update-msg))))
+      (log/info (cond-> (format "Newer version %s is available!" version)
+                  link (str " Visit " link " for details."))))))
 
 (defn maybe-check-for-updates
   "Check for updates if our `product-name` indicates we should, and skip the
@@ -249,21 +246,10 @@
         discard-dir (file mq-dir "discarded")
         mq-connection-str (add-max-framesize max-frame-size mq-addr)
         authorizer (when certificate-whitelist
-                     (build-whitelist-authorizer certificate-whitelist))
-        globals {:scf-read-db read-db
-                 :scf-write-db write-db
-                 :authorizer authorizer
-                 :update-server update-server
-                 :product-name product-name
-                 :url-prefix url-prefix
-                 :discard-dir (.getAbsolutePath discard-dir)
-                 :mq-addr mq-addr
-                 :mq-dest mq-endpoint
-                 :mq-threads threads
-                 :catalog-hash-debug-dir catalog-hash-debug-dir}]
+                     (build-whitelist-authorizer certificate-whitelist))]
 
-    (when (version)
-      (log/infof "PuppetDB version %s" (version)))
+    (when-let [v (version)]
+      (log/infof "PuppetDB version %s" v))
 
     ;; Ensure the database is migrated to the latest version, and warn
     ;; if it's deprecated, log and exit if it's unsupported. We do
@@ -288,29 +274,32 @@
                       "might be due to KahaDB corruption. Consult the "
                       "PuppetDB troubleshooting guide.")
                      (throw e)))
-          context (assoc context :broker broker)
           mq-factory (mq/activemq-connection-factory
                       (add-max-framesize max-frame-size mq-addr))
           mq-connection (doto (.createConnection mq-factory)
                           (.setExceptionListener
                            (reify ExceptionListener
                              (onException [this ex]
-                               (log/error
-                                ex "service queue connection error"))))
+                               (log/error ex "service queue connection error"))))
                           .start)
-          context (assoc context
-                         :mq-factory mq-factory
-                         :mq-connection mq-connection)
-          globals (assoc globals :command-mq {:connection mq-connection
-                                              :endpoint mq-endpoint})
+          globals {:scf-read-db read-db
+                   :scf-write-db write-db
+                   :authorizer authorizer
+                   :update-server update-server
+                   :product-name product-name
+                   :url-prefix url-prefix
+                   :discard-dir (.getAbsolutePath discard-dir)
+                   :mq-addr mq-addr
+                   :mq-dest mq-endpoint
+                   :mq-threads threads
+                   :catalog-hash-debug-dir catalog-hash-debug-dir
+                   :command-mq {:connection mq-connection
+                                :endpoint mq-endpoint}}
           updater (when-not disable-update-checking
                     (future (shutdown-on-error
                              (service-id service)
                              #(maybe-check-for-updates product-name update-server read-db)
-                             #(stop-puppetdb % true))))
-          context (if updater
-                    (assoc context :updater updater)
-                    context)]
+                             #(stop-puppetdb % true))))]
       (let [app (->> (server/build-app globals)
                      (compojure/context url-prefix []))]
         (log/info "Starting query server")
@@ -320,24 +309,26 @@
       (let [job-pool (mk-pool)
             gc-interval-millis (to-millis gc-interval)
             gc-task #(interspaced gc-interval-millis % job-pool)
-            db-maintenance-tasks [(when (pos? (to-seconds node-ttl))
-                                    #(auto-expire-nodes!
-                                      node-ttl % mq-connection))
-                                  (when (pos? (to-seconds node-purge-ttl))
-                                    (partial purge-nodes! node-purge-ttl))
-                                  (when (pos? (to-seconds report-ttl))
-                                    (partial sweep-reports! report-ttl))
-                                  ;; Order is important here to ensure
-                                  ;; anything referencing an env or resource
-                                  ;; param is purged first
-                                  garbage-collect!]]
+            seconds-pos? (comp pos? to-seconds)
+            db-maintenance-tasks (fn []
+                                   (do 
+                                     (when (seconds-pos? node-ttl) (auto-expire-nodes! node-ttl write-db mq-connection))
+                                     (when (seconds-pos? node-purge-ttl) (purge-nodes! node-purge-ttl write-db)) 
+                                     (when (seconds-pos? report-ttl) (sweep-reports! report-ttl write-db))
+                                     ;; Order is important here to ensure
+                                     ;; anything referencing an env or resource
+                                     ;; param is purged first
+                                     (garbage-collect! write-db)))]
         ;; Run database maintenance tasks seqentially to avoid
         ;; competition. Each task must handle its own errors.
-        (gc-task #(doseq [maintain (remove nil? db-maintenance-tasks)]
-                    (maintain write-db)))
+        (gc-task db-maintenance-tasks)
         (gc-task #(compress-dlo! dlo-compression-threshold discard-dir)))
-
-      (assoc context :shared-globals globals))))
+      (-> context 
+          (assoc :broker broker
+                 :mq-factory mq-factory
+                 :mq-connection mq-connection
+                 :shared-globals globals)
+          (merge (when updater {:updater updater}))))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
@@ -363,14 +354,8 @@
   (shared-globals [this]
                   (:shared-globals (service-context this)))
   (query [this query-obj version query-expr paging-options row-callback-fn]
-         (qeng/stream-query-result
-          query-obj
-          version
-          query-expr
-          paging-options
-          (get-in (service-context this) [:shared-globals :scf-read-db])
-          (get-in (service-context this) [:shared-globals :url-prefix])
-          row-callback-fn))
+         (let [{db :scf-read-db url-prefix :url-prefix} (get (service-context this) :shared-globals)]
+           (qeng/stream-query-result query-obj version query-expr paging-options db url-prefix row-callback-fn)))
   (submit-command [this command version payload]
                   (enqueue-command! (:mq-connection (service-context this))
                                     mq-endpoint

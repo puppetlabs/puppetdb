@@ -1,4 +1,4 @@
-(ns puppetlabs.puppetdb.scf.migration-legacy
+(ns puppetlabs.puppetdb.scf.migration-legacy-test
   (:require [puppetlabs.puppetdb.scf.migration-legacy :as legacy]
             [clojure.test :refer :all]))
 
