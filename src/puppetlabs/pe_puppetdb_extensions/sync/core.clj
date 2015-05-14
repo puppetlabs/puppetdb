@@ -309,29 +309,27 @@
   above). If the remote record is newer than the local one or it doesn't exist locally,
   download it over http and place it in the queue with `submit-command-fn`."
   [query-fn submit-command-fn remote-url sync-config now node-ttl]
-  (let [summary-response-stream (streamed-summary-query remote-url sync-config)]
-    (try
-      (let [remote-sync-data (map parse-time-fields
-                                  (-> summary-response-stream clojure.java.io/reader (json/parse-stream true)))
-            {:keys [entity record-hashes-query record-id-fn record-ordering-fn record-fetch-key]} sync-config
-            {:keys [version query order]} record-hashes-query]
-        (query-fn entity version query order
-                  (fn [local-sync-data]
-                    (let [records-to-fetch (records-to-fetch record-id-fn
-                                                             record-ordering-fn
-                                                             local-sync-data
-                                                             remote-sync-data
-                                                             now
-                                                             node-ttl)]
-                      (doseq [record records-to-fetch]
-                        (if (= entity :nodes)
-                          (set-local-deactivation-status! record submit-command-fn)
-                          (query-record-and-transfer! remote-url
-                                                      (get record record-fetch-key)
-                                                      submit-command-fn
-                                                      sync-config)))))))
-      (finally
-        (.close summary-response-stream)))))
+  (with-open [summary-response-stream (streamed-summary-query remote-url
+                                                              sync-config)]
+    (let [remote-sync-data (map parse-time-fields
+                                (-> summary-response-stream clojure.java.io/reader (json/parse-stream true)))
+          {:keys [entity record-hashes-query record-id-fn record-ordering-fn record-fetch-key]} sync-config
+          {:keys [version query order]} record-hashes-query]
+      (query-fn entity version query order
+                (fn [local-sync-data]
+                  (let [records-to-fetch (records-to-fetch record-id-fn
+                                                           record-ordering-fn
+                                                           local-sync-data
+                                                           remote-sync-data
+                                                           now
+                                                           node-ttl)]
+                    (doseq [record records-to-fetch]
+                      (if (= entity :nodes)
+                        (set-local-deactivation-status! record submit-command-fn)
+                        (query-record-and-transfer! remote-url
+                                                    (get record record-fetch-key)
+                                                    submit-command-fn
+                                                    sync-config)))))))))
 
 (defmacro wrap-with-logging [f level message]
   `(fn [& args#]
