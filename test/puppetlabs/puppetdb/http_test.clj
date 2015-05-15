@@ -129,18 +129,6 @@
                      (json/parse-string))
                  "N�rnberg")))))))
 
-(deftest streaming-json
-  (testing "empty seq should return []"
-    (let [w (StringWriter.)]
-      (stream-json [] w)
-      (is (empty? (parse-string (str w))))))
-
-  (testing "should jsonify all items in the seq"
-    (let [w    (StringWriter.)
-          test [nil 1 "a" [1 2] {"foo" 123}]]
-      (stream-json test w)
-      (is (= (parse-string (str w)) test)))))
-
 (deftest response-streaming
   (testing "can read back what we've written"
     (let [istream (streamed-response writer (spit writer "foo bar baz"))]

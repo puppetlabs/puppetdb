@@ -165,13 +165,6 @@
                          (conj strs (str delimiter (s/join delimiter segs')))]))]
        (second (reduce f [[] []] segments)))))
 
-(defn stream-json
-  "Serializes the supplied sequence to `buffer`, which is a `Writer`
-  object."
-  [coll buffer]
-  {:pre [(instance? Writer buffer)]}
-  (json/generate-pretty-stream coll buffer))
-
 (defmacro streamed-response
   "Evaluates `body` in a thread, with a local variable (`writer-var`)
   bound to a fresh, UTF-8 Writer object.

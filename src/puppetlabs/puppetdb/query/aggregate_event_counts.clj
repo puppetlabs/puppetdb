@@ -23,28 +23,21 @@
           (string? summarize_by)
           ((some-fn map? nil?) query-options)]
    :post [(jdbc/valid-jdbc-query? (:results-query %))]}
-  (let [query-options (if (nil? query-options) {} query-options)
-        [count-sql & params] (:results-query
-                              (event-counts/query->sql version query [summarize_by query-options {}]))
-        aggregate-sql        (get-aggregate-sql count-sql)]
-    {:results-query (apply vector aggregate-sql params)}))
+  (-> (event-counts/query->sql version query [summarize_by (or query-options {}) {}])
+      (select-keys [:results-query])
+      (update-in [:results-query 0] get-aggregate-sql)))
 
-(defn- perform-query
-  "Given a SQL query and its parameters, return a vector of matching results."
-  [[sql & params]]
-  {:pre  [(string? sql)]
-   :post [(vector? %)
-          (= (count %) 1)]}
-  (jdbc/query-to-vec (apply vector sql params)))
+(def munge-result-row
+  (partial kitchensink/mapvals (fnil identity 0)))
 
-(defn munge-result-rows
-  [_ _]
-  (comp (partial kitchensink/mapvals #(if (nil? %) 0 %)) first))
+(defn munge-result-rows [_ _]
+  (comp munge-result-row first))
 
 (defn query-aggregate-event-counts
   "Given a SQL query and its parameters, return the single matching result map."
   [{:keys [results-query]}]
   {:pre  [(string? (first results-query))]
    :post [(map? %)]}
-  (->> (perform-query results-query)
-       ((munge-result-rows nil nil))))
+  (let [munge-fn (munge-result-rows nil nil)]
+    (-> (jdbc/query-to-vec results-query)
+        munge-fn)))

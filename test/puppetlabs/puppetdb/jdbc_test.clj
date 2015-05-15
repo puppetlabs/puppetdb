@@ -4,6 +4,7 @@
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [test-db]]
+            [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.testutils.db :refer [antonym-data with-antonym-test-database insert-map *db-spec*]]))
 
 (use-fixtures :each with-antonym-test-database)

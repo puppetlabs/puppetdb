@@ -3,6 +3,7 @@
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.query :as query]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.query-eng.engine :as qe]
@@ -10,41 +11,15 @@
             [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]))
 
-;; SCHEMA
-
-(def row-schema
-  {(s/optional-key :certname) s/Str
-   (s/optional-key :count) s/Int
-   (s/optional-key :environment) (s/maybe s/Str)
-   (s/optional-key :name) s/Str
-   (s/optional-key :value) s/Str})
-
-(def converted-row-schema
-  {(s/optional-key :certname) s/Str
-   (s/optional-key :count) s/Int
-   (s/optional-key :environment) (s/maybe s/Str)
-   (s/optional-key :name) s/Str
-   (s/optional-key :value) s/Any})
-
 ;; MUNGE
-
-(pls/defn-validated deserialize-fact-value :- converted-row-schema
-  "Coerce values for each row to the proper stored type."
-  [row :- row-schema]
-  (utils/update-when row [:value] json/parse-string))
 
 (defn munge-result-rows
   [_ _]
-  (fn [rows]
-    (if (empty? rows)
-      []
-      (->> rows
-           (map deserialize-fact-value)))))
+  (partial map #(utils/update-when % [:value] json/parse-string)))
 
 (defn munge-path-result-rows
   [_ _]
-  (fn [rows]
-     (map #(utils/update-when % [:path] facts/string-to-factpath) rows)))
+  (partial map #(utils/update-when % [:path] facts/string-to-factpath)))
 
 ;; QUERY
 
@@ -59,7 +34,9 @@
    :post [(map? %)
           (string? (first (:results-query %)))
           (every? (complement coll?) (rest (:results-query %)))]}
-  (let [columns (map keyword (keys (dissoc query/fact-columns "value")))]
+  (let [columns (->> (dissoc query/fact-columns "value")
+                     keys
+                     (map keyword))]
     (paging/validate-order-by! columns paging-options)
     (qe/compile-user-query->sql qe/facts-query query paging-options)))
 
@@ -69,16 +46,14 @@
   "Returns the distinct list of known fact names, ordered alphabetically
   ascending. This includes facts which are known only for deactivated and
   expired nodes."
-  ([]
-     (fact-names {}))
+  ([] (fact-names {}))
   ([paging-options]
-     {:post [(map? %)
-             (coll? (:result %))
-             (every? string? (:result %))]}
-     (paging/validate-order-by! [:name] paging-options)
-     (let [facts (query/execute-query
-                  ["SELECT DISTINCT name
-                   FROM fact_paths
-                   ORDER BY name"]
-                  paging-options)]
-       (update-in facts [:result] #(map :name %)))))
+   {:post [(map? %)
+           (coll? (:result %))
+           (every? string? (:result %))]}
+   (paging/validate-order-by! [:name] paging-options)
+   (-> "SELECT DISTINCT name FROM fact_paths"
+       (str (when-not (:order_by paging-options) " ORDER BY name"))
+       vector
+       (query/execute-query paging-options)
+       (update-in [:result] (partial map :name)))))
