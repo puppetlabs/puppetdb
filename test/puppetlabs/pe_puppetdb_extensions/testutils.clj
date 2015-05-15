@@ -29,9 +29,9 @@
     [puppetdb-sync-service pe-puppetdb-service stub-server-service]
     (fn [] ~@body)))
 
-(def pdb-url-prefix "/pdb")
-(def pe-pdb-url-prefix "/pdb-ext")
-(def sync-url-prefix "/pdb-sync")
+(def pdb-url-prefix "/pdb/query")
+(def pe-pdb-url-prefix "/pdb/ext")
+(def sync-url-prefix "/pdb/sync")
 (def stub-url-prefix "/stub")
 
 (defn sync-config
@@ -43,8 +43,7 @@
   ([stub-handler]
    (-> (svcs/create-config)
        (assoc :stub-server-service {:handler stub-handler}
-              :web-router-service  {:puppetlabs.puppetdb.cli.services/puppetdb-service pdb-url-prefix
-                                    :puppetlabs.pe-puppetdb-extensions.server/pe-puppetdb-service pe-pdb-url-prefix
+              :web-router-service  {:puppetlabs.pe-puppetdb-extensions.server/pe-puppetdb-service pe-pdb-url-prefix
                                     :puppetlabs.pe-puppetdb-extensions.sync.services/puppetdb-sync-service sync-url-prefix
                                     :puppetlabs.pe-puppetdb-extensions.testutils/stub-server-service stub-url-prefix}))))
 
