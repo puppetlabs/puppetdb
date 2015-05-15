@@ -1015,6 +1015,14 @@
   (let [query-context (:query-context (meta node))]
     (cm/match [node]
 
+              [["=" field value]]
+              (let [col-type (get-in query-context [:projections field :type])]
+                (when (and (= :number col-type) (string? value))
+                  (throw
+                    (IllegalArgumentException.
+                      (format "Argument \"%s\" is incompatible with numeric field \"%s\"."
+                              value (name field))))))
+
               [[(:or ">" ">=" "<" "<=") field _]]
               (let [col-type (get-in query-context [:projections field :type])]
                 (when-not (or (vec? field)
@@ -1120,9 +1128,7 @@
                :number
                (map->BinaryExpression {:operator :=
                                        :column field
-                                       :value (if (string? value)
-                                                (ks/parse-number (str value))
-                                                value)})
+                                       :value value})
 
                :path
                (map->BinaryExpression {:operator :=
@@ -1140,21 +1146,16 @@
 
             [[(op :guard #{">" "<" ">=" "<="}) column value]]
             (let [{:keys [type field]} (get-in query-rec [:projections column])]
-              (if value
-                (case type
-                  :multi
-                  (map->BinaryExpression {:operator (keyword op)
-                                          :column (columns->fields ["value_integer" "value_float"])
-                                          :value (if (number? value) [value value]
-                                                     (map ks/parse-number [value value]))})
-
-                  (map->BinaryExpression {:operator (keyword op)
-                                          :column field
-                                          :value  (if (= :timestamp type)
-                                                    (to-timestamp value)
-                                                    (ks/parse-number (str value)))}))
-                (throw (IllegalArgumentException.
-                        (format "Value %s must be a number for %s comparison." value op)))))
+              (if (or (= :timestamp type) (and (= :number type) (number? value)))
+                (map->BinaryExpression {:operator (keyword op)
+                                        :column field
+                                        :value  (if (= :timestamp type)
+                                                  (to-timestamp value)
+                                                  value)})
+                (throw
+                  (IllegalArgumentException.
+                    (format "Argument \"%s\" and operator \"%s\" have incompatible types."
+                            value op)))))
 
 
             [["null?" column value]]

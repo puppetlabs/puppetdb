@@ -213,9 +213,12 @@
                                                                             ["=" "type" "Class"]]]]
                 "Can't match on unknown 'facts' fields: 'nothing', 'nothing2' for 'in'. Acceptable fields are: [\"certname\",\"environment\",\"name\",\"value\"]")))
 
-(def versioned-invalid-projections
+(def versioned-invalid-queries
   (omap/ordered-map
    "/v4/facts" (omap/ordered-map
+                 ;; comparison applied to a string should throw an error
+                 ["<" "value" "100"]
+                 #"Argument \"100\" and operator \"<\" have incompatible types."
                 ;; Top level extract using invalid fields should throw an error
                 ["extract" "nothing" ["~" "certname" ".*"]]
                 #"Can't extract unknown 'facts' field 'nothing'.*Acceptable fields are.*"
@@ -226,7 +229,7 @@
 (deftestseq invalid-projections
   [[version endpoint] facts-endpoints]
 
-  (doseq [[query msg] (get versioned-invalid-projections endpoint)]
+  (doseq [[query msg] (get versioned-invalid-queries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
       (let [{:keys [status body] :as result} (get-response endpoint query)]
         (is (re-find msg body))
