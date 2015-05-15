@@ -18,22 +18,10 @@
 
 (pls/defn-validated rtj->event :- reports/resource-event-query-schema
   "Convert row_to_json format to real data."
-  [event :- {s/Str s/Any}]
+  [event :- {s/Keyword s/Any}]
   (-> event
-      (set/rename-keys {"f1" :status
-                        "f2" :timestamp
-                        "f3" :resource_type
-                        "f4" :resource_title
-                        "f5" :property
-                        "f6" :new_value
-                        "f7" :old_value
-                        "f8" :message
-                        "f9" :file
-                        "f10" :line
-                        "f11" :containment_path
-                        "f12" :containing_class})
-      (update-in [:old_value] json/parse-string)
-      (update-in [:new_value] json/parse-string)))
+      (update :old_value json/parse-string)
+      (update :new_value json/parse-string)))
 
 (pls/defn-validated row->report
   "Convert a report query row into a final report format."

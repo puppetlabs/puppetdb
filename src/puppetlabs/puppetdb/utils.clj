@@ -256,5 +256,4 @@
       ;; if it's a string it's just an identifier
       {:href (to-href data)}
       (-> (sutils/parse-db-json data)
-          (set/rename-keys {"f1" :data "f2" :href})
           (update :href to-href)))))

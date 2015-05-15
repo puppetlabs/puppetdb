@@ -295,7 +295,7 @@ must be supplied as the value to be matched."
   (if-let [json (if (postgres?)
                   (when db-json (.getValue db-json))
                   db-json)]
-    (json/parse-string json)))
+    (json/parse-string json true)))
 
 (pls/defn-validated str->pgobject :- PGobject
   [type :- s/Str
