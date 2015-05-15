@@ -15,45 +15,19 @@
 
 ;; MUNGE
 
-(pls/defn-validated rtj->resource :- catalogs/resource-query-schema
-  "Convert the row_to_json PG output to real data, and parse parameters
-  from its JSON storage."
-  [resource :- {s/Str s/Any}]
-  (-> resource
-      (set/rename-keys {"f1" :resource
-                        "f2" :type
-                        "f3" :title
-                        "f4" :tags
-                        "f5" :exported
-                        "f6" :file
-                        "f7" :line
-                        "f8" :parameters})))
-
-(pls/defn-validated rtj->edge :- catalogs/edge-query-schema
-  "Convert the row_to_json PG output to real data."
-  [edge :- {s/Str s/Any}]
-  (-> edge
-      (set/rename-keys {"f1" :source_type
-                        "f2" :source_title
-                        "f3" :target_type
-                        "f4" :target_title
-                        "f5" :relationship})))
-
 (pls/defn-validated row->catalog
   "Return a function that will convert a catalog query row into a final catalog format."
   [base-url :- s/Str]
   (fn [row]
     (-> row
         (utils/update-when [:edges] utils/child->expansion :catalogs :edges base-url)
-        (utils/update-when [:edges :data] (partial map rtj->edge))
-        (utils/update-when [:resources] utils/child->expansion :catalogs :resources base-url)
-        (utils/update-when [:resources :data] (partial map rtj->resource)))))
+        (utils/update-when [:resources] utils/child->expansion :catalogs :resources base-url))))
 
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
   [version :- s/Keyword
    url-prefix :- s/Str]
-  (let [base-url (str url-prefix "/" (name version))]
+  (let [base-url (utils/as-path url-prefix (name version))]
     (fn [rows]
       (map (row->catalog base-url) rows))))
 

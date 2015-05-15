@@ -15,29 +15,20 @@
 
 ;; MUNGE
 
-(pls/defn-validated rtj->fact :- factsets/fact-query-schema
-  "Converts from the PG row_to_json format back to something real."
-  [facts :- {s/Str s/Any}]
-  (-> facts
-      (set/rename-keys {"f1" :name
-                        "f2" :value})
-      (update-in [:value] json/parse-string)))
-
 (pls/defn-validated row->factset
   "Convert factset query row into a final factset format."
   [base-url :- s/Str]
   (fn [row]
     (-> row
         (utils/update-when [:facts] utils/child->expansion :factsets :facts base-url)
-        (utils/update-when [:facts :data] (partial map rtj->fact)))))
+        (utils/update-when [:facts :data] (partial map #(update % :value json/parse-string))))))
 
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
   [version :- s/Keyword
    url-prefix :- s/Str]
-  (let [base-url (str url-prefix "/" (name version))]
-    (fn [rows]
-      (map (row->factset base-url) rows))))
+  (let [base-url (utils/as-path url-prefix (name version))]
+    (partial map (row->factset base-url))))
 
 ;; QUERY
 

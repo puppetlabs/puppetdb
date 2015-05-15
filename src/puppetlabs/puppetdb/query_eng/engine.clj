@@ -34,6 +34,8 @@
 (defrecord OrExpression [clauses])
 (defrecord NotExpression [clause])
 
+(def json-agg-row (comp h/json-agg h/row-to-json))
+
 (defn hsql-hash-as-str
   [column-keyword]
   (->> column-keyword
@@ -329,18 +331,16 @@
       "end_time"        {:type :timestamp
                          :queryable? true
                          :field :reports.end_time}
-      "metrics"        {:type :json
-                        :queryable? false
-                        :field {:select [(h/row-to-json
-                                           (h/row :metrics
-                                                  (hsql-hash-as-str :hash)))]}
-                        :expandable? true}
-      "logs"            {:type :json
-                         :queryable? false
-                         :field {:select [(h/row-to-json
-                                              (h/row :logs
-                                                     (hsql-hash-as-str :hash)))]}
-                         :expandable? true}
+      "metrics" {:type :json
+                 :queryable? false
+                 :field {:select [(h/row-to-json :t)]
+                         :from [[{:select [[:metrics :data] [(hsql-hash-as-str :hash) :href]]} :t]]}
+                 :expandable? true}
+      "logs" {:type :json
+              :queryable? false
+              :field {:select [(h/row-to-json :t)]
+                      :from [[{:select [[:logs :data] [(hsql-hash-as-str :hash) :href]]} :t]]}
+              :expandable? true}
       "receive_time"    {:type :timestamp
                          :queryable? true
                          :field :reports.receive_time}
@@ -362,27 +362,15 @@
       "resource_events" {:type :json
                          :queryable? false
                          :expandable? true
-                         :field {:select [(h/row-to-json (h/row :data (hsql-hash-as-str :hash)))]
-                                 :from [[{:select
-                                          [[(h/json-agg
-                                              (h/row-to-json
-                                                (h/row
-                                                  :re.status
-                                                  (h/convert-to-iso8601-utc
-                                                    :re.timestamp)
-                                                  :re.resource_type
-                                                  :re.resource_title
-                                                  :re.property
-                                                  :re.new_value
-                                                  :re.old_value
-                                                  :re.message
-                                                  :re.file
-                                                  :re.line
-                                                  :re.containment_path
-                                                  :re.containing_class)))
-                                            :data]]
-                                          :from [[:resource_events :re]]
-                                          :where [:= :reports.id :re.report_id]}
+                         :field {:select [(h/row-to-json :event_data)]
+                                 :from [[{:select [[(json-agg-row :t) :data]
+                                                   [(hsql-hash-as-str :hash) :href]]
+                                          :from [[{:select [:re.status [(h/convert-to-iso8601-utc :re.timestamp) :timestamp]
+                                                            :re.resource_type :re.resource_title :re.property
+                                                            :re.new_value :re.old_value :re.message
+                                                            :re.file :re.line :re.containment_path :re.containing_class]
+                                                   :from [[:resource_events :re]]
+                                                   :where [:= :reports.id :re.report_id]} :t]]}
                                          :event_data]]}}}
      :selection {:from [:reports]
                  :left-join [:environments
@@ -422,50 +410,39 @@
       "resources" {:type :json
                    :queryable? false
                    :expandable? true
-                   :field {:select [(h/row-to-json
-                                      (h/row :data :certname))]
-                           :from [[{:select
-                                    [[(h/json-agg
-                                        (h/row-to-json
-                                          (h/row
-                                            (hsql-hash-as-str :cr.resource)
-                                            :cr.type
-                                            :cr.title
-                                            :cr.tags
-                                            :cr.exported
-                                            :cr.file
-                                            :cr.line
-                                            (keyword "rpc.parameters::json"))))
-                                      :data]]
-                                    :from [[:catalog_resources :cr]]
-                                    :join [[:resource_params_cache :rpc]
-                                           [:= :rpc.resource :cr.resource]]
-                                    :where [:= :cr.catalog_id :c.id]}
+                   :field {:select [(h/row-to-json :resource_data)]
+                           :from [[{:select [[(json-agg-row :t) :data]
+                                             [:c.certname :href]]
+                                    :from [[{:select [[(hsql-hash-as-str :cr.resource) :resource]
+                                                      :cr.type :cr.title :cr.tags :cr.exported :cr.file :cr.line
+                                                      [(keyword "rpc.parameters::json") :parameters]]
+                                             :from [[:catalog_resources :cr]]
+                                             :join [[:resource_params_cache :rpc]
+                                                    [:= :rpc.resource :cr.resource]]
+                                             :where [:= :cr.catalog_id :c.id]}
+                                            :t]]}
                                    :resource_data]]}}
       "edges" {:type :json
                :queryable? false
                :expandable? true
-               :field {:select [(h/row-to-json
-                                  (h/row :data :certname))]
-                       :from [[{:select [[(h/json-agg
-                                            (h/row-to-json
-                                              (h/row
-                                                :sources.type
-                                                :sources.title
-                                                :targets.type
-                                                :targets.title
-                                                :edges.type))) :data]]
-                                :from [:edges]
-                                :join [[:catalog_resources :sources]
-                                       [:and
-                                        [:= :edges.source :sources.resource]
-                                        [:= :sources.catalog_id :c.id]]
+               :field {:select [(h/row-to-json :edge_data)]
+                       :from [[{:select [[(json-agg-row :t) :data]
+                                         [:c.certname :href]]
+                                :from [[{:select [[:sources.type :source_type] [:sources.title :source_title]
+                                                  [:targets.type :target_type] [:targets.title :target_title]
+                                                  [:edges.type :relationship]]
+                                         :from [:edges]
+                                         :join [[:catalog_resources :sources]
+                                                [:and
+                                                 [:= :edges.source :sources.resource]
+                                                 [:= :sources.catalog_id :c.id]]
 
-                                       [:catalog_resources :targets]
-                                       [:and
-                                        [:= :edges.target :targets.resource]
-                                        [:= :targets.catalog_id :c.id]]]
-                                :where [:= :edges.certname :c.certname]}
+                                                [:catalog_resources :targets]
+                                                [:and
+                                                 [:= :edges.target :targets.resource]
+                                                 [:= :targets.catalog_id :c.id]]]
+                                         :where [:= :edges.certname :c.certname]}
+                                        :t]]}
                                :edge_data]]}}}
 
      :selection {:from [[:catalogs :c]]
@@ -677,21 +654,16 @@
       "facts" {:type :json
                :queryable? true
                :expandable? true
-               :field {:select [(h/row-to-json (h/row :data :certname))]
-                       :from [[{:select
-                                [[(h/json-agg
-                                    (h/row-to-json
-                                      (h/row
-                                        :fp.name
-                                        :fv.value)))
-                                  :data]]
-                       :from [[:facts :f]]
-                       :join [[:fact_values :fv] [:= :fv.id :f.fact_value_id]
-                              [:fact_paths :fp] [:= :fp.id :f.fact_path_id]
-                              [:value_types :vt] [:= :vt.id :fv.value_type_id]]
-                       :where [:and
-                               [:= :depth 0]
-                               [:= :f.factset_id :factsets.id]]}
+               :field {:select [(h/row-to-json :facts_data)]
+                       :from [[{:select [[(json-agg-row :t) :data]
+                                         [:factsets.certname :href]]
+                                :from [[{:select [:fp.name :fv.value]
+                                         :from [[:facts :f]]
+                                         :join [[:fact_values :fv] [:= :fv.id :f.fact_value_id]
+                                                [:fact_paths :fp] [:= :fp.id :f.fact_path_id]
+                                                [:value_types :vt] [:= :vt.id :fv.value_type_id]]
+                                         :where [:and [:= :depth 0] [:= :f.factset_id :factsets.id]]}
+                                        :t]]}
                                :facts_data]]}}
       "certname" {:type :string
                   :queryable? true
