@@ -1198,7 +1198,7 @@
         (let [catalog (:empty catalogs)
               certname (:certname catalog)]
           (add-certname! certname)
-          (replace-catalog! catalog (now))
+          (replace-catalog! (assoc catalog :producer_timestamp (now)) (now))
           (is (= (stale-nodes (-> 1 days ago)) [])))))))
 
 (deftest node-stale-catalogs-facts
@@ -1219,8 +1219,14 @@
     (let [catalog (:empty catalogs)]
       (add-certname! "node1")
       (add-certname! "node2")
-      (replace-catalog! (assoc catalog :certname "node1") (-> 2 days ago))
-      (replace-catalog! (assoc catalog :certname "node2") (now))
+      (replace-catalog! (assoc catalog
+                               :certname "node1"
+                               :producer_timestamp (-> 2 days ago))
+                        (now))
+      (replace-catalog! (assoc catalog
+                               :certname "node2"
+                               :producer_timestamp (now))
+                        (now))
 
       (is (= (set (stale-nodes (-> 1 days ago))) #{"node1"})))))
 

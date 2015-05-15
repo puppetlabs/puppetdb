@@ -178,12 +178,13 @@
   (let [catalog (upon-error-throw-fatality (cat/parse-catalog payload version))
         certname (:certname catalog)
         id (:id annotations)
-        timestamp (:received annotations)]
+        received-timestamp (:received annotations)
+        producer-timestamp (:producer_timestamp catalog)]
     (jdbc/with-transacted-connection' db :repeatable-read
-      (scf-storage/maybe-activate-node! certname timestamp)
+      (scf-storage/maybe-activate-node! certname producer-timestamp)
       ;; Only store a catalog if it's newer than the current catalog
-      (if-not (scf-storage/catalog-newer-than? certname timestamp)
-        (scf-storage/replace-catalog! catalog timestamp catalog-hash-debug-dir)))
+      (when-not (scf-storage/catalog-newer-than? certname producer-timestamp)
+        (scf-storage/replace-catalog! catalog received-timestamp catalog-hash-debug-dir)))
     (log/infof "[%s] [%s] %s" id (command-names :replace-catalog) certname)))
 
 (defn warn-deprecated
@@ -201,14 +202,15 @@
   [{:keys [payload annotations]} {:keys [db]}]
   (let [{:keys [certname values] :as fact-data} payload
         id        (:id annotations)
-        timestamp (:received annotations)
+        received-timestamp (:received annotations)
         fact-data (-> fact-data
                       (update-in [:values] utils/stringify-keys)
                       (update-in [:producer_timestamp] to-timestamp)
-                      (assoc :timestamp timestamp)
-                      upon-error-throw-fatality)]
+                      (assoc :timestamp received-timestamp)
+                      upon-error-throw-fatality)
+        producer-timestamp (:producer_timestamp fact-data)]
     (jdbc/with-transacted-connection' db :repeatable-read
-      (scf-storage/maybe-activate-node! certname timestamp)
+      (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-facts! fact-data))
     (log/infof "[%s] [%s] %s" id (command-names :replace-facts) certname)))
 
@@ -217,29 +219,32 @@
 (defmethod process-command! [(command-names :deactivate-node) 3]
   [{:keys [payload annotations]} {:keys [db]}]
   (let [certname (:certname payload)
-        producer_timestamp (to-timestamp (:producer_timestamp payload (now)))
+        producer-timestamp (to-timestamp (:producer_timestamp payload (now)))
         id  (:id annotations)
-        newer-record-exists? (fn [entity] (scf-storage/have-record-produced-after? entity certname producer_timestamp))]
+        newer-record-exists? (fn [entity] (scf-storage/have-record-produced-after? entity certname producer-timestamp))]
     (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (when (not-any? newer-record-exists? [:catalogs :factsets])
-        (scf-storage/deactivate-node! certname producer_timestamp)))
+        (scf-storage/deactivate-node! certname producer-timestamp)))
     (log/infof "[%s] [%s] %s" id (command-names :deactivate-node) certname)))
 
 ;; Report submission
 
 (defn store-report*
   [version db {:keys [payload annotations]}]
-  (let [id          (:id annotations)
+  (let [id (:id annotations)
+        received-timestamp (:received annotations)
 
-        {:keys [certname puppet_version] :as report} (->> payload
-                                                          (s/validate report/report-wireformat-schema)
-                                                          upon-error-throw-fatality)
-        timestamp   (:received annotations)]
+        {:keys [certname puppet_version] :as report}
+        (->> payload
+             (s/validate report/report-wireformat-schema)
+             upon-error-throw-fatality)]
     (jdbc/with-transacted-connection db
-      (scf-storage/maybe-activate-node! certname timestamp)
-      (scf-storage/add-report! report timestamp))
+      ;; This is using received-timestamp because the store-report command
+      ;; doesn't yet have a producer_timestamp field. It will be added soon.
+      (scf-storage/maybe-activate-node! certname received-timestamp)
+      (scf-storage/add-report! report received-timestamp))
     (log/infof "[%s] [%s] puppet v%s - %s"
                id (command-names :store-report)
                puppet_version certname)))

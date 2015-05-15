@@ -123,10 +123,13 @@
 (defn maybe-tweak-catalog
   "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`
   percent of the time."
-  [rand-percentage catalog]
+  [catalog rand-percentage]
   (if (< (rand 100) rand-percentage)
     ((rand-catalog-mutate-fn) catalog)
     catalog))
+
+(defn update-catalog [catalog]
+  (assoc catalog "producer_timestamp" (time/now)))
 
 (defn update-report-run-fields
   "configuration_version, start_time and end_time should always change
@@ -169,7 +172,7 @@
 (defn update-factset
   "Updates the producer_timestamp to be current, and randomly updates the leaves
    of the factset based on a percentage provided in `rand-percentage`."
-  [rand-percentage factset]
+  [factset rand-percentage ]
   (-> factset
       (assoc "producer_timestamp" (time/now))
       (update-in ["values"] (partial randomize-map-leaves rand-percentage))))
@@ -190,9 +193,9 @@
   [{:keys [host lastrun catalog report factset puppetdb-host puppetdb-port run-interval rand-percentage] :as state} clock]
   (if (> (- clock lastrun) run-interval)
     (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port}
-          catalog (when catalog (maybe-tweak-catalog rand-percentage catalog))
-          report (and report (update-report-run-fields report))
-          factset (and factset (update-factset rand-percentage factset))]
+          catalog (some-> catalog update-catalog (maybe-tweak-catalog rand-percentage))
+          report (some-> report update-report-run-fields)
+          factset (some-> factset (update-factset rand-percentage ))]
       ;; Submit the catalog and reports in separate threads, so as to not
       ;; disturb the world-loop and otherwise distort the space-time continuum.
       (when catalog
@@ -228,9 +231,9 @@
    based on the clock)"
   [{:keys [host lastrun catalog report factset puppetdb-host puppetdb-port run-interval rand-percentage] :as state}]
   (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port}
-        catalog (and catalog (maybe-tweak-catalog rand-percentage catalog))
-        report (and report (update-report-run-fields report))
-        factset (and factset (update-factset rand-percentage factset))]
+        catalog (some-> catalog (maybe-tweak-catalog rand-percentage))
+        report (some-> report update-report-run-fields)
+        factset (some-> factset (update-factset factset rand-percentage))]
     (when catalog
       (client/submit-catalog base-url 6 (json/generate-string catalog)))
     (when report
