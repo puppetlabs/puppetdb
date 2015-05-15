@@ -202,7 +202,8 @@
       (throw (IllegalArgumentException.
                (format "Unrecognized column '%s' specified in :order_by; Supported columns are '%s'"
                        (name field)
-                       (string/join "', '" (map name columns))))))))
+                       (string/join "', '" (map name columns)))))))
+  paging-options)
 
 (defn requires-paging?
   "Given a paging-options map, return true if the query requires paging
@@ -213,3 +214,19 @@
     (every? nil? [limit offset])
     ((some-fn nil? (every-pred coll? empty?)) order_by)
     (not count?))))
+
+(defn rename-first
+  "rename the first element of a vector according to kmap"
+  [kmap pair]
+  (update-in pair [0] #(% kmap)))
+
+(defn strip-sqlraw
+  [k]
+  (if (= (type k) honeysql.types.SqlRaw) (keyword (.s k)) k))
+
+(defn dealias-order-by
+  [{:keys [projections] :as query-rec} paging-options]
+  (let [alias-map (zipmap (map keyword (keys projections))
+                          (map strip-sqlraw (map :field (vals projections))))]
+    (update-in paging-options [:order_by]
+               #(map (partial rename-first alias-map) %))))

@@ -1381,22 +1381,24 @@
 
 (defn compile-user-query->sql
   "Given a user provided query and a Query instance, convert the
-  user provided query to SQL and extract the parameters, to be used
-  in a prepared statement"
+   user provided query to SQL and extract the parameters, to be used
+   in a prepared statement"
   [query-rec user-query & [{:keys [count?] :as paging-options}]]
   ;; Call the query-rec so we can evaluate query-rec functions
   ;; which depend on the db connection type
-  (let [query-rec (query-rec)]
-    (when paging-options
-      (paging/validate-order-by! (map keyword (queryable-fields query-rec)) paging-options))
-    (let [{:keys [plan params]} (->> user-query
-                                     (push-down-context query-rec)
-                                     expand-user-query
-                                     (convert-to-plan query-rec paging-options)
-                                     extract-all-params)
-          sql (plan->sql plan)
-          paged-sql (jdbc/paged-sql sql paging-options)
-          result-query {:results-query (apply vector paged-sql params)}]
-      (if count?
-        (assoc result-query :count-query (apply vector (jdbc/count-sql sql) params))
-        result-query))))
+  (let [query-rec (query-rec)
+        allowed-fields (map keyword (queryable-fields query-rec))
+        paging-options (some->> paging-options
+                                (paging/validate-order-by! allowed-fields)
+                                (paging/dealias-order-by query-rec))
+        {:keys [plan params]} (->> user-query
+                                   (push-down-context query-rec)
+                                   expand-user-query
+                                   (convert-to-plan query-rec paging-options)
+                                   extract-all-params)
+        sql (plan->sql plan)
+        paged-sql (jdbc/paged-sql sql paging-options)
+        result-query {:results-query (apply vector paged-sql params)}]
+    (if count?
+      (assoc result-query :count-query (apply vector (jdbc/count-sql sql) params))
+      result-query)))
