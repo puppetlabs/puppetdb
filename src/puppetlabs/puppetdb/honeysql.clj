@@ -5,7 +5,7 @@
             [honeysql.format :as hfmt]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s])
-  (:import (honeysql.types SqlCall SqlRaw)))
+  (:import [honeysql.types SqlCall SqlRaw]))
 
 ;; SCHEMA
 
@@ -51,6 +51,18 @@
   "unnest(expr) sql function"
   [expr :- key-or-sql]
   (hcore/call :unnest expr))
+
+;; Misc honeysql functions
+
+(defn raw? [x]
+  (instance? honeysql.types.SqlRaw x))
+
+(defn extract-sql
+  "Returns a keyworidzed version of the SQL string if `k` is a SqlRaw, otherwise returns `s`"
+  [s]
+  (if-let [^SqlRaw raw-sql (and (raw? s) s)]
+    (keyword (.s raw-sql))
+    s))
 
 ;; COMPOSITE FUNCTION HELPERS
 
