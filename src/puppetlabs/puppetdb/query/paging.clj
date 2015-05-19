@@ -7,7 +7,8 @@
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.string :as string]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.kitchensink.core :refer [keyset seq-contains? parse-int order-by-expr?]]))
+            [puppetlabs.kitchensink.core :refer [keyset seq-contains? parse-int order-by-expr?]]
+            [puppetlabs.puppetdb.honeysql :as h]))
 
 (def query-params ["limit" "offset" "order_by" "include_total"])
 (def count-header "X-Records")
@@ -220,13 +221,12 @@
   [kmap pair]
   (update-in pair [0] #(% kmap)))
 
-(defn strip-sqlraw
-  [k]
-  (if (= (type k) honeysql.types.SqlRaw) (keyword (.s k)) k))
-
 (defn dealias-order-by
   [{:keys [projections] :as query-rec} paging-options]
-  (let [alias-map (zipmap (map keyword (keys projections))
-                          (map strip-sqlraw (map :field (vals projections))))]
+  (let [alias-map (reduce-kv (fn [acc k v]
+                               (assoc acc
+                                 (keyword k)
+                                 (-> v :field h/extract-sql)))
+                             {} projections)]
     (update-in paging-options [:order_by]
                #(map (partial rename-first alias-map) %))))
