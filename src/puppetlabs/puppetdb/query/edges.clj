@@ -55,7 +55,7 @@
 (defn query-edges
   "Search for edges satisfying the given SQL filter."
   [version query-sql url-prefix]
-  {:pre [[(map? query-sql)]]}
+  {:pre [(map? query-sql)]}
   (let [{[sql & params] :results-query
          count-query    :count-query} query-sql
          result {:result (query/streamed-query-result

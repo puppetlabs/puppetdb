@@ -16,29 +16,29 @@
 ;; COMMMON DIRECT SQL FUNCTIONS
 
 (pls/defn-validated coalesce :- SqlCall
-  [& args :- [(s/one key-or-sql "Keyword") key-or-sql]]
   "coalesce(arg, ...) sql function"
+  [& args :- [(s/one key-or-sql "Keyword") key-or-sql]]
   (apply hcore/call :coalesce args))
 
 (pls/defn-validated scast :- SqlCall
+  "cast(source AS target) sql function"
   [source :- s/Keyword
    target :- s/Keyword]
-  "cast(source AS target) sql function"
   (hcore/call :cast source target))
 
 (pls/defn-validated json-agg :- SqlCall
-  [expr :- key-or-sql]
   "json_agg(expr) sql function"
+  [expr :- key-or-sql]
   (hcore/call :json_agg expr))
 
 (pls/defn-validated row-to-json :- SqlCall
-  [record :- key-or-sql]
   "row_to_json(record) sql function"
+  [record :- key-or-sql]
   (hcore/call :row_to_json record))
 
 (pls/defn-validated row :- SqlCall
-  [& expr :- [(s/one key-or-sql "Keyword") key-or-sql]]
   "row(expr, ...) sql function"
+  [& expr :- [(s/one key-or-sql "Keyword") key-or-sql]]
   (apply hcore/call :row expr))
 
 (pls/defn-validated regexp-substring :- SqlCall

@@ -48,7 +48,7 @@
 
 ;; Size of the cache is based on the number of unique resources in a
 ;; "medium" site persona
-(def resource-identity-hash* (kitchensink/bounded-memoize resource-identity-hash* 40000))
+(def memoized-resource-identity-hash* (kitchensink/bounded-memoize resource-identity-hash* 40000))
 
 (defn resource-identity-hash
   "Compute a hash for a given resource that will uniquely identify it
@@ -60,7 +60,7 @@
   [{:keys [type title parameters] :as resource}]
   {:pre  [(map? resource)]
    :post [(string? %)]}
-  (resource-identity-hash* type title parameters))
+  (memoized-resource-identity-hash* type title parameters))
 
 (defn catalog-resource-identity-format
   "Narrow `resource` to only contain the needed key/values for computing the hash of
