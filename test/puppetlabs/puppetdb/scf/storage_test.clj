@@ -707,7 +707,8 @@
     (let [timestamp     (now)
           report        (-> (:basic reports)
                             (assoc :environment "ENV2")
-                            (assoc :end_time (to-string (-> 5 days ago))))
+                            (assoc :end_time (to-string (-> 5 days ago)))
+                            (assoc :producer_timestamp (to-string (-> 4 days ago))))
           report-hash   (shash/report-identity-hash report)
           certname      (:certname report)]
       (store-example-report! report timestamp)
@@ -1261,7 +1262,7 @@
 (deftest report-sweep-nullifies-latest-report
   (testing "ensure that if the latest report is swept, latest_report_id is updated to nil"
     (let [report1 (assoc (:basic reports) :end_time (-> 12 days ago))
-          report2 (assoc (:basic reports) :certname "bar.local" :end_time (now))]
+          report2 (assoc (:basic reports) :certname "bar.local" :end_time (now) :producer_timestamp (now))]
       (add-certname! "foo.local")
       (add-certname! "bar.local")
       (store-example-report! report1 (-> 12 days ago))
@@ -1354,9 +1355,13 @@
 
   (deftest report-cleanup
     (testing "should delete reports older than the specified age"
-      (let [report1       (assoc report :end_time (to-string (-> 5 days ago)))
+      (let [report1       (assoc report
+                                 :end_time (to-string (-> 5 days ago))
+                                 :producer_timestamp (to-string (-> 5 days ago)))
             report1-hash  (:hash (store-example-report! report1 timestamp))
-            report2       (assoc report :end_time (to-string (-> 2 days ago)))
+            report2       (assoc report
+                                 :end_time (to-string (-> 2 days ago))
+                                 :producer_timestamp (to-string (-> 2 days ago)))
             report2-hash  (:hash (store-example-report! report2 timestamp))
             certname      (:certname report1)
             _             (delete-reports-older-than! (-> 3 days ago))

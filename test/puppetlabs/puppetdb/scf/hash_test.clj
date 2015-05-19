@@ -140,6 +140,7 @@
                   :configuration_version "asdffdsa"
                   :start_time "2012-03-01-12:31:11.123"
                   :end_time   "2012-03-01-12:31:31.123"
+                  :producer_timestamp "2012-03-01-1:31:51.123"
                   :resource_events [
                                     {:type "Type"
                                      :title "title"
@@ -148,8 +149,8 @@
                                      :line 15}]}]
 
       (testing "should return sorted predictable string output"
-        (is (= (report-identity-hash sample)
-               "7fddeb9eb1f4469acb9ea6c5d1bea15f8654326b")))
+        (is (= "3016159f704726b486f8b42309773ec625e2f3b7"
+               (report-identity-hash sample))))
 
       (testing "should return the same value twice"
         (is (= (report-identity-hash sample)

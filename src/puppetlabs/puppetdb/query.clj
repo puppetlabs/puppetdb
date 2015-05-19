@@ -250,6 +250,7 @@
    "configuration_version" "reports"
    "start_time"            "reports"
    "end_time"              "reports"
+   "producer_timestamp"    "reports"
    "receive_time"          "reports"
    "transaction_uuid"      "reports"
    "environment"           "reports"

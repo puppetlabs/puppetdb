@@ -45,6 +45,7 @@ Puppet::Reports.register_report(:puppetdb) do
         "puppet_version"          => puppet_version,
         "report_format"           => report_format,
         "configuration_version"   => configuration_version.to_s,
+        "producer_timestamp"      => Puppet::Util::Puppetdb.to_wire_time(Time.now),
         "start_time"              => Puppet::Util::Puppetdb.to_wire_time(time),
         "end_time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
         "resource_events"         => resource_events,

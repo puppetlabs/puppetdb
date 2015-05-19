@@ -50,6 +50,7 @@
    :report_format
    :start_time
    :end_time
+   :producer_timestamp
    :noop
    :transaction_uuid
    :status

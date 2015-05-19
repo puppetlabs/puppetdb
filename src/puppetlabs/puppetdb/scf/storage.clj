@@ -1101,6 +1101,7 @@
   (-> report
       (update-in [:start_time] to-timestamp)
       (update-in [:end_time] to-timestamp)
+      (update-in [:producer_timestamp] to-timestamp)
       (update-in [:resource_events] #(map normalize-resource-event %))))
 
 (defn convert-containment-path
@@ -1122,7 +1123,7 @@
    update-latest-report? :- s/Bool]
   (time! (:store-report performance-metrics)
          (let [{:keys [puppet_version certname report_format configuration_version
-                       start_time end_time resource_events transaction_uuid environment
+                       producer_timestamp start_time end_time resource_events transaction_uuid environment
                        status noop metrics logs] :as report} (normalize-report orig-report)
                 report-hash (shash/report-identity-hash report)]
            (sql/transaction
@@ -1137,6 +1138,7 @@
                                     :certname               certname
                                     :report_format          report_format
                                     :configuration_version  configuration_version
+                                    :producer_timestamp     producer_timestamp
                                     :start_time             start_time
                                     :end_time               end_time
                                     :receive_time           (to-timestamp received-timestamp)
@@ -1149,15 +1151,17 @@
                  (update-latest-report! certname)))))))
 
 (defn delete-reports-older-than!
-  "Delete all reports in the database which have an `end-time` that is prior to
+  "Delete all reports in the database which have an `producer-timestamp` that is prior to
    the specified date/time."
   [time]
   {:pre [(kitchensink/datetime? time)]}
   (when (not (sutils/postgres?))
-    (sql/update-values :certnames ["latest_report_id in (select id from reports where end_time < ?)"
+    ;; there's an ON DELETE SET NULL foreign key constraint in postgres for
+    ;; this, but we can't do that in hsqldb
+    (sql/update-values :certnames ["latest_report_id in (select id from reports where producer_timestamp < ?)"
                                    (to-timestamp time)]
                        {:latest_report_id nil}))
-  (sql/delete-rows :reports ["end_time < ?" (to-timestamp time)]))
+  (sql/delete-rows :reports ["producer_timestamp < ?" (to-timestamp time)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database support/deprecation

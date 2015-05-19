@@ -58,9 +58,9 @@
   (let [request (get-request endpoint (json/generate-string query))
         {:keys [status body]} (*app* request)
         actual-result (parse-result body)]
-    (is (= (count actual-result) (count expected-results)))
-    (is (= (set actual-result) expected-results))
-    (is (= status http/status-ok))))
+    (is (= (count expected-results) (count actual-result)))
+    (is (= expected-results (set actual-result)))
+    (is (= http/status-ok status))))
 
 (defn munge-event-values
   "Munge the event values that we get back from the web to a format suitable
@@ -340,7 +340,7 @@
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
-       :report "a32722b44f0852d9a16d326414c16a6941b9678f"
+       :report "99ec099bed6dfb9bff2c7df7828270e95f590147"
        :resource_title "hi"
        :property nil
        :file "bar"
@@ -365,7 +365,7 @@
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
-       :report "a32722b44f0852d9a16d326414c16a6941b9678f"
+       :report "99ec099bed6dfb9bff2c7df7828270e95f590147"
        :resource_title "hi"
        :property nil
        :file "bar"
@@ -392,7 +392,7 @@
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
-       :report "a32722b44f0852d9a16d326414c16a6941b9678f"
+       :report "99ec099bed6dfb9bff2c7df7828270e95f590147"
        :resource_title "hi"
        :property nil
        :file "bar"

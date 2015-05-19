@@ -51,7 +51,7 @@
    ;; them to be coerced to dates and then back to strings, which normalizes
    ;; the timezone so that it will match the value returned form the db.
    to-string
-   [:start_time :end_time]
+   [:start_time :end_time :producer_timestamp]
    ;; the response won't include individual events, so we need to pluck those
    ;; out of the example report object before comparison
    (-> report

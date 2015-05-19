@@ -24,20 +24,29 @@ describe processor do
     let(:http) { mock "http" }
     let(:httpok) { Net::HTTPOK.new('1.1', 200, '') }
 
+    def without_producer_timestamp(json_body)
+      parsed = JSON.parse(json_body)
+      parsed["payload"].delete("producer_timestamp")
+      parsed.to_json
+    end
+
     it "should POST the report command as a URL-encoded JSON string" do
       httpok.stubs(:body).returns '{"uuid": "a UUID"}'
       subject.stubs(:run_duration).returns(10)
 
-      payload = {
+      expected_body = {
         :command => Puppet::Util::Puppetdb::CommandNames::CommandStoreReport,
         :version => 5,
-        :payload => subject.send(:report_to_hash),
+        :payload => subject.send(:report_to_hash)
       }.to_json
 
       Puppet::Network::HttpPool.expects(:http_instance).returns(http)
       http.expects(:post).with {|path, body, headers|
         expect(path).to include(Puppet::Util::Puppetdb::Command::CommandsUrl)
-        expect(body).to eq(payload)
+
+        # producer_timestamp is generated at submission time, so remove it from
+        # the comparison
+        expect(without_producer_timestamp(body)).to eq(without_producer_timestamp(expected_body))
       }.returns(httpok)
 
       subject.process
