@@ -137,7 +137,9 @@
                                        :create-varlib true}
                                 :config-dir "ext/config/pe"}
                   :version ~pdb-version
-                  :name "pe-puppetdb"}
+                  :name "pe-puppetdb"
+                  :plugins [[puppetlabs/lein-ezbake "0.3.5"
+                                 :exclusions [org.clojure/clojure]]]}
              :testutils {:source-paths ^:replace ["test"]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
 
