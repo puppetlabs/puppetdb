@@ -683,11 +683,10 @@
               include_total true
               offset 0}}  paging-options
               {:keys [headers body]} (paged-results* (assoc paging-options
-                                                       :app-fn *app*
-                                                       :query query
-                                                       :path endpoint
-                                                       :offset offset
-                                                       :limit limit
+                                                       :app-fn  *app*
+                                                       :path    endpoint
+                                                       :offset  offset
+                                                       :limit   limit
                                                        :include_total include_total))]
     {:results body
      :count (when-let [rec-count (get headers "X-Records")]
@@ -708,10 +707,8 @@
                                  (unkeywordize-values (get m x)))) (keys m)))))
 
 (defn- query-endpoint
-  ([endpoint paging-options]
-   (:results (raw-query-endpoint endpoint nil paging-options)))
-  ([endpoint query paging-options]
-   (:results (raw-query-endpoint endpoint query paging-options))))
+  [endpoint paging-options]
+  (:results (raw-query-endpoint endpoint nil paging-options)))
 
 (deftestseq paging-results
   [[version endpoint] facts-endpoints]
@@ -778,21 +775,6 @@
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
                                            version)))))
-
-      (testing "unextracted field with alias"
-        (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
-                                  ["DESC" [f5 f4 f3 f2 f1]]]]
-          (testing order
-            (let [actual (query-endpoint
-                           endpoint
-                           ["extract" "environment" ["~" "certname" ".*"]]
-                           {:params {:order_by
-                                     (json/generate-string
-                                       [{"field" "certname" "order" order}])}})]
-              (compare-structured-response
-                (map (comp :environment unkeywordize-values) actual)
-                (map :environment expected)
-                version)))))
 
       (testing "multiple fields"
         (doseq [[[name-order certname-order] expected] [[["DESC" "ASC"]  [f2 f4 f5 f1 f3]]
@@ -1130,21 +1112,6 @@
             (let [ordering {:order_by (json/generate-string [{"field" "hash" "order" order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil ordering))))]
               (is (= (munge-factsets-response actual) expected))))))
-
-      (testing "order on unextracted field with function alias"
-        (doseq
-          [[order expected] [["ASC" (sort-by #(get % "hash")
-                                             (factset-results version))]
-                             ["DESC" (reverse (sort-by #(get % "hash")
-                                                       (factset-results version)))]]]
-          (testing order
-            (let [ordering {:order_by
-                            (json/generate-string [{"field" "hash" "order" order}])}
-                  query ["extract" "certname" ["~" "certname" ".*"]]
-                  actual (json/parse-string
-                           (slurp (:body (get-response endpoint query ordering))))]
-              (is (= (map :certname (munge-factsets-response actual))
-                     (map :certname expected)))))))
 
       (testing "multiple fields"
         (doseq [[[env-order certname-order] expected-order] [[["DESC" "ASC"]  [2 0 1]]

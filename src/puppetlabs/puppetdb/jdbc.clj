@@ -118,6 +118,7 @@
   return the SQL string representing this term for use in an ORDER BY clause."
   [[field order]]
   {:pre [(keyword? field)
+         (re-find #"^[\w\-]+$" (name field))
          (contains? #{:ascending :descending} order)]
    :post [(string? %)]}
   (let [field (dashes->underscores (name field))]
@@ -161,7 +162,7 @@
   (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
         offset-clause    (if offset (format " OFFSET %s" offset) "")
         order-by-clause  (order-by->sql order_by)]
-    (format "SELECT paged_results.* FROM (%s %s%s%s) paged_results"
+    (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
             sql order-by-clause limit-clause offset-clause)))
 
 (pls/defn-validated count-sql :- String

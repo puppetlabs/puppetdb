@@ -70,13 +70,15 @@
   ascending. This includes facts which are known only for deactivated and
   expired nodes."
   ([]
-   (fact-names {}))
+     (fact-names {}))
   ([paging-options]
-   {:post [(map? %)
-           (coll? (:result %))
-           (every? string? (:result %))]}
-   (paging/validate-order-by! [:name] paging-options)
-   (let [order-by-clause (if (:order_by paging-options) "" "ORDER BY name")
-         query (format "SELECT DISTINCT name FROM fact_paths %s" order-by-clause)
-         facts (query/execute-query [query] paging-options)]
-     (update-in facts [:result] #(map :name %)))))
+     {:post [(map? %)
+             (coll? (:result %))
+             (every? string? (:result %))]}
+     (paging/validate-order-by! [:name] paging-options)
+     (let [facts (query/execute-query
+                  ["SELECT DISTINCT name
+                   FROM fact_paths
+                   ORDER BY name"]
+                  paging-options)]
+       (update-in facts [:result] #(map :name %)))))
