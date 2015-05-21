@@ -345,6 +345,15 @@ describe Puppet::Resource::Catalog::Puppetdb do
         result['edges'].should include(edge)
       end
 
+      it "should allow resources with newlines" do
+        Puppet[:code] = <<-MANIFEST
+        exec{"foo\nbar": }
+        exec{'/bin/true': subscribe => Exec["foo\nbar"]}
+        MANIFEST
+
+        expect { subject.munge_catalog(catalog) }.not_to raise_error
+      end
+
       describe "exported resources" do
         before :each do
           Puppet[:storeconfigs] = true
@@ -607,7 +616,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           subject.synthesize_edges(hash, catalog)
         }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { subscribe => Foobar::baz[name] }, because Foobar::baz[name] doesn't seem to be in the correct format. Resource references should be formatted as: Classname['title'] or Modulename::Classname['title'] (take careful note of the capitalization).")
       end
-    end
+    end #synthesize_edges
 
     describe "#munge_catalog" do
       it "should make an edge if the other end is referred to by its namevar" do
