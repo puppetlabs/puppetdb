@@ -212,18 +212,10 @@
     (is (thrown-with-msg? IllegalArgumentException #"product-name puppet is illegal"
                           (normalize-product-name "puppet")))))
 
-(deftest warn-url-prefix-deprecation-test
-  (testing "output to standard out"
-    (let [bad-config {:global {:url-prefix "/bwahaha"}}
-          out-str (with-out-str
-                    (binding [*err* *out*]
-                      (warn-url-prefix-deprecation bad-config)))]
-      (is (.contains out-str "[global] section is deprecated")))))
-
-(deftest warn-repl-retirements-test
+(deftest warn-retirements-test
   (testing "output to standard out"
     (let [bad-config {:repl {:port 123}}
           out-str (with-out-str
                     (binding [*err* *out*]
-                      (warn-repl-retirement bad-config)))]
+                      (warn-retirements bad-config)))]
       (is (.contains out-str "[repl] is now retired")))))

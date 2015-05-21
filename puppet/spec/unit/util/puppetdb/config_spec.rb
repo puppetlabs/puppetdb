@@ -29,9 +29,8 @@ describe Puppet::Util::Puppetdb::Config do
     describe "with no config file" do
       it "should use the default settings" do
         config = described_class.load
-        config.server_urls.should == [URI("https://puppetdb:8081")]
+        config.server_urls.should == [URI("https://puppetdb:8081/pdb/query")]
         config.ignore_blacklisted_events?.should == true
-        config.url_prefix.should == ""
       end
 
     end
@@ -62,33 +61,20 @@ server = main-server
 port = 1234
 ignore_blacklisted_events = false
 soft_write_failure = true
-url_prefix = /puppetdb
 CONF
         config = described_class.load
-        config.server_urls.should == [URI("https://main-server:1234/puppetdb")]
+        config.server_urls.should == [URI("https://main-server:1234/pdb/query")]
         config.ignore_blacklisted_events?.should == false
         config.soft_write_failure.should be_true
-        config.url_prefix.should == "/puppetdb"
       end
 
       it "should use the default if no value is specified" do
         write_config ''
 
         config = described_class.load
-        config.server_urls.should == [URI("https://puppetdb:8081")]
+        config.server_urls.should == [URI("https://puppetdb:8081/pdb/query")]
         config.ignore_blacklisted_events?.should == true
         config.soft_write_failure.should be_false
-        config.url_prefix.should == ""
-      end
-
-      it "should add a leading slash to url_prefix if needed" do
-        write_config <<CONF
-[main]
-url_prefix = puppetdb
-CONF
-
-        config = described_class.load
-        config.url_prefix.should == "/puppetdb"
       end
 
       it "should be insensitive to whitespace" do
@@ -98,7 +84,7 @@ CONF
     port    =  1234
 CONF
         config = described_class.load
-        config.server_urls.should == [URI("https://main-server:1234")]
+        config.server_urls.should == [URI("https://main-server:1234/pdb/query")]
       end
 
       it "should accept valid hostnames" do
@@ -109,7 +95,7 @@ port = 8081
 CONF
 
         config = described_class.load
-        config.server_urls.should == [URI("https://foo.example-thing.com:8081")]
+        config.server_urls.should == [URI("https://foo.example-thing.com:8081/pdb/query")]
       end
 
       it "should raise if a setting is outside of a section" do
@@ -131,13 +117,11 @@ CONF
       it "should accept a single url" do
         write_config <<CONF
 [main]
-server = foo.example-thing.com
-port = 8081
-server_urls = https://foo.something-different.com:8080/bar
+server_urls = https://foo.something-different.com:8080
 CONF
 
         config = described_class.load
-        config.server_urls.should == [URI("https://foo.something-different.com:8080/bar")]
+        config.server_urls.should == [URI("https://foo.something-different.com:8080/pdb/query")]
       end
 
       it "should accept multiple urls" do
@@ -145,18 +129,16 @@ CONF
 [main]
 server = foo.example-thing.com
 port = 8081
-server_urls = https://foo.something-different.com,https://bar.example-thing.com:8989/baz
+server_urls = https://foo.something-different.com,https://bar.example-thing.com:8989
 CONF
 
         config = described_class.load
-        config.server_urls.should == [URI("https://foo.something-different.com"), URI("https://bar.example-thing.com:8989/baz")]
+        config.server_urls.should == [URI("https://foo.something-different.com/pdb/query"), URI("https://bar.example-thing.com:8989/pdb/query")]
       end
 
       it "should fail if given an http URL" do
         write_config <<CONF
 [main]
-server = foo.example-thing.com
-port = 8081
 server_urls = http://foo.something-different.com
 CONF
 
@@ -164,12 +146,22 @@ CONF
           config = described_class.load
         end.to raise_error(/PuppetDB 'server_urls' must be https, found 'http:\/\/foo.something-different.com'/)
       end
+      
+      it "should fail if given a URL path" do
+        uri_string = ""
+        write_config <<CONF
+[main]
+server_urls = https://foo.something-different.com/bar
+CONF
+
+        expect do
+          config = described_class.load
+        end.to raise_error(/PuppetDB 'server_urls' cannot contain URL paths, found 'https:\/\/foo.something-different.com\/bar'/)
+      end
 
       it "should fail if given a server/port combo" do
         write_config <<CONF
 [main]
-server = foo.example-thing.com
-port = 8081
 server_urls = foo.com:8080
 CONF
 
@@ -181,8 +173,6 @@ CONF
       it "should fail if given a server only" do
         write_config <<CONF
 [main]
-server = foo.example-thing.com
-port = 8081
 server_urls = foo.com
 CONF
 
@@ -195,8 +185,6 @@ CONF
       it "should fail if given an invalid hostname" do
         write_config <<CONF
 [main]
-server = foo.example-thing.com
-port = 8081
 server_urls = https://invalid_host_name.com
 CONF
 
@@ -208,9 +196,7 @@ CONF
       it "should fail if given an unparsable second URI" do
         write_config <<CONF
 [main]
-server = foo.example-thing.com
-port = 8081
-server_urls = https://foo.com/bar,https://invalid_host_name.com
+server_urls = https://foo.com,https://invalid_host_name.com
 CONF
 
         expect do
@@ -221,9 +207,7 @@ CONF
       it "should fail if given an unparsable second URI" do
         write_config <<CONF
 [main]
-server = foo.example-thing.com
-port = 8081
-server_urls = https://foo.com/bar,https://invalid_host_name.com
+server_urls = https://foo.com,https://invalid_host_name.com
 CONF
 
         expect do
@@ -234,15 +218,13 @@ CONF
       it "should tolerate spaces between URLs" do
         write_config <<CONF
 [main]
-server = foo.example-thing.com
-port = 8081
-server_urls = https://foo.something-different.com   ,      https://bar.example-thing.com:8989/baz,    https://baz.example-thing.com:8989/foo
+server_urls = https://foo.something-different.com   ,      https://bar.example-thing.com:8989,    https://baz.example-thing.com:8989
 CONF
 
         config = described_class.load
-        config.server_urls.should == [URI("https://foo.something-different.com"),
-                                      URI("https://bar.example-thing.com:8989/baz"),
-                                      URI("https://baz.example-thing.com:8989/foo")]
+        config.server_urls.should == [URI("https://foo.something-different.com/pdb/query"),
+                                      URI("https://bar.example-thing.com:8989/pdb/query"),
+                                      URI("https://baz.example-thing.com:8989/pdb/query")]
       end
     end
   end

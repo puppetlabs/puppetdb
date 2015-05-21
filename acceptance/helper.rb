@@ -258,10 +258,10 @@ module PuppetDBExtensions
     # Hit an actual endpoint to ensure PuppetDB is up and not just the webserver.
     # Retry until an HTTP response code of 200 is received.
     curl_with_retries("start puppetdb", host,
-                      "-s -w '%{http_code}' http://localhost:8080/v4/version -o /dev/null",
+                      "-s -w '%{http_code}' http://localhost:8080/pdb/query/v4/version -o /dev/null",
                       0, 120, 1, /200/)
     curl_with_retries("start puppetdb (ssl)", host,
-                      "https://#{host.node_name}:8081/", [35, 60])
+                      "https://#{host.node_name}:8081/pdb", [35, 60])
   rescue RuntimeError => e
     display_last_logs(host)
     raise
@@ -342,6 +342,7 @@ module PuppetDBExtensions
     # We pass 'restart_puppet' => false to prevent the module from trying to
     # manage the puppet master service, which isn't actually installed on the
     # acceptance nodes (they run puppet master from the CLI).
+    server_urls = databases.map {|db| "https://#{db.node_name}:8081"}.join(',')
     manifest = <<-EOS
     class { 'puppetdb::master::config':
       puppetdb_version         => '#{get_package_version(host, version)}',
@@ -351,13 +352,14 @@ module PuppetDBExtensions
       strict_validation        => false,
       restart_puppet           => false,
       terminus_package         => '#{terminus_package}',
+      test_url => '/pdb/query/v4/version',
     }
     ini_setting {'server_urls':
       ensure => present,
       section => 'main',
       path => "${puppetdb::params::puppet_confdir}/puppetdb.conf",
       setting => 'server_urls',
-      value => "#{databases.map {|db| "https://#{db.node_name}:8081"}.join(',')}",
+      value => '#{server_urls}',
     }
     EOS
     apply_manifest_on(host, manifest)
@@ -453,6 +455,7 @@ module PuppetDBExtensions
   def install_puppetdb_termini_via_rake(host, database)
     install_termini_from_ezbake host
 
+    server_urls = databases.map {|db| "https://#{db.node_name}:8081"}.join(',')
     manifest = <<-EOS
       include puppetdb::master::routes
       include puppetdb::master::storeconfigs
@@ -464,7 +467,7 @@ module PuppetDBExtensions
         section => 'main',
         path => "${puppetdb::params::puppet_confdir}/puppetdb.conf",
         setting => 'server_urls',
-        value => "#{databases.map {|db| "https://#{db.node_name}:8081"}.join(',')}",
+        value => '#{server_urls}',
       }
     EOS
     apply_manifest_on(host, manifest)

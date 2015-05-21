@@ -259,22 +259,20 @@
   (let [specs    [["-o" "--outfile OUTFILE" "Path to backup file (required)"]
                   ["-H" "--host HOST" "Hostname of PuppetDB server" :default "localhost"]
                   ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)"
-                   :parse-fn #(Integer. %) :default 8080]
-                  ["" "--url-prefix PREFIX" "Server prefix (HTTP protocol only)"
-                   :default ""]]
+                   :parse-fn #(Integer. %) :default 8080]]
         required [:outfile]]
     (try+
      (kitchensink/cli! args specs required)
      (catch map? m
        (println (:message m))
        (case (:type m)
-         :puppetlabs.kitchensink.core/cli-error (System/exit 1)
-         :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
+         ::kitchensink/cli-error (System/exit 1)
+         ::kitchensink/cli-help  (System/exit 0))))))
 
 (defn- main
   [& args]
-  (let [[{:keys [outfile host port url-prefix] :as opts} _] (validate-cli! args)
-        src {:protocol "http" :host host :port port :prefix url-prefix}
+  (let [[{:keys [outfile host port] :as opts} _] (validate-cli! args)
+        src {:protocol "http" :host host :port port :prefix "/pdb/query"}
         _ (when-let [why (utils/describe-bad-base-url src)]
             (throw+ {:type ::invalid-url :utils/exit-status 1}
                     (format "Invalid source (%s)" why)))

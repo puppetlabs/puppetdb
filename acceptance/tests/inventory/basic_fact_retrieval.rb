@@ -1,5 +1,6 @@
 require 'json'
 
+puppetdb_query_url = "http://localhost:8080/pdb/query"
 test_name "structured and trusted facts should be available through facts terminus" do
 
   structured_data = {"foo"=>[1, 2, 3],
@@ -34,7 +35,7 @@ test_name "structured and trusted facts should be available through facts termin
 
     step "Query the database for trusted facts" do
       query = CGI.escape('["=","name","trusted"]')
-      result = on database, %Q|curl -G 'http://localhost:8080/v4/facts' --data 'query=#{query}'|
+      result = on database, %Q|curl -G '#{puppetdb_query_url}/v4/facts' --data 'query=#{query}'|
       facts = parse_json_with_error(result.stdout)
       assert_equal("remote", facts.first["value"]["authenticated"])
     end
@@ -47,7 +48,7 @@ test_name "structured and trusted facts should be available through facts termin
       "payload":{"environment":"DEV","certname":"#{master}", \
       "timestamp": "#{time}", \
       "producer_timestamp": "#{time}", \
-      "values":{"my_structured_fact":#{JSON.generate(structured_data)}}}}' http://localhost:8080/v4/commands
+      "values":{"my_structured_fact":#{JSON.generate(structured_data)}}}}' #{puppetdb_query_url}/v4/commands
       EOM
       on database, %Q|curl -X POST #{payload}|
     end
@@ -58,7 +59,7 @@ test_name "structured and trusted facts should be available through facts termin
 
     step "Ensure that the structured fact is passed through properly" do
       query = CGI.escape('["=","name","my_structured_fact"]')
-      result = on database, %Q|curl -G 'http://localhost:8080/v4/facts' --data 'query=#{query}'|
+      result = on database, %Q|curl -G '#{puppetdb_query_url}/v4/facts' --data 'query=#{query}'|
       facts = parse_json_with_error(result.stdout)
       assert_equal(structured_data, facts.first["value"])
     end

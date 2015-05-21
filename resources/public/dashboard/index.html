@@ -123,7 +123,7 @@ body {
   };
 
   function setVersion() {
-    d3.json("../v4/version", function (res) {
+    d3.json("/pdb/query/v4/version", function (res) {
       if (res != null && res.version != null) {
         d3.select('#version').html('v' + res.version);
       }
@@ -134,7 +134,7 @@ body {
   };
 
   function checkForUpdates() {
-    d3.json("../v4/version/latest", function (res) {
+    d3.json("/pdb/query/v4/version/latest", function (res) {
       console.log(res);
       if (res != null && res.newer) {
         d3.select('#latest-version').html('v' + res.version);
@@ -155,7 +155,7 @@ body {
   var height = getParameter("height") || 60;
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/java.lang:type=Memory")
+  .url("/metrics/v1/mbeans/java.lang:type=Memory")
   .snag(function(res) { return res["HeapMemoryUsage"]["used"]; })
   .format(d3.format(",.3s"))
   .description("JVM Heap")
@@ -168,7 +168,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.query.population:type=default,name=num-nodes")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.query.population:type=default,name=num-nodes")
   .snag(function(res) { return res["Value"]; })
   .format(d3.format(","))
   .description("Nodes")
@@ -181,7 +181,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.query.population:type=default,name=num-resources")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.query.population:type=default,name=num-resources")
   .snag(function(res) { return res["Value"]; })
   .format(d3.format(","))
   .description("Resources")
@@ -194,7 +194,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.query.population:type=default,name=pct-resource-dupes")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.query.population:type=default,name=pct-resource-dupes")
   .snag(function(res) { return res["Value"]; })
   .format(d3.format(",.1%"))
   .description("Resource duplication")
@@ -207,7 +207,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct")
   .snag(function(res) { return res["Value"]; })
   .format(d3.format(",.1%"))
   .description("Catalog duplication")
@@ -220,7 +220,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/org.apache.activemq:type=Broker,brokerName=localhost,destinationType=Queue,destinationName=puppetlabs.puppetdb.commands")
+  .url("/metrics/v1/mbeans/org.apache.activemq:type=Broker,brokerName=localhost,destinationType=Queue,destinationName=puppetlabs.puppetdb.commands")
   .snag(function(res) { return res["QueueSize"]; })
   .format(d3.format(",s"))
   .description("Command Queue")
@@ -233,7 +233,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.command:type=global,name=processing-time")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.command:type=global,name=processing-time")
   .snag(function(res) { return res["50thPercentile"] / 1000; })
   .format(d3.format(",.3s"))
   .description("Command Processing")
@@ -246,7 +246,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.command:type=global,name=processed")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.command:type=global,name=processed")
   .snag(function(res) { return res["FiveMinuteRate"]; })
   .format(clampToZero(d3.format(",.3s"), 0.001))
   .description("Command Processing")
@@ -259,7 +259,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.command:type=global,name=processed")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.command:type=global,name=processed")
   .snag(function(res) { return res["Count"]; })
   .format(d3.format(","))
   .description("Processed")
@@ -272,7 +272,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.command:type=global,name=retried")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.command:type=global,name=retried")
   .snag(function(res) { return res["Count"]; })
   .format(d3.format(","))
   .description("Retried")
@@ -285,7 +285,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.command:type=global,name=discarded")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.command:type=global,name=discarded")
   .snag(function(res) { return res["Count"]; })
   .format(d3.format(","))
   .description("Discarded")
@@ -298,7 +298,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.command:type=global,name=fatal")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.command:type=global,name=fatal")
   .snag(function(res) { return res["Count"]; })
   .format(d3.format(","))
   .description("Rejected")
@@ -311,7 +311,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.http.server:type=../v4/commands,name=service-time")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.http.server:type=/pdb/query/v4/commands,name=service-time")
   .snag(function(res) { return res["50thPercentile"] / 1000; })
   .format(d3.format(",.3s"))
   .description("Enqueueing")
@@ -324,7 +324,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.http.server:type=../v4/resources,name=service-time")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.http.server:type=/pdb/query/v4/resources,name=service-time")
   .snag(function(res) { return res["50thPercentile"] / 1000; })
   .format(d3.format(",.3s"))
   .description("Collection Queries")
@@ -337,7 +337,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.scf.storage:type=default,name=gc-time")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.scf.storage:type=default,name=gc-time")
   .snag(function(res) { return res["50thPercentile"] / 1000; })
   .format(d3.format(",.3s"))
   .description("DB Compaction")
@@ -350,7 +350,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.command.dlo:type=global,name=compression")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.command.dlo:type=global,name=compression")
   .snag(function(res) { return res["50thPercentile"] / 1000; })
   .format(d3.format(",.3s"))
   .description("DLO Compression")
@@ -363,7 +363,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.command.dlo:type=global,name=filesize")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.command.dlo:type=global,name=filesize")
   .snag(function(res) { return res["Value"]; })
   .format(d3.format(",.3s"))
   .description("DLO Size on Disk")
@@ -376,7 +376,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("../metrics/v1/mbeans/puppetlabs.puppetdb.command.dlo:type=global,name=messages")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.command.dlo:type=global,name=messages")
   .snag(function(res) { return res["Value"]; })
   .format(d3.format(","))
   .description("Discarded Messages")

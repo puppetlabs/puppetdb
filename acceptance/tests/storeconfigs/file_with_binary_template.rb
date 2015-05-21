@@ -1,3 +1,4 @@
+puppetdb_query_url = "http://localhost:8080/pdb/query"
 test_name "submit a catalog that contains a file built from a binary template" do
 
   # This test came about as a result of ticket #14873 .  The issue was that
@@ -52,7 +53,7 @@ file { "/tmp/myfile":
 
   sleep_until_queue_empty database
 
-  on database, %Q|curl -G -H 'Accept: application/json' http://localhost:8080/v4/resources --data 'query=["=",%20"tag",%20"binary_file"]' > binary_file.json|
+  on database, %Q|curl -G -H 'Accept: application/json' #{puppetdb_query_url}/v4/resources --data 'query=["=",%20"tag",%20"binary_file"]' > binary_file.json|
   # We redirected this output to a file because if the invalid binary data was printed to the log from 
   # the curl statement, then Jenkins would try to parse it at the end of the run and fail.
   scp_from(database, "binary_file.json", ".")

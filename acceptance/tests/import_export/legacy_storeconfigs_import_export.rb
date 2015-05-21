@@ -1,3 +1,4 @@
+puppetdb_query_url = "http://localhost:8080/pdb/query"
 test_name "storeconfigs export and import" do
 
   confine :except, :platform => 'ubuntu-10.04-amd64'
@@ -64,7 +65,7 @@ test_name "storeconfigs export and import" do
 
   step "Verify imported catalogs" do
     hosts.each do |host|
-      result = on database, %Q|curl -G http://localhost:8080/v4/catalogs/#{host.node_name}|
+      result = on database, %Q|curl -G #{puppetdb_query_url}/v4/catalogs/#{host.node_name}|
       result_catalog = JSON.parse(result.stdout)
       assert_equal(host.node_name, result_catalog['certname'], "Catalog for node #{host.node_name} not found")
     end

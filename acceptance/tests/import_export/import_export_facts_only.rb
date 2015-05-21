@@ -1,3 +1,4 @@
+puppetdb_query_url = "http://localhost:8080/pdb/query"
 test_name "export and import tools" do
   bin_loc = puppetdb_bin_dir(database)
 
@@ -55,7 +56,7 @@ test_name "export and import tools" do
 
 
   step "Verify that the number of active nodes is what we expect" do
-    result = on database, %Q|curl -G http://localhost:8080/v4/nodes|
+    result = on database, %Q|curl -G #{puppetdb_query_url}/v4/nodes|
     result_node_statuses = parse_json_with_error(result.stdout)
     assert_equal(agents.length, result_node_statuses.length, "Should only have 1 node")
 
@@ -91,7 +92,7 @@ test_name "export and import tools" do
   end
 
   step "Verify that the number of active nodes is what we expect" do
-    result = on database, %Q|curl -G http://localhost:8080/v4/nodes|
+    result = on database, %Q|curl -G #{puppetdb_query_url}/v4/nodes|
     result_node_statuses = parse_json_with_error(result.stdout)
     assert_equal(agents.length, result_node_statuses.length, "Should only have 1 node")
 

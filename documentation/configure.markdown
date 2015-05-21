@@ -171,15 +171,6 @@ and override this setting to point to your proxy server.
 
 When this is set to true, debugging information will be written to `<vardir>/debug/catalog-hashes` every time a catalog is received with a hash that is different than the previously received catalog for that host. Note that this should only be enabled when troubleshooting performance related issues with PuppetDB and the database server. This will output many files and could potentially slow down a production PuppetDB instance. See the [Troubleshooting Low Catalog Duplication guide][low_catalog_dupe] for more information on the outputted files and debugging this problem.
 
-### `url-prefix`
-
-> **Deprecated:** This setting should not be necessary in most cases and will not be supported in a future release.
-
-This optional setting may be used to mount the PuppetDB web application at a URL other than "/".  This should not be necessary
-unless you intend to run additional web applications in the same server with your PuppetDB instance.  **NOTE:** if you change
-this setting, you must also set the corresponding setting in your Puppet Master's [puppetdb.conf][puppetdb.conf] file.
-
-
 `[puppetdb]` Settings
 -----
 
@@ -665,15 +656,3 @@ The port to use for the REPL.
 ### `host`
 
 Specifies the host or IP address for the repl service to listen on. By default this is `127.0.0.1` only, as this is an insecure channel this is the only recommended setting for production environments. Although this is generally not recommended for production, you can listen on all interfaces, you can specify `0.0.0.0` for example.
-
-`:web-router-service` Settings
------
-
-
-The `:web-router-service` section is used to configure the routes at which applications running with your PuppetDB instance are mounted. This configuration section must be done in a `.conf` file (this is the [Human-Optimized Config Object Notation](https://github.com/typesafehub/config/blob/master/HOCON.md) format; a flexible superset of JSON defined by the [typesafe config library](https://github.com/typesafehub/config)). For more information on configuring the `web-router-service` see the [trapperkeeper-webserver-jetty9 docs](https://github.com/puppetlabs/trapperkeeper-webserver-jetty9/blob/master/doc/webrouting-service.md).
-
-### `:puppetlabs.puppetdb.cli.services/puppetdb-service`
-
-This setting may be used to mount the PuppetDB web application at a URL other than "/".  This should not be necessary
-unless you intend to run additional web applications in the same server with your PuppetDB instance.  **NOTE:** if you change
-this setting, you must also set the corresponding setting in your Puppet Master's [puppetdb.conf][puppetdb.conf] file.

@@ -14,7 +14,7 @@
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils
              :refer [base-url-schema export-root-dir]]
-            [puppetlabs.kitchensink.core :refer [cli!]]
+            [puppetlabs.kitchensink.core :as kitchensink :refer [cli!]]
             [puppetlabs.puppetdb.cli.export :refer [export-metadata-file-name]]
             [schema.core :as s]
             [slingshot.slingshot :refer [try+ throw+]]))
@@ -84,22 +84,20 @@
   [args]
   (let [specs    [["-i" "--infile INFILE" "Path to backup file (required)"]
                   ["-H" "--host HOST" "Hostname of PuppetDB server" :default "localhost"]
-                  ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]
-                  ["" "--url-prefix PREFIX" "Server prefix (HTTP protocol only)"
-                   :default ""]]
+                  ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]]
         required [:infile]]
     (try+
      (cli! args specs required)
      (catch map? m
        (println (:message m))
        (case (:type m)
-         :puppetlabs.kitchensink.core/cli-error (System/exit 1)
-         :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
+         ::kitchensink/cli-error (System/exit 1)
+         ::kitchensink/cli-help  (System/exit 0))))))
 
 (defn- main
   [& args]
-  (let [[{:keys [infile host port url-prefix]} _] (validate-cli! args)
-        dest {:protocol "http" :host host :port port :prefix url-prefix}
+  (let [[{:keys [infile host port]} _] (validate-cli! args)
+        dest {:protocol "http" :host host :port port :prefix "/pdb/query"}
         _ (when-let [why (utils/describe-bad-base-url dest)]
             (throw+ {:type ::invalid-url :utils/exit-status 1}
                     (format "Invalid destination (%s)" why)))

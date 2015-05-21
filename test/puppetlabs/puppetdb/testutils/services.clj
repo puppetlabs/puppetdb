@@ -6,7 +6,7 @@
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
             [puppetlabs.puppetdb.client :as pdb-client]
             [puppetlabs.puppetdb.cli.services :as svcs]
-            [puppetlabs.puppetdb.metrics :refer [metrics-service]]
+            [puppetlabs.puppetdb.metrics :as metrics :refer [metrics-service]]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service]]
             [puppetlabs.puppetdb.utils :as utils]
@@ -58,9 +58,7 @@
    :global {:vardir (temp-dir)}
    :jetty {:port 0}
    :database (fixt/create-db-map)
-   :command-processing {}
-   :web-router-service {::svcs/puppetdb-service ""
-                        :puppetlabs.puppetdb.metrics/metrics-service "/metrics"}})
+   :command-processing {}})
 
 (defn assoc-logging-config
   "Adds a dynamically created logback.xml with a test log. The
@@ -102,7 +100,10 @@
                                conf/adjust-tk-config
                                assoc-open-port
                                assoc-logging-config)
-         prefix (get-in config [:web-router-service ::svcs/puppetdb-service])]
+         prefix (get-in config [:web-router-service ::svcs/puppetdb-service])
+         port (get-in config [:jetty :port])
+         base-url (cond-> {:protocol "http" :host "localhost" :port port}
+                    (seq prefix) (assoc :prefix prefix))]
      (try
        (tkbs/with-app-with-config server
          (concat [jetty9-service svcs/puppetdb-service message-listener-service
@@ -110,15 +111,10 @@
                  services)
          config
          (binding [*server* server
-                   *base-url* (merge {:protocol "http"
-                                      :host "localhost"
-                                      :port (get-in config [:jetty :port])}
-                                     (when prefix {:prefix prefix}))]
+                   *base-url* base-url]
            (f)))
        (catch java.net.BindException e
-         (log/errorf e "Error occured when Jetty tried to bind to port %s, attempt #%s"
-                     (get-in config [:jetty :port])
-                     attempts)
+         (log/errorf e "Error occured when Jetty tried to bind to port %s, attempt #%s" port attempts)
          (puppetdb-instance config services (dec attempts) f))
        (finally
          (let [log-contents (slurp log-file)]
@@ -139,11 +135,10 @@
 
 (defn command-mbean-name
   "The full mbean name of the MQ destination used for commands"
-  [base-url]
-  (str
-   "org.apache.activemq:type=Broker,brokerName=" (url-encode (:host base-url))
-   ",destinationType=Queue"
-   ",destinationName=" svcs/mq-endpoint))
+  [host]
+  (str "org.apache.activemq:type=Broker,brokerName=" (url-encode host)
+       ",destinationType=Queue"
+       ",destinationName=" svcs/mq-endpoint))
 
 (defn mq-mbeans-found?
   "Returns true if the ActiveMQ mbeans and the discarded command
@@ -152,33 +147,37 @@
   (let [mbean-names (map utils/kwd->str (keys mbean-map))]
     (and (some #(.startsWith % "org.apache.activemq") mbean-names)
          (some #(.startsWith % "puppetlabs.puppetdb.command") mbean-names)
-         (some #(.startsWith % (command-mbean-name *base-url*)) mbean-names))))
+         (some #(.startsWith % (command-mbean-name (:host *base-url*))) mbean-names))))
+
+(defn mbeans-url-str
+  [base-url & [mbean]]
+  (let [base-mbeans-url-str
+        (-> base-url
+            (assoc :prefix "/metrics" :version :v1)
+            utils/base-url->str
+            (str "/mbeans"))]
+    (cond-> base-mbeans-url-str
+      (seq mbean) (str "/" mbean))))
 
 (defn metrics-up?
   "Returns true if the metrics endpoint (and associated jmx beans) are
   up, otherwise will continue to retry. Will fail after trying for
   roughly 5 seconds."
   []
-  (let [mbeans-url (-> *base-url*
-                       (assoc :prefix "/metrics" :version :v1)
-                       utils/base-url->str
-                       (str "/mbeans"))]
-    (loop [attempts 0]
-      (let [{:keys [status body]:as response}
-            (client/get mbeans-url {:as :json :throw-exceptions false})]
-        (cond
+  (loop [attempts 0]
+    (let [{:keys [status body]:as response}
+          (client/get (mbeans-url-str *base-url*) {:as :json :throw-exceptions false})]
+      (cond
+        (and (= 200 status)
+             (mq-mbeans-found? body))
+        true
 
-         (and (= 200 status)
-              (mq-mbeans-found? body))
-         true
+        (<= max-attempts attempts)
+        (throw+ response "JMX not up after %s attempts" attempts)
 
-         (<= max-attempts attempts)
-         (throw+ response "JMX not up after %s attempts" attempts)
-
-         :else
-         (do
-           (Thread/sleep 100)
-           (recur (inc attempts))))))))
+        :else
+        (do (Thread/sleep 100)
+            (recur (inc attempts)))))))
 
 (defn queue-metadata
   "Return command queue metadata (from the `puppetdb-instance` launched PuppetDB)
@@ -196,12 +195,9 @@
   ;; period of time that the server is up, the broker has been
   ;; started, but the JMX beans have not been initialized, so querying
   ;; for queue metrics fails, this check ensures it's started
-  (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)]
-    (-> (str (utils/base-url->str base-metrics-url)
-             "/mbeans/"
-             (command-mbean-name base-metrics-url))
-        (client/get {:as :json})
-        :body)))
+  (-> (mbeans-url-str *base-url* (command-mbean-name (:host *base-url*)))
+      (client/get {:as :json})
+      :body))
 
 (defn current-queue-depth
   "Return the queue depth currently running PuppetDB instance
@@ -213,11 +209,9 @@
   "Return the number of discarded messages from the command queue for the current
    running `puppetdb-instance`"
   []
-  (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)]
-    (-> (utils/base-url->str base-metrics-url)
-        (str "/mbeans/puppetlabs.puppetdb.command:type=global,name=discarded")
-        (client/get {:as :json})
-        (get-in [:body :Count]))))
+  (-> (mbeans-url-str *base-url* "puppetlabs.puppetdb.command:type=global,name=discarded")
+      (client/get {:as :json})
+      (get-in [:body :Count])))
 
 (defn until-consumed
   "Invokes `f` and blocks until the `num-messages` have been consumed
@@ -278,11 +272,9 @@
   "Return the queue depth currently running PuppetDB instance
    (see `puppetdb-instance` for launching PuppetDB)"
   [dest-name]
-  (let [base-metrics-url (assoc *base-url* :prefix "/metrics" :version :v1)]
-    (-> (str (utils/base-url->str base-metrics-url)
-             "/mbeans/" (command-mbean-name base-metrics-url))
+  (-> (mbeans-url-str *base-url* (command-mbean-name (:host *base-url*)))
       (client/get {:as :json})
-      (get-in [:body :DispatchCount]))))
+      (get-in [:body :DispatchCount])))
 
 (defmacro without-jmx
   "Disable ActiveMQ's usage of JMX. If you start two AMQ brokers in

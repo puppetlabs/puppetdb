@@ -1,5 +1,6 @@
 require 'json'
 
+puppetdb_query_url = "http://localhost:8080/pdb/query"
 test_name "validate matching transaction UUIDs in agent report and catalog" do
   step "setup a test manifest for the master and perform agent runs" do
     manifest = <<-MANIFEST
@@ -17,11 +18,11 @@ test_name "validate matching transaction UUIDs in agent report and catalog" do
 
   agents.each do |agent|
     # Query for all of the reports for this node, but we only care about the most recent one
-    result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]' --data 'order_by=[{"field":"receive_time","order":"desc"}]'|
+    result = on database, %Q|curl -G #{puppetdb_query_url}/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]' --data 'order_by=[{"field":"receive_time","order":"desc"}]'|
     report = JSON.parse(result.stdout)[0]
 
     # Query for the most recent catalog for this node
-    result = on database, %Q|curl -G http://localhost:8080/v4/catalogs/#{agent.node_name}|
+    result = on database, %Q|curl -G #{puppetdb_query_url}/v4/catalogs/#{agent.node_name}|
     catalog = JSON.parse(result.stdout)
 
     report_uuid = report['transaction_uuid']

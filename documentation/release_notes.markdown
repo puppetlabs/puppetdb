@@ -143,7 +143,7 @@ stable release of PuppetDB, which included an experimental v4 API.
     An example expanded block would look something like this:
 
         {
-          "href": "/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/events",
+          "href": "/pdb/query/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/events",
           "data": [ ... ]
         }
 
@@ -191,25 +191,6 @@ stable release of PuppetDB, which included an experimental v4 API.
     * Many symlinks were removed from /usr/share/puppetdb that were pointing
       at the /var/lib/puppetdb and /etc/puppetdb/ spaces. This finishes a partially
       completed migration from the past.
-
-### Deprecations
-
-* Deprecate `[global]` configuration key url-prefix ([PDB-1070](https://tickets.puppetlabs.com/browse/PDB-1070))
-
-    This commit deprecates the use of the `url-prefix` config setting
-    under the `[global]` header. If you are currently using this
-    setting, you should migrate your configuration as follows:
-
-    * Move your config file to a new directory, called `config` for example.
-    * Create a new file in the same directory called `jetty.conf` with this content:
-        ```
-        web-router-service: {
-            "puppetlabs.puppetdb.cli.services/puppetdb-service": "/my-prefix"
-        }
-        ```
-
-    * Remove the `url-prefix` key from your main config file.
-    * When starting puppetdb, pass your new config _directory_ after `-c` instead of your old config file.
 
 ### New Features
 
