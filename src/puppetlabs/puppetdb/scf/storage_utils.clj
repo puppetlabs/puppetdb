@@ -31,12 +31,14 @@
 
 ;; FUNCTIONS
 
-(defn sql-current-connection-database-name
+(defn sql-current-connection-database-name*
   "Return the database product name currently in use."
   []
   (.. (sql/find-connection)
       (getMetaData)
       (getDatabaseProductName)))
+
+(def sql-current-connection-database-name (memoize sql-current-connection-database-name*))
 
 (pls/defn-validated sql-current-connection-database-version :- db-version
   "Return the version of the database product currently in use."
