@@ -17,15 +17,20 @@ Each change below is marked with the corresponding release version. Changes mark
 
 #### Changes affecting all endpoints
 
+* (3.0) The query API has been moved from `/` to `/pdb/query`, so
+  http://localhost:8080/v4/version has become
+  http://localhost:8080/pdb/query/v4/version.
+
 * (3.0) All previously dash-separated field names (e.g receive-time), subquery
   operators (e.g select-facts), and query parameters (e.g order-by) are now
   underscore-separated. This change does not apply to dash-separated endpoint
   names such as `aggregate-event-counts`.
 
-#### /v4/catalogs
+#### /pdb/query/v4/catalogs
 
-* (3.0) The v4 catalogs endpoint has changed the response of the `edges` and `resources` fields
-  to be expanded. For more information see [/v4/catalogs documentation](./catalogs.html).
+* (3.0) The v4 catalogs endpoint has changed the response of the
+  `edges` and `resources` fields to be expanded. For more information
+  see [/pdb/query/v4/catalogs documentation](./catalogs.html).
 
 * (3.0) We have renamed the "name" key of the catalogs endpoint to "certname", for
   consistency with other endpoints.
@@ -36,27 +41,33 @@ Each change below is marked with the corresponding release version. Changes mark
   even for deactivated or expired nodes.
 
 * (2.0.0) The v4 catalogs endpoint does not contain a `metadata` field
-  or an `api_version` field. The contents of the v3 `data` field compose the v4
-  response body, along with the new fields `producer_timestamp`, `hash`, and
-  `environment`. For more information see the [/v4/catalogs documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/catalogs.html).
+  or an `api_version` field. The contents of the v3 `data` field
+  compose the v4 response body, along with the new fields
+  `producer_timestamp`, `hash`, and `environment`. For more
+  information see the
+  [/pdb/query/v4/catalogs documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/catalogs.html).
 
-#### /v4/facts
+#### /pdb/query/v4/facts
 
 * (2.2.0) The v4 facts endpoint returns proper JSON rather than stringified JSON
   under the `value` field in the case of a structured fact.
 
 * (2.2.0) Queries against fact values must use the appropriate type. Possible types are integer, float, boolean, string, json, and null. Where the v3 API would return the same results for [">","value","10"] and [">","value",10], only the second form will work on v4. The same applies for equality queries on boolean values.
 
-#### /v4/factsets
+#### /pdb/query/v4/factsets
 
-* (2.2) The v4 factsets endpoint was added to facilitate the grouping of facts per node. For more information see the [/v4/factsets documentation](./api/query/v4/factsets.html).
+* (2.2) The v4 factsets endpoint was added to facilitate the grouping
+  of facts per node. For more information see the
+  [/pdb/query/v4/factsets documentation](./api/query/v4/factsets.html).
 
 * (3.0) We added a `hash` field to the endpoint fields to support a unique identifer for factsets.
 
-* (3.0) The `facts` field is now expanded as per our new expansion convention, so the data format has changed. For more information see the [/v4/factsets documentation](./api/query/v4/factsets.html).
+* (3.0) The `facts` field is now expanded as per our new expansion
+  convention, so the data format has changed. For more information see
+  the [/pdb/query/v4/factsets documentation](./api/query/v4/factsets.html).
 
-* (3.0) The `/v4/factsets/<node>/facts` endpoints will now return results even for
-  deactivated or expired nodes.
+* (3.0) The `/pdb/query/v4/factsets/<node>/facts` endpoints will now
+  return results even for deactivated or expired nodes.
 
 #### /metrics/v1 (formerly /v3/metrics)
 
@@ -68,33 +79,52 @@ Each change below is marked with the corresponding release version. Changes mark
 * (3.0) PuppetDB's mbeans (listed at /metrics/v1/mbeans) are no longer prefixed with
   "com."
 
-#### /v4/commands
+#### /pdb/query/v4/commands
 
-  * (3.0) For users posting commands directly to the /v4/commands endpoint, the
-  only valid command submission versions will be [replace catalogs v6](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/catalog_format_v6.html), [store report v5](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/report_format_v5.html), and [replace facts v4](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/facts_format_v4.html).
+  * (3.0) For users posting commands directly to the
+    /pdb/query/v4/commands endpoint, the only valid command submission
+    versions will be
+    [replace catalogs v6](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/catalog_format_v6.html),
+    [store report v5](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/report_format_v5.html),
+    and [replace facts v4](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/facts_format_v4.html).
 
 ### New API features
 
 #### New endpoints
 
-* (2.2.0) `/v4/factsets` This endpoint returns a key-value hash for each certname.
-  For more information see the [/v4/factsets documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/factsets.html#response-format).
+* (2.2.0) `/pdb/query/v4/factsets` This endpoint returns a key-value
+  hash for each certname.  For more information see the
+  [/pdb/query/v4/factsets documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/factsets.html#response-format).
 
-* (2.2.0) `/v4/fact-paths` This endpoint is similar to the existing fact-names endpoint
-  in that one expected use is GUI autocompletion. For more information see the [/v4/fact-paths documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/fact-paths.html).
+* (2.2.0) `/pdb/query/v4/fact-paths` This endpoint is similar to the
+  existing fact-names endpoint in that one expected use is GUI
+  autocompletion. For more information see the
+  [/pdb/query/v4/fact-paths documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/fact-paths.html).
 
-* (2.2.0) `/v4/fact-contents` This endpoint allows fine-grained querying of
-  structured facts. For more information see the [/v4/fact-contents documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/fact-contents.html).
+* (2.2.0) `/pdb/query/v4/fact-contents` This endpoint allows
+  fine-grained querying of structured facts. For more information see
+  the [/pdb/query/v4/fact-contents documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/fact-contents.html).
 
-* (3.0) `/v4/edges` This endpoint allows querying edges inside a catalog. For more information see the [/v4/edges documentation](./edges.html)
+* (3.0) `/pdb/query/v4/edges` This endpoint allows querying edges
+  inside a catalog. For more information see the
+  [/pdb/query/v4/edges documentation](./edges.html)
 
-* (3.0) `/v4/reports/<hash>/events` This convenience endpoint allows you to show events for a particular report by its hash. See the [/v4/reports documentation](./reports.html)
+* (3.0) `/pdb/query/v4/reports/<hash>/events` This convenience
+  endpoint allows you to show events for a particular report by its
+  hash. See the [/pdb/query/v4/reports documentation](./reports.html)
 
-* (3.0) `/v4/reports/<hash>/metrics` This endpoint allows you to show metrics for a particular report by its hash. See the [/v4/reports documentation](./reports.html)
+* (3.0) `/pdb/query/v4/reports/<hash>/metrics` This endpoint allows
+  you to show metrics for a particular report by its hash. See the
+  [/pdb/query/v4/reports documentation](./reports.html)
 
-* (3.0) `/v4/reports/<hash>/logs` This endpoint allows you to show logs for a particular report by its hash. See the [/v4/reports documentation](./reports.html)
+* (3.0) `/pdb/query/v4/reports/<hash>/logs` This endpoint allows you
+  to show logs for a particular report by its hash. See the
+  [/pdb/query/v4/reports documentation](./reports.html)
 
-* (3.0) `/v4/catalogs/<node>/[resources|edges]` Both of these endpoints provide convenience for drilling into resources & edges data specific to a particular catalog. See [/v4/catalogs documentation](./catalogs)
+* (3.0) `/pdb/query/v4/catalogs/<node>/[resources|edges]` Both of
+  these endpoints provide convenience for drilling into resources &
+  edges data specific to a particular catalog. See
+  [/pdb/query/v4/catalogs documentation](./catalogs)
 
 #### Features affecting all endpoints
 
@@ -105,12 +135,14 @@ Each change below is marked with the corresponding release version. Changes mark
   allowing more concise subquerying as explained here:
   <https://github.com/puppetlabs/puppetdb/pull/1053>
 
-#### /v4/events
+#### /pdb/query/v4/events
 
-* (3.0) The v4 events endpoint does not require a query parameter, so /v4/events is
-  now a valid query. See the [events endpoint documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/events.html#get-v4events) for more information.
+* (3.0) The v4 events endpoint does not require a query parameter, so
+  /pdb/query/v4/events is now a valid query. See the
+  [events endpoint documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/events.html#get-v4events)
+  for more information.
 
-#### /v4/reports
+#### /pdb/query/v4/reports
 
 * (3.0) The response of the reports endpoint includes the new fields `noop`,
   `environment`, `status`, `resource_events`, `logs`, and `metrics`.  For more information see the [documentation on the reports endpoint](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/reports.html). For comparison, see [an example of the new format](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/reports.html#examples) and [an example of the old format](https://docs.puppetlabs.com/puppetdb/latest/api/query/v3/reports.html#response-format).
@@ -120,12 +152,14 @@ Each change below is marked with the corresponding release version. Changes mark
   corresponding events query, there is no corresponding field in the response.
   For more information see the [documentation on the report query fields](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/reports.html#query-fields).
 
-#### /v4/catalogs
+#### /pdb/query/v4/catalogs
 
-* (3.0) The v4 catalogs endpoint is queryable like the other endpoints, whereas
-  before it could only return a catalog for a single host. The old query format
-  (/v4/catalogs/myhost) still works as before, but /v4/catalogs returns results
-  too. For more information, see the [catalog query examples](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/catalogs.html#examples).
+* (3.0) The v4 catalogs endpoint is queryable like the other
+  endpoints, whereas before it could only return a catalog for a
+  single host. The old query format (/pdb/query/v4/catalogs/myhost)
+  still works as before, but /pdb/query/v4/catalogs returns results
+  too. For more information, see the
+  [catalog query examples](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/catalogs.html#examples).
 
 
 #### Operators

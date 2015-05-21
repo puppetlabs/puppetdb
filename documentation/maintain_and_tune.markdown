@@ -19,9 +19,9 @@ PuppetDB requires a relatively small amount of maintenance and tuning. You shoul
 
 ## Monitor the Performance Dashboard
 
-Once you have PuppetDB running, visit the following URL, substituting in the name and port of your PuppetDB server:
-
-`http://puppetdb.example.com:8080/dashboard/index.html`
+Once you have PuppetDB running, visit this URL, substituting the name
+and port of your PuppetDB server:
+`http://localhost:8080/pdb/dashboard/index.html`
 
 > **Note:** You may need to [edit PuppetDB's HTTP configuration][configure_jetty] first, changing the `host` setting to the server's externally-accessible hostname.  If you've used the PuppetDB module to install, you'll need to [set the `listen_address` parameter](./install_via_module.html#step-2-assign-classes-to-nodes).  When you do this, you should also configure your firewall to control access to PuppetDB's cleartext HTTP port.
 
@@ -36,7 +36,7 @@ You can use the following URL parameters to change the attributes of the dashboa
 * `nHistorical` = how many historical data points to use in each sparkline
 * `pollingInterval` = how often to poll PuppetDB for updates, in milliseconds
 
-E.g.: `http://puppetdb.example.com:8080/dashboard/index.html?height=240&pollingInterval=1000`
+E.g.: `http://localhost:8080/pdb/dashboard/index.html?height=240&pollingInterval=1000`
 
 ## Deactivate or Expire Decommissioned Nodes
 

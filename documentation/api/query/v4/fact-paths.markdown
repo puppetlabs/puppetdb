@@ -15,7 +15,7 @@ successor to the [fact-names][fact-names] endpoint.  The endpoint may be useful 
 building autocompletion in GUIs or for other applications that require a
 basic top-level view of fact paths.
 
-## `GET /fact-paths`
+## `GET /pdb/query/v4/fact-paths`
 
 This will return all fact paths matching the given query.
 
@@ -54,7 +54,8 @@ the form:
 Get all fact paths that match the regex array query for paths related to
 partition sda3:
 
-    curl -X GET http://localhost:8080/v4/fact-paths --data-urlencode 'query=["~>", "path", ["partitions", "sda3.*", ".*"]]'
+    curl -X GET http://localhost:8080/pdb/query/v4/fact-paths \
+      --data-urlencode 'query=["~>", "path", ["partitions", "sda3.*", ".*"]]'
 
     [ {
       "path" : [ "partitions", "sda3", "mount" ],
@@ -69,7 +70,8 @@ partition sda3:
 
 Get all fact paths of integer type:
 
-    curl -X GET http://localhost:8080/v4/fact-paths --data-urlencode 'query=["=", "type", "integer"]'
+    curl -X GET http://localhost:8080/pdb/query/v4/fact-paths \
+      --data-urlencode 'query=["=", "type", "integer"]'
 
     [ {
       "path" : [ "blockdevice_sda_size" ],

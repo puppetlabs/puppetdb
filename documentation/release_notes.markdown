@@ -123,7 +123,7 @@ stable release of PuppetDB, which included an experimental v4 API.
 
     For clarity and consistency across endpoints, the "name" key has
     been changed to "certname" where appropriate. This affects
-    responses from the /v4/catalogs endpoint, queries to it, and the
+    responses from the /pdb/query/v4/catalogs endpoint, queries to it, and the
     "replace catalog" and "replace facts" commands.
 
 * Expanded data format is now more formalized. ([PDB-1228](https://tickets.puppetlabs.com/browse/PDB-1228))
@@ -221,13 +221,13 @@ derive data from a PuppetDB export tarball.
 
 #### API changes
 
-* The query parameter for `/v4/events` is now optional ([PDB-1132](https://tickets.puppetlabs.com/browse/PDB-1132))
+* The query parameter for `/pdb/query/v4/events` is now optional ([PDB-1132](https://tickets.puppetlabs.com/browse/PDB-1132))
 
 * Add pagination to service query method ([PDB-1071](https://tickets.puppetlabs.com/browse/PDB-1071))
 
     Add a `paging_options` argument to the service query method.
 
-* Make `/v4/catalogs` queryable ([PDB-1028](https://tickets.puppetlabs.com/browse/PDB-1028))
+* Make `/pdb/query/v4/catalogs` queryable ([PDB-1028](https://tickets.puppetlabs.com/browse/PDB-1028))
 
 * Add `producer_timestamp` field to factsets and catalogs ([PDB-489](https://tickets.puppetlabs.com/browse/PDB-489))
 

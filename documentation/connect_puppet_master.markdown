@@ -58,7 +58,7 @@ You will need to edit (or create) three files in this directory:
 The [puppetdb.conf][puppetdb_conf] file will probably not exist yet. Create it, and add the PuppetDB server's URL that includes the hostname and port:
 
     [main]
-    server_urls = https://puppetdb.example.com:8081/
+    server_urls = https://puppetdb.example.com:8081
 
 PuppetDB's port for secure traffic defaults to 8081 with the context root of '/'. For users that have not changed the defaults the above config (with the correct hostname) is sufficient. For more information on configuring `server_urls`, including support for multiple PuppetDB backends, see [configuring the PuppetDB server_urls][puppetdb_server_urls].
 

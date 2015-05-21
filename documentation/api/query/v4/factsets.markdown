@@ -13,7 +13,7 @@ You can query factsets by making an HTTP request to the `/factsets` endpoint.
 
 A factset is the set of all facts for a single certname.
 
-## `GET /v4/factsets`
+## `GET /pdb/query/v4/factsets`
 
 This will return all factsets matching the given query.
 
@@ -78,23 +78,27 @@ The `<expanded facts>` object is an expansion of the following form:
 
 Get the factset for node "example.com":
 
-    curl -X GET http://puppetdb:8080/v4/factsets --data-urlencode 'query=["=", "certname", "example.com"]'
+    curl -X GET http://localhost:8080/pdb/query/v4/factsets \
+      --data-urlencode 'query=["=", "certname", "example.com"]'
 
 Get all factsets with updated after "2014-07-21T16:13:44.334Z":
 
-    curl -X GET http://puppetdb:8080/v4/factsets --data-urlencode 'query=[">",
-    "timestamp", "2014-07-21T16:13:44.334Z"]
+    curl -X GET http://localhost:8080/pdb/query/v4/factsets \
+      --data-urlencode 'query=[">", "timestamp", "2014-07-21T16:13:44.334Z"]
 
 Get all factsets corresponding to nodes with uptime greater than 24 hours:
 
-    curl -X GET http://localhost:8080/v4/factsets -d 'query=["in", "certname",
-    ["extract", "certname", ["select_facts", ["and", ["=", "name", "uptime_hours"], [">", "value", 24]]]]]'
+    curl -X GET http://localhost:8080/pdb/query/v4/factsets \
+      -d 'query=["in", "certname",
+                  ["extract", "certname",
+                    ["select_facts", ["and", ["=", "name", "uptime_hours"],
+                                             [">", "value", 24]]]]]'
 
 which returns
 
     [ {
       "facts" : {
-        "href": "/v4/factsets/desktop.localdomain/facts",
+        "href": "/pdb/query/v4/factsets/desktop.localdomain/facts",
         "data": [
           {
             "name": "blockdevice_sde_vendor",
@@ -135,7 +139,7 @@ which returns
       "hash" : "d118d161990f202e911b6fda09f79d24f3a5d4f4"
     } ]
 
-## `GET /v4/factsets/<NODE>/facts`
+## `GET /pdb/query/v4/factsets/<NODE>/facts`
 
 This will return all facts for a particular factset, designated by a node certname.
 

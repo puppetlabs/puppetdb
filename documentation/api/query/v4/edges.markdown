@@ -11,7 +11,7 @@ canonical: "/puppetdb/latest/api/query/v4/edges.html"
 
 Catalog edges, are relationships formed between two [resources][resources]. They represent the edges inside the catalog graph, whereas resources represent the nodes in the graph. You can query edges by making an HTTP request to the `/edges` endpoint.
 
-## `GET /v4/edges`
+## `GET /pdb/query/v4/edges`
 
 This will return all edges known to PuppetDB.
 
@@ -49,7 +49,7 @@ The response is a JSON array of hashes, where each hash has the form:
 
 [You can use `curl`][curl] to query information about nodes like so:
 
-    curl 'http://localhost:8080/v4/edges'
+    curl 'http://localhost:8080/pdb/query/v4/edges'
 
 A sample response would be:
 

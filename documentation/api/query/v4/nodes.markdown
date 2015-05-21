@@ -13,7 +13,7 @@ canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 Nodes can be queried by making an HTTP request to the `/nodes` endpoint.
 
 
-## `GET /v4/nodes`
+## `GET /pdb/query/v4/nodes`
 
 This will return all nodes matching the given query. Deactivated and expired
 nodes aren't included in the response.
@@ -77,8 +77,9 @@ If no nodes match the query, an empty JSON array will be returned.
 
 [You can use `curl`][curl] to query information about nodes like so:
 
-    curl 'http://localhost:8080/v4/nodes'
-    curl -G 'http://localhost:8080/v4/nodes' --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
+    curl http://localhost:8080/pdb/query/v4/nodes
+    curl -G http://localhost:8080/pdb/query/v4/nodes \
+      --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
 
 This query will return nodes whose kernel is Linux and whose uptime is less
 than 30 days:
@@ -87,10 +88,11 @@ than 30 days:
       ["=", ["fact", "kernel"], "Linux"],
       [">", ["fact", "uptime_days"], 30]]
 
-## `GET /v4/nodes/<NODE>`
+## `GET /pdb/query/v4/nodes/<NODE>`
 
 This will return status information for the given node, active or
-not. It behaves exactly like a call to `/v4/nodes` with a query string of `["=", "certname", "<NODE>"]`.
+not. It behaves exactly like a call to `/pdb/query/v4/nodes` with a query string
+of `["=", "certname", "<NODE>"]`.
 
 ### URL Parameters / Query Operators / Query Fields
 
@@ -118,14 +120,16 @@ If a node of that certname doesn't exist, the response will instead be a hash of
 
     {"error": "No information is known about <NODE>"}
 
-## `GET /v4/nodes/<NODE>/facts`
+## `GET /pdb/query/v4/nodes/<NODE>/facts`
 
 [facts]: ./facts.html
 
 This will return the facts for the given node. Facts from deactivated and
 expired nodes aren't included in the response.
 
-This is a shortcut to the [`/v4/facts`][facts] endpoint. It behaves the same as a call to [`/v4/facts`][facts] with a query string of `["=", "certname", "<NODE>"]`.
+This is a shortcut to the [`/pdb/query/v4/facts`][facts] endpoint. It
+behaves the same as a call to [`/pdb/query/v4/facts`][facts] with a
+query string of `["=", "certname", "<NODE>"]`.
 
 ### URL Parameters / Query Operators / Query Fields / Response Format
 
@@ -136,12 +140,14 @@ used to return a subset of the information normally returned by
 this route.
 
 
-## `GET /v4/nodes/<NODE>/facts/<NAME>`
+## `GET /pdb/query/v4/nodes/<NODE>/facts/<NAME>`
 
 This will return facts with the given name for the given node. Facts from
 deactivated and expired nodes aren't included in the response.
 
-This is a shortcut to the [`/v4/facts`][facts] endpoint. It behaves the same as a call to [`/v4/facts`][facts] with a query string of:
+This is a shortcut to the [`/pdb/query/v4/facts`][facts] endpoint. It
+behaves the same as a call to [`/pdb/query/v4/facts`][facts] with a
+query string of:
 
     ["and",
         ["=", "certname", "<NODE>"],
@@ -155,12 +161,14 @@ If you provide a `query` parameter, it will specify additional criteria, which w
 used to return a subset of the information normally returned by
 this route.
 
-## `GET /v4/nodes/<NODE>/facts/<NAME>/<VALUE>`
+## `GET /pdb/query/v4/nodes/<NODE>/facts/<NAME>/<VALUE>`
 
 This will return facts with the given name and value for the given node. Facts
 from deactivated and expired nodes aren't included in the response.
 
-This is a shortcut to the [`/v4/facts`][facts] endpoint. It behaves the same as a call to [`/v4/facts`][facts] with a query string of:
+This is a shortcut to the [`/pdb/query/v4/facts`][facts] endpoint. It
+behaves the same as a call to [`/pdb/query/v4/facts`][facts] with a
+query string of:
 
     ["and",
         ["=", "certname", "<NODE>"],
@@ -178,12 +186,15 @@ this route.
 (However, for this particular route, there aren't any practical criteria left.)
 
 
-## `GET /v4/nodes/<NODE>/resources`
+## `GET /pdb/query/v4/nodes/<NODE>/resources`
 
 This will return the resources for the given node. Resources from deactivated
 and expired nodes aren't included in the response.
 
-This is a shortcut to the [`/v4/resources`][resource] route. It behaves the same as a call to [`/v4/resources`][resource] with a query string of `["=", "certname", "<NODE>"]`.
+This is a shortcut to the [`/pdb/query/v4/resources`][resource]
+route. It behaves the same as a call to
+[`/pdb/query/v4/resources`][resource] with a query string of
+`["=", "certname", "<NODE>"]`.
 
 ### URL Parameters / Query Operators / Query Fields / Response Format
 
@@ -193,13 +204,15 @@ If you provide a `query` parameter, it will specify additional criteria, which w
 used to return a subset of the information normally returned by
 this route.
 
-## `GET /v4/nodes/<NODE>/resources/<TYPE>`
+## `GET /pdb/query/v4/nodes/<NODE>/resources/<TYPE>`
 
 This will return the resources of the indicated type for the given
 node. Resources from deactivated and expired nodes aren't included in the
 response.
 
-This is a shortcut to the [`/v4/resources/<TYPE>`][resource] route. It behaves the same as a call to [`/v4/resources`][resource] with a query string of:
+This is a shortcut to the [`/pdb/query/v4/resources/<TYPE>`][resource]
+route. It behaves the same as a call to
+[`/pdb/query/v4/resources`][resource] with a query string of:
 
     ["and",
         ["=", "certname", "<NODE>"],
@@ -213,13 +226,16 @@ If you provide a `query` parameter, it will specify additional criteria, which w
 used to return a subset of the information normally returned by
 this route.
 
-## `GET /v4/nodes/<NODE>/resources/<TYPE>/<TITLE>`
+## `GET /pdb/query/v4/nodes/<NODE>/resources/<TYPE>/<TITLE>`
 
 This will return the resource of the indicated type and title for the given
 node. Resources from deactivated and expired nodes aren't included in the
 response.
 
-This is a shortcut to the [`/v4/resources/<TYPE>/<TITLE>`][resource] route. It behaves the same as a call to [`/v4/resources`][resource] with a query string of:
+This is a shortcut to the
+[`/pdb/query/v4/resources/<TYPE>/<TITLE>`][resource] route. It behaves
+the same as a call to [`/pdb/query/v4/resources`][resource] with a
+query string of:
 
     ["and",
         ["=", "certname", "<NODE>"],

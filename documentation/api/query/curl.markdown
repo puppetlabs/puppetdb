@@ -28,7 +28,7 @@ The instructions below are simplified. For full usage details, see [the curl man
 
 With its default settings, PuppetDB accepts unsecured HTTP connections at port 8080 on `localhost`. This allows you to SSH into the PuppetDB server and run curl commands without specifying certificate information:
 
-    curl 'http://localhost:8080/v4/facts/<node>'
+    curl http://localhost:8080/pdb/query/v4/nodes
     curl 'http://localhost:8080/metrics/v1/mbeans/java.lang:type=Memory'
 
 If you have allowed unsecured access to other hosts in order to [monitor the dashboard][dashboard], these hosts can also use plain HTTP curl commands.
@@ -45,17 +45,26 @@ Any node managed by puppet agent will already have all of these and you can re-u
 
 **Note:** If you have turned on [certificate whitelisting][whitelist], you must make sure to authorize the certificate you are using:
 
-    curl 'https://<your.puppetdb.server>:8081/v3/facts/<node>' --cacert /etc/puppet/ssl/certs/ca.pem --cert /etc/puppet/ssl/certs/<node>.pem --key /etc/puppet/ssl/private_keys/<node>.pem --tlsv1
+    curl 'https://<your.puppetdb.server>:8081/pdb/query/v4/nodes' \
+      --tlsv1 \
+      --cacert /etc/puppet/ssl/certs/ca.pem \
+      --cert /etc/puppet/ssl/certs/<node>.pem \
+      --key /etc/puppet/ssl/private_keys/<node>.pem \
+
 
 For Puppet Enterprise, the paths to the SSL certificates are different, so use the following example instead:
 
-    curl 'https://<your.puppetdb.server>:8081/v3/facts/<node>' --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem --cert /etc/puppetlabs/puppet/ssl/certs/<node>.pem --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem --tlsv1
+    curl 'https://<your.puppetdb.server>:8081/pdb/query/v4/nodes' \
+      --tlsv1 \
+      --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
+      --cert /etc/puppetlabs/puppet/ssl/certs/<node>.pem \
+      --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem
 
 ### Locating Puppet Certificate Files
 
 Locate Puppet's `ssldir` as follows:
 
-    $ sudo puppet config print ssldir
+    sudo puppet config print ssldir
 
 Within this directory:
 
@@ -70,4 +79,5 @@ Many query strings will contain characters like `[` and `]`, which must be URL-e
 
 If you do this with an endpoint that accepts `GET` requests, **you must also use the `-G` or `--get` option.** This is because `curl` defaults to `POST` requests when the `--data-urlencode` option is present.
 
-    curl -G 'http://localhost:8080/v4/nodes' --data-urlencode 'query=["=", ["node", "active"], true]'
+    curl -G http://localhost:8080/pdb/query/v4/nodes \
+      --data-urlencode 'query=["=", ["node", "active"], true]'

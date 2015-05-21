@@ -13,7 +13,7 @@ You can query facts by making an HTTP request to the `/facts` endpoint.
 In Puppet's world, you only interact with facts from one node at a time, so any given fact consists of only a **fact name** and a **value.** But since PuppetDB interacts with a whole population of nodes, each PuppetDB fact also includes a **certname** and an **environment.**
 
 
-## `GET /v4/facts`
+## `GET /pdb/query/v4/facts`
 
 This will return all facts matching the given query. Facts for
 deactivated nodes are not included in the response.
@@ -62,7 +62,8 @@ be matched.
 
 Get the operatingsystem fact for all nodes:
 
-    curl -X GET http://puppetdb:8080/v4/facts --data-urlencode 'query=["=", "name", "operatingsystem"]'
+    curl -X GET http://localhost:8080/pdb/query/v4/facts \
+      --data-urlencode 'query=["=", "name", "operatingsystem"]'
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "RedHat"},
@@ -70,7 +71,8 @@ Get the operatingsystem fact for all nodes:
 
 Get all facts for a single node:
 
-    curl -X GET http://puppetdb:8080/v4/facts --data-urlencode 'query=["=", "certname", "a.example.com"]'
+    curl -X GET http://localhost:8080/pdb/query/v4/facts \
+      --data-urlencode 'query=["=", "certname", "a.example.com"]'
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "a.example.com", "name": "ipaddress", "value": "192.168.1.105"},
@@ -78,9 +80,12 @@ Get all facts for a single node:
 
 Subquery against `/fact-contents` to get all remotely-authenticated trusted facts:
 
-    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'query=["in", ["name","certname"],
-      ["extract",["name","certname"],
-        ["select_fact_contents", ["and",["~>", "path", [".*", "authenticated"]],["=","value","remote"]]]]]'
+    curl -X GET http://localhost:8080/pdb/query/v4/facts --data-urlencode \
+      'query=["in", ["name","certname"],
+               ["extract", ["name","certname"],
+                 ["select_fact_contents",
+                   ["and", ["~>", "path", [".*", "authenticated"]],
+                           ["=","value","remote"]]]]]]]'
 
     [ {
         "value" : {
@@ -92,9 +97,11 @@ Subquery against `/fact-contents` to get all remotely-authenticated trusted fact
         "certname" : "desktop.localdomain"
     } ]
 
-## `GET /v4/facts/<FACT NAME>`
+## `GET /pdb/query/v4/facts/<FACT NAME>`
 
-This will return all facts with the given fact name, for all nodes. It behaves exactly like a call to `/v4/facts` with a query string of `["=", "name", "<FACT NAME>"]`.
+This will return all facts with the given fact name, for all nodes. It
+behaves exactly like a call to `/pdb/query/v4/facts` with a query string of
+`["=", "name", "<FACT NAME>"]`.
 
 ### URL Parameters / Query Operators / Query Fields / Response Format
 
@@ -108,7 +115,7 @@ this route.
 
 Get the operating system fact for all nodes:
 
-    curl -X GET http://puppetdb:8080/v4/facts/operatingsystem
+    curl -X GET http://localhost:8080/pdb/query/v4/facts/operatingsystem
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "Redhat"},
@@ -116,7 +123,8 @@ Get the operating system fact for all nodes:
 
 Get the structured partitions fact for a single node:
 
-    curl -X GET http://puppetdb:8080/v4/facts/partitions --data-urlencode 'query=["=", "certname", "a.example.com"]'
+    curl -X GET http://localhost:8080/pdb/query/v4/facts/partitions \
+      --data-urlencode 'query=["=", "certname", "a.example.com"]'
 
     [ {
       "value" : {
@@ -140,10 +148,12 @@ Get the structured partitions fact for a single node:
       "certname" : "a.example.com"
     } ]
 
-## `GET /v4/facts/<FACT NAME>/<VALUE>`
+## `GET /pdb/query/v4/facts/<FACT NAME>/<VALUE>`
 
-This will return all facts with the given fact name and
-value, for all nodes. (That is, only the `certname` field will differ in each result.) It behaves exactly like a call to `/v4/facts` with a query string of:
+This will return all facts with the given fact name and value, for all
+nodes. (That is, only the `certname` field will differ in each
+result.) It behaves exactly like a call to `/pdb/query/v4/facts` with a query
+string of:
 
     ["and",
         ["=", "name", "<FACT NAME>"],
@@ -159,7 +169,7 @@ this route.
 
 ### Examples
 
-    curl -X GET http://puppetdb:8080/v4/facts/operatingsystem/Debian
+    curl -X GET http://localhost:8080/pdb/query/v4/facts/operatingsystem/Debian
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "Debian}]
@@ -170,4 +180,3 @@ The v4 /facts endpoint does not allow ordering by fact value, but otherwise
 supports the common PuppetDB paging URL parameters. For more information,
 please see the documentation on [paging][paging]. Ordering by value is
 supported on the fact-contents endpoint.
-

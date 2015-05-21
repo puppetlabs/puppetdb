@@ -34,7 +34,8 @@ lists of legal fields, please refer to the documentation for the specific query 
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'order_by=[{"field": "certname", "order": "desc"}, {"field": "name"}]'
+    curl -X GET http://localhost:8080/pdb/query/v4/facts --data-urlencode \
+      'order_by=[{"field": "certname", "order": "desc"}, {"field": "name"}]'
 
 ### `limit`
 
@@ -53,7 +54,8 @@ NOTE: setting this flag to `true` will introduce a minor performance hit on the 
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'limit=5' --data-urlencode 'include_total=true'
+    curl -X GET http://localhost:8080/pdb/query/v4/facts \
+      --data-urlencode 'limit=5' --data-urlencode 'include_total=true'
 
 ### `offset`
 
@@ -70,4 +72,7 @@ should generally be used in conjunction with `order_by`.
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v4/facts --data-urlencode 'order_by=[{"field": "certname"}]' --data-urlencode 'limit=5' --data-urlencode 'offset=5'
+    curl -X GET http://localhost:8080/pdb/query/v4/facts \
+      --data-urlencode 'order_by=[{"field": "certname"}]' \
+      --data-urlencode 'limit=5' \
+      --data-urlencode 'offset=5'

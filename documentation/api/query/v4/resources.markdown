@@ -12,7 +12,7 @@ You can query resources by making an HTTP request to the
 `/resources` endpoint.
 
 
-## `GET /v4/resources`
+## `GET /pdb/query/v4/resources`
 
 This will return all resources matching the given query. Resources for
 deactivated nodes are not included in the response.
@@ -80,13 +80,14 @@ for "example.local," the JSON query structure would be:
             ["=", ["parameter", "ensure"], "enabled"]
 
 
-## `GET /v4/resources/<TYPE>`
+## `GET /pdb/query/v4/resources/<TYPE>`
 
 This will return all resources for all nodes with the given
 type. Resources from deactivated nodes aren't included in the
 response.
 
-This behaves exactly like a call to `/v4/resources` with a query string of `["=", "type", "<TYPE>"]`.
+This behaves exactly like a call to `/pdb/query/v4/resources` with a
+query string of `["=", "type", "<TYPE>"]`.
 
 ### URL Parameters / Query Operators / Query Fields / Response Format
 
@@ -100,7 +101,7 @@ this route.
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET 'http://puppetdb:8080/v4/resources/User'
+    curl -X GET http://localhost:8080/pdb/query/v4/resources/User
 
     [{"parameters" : {
         "uid" : "1000,
@@ -137,13 +138,14 @@ this route.
       "type" : "User",
       "certname" : "host2.mydomain.com"}]
 
-## `GET /v4/resources/<TYPE>/<TITLE>`
+## `GET /pdb/query/v4/resources/<TYPE>/<TITLE>`
 
 This will return all resources for all nodes with the given type and
 title. Resources from deactivated nodes aren't included in the
 response.
 
-This behaves exactly like a call to `/v4/resources` with a query string of:
+This behaves exactly like a call to `/pdb/query/v4/resources` with a
+query string of:
 
     ["and",
         ["=", "type", "<TYPE>"],
@@ -161,7 +163,7 @@ this route.
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET 'http://puppetdb:8080/v4/resources/User/foo'
+    curl -X GET 'http://localhost:8080/pdb/query/v4/resources/User/foo'
 
     [{"parameters" : {
         "uid" : "1000,

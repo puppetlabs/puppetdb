@@ -24,7 +24,7 @@ Once this information is stored in PuppetDB, it can be queried in various ways.
 * You can query **data about individual events** by making an HTTP request to the [`/events`][events] endpoint.
 * You can query **summaries of event data** by making an HTTP request to the `/event-counts` or [`aggregate-event-counts`](./aggregate-event-counts.html) endpoints.
 
-## `GET /v4/event-counts`
+## `GET /pdb/query/v4/event-counts`
 
 This will return count information about all of the resource events matching the given query.
 For a given object type (resource, containing_class, or node), you can retrieve counts of the
@@ -138,14 +138,13 @@ When summarizing by `containing_class`, the `subject` will contain a `title` key
 
 You can use [`curl`][curl] to query information about resource event counts like so:
 
-    curl -G 'http://localhost:8080/v4/event-counts' \
-            --data-urlencode 'query=["=", "certname", "foo.local"]' \
-            --data-urlencode 'summarize_by=resource' \
-            --data-urlencode 'count_by=certname' \
-            --data-urlencode 'counts_filter=[">", "failures", 0]'
+    curl -G 'http://localhost:8080/pdb/query/v4/event-counts' \
+      --data-urlencode 'query=["=", "certname", "foo.local"]' \
+      --data-urlencode 'summarize_by=resource' \
+      --data-urlencode 'count_by=certname' \
+      --data-urlencode 'counts_filter=[">", "failures", 0]'
 
 ## Paging
 
 This endpoint supports paged results via the common PuppetDB paging URL parameters.
 For more information, please see the documentation on [paging][paging].
-
