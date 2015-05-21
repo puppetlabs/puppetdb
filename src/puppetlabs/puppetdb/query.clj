@@ -732,20 +732,3 @@
     (cond
      (= "=" op) compile-event-count-equality
      (#{">" "<" ">=" "<="} op) (partial compile-event-count-inequality op))))
-
-(defn streamed-query-result
-  "Uses a cursored resultset (for streaming). Returns the results
-   after running the function `f` with the resultset.
-
-   That function will get the results of the query. Ordinarily some sort of
-   munging and finally serialization is performed within this function. See
-   http/stream-json-response for a function to provide JSON streaming for
-   example.
-
-   If all you want is an unstreamed Seq, pass the function `doall` as `f` to
-   convert the LazySeq to a Seq by full traversing it. This is useful for tests,
-   that cannot analyze results easily in a streamed way."
-  ([[sql & params] f]
-   (streamed-query-result nil sql params f))
-  ([version sql params f]
-   (jdbc/with-query-results-cursor sql params rs (f rs))))

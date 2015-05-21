@@ -47,20 +47,17 @@
              (string? (first (:results-query %)))
              (every? (complement coll?) (rest (:results-query %)))]}
      (paging/validate-order-by! edge-columns paging-options)
-     (qe/compile-user-query->sql
-      qe/edges-query query paging-options)))
+     (qe/compile-user-query->sql qe/edges-query query paging-options)))
 
 ;; QUERY + MUNGE
 
 (defn query-edges
   "Search for edges satisfying the given SQL filter."
   [version query-sql url-prefix]
-  {:pre [(map? query-sql)]}
-  (let [{[sql & params] :results-query
-         count-query    :count-query} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params
-                          (comp doall (munge-result-rows version url-prefix)))}]
-    (if count-query
-      (assoc result :count (jdbc/get-result-count count-query))
-      result)))
+  {:pre [[(map? query-sql)]]}
+  (let [{:keys [results-query count-query]} query-sql
+        munge-fn (munge-result-rows version url-prefix)]
+    (cond-> {:result (->> (jdbc/with-query-results-cursor results-query)
+                          munge-fn
+                          (into []))}
+      count-query (assoc :count (jdbc/get-result-count count-query)))))

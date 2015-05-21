@@ -80,28 +80,21 @@
   and count (if supplied)."
   [version query-sql]
   {:pre [(map? query-sql)]}
-  (let [{[sql & params] :results-query count-query :count-query} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params
-                          ;; The doall simply forces the seq to be traversed
-                          ;; fully.
-                          (comp doall (events/munge-result-rows version nil)))}]
-    (if count-query
-      (assoc result :count (jdbc/get-result-count count-query))
-      result)))
+  (let [{:keys [results-query count-query]} query-sql
+        munge-fn (events/munge-result-rows version nil)]
+    (cond-> {:result (->> (jdbc/with-query-results-cursor results-query)
+                          munge-fn
+                          (into []))}
+      count-query (assoc :count (jdbc/get-result-count count-query)))))
 
 (defn resource-events-query-result
   "Utility function that executes a resource events query and returns a set of
   results for use in test comparisons."
-  ([version query]
-     (resource-events-query-result version query nil))
-  ([version query paging-options]
-     (resource-events-query-result version query paging-options nil))
-  ([version query paging-options query-options]
-     (->> (events/query->sql version query [query-options paging-options])
-          (query-resource-events version)
-          :result
-          set)))
+  [version query & [paging-options query-options]]
+  (->> (events/query->sql version query [query-options paging-options])
+       (query-resource-events version)
+       :result
+       set))
 
 (defn raw-resource-events-query-result
   "Utility function that executes a resource events query with paging options and

@@ -84,16 +84,12 @@
   and count (if supplied)."
   [version url-prefix query-sql]
   {:pre [(map? query-sql)]}
-  (let [{[sql & params] :results-query
-         count-query    :count-query} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params
-                          ;; The doall simply forces the seq to be traversed
-                          ;; fully.
-                          (comp doall (munge-result-rows version url-prefix)))}]
-    (if count-query
-      (assoc result :count (jdbc/get-result-count count-query))
-      result)))
+  (let [{:keys [results-query count-query]} query-sql
+        munge-fn (munge-result-rows version url-prefix)]
+    (cond-> {:result (->> (jdbc/with-query-results-cursor results-query)
+                          munge-fn
+                          (into []))}
+      count-query (assoc :count (jdbc/get-result-count count-query)))))
 
 ;; SPECIAL
 

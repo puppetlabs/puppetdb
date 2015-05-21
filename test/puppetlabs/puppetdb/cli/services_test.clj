@@ -68,9 +68,9 @@
              ;; We evaluate the first element from lazy-seq just to check if DB query was successful or not
              ;; so we have to ensure the first element and the rest have been realized, not just the first
              ;; element on its own.
-             (reset! before-slurp? (and (realized? result-set) (realized? (rest result-set))))
-             (reset! results (vec result-set))
-             (reset! after-slurp? (and (realized? result-set) (realized? (rest result-set))))))
+             (reset! before-slurp? (realized? result-set))
+             (reset! results (into [] result-set))
+             (reset! after-slurp? (realized? result-set))))
     (is (false? @before-slurp?))
     (check-result @results)
     (is (true? @after-slurp?))))

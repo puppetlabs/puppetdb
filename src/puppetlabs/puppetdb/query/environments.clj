@@ -24,18 +24,14 @@
           (jdbc/valid-jdbc-query? (:results-query query-sql))]
    :post [(map? %)
           (sequential? (:result %))]}
-  (let [{[sql & params] :results-query
-         count-query    :count-query} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params doall)}]
-    (if count-query
-      (assoc result :count (jdbc/get-result-count count-query))
-      result)))
+  (let [{:keys [results-query count-query]} query-sql]
+    (cond-> {:result (into [] (jdbc/with-query-results-cursor results-query))}
+      count-query (assoc :count (jdbc/get-result-count count-query)))))
 
 (defn status
   "Given an environment's name, return the results for the single environment."
   [version environment]
   {:pre  [string? environment]}
-  (let [sql     (query->sql version ["=" "name" environment])
+  (let [sql (query->sql version ["=" "name" environment])
         results (:result (query-environments version sql))]
     (first results)))

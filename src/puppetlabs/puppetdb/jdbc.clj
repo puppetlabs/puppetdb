@@ -52,10 +52,10 @@
   or keyword) that was passed in.  This is useful for translating data structures
   from their JDBC-compatible representation to their wire format representation."
   [str]
-  (let [result (string/replace (name str) \_ \-)]
-    (if (keyword? str)
-      (keyword result)
-      result)))
+  (let [result (-> (name str)
+                   (string/replace \_ \-))]
+    (cond-> result
+      (keyword? str) keyword)))
 
 (defn convert-result-arrays
   "Converts Java and JDBC arrays in a result set using the provided function
@@ -63,11 +63,9 @@
   ([result-set]
      (convert-result-arrays vec result-set))
   ([f result-set]
-     (let [convert #(cond
-                     (kitchensink/array? %) (f %)
-                     (isa? (class %) java.sql.Array) (f (.getArray %))
-                     :else %)]
-       (map #(kitchensink/mapvals convert %) result-set))))
+   (let [convert-array (comp #(cond-> % (kitchensink/array? %) f)
+                             #(cond-> % (isa? (class %) java.sql.Array) .getArray))]
+     (map (partial kitchensink/mapvals convert-array) result-set))))
 
 (defn limited-query-to-vec
   "Take a limit and an SQL query (with optional parameters), and return the
@@ -289,40 +287,27 @@
      (fn []
        ~@body)))
 
-(defn with-query-results-cursor*
-  "Executes the given parameterized query within a transaction,
-  producing a lazy sequence of rows. The callback `func` is executed
-  on the entire sequence.
-
-  The lazy sequence is backed by an active database cursor, and is thus
-  useful for streaming very large resultsets.
-
-  The cursor is closed when `func` returns. If an exception is thrown,
-  the query is cancelled."
-  [func sql params]
-  (sql/transaction
-   (with-open [stmt (.prepareStatement (sql/connection) sql)]
-     (doseq [[index value] (map vector (iterate inc 1) params)]
-       (.setObject stmt index value))
-     (.setFetchSize stmt 500)
-     (with-open [rset (.executeQuery stmt)]
-       (try
-         (-> rset
-             (sql/resultset-seq)
-             (convert-result-arrays)
-             (func))
-         (catch Exception e
-           ;; Cancel the current query
-           (.cancel stmt)
-           (throw e)))))))
-
-(defmacro with-query-results-cursor
-  "Executes the given parameterized query within a transaction.
-  `body` is then executed with `rs-var` bound to the lazy sequence of
-  resulting rows. See `with-query-results-cursor*`."
-  [sql params rs-var & body]
-  `(let [func# (fn [~rs-var] (do ~@body))]
-     (with-query-results-cursor* func# ~sql ~params)))
+(defn with-query-results-cursor
+  [[sql & params]]
+  (let [stmt (.prepareStatement (sql/connection) sql)]
+    (doseq [[index value] (map-indexed vector params)]
+      (.setObject stmt (inc index) value))
+    (.setFetchSize stmt 500)
+    (let [rset (.executeQuery stmt)
+          closing-fn (fn [r]
+                       (do (.close stmt) (.close rset))
+                       r)
+          ;; TODO collapse this with convert-result-arrays
+          convert-arrays (map (partial kitchensink/mapvals
+                                       (comp #(cond-> % (kitchensink/array? %) vec)
+                                             #(cond-> % (isa? (class %) java.sql.Array) .getArray))))]
+      (try
+        (->> (sql/resultset-seq rset)
+             (eduction convert-arrays #(completing % closing-fn))
+             sequence)
+        (catch Exception e
+          (.cancel stmt)
+          (throw e))))))
 
 (defn make-connection-pool
   "Create a new database connection pool"
@@ -330,7 +315,7 @@
            partition-conn-min partition-conn-max partition-count
            stats log-statements log-slow-statements statements-cache-size
            conn-max-age conn-lifetime conn-keep-alive read-only?]
-    :as   db}]
+    :as db}]
   (let [;; Load the database driver class explicitly, to avoid jar load ordering
         ;; issues.
         _ (Class/forName classname)

@@ -306,19 +306,19 @@
   (log/warn "Building resource parameters cache. This make take a few minutes, but faster resource queries are worth it.")
 
   ;; Loop over all parameters, and insert a cache entry for each resource
-  (let [query    "SELECT resource, name, value from resource_params ORDER BY resource"
+  (let [query    ["SELECT resource, name, value from resource_params ORDER BY resource"]
         collapse (fn [rows]
                    (let [resource (:resource (first rows))
                          params   (into {} (map #(vector (:name %) (json/parse-string (:value %))) rows))]
                      [resource params]))]
 
-    (jdbc/with-query-results-cursor query [] rs
-      (let [param-sets (->> rs
-                            (partition-by :resource)
-                            (map collapse))]
-        (doseq [[resource params] param-sets]
-          (sql/insert-record :resource_params_cache {:resource   resource
-                                                     :parameters (json/generate-string params)})))))
+    (->> (jdbc/with-query-results-cursor query)
+         (partition-by :resource)
+         (map collapse)
+         ((fn [param-sets]
+            (doseq [[resource params] param-sets]
+              (sql/insert-record :resource_params_cache {:resource   resource
+                                                         :parameters (json/generate-string params)}))))))
 
   ;; Create NULL entries for resources that have no parameters
   (sql/do-commands
@@ -1317,15 +1317,14 @@
 
 (defn coalesce-fact-values
   []
-  (let [query "select * from fact_values"
+  (let [query ["select * from fact_values"]
         value-keys [:value_string :value_integer
                     :value_json :value_boolean
                     :value_float]]
-    (jdbc/with-query-results-cursor query [] rs
-      (->> rs
-           (map (partial coalesce-values value-keys))
-           (map update-value-json)
-           dorun))
+    (->> (jdbc/with-query-results-cursor query)
+         (map (partial coalesce-values value-keys))
+         (map update-value-json)
+         dorun)
     (sql/do-commands
       (if (sutils/postgres?)
         "ALTER TABLE fact_values RENAME COLUMN value_json TO value"

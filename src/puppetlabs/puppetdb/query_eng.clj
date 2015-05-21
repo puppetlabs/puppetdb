@@ -47,7 +47,9 @@
   (let [[query->sql munge-fn] (entity->sql-fns entity version paging-options url-prefix)]
     (jdbc/with-transacted-connection db
       (let [{:keys [results-query]} (query->sql query)]
-        (query/streamed-query-result results-query (comp row-fn munge-fn))))))
+        (->> (jdbc/with-query-results-cursor results-query)
+             munge-fn
+             row-fn)))))
 
 (defn produce-streaming-body
   "Given a query, and database connection, return a Ring response with the query
@@ -59,20 +61,14 @@
     (jdbc/with-transacted-connection db
       (let [[query->sql munge-fn] (entity->sql-fns entity version paging-options url-prefix)
             {:keys [results-query count-query]} (-> query (json/parse-strict-string true) query->sql)
-            query-error (promise)
             resp (http/streamed-response
                   buffer
-                  (try (jdbc/with-transacted-connection db
-                         (query/streamed-query-result
-                          results-query (comp #(http/stream-json % buffer)
-                                              #(do (first %) (deliver query-error nil) %)
-                                              munge-fn)))
-                       (catch java.sql.SQLException e
-                         (deliver query-error e))))]
-        (if @query-error
-          (throw @query-error)
-          (cond-> (http/json-response* resp)
-            count-query (http/add-headers {:count (jdbc/get-result-count count-query)})))))
+                  (jdbc/with-transacted-connection db
+                    (-> (jdbc/with-query-results-cursor results-query)
+                        munge-fn
+                        (json/generate-pretty-stream buffer))))]
+        (cond-> (http/json-response* resp)
+          count-query (http/add-headers {:count (jdbc/get-result-count count-query)}))))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (http/error-response e))
     (catch IllegalArgumentException e
