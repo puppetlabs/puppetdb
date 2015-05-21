@@ -17,7 +17,10 @@
   :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
                  ["snapshots"  "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
   :source-paths ["src"]
-  :dependencies [[puppetlabs/puppetdb ~pdb-version]]
+  :dependencies [[puppetlabs/puppetdb ~pdb-version]
+                 [io.clj/logging "0.8.1" :exclusions [org.clojure/tools.logging
+                                                      org.slf4j/slf4j-api
+                                                      org.clojure/clojure]]]
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
   :resource-paths ["resources"]
