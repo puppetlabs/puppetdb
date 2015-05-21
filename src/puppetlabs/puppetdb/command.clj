@@ -182,9 +182,10 @@
         producer-timestamp (:producer_timestamp catalog)]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
-      ;; Only store a catalog if it's newer than the current catalog
-      (when-not (scf-storage/catalog-newer-than? certname producer-timestamp)
-        (scf-storage/replace-catalog! catalog received-timestamp catalog-hash-debug-dir)))
+      ;; Only store a catalog if its producer_timestamp is <= the existing catalog's.
+      (if-not (scf-storage/catalog-newer-than? certname producer-timestamp)
+        (scf-storage/replace-catalog! catalog received-timestamp catalog-hash-debug-dir)
+        (log/warnf "Not replacing catalog for certname %s because local data is newer." certname)))
     (log/infof "[%s] [%s] %s" id (command-names :replace-catalog) certname)))
 
 (defn warn-deprecated
@@ -225,8 +226,9 @@
     (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
-      (when (not-any? newer-record-exists? [:catalogs :factsets])
-        (scf-storage/deactivate-node! certname producer-timestamp)))
+      (if (not-any? newer-record-exists? [:catalogs :factsets :reports])
+        (scf-storage/deactivate-node! certname producer-timestamp)
+        (log/warnf "Not deactivating node %s because local data is newer than %s." certname producer-timestamp)))
     (log/infof "[%s] [%s] %s" id (command-names :deactivate-node) certname)))
 
 ;; Report submission

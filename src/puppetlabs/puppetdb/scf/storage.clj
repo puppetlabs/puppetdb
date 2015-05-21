@@ -1028,13 +1028,6 @@
                  shash/generic-identity-hash
                  sutils/munge-hash-for-storage)}))))
 
-(pls/defn-validated factset-timestamp :- (s/maybe pls/Timestamp)
-  "Return the factset timestamp for the given certname, nil if not found"
-  [certname :- String]
-  (sql/with-query-results result-set
-    ["SELECT timestamp FROM factsets WHERE certname=? ORDER BY timestamp DESC" certname]
-    (:timestamp (first result-set))))
-
 (pls/defn-validated factset-producer-timestamp :- (s/maybe pls/Timestamp)
   "Return the factset producer-timestamp for the given certname, nil if not found"
   [certname :- String]
@@ -1216,24 +1209,23 @@
                     WHERE certname=? AND expired IS NULL"
                     [timestamp certname])))
 
-(defn- timestamp-of-newest-record [entity certname time-field]
-  (let [query {:select [time-field]
+(defn timestamp-of-newest-record [entity certname]
+  (let [query {:select [:producer_timestamp]
                :from [entity]
                :where [:= :certname certname]
-               :order-by [[time-field :desc]]
+               :order-by [[:producer_timestamp :desc]]
                :limit 1}]
     (sql/with-query-results result-set (hcore/format query)
-      (time-field (first result-set)))))
+      (:producer_timestamp (first result-set)))))
 
 (pls/defn-validated have-record-produced-after?
   [entity :- s/Keyword
    certname :- String
    time :- pls/Timestamp]
-  (let [time (to-timestamp time)
-        time-field (if (= entity :reports) :start_time :producer_timestamp)]
+  (let [time (to-timestamp time)]
     (boolean
      (some-> entity
-             (timestamp-of-newest-record certname time-field)
+             (timestamp-of-newest-record certname)
              (.after time)))))
 
 (pls/defn-validated catalog-newer-than?
@@ -1266,9 +1258,10 @@
    as the factsets will have changed while the transaction was in-flight."
   [{:keys [certname producer_timestamp] :as fact-data} :- facts-schema]
   (time! (:replace-facts performance-metrics)
-         (if-let [factset-producer-ts (factset-producer-timestamp certname)]
-           (when (.before factset-producer-ts (to-timestamp producer_timestamp))
-             (update-facts! fact-data))
+         (if-let [local-factset-producer-ts (timestamp-of-newest-record :factsets certname)]
+           (if-not (.after local-factset-producer-ts (to-timestamp producer_timestamp))
+             (update-facts! fact-data)
+             (log/warnf "Not updating facts for certname %s because local data is newer." certname))
            (add-facts! fact-data))))
 
 (pls/defn-validated add-report!
