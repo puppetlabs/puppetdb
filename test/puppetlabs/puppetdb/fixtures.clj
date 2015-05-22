@@ -117,13 +117,7 @@
      {:params params
       :headers {"accept" "application/json"
                 "content-type" "application/x-www-form-urlencoded"}
-      :content-type "application/x-www-form-urlencoded"
-      :globals (merge {:update-server "FOO"
-                       :scf-read-db          *db*
-                       :scf-write-db         *db*
-                       :command-mq           *mq*
-                       :product-name         "puppetdb"}
-                      global-overrides)}))
+      :content-type "application/x-www-form-urlencoded"}))
 
 (defn internal-request-post
   "A variant of internal-request designed to submit application/json requests
@@ -135,11 +129,6 @@
       :headers {"accept" "application/json"
                 "content-type" "application/json"}
       :content-type "application/json"
-      :globals {:update-server "FOO"
-                :scf-read-db          *db*
-                :scf-write-db         *db*
-                :command-mq           *mq*
-                :product-name         "puppetdb"}
       :body (ByteArrayInputStream. (.getBytes body "utf8"))}))
 
 (defmacro defixture

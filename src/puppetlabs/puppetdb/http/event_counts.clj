@@ -9,27 +9,23 @@
             [net.cgrand.moustache :refer [app]]))
 
 (defn routes
-  [version]
-  (app
-   [""]
-   {:get (fn [{:keys [params globals paging-options]}]
-           (let [{:strs [query summarize_by counts_filter count_by] :as query-params} params
-                 query-options (merge {:counts_filter (if counts_filter (json/parse-strict-string counts_filter true))
-                                       :count_by count_by}
-                                      (events-http/validate-distinct-options! query-params))]
-             (produce-streaming-body
-              :event-counts
-              version
-              query
-              [summarize_by query-options paging-options]
-              (:scf-read-db globals)
-              (:url-prefix globals))))}))
+  [globals]
+  (let [{:keys [api-version url-prefix scf-read-db]} globals]
+   (app
+    [""]
+    {:get (fn [{:keys [params paging-options]}]
+            (let [{:strs [query summarize_by counts_filter count_by] :as query-params} params
+                  query-options (merge {:counts_filter (when counts_filter (json/parse-strict-string counts_filter true))
+                                        :count_by count_by}
+                                       (events-http/validate-distinct-options! query-params))]
+              (produce-streaming-body
+               :event-counts api-version query [summarize_by query-options paging-options] scf-read-db url-prefix)))}))) 
 
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."
-  [version]
+  [globals]
   (log/warn "The event-counts endpoint is experimental and may be altered or removed in the future.")
-  (-> (routes version)
+  (-> (routes globals)
       verify-accepts-json
       (validate-query-params {:required ["query" "summarize_by"]
                               :optional (concat ["counts_filter" "count_by"

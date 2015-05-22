@@ -605,7 +605,7 @@ Ryan Senior, and Wyatt Alt
   ([PDB-137](https://tickets.puppetlabs.com/browse/PDB-137))
 
 * Broken links have been fixed in the
-  [connection](./connect_puppet_master.html) and [commands](./api/commands.html)
+  [connection](./connect_puppet_master.html) and [commands](./api/command/v1/commands.html)
   documentation.
 
 * A missing `-L` option has been added to a curl invocation

@@ -5,7 +5,7 @@ canonical: "/puppetdb/latest/versioning_policy.html"
 ---
 
 [semver]: http://semver.org
-[commands]: ./api/commands.html
+[commands]: ./api/command/v1/commands.html
 
 This document aims to create some transparency about how we version the PuppetDB software, so that both developers and users can understand what rules we try to follow internally.
 

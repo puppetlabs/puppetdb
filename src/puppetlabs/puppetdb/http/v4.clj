@@ -1,8 +1,5 @@
 (ns puppetlabs.puppetdb.http.v4
-  (:require [puppetlabs.puppetdb.http.version :as ver]
-            [puppetlabs.puppetdb.http.command :as cmd]
-            [puppetlabs.puppetdb.http.server-time :as st]
-            [puppetlabs.puppetdb.http.aggregate-event-counts :as aec]
+  (:require [puppetlabs.puppetdb.http.aggregate-event-counts :as aec]
             [puppetlabs.puppetdb.http.event-counts :as ec]
             [puppetlabs.puppetdb.http.catalogs :as catalogs]
             [puppetlabs.puppetdb.http.reports :as reports]
@@ -18,62 +15,50 @@
             [puppetlabs.puppetdb.http.environments :as envs]
             [net.cgrand.moustache :as moustache]))
 
-(def version :v4)
+(def api-version :v4)
 
-(def v4-app
-  (moustache/app
-   ["commands" &]
-   {:any (cmd/command-app version)}
+(defn v4-app
+  [raw-globals]
+  (let [globals (assoc raw-globals :api-version api-version)]
+    (moustache/app
+     ["facts" &]
+     {:any (facts/facts-app globals)}
 
-   ["facts" &]
-   {:any (facts/facts-app version)}
+     ["edges" &]
+     {:any (edges/edges-app globals)}
 
-   ["edges" &]
-   {:any (edges/edges-app version)}
+     ["factsets" &]
+     {:any  (factsets/factset-app globals)}
 
-   ["factsets" &]
-   {:any  (factsets/factset-app version)}
+     ["fact-names" &]
+     {:any (fact-names/fact-names-app globals)}
 
-   ["fact-names" &]
-   {:any (fact-names/fact-names-app version)}
+     ["fact-contents" &]
+     {:any (fact-contents/fact-contents-app globals)}
 
-   ["fact-contents" &]
-   {:any (fact-contents/fact-contents-app version)}
+     ["fact-paths" &]
+     {:any (fact-paths/fact-paths-app globals)}
 
-   ["fact-paths" &]
-   {:any (fact-paths/fact-paths-app version)}
+     ["nodes" &]
+     {:any (nodes/node-app globals)}
 
-   ["nodes" &]
-   {:any (nodes/node-app version)}
+     ["environments" &]
+     {:any (envs/environments-app globals)}
 
-   ["environments" &]
-   {:any (envs/environments-app version)}
+     ["resources" &]
+     {:any (resources/resources-app globals)}
 
-   ["resources" &]
-   {:any (resources/resources-app version)}
+     ["catalogs" &]
+     {:any (catalogs/catalog-app globals)}
 
-   ["version" &]
-   (moustache/app
-    [""]
-    {:get ver/current-version}
+     ["events" &]
+     {:any (events/events-app globals)}
 
-    ["latest"]
-    {:get ver/latest-version})
+     ["event-counts" &]
+     {:any (ec/event-counts-app globals)}
 
-   ["catalogs" &]
-   {:any (catalogs/catalog-app version)}
+     ["aggregate-event-counts" &]
+     {:any (aec/aggregate-event-counts-app globals)}
 
-   ["events" &]
-   {:any (events/events-app version)}
-
-   ["event-counts" &]
-   {:any (ec/event-counts-app version)}
-
-   ["aggregate-event-counts" &]
-   {:any (aec/aggregate-event-counts-app version)}
-
-   ["reports" &]
-   {:any (reports/reports-app version)}
-
-   ["server-time" &]
-   {:any st/server-time-app}))
+     ["reports" &]
+     {:any (reports/reports-app globals)})))

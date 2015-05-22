@@ -22,39 +22,38 @@
     (http/json-response {:error (str "No information is known about " node)} http/status-not-found)))
 
 (defn routes
-  [version]
-  (app
-   []
-   {:get (comp
-          (fn [{:keys [params globals paging-options]}]
-            (produce-streaming-body
-             :nodes
-             version
-             (params "query")
-             paging-options
-             (:scf-read-db globals)
-             (:url-prefix globals)))
-          http-q/restrict-query-to-active-nodes)}
+  [globals]
+  (let [{:keys [scf-read-db api-version url-prefix]} globals]
+    (app
+     []
+     {:get (comp
+            (fn [{:keys [params paging-options]}]
+              (produce-streaming-body
+               :nodes
+               api-version
+               (params "query")
+               paging-options
+               scf-read-db
+               url-prefix))
+            http-q/restrict-query-to-active-nodes)}
 
-   [node]
-   {:get
-    (-> (fn [{:keys [globals]}]
-          (node-status version node (:scf-read-db globals)
-                       (:url-prefix globals)))
-        ;; Being a singular item, querying and pagination don't really make
-        ;; sense here
-        (validate-query-params {}))}
+     [node]
+     {:get
+      (-> (fn [_]
+            (node-status api-version node scf-read-db url-prefix))
+          ;; Being a singular item, querying and pagination don't really make
+          ;; sense here
+          (validate-query-params {}))}
 
-   [node "facts" &]
-   (comp (f/facts-app version) (partial http-q/restrict-query-to-node node))
+     [node "facts" &]
+     (comp (f/facts-app globals) (partial http-q/restrict-query-to-node node))
 
-   [node "resources" &]
-   (comp (r/resources-app version) (partial http-q/restrict-query-to-node node))))
+     [node "resources" &]
+     (comp (r/resources-app globals) (partial http-q/restrict-query-to-node node)))))
 
 (defn node-app
-  [version]
-  (-> (routes version)
-    verify-accepts-json
-    (validate-query-params
-     {:optional (cons "query" paging/query-params)})
-    wrap-with-paging-options))
+  [globals]
+  (-> (routes globals)
+      verify-accepts-json
+      (validate-query-params {:optional (cons "query" paging/query-params)})
+      wrap-with-paging-options))

@@ -194,7 +194,7 @@
   [{:keys [host lastrun catalog report factset puppetdb-host puppetdb-port run-interval rand-percentage] :as state} clock]
   (if-not (> (- clock lastrun) run-interval)
     state
-    (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port :prefix "/pdb/query"}
+    (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port :prefix "/pdb/cmd" :version :v1}
           catalog (some-> catalog update-catalog (maybe-tweak-catalog rand-percentage))
           report (some-> report update-report-run-fields)
           factset (some-> factset (update-factset rand-percentage))]
@@ -231,7 +231,7 @@
    similar to timed-update-host, but always sends the update (doesn't run/skip
    based on the clock)"
   [{:keys [host lastrun catalog report factset puppetdb-host puppetdb-port run-interval rand-percentage] :as state}]
-  (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port :prefix "/pdb/query"}
+  (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port :prefix "/pdb/cmd" :version :v1}
         catalog (some-> catalog (maybe-tweak-catalog rand-percentage))
         report (some-> report update-report-run-fields)
         factset (some-> factset (update-factset rand-percentage))]

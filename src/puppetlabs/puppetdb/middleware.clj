@@ -115,7 +115,7 @@
   (fn [{:keys [headers] :as req}]
     (if (http/acceptable-content-type
          content-type
-         (headers "accept"))
+         (get headers "accept"))
       (app req)
       (rr/status (rr/response (str "must accept " content-type))
                  http/status-not-acceptable))))
@@ -199,7 +199,7 @@
   (fn [req]
     ;; add metric timers for the uri as we service the request.
     (let [metric-roots (let [s (normalize-uri (:uri req))]
-                         (if (string? s) [s] s))
+                         (cond-> s (string? s) vector))
           metric-roots (map #(s/replace % #"[:,=]" "_") metric-roots)]
 
       ;; Create timer objects for each metric the user has requested

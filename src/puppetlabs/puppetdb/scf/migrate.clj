@@ -1449,7 +1449,7 @@
 
 (defn indexes!
   "Create missing indexes for applicable database platforms."
-  [product-name]
+  [puppet-enterprise?]
   (if (and (sutils/postgres?)
            (sutils/db-version-newer-than? [9 2]))
     (sql/transaction
@@ -1463,7 +1463,7 @@
          "    CREATE EXTENSION pg_trgm;\n\n"
          "as the database super user on the PuppetDB database to correct\n"
          "this, then restart PuppetDB.\n"))))
-    (when (= product-name "puppetdb")
+    (when-not puppet-enterprise?
       (log/warn
        (str
         "Unable to install optimal indexing\n\n"

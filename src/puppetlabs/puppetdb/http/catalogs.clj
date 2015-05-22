@@ -24,39 +24,39 @@
     (http/json-response {:error (str "Could not find catalog for " node)} http/status-not-found)))
 
 (defn build-catalog-app
-  [version entity]
-  (comp (fn [{:keys [params globals paging-options]}]
-          (produce-streaming-body
-           entity
-           version
-           (params "query")
-           paging-options
-           (:scf-read-db globals)
-           (:url-prefix globals)))
-        http-q/restrict-query-to-active-nodes))
+  [globals entity]
+  (let [{:keys [api-version scf-read-db url-prefix]} globals]
+    (comp (fn [{:keys [params paging-options]}]
+            (produce-streaming-body
+             entity
+             api-version
+             (params "query")
+             paging-options
+             scf-read-db
+             url-prefix))
+          http-q/restrict-query-to-active-nodes)))
 
 (defn routes
-  [version]
+  [globals]
+  (let [{:keys [api-version scf-read-db url-prefix]} globals]
+    (app
+     [""]
+     {:get (build-catalog-app globals :catalogs)}
 
-  (app
-    [""]
-    {:get (build-catalog-app version :catalogs)}
+     [node]
+     (constantly (catalog-status api-version node scf-read-db url-prefix))
 
-    [node]
-    (fn [{:keys [globals]}]
-      (catalog-status version node (:scf-read-db globals)
-                      (str (:url-prefix globals))))
+     [node "edges" &]
+     (comp (edges/edges-app globals false)
+           (partial http-q/restrict-query-to-node node))
 
-    [node "edges" &]
-    (comp (edges/edges-app version false) (partial http-q/restrict-query-to-node node))
-
-    [node "resources" &]
-    (comp (resources/resources-app version false) (partial http-q/restrict-query-to-node node))))
+     [node "resources" &]
+     (comp (resources/resources-app globals false)
+           (partial http-q/restrict-query-to-node node)))))
 
 (defn catalog-app
-  [version]
-  (-> (routes version)
+  [globals]
+  (-> (routes globals)
       verify-accepts-json
-      (validate-query-params
-       {:optional (cons "query" paging/query-params)})
+      (validate-query-params {:optional (cons "query" paging/query-params)})
       wrap-with-paging-options))

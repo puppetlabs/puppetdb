@@ -8,30 +8,30 @@
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]))
 
 (defn build-factsets-app
-  [version entity]
-  (fn [{:keys [params globals paging-options]}]
-    (produce-streaming-body
-     entity
-     version
-     (params "query")
-     paging-options
-     (:scf-read-db globals)
-     (:url-prefix globals))))
+  [globals entity]
+  (let [{:keys [api-version url-prefix scf-read-db]} globals]
+    (fn [{:keys [params paging-options]}]
+      (produce-streaming-body
+       entity
+       api-version
+       (params "query")
+       paging-options
+       scf-read-db
+       url-prefix))))
 
 (defn routes
-  [version]
+  [globals]
   (app
    []
-   {:get (comp (build-factsets-app version :factsets)
+   {:get (comp (build-factsets-app globals :factsets)
                http-q/restrict-query-to-active-nodes)}
 
    [node "facts" &]
-   (comp (facts/facts-app version false) (partial http-q/restrict-query-to-node node))))
+   (comp (facts/facts-app globals false) (partial http-q/restrict-query-to-node node))))
 
 (defn factset-app
-  [version]
-  (-> (routes version)
+  [globals]
+  (-> (routes globals)
       verify-accepts-json
-      (validate-query-params
-       {:optional (cons "query" paging/query-params)})
+      (validate-query-params {:optional (cons "query" paging/query-params)})
       wrap-with-paging-options))

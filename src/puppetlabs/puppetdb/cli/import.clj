@@ -97,7 +97,7 @@
 (defn- main
   [& args]
   (let [[{:keys [infile host port]} _] (validate-cli! args)
-        dest {:protocol "http" :host host :port port :prefix "/pdb/query"}
+        dest {:protocol "http" :host host :port port :prefix "/pdb/cmd" :version :v1}
         _ (when-let [why (utils/describe-bad-base-url dest)]
             (throw+ {:type ::invalid-url :utils/exit-status 1}
                     (format "Invalid destination (%s)" why)))
