@@ -228,14 +228,14 @@ module PuppetDBExtensions
     pids
   end
 
-  def start_puppetdb(host)
+  def start_puppetdb(host, test_url="/pdb/query/v4/version")
     step "Starting PuppetDB" do
       if host.is_pe?
         on host, "service pe-puppetdb start"
       else
         on host, "service puppetdb start"
       end
-      sleep_until_started(host)
+      sleep_until_started(host, test_url)
     end
   end
 
@@ -254,14 +254,14 @@ module PuppetDBExtensions
   # @param host Hostname to test for PuppetDB availability
   # @return [void]
   # @api public
-  def sleep_until_started(host)
+  def sleep_until_started(host, test_url="/pdb/query/v4/version")
     # Hit an actual endpoint to ensure PuppetDB is up and not just the webserver.
     # Retry until an HTTP response code of 200 is received.
     curl_with_retries("start puppetdb", host,
-                      "-s -w '%{http_code}' http://localhost:8080/pdb/query/v4/version -o /dev/null",
+                      "-s -w '%{http_code}' http://localhost:8080#{test_url} -o /dev/null",
                       0, 120, 1, /200/)
     curl_with_retries("start puppetdb (ssl)", host,
-                      "https://#{host.node_name}:8081/pdb", [35, 60])
+                      "https://#{host.node_name}:8081#{test_url}", [35, 60])
   rescue RuntimeError => e
     display_last_logs(host)
     raise
@@ -338,7 +338,7 @@ module PuppetDBExtensions
     end
   end
 
-  def install_puppetdb_termini(host, database, version=nil, terminus_package='puppetdb-termini')
+  def install_puppetdb_termini(host, database, version=nil, terminus_package='puppetdb-termini', test_url='/pdb/query/v4/version')
     # We pass 'restart_puppet' => false to prevent the module from trying to
     # manage the puppet master service, which isn't actually installed on the
     # acceptance nodes (they run puppet master from the CLI).
@@ -352,7 +352,7 @@ module PuppetDBExtensions
       strict_validation        => false,
       restart_puppet           => false,
       terminus_package         => '#{terminus_package}',
-      test_url => '/pdb/query/v4/version',
+      test_url => '#{test_url}',
     }
     ini_setting {'server_urls':
       ensure => present,
