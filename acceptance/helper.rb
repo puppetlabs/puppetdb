@@ -296,7 +296,7 @@ module PuppetDBExtensions
     end
   end
 
-  def install_puppetdb(host, db, version=nil)
+  def install_puppetdb(host, db, version=nil, test_url='/pdb/query/v4/version')
     puppetdb_manifest = <<-EOS
     class { 'puppetdb::server':
       database         => '#{db}',
@@ -312,7 +312,7 @@ module PuppetDBExtensions
       apply_manifest_on(host, manifest)
     end
     print_ini_files(host)
-    sleep_until_started(host)
+    sleep_until_started(host, test_url)
   end
 
   def validate_package_version(host)
