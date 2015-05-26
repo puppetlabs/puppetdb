@@ -35,6 +35,12 @@ Each change below is marked with the corresponding release version. Changes mark
   underscore-separated. This change does not apply to dash-separated endpoint
   names such as `aggregate-event-counts`.
 
+* (3.0) All endpoints with child rest queries (for example `/pdb/query/v4/environments/<env_name>/facts`)
+  will now return a 404 if the parent data does not exist. In the past we were
+  returning an empty array, but this gave off the impression there was a parent
+  but the particular child data was empty. Now, we return a 404 Not Found status
+  code and a proper JSON error.
+
 #### /pdb/query/v4/catalogs
 
 * (3.0) The v4 catalogs endpoint has changed the response of the

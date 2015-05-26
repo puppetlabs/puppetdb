@@ -65,7 +65,16 @@
          '[and
            ["~" name f.*]
            ["~" name .*o]]
-         #{{:name "foo"}})))
+         #{{:name "foo"}}))
+
+  (testing "environment-exists? function"
+    (doseq [env ["bobby" "dave" "charlie"]]
+      (storage/ensure-environment env))
+
+    (is (= true (eng/object-exists? :environment "bobby")))
+    (is (= true (eng/object-exists? :environment "dave")))
+    (is (= true (eng/object-exists? :environment "charlie")))
+    (is (= false (eng/object-exists? :environment "ussr")))))
 
 (deftest test-failed-comparison
   (are [query] (thrown-with-msg? IllegalArgumentException

@@ -605,9 +605,16 @@
           (testing "queries only use the read database"
             (let [request (get-request endpoint (json/parse-string nil))
                   {:keys [status body headers]} (two-db-app request)]
-              (is (= status http/status-ok))
               (is (= (headers "Content-Type") c-t))
-              (is (empty? (json/parse-stream (io/reader body) true)))))
+              ;; Environments endpoint will return a proper JSON
+              ;; error with a 404, as opposed to an empty array.
+              (if (= endpoint "/v4/environments/DEV/facts")
+                (do
+                  (is (= {:error "No information is known about environment DEV"} (json/parse-string body true)))
+                  (is (= status http/status-not-found)))
+                (do
+                  (is (empty? (json/parse-stream (io/reader body) true)))
+                  (is (= status http/status-ok))))))
 
           (testing "config with only a single database returns results"
             (let [request (get-request endpoint (json/parse-string nil))
@@ -1591,3 +1598,12 @@
                       [{"certname" "foo1" "value" "testing.com"}
                        {"certname" "foo2" "value" "testing.com"}
                        {"certname" "foo3" "value" "testing.com"}]))))))
+
+(def no-parent-endpoints [[:v4 "/v4/factsets/foo/facts"]])
+
+(deftestseq unknown-parent-handling
+  [[version endpoint] no-parent-endpoints]
+
+  (let [{:keys [status body]} (get-response endpoint)]
+    (is (= status http/status-not-found))
+    (is (= {:error "No information is known about factset foo"} (json/parse-string body true)))))

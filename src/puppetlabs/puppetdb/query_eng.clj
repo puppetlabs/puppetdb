@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.query-eng
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.java.jdbc :as sql]
+            [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http :as http]
@@ -16,7 +17,10 @@
             [puppetlabs.puppetdb.query.nodes :as nodes]
             [puppetlabs.puppetdb.query.reports :as reports]
             [puppetlabs.puppetdb.query.report-data :as report-data]
-            [puppetlabs.puppetdb.query.resources :as resources]))
+            [puppetlabs.puppetdb.query.resources :as resources]
+            [puppetlabs.puppetdb.scf.storage-utils :as su]
+            [puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]))
 
 (defn entity->sql-fns
   [entity version paging-options url-prefix]
@@ -84,3 +88,38 @@
         (do (log/debug e "Caught PSQL processing exception")
             (http/error-response (.getMessage e)))
         (throw e)))))
+
+(pls/defn-validated object-exists? :- s/Bool
+  "Returns true if an object exists."
+  [type :- s/Keyword
+   id :- s/Str]
+  (let [check-sql (case type
+                    :catalog "SELECT 1
+                              FROM certnames
+                              INNER JOIN catalogs
+                                ON catalogs.certname = certnames.certname
+                              WHERE certnames.certname=?
+                                AND deactivated IS NULL
+                                AND expired IS NULL"
+                    :node "SELECT 1
+                           FROM certnames
+                           WHERE certname=?
+                             AND deactivated IS NULL
+                             AND expired IS NULL"
+                    :report (str "SELECT 1
+                                  FROM reports
+                                  WHERE " (su/sql-hash-as-str "hash") "=?
+                                  LIMIT 1")
+                    :environment "SELECT 1
+                                  FROM environments
+                                  WHERE name=?"
+                    :factset "SELECT 1
+                              FROM certnames
+                              INNER JOIN factsets
+                              ON factsets.certname = certnames.certname
+                              WHERE certnames.certname=?
+                                AND deactivated IS NULL
+                               AND expired IS NULL")]
+    (sql/with-query-results result-set
+      [check-sql id]
+      (pos? (count result-set)))))

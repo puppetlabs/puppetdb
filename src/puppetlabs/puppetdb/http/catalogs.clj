@@ -10,7 +10,7 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
-                                                    wrap-with-paging-options]]
+                                                    wrap-with-paging-options wrap-with-parent-check]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [net.cgrand.moustache :refer [app]]))
 
@@ -53,10 +53,12 @@
                       (str (:url-prefix globals))))
 
     [node "edges" &]
-    (comp (edges/edges-app version false) (partial http-q/restrict-query-to-node node))
+    (-> (comp (edges/edges-app version false) (partial http-q/restrict-query-to-node node))
+        (wrap-with-parent-check version :catalog node))
 
     [node "resources" &]
-    (comp (resources/resources-app version false) (partial http-q/restrict-query-to-node node))))
+    (-> (comp (resources/resources-app version false) (partial http-q/restrict-query-to-node node))
+        (wrap-with-parent-check version :catalog node))))
 
 (defn catalog-app
   [version]

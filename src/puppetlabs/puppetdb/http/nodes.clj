@@ -8,7 +8,7 @@
             [puppetlabs.puppetdb.http :as pl-http]
             [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
-                                                    wrap-with-paging-options]]
+                                                    wrap-with-paging-options wrap-with-parent-check]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.http :as http]))
 
@@ -53,10 +53,12 @@
         (validate-query-params {}))}
 
    [node "facts" &]
-   (comp (f/facts-app version) (partial http-q/restrict-query-to-node node))
+   (-> (comp (f/facts-app version) (partial http-q/restrict-query-to-node node))
+       (wrap-with-parent-check version :node node))
 
    [node "resources" &]
-   (comp (r/resources-app version) (partial http-q/restrict-query-to-node node))))
+   (-> (comp (r/resources-app version) (partial http-q/restrict-query-to-node node))
+       (wrap-with-parent-check version :node node))))
 
 (defn node-app
   [version]

@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.query.catalogs
   "Catalog retrieval"
-  (:require [clojure.set :as set]
-            [puppetlabs.kitchensink.core :as kitchensink]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
