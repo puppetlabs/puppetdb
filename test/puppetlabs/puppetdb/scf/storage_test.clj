@@ -70,7 +70,7 @@
 
       (is (nil?
            (sql/transaction
-            (factset-timestamp "some_certname"))))
+            (timestamp-of-newest-record :factsets "some_certname"))))
       (is (empty? (factset-map "some_certname")))
 
       (add-facts! {:certname certname
@@ -100,7 +100,7 @@
                 {:certname certname :name "operatingsystem" :value "Debian"}]))
 
         (is (sql/transaction
-             (factset-timestamp "some_certname")))
+             (timestamp-of-newest-record :factsets  "some_certname")))
         (is (= facts (factset-map "some_certname"))))
 
       (testing "should add the certname if necessary"
@@ -234,7 +234,7 @@
 
       (is (nil?
            (sql/transaction
-            (factset-timestamp "some_certname"))))
+            (timestamp-of-newest-record :factsets "some_certname"))))
       (is (empty? (factset-map "some_certname")))
       (is (nil? (environment-id "PROD")))
 
