@@ -64,7 +64,7 @@ if databases.count > 1
     end
 
 
-    step "change config on first database to make it 404" do
+    step "change config so that we can't connectn to the first database" do
 
       manifest = <<-EOS
               include puppetdb::params
@@ -73,7 +73,7 @@ if databases.count > 1
                 section => 'main',
                 path => "${puppetdb::params::puppet_confdir}/puppetdb.conf",
                 setting => 'server_urls',
-                value => "https://#{databases[0].node_name}:8081/foo,https://#{databases[1].node_name}:8081",
+                value => "https://#{databases[0].node_name}:123456,https://#{databases[1].node_name}:8081",
               }
       EOS
 
