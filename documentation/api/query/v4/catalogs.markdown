@@ -14,7 +14,7 @@ canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 You can query catalogs by making an HTTP request to the
 `/catalogs` endpoint.
 
-## `GET /v4/catalogs`
+## `GET /pdb/query/v4/catalogs`
 
 This will return a JSON array containing the most recent catalog for each node in your infrastructure.
 
@@ -97,7 +97,7 @@ The `<expanded edges>` object is of the follow form:
 
 This query will return the complete list of catalogs:
 
-    curl -X GET http://puppetdb:8080/v4/catalogs
+    curl -X GET http://localhost:8080/pdb/query/v4/catalogs
 
     [ {
       "certname" : "yo.delivery.puppetlabs.net",
@@ -122,7 +122,8 @@ This query will return the complete list of catalogs:
 
 This query will return all catalogs with producer_timestamp after 2014-11-19:
 
-    curl -X GET http://puppetdb:8080/v4/catalogs --data-urlencode 'query=[">","producer_timestamp","2014-11-19"]'
+    curl -X GET http://localhost:8080/pdb/query/v4/catalogs \
+      --data-urlencode 'query=[">","producer_timestamp","2014-11-19"]'
 
     [ {
       "certname" : "foo.delivery.puppetlabs.net",
@@ -136,7 +137,7 @@ This query will return all catalogs with producer_timestamp after 2014-11-19:
     } ]
 
 
-## `GET /v4/catalogs/<NODE>`
+## `GET /pdb/query/v4/catalogs/<NODE>`
 
 This will return the most recent catalog for the given node. Supplying a node
 this way will restrict any given query to only apply to that node, but in
@@ -148,7 +149,7 @@ a JSON error message if the catalog is not found:
 
 ### Examples
 
-    curl -X GET http://puppetdb:8080/v4/catalogs/foo.localdomain
+    curl -X GET http://localhost:8080/pdb/query/v4/catalogs/foo.localdomain
 
     {
      "certname" : "yo.delivery.puppetlabs.net",
@@ -161,13 +162,13 @@ a JSON error message if the catalog is not found:
      "resources" : {...}
     }
 
-    curl -X GET http://puppetdb:8080/v4/catalogs/my_fake_hostname
+    curl -X GET http://localhost:8080/pdb/query/v4/catalogs/my_fake_hostname
 
     {
       "error" : "Could not find catalog for my_fake_hostname"
     }
 
-## `GET /v4/catalogs/<NODE>/edges`
+## `GET /pdb/query/v4/catalogs/<NODE>/edges`
 
 This will return all edges for a particular catalog, designated by a node certname.
 
@@ -183,7 +184,7 @@ If you provide a `query` parameter, it will specify additional criteria, which w
 used to return a subset of the information normally returned by
 this route.
 
-## `GET /v4/catalogs/<NODE>/resources`
+## `GET /pdb/query/v4/catalogs/<NODE>/resources`
 
 This will return all resources for a particular catalog, designated by a node certname.
 

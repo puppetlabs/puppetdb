@@ -29,21 +29,21 @@ A query consists of:
 
 That is, most queries will look like a GET request to a URL that resembles the following:
 
-    https://puppetdb:8081/v4/<ENDPOINT>?query=<QUERY STRING>
+    https://puppetdb:8081/pdb/query/v4/<ENDPOINT>?query=<QUERY STRING>
 
 ### API URLs
 
 API URLs generally look like this:
 
-    https://<SERVER>:<PORT>/<API VERSION>/<ENDPOINT>?<PARAMETER>=<VALUE>&<PARAMETER>=<VALUE>
+    https://<SERVER>:<PORT>/pdb/query/<API VERSION>/<ENDPOINT>?<PARAMETER>=<VALUE>&<PARAMETER>=<VALUE>
 
-For example: `https://puppetdb:8081/v4/resources?limit=50&offset=50`.
+For example: `https://puppetdb:8081/pdb/query/v4/resources?limit=50&offset=50`.
 
 ### API Version
 
-After the server and port, the first part of an API URL is the **API
-version,** written as `v4`, etc. This section describes version 4 of
-the API, so every URL will begin with `/v4`.
+After the `/pdb/query/` prefix, the first part of an API URL is the
+**API version,** written as `v4`, etc. This section describes version
+4 of the API, so every URL will begin with `/pdb/query/v4`.
 
 ### Endpoints
 

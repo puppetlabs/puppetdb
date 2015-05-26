@@ -24,7 +24,7 @@ Once this information is stored in PuppetDB, it can be queried in various ways.
 * You can query **data about individual events** by making an HTTP request to the [`/events`][events] endpoint.
 * You can query **summaries of event data** by making an HTTP request to the [`/event-counts`](./event-counts.html) or [`aggregate-event-counts`](./aggregate-event-counts.html) endpoints.
 
-## `GET /v4/reports`
+## `GET /pdb/query/v4/reports`
 
 ### URL Parameters
 
@@ -161,7 +161,7 @@ Making metrics and logs queryable may be the target of future work.
 
 Query for all reports:
 
-    curl -G 'http://localhost:8080/v4/reports'
+    curl -G http://localhost:8080/pdb/query/v4/reports
 
     [ {
       "receive_time" : "2015-02-19T16:23:11.034Z",
@@ -173,7 +173,7 @@ Query for all reports:
       "start_time" : "2015-02-19T16:23:09.810Z",
       "end_time" : "2015-02-19T16:23:10.287Z",
       "resource_events" : {
-        "href": "/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/events",
+        "href": "/pdb/query/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/events",
         "data": [ {
           "new_value" : "hi world",
           "property" : "message",
@@ -205,7 +205,7 @@ Query for all reports:
       "environment" : "production",
       "certname" : "desktop.localdomain",
       "metrics" : {
-        "href": "/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/metrics",
+        "href": "/pdb/query/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/metrics",
         "data": [ {
           "category" : "resources",
           "name" : "changed",
@@ -227,7 +227,7 @@ Query for all reports:
         } ]
       },
       "logs" : {
-        "href": "/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/logs",
+        "href": "/pdb/query/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/logs",
         "data": [ {
           "file" : null,
           "line" : null,
@@ -252,7 +252,10 @@ Query for all reports:
 
 ## Get counts of reports by grouped by status
 
-    curl -X GET http://localhost:8080/v4/reports -d 'query=["extract",[["function","count"], "status"], ["~","certname",""],["group_by", "status"]]'
+    curl -X GET http://localhost:8080/pdb/query/v4/reports \
+      -d 'query=["extract",[["function","count"], "status"],
+                            ["~","certname",""],
+                            ["group_by", "status"]]'
 
     [ {
       "status" : "failed",
@@ -265,18 +268,18 @@ Query for all reports:
       "count" : 20
     } ]
 
-## `GET /v4/reports/<HASH>/events`
+## `GET /pdb/query/v4/reports/<HASH>/events`
 
 This will return all events for a particular report, designated by its unique hash.
 
 This is a shortcut to the [`/events`][events] endpoint. It behaves the same as a call to [`/events`][events] with a query string of `["=", "report", "<HASH>"]`.
 
-## `GET /v4/reports/<HASH>/metrics`
+## `GET /pdb/query/v4/reports/<HASH>/metrics`
 
 This will return all metrics for a particular report, designated by its unique hash.
 This endpoint does not currently support querying or paging.
 
-## `GET /v4/reports/<HASH>/logs`
+## `GET /pdb/query/v4/reports/<HASH>/logs`
 
 This will return all logs for a particular report, designated by its unique hash.
 This endpoint does not currently support querying or paging.

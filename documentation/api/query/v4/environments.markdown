@@ -16,7 +16,7 @@ Environments are semi-isolated groups of nodes managed by Puppet. Nodes are assi
 
 When PuppetDB collects info about a node, it keeps track of the environment the node is assigned to. PuppetDB also keeps a list of environments it has seen. You can query this list by making an HTTP request to the `/environments` endpoint.
 
-## `GET /v4/environments`
+## `GET /pdb/query/v4/environments`
 
 This will return all environments known to PuppetDB.
 
@@ -45,15 +45,16 @@ The array is unsorted.
 
 [You can use `curl`][curl] to query information about nodes like so:
 
-    curl 'http://localhost:8080/v4/environments'
+    curl 'http://localhost:8080/pdb/query/v4/environments'
 
-## `GET /v4/environments/<ENVIRONMENT>`
+## `GET /pdb/query/v4/environments/<ENVIRONMENT>`
 
 This will return the name of the environment if it currently exists in PuppetDB.
 
 ### URL Parameters / Query Operators / Query Fields
 
-This route supports the same URL parameters and query fields/operators as the '/v4/environments' route above.
+This route supports the same URL parameters and query fields/operators
+as the '/pdb/query/v4/environments' route above.
 
 ### Response format
 
@@ -65,18 +66,19 @@ The response is a JSON hash of the form:
 
 [You can use `curl`][curl] to query information about nodes like so:
 
-    curl 'http://localhost:8080/v4/environments/production'
+    curl 'http://localhost:8080/pdb/query/v4/environments/production'
 
-## `GET /v4/environments/<ENVIRONMENT>/[events|facts|reports|resources]`
+## `GET /pdb/query/v4/environments/<ENVIRONMENT>/[events|facts|reports|resources]`
 
 These routes are identical to issuing a request to
-`/v4/[events|facts|reports|resources]`, with a query parameter of
-`["=","environment","<ENVIRONMENT>"]`. All query parameters and route
-suffixes from the original routes are supported. The result format is also
-the same. Additional query parameters are ANDed with the environment
-clause. See [/v4/events][events], [/v4/facts][facts],
-[/v4/reports][reports] or [/v4/resources][resources] for
-more info.
+`/pdb/query/v4/[events|facts|reports|resources]`, with a query
+parameter of `["=","environment","<ENVIRONMENT>"]`. All query
+parameters and route suffixes from the original routes are
+supported. The result format is also the same. Additional query
+parameters are ANDed with the environment clause. See
+[/pdb/query/v4/events][events], [/pdb/query/v4/facts][facts],
+[/pdb/query/v4/reports][reports] or
+[/pdb/query/v4/resources][resources] for more info.
 
 ## Paging
 

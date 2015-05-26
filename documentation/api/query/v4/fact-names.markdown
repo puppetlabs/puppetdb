@@ -11,7 +11,7 @@ canonical: "/puppetdb/latest/api/query/v4/fact-names.html"
 The `/fact-names` endpoint can be used to retrieve all known fact names.
 
 
-## `GET /fact-names`
+## `GET /pdb/query/v4/fact-names`
 
 This will return an alphabetical list of all known fact names, *including* those which are
 known only for deactivated nodes.
@@ -30,7 +30,7 @@ regardless of how many nodes have that fact.
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/v4/fact-names
+    curl -X GET http://localhost:8080/pdb/query/v4/fact-names
 
     ["kernel", "operatingsystem", "osfamily", "uptime"]
 

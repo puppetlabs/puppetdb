@@ -23,7 +23,7 @@ Once this information is stored in PuppetDB, it can be queried in various ways.
 * You can query **data about individual events** by making an HTTP request to the `/events` endpoint.
 * You can query **summaries of event data** by making an HTTP request to the [`/event-counts`](./event-counts.html) or [`aggregate-event-counts`](./aggregate-event-counts.html) endpoints.
 
-## `GET /v4/events`
+## `GET /pdb/query/v4/events`
 
 This will return all resource events matching the given query.  (Resource events
 are generated from Puppet reports.)
@@ -177,7 +177,9 @@ The array is unordered.
 
 [You can use `curl`][curl] to query information about events like so:
 
-    curl -G 'http://localhost:8080/v4/events' --data-urlencode 'query=["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]' --data-urlencode 'limit=1000'
+    curl -G 'http://localhost:8080/pdb/query/v4/events' \
+      --data-urlencode 'query=["=", "report", "38ff2aef3ffb7800fe85b322280ade2b867c8d27"]' \
+      --data-urlencode 'limit=1000'
 
 For all events in the report with hash
 '38ff2aef3ffb7800fe85b322280ade2b867c8d27', the JSON query structure would be:

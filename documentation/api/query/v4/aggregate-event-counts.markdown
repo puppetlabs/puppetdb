@@ -24,7 +24,7 @@ Once this information is stored in PuppetDB, it can be queried in various ways.
 * You can query **data about individual events** by making an HTTP request to the [`/events`][events] endpoint.
 * You can query **summaries of event data** by making an HTTP request to the [`/event-counts`][event-counts] or `aggregate-event-counts` endpoints.
 
-## `GET /v4/aggregate-event-counts`
+## `GET /pdb/query/v4/aggregate-event-counts`
 
 This will return aggregated count information about all of the resource events matching the given query.
 This endpoint is built entirely on the [`event-counts`][event-counts] endpoint and will aggregate those
@@ -76,9 +76,9 @@ event-count results were aggregated.
 
 You can use [`curl`][curl] to query information about aggregated resource event counts like so:
 
-    curl -G 'http://localhost:8080/v4/aggregate-event-counts'
-            --data-urlencode 'query=["=", "certname", "foo.local"]' \
-            --data-urlencode 'summarize_by=containing_class'
+    curl -G 'http://localhost:8080/pdb/query/v4/aggregate-event-counts'
+      --data-urlencode 'query=["=", "certname", "foo.local"]' \
+      --data-urlencode 'summarize_by=containing_class'
 
 ## No Paging
 

@@ -117,7 +117,7 @@ To post a `replace facts` command you can use the following curl command:
       -H "Accept: application/json" \
       -H "Content-Type: application/json" \
       -d '{"command":"replace facts","version":4,"payload":{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"}}}' \
-      http://localhost:8080/v4/commands
+      http://localhost:8080/pdb/query/v4/commands
 
 An example of `deactivate node`:
 
@@ -125,4 +125,4 @@ An example of `deactivate node`:
       -H "Accept: application/json" \
       -H "Content-Type: application/json" \
       -d '{"command":"deactivate node","version":2,"payload":"test1"}' \
-      http://localhost:8080/v4/commands
+      http://localhost:8080/pdb/query/v4/commands

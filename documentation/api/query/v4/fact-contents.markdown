@@ -28,7 +28,7 @@ Structured fact data is normally represented as a hash, which allows hashes, arr
 
 With the fact points endpoint it allows you to query data at a particular part of the tree using the `path` field, and then either analyze or filter on the `value` of that node.
 
-### `GET /v4/fact-contents`
+### `GET /pdb/query/v4/fact-contents`
 
 This will return all fact contents that match the given query.
 
@@ -72,7 +72,9 @@ the form:
 
 Get the first mac address for eth0:
 
-    curl -X GET 'http://puppetdb:8080/v4/fact-contents' --data-urlencode 'query=["=", "path",[ "networking", "eth0", "macaddresses", 0 ]]'
+    curl -X GET 'http://localhost:8080/pdb/query/v4/fact-contents' \
+    --data-urlencode \
+      'query=["=", "path", [ "networking", "eth0", "macaddresses", 0 ]]'
 
 which returns:
 
@@ -86,7 +88,8 @@ which returns:
 
 Get all nodes with values higher then 3:
 
-    curl -X GET 'http://puppetdb:8080/v4/fact-contents' --data-urlencode 'query=[">", "value", 3]'
+    curl -X GET 'http://localhost:8080/pdb/query/v4/fact-contents' \
+      --data-urlencode 'query=[">", "value", 3]'
 
 which returns:
 
@@ -115,7 +118,8 @@ This operator allows you to match against path elements using an array of regula
 
 The example shows a query that extracts all `macaddresses` for all ethernet devices (that is, devices starting with `eth`):
 
-    curl -G 'http://puppetdb:8080/v4/fact-contents' --data-urlencode 'query=["~>", "path", ["networking","eth.*","macaddresses",".*"]]'
+    curl -G 'http://localhost:8080/pdb/query/v4/fact-contents' \
+        --data-urlencode 'query=["~>", "path", ["networking","eth.*","macaddresses",".*"]]'
 
 which returns:
 
