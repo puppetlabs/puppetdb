@@ -874,6 +874,7 @@ EOS
         on host, "yum install -y puppet-3.7.3"
       when :redhat
         if options[:type] == 'aio' then
+          on host, "yum install -y java-1.7.0-openjdk"
           on host, "yum install -y puppet-agent"
           on host, "yum install -y puppetserver"
         else
