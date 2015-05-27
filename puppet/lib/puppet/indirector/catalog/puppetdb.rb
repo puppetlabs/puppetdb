@@ -291,7 +291,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
                 # case problem here: http://projects.puppetlabs.com/issues/19474
                 # Once that problem is solved and older versions of Puppet that have
                 # the bug are no longer supported we can probably remove this code.
-                unless other_ref =~ /^[A-Z][a-z0-9_-]*(::[A-Z][a-z0-9_-]*)*\[.*\]/
+                unless other_ref =~ /^[A-Z][a-z0-9_-]*(::[A-Z][a-z0-9_-]*)*\[.*\]/m
                   rel = edge_to_s(resource_hash_to_ref(resource_hash), other_ref, param)
                   raise Puppet::Error, "Invalid relationship: #{rel}, because " +
                     "#{other_ref} doesn't seem to be in the correct format. " +
