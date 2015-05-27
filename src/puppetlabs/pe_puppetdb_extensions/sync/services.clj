@@ -35,7 +35,8 @@
 (defservice puppetdb-sync-service
   [[:ConfigService get-in-config]
    [:WebroutingService add-ring-handler get-route]
-   [:PuppetDBServer query shared-globals submit-command]]
+   [:PuppetDBCommand submit-command]
+   [:PuppetDBServer query shared-globals]]
 
   (start [this context]
          (let [node-ttl (or (some-> (get-in-config [:node-ttl]) parse-period)

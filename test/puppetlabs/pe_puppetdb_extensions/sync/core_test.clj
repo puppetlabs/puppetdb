@@ -118,13 +118,13 @@
             config-2 (utils/sync-config)]
         (with-puppetdb-instance config-1
           (let [report (tur/munge-example-report-for-storage (:basic reports))]
-            (pdb-client/submit-command-via-http! (utils/pdb-url) "store report" 5 report)
-            @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report)))
+            (pdb-client/submit-command-via-http! (utils/pdb-cmd-url) "store report" 5 report)
+            @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-query-url) (:certname report)))
 
             (with-alt-mq "puppetlabs.puppetdb.commands-2"
               (with-puppetdb-instance config-2
-                (pdb-client/submit-command-via-http! (utils/pdb-url) "store report" 5 report)
-                @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-url) (:certname report))))))))))))
+                (pdb-client/submit-command-via-http! (utils/pdb-cmd-url) "store report" 5 report)
+                @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-query-url) (:certname report))))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Test data
@@ -202,11 +202,11 @@
 
     (with-puppetdb-instance (utils/sync-config stub-handler)
       ;; store two reports in PDB Y
-      (blocking-command-post (utils/pdb-url) "store report" 5 report-1)
-      (blocking-command-post (utils/pdb-url) "store report" 5 report-2)
+      (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-1)
+      (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-2)
 
-      (let [created-report-1 (get-first-report (utils/pdb-url) (:certname report-1))
-            created-report-2 (get-first-report (utils/pdb-url) (:certname report-2))]
+      (let [created-report-1 (get-first-report (utils/pdb-query-url) (:certname report-1))
+            created-report-2 (get-first-report (utils/pdb-query-url) (:certname report-2))]
         (is (= "3.0.1" (:puppet_version created-report-2)))
 
         ;; Set up pdb-x as a stub where 1 report has a different hash
@@ -224,7 +224,7 @@
         (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str))
 
         ;; We should see that the sync happened, and that only one report was pulled from PDB X
-        (let [puppet-versions (map :puppet_version (export/reports-for-node (utils/pdb-url) (:certname report-2)))]
+        (let [puppet-versions (map :puppet_version (export/reports-for-node (utils/pdb-query-url) (:certname report-2)))]
           (is (= #{"4.0.0" "3.0.1"} (set puppet-versions)))
           (is (= 2 (count @pdb-x-queries))))))))
 
@@ -235,10 +235,10 @@
     (with-puppetdb-instance (utils/sync-config stub-handler)
       ;; store factsets in PDB Y
       (doseq [c (map char (range (int \a) (int \g)))]
-        (blocking-command-post (utils/pdb-url) "replace facts" 4
+        (blocking-command-post (utils/pdb-cmd-url) "replace facts" 4
                                (assoc facts :certname (str c ".local"))))
 
-      (let [local-factsets (index-by :certname (get-json (utils/pdb-url) "/factsets"))
+      (let [local-factsets (index-by :certname (get-json (utils/pdb-query-url) "/factsets"))
             timestamps (ks/mapvals (comp to-date-time :producer_timestamp) local-factsets)]
         (is (= 6 (count local-factsets)))
 
@@ -281,7 +281,7 @@
         (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str)))
 
       ;; We should see that the sync happened, and that one summary query and two factset querys where made to PDB X
-      (let [synced-factsets (get-json (utils/pdb-url) "/factsets")
+      (let [synced-factsets (get-json (utils/pdb-query-url) "/factsets")
             environments (->> synced-factsets (map :environment) (into #{}))]
         (is (= #{"DEV" "A" "E" "F"} environments))
         (is (= 4 (count @pdb-x-queries)))))))
@@ -305,10 +305,10 @@
     (with-puppetdb-instance (utils/sync-config stub-handler)
       ;; store catalogs in PDB Y
       (doseq [c (map char (range (int \a) (int \g)))]
-        (blocking-command-post (utils/pdb-url) "replace catalog" 6
+        (blocking-command-post (utils/pdb-cmd-url) "replace catalog" 6
                                (assoc catalog :certname (str c ".local"))))
 
-      (let [local-catalogs (index-by :certname (get-json (utils/pdb-url) "/catalogs"))
+      (let [local-catalogs (index-by :certname (get-json (utils/pdb-query-url) "/catalogs"))
             timestamps (ks/mapvals (comp to-date-time :producer_timestamp) local-catalogs)]
         (is (= 6 (count local-catalogs)))
 
@@ -351,7 +351,7 @@
         (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str)))
 
       ;; We should see that the sync happened, and that two catalog queries were made to PDB X
-      (let [synced-catalogs (get-json (utils/pdb-url) "/catalogs")
+      (let [synced-catalogs (get-json (utils/pdb-query-url) "/catalogs")
             environments (->> synced-catalogs (map :environment) (into #{}))]
         (is (= #{"DEV" "A" "E" "F"} environments))
         (is (= 4 (count @pdb-x-queries)))))))
@@ -375,30 +375,30 @@
   (get-json base-url (str "/nodes/" certname)))
 
 (defn- submit-catalog [endpoint catalog]
-  (pdb-client/submit-command-via-http! (:service-url endpoint) "replace catalog" 6 catalog)
-  @(rt/block-until-results 100 (get-catalog (:service-url endpoint) (:certname catalog))))
+  (pdb-client/submit-command-via-http! (:command-url endpoint) "replace catalog" 6 catalog)
+  @(rt/block-until-results 100 (get-catalog (:query-url endpoint) (:certname catalog))))
 
 (defn- submit-factset [endpoint facts]
-  (pdb-client/submit-command-via-http! (:service-url endpoint) "replace facts" 4 facts)
-  @(rt/block-until-results 101 (get-factset (:service-url endpoint) (:certname facts))))
+  (pdb-client/submit-command-via-http! (:command-url endpoint) "replace facts" 4 facts)
+  @(rt/block-until-results 101 (get-factset (:query-url endpoint) (:certname facts))))
 
 (defn- submit-report [endpoint report]
-  (pdb-client/submit-command-via-http! (:service-url endpoint) "store report" 5 report)
-  @(rt/block-until-results 102 (get-reports (:service-url endpoint) (:certname report))))
+  (pdb-client/submit-command-via-http! (:command-url endpoint) "store report" 5 report)
+  @(rt/block-until-results 102 (get-reports (:query-url endpoint) (:certname report))))
 
 (defn- deactivate-node [endpoint certname]
-  (pdb-client/submit-command-via-http! (:service-url endpoint) "deactivate node" 3
+  (pdb-client/submit-command-via-http! (:command-url endpoint) "deactivate node" 3
                                        {:certname certname
                                         :producer_timestamp (t/plus (t/now) (t/years 10))})
-  @(rt/block-until-results 103 (:deactivated (get-node (:service-url endpoint) certname))))
+  @(rt/block-until-results 103 (:deactivated (get-node (:query-url endpoint) certname))))
 
 (defn- sync [& {:keys [from to check-with check-for]}]
   ;; pdb2 pulls data from pdb1
-  (trigger-sync (base-url->str (:service-url from))
+  (trigger-sync (base-url->str (:query-url from))
                 (str (base-url->str (:sync-url to)) "/trigger-sync"))
 
   ;; let pdb2 chew on its queue
-  @(rt/block-until-results 200 (check-with (:service-url to) check-for)))
+  @(rt/block-until-results 200 (check-with (:query-url to) check-for)))
 
 (defn- without-timestamp [record]
   (dissoc record :timestamp))
@@ -424,7 +424,8 @@
                                          :config config
                                          :server svcs/*server*
                                          :db db
-                                         :service-url (utils/pdb-url)
+                                         :query-url (utils/pdb-query-url)
+                                         :command-url (utils/pdb-cmd-url)
                                          :sync-url (utils/sync-url)}))))))
               (apply f infos)))]
     (muting-amq-shutdown-log-noise
@@ -446,8 +447,8 @@
       (with-alt-mq (:mq-name pdb2)
         (sync :from pdb1 :to pdb2 :check-with get-reports :check-for (:certname report)))
 
-      (is (= (export/reports-for-node (:service-url pdb1) (:certname report))
-             (export/reports-for-node (:service-url pdb2) (:certname report)))))))
+      (is (= (export/reports-for-node (:query-url pdb1) (:certname report))
+             (export/reports-for-node (:query-url pdb2) (:certname report)))))))
 
 (deftest end-to-end-factset-replication
   (with-pdbs (default-pdb-configs 2)
@@ -459,8 +460,8 @@
         (sync :from pdb1 :to pdb2 :check-with get-factset :check-for (:certname facts)))
 
       (is (=-after? without-timestamp
-                    (get-factset (:service-url pdb1) (:certname facts))
-                    (get-factset (:service-url pdb2) (:certname facts)))))))
+                    (get-factset (:query-url pdb1) (:certname facts))
+                    (get-factset (:query-url pdb2) (:certname facts)))))))
 
 (deftest end-to-end-catalog-replication
   (with-pdbs (default-pdb-configs 2)
@@ -472,8 +473,8 @@
         (sync :from pdb1 :to pdb2 :check-with get-catalog :check-for (:certname catalog)))
 
       (is (=-after? without-timestamp
-                    (get-catalog (:service-url pdb1) (:certname catalog))
-                    (get-catalog (:service-url pdb2) (:certname catalog)))))))
+                    (get-catalog (:query-url pdb1) (:certname catalog))
+                    (get-catalog (:query-url pdb2) (:certname catalog)))))))
 
 (deftest deactivate-then-sync
   (let [certname (:certname catalog)]
@@ -488,7 +489,7 @@
 
         (with-alt-mq (:mq-name pdb2)
           (sync :from pdb1 :to pdb2 :check-with get-node :check-for certname)
-          (let [node (get-node (:service-url pdb2) certname)]
+          (let [node (get-node (:query-url pdb2) certname)]
             (is (:deactivated node))))))))
 
 (deftest sync-after-deactivate
@@ -503,7 +504,7 @@
 
         (with-alt-mq (:mq-name pdb2)
           (sync :from pdb1 :to pdb2 :check-with get-node :check-for certname)
-          (let [node (get-node (:service-url pdb2) certname)]
+          (let [node (get-node (:query-url pdb2) certname)]
             (is (nil? (:deactivated node)))))
 
         ;; then deactivate and sync
@@ -512,7 +513,7 @@
 
         (with-alt-mq (:mq-name pdb2)
           (sync :from pdb1 :to pdb2 :check-with get-node :check-for certname)
-          (let [node (get-node (:service-url pdb2) certname)]
+          (let [node (get-node (:query-url pdb2) certname)]
             (is (:deactivated node))))))))
 
 (deftest periodic-sync
@@ -522,16 +523,16 @@
             (case (count infos)
               ;; infos length tells us which server we're handling.
               0 (utils/sync-config)
-              1 (let [url (base-url->str (:service-url (infos 0)))]
+              1 (let [url (base-url->str (:query-url (infos 0)))]
                   (assoc (utils/sync-config)
                          :sync {:remotes [{:endpoint url
                                            :interval sync-interval}]}))
               nil))
-          facts-from #(get-factset (:service-url %) (:certname facts))]
+          facts-from #(get-factset (:query-url %) (:certname facts))]
       (with-pdbs periodic-sync-configs
         (fn [master mirror]
           (with-alt-mq (:mq-name master)
-            (pdb-client/submit-command-via-http! (:service-url master)
+            (pdb-client/submit-command-via-http! (:command-url master)
                                                  "replace facts" 4 facts)
             @(rt/block-until-results 100 (facts-from master)))
           (is (nil? (facts-from mirror)))
@@ -556,7 +557,7 @@
           (sync :from pdb1 :to pdb2 :check-with get-node :check-for certname)
           ;; the node shouldn't be expired from pdb2's perspective, so it
           ;; should be pulled.
-          (let [node (get-node (:service-url pdb2) certname)]
+          (let [node (get-node (:query-url pdb2) certname)]
             (is (not (:expired node)))))))))
 
 (deftest dont-pull-record-that-would-be-expired-locally
@@ -575,7 +576,7 @@
           (submit-catalog pdb1 (assoc catalog :producer_timestamp (-> 3 t/weeks t/ago))))
 
         (with-alt-mq (:mq-name pdb2)
-          (trigger-sync (base-url->str (:service-url pdb1))
+          (trigger-sync (base-url->str (:query-url pdb1))
                         (str (base-url->str (:sync-url pdb2)) "/trigger-sync"))
           ;; the other tests poll until a record exists to make sure sync worked, but that
           ;; doesn't make sense here. Just wait a little while instead.
@@ -584,4 +585,4 @@
           ;; the node should be expired from pdb2's perspective. So it
           ;; shouldn't get pulled
           (is (thrown+? [:status 404]
-                        (get-node (:service-url pdb2) certname))))))))
+                        (get-node (:query-url pdb2) certname))))))))
