@@ -162,7 +162,7 @@
   (routes (GET path {query-params :query-params}
                (let [stub-data @stub-data-atom
                      stub-data-index (index-by record-identity-key stub-data)
-                     summary-data (map #(dissoc % :content) stub-data)]
+                     summary-data (map #(select-keys % [:certname :hash :producer_timestamp]) stub-data)]
                  (when-let [query (vec (json/parse-string (query-params "query")))]
                    (swap! requests-atom conj query)
                    (cond
@@ -172,7 +172,7 @@
                      (and (= "and") (first query)
                           (= ["=" (name record-identity-key)] (take 2 (second query))))
                      (let [[_ [_ _ record-hash]] query]
-                       (json-response [(get-in stub-data-index [record-hash :content])]))))))
+                       (json-response [(get stub-data-index record-hash)]))))))
 
           ;; fallback routes, for data that wasn't explicitly stubbed
           (context "/pdb-x/v4" []
@@ -210,14 +210,15 @@
         (is (= "3.0.1" (:puppet_version created-report-2)))
 
         ;; Set up pdb-x as a stub where 1 report has a different hash
-        (reset! stub-data-atom [{:certname "bar.local"
-                                 :hash "something totally different"
-                                 :start_time "2011-01-03T15:00:00Z"
-                                 :content (assoc report-2 :puppet_version "4.0.0")}
-                                {:certname "foo.local"
-                                 :hash (:hash created-report-1)
-                                 :start_time "2011-01-01T15:00:00Z"
-                                 :content report-1}])
+        (reset! stub-data-atom [(assoc report-2
+                                       :certname "bar.local"
+                                       :hash "something totally different"
+                                       :start_time "2011-01-03T15:00:00Z"
+                                       :puppet_version "4.0.0")
+                                (assoc report-1
+                                       :certname "foo.local"
+                                       :hash (:hash created-report-1)
+                                       :start_time "2011-01-01T15:00:00Z")])
 
         ;; Pull data from pdb-x to pdb-y
         (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str))
@@ -243,41 +244,38 @@
 
         (reset! stub-data-atom
                 [;; time is newer than local, hash is different -> should pull
-                 {:certname "a.local"
-                  :hash "a_different"
-                  :producer_timestamp (t/plus (timestamps "a.local") (t/days 1))
-                  :content (assoc facts
-                                  :certname "a.local"
-                                  :environment "A")}
+                 (assoc facts
+                        :certname "a.local"
+                        :hash "a_different"
+                        :producer_timestamp (t/plus (timestamps "a.local") (t/days 1))
+                        :environment "A")
                  ;; time is older than local, hash is different -> no pull
-                 {:certname "b.local"
-                  :hash "b_different"
-                  :producer_timestamp (t/minus (timestamps "b.local") (t/days 1))
-                  :content (assoc facts :certname "b.local")}
+                 (assoc facts
+                        :certname "b.local"
+                        :hash "b_different"
+                        :producer_timestamp (t/minus (timestamps "b.local") (t/days 1)))
                  ;; time is the same, hash is the same -> no pull
-                 {:certname "c.local"
-                  :hash (-> local-factsets (get "c.local") :hash)
-                  :producer_timestamp (timestamps "c.local")
-                  :content (assoc facts :certname "c.local")}
+                 (assoc facts
+                        :certname "c.local"
+                        :hash (-> local-factsets (get "c.local") :hash)
+                        :producer_timestamp (timestamps "c.local"))
                  ;; time is the same, hash is lexically less -> no pull
-                 {:certname "d.local"
-                  :hash "0000000000000000000000000000000000000000"
-                  :producer_timestamp (timestamps "d.local")
-                  :content (assoc facts :certname "d.local")}
+                 (assoc facts
+                        :certname "d.local"
+                        :hash "0000000000000000000000000000000000000000"
+                        :producer_timestamp (timestamps "d.local"))
                  ;; time is the same, hash is lexically greater -> should pull
-                 {:certname "e.local"
-                  :hash "ffffffffffffffffffffffffffffffffffffffff"
-                  :producer_timestamp (timestamps "e.local")
-                  :content (assoc facts
-                                  :certname "e.local"
-                                  :environment "E")}
+                 (assoc facts
+                        :certname "e.local"
+                        :hash "ffffffffffffffffffffffffffffffffffffffff"
+                        :producer_timestamp (timestamps "e.local")
+                        :environment "E")
                  ;; time is newer than local, hash is the same -> should pull
-                 {:certname "f.local"
-                  :hash (-> local-factsets (get "f.local") :hash)
-                  :producer_timestamp (t/plus (timestamps "f.local") (t/days 1))
-                  :content (assoc facts
-                                  :certname "f.local"
-                                  :environment "F")}])
+                 (assoc facts
+                        :certname "f.local"
+                        :hash (-> local-factsets (get "f.local") :hash)
+                        :producer_timestamp (t/plus (timestamps "f.local") (t/days 1))
+                        :environment "F")])
 
         ;; Send a sync command to PDB Y
         (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str)))
@@ -316,41 +314,38 @@
 
         (reset! stub-data-atom
                 [;; time is newer than local, hash is different -> should pull
-                 {:certname "a.local"
-                  :hash "a_ different"
-                  :producer_timestamp (t/plus (timestamps "a.local") (t/days 1))
-                  :content (assoc catalog-response
-                                  :certname "a.local"
-                                  :environment "A")}
+                 (assoc catalog-response
+                        :certname "a.local"
+                        :hash "a_different"
+                        :producer_timestamp (t/plus (timestamps "a.local") (t/days 1))
+                        :environment "A")
                  ;; time is older than local, hash is different -> no pull
-                 {:certname "b.local"
-                  :hash "different"
-                  :producer_timestamp (t/minus (timestamps "b.local") (t/days 1))
-                  :content (assoc catalog-response :certname "b.local")}
+                 (assoc catalog-response
+                        :certname "b.local"
+                        :hash "b_different"
+                        :producer_timestamp (t/minus (timestamps "b.local") (t/days 1)))
                  ;; time is the same, hash is the same -> no pull
-                 {:certname "c.local"
-                  :hash (-> local-catalogs (get "c.local") :hash)
-                  :producer_timestamp (timestamps "c.local")
-                  :content (assoc catalog-response :certname "c.local")}
+                 (assoc catalog-response
+                        :certname "c.local"
+                        :hash (-> local-catalogs (get "c.local") :hash)
+                        :producer_timestamp (timestamps "c.local"))
                  ;; time is the same, hash is lexically less -> no pull
-                 {:certname "d.local"
-                  :hash "0000000000000000000000000000000000000000"
-                  :producer_timestamp (timestamps "d.local")
-                  :content (assoc catalog-response :certname "d.local")}
+                 (assoc catalog-response
+                        :certname "d.local"
+                        :hash "0000000000000000000000000000000000000000"
+                        :producer_timestamp (timestamps "d.local"))
                  ;; time is the same, hash is lexically greater -> should pull
-                 {:certname "e.local"
-                  :hash "ffffffffffffffffffffffffffffffffffffffff"
-                  :producer_timestamp (timestamps "e.local")
-                  :content (assoc catalog-response
-                                  :certname "e.local"
-                                  :environment "E")}
+                 (assoc catalog-response
+                        :certname "e.local"
+                        :hash "ffffffffffffffffffffffffffffffffffffffff"
+                        :producer_timestamp (timestamps "e.local")
+                        :environment "E")
                  ;; timer is newer than local, hash is the same -> should pull
-                 {:certname "f.local"
-                  :hash (-> local-catalogs (get "f.local") :hash)
-                  :producer_timestamp (t/plus (timestamps "f.local") (t/days 1))
-                  :content (assoc catalog-response
-                                  :certname "f.local"
-                                  :environment "F")}])
+                 (assoc catalog-response
+                        :certname "f.local"
+                        :hash (-> local-catalogs (get "f.local") :hash)
+                        :producer_timestamp (t/plus (timestamps "f.local") (t/days 1))
+                        :environment "F")])
 
         ;; Send a sync command to PDB Y
         (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str)))
