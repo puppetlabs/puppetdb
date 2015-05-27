@@ -1159,9 +1159,10 @@
     (add-certname! certname))
   (let [timestamp (to-timestamp time)
         replaced  (sql/update-values :certnames
-                                     ["name=? AND (deactivated<? OR deactivated IS NULL)" certname timestamp]
-                                     {:deactivated nil})]
-    (pos? (first replaced))))
+                                     ["name=? AND deactivated<?" certname timestamp]
+                                     {:deactivated nil})
+        num-updated (first replaced)]
+    (pos? num-updated)))
 
 (pls/defn-validated deactivate-node!
   "Deactivate the given host, recording the current time. If the node is
