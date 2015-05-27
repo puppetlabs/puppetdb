@@ -1,4 +1,4 @@
-(ns puppetlabs.pe-puppetdb-extensions.sync.command-test
+(ns puppetlabs.pe-puppetdb-extensions.sync.core-test
   (:refer-clojure :exclude [sync])
   (:require [clojure.test :exclude [report] :refer :all]
             [puppetlabs.puppetdb.random :refer [random-string]]
@@ -9,7 +9,7 @@
             [puppetlabs.puppetdb.testutils :as testutils :refer [=-after?]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :as rt]
-            [puppetlabs.pe-puppetdb-extensions.sync.command :refer :all]
+            [puppetlabs.pe-puppetdb-extensions.sync.core :refer :all]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [with-puppetdb-instance index-by json-request json-response get-json blocking-command-post]]
             [puppetlabs.puppetdb.cli.export :as export]

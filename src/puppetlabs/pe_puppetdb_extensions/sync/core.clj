@@ -1,4 +1,4 @@
-(ns puppetlabs.pe-puppetdb-extensions.sync.command
+(ns puppetlabs.pe-puppetdb-extensions.sync.core
   (:import [org.joda.time Period])
   (:require [puppetlabs.puppetdb.utils :as utils]
             [clj-http.util :refer [url-encode]]
