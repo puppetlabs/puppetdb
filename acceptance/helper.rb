@@ -293,7 +293,7 @@ module PuppetDBExtensions
     manifest = add_el5_postgres(host, "
     class { 'puppetdb':
       database             => '#{db}',
-      open_ssl_listen_port => false,
+      manage_firewall      => false,
       puppetdb_version     => '#{get_package_version(host, version)}',
     }")
 
