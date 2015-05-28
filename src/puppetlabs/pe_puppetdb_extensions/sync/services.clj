@@ -5,7 +5,7 @@
             [overtone.at-at :as atat]
             [puppetlabs.puppetdb.time :refer [to-millis]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.pe-puppetdb-extensions.sync.command :refer [sync-from-remote!]]
+            [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote!]]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [get-service]]
             [puppetlabs.puppetdb.utils :as utils]
@@ -53,7 +53,6 @@
                        (to-millis (time/seconds (get (first remotes) :interval 120)))
                        #(sync-with! (:endpoint (remotes 0)) query submit-command node-ttl)
                        (atat/mk-pool)))))))
-  
 
   (stop [this context]
         (when-let [s (:scheduled-sync context)]
