@@ -12,4 +12,9 @@
       (is (= status http/status-ok))
       (is (instance? java.io.File body))
       (is (= (file (System/getProperty "user.dir")
-                   "resources/public/dashboard/index.html") body)))))
+                   "resources/public/dashboard/index.html") body))))
+
+  (testing "dashboard redirect works"
+    (let [{:keys [status headers]} (dashboard/dashboard-redirect (request :get "/"))]
+      (is (= status 302))
+      (is (= "/pdb/dashboard/index.html" (get headers "Location"))))))
