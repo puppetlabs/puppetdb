@@ -101,13 +101,10 @@
   "Search for resources satisfying the given SQL filter."
   [version query-sql url-prefix]
   {:pre [(map? query-sql)]}
-  (let [{[sql & params] :results-query
-         count-query    :count-query} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params
-                          ;; The doall simply forces the seq to be traversed
-                          ;; fully.
-                          (comp doall (munge-result-rows version url-prefix)))}]
+  (let [{:keys [count-query results-query]} query-sql
+         result {:result (jdbc/with-query-results-cursor
+                          results-query (comp doall
+                                              (munge-result-rows version url-prefix)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

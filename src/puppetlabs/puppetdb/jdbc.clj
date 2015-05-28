@@ -185,8 +185,8 @@
   [table]
   (-> "SELECT COUNT(*) as c FROM %s"
       (format table)
-      (query-to-vec)
-      (first)
+      query-to-vec
+      first
       :c))
 
 (def ^{:doc "A more clojurey way to refer to the JDBC transaction isolation levels"}
@@ -202,7 +202,9 @@
    tighter or looser sleep cycles."
   [current-attempt :- s/Int
    base :- (s/either s/Int Double)]
-  (let [sleep-ms (* (- (math/expt base current-attempt) 1) 1000)]
+  (let [sleep-ms (-> (math/expt base current-attempt)
+                     (- 1)
+                     (* 1000))]
     (Thread/sleep sleep-ms)))
 
 (pls/defn-validated retry-sql-or-fail :- Boolean
@@ -288,7 +290,7 @@
      (fn []
        ~@body)))
 
-(defn with-query-results-cursor*
+(defn with-query-results-cursor
   "Executes the given parameterized query within a transaction,
   producing a lazy sequence of rows. The callback `func` is executed
   on the entire sequence.
@@ -298,30 +300,22 @@
 
   The cursor is closed when `func` returns. If an exception is thrown,
   the query is cancelled."
-  [func sql params]
+  [[sql & params] func]
   (sql/transaction
    (with-open [stmt (.prepareStatement (sql/connection) sql)]
-     (doseq [[index value] (map vector (iterate inc 1) params)]
-       (.setObject stmt index value))
+     (doseq [[index value] (map-indexed vector params)]
+       (.setObject stmt (inc index) value))
      (.setFetchSize stmt 500)
      (with-open [rset (.executeQuery stmt)]
        (try
          (-> rset
-             (sql/resultset-seq)
-             (convert-result-arrays)
-             (func))
+             sql/resultset-seq
+             convert-result-arrays
+             func)
          (catch Exception e
            ;; Cancel the current query
            (.cancel stmt)
            (throw e)))))))
-
-(defmacro with-query-results-cursor
-  "Executes the given parameterized query within a transaction.
-  `body` is then executed with `rs-var` bound to the lazy sequence of
-  resulting rows. See `with-query-results-cursor*`."
-  [sql params rs-var & body]
-  `(let [func# (fn [~rs-var] (do ~@body))]
-     (with-query-results-cursor* func# ~sql ~params)))
 
 (defn make-connection-pool
   "Create a new database connection pool"
@@ -329,7 +323,7 @@
            partition-conn-min partition-conn-max partition-count
            stats log-statements log-slow-statements statements-cache-size
            conn-max-age conn-lifetime conn-keep-alive read-only?]
-    :as   db}]
+    :as db}]
   (let [;; Load the database driver class explicitly, to avoid jar load ordering
         ;; issues.
         _ (Class/forName classname)

@@ -4,7 +4,6 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
             [puppetlabs.puppetdb.query.catalogs :as catalogs]
             [puppetlabs.puppetdb.query.edges :as edges]
@@ -47,7 +46,7 @@
   (let [[query->sql munge-fn] (entity->sql-fns entity version paging-options url-prefix)]
     (jdbc/with-transacted-connection db
       (let [{:keys [results-query]} (query->sql query)]
-        (query/streamed-query-result results-query (comp row-fn munge-fn))))))
+        (jdbc/with-query-results-cursor results-query (comp row-fn munge-fn))))))
 
 (defn produce-streaming-body
   "Given a query, and database connection, return a Ring response with the query
@@ -63,7 +62,7 @@
             resp (http/streamed-response
                   buffer
                   (try (jdbc/with-transacted-connection db
-                         (query/streamed-query-result
+                         (jdbc/with-query-results-cursor
                           results-query (comp #(http/stream-json % buffer)
                                               #(do (first %) (deliver query-error nil) %)
                                               munge-fn)))
