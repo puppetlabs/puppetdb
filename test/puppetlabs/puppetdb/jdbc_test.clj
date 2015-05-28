@@ -53,21 +53,6 @@
     (is (thrown-with-msg? IllegalStateException #"more than the maximum number of results"
                           (subject/limited-query-to-vec 1 "SELECT key FROM test WHERE key LIKE 'ab%'")))))
 
-(deftest order-by->sql
-  (testing "should return an empty string if no order_by is provided"
-    (is (= "" (subject/order-by->sql nil))))
-  (testing "should return an empty string if order_by list is empty"
-    (is (= "" (subject/order-by->sql []))))
-  (testing "should generate a valid SQL 'ORDER BY' clause"
-    (is (= " ORDER BY foo" (subject/order-by->sql [[:foo :ascending]]))))
-  (testing "should support ordering in descending order"
-    (is (= " ORDER BY foo DESC" (subject/order-by->sql [[:foo :descending]]))))
-  (testing "should support multiple order_by fields"
-    (is (= " ORDER BY foo DESC, bar"
-           (subject/order-by->sql
-            [[:foo :descending]
-             [:bar :ascending]])))))
-
 (deftest in-clause
   (testing "single item in collection"
     (is (= "in (?)" (subject/in-clause ["foo"]))))
