@@ -7,7 +7,7 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.v4 :refer [v4-app]]
             [puppetlabs.puppetdb.middleware :refer
-             [wrap-with-puppetdb-middleware wrap-with-globals wrap-with-metrics]]
+             [wrap-with-puppetdb-middleware wrap-with-metrics]]
             [net.cgrand.moustache :refer [app]]
             [ring.util.response :as rr]))
 
@@ -30,9 +30,10 @@
     (format "The %s API has been retired; please use v4" version)
     404)))
 
-(def routes
+(defn routes
+  [globals]
   (app
-   ["v4" &] {:any v4-app}
+   ["v4" &] {:any (v4-app globals)}
    ["v1" &] {:any (refuse-retired-api "v1")}
    ["v2" &] {:any (refuse-retired-api "v2")}
    ["v3" &] {:any (refuse-retired-api "v3")}))
@@ -47,7 +48,6 @@
     :authorized if the request is authorized, or a user-visible reason if not.
     If not supplied, we default to authorizing all requests."
   [{:keys [authorizer] :as globals}]
-  (-> routes
+  (-> (routes globals)
       (wrap-with-puppetdb-middleware authorizer)
-      (wrap-with-metrics (atom {}) http/leading-uris)
-      (wrap-with-globals globals)))
+      (wrap-with-metrics (atom {}) http/leading-uris)))

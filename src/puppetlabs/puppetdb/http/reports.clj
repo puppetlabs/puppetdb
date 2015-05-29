@@ -12,46 +12,44 @@
 
 (defn report-responder
   "Respond with reports."
-  [version]
-  (app
-   []
-   {:get
-    (fn [{:keys [params globals paging-options]}]
-      (let [{db :scf-read-db url-prefix :url-prefix} globals
-            {:strs [query]} params]
-        (produce-streaming-body :reports version query paging-options db url-prefix)))}))
+  [globals]
+  (let [{:keys [api-version url-prefix scf-read-db]} globals]
+    (app
+     []
+     {:get (fn [{:keys [params paging-options]}]
+        (let [{:strs [query]} params]
+          (produce-streaming-body :reports api-version query paging-options scf-read-db url-prefix)))})))
 
 (defn report-data-responder
   "Respond with either metrics or logs for a given report hash.
   `entity` should be either :metrics or :logs."
-  [version entity hash]
-  (app
-   []
-   {:get
-    (fn [{:keys [globals]}]
-      (let [{db :scf-read-db url-prefix :url-prefix} globals
-            query (json/generate-string ["=" "hash" hash])]
-        (produce-streaming-body entity version query {} db url-prefix)))}))
+  [globals entity hash]
+  (let [{:keys [api-version url-prefix scf-read-db]} globals]
+    (app
+     []
+     {:get (fn [_]
+             (let [query (json/generate-string ["=" "hash" hash])]
+               (produce-streaming-body entity api-version query {} scf-read-db url-prefix)))})))
 
 (defn reports-app
-  [version]
+  [globals]
   (app
    [hash "events" &]
-   (comp (e/events-app version)
+   (comp (e/events-app globals)
          (partial http-q/restrict-query-to-report hash))
 
    [hash "metrics" &]
-   (-> (report-data-responder version :report-metrics hash)
+   (-> (report-data-responder globals :report-metrics hash)
        validate-no-query-params
        verify-accepts-json)
 
    [hash "logs" &]
-   (-> (report-data-responder version :report-logs hash)
+   (-> (report-data-responder globals :report-logs hash)
        validate-no-query-params
        verify-accepts-json)
 
    [&]
-   (-> (report-responder version)
+   (-> (report-responder globals)
        (validate-query-params {:optional (cons "query" paging/query-params)})
        wrap-with-paging-options
        verify-accepts-json)))

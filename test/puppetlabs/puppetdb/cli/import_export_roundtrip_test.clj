@@ -87,65 +87,60 @@
         catalog (-> (get-in wire-catalogs [6 :empty])
                     (assoc :certname "foo.local"
                            :producer_timestamp (now)))
-        report (:basic reports)
-        with-server #(svc-utils/puppetdb-instance
-                      (svc-utils/create-config)
-                      %)]
+        report (:basic reports)]
 
-    (with-server
-      (fn []
-        (is (empty? (export/get-nodes *base-url*)))
+    (svc-utils/with-puppetdb-instance
+      (is (empty? (export/get-nodes *base-url*)))
+      
+      (svc-utils/sync-command-post (assoc *base-url* :prefix "/pdb/cmd" :version :v1) "replace catalog" 6 catalog)
+      (svc-utils/sync-command-post (assoc *base-url* :prefix "/pdb/cmd" :version :v1) "store report" 5
+                                   (tur/munge-example-report-for-storage report))
+      (svc-utils/sync-command-post (assoc *base-url* :prefix "/pdb/cmd" :version :v1) "replace facts" 4 facts)
 
-        (svc-utils/sync-command-post *base-url* "replace catalog" 6 catalog)
-        (svc-utils/sync-command-post *base-url* "store report" 5
-                                     (tur/munge-example-report-for-storage report))
-        (svc-utils/sync-command-post *base-url* "replace facts" 4 facts)
-
-        (is (testutils/=-after? munge-catalog catalog (->> (:certname catalog)
-                                                           (export/catalogs-for-node *base-url*)
-                                                           first)))
-
-        (is (testutils/=-after? munge-report report (->> (:certname report)
-                                                         (export/reports-for-node *base-url*)
+      (is (testutils/=-after? munge-catalog catalog (->> (:certname catalog)
+                                                         (export/catalogs-for-node *base-url*)
                                                          first)))
-        (is (= facts (->> (:certname facts)
-                          (export/facts-for-node *base-url*)
-                          first)))
 
-        (#'export/main "--outfile" export-out-file
-                       "--host" (:host *base-url*)
-                       "--port" (:port *base-url*))))
+      (is (testutils/=-after? munge-report report (->> (:certname report)
+                                                       (export/reports-for-node *base-url*)
+                                                       first)))
+      (is (= facts (->> (:certname facts)
+                        (export/facts-for-node *base-url*)
+                        first)))
 
-    (with-server
-      (fn []
-        (is (empty? (export/get-nodes *base-url*)))
+      (#'export/main "--outfile" export-out-file
+                     "--host" (:host *base-url*)
+                     "--port" (:port *base-url*)))
 
-        (svc-utils/until-consumed
-         3
-         (fn []
-           (#'import/main "--infile" export-out-file
-                          "--host" (:host *base-url*) "--port" (:port *base-url*))))
+    (svc-utils/with-puppetdb-instance
+      (is (empty? (export/get-nodes *base-url*)))
 
-        (is (testutils/=-after? munge-catalog catalog (->> (:certname catalog)
-                                                           (export/catalogs-for-node *base-url*)
-                                                           first)))
+      (svc-utils/until-consumed
+       3
+       (fn []
+         (#'import/main "--infile" export-out-file
+                        "--host" (:host *base-url*) "--port" (:port *base-url*))))
 
-        ;; For some reason, although the fact's/report's message has
-        ;; been consumed and committed, it's not immediately available
-        ;; for querying. Maybe this is a race condition in our tests?
-        ;; The next two lines ensure that the message is not only
-        ;; consumed but present in the DB before proceeding
-        @(block-until-results 100 (->> (:certname facts)
-                                       (export/facts-for-node *base-url*)))
-        @(block-until-results 100 (->> (:certname report)
-                                       (export/reports-for-node *base-url*)))
+      (is (testutils/=-after? munge-catalog catalog (->> (:certname catalog)
+                                                         (export/catalogs-for-node *base-url*)
+                                                         first)))
 
-        (is (= facts (->> (:certname facts)
-                          (export/facts-for-node *base-url*)
-                          first)))
-        (is (testutils/=-after? munge-report report (->> (:certname report)
-                                                         (export/reports-for-node *base-url*)
-                                                         first)))))))
+      ;; For some reason, although the fact's/report's message has
+      ;; been consumed and committed, it's not immediately available
+      ;; for querying. Maybe this is a race condition in our tests?
+      ;; The next two lines ensure that the message is not only
+      ;; consumed but present in the DB before proceeding
+      @(block-until-results 100 (->> (:certname facts)
+                                     (export/facts-for-node *base-url*)))
+      @(block-until-results 100 (->> (:certname report)
+                                     (export/reports-for-node *base-url*)))
+
+      (is (= facts (->> (:certname facts)
+                        (export/facts-for-node *base-url*)
+                        first)))
+      (is (testutils/=-after? munge-report report (->> (:certname report)
+                                                       (export/reports-for-node *base-url*)
+                                                       first))))))
 
 (deftest test-max-frame-size
   (let [catalog (-> (get-in wire-catalogs [6 :empty])
@@ -154,7 +149,7 @@
      (assoc-in (svc-utils/create-config) [:command-processing :max-frame-size] "1024")
      (fn []
        (is (empty? (export/get-nodes *base-url*)))
-       (pdb-client/submit-command-via-http! *base-url* "replace catalog" 6 catalog)
+       (pdb-client/submit-command-via-http! (assoc *base-url* :prefix "/pdb/cmd" :version :v1) "replace catalog" 6 catalog)
        (is (thrown-with-msg?
             java.util.concurrent.ExecutionException #"Results not found"
             @(block-until-results 5

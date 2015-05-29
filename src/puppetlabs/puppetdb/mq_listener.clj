@@ -9,7 +9,7 @@
             [metrics.meters :refer [meter mark!]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.command :as cmd]
+            [puppetlabs.puppetdb.command.core :as command]
             [puppetlabs.trapperkeeper.services :refer [defservice service-context service-id]]
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls]))
@@ -136,7 +136,7 @@
   successful or a Throwable object if one is thrown."
   [msg]
   (try+
-   (cmd/parse-command msg)
+   (command/parse-command msg)
    (catch Throwable e
      e)))
 

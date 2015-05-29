@@ -2,9 +2,10 @@
   (:import [java.security KeyStore])
   (:require [fs.core :as fs]
             [clj-http.client :as client]
-            [puppetlabs.puppetdb.version]
+            [puppetlabs.puppetdb.meta.version :as v]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :refer :all]
+            [puppetlabs.puppetdb.command :refer :all]
             [puppetlabs.puppetdb.utils :as utils]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*base-url*]]
@@ -15,15 +16,15 @@
             [puppetlabs.puppetdb.cli.export :as export :refer [facts-for-node]]))
 
 (deftest update-checking
-  (testing "should check for updates if running as puppetdb"
-    (with-redefs [puppetlabs.puppetdb.version/update-info (constantly {:version "0.0.0" :newer true})]
+  (testing "should check for updates if running as foss puppetdb"
+    (with-redefs [v/update-info (constantly {:version "0.0.0" :newer true})]
       (with-log-output log-output
-        (maybe-check-for-updates "puppetdb" "update-server!" {})
+        (maybe-check-for-updates false "update-server!" {})
         (is (= 1 (count (logs-matching #"Newer version 0.0.0 is available!" @log-output)))))))
 
-  (testing "should skip the update check if running as pe-puppetdb"
+  (testing "should skip the update check if running as puppet-enterprise"
     (with-log-output log-output
-      (maybe-check-for-updates "pe-puppetdb" "update-server!" {})
+      (maybe-check-for-updates true "update-server!" {})
       (is (= 1 (count (logs-matching #"Skipping update check on Puppet Enterprise" @log-output)))))))
 
 (deftest whitelisting
@@ -36,26 +37,6 @@
         (with-log-output logz
           (is (string? (f {:ssl-client-cn "badguy"})))
           (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
-
-(deftest url-prefix-test
-  (testing "should mount web app at `/` by default"
-    (svc-utils/with-puppetdb-instance
-      (let [url (str (utils/base-url->str *base-url*) "/version")
-            response (client/get url)]
-        (is (= 200 (:status response))))))
-  (testing "should support mounting web app at alternate url prefix"
-    (svc-utils/puppetdb-instance
-     (assoc-in (svc-utils/create-config)
-               [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service]
-               "/puppetdb")
-     (fn []
-       (let [url (str (utils/base-url->str (dissoc *base-url* :prefix))
-                      "/version")
-             response (client/get url {:throw-exceptions false})]
-         (is (= 404 (:status response))))
-       (let [url (str (utils/base-url->str *base-url*) "/version")
-             response (client/get url)]
-         (is (= 200 (:status response))))))))
 
 (defn- check-service-query
   [endpoint version q pagination check-result]
@@ -77,7 +58,7 @@
 
 (deftest query-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
-    (let [pdb-service (get-service svc-utils/*server* :PuppetDBServer)]
+    (let [pdb-service (get-service svc-utils/*server* :PuppetDBCommand)]
       (submit-command pdb-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:foo "the foo"
@@ -106,7 +87,7 @@
 
 (deftest pagination-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
-    (let [pdb-service (get-service svc-utils/*server* :PuppetDBServer)]
+    (let [pdb-service (get-service svc-utils/*server* :PuppetDBCommand)]
       (submit-command pdb-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:a "a" :b "b" :c "c"}
@@ -135,8 +116,7 @@
   (svc-utils/with-puppetdb-instance
     (letfn [(ping [v]
               (client/get
-               (str (utils/base-url->str (assoc *base-url* :version v))
-                    "/version")
+               (str (utils/base-url->str (assoc *base-url* :version v)) "/facts")
                {:throw-exceptions false}))
             (retirement-response? [v response]
               (and (= 404 (:status response))
@@ -150,7 +130,7 @@
 
 (deftest in-process-command-submission
   (svc-utils/with-puppetdb-instance
-    (let [pdb-service (get-service svc-utils/*server* :PuppetDBServer)]
+    (let [pdb-service (get-service svc-utils/*server* :PuppetDBCommand)]
       (submit-command pdb-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:foo "the foo"

@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 2.3 » API » v4 » Querying PuppetDB Version"
+title: "PuppetDB 2.3 » Meta API » v1 » Querying PuppetDB Version"
 layout: default
-canonical: "/puppetdb/latest/api/query/v4/version.html"
+canonical: "/puppetdb/latest/api/meta/v1/version.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp

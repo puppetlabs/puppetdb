@@ -12,7 +12,7 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 [report_processors]: /guides/reporting.html
 [event]: ./api/query/v4/events.html
 [report]: ./api/query/v4/reports.html
-[store_report]: ./api/commands.html#store-report-version-1
+[store_report]: ./api/command/v1/commands.html#store-report-version-1
 [report_format]: ./api/wire_format/report_format_v3.html
 [puppetdb_server_urls]: ./puppetdb_connection.html#server_urls
 

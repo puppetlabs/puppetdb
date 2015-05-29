@@ -4,7 +4,7 @@ layout: default
 canonical: "/puppetdb/latest/api/index.html"
 ---
 
-[commands]: ./commands.html
+[commands]: ./command/v1/commands.html
 [termini]: ../connect_puppet_master.html
 
 Since PuppetDB collects lots of data from Puppet, it's an ideal platform for new tools and applications that use that data. You can use the HTTP API described in these pages to interact with PuppetDB's data.
@@ -56,8 +56,6 @@ This is the current stable API.
 * [Event Counts Endpoint](./query/v4/event-counts.html)
 * [Aggregate Event Counts Endpoint](./query/v4/aggregate-event-counts.html)
 * [Metrics Endpoint](./query/v4/metrics.html)
-* [Server Time Endpoint](./query/v4/server-time.html)
-* [Version Endpoint](./query/v4/version.html)
 
 #### Version 3 (Retired)
 

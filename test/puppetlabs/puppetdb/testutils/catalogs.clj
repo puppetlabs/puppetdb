@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.testutils.catalogs
-  (:require [puppetlabs.puppetdb.command :as command]
+  (:require [puppetlabs.puppetdb.command.core :as command]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.catalogs :as cats]
             [puppetlabs.kitchensink.core :refer [uuid]]

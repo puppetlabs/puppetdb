@@ -43,7 +43,6 @@
      database, compacting it and performing regular cleanup so we can
      maintain acceptable performance."
   (:require [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.command :refer [enqueue-command!]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.jdbc :as pl-jdbc]
@@ -63,8 +62,7 @@
             [puppetlabs.puppetdb.time :refer [to-seconds to-millis parse-period format-period period?]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
-            [puppetlabs.puppetdb.version :refer [version update-info]]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [puppetlabs.puppetdb.meta.version :as v]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query-eng :as qeng])
   (:import [javax.jms ExceptionListener]))
@@ -153,7 +151,7 @@
   is out of date."
   [update-server db]
   (let [{:keys [version newer link]} (try
-                                       (update-info update-server db)
+                                       (v/update-info update-server db)
                                        (catch Throwable e
                                          (log/debugf e "Could not retrieve update information (%s)" update-server)))]
     (when newer
@@ -163,8 +161,8 @@
 (defn maybe-check-for-updates
   "Check for updates if our `product-name` indicates we should, and skip the
   check otherwise."
-  [product-name update-server db]
-  (if (= product-name "puppetdb")
+  [puppet-enterprise? update-server db]
+  (if-not puppet-enterprise?
     (check-for-updates update-server db)
     (log/debug "Skipping update check on Puppet Enterprise")))
 
@@ -193,26 +191,33 @@
   [{:keys [broker mq-factory mq-connection]}]
   (when broker
     (log/info "Shutting down the messsage queues.")
-    (.close mq-connection)
-    (.close mq-factory)
+    (doseq [conn [mq-connection mq-factory]]
+      (.close conn))
     (mq/stop-broker! broker)))
+
+(defn shutdown-updater
+  [{:keys [updater]}]
+  (when updater
+    (log/info "Shutting down updater thread.")
+    (future-cancel updater)))
+
+(defn shutdown-db-connections
+  [{{read-db :scf-read-db
+     write-db :scf-write-db} :shared-globals}]
+  (doseq [db [write-db read-db]]
+    (when-let [ds (:datasource db)] (.close ds))))
 
 (defn stop-puppetdb
   "Shuts down PuppetDB, releasing resources when possible.  If this is
   not a normal shutdown, emergency? must be set, which currently just
   produces a fatal level level log message, instead of info."
-  [context emergency?]
+  [context & [emergency?]]
   (if emergency?
     (log/error "A fatal error occurred; shutting down all subsystems.")
     (log/info "Shutdown request received; puppetdb exiting."))
-  (when-let [updater (context :updater)]
-    (log/info "Shutting down updater thread.")
-    (future-cancel updater))
+  (shutdown-updater context)
   (shutdown-mq context)
-  (when-let [ds (get-in context [:shared-globals :scf-write-db :datasource])]
-    (.close ds))
-  (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
-    (.close ds))
+  (shutdown-db-connections context)
   context)
 
 (defn add-max-framesize
@@ -221,16 +226,16 @@
   (format "%s&wireFormat.maxFrameSize=%s&marshal=true" url max-frame-size))
 
 (defn start-puppetdb
-  [context config service add-ring-handler get-route shutdown-on-error]
+  [context config url-prefix add-ring-handler shutdown-on-error]
   {:pre [(map? context)
          (map? config)
          (ifn? add-ring-handler)
          (ifn? shutdown-on-error)]
    :post [(map? %)
-          (every? (partial contains? %) [:broker])]}
+          (contains? % :broker)]}
   (let [{:keys [global   jetty
                 database read-database
-                puppetdb command-processing]} (conf/process-config! config)
+                puppetdb command-processing]} config
         {:keys [product-name update-server
                 vardir catalog-hash-debug-dir]} global
         {:keys [gc-interval    node-ttl
@@ -239,16 +244,11 @@
                  max-frame-size threads]} command-processing
         {:keys [certificate-whitelist
                 disable-update-checking]} puppetdb
-        url-prefix (get-route service)
         write-db (pl-jdbc/pooled-datasource database)
-        read-db (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
-        mq-dir (str (file vardir "mq"))
-        discard-dir (file mq-dir "discarded")
-        mq-connection-str (add-max-framesize max-frame-size mq-addr)
-        authorizer (when certificate-whitelist
-                     (build-whitelist-authorizer certificate-whitelist))]
+        read-db (pl-jdbc/pooled-datasource read-database)
+        puppet-enterprise? (not= product-name "puppetdb")]
 
-    (when-let [v (version)]
+    (when-let [v (v/version)]
       (log/infof "PuppetDB version %s" v))
 
     ;; Ensure the database is migrated to the latest version, and warn
@@ -259,83 +259,81 @@
     (sql/with-connection write-db
       (scf-store/validate-database-version #(System/exit 1))
       (migrate!)
-      (indexes! product-name))
+      (indexes! puppet-enterprise?))
 
     ;; Initialize database-dependent metrics and dlo metrics if existent.
     (pop/initialize-metrics write-db)
-    (when (.exists discard-dir)
-      (dlo/create-metrics-for-dlo! discard-dir))
-    (let [broker (try
-                   (log/info "Starting broker")
-                   (mq/build-and-start-broker! "localhost" mq-dir command-processing)
-                   (catch java.io.EOFException e
-                     (log/error
-                      "EOF Exception caught during broker start, this "
-                      "might be due to KahaDB corruption. Consult the "
-                      "PuppetDB troubleshooting guide.")
-                     (throw e)))
-          mq-factory (mq/activemq-connection-factory
-                      (add-max-framesize max-frame-size mq-addr))
-          mq-connection (doto (.createConnection mq-factory)
-                          (.setExceptionListener
-                           (reify ExceptionListener
-                             (onException [this ex]
-                               (log/error ex "service queue connection error"))))
-                          .start)
-          globals {:scf-read-db read-db
-                   :scf-write-db write-db
-                   :authorizer authorizer
-                   :update-server update-server
-                   :product-name product-name
-                   :url-prefix url-prefix
-                   :discard-dir (.getAbsolutePath discard-dir)
-                   :mq-addr mq-addr
-                   :mq-dest mq-endpoint
-                   :mq-threads threads
-                   :catalog-hash-debug-dir catalog-hash-debug-dir
-                   :command-mq {:connection mq-connection
-                                :endpoint mq-endpoint}}
-          updater (when-not disable-update-checking
-                    (future (shutdown-on-error
-                             (service-id service)
-                             #(maybe-check-for-updates product-name update-server read-db)
-                             #(stop-puppetdb % true))))]
-      (let [app (->> (server/build-app globals)
-                     (compojure/context url-prefix []))]
-        (log/info "Starting query server")
-        (add-ring-handler service app))
+    (let [mq-dir (-> (file vardir "mq") str)
+          discard-dir (file mq-dir "discarded")]
+      (when (.exists discard-dir)
+        (dlo/create-metrics-for-dlo! discard-dir))
+      (let [broker (try
+                     (log/info "Starting broker")
+                     (mq/build-and-start-broker! "localhost" mq-dir command-processing)
+                     (catch java.io.EOFException e
+                       (log/error
+                        "EOF Exception caught during broker start, this "
+                        "might be due to KahaDB corruption. Consult the "
+                        "PuppetDB troubleshooting guide.")
+                       (throw e)))
+            mq-factory (->> mq-addr
+                            (add-max-framesize max-frame-size)
+                            mq/activemq-connection-factory)
+            mq-connection (doto (.createConnection mq-factory)
+                            (.setExceptionListener
+                             (reify ExceptionListener
+                               (onException [this ex]
+                                 (log/error ex "service queue connection error"))))
+                            .start)
+            globals {:scf-read-db read-db
+                     :scf-write-db write-db
+                     :authorizer (some-> certificate-whitelist build-whitelist-authorizer)
+                     :update-server update-server
+                     :product-name product-name
+                     :url-prefix url-prefix
+                     :discard-dir (.getAbsolutePath discard-dir)
+                     :mq-addr mq-addr
+                     :mq-dest mq-endpoint
+                     :mq-threads threads
+                     :catalog-hash-debug-dir catalog-hash-debug-dir
+                     :command-mq {:connection mq-connection
+                                  :endpoint mq-endpoint}}
+            updater (when-not disable-update-checking
+                      (future (shutdown-on-error
+                               (fn [] (maybe-check-for-updates puppet-enterprise? update-server read-db))
+                               shutdown-updater)))]
+        (do (log/info "Starting query server")
+            (add-ring-handler (server/build-app globals)))
 
-      ;; Pretty much this helper just knows our job-pool and gc-interval
-      (let [job-pool (mk-pool)
-            gc-interval-millis (to-millis gc-interval)
-            gc-task #(interspaced gc-interval-millis % job-pool)
-            seconds-pos? (comp pos? to-seconds)
-            db-maintenance-tasks (fn []
-                                   (do 
-                                     (when (seconds-pos? node-ttl) (auto-expire-nodes! node-ttl write-db mq-connection))
-                                     (when (seconds-pos? node-purge-ttl) (purge-nodes! node-purge-ttl write-db)) 
-                                     (when (seconds-pos? report-ttl) (sweep-reports! report-ttl write-db))
-                                     ;; Order is important here to ensure
-                                     ;; anything referencing an env or resource
-                                     ;; param is purged first
-                                     (garbage-collect! write-db)))]
-        ;; Run database maintenance tasks seqentially to avoid
-        ;; competition. Each task must handle its own errors.
-        (gc-task db-maintenance-tasks)
-        (gc-task #(compress-dlo! dlo-compression-threshold discard-dir)))
-      (-> context 
-          (assoc :broker broker
-                 :mq-factory mq-factory
-                 :mq-connection mq-connection
-                 :shared-globals globals)
-          (merge (when updater {:updater updater}))))))
+        ;; Pretty much this helper just knows our job-pool and gc-interval
+        (let [job-pool (mk-pool)
+              gc-interval-millis (to-millis gc-interval)
+              gc-task #(interspaced gc-interval-millis % job-pool)
+              db-maintenance-tasks (fn []
+                                     (let [seconds-pos? (comp pos? to-seconds)]
+                                       (when (seconds-pos? node-ttl) (auto-expire-nodes! node-ttl write-db mq-connection))
+                                       (when (seconds-pos? node-purge-ttl) (purge-nodes! node-purge-ttl write-db)) 
+                                       (when (seconds-pos? report-ttl) (sweep-reports! report-ttl write-db))
+                                       ;; Order is important here to ensure
+                                       ;; anything referencing an env or resource
+                                       ;; param is purged first
+                                       (garbage-collect! write-db)))]
+          ;; Run database maintenance tasks seqentially to avoid
+          ;; competition. Each task must handle its own errors.
+          (gc-task db-maintenance-tasks)
+          (gc-task (fn [] (compress-dlo! dlo-compression-threshold discard-dir))))
+        (assoc context
+               :broker broker
+               :mq-factory mq-factory
+               :mq-connection mq-connection
+               :shared-globals globals
+               :updater updater)))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
   (query [this query-obj version query-expr paging-options row-callback-fn]
     "Call `row-callback-fn' for matching rows.  The `paging-options' should
-    be a map containing :order_by, :offset, and/or :limit.")
-  (submit-command [this command version payload]))
+    be a map containing :order_by, :offset, and/or :limit."))
 
 (defservice puppetdb-service
   "Defines a trapperkeeper service for PuppetDB; this service is responsible
@@ -347,19 +345,25 @@
    [:ShutdownService shutdown-on-error]]
 
   (start [this context]
-         (start-puppetdb context (get-config) this add-ring-handler get-route shutdown-on-error))
 
-  (stop [this context]
-        (stop-puppetdb context false))
-  (shared-globals [this]
-                  (:shared-globals (service-context this)))
+         (let [config (-> (get-config)
+                          conf/process-config!)
+               url-prefix (get-route this)
+               shutdown-on-error* (partial shutdown-on-error (service-id this))
+               add-ring-handler* #(->> %
+                                       (compojure/context url-prefix [])
+                                       (add-ring-handler this))]
+           (start-puppetdb context
+                           config
+                           url-prefix
+                           add-ring-handler*
+                           shutdown-on-error*)))
+
+  (stop [this context] (stop-puppetdb context))
+  (shared-globals [this] (:shared-globals (service-context this)))
   (query [this query-obj version query-expr paging-options row-callback-fn]
-         (let [{db :scf-read-db url-prefix :url-prefix} (get (service-context this) :shared-globals)]
-           (qeng/stream-query-result query-obj version query-expr paging-options db url-prefix row-callback-fn)))
-  (submit-command [this command version payload]
-                  (enqueue-command! (:mq-connection (service-context this))
-                                    mq-endpoint
-                                    (command-names command) version payload)))
+         (let [{db :scf-read-db url-prefix :url-prefix} (shared-globals this)]
+           (qeng/stream-query-result query-obj version query-expr paging-options db url-prefix row-callback-fn))))
 
 (defn -main
   "Calls the trapperkeeper main argument to initialize tk.
@@ -367,5 +371,6 @@
   For configuration customization, we intercept the call to parse-config-data
   within TK."
   [& args]
-  (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data #'conf/hook-tk-parse-config-data)
+  (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data
+               #'conf/hook-tk-parse-config-data)
   (apply main args))

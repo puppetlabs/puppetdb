@@ -9,33 +9,27 @@
             [puppetlabs.puppetdb.query.paging :as paging]))
 
 (defn build-edges-app
-  ([version entity] (build-edges-app version entity true))
-  ([version entity restrict-to-active-nodes]
-   (comp
-    (fn [{:keys [params globals paging-options]}]
-      (produce-streaming-body
-       entity
-       version
-       (params "query")
-       paging-options
-       (:scf-read-db globals)
-       (:url-prefix globals)))
-    (if restrict-to-active-nodes
-      http-q/restrict-query-to-active-nodes
-      identity))))
+  ([globals entity] (build-edges-app globals entity true))
+  ([globals entity restrict-to-active-nodes]
+   (let [{:keys [api-version scf-read-db url-prefix]} globals]
+     (comp (fn [{:keys [params paging-options]}]
+             (produce-streaming-body
+              entity api-version (params "query") paging-options scf-read-db url-prefix))
+           (if restrict-to-active-nodes
+             http-q/restrict-query-to-active-nodes
+             identity)))))
 
 (defn routes
-  ([version] (routes version true))
-  ([version restrict-to-active-nodes]
+  ([globals] (routes globals true))
+  ([globals restrict-to-active-nodes]
    (app
     [""]
-    {:get (build-edges-app version :edges restrict-to-active-nodes)})))
+    {:get (build-edges-app globals :edges restrict-to-active-nodes)})))
 
 (defn edges-app
-  ([version] (edges-app version true))
-  ([version restrict-to-active-nodes]
-   (-> (routes version restrict-to-active-nodes)
+  ([globals] (edges-app globals true))
+  ([globals restrict-to-active-nodes]
+   (-> (routes globals restrict-to-active-nodes)
        verify-accepts-json
-       (validate-query-params
-        {:optional (cons "query" paging/query-params)})
+       (validate-query-params {:optional (cons "query" paging/query-params)})
        wrap-with-paging-options)))

@@ -7,18 +7,19 @@
                                                     wrap-with-paging-options]]))
 
 (defn query-app
-  [version]
-  (app
-   [&]
-   {:get (comp (fn [{:keys [params globals paging-options] :as request}]
-                 (produce-streaming-body
-                  :fact-contents
-                  version
-                  (params "query")
-                  paging-options
-                  (:scf-read-db globals)
-                  (:url-prefix globals)))
-               http-q/restrict-query-to-active-nodes)}))
+  [globals]
+  (let [{:keys [url-prefix api-version scf-read-db]} globals]
+    (app
+     [&]
+     {:get (comp (fn [{:keys [params paging-options] :as request}]
+                   (produce-streaming-body
+                    :fact-contents
+                    api-version
+                    (params "query")
+                    paging-options
+                    scf-read-db
+                    url-prefix))
+                 http-q/restrict-query-to-active-nodes)})))
 
 (defn routes
   [query-app]
@@ -27,9 +28,8 @@
    (verify-accepts-json query-app)))
 
 (defn fact-contents-app
-  [version]
-  (routes
-   (-> (query-app version)
-       (validate-query-params
-        {:optional (cons "query" paging/query-params)})
-       wrap-with-paging-options)))
+  [globals]
+  (-> (query-app globals)
+      (validate-query-params {:optional (cons "query" paging/query-params)})
+      wrap-with-paging-options
+      routes))

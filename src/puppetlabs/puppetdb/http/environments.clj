@@ -21,47 +21,45 @@
     (http/json-response {:error (str "No information is known about " environment)} http/status-not-found)))
 
 (defn routes
-  [version]
-  (app
-   []
-   {:get
-    (-> (fn [{:keys [params globals paging-options]}]
-          (produce-streaming-body
-           :environments
-           version
-           (params "query")
-           paging-options
-           (:scf-read-db globals)
-           (:url-prefix globals)))
-        (validate-query-params
-         {:optional (cons "query" paging/query-params)}))}
+  [globals]
+  (let [{:keys [api-version url-prefix scf-read-db]} globals]
+    (app
+     []
+     {:get (-> (fn [{:keys [params paging-options]}]
+                 (produce-streaming-body
+                  :environments
+                  api-version
+                  (params "query")
+                  paging-options
+                  scf-read-db
+                  url-prefix))
+               (validate-query-params
+                {:optional (cons "query" paging/query-params)}))}
 
-   [environment]
-   {:get
-    (-> (fn [{:keys [globals]}]
-          (environment-status version environment (:scf-read-db globals)))
-        ;; Being a singular item, querying and pagination don't really make
-        ;; sense here
-        (validate-query-params {}))}
+     [environment]
+     {:get (-> (constantly (environment-status api-version environment scf-read-db))
+               ;; Being a singular item, querying and pagination don't really make
+               ;; sense here
+               (validate-query-params {}))}
 
-   [environment "facts" &]
-   {:get
-    (comp (f/facts-app version) (partial http-q/restrict-query-to-environment environment))}
+     [environment "facts" &]
+     {:get (comp (f/facts-app globals)
+                 (partial http-q/restrict-query-to-environment environment))}
 
-   [environment "resources" &]
-   {:get
-    (comp (r/resources-app version) (partial http-q/restrict-query-to-environment environment))}
+     [environment "resources" &]
+     {:get (comp (r/resources-app globals)
+                 (partial http-q/restrict-query-to-environment environment))}
 
-   [environment "events" &]
-   {:get
-    (comp (ev/events-app version) (partial http-q/restrict-query-to-environment environment))}
+     [environment "events" &]
+     {:get (comp (ev/events-app globals)
+                 (partial http-q/restrict-query-to-environment environment))}
 
-   [environment "reports" &]
-   {:get
-    (comp (rp/reports-app version) (partial http-q/restrict-query-to-environment environment))}))
+     [environment "reports" &]
+     {:get (comp (rp/reports-app globals)
+                 (partial http-q/restrict-query-to-environment environment))})))
 
 (defn environments-app
-  [version]
-  (-> (routes version)
+  [globals]
+  (-> (routes globals)
       verify-accepts-json
       wrap-with-paging-options))

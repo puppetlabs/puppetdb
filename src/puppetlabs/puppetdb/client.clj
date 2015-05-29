@@ -1,12 +1,12 @@
 (ns puppetlabs.puppetdb.client
-  (:require [puppetlabs.puppetdb.command :as command]
+  (:require [puppetlabs.puppetdb.command.core :as command]
             [puppetlabs.puppetdb.http :as http]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.reports :as reports]
             [clj-http.client :as http-client]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.schema :refer [defn-validated]]
+            [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.walk :refer  [keywordize-keys]]
@@ -21,16 +21,15 @@
   ([base-url
     command :- s/Str
     version :- s/Int
-    payload]
-     (->> payload
-          (command/assemble-command command version)
+    payload :- pls/JSONable]
+     (->> {:command command :version version :payload payload}
           (submit-command-via-http! base-url)))
   ([base-url :- utils/base-url-schema
     command-map :- {s/Any s/Any}]
      (let [message (json/generate-string command-map)
            checksum (kitchensink/utf8-string->sha1 message)
            url (str (utils/base-url->str base-url)
-                    (format "/commands?checksum=%s" checksum))]
+                    (format "?checksum=%s" checksum))]
        (http-client/post url {:body               message
                               :throw-exceptions   false
                               :content-type       :json

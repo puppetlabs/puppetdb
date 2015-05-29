@@ -228,7 +228,7 @@ module PuppetDBExtensions
     pids
   end
 
-  def start_puppetdb(host, test_url="/pdb/query/v4/version")
+  def start_puppetdb(host, test_url="/pdb/meta/v1/version")
     step "Starting PuppetDB" do
       if host.is_pe?
         on host, "service pe-puppetdb start"
@@ -254,7 +254,7 @@ module PuppetDBExtensions
   # @param host Hostname to test for PuppetDB availability
   # @return [void]
   # @api public
-  def sleep_until_started(host, test_url="/pdb/query/v4/version")
+  def sleep_until_started(host, test_url="/pdb/meta/v1/version")
     # Hit an actual endpoint to ensure PuppetDB is up and not just the webserver.
     # Retry until an HTTP response code of 200 is received.
     curl_with_retries("start puppetdb", host,
@@ -296,7 +296,7 @@ module PuppetDBExtensions
     end
   end
 
-  def install_puppetdb(host, db, version=nil, test_url='/pdb/query/v4/version')
+  def install_puppetdb(host, db, version=nil, test_url='/pdb/meta/v1/version')
     puppetdb_manifest = <<-EOS
     class { 'puppetdb::server':
       database         => '#{db}',
@@ -339,7 +339,7 @@ module PuppetDBExtensions
     end
   end
 
-  def install_puppetdb_termini(host, database, version=nil, terminus_package='puppetdb-termini', test_url='/pdb/query/v4/version')
+  def install_puppetdb_termini(host, database, version=nil, terminus_package='puppetdb-termini', test_url='/pdb/meta/v1/version')
     # We pass 'restart_puppet' => false to prevent the module from trying to
     # manage the puppet master service, which isn't actually installed on the
     # acceptance nodes (they run puppet master from the CLI).

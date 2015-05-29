@@ -8,7 +8,9 @@
             [puppetlabs.puppetdb.cli.services :as svcs]
             [puppetlabs.puppetdb.metrics :as metrics :refer [metrics-service]]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
-            [puppetlabs.puppetdb.command :refer [command-service]]
+            [puppetlabs.puppetdb.command :as command]
+            [puppetlabs.puppetdb.command.core :as command-core]
+            [puppetlabs.puppetdb.meta :as meta]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
             [clj-http.util :refer [url-encode]]
@@ -100,14 +102,21 @@
                                conf/adjust-tk-config
                                assoc-open-port
                                assoc-logging-config)
-         prefix (get-in config [:web-router-service ::svcs/puppetdb-service])
          port (get-in config [:jetty :port])
-         base-url (cond-> {:protocol "http" :host "localhost" :port port}
-                    (seq prefix) (assoc :prefix prefix))]
+         base-url {:protocol "http"
+                   :host "localhost"
+                   :port port
+                   :prefix "/pdb/query"}]
      (try
        (tkbs/with-app-with-config server
-         (concat [jetty9-service svcs/puppetdb-service message-listener-service
-                  command-service webrouting-service metrics-service]
+         (concat [jetty9-service
+                  webrouting-service
+                  svcs/puppetdb-service
+                  meta/metadata-service
+                  command-core/command-service
+                  command/command-service
+                  message-listener-service
+                  metrics-service]
                  services)
          config
          (binding [*server* server
@@ -261,9 +270,8 @@
         (or (< 0 curr-queue-depth)
             (< curr-committed-msgs
                (+ start-committed-msgs num-messages)))
-        (do
-          (Thread/sleep 100)
-          (recur (queue-metadata) (discard-count) (inc attempts)))
+        (do (Thread/sleep 100)
+            (recur (queue-metadata) (discard-count) (inc attempts)))
 
         :else
         result)))))

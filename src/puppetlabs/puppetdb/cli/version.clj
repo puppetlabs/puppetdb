@@ -9,7 +9,7 @@
    The output is currently formatted like the contents of a java properties file;
    each line contains a single property name, followed by an equals sign, followed
    by the property value."
-  (:require [puppetlabs.puppetdb.version :refer [version]]
+  (:require [puppetlabs.puppetdb.meta.version :as v]
             [puppetlabs.puppetdb.scf.migrate :refer [desired-schema-version]]))
 
 (def cli-description "Print info about the current version of PuppetDB")
@@ -21,6 +21,6 @@
 ;; refactored and cleaned up the configuration stuff a bit.
 (defn -main
   [& args]
-  (doseq [[key val] {"version" (version)
+  (doseq [[key val] {"version" (v/version)
                      "target_schema_version" desired-schema-version}]
     (println (format "%s=%s" key val))))
