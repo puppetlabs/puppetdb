@@ -1,4 +1,4 @@
-(ns puppetlabs.puppetdb.version
+(ns puppetlabs.puppetdb.meta.version
   "Versioning Utility Library
 
    This namespace contains some utility functions relating to checking version

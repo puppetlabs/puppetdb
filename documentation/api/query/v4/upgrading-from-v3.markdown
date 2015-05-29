@@ -18,12 +18,17 @@ Each change below is marked with the corresponding release version. Changes mark
 #### Changes affecting all endpoints
 
 * (3.0) The query API has been moved from `/` to `/pdb/query`, so
+<<<<<<< HEAD
   http://localhost:8080/v4/version has become
   http://localhost:8080/pdb/query/v4/version.
   
 * (3.0) The `/commands` endpoint has been moved to its own API at `/pdb/cmd`, so
   http://localhost:8080/v3/commands has become
   http://localhost:8080/pdb/cmd/v1.
+
+* (3.0) The `version` and `server-time` endpoints have been moved out of the
+  query api and into to a separate `metadata` API. They are now accessed at
+  `/pdb/meta/v1/version` and `/pdb/meta/v1/server-time`.
 
 * (3.0) All previously dash-separated field names (e.g receive-time), subquery
   operators (e.g select-facts), and query parameters (e.g order-by) are now
@@ -91,6 +96,14 @@ Each change below is marked with the corresponding release version. Changes mark
     [replace catalogs v6](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/catalog_format_v6.html),
     [store report v5](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/report_format_v5.html),
     and [replace facts v4](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/facts_format_v4.html).
+
+#### /pdb/meta/v1/version (formerly /v3/version)
+* (3.0) The version endpoint has been split from the query service and mounted
+  at "pdb/meta/v1/version"
+
+#### /pdb/meta/v1/server-time (formerly /v3/server-time)
+* (3.0) The server-time endpoint has been split from the query service and mounted
+  at "pdb/meta/v1/server-time"
 
 ### New API features
 

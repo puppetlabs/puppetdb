@@ -9,7 +9,7 @@
    The output is currently formatted like the contents of a java properties file;
    each line contains a single property name, followed by an equals sign, followed
    by the property value."
-  (:require [puppetlabs.puppetdb.version :refer [version]]
+  (:require [puppetlabs.puppetdb.meta.version :refer [version]]
             [puppetlabs.puppetdb.scf.migrate :refer [desired-schema-version]]))
 
 (def cli-description "Print info about the current version of PuppetDB")

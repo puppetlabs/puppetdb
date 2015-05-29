@@ -2,7 +2,7 @@
   (:import [java.security KeyStore])
   (:require [fs.core :as fs]
             [clj-http.client :as client]
-            [puppetlabs.puppetdb.version]
+            [puppetlabs.puppetdb.meta.version :as v]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :refer :all]
             [puppetlabs.puppetdb.http.command :refer :all]
@@ -17,7 +17,7 @@
 
 (deftest update-checking
   (testing "should check for updates if running as puppetdb"
-    (with-redefs [puppetlabs.puppetdb.version/update-info (constantly {:version "0.0.0" :newer true})]
+    (with-redefs [v/update-info (constantly {:version "0.0.0" :newer true})]
       (with-log-output log-output
         (maybe-check-for-updates "puppetdb" "update-server!" {})
         (is (= 1 (count (logs-matching #"Newer version 0.0.0 is available!" @log-output)))))))
@@ -117,7 +117,7 @@
     (letfn [(ping [v]
               (client/get
                (str (utils/base-url->str (assoc *base-url* :version v))
-                    "/version")
+                    "/facts")
                {:throw-exceptions false}))
             (retirement-response? [v response]
               (and (= 404 (:status response))
