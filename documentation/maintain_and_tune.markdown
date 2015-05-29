@@ -62,7 +62,7 @@ PuppetDB will react to certain types of processing failures by storing a complet
 
 ## View the Log
 
-PuppetDB's log file lives at `/var/log/pe-puppetdb/pe-puppetdb.log` (for PE users) or `/var/log/puppetdb/puppetdb.log` (for open source users). Check the log when you need to confirm that PuppetDB is working correctly or to troubleshoot visible malfunctions. If you have changed the logging settings, examine the [logback.xml file][logback] to find the log.
+PuppetDB's log file lives at `/var/log/puppetlabs/puppetdb/puppetdb.log`. Check the log when you need to confirm that PuppetDB is working correctly or to troubleshoot visible malfunctions. If you have changed the logging settings, examine the [logback.xml file][logback] to find the log.
 
 The PuppetDB packages install a logrotate job in `/etc/logrotate.d/puppetdb`, which will keep the log from becoming too large.
 
