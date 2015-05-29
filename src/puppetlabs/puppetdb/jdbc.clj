@@ -120,24 +120,8 @@
   {:pre [(keyword? field)
          (contains? #{:ascending :descending} order)]
    :post [(string? %)]}
-  (let [field (dashes->underscores (name field))]
-    (format "%s%s"
-            field
-            (if (= order :descending) " DESC" ""))))
-
-(defn order-by->sql
-  "Given a list of legal result columns an array of maps (where each map is
-  an order_by term), return the SQL string representing the ORDER BY clause
-  for the specified terms"
-  [order-by]
-  {:pre [((some-fn nil? sequential?) order-by)
-         (every? kitchensink/order-by-expr? order-by)]
-   :post [(string? %)]}
-  (if (empty? order-by)
-    ""
-    (format " ORDER BY %s"
-            (string/join ", "
-                         (map order-by-term->sql order-by)))))
+  (str (name field)
+       (when (= order :descending) " DESC")))
 
 (pls/defn-validated paged-sql :- String
   "Given a sql string and a map of paging options, return a modified SQL string
@@ -158,11 +142,11 @@
          ((some-fn nil? integer?) offset)
          ((some-fn nil? sequential?) order_by)
          (every? kitchensink/order-by-expr? order_by)]}
-  (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
-        offset-clause    (if offset (format " OFFSET %s" offset) "")
-        order-by-clause  (order-by->sql order_by)]
-    (format "SELECT paged_results.* FROM (%s %s%s%s) paged_results"
-            sql order-by-clause limit-clause offset-clause)))
+  (str sql
+       (when-let [order-by (seq (map order-by-term->sql order_by))]
+         (str " ORDER BY " (string/join ", " order-by)))
+       (when limit (str " LIMIT " limit))
+       (when offset (str " OFFSET " offset))))
 
 (pls/defn-validated count-sql :- String
   "Takes a sql string and returns a modified sql string that will select
