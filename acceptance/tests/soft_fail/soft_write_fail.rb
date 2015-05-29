@@ -19,7 +19,6 @@ test_name "soft write failure" do
   end
 
   names = hosts.map(&:hostname)
-  tmpdir = master.tmpdir('storeconfigs')
 
   manifest_file_export = manifest_file_collect = nil
 
@@ -32,8 +31,7 @@ node "#{name}" {
       PIECE
     end.join("\n")
 
-    manifest_file_export = File.join(tmpdir, 'site-export.pp')
-    create_remote_file(master, manifest_file_export, manifest_export)
+    manifest_file_export = create_remote_site_pp(master, manifest_export)
 
     manifest_collect = names.map do |name|
       <<-PIECE
@@ -44,18 +42,20 @@ node "#{name}" {
       PIECE
     end.join("\n")
 
-    manifest_file_collect = File.join(tmpdir, 'site-collect.pp')
-    create_remote_file(master, manifest_file_collect, manifest_collect)
+    manifest_file_collect = create_remote_site_pp(master, manifest_collect)
 
-    on master, "chmod -R +rX #{tmpdir}"
   end
 
   step "Run agent with collection and puppetdb stopped making sure it fails" do
     with_puppet_running_on master, {
       'master' => {
         'autosign' => 'true',
-        'manifest' => manifest_file_collect,
-      }} do
+      },
+      'main' => {
+        'environmentpath' => manifest_file_collect,
+      }
+    } do
+
 
       stop_puppetdb(database)
 
@@ -69,8 +69,11 @@ node "#{name}" {
     with_puppet_running_on master, {
       'master' => {
         'autosign' => 'true',
-        'manifest' => manifest_file_export,
-      }} do
+      },
+      'main' => {
+        'environmentpath' => manifest_file_export,
+      }
+    } do
 
       stop_puppetdb(database)
 

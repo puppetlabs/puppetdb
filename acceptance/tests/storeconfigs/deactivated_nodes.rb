@@ -13,7 +13,7 @@ test_name "queries against deactivated nodes" do
 node "#{exporter}" {
   @@file { "#{dir}/from_exporter":
     ensure => present,
-    mode => 0777,
+    mode => "0777",
   }
 }
 
@@ -41,19 +41,16 @@ class reactivated {
 }
 MANIFEST
 
-  tmpdir = master.tmpdir('storeconfigs')
-
-  manifest_file = File.join(tmpdir, 'site.pp')
-
-  create_remote_file(master, manifest_file, manifest)
-
-  on master, "chmod -R +rX #{tmpdir}"
+  manifest_path = create_remote_site_pp(master, manifest)
 
   with_puppet_running_on master, {
     'master' => {
       'autosign' => 'true',
-      'manifest' => manifest_file
-    }} do
+    },
+    'main' => {
+      'environmentpath' => manifest_path,
+    }
+  } do
 
     step "Run exporter to populate the database" do
       run_agent_on exporter, "--test --server #{master}", :acceptable_exit_codes => [0,2]
@@ -84,11 +81,13 @@ MANIFEST
 
     step "deactivate the exporter node" do
       # Deactivate the node and wait until it's been processed
-      on database, "puppet node deactivate '#{exporter.node_name}'"
+      # FYI `puppet node deactivate` and `puppet node status` rely on the the
+      # pdb terminus, so they can only be run on the master
+      on master, "puppet node deactivate '#{exporter.node_name}'"
       sleep_until_queue_empty database
 
       # Check that it's actually deactivated
-      on database, "puppet node status '#{exporter.node_name}'" do
+      on master, "puppet node status '#{exporter.node_name}'" do
         assert_match(/Deactivated at/, result.output, "#{exporter.node_name} was not properly deactivated")
       end
     end
@@ -103,7 +102,7 @@ MANIFEST
       # Wait until the catalog has been processed
       sleep_until_queue_empty database
 
-      on database, "puppet node status '#{exporter.node_name}'" do
+      on master, "puppet node status '#{exporter.node_name}'" do
         assert_match(/Currently active/, result.output, "#{exporter.node_name} was not properly reactivated")
       end
     end

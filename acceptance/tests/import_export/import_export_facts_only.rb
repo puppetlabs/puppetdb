@@ -13,10 +13,10 @@ test_name "export and import tools" do
       'master' => {
         'storeconfigs' => 'false',
         'autosign' => 'true',
-        'manifest' => manifest_path,
         'trusted_node_data' => 'true'
       },
       'main' => {
+        'environmentpath' => manifest_path,
         'stringify_facts' => 'false'
       }} do
       #only some of the opts work on puppet_agent, acceptable exit codes does not

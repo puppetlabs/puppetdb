@@ -300,6 +300,7 @@ module PuppetDBExtensions
     puppetdb_manifest = <<-EOS
     class { 'puppetdb::server':
       database         => '#{db}',
+      manage_firewall  => false,
       puppetdb_version => '#{get_package_version(host, version)}',
     }
     EOS
@@ -796,10 +797,11 @@ EOS
   #
   # @api private
   def restore_puppet_conf host
-    on host, "if [ -f #{host['puppetpath']}/puppet.conf.bak ]; then " +
-               "cat #{host['puppetpath']}/puppet.conf.bak > " +
-               "#{host['puppetpath']}/puppet.conf; " +
-               "rm -rf #{host['puppetpath']}/puppet.conf.bak; " +
+    confdir = host.puppet['confdir']
+    on host, "if [ -f #{confdir}/puppet.conf.bak ]; then " +
+               "cat #{confdir}/puppet.conf.bak > " +
+               "#{confdir}/puppet.conf; " +
+               "rm -rf #{confdir}/puppet.conf.bak; " +
              "fi"
   end
 
@@ -894,12 +896,23 @@ EOS
 
       case os
       when :debian
-        on host, "apt-get install -y puppet puppetmaster-common"
+        if options[:type] == 'aio' then
+          on host, "apt-get install -y puppet-agent"
+          on host, "apt-get install -y puppetserver"
+        else
+          on host, "apt-get install -y puppet puppetmaster-common"
+        end
       # Puppet 3.7.4 is broken on fedora, pinning to 3.7.3 until it's fixed
       when :fedora
         on host, "yum install -y puppet-3.7.3"
       when :redhat
-        on host, "yum install -y puppet"
+        if options[:type] == 'aio' then
+          on host, "yum install -y java-1.7.0-openjdk"
+          on host, "yum install -y puppet-agent"
+          on host, "yum install -y puppetserver"
+        else
+          on host, "yum install -y puppet"
+        end
       else
         raise ArgumentError, "Unsupported OS '#{os}'"
       end
@@ -998,17 +1011,28 @@ EOS
 
   def install_puppet_conf
     hosts.each do |host|
-      puppetconf = File.join(host['puppetpath'], 'puppet.conf')
+      confdir = host.puppet['confdir']
+      puppetconf = File.join(confdir, 'puppet.conf')
 
-      on host, "mkdir -p #{host['puppetpath']}"
+      on host, "mkdir -p #{confdir}"
 
       conf = IniFile.new
       conf['agent'] = {
         'server' => master,
       }
+      if options[:is_puppetserver] then
+        pidfile = '/var/run/puppetlabs/puppetserver/puppetserver.pid'
+      else
+        pidfile = master.puppet('master')['pidfile']
+      end
       conf['master'] = {
-        'pidfile' => '/var/run/puppet/master.pid',
+        'pidfile' => pidfile,
       }
+      if options[:type] == 'aio' then
+        hostname = fact_on(host, "hostname")
+        fqdn = fact_on(host, "fqdn")
+        conf['master']['dns_alt_names']="puppet,#{hostname},#{fqdn},#{host.hostname}"
+      end
       create_remote_file host, puppetconf, conf.to_s
     end
   end
@@ -1030,10 +1054,28 @@ EOS
   end
 
   def create_remote_site_pp(host, manifest)
-    tmpdir = host.tmpdir("remote-site-pp")
-    remote_path = File.join(tmpdir, 'site.pp')
-    create_remote_file(host, remote_path, manifest)
-    on master, "chmod -R +rX #{tmpdir}"
+    testdir = host.tmpdir("remote-site-pp")
+    manifest_file = "#{testdir}/environments/production/manifests/site.pp"
+    apply_manifest_on(host, <<-PP)
+    File {
+      ensure => directory,
+      mode => "0750",
+      owner => #{master.puppet['user']},
+      group => #{master.puppet['group']},
+    }
+
+    file {
+      '#{testdir}':;
+      '#{testdir}/environments':;
+      '#{testdir}/environments/production':;
+      '#{testdir}/environments/production/manifests':;
+      '#{testdir}/environments/production/modules':;
+    }
+PP
+    create_remote_file(host, manifest_file, manifest)
+    remote_path = "#{testdir}/environments"
+    on host, "chmod -R +rX #{testdir}"
+    on host, "chown -R #{master.puppet['user']}:#{master.puppet['user']} #{testdir}"
     remote_path
   end
 
@@ -1045,7 +1087,9 @@ EOS
         'storeconfigs' => 'true',
         'storeconfigs_backend' => 'puppetdb',
         'autosign' => 'true',
-        'manifest' => manifest_path
+      },
+      'main' => {
+        'environmentpath' => manifest_path,
       }} do
       #only some of the opts work on puppet_agent, acceptable exit codes does not
       agents.each{ |agent| on agent, puppet_agent("--test --server #{host} #{extra_cli_args}",
