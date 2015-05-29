@@ -89,7 +89,7 @@ If you use a standalone Puppet site, [you should configure every node to connect
 Troubleshooting Installation Problems
 -----
 
-* Check the log file, and see whether PuppetDB knows what the problem is. This file will be either `/var/log/puppetdb/puppetdb.log`.
+* Check the log file, and see whether PuppetDB knows what the problem is. This file will be `/var/log/puppetlabs.puppetdb/puppetdb.log`.
 * If PuppetDB is running but the puppet master can't reach it, check [PuppetDB's jetty configuration][configure_jetty] to see which port(s) it is listening on, then attempt to reach it by telnet (`telnet <host> <port>`) from the puppet master server. If you can't connect, the firewall may be blocking connections. If you can, Puppet may be attempting to use the wrong port, or PuppetDB's keystore may be misconfigured (see below).
 * Check whether any other service is using PuppetDB's port and interfering with traffic.
-* Check [PuppetDB's jetty configuration][configure_jetty] and the `/etc/puppetdb/ssl` directory, and make sure it has a truststore and keystore configured. If it didn't create these during installation, you will need to [run the SSL config script and edit the config file][ssl_script] or [manually configure a truststore and keystore][keystore_instructions] before a puppet master can contact PuppetDB.
+* Check [PuppetDB's jetty configuration][configure_jetty] and the `/etc/puppetlabs/puppetdb/ssl` directory, and make sure it has a truststore and keystore configured. If it didn't create these during installation, you will need to [run the SSL config script and edit the config file][ssl_script] or [manually configure a truststore and keystore][keystore_instructions] before a puppet master can contact PuppetDB.

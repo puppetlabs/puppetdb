@@ -52,7 +52,7 @@ Now you can continue by creating a truststore containing your Puppet CA certific
 You will then need to tell Java to use this truststore instead of the default system one by specifying values for the properties for `trustStore` and `trustStorePassword`. These properties can be applied by modifying your service settings for PuppetDB and appending the required settings to the JAVA_ARGS variable. In Redhat the path to this file is `/etc/sysconfig/puppetdb`, in Debian `/etc/default/puppetdb`. For example:
 
     # Modify this if you'd like to change the memory allocation, enable JMX, etc
-    JAVA_ARGS="-Xmx192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/puppetdb/puppetdb-oom.hprof -Djavax.net.ssl.trustStore=/etc/puppetdb/ssl/truststore.jks -Djavax.net.ssl.trustStorePassword=<PASSWORD>"
+    JAVA_ARGS="-Xmx192m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/puppetlabs/puppetdb/puppetdb-oom.hprof -Djavax.net.ssl.trustStore=/etc/puppetlabs/puppetdb/ssl/truststore.jks -Djavax.net.ssl.trustStorePassword=<PASSWORD>"
 
 *Note:* Replace `<PASSWORD>` with the password you used to create the keystore, or the one found in `/etc/puppetdb/ssl/puppetdb_keystore_pw.txt`.
 
@@ -76,7 +76,7 @@ Once this is done you must modify the JDBC url in the database configuration sec
     [database]
     classname = org.postgresql.Driver
     subprotocol = postgresql
-    subname = //<HOST>:<PORT>/<DATABASE>?ssl=true&sslfactory=org.postgresql.ssl.jdbc4.LibPQFactory&sslmode=verify-full&sslrootcert=/etc/puppetdb/ssl/ca.pem
+    subname = //<HOST>:<PORT>/<DATABASE>?ssl=true&sslfactory=org.postgresql.ssl.jdbc4.LibPQFactory&sslmode=verify-full&sslrootcert=/etc/puppetlabs/puppetdb/ssl/ca.pem
     username = <USERNAME>
     password = <PASSWORD>
 

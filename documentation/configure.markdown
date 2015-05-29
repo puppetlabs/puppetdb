@@ -86,7 +86,7 @@ PuppetDB is configured using an INI-style config format with several `[sections]
 
 You can change the location of the main config file in [the init script config file](#init-script-config-file). This location can point to a single configuration file or a directory of .ini files. If you specify a directory (_conf.d_ style), PuppetDB will merge the .ini files in alphabetical order.
 
-If you've installed PuppetDB from a package, by default it will use the _conf.d_ config style. The default config directory is `/etc/puppetdb/conf.d` (or `/etc/puppetlabs/puppetdb/conf.d` for Puppet Enterprise).  If you're running from source, you may use the `-c` command-line argument to specify your config file or directory.
+If you've installed PuppetDB from a package, by default it will use the _conf.d_ config style. The default config directory is `/etc/puppetlabs/puppetdb/conf.d`.  If you're running from source, you may use the `-c` command-line argument to specify your config file or directory.
 
 An example configuration file:
 

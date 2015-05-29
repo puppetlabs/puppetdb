@@ -129,7 +129,7 @@ PuppetDB works without modification with SELinux in enforcing mode.
 
 Use your system's service tools to restart the puppet master service. For open source users, the command to do this will vary depending on the front-end web server being used.
 
-> Your puppet master should now be using PuppetDB to store and retrieve catalogs, facts, and exported resources. You can test this by triggering a puppet agent run on an arbitrary node, then logging into your PuppetDB server and viewing the `/var/log/puppetdb/puppetdb.log` file --- you should see calls to the "replace facts" and "replace catalog" commands:
+> Your puppet master should now be using PuppetDB to store and retrieve catalogs, facts, and exported resources. You can test this by triggering a puppet agent run on an arbitrary node, then logging into your PuppetDB server and viewing the `/var/log/puppetlabs/puppetdb/puppetdb.log` file --- you should see calls to the "replace facts" and "replace catalog" commands:
 >
 >     2012-05-17 13:08:41,664 INFO  [command-proc-67] [puppetdb.command] [85beb105-5f4a-4257-a5ed-cdf0d07aa1a5] [replace facts] screech.example.com
 >     2012-05-17 13:08:45,993 INFO  [command-proc-67] [puppetdb.command] [3a910863-6b33-4717-95d2-39edf92c8610] [replace catalog] screech.example.com
