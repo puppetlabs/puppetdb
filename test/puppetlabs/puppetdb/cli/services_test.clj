@@ -60,11 +60,11 @@
   (svc-utils/with-puppetdb-instance
     (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)]
       (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
-                                                    :environment "DEV"
-                                                    :values {:foo "the foo"
-                                                             :bar "the bar"
-                                                             :baz "the baz"}
-                                                    :producer_timestamp (to-string (now))})
+                                                        :environment "DEV"
+                                                        :values {:foo "the foo"
+                                                                 :bar "the bar"
+                                                                 :baz "the baz"}
+                                                        :producer_timestamp (to-string (now))})
 
       @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
       (check-service-query

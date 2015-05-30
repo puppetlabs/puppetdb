@@ -93,8 +93,7 @@
         catalog (-> (get-in wire-catalogs [6 :empty])
                     (assoc :certname "foo.local"
                            :producer_timestamp (now)))
-        report (:basic reports)
-        ]
+        report (:basic reports)]
 
     (svc-utils/puppetdb-instance
       (fn []

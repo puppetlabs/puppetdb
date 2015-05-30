@@ -22,8 +22,8 @@
 ;; return functions that accept a ring request map
 
 (defn command-app
-  [{:keys [authorizer] :as globals}]
-  (let [{{:keys [connection endpoint]} :command-mq} globals
+  [{:keys [command-mq authorizer] :as globals}]
+  (let [{:keys [connection endpoint]} command-mq
         app (moustache/app
              ["v1" &] {:any (enqueue-command-handler connection endpoint)})]
     (-> app

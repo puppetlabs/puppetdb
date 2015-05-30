@@ -4,7 +4,7 @@ layout: default
 canonical: "/puppetdb/latest/api/index.html"
 ---
 
-[commands]: ./commands.html
+[commands]: ./command/v1/commands.html
 [termini]: ../connect_puppet_master.html
 
 Since PuppetDB collects lots of data from Puppet, it's an ideal platform for new tools and applications that use that data. You can use the HTTP API described in these pages to interact with PuppetDB's data.

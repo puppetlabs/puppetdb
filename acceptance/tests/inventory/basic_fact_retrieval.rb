@@ -1,6 +1,7 @@
 require 'json'
 
 puppetdb_query_url = "http://localhost:8080/pdb/query"
+puppetdb_cmd_url = "http://localhost:8080/pdb/cmd"
 test_name "structured and trusted facts should be available through facts terminus" do
 
   structured_data = {"foo"=>[1, 2, 3],
@@ -48,7 +49,7 @@ test_name "structured and trusted facts should be available through facts termin
       "payload":{"environment":"DEV","certname":"#{master}", \
       "timestamp": "#{time}", \
       "producer_timestamp": "#{time}", \
-      "values":{"my_structured_fact":#{JSON.generate(structured_data)}}}}' #{puppetdb_query_url}/v4/commands
+      "values":{"my_structured_fact":#{JSON.generate(structured_data)}}}}' #{puppetdb_cmd_url}/v1
       EOM
       on database, %Q|curl -X POST #{payload}|
     end

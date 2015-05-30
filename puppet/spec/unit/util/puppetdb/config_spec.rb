@@ -29,7 +29,7 @@ describe Puppet::Util::Puppetdb::Config do
     describe "with no config file" do
       it "should use the default settings" do
         config = described_class.load
-        config.server_urls.should == [URI("https://puppetdb:8081/pdb/query")]
+        config.server_urls.should == [URI("https://puppetdb:8081")]
         config.ignore_blacklisted_events?.should == true
       end
 
@@ -63,7 +63,7 @@ ignore_blacklisted_events = false
 soft_write_failure = true
 CONF
         config = described_class.load
-        config.server_urls.should == [URI("https://main-server:1234/pdb/query")]
+        config.server_urls.should == [URI("https://main-server:1234")]
         config.ignore_blacklisted_events?.should == false
         config.soft_write_failure.should be_true
       end
@@ -72,7 +72,7 @@ CONF
         write_config ''
 
         config = described_class.load
-        config.server_urls.should == [URI("https://puppetdb:8081/pdb/query")]
+        config.server_urls.should == [URI("https://puppetdb:8081")]
         config.ignore_blacklisted_events?.should == true
         config.soft_write_failure.should be_false
       end
@@ -84,7 +84,7 @@ CONF
     port    =  1234
 CONF
         config = described_class.load
-        config.server_urls.should == [URI("https://main-server:1234/pdb/query")]
+        config.server_urls.should == [URI("https://main-server:1234")]
       end
 
       it "should accept valid hostnames" do
@@ -95,7 +95,7 @@ port = 8081
 CONF
 
         config = described_class.load
-        config.server_urls.should == [URI("https://foo.example-thing.com:8081/pdb/query")]
+        config.server_urls.should == [URI("https://foo.example-thing.com:8081")]
       end
 
       it "should raise if a setting is outside of a section" do
@@ -121,7 +121,7 @@ server_urls = https://foo.something-different.com:8080
 CONF
 
         config = described_class.load
-        config.server_urls.should == [URI("https://foo.something-different.com:8080/pdb/query")]
+        config.server_urls.should == [URI("https://foo.something-different.com:8080")]
       end
 
       it "should accept multiple urls" do
@@ -133,7 +133,7 @@ server_urls = https://foo.something-different.com,https://bar.example-thing.com:
 CONF
 
         config = described_class.load
-        config.server_urls.should == [URI("https://foo.something-different.com/pdb/query"), URI("https://bar.example-thing.com:8989/pdb/query")]
+        config.server_urls.should == [URI("https://foo.something-different.com"), URI("https://bar.example-thing.com:8989")]
       end
 
       it "should fail if given an http URL" do
@@ -222,9 +222,9 @@ server_urls = https://foo.something-different.com   ,      https://bar.example-t
 CONF
 
         config = described_class.load
-        config.server_urls.should == [URI("https://foo.something-different.com/pdb/query"),
-                                      URI("https://bar.example-thing.com:8989/pdb/query"),
-                                      URI("https://baz.example-thing.com:8989/pdb/query")]
+        config.server_urls.should == [URI("https://foo.something-different.com"),
+                                      URI("https://bar.example-thing.com:8989"),
+                                      URI("https://baz.example-thing.com:8989")]
       end
     end
   end

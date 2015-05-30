@@ -1,13 +1,13 @@
 ---
-title: "PuppetDB 2.3 » API » Commands"
+title: "PuppetDB 2.3 » Command API"
 layout: default
-canonical: "/puppetdb/latest/api/commands.html"
+canonical: "/puppetdb/latest/api/command/v1/commands.html"
 ---
 
-[factsv4]: ./wire_format/facts_format_v4.html
-[catalogv6]: ./wire_format/catalog_format_v6.html
-[reportv5]: ./wire_format/report_format_v5.html
-[deactivatev3]: ./wire_format/deactivate_node_format_v3.html
+[factsv4]: ../../wire_format/facts_format_v4.html
+[catalogv6]: ../../wire_format/catalog_format_v6.html
+[reportv5]: ../../wire_format/report_format_v5.html
+[deactivatev3]: ../../wire_format/deactivate_node_format_v3.html
 
 Commands are used to change PuppetDB's
 model of a population. Commands are represented by `command objects`,
@@ -30,7 +30,7 @@ The entire command MUST be encoded as UTF-8.
 
 ## Command submission
 
-Commands are submitted via HTTP to the `/commands` URL and must
+Commands are submitted via HTTP to the `/pdb/cmd/v1` URL and must
 conform to the following rules:
 
 * A `POST` is used
@@ -117,7 +117,7 @@ To post a `replace facts` command you can use the following curl command:
       -H "Accept: application/json" \
       -H "Content-Type: application/json" \
       -d '{"command":"replace facts","version":4,"payload":{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"}}}' \
-      http://localhost:8080/pdb/query/v4/commands
+      http://localhost:8080/pdb/cmd/v1
 
 An example of `deactivate node`:
 
@@ -125,4 +125,4 @@ An example of `deactivate node`:
       -H "Accept: application/json" \
       -H "Content-Type: application/json" \
       -d '{"command":"deactivate node","version":2,"payload":"test1"}' \
-      http://localhost:8080/pdb/query/v4/commands
+      http://localhost:8080/pdb/cmd/v1
