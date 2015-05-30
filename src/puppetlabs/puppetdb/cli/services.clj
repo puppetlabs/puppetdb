@@ -43,7 +43,6 @@
      database, compacting it and performing regular cleanup so we can
      maintain acceptable performance."
   (:require [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.command :refer [enqueue-command!]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.jdbc :as pl-jdbc]
@@ -64,7 +63,6 @@
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
             [puppetlabs.puppetdb.version :refer [version update-info]]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query-eng :as qeng])
   (:import [javax.jms ExceptionListener]))
@@ -334,8 +332,7 @@
   (shared-globals [this])
   (query [this query-obj version query-expr paging-options row-callback-fn]
     "Call `row-callback-fn' for matching rows.  The `paging-options' should
-    be a map containing :order_by, :offset, and/or :limit.")
-  (submit-command [this command version payload]))
+    be a map containing :order_by, :offset, and/or :limit."))
 
 (defservice puppetdb-service
   "Defines a trapperkeeper service for PuppetDB; this service is responsible
@@ -355,11 +352,7 @@
                   (:shared-globals (service-context this)))
   (query [this query-obj version query-expr paging-options row-callback-fn]
          (let [{db :scf-read-db url-prefix :url-prefix} (get (service-context this) :shared-globals)]
-           (qeng/stream-query-result query-obj version query-expr paging-options db url-prefix row-callback-fn)))
-  (submit-command [this command version payload]
-                  (enqueue-command! (:mq-connection (service-context this))
-                                    mq-endpoint
-                                    (command-names command) version payload)))
+           (qeng/stream-query-result query-obj version query-expr paging-options db url-prefix row-callback-fn))))
 
 (defn -main
   "Calls the trapperkeeper main argument to initialize tk.

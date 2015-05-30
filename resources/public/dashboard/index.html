@@ -311,7 +311,7 @@ body {
   .call();
 
   counterAndSparkline()
-  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.http.server:type=/pdb/query/v4/commands,name=service-time")
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.http.server:type=/pdb/cmd/v1,name=service-time")
   .snag(function(res) { return res["50thPercentile"] / 1000; })
   .format(d3.format(",.3s"))
   .description("Enqueueing")

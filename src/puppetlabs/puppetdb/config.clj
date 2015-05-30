@@ -315,6 +315,7 @@
   [config-data]
   (let [default-web-router-service
         {:puppetlabs.puppetdb.cli.services/puppetdb-service "/pdb/query"
+         :puppetlabs.puppetdb.http.command/puppetdb-command-service "/pdb/cmd"
          :puppetlabs.puppetdb.dashboard/dashboard-service "/pdb"
          :puppetlabs.puppetdb.metrics/metrics-service "/metrics"}]
     (doseq [[svc route] default-web-router-service]
