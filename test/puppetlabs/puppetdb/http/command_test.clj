@@ -11,9 +11,9 @@
             [puppetlabs.puppetdb.mq :as mq]
             [clj-time.format :as time]))
 
-(use-fixtures :each fixt/with-test-db fixt/with-test-mq fixt/with-http-app)
+(use-fixtures :each fixt/with-test-db fixt/with-test-mq fixt/with-command-app)
 
-(def endpoints [[:v4 "/v4/commands"]])
+(def endpoints [[:v1 "/v1"]])
 
 (defn get-request*
   "Makes a parameter only request"
@@ -37,7 +37,7 @@
       (let [payload  "This is a test"
             checksum (kitchensink/utf8-string->sha1 payload)
             req (fixt/internal-request {"payload" payload "checksum" checksum})
-            response (fixt/*app* (post-request* endpoint {"checksum" checksum}
+            response (fixt/*command-app* (post-request* endpoint {"checksum" checksum}
                                                 payload))]
         (assert-success! response)
 
@@ -46,16 +46,16 @@
         (is (uuid-in-response? response))))
 
     (testing "should return status-bad-request when missing payload"
-      (let [response (fixt/*app* (post-request* endpoint nil nil))]
+      (let [response (fixt/*command-app* (post-request* endpoint nil nil))]
         (is (= (:status response)
                http/status-bad-request))))
 
     (testing "should not do checksum verification if no checksum is provided"
-      (let [response (fixt/*app* (post-request* endpoint nil "my payload!"))]
+      (let [response (fixt/*command-app* (post-request* endpoint nil "my payload!"))]
         (assert-success! response)))
 
     (testing "should return 400 when checksums don't match"
-      (let [response (fixt/*app* (post-request* endpoint
+      (let [response (fixt/*command-app* (post-request* endpoint
                                                 {"checksum" "something bad"}
                                                 "Testing"))]
         (is (= (:status response)
@@ -77,8 +77,8 @@
         bad-checksum  (kitchensink/utf8-string->sha1 bad-payload)
         request       (fn [payload checksum]
                         (post-request* endpoint {"checksum" checksum} payload))]
-    (fixt/*app* (request good-payload good-checksum))
-    (fixt/*app* (request bad-payload bad-checksum))
+    (fixt/*command-app* (request good-payload good-checksum))
+    (fixt/*command-app* (request bad-payload bad-checksum))
 
     (let [[good-msg bad-msg] (mq/bounded-drain-into-vec!
                               (:connection fixt/*mq*)

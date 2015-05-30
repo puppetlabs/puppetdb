@@ -9,6 +9,7 @@
             [puppetlabs.puppetdb.metrics :as metrics :refer [metrics-service]]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service]]
+            [puppetlabs.puppetdb.http.command :refer [puppetdb-command-service]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
             [clj-http.util :refer [url-encode]]
@@ -100,14 +101,21 @@
                                conf/adjust-tk-config
                                assoc-open-port
                                assoc-logging-config)
-         prefix (get-in config [:web-router-service ::svcs/puppetdb-service])
          port (get-in config [:jetty :port])
-         base-url (cond-> {:protocol "http" :host "localhost" :port port}
-                    (seq prefix) (assoc :prefix prefix))]
+         base-url {:protocol "http"
+                   :host "localhost"
+                   :port port
+                   :prefix "/pdb/query"
+                   :version :v4}]
      (try
        (tkbs/with-app-with-config server
-         (concat [jetty9-service svcs/puppetdb-service message-listener-service
-                  command-service webrouting-service metrics-service]
+         (concat [jetty9-service
+                  webrouting-service
+                  svcs/puppetdb-service
+                  message-listener-service
+                  command-service
+                  metrics-service
+                  puppetdb-command-service]
                  services)
          config
          (binding [*server* server

@@ -75,6 +75,12 @@
             ;; Ignore
             ))))))
 
+(defn command-base-url
+  [base-url]
+  (assoc base-url
+         :prefix "/pdb/cmd"
+         :version :v1))
+
 (deftest test-basic-roundtrip
   (let [facts {:certname "foo.local"
                :environment "DEV"
@@ -88,18 +94,16 @@
                     (assoc :certname "foo.local"
                            :producer_timestamp (now)))
         report (:basic reports)
-        with-server #(svc-utils/puppetdb-instance
-                      (svc-utils/create-config)
-                      %)]
+        ]
 
-    (with-server
+    (svc-utils/puppetdb-instance
       (fn []
         (is (empty? (export/get-nodes *base-url*)))
 
-        (svc-utils/sync-command-post *base-url* "replace catalog" 6 catalog)
-        (svc-utils/sync-command-post *base-url* "store report" 5
+        (svc-utils/sync-command-post (command-base-url *base-url*) "replace catalog" 6 catalog)
+        (svc-utils/sync-command-post (command-base-url *base-url*) "store report" 5
                                      (tur/munge-example-report-for-storage report))
-        (svc-utils/sync-command-post *base-url* "replace facts" 4 facts)
+        (svc-utils/sync-command-post (command-base-url *base-url*) "replace facts" 4 facts)
 
         (is (testutils/=-after? munge-catalog catalog (->> (:certname catalog)
                                                            (export/catalogs-for-node *base-url*)
@@ -116,7 +120,7 @@
                        "--host" (:host *base-url*)
                        "--port" (:port *base-url*))))
 
-    (with-server
+    (svc-utils/puppetdb-instance
       (fn []
         (is (empty? (export/get-nodes *base-url*)))
 
@@ -154,7 +158,7 @@
      (assoc-in (svc-utils/create-config) [:command-processing :max-frame-size] "1024")
      (fn []
        (is (empty? (export/get-nodes *base-url*)))
-       (pdb-client/submit-command-via-http! *base-url* "replace catalog" 6 catalog)
+       (pdb-client/submit-command-via-http! (command-base-url *base-url*) "replace catalog" 6 catalog)
        (is (thrown-with-msg?
             java.util.concurrent.ExecutionException #"Results not found"
             @(block-until-results 5

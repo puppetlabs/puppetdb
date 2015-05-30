@@ -5,6 +5,7 @@
             [puppetlabs.puppetdb.version]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :refer :all]
+            [puppetlabs.puppetdb.http.command :refer :all]
             [puppetlabs.puppetdb.utils :as utils]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*base-url*]]
@@ -37,26 +38,6 @@
           (is (string? (f {:ssl-client-cn "badguy"})))
           (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
 
-(deftest url-prefix-test
-  (testing "should mount web app at `/` by default"
-    (svc-utils/with-puppetdb-instance
-      (let [url (str (utils/base-url->str *base-url*) "/version")
-            response (client/get url)]
-        (is (= 200 (:status response))))))
-  (testing "should support mounting web app at alternate url prefix"
-    (svc-utils/puppetdb-instance
-     (assoc-in (svc-utils/create-config)
-               [:web-router-service :puppetlabs.puppetdb.cli.services/puppetdb-service]
-               "/puppetdb")
-     (fn []
-       (let [url (str (utils/base-url->str (dissoc *base-url* :prefix))
-                      "/version")
-             response (client/get url {:throw-exceptions false})]
-         (is (= 404 (:status response))))
-       (let [url (str (utils/base-url->str *base-url*) "/version")
-             response (client/get url)]
-         (is (= 200 (:status response))))))))
-
 (defn- check-service-query
   [endpoint version q pagination check-result]
   (let [pdb-service (get-service svc-utils/*server* :PuppetDBServer)
@@ -77,8 +58,8 @@
 
 (deftest query-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
-    (let [pdb-service (get-service svc-utils/*server* :PuppetDBServer)]
-      (submit-command pdb-service :replace-facts 4 {:certname "foo.local"
+    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)]
+      (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:foo "the foo"
                                                              :bar "the bar"
@@ -106,8 +87,8 @@
 
 (deftest pagination-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
-    (let [pdb-service (get-service svc-utils/*server* :PuppetDBServer)]
-      (submit-command pdb-service :replace-facts 4 {:certname "foo.local"
+    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)]
+      (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:a "a" :b "b" :c "c"}
                                                     :producer_timestamp (to-string (now))})
@@ -150,8 +131,8 @@
 
 (deftest in-process-command-submission
   (svc-utils/with-puppetdb-instance
-    (let [pdb-service (get-service svc-utils/*server* :PuppetDBServer)]
-      (submit-command pdb-service :replace-facts 4 {:certname "foo.local"
+    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)]
+      (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:foo "the foo"
                                                              :bar "the bar"
