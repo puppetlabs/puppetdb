@@ -5,6 +5,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 ---
 
 [configure_postgres]: ./configure.html#using-postgresql
+[kahadb_corruption]: ./trouble_kahadb_corruption.html
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
 [upgrading]: ./api/query/v4/preparing-for-3.0.html
 
@@ -36,6 +37,16 @@ canonical: "/puppetdb/latest/release_notes.html"
   minutes once the application has started upgrading. This is
   expected, and is due to internal changes in the way we check if
   catalogs are up-to-date.
+
+### Downgrading
+
+* If you attempt to downgrade to a previous version of PuppetDB, in
+  addition to wiping the database, you will need to clear the queue
+  directory as described in the
+  [documentation on KahaDB corruption][kahadb_corruption].  Otherwise
+  you might see an IOException during startup when the older PuppetDB
+  (using an older version of KahaDB) tries to read leftover,
+  incompatible queue data.
 
 ### Breaking Changes
 
