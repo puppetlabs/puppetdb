@@ -224,7 +224,7 @@ then
   done
 else
   # This should be run on the host with PuppetDB
-  PATH=/opt/puppet/bin:$PATH
+  PATH=/opt/puppetlabs/bin:/opt/puppet/bin:$PATH
   agent_confdir=`puppet agent --configprint confdir`
   agent_vardir=`puppet agent --configprint vardir`
 
