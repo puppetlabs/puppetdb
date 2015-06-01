@@ -36,7 +36,6 @@
    `update` message with the current wall-clock. Each agent decides
    independently whether or not to submit a catalog during that clock
    tick."
-  (:import (java.io File))
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.trapperkeeper.logging :as logutils]
@@ -65,21 +64,20 @@
 
 (defn error-if
   [pred msg x]
-  (if (pred x) (log/error msg) x))
+  (if (pred x)
+    (log/error msg)
+    x))
 
 (defn load-sample-data
   "Load all .json files contained in `dir`."
-  ([dir]
-   (load-sample-data dir false))
-  ([dir from-classpath?]
-   (let [target-files (if from-classpath?
-                        (remove #(.isDirectory %) (file-seq (io/file (io/resource dir))))
-                        (fs/glob (fs/file dir "*.json")))]
-     (->> target-files
-          (map try-load-file)
-          (remove nil?)
-          (vec)
-          (error-if empty? (format "Supplied directory %s contains no usable data!" dir))))))
+  [dir & [from-classpath?]]
+  (let [target-files (if from-classpath?
+                       (remove #(.isDirectory %) (file-seq (io/file (io/resource dir))))
+                       (fs/glob (fs/file dir "*.json")))]
+    (->> target-files
+         (map try-load-file)
+         (filterv (complement nil?))
+         (error-if empty? (format "Supplied directory %s contains no usable data!" dir)))))
 
 (def mutate-fns
   "Functions that randomly change a wire-catalog format"
@@ -88,44 +86,49 @@
    catutils/add-random-edge-to-wire-catalog
    catutils/swap-edge-targets-in-wire-catalog])
 
-(defn rand-catalog-mutate-fn
+(defn rand-catalog-mutation
   "Grabs one of the mutate-fns randomly and returns it"
-  []
-  (rand-nth mutate-fns))
+  [catalog]
+  ((rand-nth mutate-fns) catalog))
+
+(declare random-fact-value-vector)
 
 (defn random-fact-value
   "Given a type, generate a random fact value"
-  [kind]
-  (case kind
-    :int (rand-int 300)
-    :float (rand)
-    :bool (random-bool)
-    :string (random-string 4)
-    :vector (into [] (take (rand-int 10)
-                           (repeatedly #(random-fact-value
-                                         (rand-nth [:string :int :float :bool])))))))
+  ([] (random-fact-value (rand-nth [:int :float :bool :string :vector])))
+  ([kind]
+   (case kind
+     :int (rand-int 300)
+     :float (rand)
+     :bool (random-bool)
+     :string (random-string 4)
+     :vector (random-fact-value-vector))))
+
+(defn random-fact-value-vector
+  []
+  (-> (rand-int 10)
+      (repeatedly #(random-fact-value (rand-nth [:string :int :float :bool])))
+      vec))
 
 (defn random-structured-fact
   "Create a 'random' structured fact.
   Parameters are fact depth and number of child facts.  Depth 0 implies one child."
   ([]
-     (random-structured-fact (rand-nth [0 1 2 3]) (rand-nth [1 2 3 4])))
+   (random-structured-fact (rand-nth [0 1 2 3])
+                           (rand-nth [1 2 3 4])))
   ([depth children]
-     (let [kind (rand-nth [:int :float :bool :string :vector])]
-       (if (zero? depth)
-         {(random-string 10) (random-fact-value kind)}
-         {(random-string 10) (zipmap (take children (repeatedly #(random-string 10)))
-                                     (take children (repeatedly
-                                                     #(random-structured-fact
-                                                       (rand-nth (range depth))
-                                                       (rand-nth (range children))))))}))))
+     (if (zero? depth)
+       {(random-string 10) (random-fact-value)}
+       {(random-string 10) (zipmap (repeatedly children #(random-string 10))
+                                   (repeatedly children #(random-structured-fact (rand-nth (range depth))
+                                                                                 (rand-nth (range children)))))})))
 
 (defn maybe-tweak-catalog
   "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`
   percent of the time."
   [catalog rand-percentage]
   (if (< (rand 100) rand-percentage)
-    ((rand-catalog-mutate-fn) catalog)
+    (rand-catalog-mutation catalog)
     catalog))
 
 (defn update-catalog [catalog]
@@ -137,19 +140,19 @@
    computing the same hash again (causing constraint errors in the DB)"
   [report]
   (assoc report
-    "configuration_version" (ks/uuid)
-    "start_time" (time/now)
-    "end_time" (time/now)
-    "producer_timestamp" (time/now)))
+         "configuration_version" (ks/uuid)
+         "start_time" (time/now)
+         "end_time" (time/now)
+         "producer_timestamp" (time/now)))
 
 (defn randomize-map-leaf
   "Randomizes a fact leaf based on a percentage provided with `rp`."
   [rp leaf]
   (if (< (rand 100) rp)
     (cond
-     (string? leaf)  (random-string (inc (rand-int 100)))
+     (string? leaf) (random-string (inc (rand-int 100)))
      (integer? leaf) (rand-int 100000)
-     (float? leaf)   (* (rand) (rand-int 100000))
+     (float? leaf) (* (rand) (rand-int 100000))
      (ks/boolean? leaf) (random-bool))
     leaf))
 
@@ -159,13 +162,10 @@
   [rp value]
   (cond
    (map? value)
-   (into {}
-         (for [[k v] value]
-           [k (randomize-map-leaves rp v)]))
+   (ks/mapvals (partial randomize-map-leaves rp) value)
 
    (coll? value)
-   (for [v value]
-     (randomize-map-leaves rp v))
+   (map (partial randomize-map-leaves rp) value)
 
    :else
    (randomize-map-leaf rp value)))
@@ -176,7 +176,7 @@
   [factset rand-percentage]
   (-> factset
       (assoc "producer_timestamp" (time/now))
-      (update-in ["values"] (partial randomize-map-leaves rand-percentage))))
+      (update "values" (partial randomize-map-leaves rand-percentage))))
 
 (defn timed-update-host
   "Send a new _clock tick_ to a host
@@ -191,11 +191,10 @@
     hosts catalog changes in accordance to the users preference)
 
   * Submit the resulting catalog"
-  [{:keys [host lastrun catalog report factset puppetdb-host puppetdb-port run-interval rand-percentage] :as state} clock]
+  [{:keys [host lastrun catalog report factset base-url run-interval rand-percentage] :as state} clock]
   (if-not (> (- clock lastrun) run-interval)
     state
-    (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port :prefix "/pdb/query"}
-          catalog (some-> catalog update-catalog (maybe-tweak-catalog rand-percentage))
+    (let [catalog (some-> catalog update-catalog (maybe-tweak-catalog rand-percentage))
           report (some-> report update-report-run-fields)
           factset (some-> factset (update-factset rand-percentage))]
       ;; Submit the catalog and reports in separate threads, so as to not
@@ -230,9 +229,8 @@
    submission.  Also submit a report for the host (if present). This is
    similar to timed-update-host, but always sends the update (doesn't run/skip
    based on the clock)"
-  [{:keys [host lastrun catalog report factset puppetdb-host puppetdb-port run-interval rand-percentage] :as state}]
-  (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port :prefix "/pdb/query"}
-        catalog (some-> catalog (maybe-tweak-catalog rand-percentage))
+  [{:keys [host lastrun catalog report factset base-url run-interval rand-percentage] :as state}]
+  (let [catalog (some-> catalog (maybe-tweak-catalog rand-percentage))
         report (some-> report update-report-run-fields)
         factset (some-> factset (update-factset rand-percentage))]
     (when catalog (client/submit-catalog base-url 6 (json/generate-string catalog)))
@@ -273,26 +271,6 @@
       (Thread/sleep 10)
       (recur curr-time))))
 
-(defn associate-catalog-with-host
-  "Takes the given `catalog` and transforms it to appear related to
-  `hostname`"
-  [hostname catalog]
-  (assoc catalog
-    "certname" hostname
-    "resources" (map #(update-in % ["tags"] conj hostname) (get catalog "resources"))))
-
-(defn associate-report-with-host
-  "Takes the given `report` and transforms it to appear related to
-  `hostname`"
-  [hostname report]
-  (assoc report "certname" hostname))
-
-(defn associate-factset-with-host
-  "Takes the given `factset` and transforms it to appear related to
-   `hostname`"
-  [hostname factset]
-  (assoc factset "certname" hostname))
-
 (def supported-cli-options
   [["-c" "--config CONFIG" "Path to config or conf.d directory (required)"]
    ["-F" "--facts FACTS" "Path to a directory containing sample JSON facts (files must end with .json)"]
@@ -310,7 +288,6 @@
 (defn activate-logging!
   [options]
   (-> (:config options)
-      config/load-config
       (get-in [:global :logging-config])
       logutils/configure-logging!))
 
@@ -321,8 +298,7 @@
     (and (contains? options :runinterval)
          (contains? options :nummsgs))
     (do
-      (log/error
-        "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
+      (log/error "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
       (action-on-error-fn))
 
     (not-any? #{:nummsgs :runinterval} (keys options))
@@ -333,25 +309,26 @@
     (and (contains? options :archive)
          (some #{:reports :catalogs :facts} (keys options)))
     (do
-      (log/error
-        "Error: -A/--archive is incompatible with -F/--facts, -C/--catalogs, -R/--reports")
+      (log/error "Error: -A/--archive is incompatible with -F/--facts, -C/--catalogs, -R/--reports")
       (action-on-error-fn))
 
     :else options))
 
 (defn default-options
   [options]
-  (-> options
-      (assoc :facts "puppetlabs/puppetdb/benchmark/samples/facts")
-      (assoc :reports "puppetlabs/puppetdb/benchmark/samples/reports")
-      (assoc :catalogs "puppetlabs/puppetdb/benchmark/samples/catalogs")
-      (assoc :from-cp? true)))
+  (assoc options
+         :facts "puppetlabs/puppetdb/benchmark/samples/facts"
+         :reports "puppetlabs/puppetdb/benchmark/samples/reports"
+         :catalogs "puppetlabs/puppetdb/benchmark/samples/catalogs"
+         :from-cp? true))
 
 (defn- validate-cli!
   [args]
   (try+
     (let [options (-> (ks/cli! args supported-cli-options required-cli-options)
                       first
+                      ;; We load the config for logging and for our main-
+                      (update :config config/load-config)
                       (validate-options #(System/exit 1)))]
       (if (empty? (select-keys options [:facts :reports :catalogs]))
         (default-options options)
@@ -370,67 +347,63 @@
         facts-pattern (re-pattern "facts.*\\.json$")]
     (fn [acc entry]
       (let [path (.getName entry)
-            parsed-entry (json/parse-string (archive/read-entry-content tar-reader))]
+            parsed-entry (-> tar-reader
+                             archive/read-entry-content
+                             json/parse-string)]
         (cond
-          (re-find catalog-pattern path) (update-in acc [:catalogs] conj parsed-entry)
-          (re-find report-pattern path) (update-in acc [:reports] conj parsed-entry)
-          (re-find facts-pattern path) (update-in acc [:facts] conj parsed-entry)
+          (re-find catalog-pattern path) (update acc :catalogs conj parsed-entry)
+          (re-find report-pattern path) (update acc :reports conj parsed-entry)
+          (re-find facts-pattern path) (update acc :facts conj parsed-entry)
           :else acc)))))
 
 (defn load-data-from-options
   [{:keys [catalogs facts reports archive from-cp?]}]
   (if archive
     (let [tar-reader (archive/tarball-reader archive)
-          entries (archive/all-entries tar-reader)]
-      (->> (reduce (process-tar-entry archive tar-reader)
-                   {:catalogs [] :reports [] :facts []} entries)
-           (filter (comp not empty? val))
+          process-entries-fn (process-tar-entry archive tar-reader)]
+      (->> (archive/all-entries tar-reader)
+           (reduce process-entries-fn {:catalogs [] :reports [] :facts []})
+           (remove (comp empty? val))
            (into {})))
-    {:catalogs (when catalogs
-                 (load-sample-data catalogs from-cp?))
-     :facts (when facts
-              (load-sample-data facts from-cp?))
-     :reports (when reports
-                (load-sample-data reports from-cp?))}))
+    {:catalogs (when catalogs (load-sample-data catalogs from-cp?))
+     :facts (when facts (load-sample-data facts from-cp?))
+     :reports (when reports (load-sample-data reports from-cp?))}))
 
 (defn -main
   [& args]
-  (let [options         (validate-cli! args)
-        config          (-> (:config options)
-                            config/load-config)
-
+  (let [{:keys [config] :as options} (validate-cli! args)
         {:keys [catalogs reports facts]} (load-data-from-options options)
-        nhosts          (:numhosts options)
-        hostnames       (set (map #(str "host-" %) (range (Integer/parseInt nhosts))))
-        hostname        (get-in config [:jetty :host] "localhost")
-        port            (get-in config [:jetty :port] 8080)
-        rand-percentage (Integer/parseInt (or (:rand-perc options) "0"))
-
+        {pdb-host :host pdb-port :port
+         :or {pdb-host "127.0.0.1" pdb-port 8080}} (:jetty config)
+        rand-percentage (Integer/parseInt (:rand-perc options "0"))
+        base-host-map {:base-url {:protocol "http"
+                                  :host pdb-host
+                                  :port pdb-port
+                                  :prefix "/pdb/query"}
+                       :rand-percentage rand-percentage}
         ;; Create an agent for each host
-        hosts (mapv (fn [host]
-                      {:host host
-                       :puppetdb-host hostname
-                       :puppetdb-port port
-                       :rand-percentage rand-percentage
-                       :catalog (when catalogs
-                                  (associate-catalog-with-host host (rand-nth catalogs)))
-                       :report (when reports
-                                 (associate-report-with-host host (rand-nth reports)))
-                       :factset (when facts
-                                   (associate-factset-with-host host (rand-nth facts)))})
-                    hostnames)]
+        nhosts (Integer/parseInt (:numhosts options))
+        hosts (->> (range nhosts)
+                   (map #(str "host-" %))
+                   (mapv (fn [host]
+                           (merge base-host-map
+                                  {:host host
+                                   :catalog (some-> catalogs
+                                                    rand-nth
+                                                    (assoc "certname" host)
+                                                    (update "resources" (partial map #(update % "tags" conj pdb-host))))
+                                   :report (some-> reports rand-nth (assoc "certname" host))
+                                   :factset (some-> facts rand-nth (assoc "certname" host))}))))]
 
-    (when-not catalogs
-      (log/info "No catalogs specified; skipping catalog submission"))
-    (when-not reports
-      (log/info "No reports specified; skipping report submission"))
-    (when-not facts
-      (log/info "No facts specified; skipping fact submission"))
+    (when-not catalogs (log/info "No catalogs specified; skipping catalog submission"))
+    (when-not reports (log/info "No reports specified; skipping report submission"))
+    (when-not facts (log/info "No facts specified; skipping fact submission"))
     (if-let [num-cmds (:nummsgs options)]
       (submit-n-messages hosts (Long/valueOf num-cmds))
-      (world-loop (mapv (fn [host-map]
-                          (let [run-interval (* 60 1000 (Integer/parseInt (:runinterval options)))]
-                            (agent (assoc host-map
-                                     :run-interval run-interval
-                                     :lastrun (- (System/currentTimeMillis) (rand-int run-interval))))))
-                        hosts)))))
+      (let [run-interval (* 60 1000 (Integer/parseInt (:runinterval options)))
+            rand-lastrun (fn [run-interval]
+                           (- (System/currentTimeMillis) (rand-int run-interval)))]
+        (->> hosts
+             (mapv #(agent (merge % {:run-interval run-interval
+                                     :lastrun (rand-lastrun run-interval)})))
+             world-loop)))))
