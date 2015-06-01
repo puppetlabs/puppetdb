@@ -302,6 +302,7 @@ module PuppetDBExtensions
       database         => '#{db}',
       manage_firewall  => false,
       puppetdb_version => '#{get_package_version(host, version)}',
+      condfdir         => '/etc/puppetlabs/puppetdb/conf.d',
     }
     EOS
     if db == :postgres
@@ -358,7 +359,7 @@ module PuppetDBExtensions
     ini_setting {'server_urls':
       ensure => present,
       section => 'main',
-      path => "${puppetdb::params::puppet_confdir}/puppetdb.conf",
+      path => "/etc/puppetlabs/puppetdb/conf.d/puppetdb.conf",
       setting => 'server_urls',
       value => '#{server_urls}',
     }
@@ -444,6 +445,7 @@ module PuppetDBExtensions
       manifest = "
         $database = '#{PuppetDBExtensions.config[:database]}'
         class { 'puppetdb::server::database_ini':
+          confdir  => '/etc/puppetlabs/puppetdb/conf.d',
           database => $database,
         }"
 
