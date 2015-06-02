@@ -379,7 +379,8 @@
         base-host-map {:base-url {:protocol "http"
                                   :host pdb-host
                                   :port pdb-port
-                                  :prefix "/pdb/query"}
+                                  :prefix "/pdb/cmd"
+                                  :version :v1}
                        :rand-percentage rand-percentage}
         ;; Create an agent for each host
         nhosts (Integer/parseInt (:numhosts options))

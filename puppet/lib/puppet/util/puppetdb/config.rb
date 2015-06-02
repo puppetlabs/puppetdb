@@ -151,7 +151,7 @@ module Puppet::Util::Puppetdb
         if uri.path != '' && uri.path != '/'
           raise "PuppetDB 'server_urls' cannot contain URL paths, found '#{uri_string}'"
         end
-        uri.path = '/pdb/query'
+        uri.path = ''
         
         uri
       end

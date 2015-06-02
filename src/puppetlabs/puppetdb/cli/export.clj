@@ -272,7 +272,7 @@
 (defn- main
   [& args]
   (let [[{:keys [outfile host port] :as opts} _] (validate-cli! args)
-        src {:protocol "http" :host host :port port :prefix "/pdb/query"}
+        src {:protocol "http" :host host :port port :prefix "/pdb/query" :version :v4}
         _ (when-let [why (utils/describe-bad-base-url src)]
             (throw+ {:type ::invalid-url :utils/exit-status 1}
                     (format "Invalid source (%s)" why)))

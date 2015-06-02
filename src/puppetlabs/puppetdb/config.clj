@@ -316,6 +316,7 @@
   [config-data]
   (let [default-web-router-service
         {:puppetlabs.puppetdb.cli.services/puppetdb-service "/pdb/query"
+         :puppetlabs.puppetdb.http.command/puppetdb-command-service "/pdb/cmd"
          :puppetlabs.puppetdb.dashboard/dashboard-service "/pdb"
          :puppetlabs.puppetdb.metrics/metrics-service "/metrics"}
         bootstrap-cfg (-> (find-bootstrap-config config-data)

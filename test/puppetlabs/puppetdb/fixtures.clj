@@ -3,6 +3,7 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.java.jdbc.internal :as jint]
             [puppetlabs.puppetdb.http.server :as server]
+            [puppetlabs.puppetdb.http.command :as command]
             [puppetlabs.puppetdb.jdbc :as pjdbc]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.config :as cfg]
@@ -16,6 +17,7 @@
 (def ^:dynamic *db* nil)
 (def ^:dynamic *mq* nil)
 (def ^:dynamic *app* nil)
+(def ^:dynamic *command-app* nil)
 
 (defn init-db [db read-only?]
   (binding [*db* db]
@@ -55,6 +57,15 @@
     (binding [*mq* {:connection connection
                     :endpoint "puppetlabs.puppetdb.commands"}]
       (f))))
+
+(defn with-command-app
+  "A fixture to build a Command app and make it available as `*command-app*` within
+  tests. This will provide the `*mq*` to the app as a global if it
+  is available. Note this means this fixture should be nested _within_
+  `with-test-mq`."
+  ([f]
+   (binding [*command-app* (command/command-app {:command-mq *mq*})]
+     (f))))
 
 (defn with-http-app
   "A fixture to build an HTTP app and make it available as `*app*` within

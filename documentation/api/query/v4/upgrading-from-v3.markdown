@@ -20,6 +20,10 @@ Each change below is marked with the corresponding release version. Changes mark
 * (3.0) The query API has been moved from `/` to `/pdb/query`, so
   http://localhost:8080/v4/version has become
   http://localhost:8080/pdb/query/v4/version.
+  
+* (3.0) The `/commands` endpoint has been moved to its own API at `/pdb/cmd`, so
+  http://localhost:8080/v3/commands has become
+  http://localhost:8080/pdb/cmd/v1.
 
 * (3.0) All previously dash-separated field names (e.g receive-time), subquery
   operators (e.g select-facts), and query parameters (e.g order-by) are now
@@ -79,10 +83,10 @@ Each change below is marked with the corresponding release version. Changes mark
 * (3.0) PuppetDB's mbeans (listed at /metrics/v1/mbeans) are no longer prefixed with
   "com."
 
-#### /pdb/query/v4/commands
+#### /pdb/cmd/v1 (formerly /v3/commands)
 
   * (3.0) For users posting commands directly to the
-    /pdb/query/v4/commands endpoint, the only valid command submission
+    /pdb/cmd/v1 endpoint, the only valid command submission
     versions will be
     [replace catalogs v6](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/catalog_format_v6.html),
     [store report v5](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/report_format_v5.html),

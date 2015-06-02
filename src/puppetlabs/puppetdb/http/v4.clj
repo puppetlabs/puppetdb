@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.http.v4
   (:require [puppetlabs.puppetdb.http.version :as ver]
-            [puppetlabs.puppetdb.http.command :as cmd]
             [puppetlabs.puppetdb.http.server-time :as st]
             [puppetlabs.puppetdb.http.aggregate-event-counts :as aec]
             [puppetlabs.puppetdb.http.event-counts :as ec]
@@ -22,9 +21,6 @@
 
 (def v4-app
   (moustache/app
-   ["commands" &]
-   {:any (cmd/command-app version)}
-
    ["facts" &]
    {:any (facts/facts-app version)}
 

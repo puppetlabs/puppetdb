@@ -69,6 +69,8 @@ stable release of PuppetDB, which included an experimental v4 API.
     dashes, which will make it easier to interface with PDB using languages like
     javascript and python.
 
+* Split the `/v3/commands` endpoint into its own API served at `/pdb/cmd/v1`.
+
 * Change "name" key to "certname" ([PDB-1099](https://tickets.puppetlabs.com/browse/PDB-1099))
 
     For clarity and consistency across endpoints, the "name" key has
@@ -616,7 +618,7 @@ Ryan Senior, and Wyatt Alt
   ([PDB-137](https://tickets.puppetlabs.com/browse/PDB-137))
 
 * Broken links have been fixed in the
-  [connection](./connect_puppet_master.html) and [commands](./api/commands.html)
+  [connection](./connect_puppet_master.html) and [commands](./api/command/v1/commands.html)
   documentation.
 
 * A missing `-L` option has been added to a curl invocation
