@@ -3,7 +3,8 @@
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.query.reports :as query]
+            [puppetlabs.puppetdb.query-eng :as eng]
+            [puppetlabs.puppetdb.fixtures :as fixt]
             [clj-time.coerce :as time-coerce]
             [puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage]]
             [flatland.ordered.map :as omap]))
@@ -15,21 +16,18 @@
 
 (defn munge-example-report-for-storage
   [example-report]
-  (update-in example-report [:resource_events]
-             #(mapv munge-example-event-for-storage %)))
+  (update example-report :resource_events (partial mapv munge-example-event-for-storage)))
 
 (defn munge-events-for-comparison
   "Munges event objects in a way that is suitable for equality comparisons in tests"
   [events]
   {:pre  [(vector? events)]
    :post [(set? %)]}
-  (set (map
-        #(-> %
-             (update-in ["timestamp"] time-coerce/to-string)
-             (dissoc "report")
-             (dissoc "certname")
-             (dissoc "configuration_version"))
-        events)))
+  (->> events
+       (map #(-> %
+                 (update "timestamp" time-coerce/to-string)
+                 (dissoc "report" "certname" "configuration_version")))
+       set))
 
 (defn munge-report-for-comparison
   "Given a report object (represented as a map, either having come out of a
@@ -43,13 +41,12 @@
    :post [(map? %)
           (set? (% "resource_events"))]}
   (-> report
-      (clojure.walk/stringify-keys)
-      (update-in ["start_time"] time-coerce/to-string)
-      (update-in ["end_time"] time-coerce/to-string)
-      (update-in ["producer_timestamp"] time-coerce/to-string)
-      (update-in ["resource_events"] munge-events-for-comparison)
-      (dissoc "hash")
-      (dissoc "receive_time")))
+      clojure.walk/stringify-keys
+      (update "start_time" time-coerce/to-string)
+      (update "end_time" time-coerce/to-string)
+      (update "producer_timestamp" time-coerce/to-string)
+      (update "resource_events" munge-events-for-comparison)
+      (dissoc "hash" "receive_time")))
 
 (defn report-for-hash
   "Convenience function; given a report hash, return the corresponding report object
@@ -58,13 +55,13 @@
   {:pre  [(string? hash)]
    :post [(or (nil? %)
               (map? %))]}
-  (let [query ["=" "hash" hash]]
-    (->> (query/query->sql version query)
-         (query/query-reports version "")
-         ;; We don't support paging in this code path, so we
-         ;; can just pull the results out of the return value
-         (:result)
-         (first))))
+  (first
+   (eng/stream-query-result :reports
+                            version
+                            ["=" "hash" hash]
+                            {}
+                            fixt/*db*
+                            "")))
 
 (defn store-example-report!
   "Store an example report (from examples/report.clj) for use in tests.  Params:
@@ -79,8 +76,9 @@
   ([example-report timestamp]
    (store-example-report! example-report timestamp true))
   ([example-report timestamp update-latest-report?]
-   (let [example-report  (munge-example-report-for-storage example-report)
-         report-hash     (shash/report-identity-hash (scf-store/normalize-report example-report))]
+   (let [example-report (munge-example-report-for-storage example-report)
+         report-hash (shash/report-identity-hash
+                      (scf-store/normalize-report example-report))]
      (scf-store/maybe-activate-node! (:certname example-report) timestamp)
      (scf-store/add-report!* example-report timestamp update-latest-report?)
      (report-for-hash :v4 report-hash))))
@@ -97,31 +95,28 @@
 
 (defn munge-resource-events
   [xs]
-  (set (map (fn [x] (-> x
-                       (update-in [:timestamp] time-coerce/to-string)
-                       (dissoc :environment :test_id :containing_class :certname))) xs)))
+  (->> xs
+       (map #(-> %
+                 (update :timestamp time-coerce/to-string)
+                 (dissoc :environment :test_id :containing_class :certname)))
+       set))
 
 (defn expected-reports
   [example-reports]
   (map expected-report example-reports))
 
-(defn raw-reports-query-result
-  [version query paging-options]
-  (letfn [(munge-fn
-            [reports]
-            (map #(dissoc % :receive_time) reports))]
-    ;; the example reports don't have a receive time (because this is
-    ;; calculated by the server), so we remove this field from the response
-    ;; for test comparison
-    (update-in (query/query-reports version "" (query/query->sql version query paging-options))
-               [:result]
-               munge-fn)))
-
 (defn reports-query-result
-  ([version query]
-   (reports-query-result version query nil))
-  ([version query paging-options]
-   (:result (raw-reports-query-result version query paging-options))))
+  [version query & [paging-options]]
+  ;; the example reports don't have a receive time (because this is
+  ;; calculated by the server), so we remove this field from the response
+  ;; for test comparison
+  (->> (eng/stream-query-result :reports
+                                version
+                                query
+                                paging-options
+                                fixt/*db*
+                                "")
+       (map #(dissoc % :receive_time))))
 
 (defn get-events-map
   [example-report]

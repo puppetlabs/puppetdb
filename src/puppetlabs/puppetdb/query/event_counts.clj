@@ -155,17 +155,3 @@
        (conj {:results-query (apply vector paged-select params)}
              (when (:count? paging-options)
                [:count-query (apply vector (jdbc/count-sql sql) params)])))))
-
-(defn query-event-counts
-  "Given a SQL query and its parameters, return a vector of matching results."
-  [version summarize_by query-sql]
-  {:pre  [(map? query-sql)]}
-  (let [{:keys [count-query results-query]} query-sql
-        munge-fn (munge-result-rows summarize_by)
-        result {:result
-                (jdbc/with-query-results-cursor
-                  results-query (comp doall
-                                      (munge-fn nil nil)))}]
-    (if count-query
-      (assoc result :count (jdbc/get-result-count count-query))
-      result)))

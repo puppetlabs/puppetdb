@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.events
-  (:require [puppetlabs.puppetdb.query.events :as events]
+  (:require [puppetlabs.puppetdb.query-eng :as eng]
+            [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
@@ -31,14 +32,14 @@
   (-> example-resource-event
       ;; the examples don't have the report-id or configuration-version,
       ;; but the results from the database do... so we need to munge those in.
-      (assoc-in [:report] (:hash report))
-      (assoc-in [:configuration_version] (:configuration_version report))
-      (assoc-in [:run_start_time] (to-timestamp (:start_time report)))
-      (assoc-in [:run_end_time] (to-timestamp (:end_time report)))
-      (assoc-in [:report_receive_time] (to-timestamp (:receive_time report)))
+      (assoc :report (:hash report)
+             :configuration_version (:configuration_version report)
+             :run_start_time (to-timestamp (:start_time report))
+             :run_end_time (to-timestamp (:end_time report))
+             :report_receive_time (to-timestamp (:receive_time report)))
       ;; we need to convert the datetime fields from the examples to timestamp objects
       ;; in order to compare them.
-      (update-in [:timestamp] to-timestamp)
+      (update :timestamp to-timestamp)
       (environment report version)
       (dissoc :test_id)))
 
@@ -73,39 +74,10 @@
   (set (raw-expected-resource-events version example-resource-events report)))
 
 (defn query-resource-events
-  "Queries resource events and unstreams, used mainly for testing.
-
-  This wraps the existing streaming query code but returns results
-  and count (if supplied)."
-  [version query-sql]
-  {:pre [(map? query-sql)]}
-  (let [{:keys [count-query results-query]} query-sql
-         result {:result (jdbc/with-query-results-cursor
-                           results-query (comp doall
-                                               (events/munge-result-rows version nil)))}]
-    (if count-query
-      (assoc result :count (jdbc/get-result-count count-query))
-      result)))
-
-(defn resource-events-query-result
-  "Utility function that executes a resource events query and returns a set of
-  results for use in test comparisons."
-  ([version query]
-     (resource-events-query-result version query nil))
-  ([version query paging-options]
-     (resource-events-query-result version query paging-options nil))
-  ([version query paging-options query-options]
-     (->> (events/query->sql version query [query-options paging-options])
-          (query-resource-events version)
-          :result
-          set)))
-
-(defn raw-resource-events-query-result
-  "Utility function that executes a resource events query with paging options and
-  simply returns the map with the query results and any metadata for use in test
-  comparisons. This does not do anything to the results from the query."
-  ([version query paging-options]
-     (raw-resource-events-query-result version query paging-options nil))
-  ([version query paging-options query-options]
-     (->> (events/query->sql version query [query-options paging-options])
-          (query-resource-events version))))
+  [version query & [paging-options query-options]]
+  (eng/stream-query-result :events
+                           version
+                           query
+                           [(or query-options {}) (or paging-options {})]
+                           fixt/*db*
+                           ""))

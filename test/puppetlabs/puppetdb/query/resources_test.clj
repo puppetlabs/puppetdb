@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.query.resources-test
-  (:require [puppetlabs.puppetdb.query.resources :as s]
+  (:require [puppetlabs.puppetdb.query-eng :as eng]
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.scf.storage :refer [ensure-environment]]
             [clojure.test :refer :all]
@@ -11,13 +11,14 @@
 
 (use-fixtures :each with-test-db)
 
-(defn- raw-query-resources
-  [version query paging-options]
-  (s/query-resources version (s/query->sql version query paging-options) ""))
-
 (defn query-resources
-  [version query]
-  (:result (s/query-resources version query "")))
+  [version query & [paging-options]]
+  (eng/stream-query-result :resources
+                           version
+                           query
+                           paging-options
+                           *db*
+                           ""))
 
 (deftest test-query-resources
   (sql/insert-records
@@ -255,8 +256,8 @@
                     [foo4]
                     ])]
           (is (utils/=-after? set
-                              (query-resources version (s/query->sql version input))
-                              (map #(update-in % [:resource] sutils/parse-db-hash) expect))
+                              (query-resources version input)
+                              (map #(update % :resource sutils/parse-db-hash) expect))
               (str "  " input " =>\n  " expect)))))))
 
 (deftest paging-results
@@ -303,45 +304,41 @@
     (let [version :v4]
       (testing (str "version " version)
 
-        (testing "include total results count"
-          (is (= (:count (raw-query-resources version ["=" ["node" "active"] true] {:count? true}))
-                 4)))
-
         (testing "limit results"
           (doseq [[limit expected] [[1 1] [2 2] [100 4]]]
-            (let [actual (count (:result (raw-query-resources version ["=" ["node" "active"] true] {:limit limit})))]
+            (let [actual (count (query-resources version ["=" ["node" "active"] true] {:limit limit}))]
               (is (= actual expected)))))
 
         (testing "order_by"
           (testing "rejects invalid fields"
             (is (thrown-with-msg?
                  IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
-                 (:result (raw-query-resources version [] {:order_by [[:invalid-field :ascending]]})))))
+                 (query-resources version [] {:order_by [[:invalid-field :ascending]]}))))
 
           (testing "defaults to ascending"
             (let [expected [r1 r3 r4 r2]
-                  actual   (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                         {:order_by [[:line :ascending]]}))]
+                  actual (query-resources version ["=" ["node" "active"] true]
+                                          {:order_by [[:line :ascending]]})]
               (is (= actual
-                     (map #(update-in % [:resource] sutils/parse-db-hash) expected)))))
+                     (map #(update % :resource sutils/parse-db-hash) expected)))))
 
           (testing "alphabetical fields"
             (doseq [[order expected] [[:ascending  [r1 r2 r3 r4]]
                                       [:descending [r4 r3 r2 r1]]]]
               (testing order
-                (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                           {:order_by [[:title order]]}))]
+                (let [actual (query-resources version ["=" ["node" "active"] true]
+                                              {:order_by [[:title order]]})]
                   (is (= actual
-                         (map #(update-in % [:resource] sutils/parse-db-hash) expected)))))))
+                         (map #(update % :resource sutils/parse-db-hash) expected)))))))
 
           (testing "numerical fields"
             (doseq [[order expected] [[:ascending  [r1 r3 r4 r2]]
                                       [:descending [r2 r4 r3 r1]]]]
               (testing order
-                (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                           {:order_by [[:line order]]}))]
+                (let [actual (query-resources version ["=" ["node" "active"] true]
+                                              {:order_by [[:line order]]})]
                   (is (= actual
-                         (map #(update-in % [:resource] sutils/parse-db-hash) expected)))))))
+                         (map #(update % :resource sutils/parse-db-hash) expected)))))))
 
           (testing "multiple fields"
             (doseq [[[file-order line-order] expected] [[[:ascending :descending]  [r2 r1 r3 r4]]
@@ -349,11 +346,11 @@
                                                         [[:descending :ascending]  [r4 r3 r1 r2]]
                                                         [[:descending :descending] [r4 r3 r2 r1]]]]
               (testing (format "file %s line %s" file-order line-order)
-                (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                           {:order_by [[:file file-order]
-                                                                       [:line line-order]]}))]
+                (let [actual (query-resources version ["=" ["node" "active"] true]
+                                              {:order_by [[:file file-order]
+                                                          [:line line-order]]})]
                   (is (= actual
-                         (map #(update-in % [:resource] sutils/parse-db-hash) expected))))))))
+                         (map #(update % :resource sutils/parse-db-hash) expected))))))))
 
         (testing "offset"
           (doseq [[order expected-sequences] [[:ascending [[0 [r1 r2 r3 r4]]
@@ -368,7 +365,7 @@
                                                             [4 []]]]]]
             (testing order
               (doseq [[offset expected] expected-sequences]
-                (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                           {:order_by [[:title order]] :offset offset}))]
+                (let [actual (query-resources version ["=" ["node" "active"] true]
+                                              {:order_by [[:title order]] :offset offset})]
                   (is (= actual
-                         (map #(update-in % [:resource] sutils/parse-db-hash) expected))))))))))))
+                         (map #(update % :resource sutils/parse-db-hash) expected))))))))))))

@@ -2,28 +2,23 @@
   (:require [puppetlabs.puppetdb.query.event-counts :as event-counts]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]
+            [puppetlabs.puppetdb.query-eng :as eng]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
             [clj-time.core :refer [now]]))
 
 (use-fixtures :each with-test-db)
 
-(defn- raw-event-counts-query-result
-  [version query summarize_by query-options paging-options]
-  (->> (event-counts/query->sql version query [summarize_by query-options paging-options])
-       (event-counts/query-event-counts version summarize_by)))
+(defn- query-event-counts
+  [version query summarize_by & [query-options paging-options]]
+  (eng/stream-query-result :event-counts
+                           version
+                           query
+                           [summarize_by (or query-options {}) (or paging-options {})]
+                           *db*
+                           ""))
 
-(defn- event-counts-query-result
-  "Utility function that executes an event-counts query and
-  returns a set of results for use in test comparison."
-  ([version query summarize_by]
-     (event-counts-query-result version query summarize_by {}))
-  ([version query summarize_by query-options]
-     (event-counts-query-result version query summarize_by query-options {}))
-  ([version query summarize_by query-options paging-options]
-     (-> (raw-event-counts-query-result version query summarize_by query-options paging-options)
-         (:result)
-         (set))))
+(def distinct-event-counts (comp set query-event-counts))
 
 (deftest paging-results
   (let [_           (store-example-report! (:basic reports) (now))
@@ -32,21 +27,17 @@
 
     (let [version :v4]
 
-      (testing "include total results count"
-        (let [actual (:count (raw-event-counts-query-result version ["=" "certname" "foo.local"] "resource" {} {:count? true}))]
-          (is (= actual 3))))
-
       (testing "limit results"
         (doseq [[limit expected] [[1 1] [2 2] [100 3]]]
-          (let [results (event-counts-query-result version ["=" "certname" "foo.local"] "resource" {} {:limit limit})
-                actual  (count results)]
+          (let [results (distinct-event-counts version ["=" "certname" "foo.local"] "resource" {} {:limit limit})
+                actual (count results)]
             (is (= actual expected)))))
 
       (testing "order_by"
         (testing "rejects invalid fields"
           (is (thrown-with-msg?
                IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
-               (event-counts-query-result
+               (query-event-counts
                 version
                 ["=" "certname" "foo.local"]
                 "resource"
@@ -57,12 +48,12 @@
           (doseq [[order expected] [[:ascending  [count2 count1]]
                                     [:descending [count1 count2]]]]
             (testing order
-              (let [actual (:result (raw-event-counts-query-result
-                                     version
-                                     ["=" "certname" "foo.local"]
-                                     "containing_class"
-                                     {}
-                                     {:order_by [[:successes order]]}))]
+              (let [actual (query-event-counts
+                            version
+                            ["=" "certname" "foo.local"]
+                            "containing_class"
+                            {}
+                            {:order_by [[:successes order]]})]
                 (is (= actual expected)))))))
 
       (testing "offset"
@@ -74,12 +65,12 @@
                                                           [2 []]]]]]
           (testing order
             (doseq [[offset expected] expected-sequences]
-              (let [actual (:result (raw-event-counts-query-result
-                                     version
-                                     ["=" "certname" "foo.local"]
-                                     "containing_class"
-                                     {}
-                                     {:order_by [[:successes order]] :offset offset}))]
+              (let [actual (query-event-counts
+                            version
+                            ["=" "certname" "foo.local"]
+                            "containing_class"
+                            {}
+                            {:order_by [[:successes order]] :offset offset})]
                 (is (= actual expected))))))))))
 
 (deftest resource-event-count-queries
@@ -91,7 +82,7 @@
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
              IllegalArgumentException #"Unsupported value for 'summarize_by': 'illegal-summarize-by'"
-             (event-counts-query-result version ["these" "are" "unused"] "illegal-summarize-by"))))
+             (query-event-counts version ["these" "are" "unused"] "illegal-summarize-by"))))
 
       (testing "containing_class"
         (let [expected #{{:subject_type "containing_class"
@@ -106,7 +97,7 @@
                           :successes 0
                           :noops 0
                           :skips 1}}
-              actual   (event-counts-query-result version ["=" "certname" "foo.local"] "containing_class")]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"] "containing_class")]
           (is (= actual expected))))
 
       (testing "certname"
@@ -116,7 +107,7 @@
                            :successes 2
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "certname")]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"] "certname")]
           (is (= actual expected))))
 
       (testing "resource"
@@ -138,7 +129,7 @@
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "resource")]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"] "resource")]
           (is (= actual expected)))))
 
     (testing "counts_filter"
@@ -149,7 +140,7 @@
                            :successes 2
                            :noops 0
                            :skips 0}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "containing_class" {:counts_filter ["=" "successes" 2]})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"] "containing_class" {:counts_filter ["=" "successes" 2]})]
           (is (= actual expected))))
 
       (testing "> operator"
@@ -165,7 +156,7 @@
                            :successes 1
                            :noops 0
                            :skips 0}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "resource" {:counts_filter [">" "successes" 0]})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"] "resource" {:counts_filter [">" "successes" 0]})]
           (is (= actual expected))))
 
       (testing ">= operator"
@@ -187,7 +178,7 @@
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "resource" {:counts_filter [">=" "successes" 0]})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"] "resource" {:counts_filter [">=" "successes" 0]})]
           (is (= actual expected))))
 
       (testing "< operator"
@@ -203,7 +194,7 @@
                            :successes 1
                            :noops 0
                            :skips 0}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "resource" {:counts_filter ["<" "skips" 1]})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"] "resource" {:counts_filter ["<" "skips" 1]})]
           (is (= actual expected))))
 
       (testing "<= operator"
@@ -225,14 +216,14 @@
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "resource" {:counts_filter ["<=" "skips" 1]})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"] "resource" {:counts_filter ["<=" "skips" 1]})]
           (is (= actual expected)))))
 
     (testing "count_by"
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
              IllegalArgumentException #"Unsupported value for 'count_by': 'illegal-count-by'"
-             (event-counts-query-result version ["=" "certname" "foo.local"] "certname" {:count_by "illegal-count-by"}))))
+             (query-event-counts version ["=" "certname" "foo.local"] "certname" {:count_by "illegal-count-by"}))))
 
       (testing "resource"
         (let [expected  #{{:subject_type "containing_class"
@@ -247,7 +238,7 @@
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "containing_class" {:count_by "resource"})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"] "containing_class" {:count_by "resource"})]
           (is (= actual expected))))
 
       (testing "certname"
@@ -257,5 +248,5 @@
                            :successes 1
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "certname" {:count_by "certname"})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"] "certname" {:count_by "certname"})]
           (is (= actual expected)))))))

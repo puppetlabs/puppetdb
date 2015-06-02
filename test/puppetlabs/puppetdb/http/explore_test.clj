@@ -92,7 +92,7 @@
       (testing "/nodes/<node> should return a 404 for unknown nodes"
         (let [response (get-response "nodes/host4")]
           (is (= 404 (:status response)))
-          (is (= {:error "No information is known about host4"} (json/parse-string (:body response) true)))))
+          (is (= {:error "No information is known about node host4"} (json/parse-string (:body response) true)))))
 
       (testing "/nodes/<node>/resources should return the resources just for that node"
         (doseq [host ["host1" "host2"]]

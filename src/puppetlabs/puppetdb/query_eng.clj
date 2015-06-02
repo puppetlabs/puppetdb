@@ -42,11 +42,14 @@
 (defn stream-query-result
   "Given a query, and database connection, return a Ring response with the query
   results."
-  [entity version query paging-options db url-prefix row-fn]
-  (let [[query->sql munge-fn] (entity->sql-fns entity version paging-options url-prefix)]
-    (jdbc/with-transacted-connection db
-      (let [{:keys [results-query]} (query->sql query)]
-        (jdbc/with-query-results-cursor results-query (comp row-fn munge-fn))))))
+  ([entity version query paging-options db url-prefix]
+   ;; We default to doall because tests need this for the most part
+   (stream-query-result entity version query paging-options db url-prefix doall))
+  ([entity version query paging-options db url-prefix row-fn]
+   (let [[query->sql munge-fn] (entity->sql-fns entity version paging-options url-prefix)]
+     (jdbc/with-transacted-connection db
+       (let [{:keys [results-query]} (query->sql query)]
+         (jdbc/with-query-results-cursor results-query (comp row-fn munge-fn)))))))
 
 (defn produce-streaming-body
   "Given a query, and database connection, return a Ring response with the query

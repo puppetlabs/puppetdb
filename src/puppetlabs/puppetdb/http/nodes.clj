@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.http.nodes
   (:require [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query.nodes :as node]
+            [puppetlabs.puppetdb.query-eng :as eng]
             [puppetlabs.puppetdb.http.facts :as f]
             [puppetlabs.puppetdb.http.resources :as r]
             [puppetlabs.puppetdb.http.query :as http-q]
@@ -13,13 +13,18 @@
             [puppetlabs.puppetdb.http :as http]))
 
 (defn node-status
-  "Produce a response body for a request to obtain status information
-  for the given node."
-  [version node db url-prefix]
-  (if-let [status (jdbc/with-transacted-connection db
-                    (node/status version node url-prefix))]
-    (http/json-response status)
-    (http/json-response {:error (str "No information is known about " node)} http/status-not-found)))
+  "Produce a response body for a single environment."
+  [api-version node db url-prefix]
+  (let [status (first
+                (eng/stream-query-result :nodes
+                                         api-version
+                                         ["=" "certname" node]
+                                         {}
+                                         db
+                                         url-prefix))]
+    (if status 
+      (http/json-response status)
+      (http/status-not-found-response "node" node))))
 
 (defn routes
   [version]
@@ -39,7 +44,9 @@
    [node]
    {:get
     (-> (fn [{:keys [globals]}]
-          (node-status version node (:scf-read-db globals)
+          (node-status version
+                       node
+                       (:scf-read-db globals)
                        (:url-prefix globals)))
         ;; Being a singular item, querying and pagination don't really make
         ;; sense here

@@ -71,25 +71,7 @@
            (or (not (:count? paging-options))
                (jdbc/valid-jdbc-query? (:count-query %)))]}
    (paging/validate-order-by! report-columns paging-options)
-   (qe/compile-user-query->sql
-    qe/reports-query query paging-options)))
-
-;; QUERY + MUNGE
-
-(defn query-reports
-  "Queries reports and unstreams, used mainly for testing.
-
-  This wraps the existing streaming query code but returns results
-  and count (if supplied)."
-  [version url-prefix query-sql]
-  {:pre [(map? query-sql)]}
-  (let [{:keys [count-query results-query]} query-sql
-         result {:result (jdbc/with-query-results-cursor
-                          results-query (comp doall
-                                              (munge-result-rows version url-prefix)))}]
-    (if count-query
-      (assoc result :count (jdbc/get-result-count count-query))
-      result)))
+   (qe/compile-user-query->sql qe/reports-query query paging-options)))
 
 ;; SPECIAL
 

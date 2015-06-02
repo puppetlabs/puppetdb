@@ -249,3 +249,8 @@
    :post [(rr/response? %)]}
   (-> (json-response (:result query-result))
       (add-headers (dissoc query-result :result))))
+
+(defn status-not-found-response
+  "Produces a json response for when an entity (catalog/nodes/environment/...) is not found."
+  [type id]
+  (json-response {:error (format "No information is known about %s %s" type id)} status-not-found))

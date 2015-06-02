@@ -698,8 +698,8 @@
                                (reduce-kv (fn [acc k v]
                                             (assoc acc k (shash/resource-identity-hash v)))
                                           {} resources))
-         hash           (time! (:catalog-hash performance-metrics)
-                               (shash/catalog-similarity-hash catalog))
+         hash (time! (:catalog-hash performance-metrics)
+                     (shash/catalog-similarity-hash catalog))
          {id :id
           stored-hash :hash} (catalog-metadata certname)]
 
