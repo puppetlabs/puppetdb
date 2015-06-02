@@ -3,6 +3,7 @@
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [com.puppetlabs.puppetdb.scf.storage :as scf-store]
+            [com.puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [com.puppetlabs.puppetdb.catalogs :as catalog]
             [com.puppetlabs.puppetdb.examples.reports :as report-examples]
             [com.puppetlabs.puppetdb.scf.hash :as shash]
@@ -966,8 +967,11 @@
 
           (test-msg-handler new-facts-cmd publish discard-dir
             (reset! second-message? true)
-            (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
-                            (extract-error-message publish))))
+            (is (re-matches
+                  (if (sutils/postgres?)
+                    #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
+                    #".*BatchUpdateException.*(rollback|abort).*")
+                  (extract-error-message publish))))
           @fut
           (is (true? @first-message?))
           (is (true? @second-message?)))))))
