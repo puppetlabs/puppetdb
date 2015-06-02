@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.query.environments-test
   (:require [puppetlabs.puppetdb.query.environments :refer :all]
+            [puppetlabs.puppetdb.query-eng :as eng]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage :as storage]
             [puppetlabs.puppetdb.fixtures :as fixt]
@@ -7,9 +8,13 @@
 
 (fixt/defixture super-fixture :each fixt/with-test-db)
 
+(defn query-environments
+  [version & [query]]
+  (eng/stream-query-result :environments version query {} fixt/*db* ""))
+
 (deftest test-all-environments
   (testing "without environments"
-    (is (empty? (:result (query-environments :v4 (query->sql :v4 nil))))))
+    (is (empty? (query-environments :v4))))
 
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
@@ -18,19 +23,19 @@
     (is (= #{{:name "foo"}
              {:name "bar"}
              {:name "baz"}}
-           (set (:result (query-environments :v4 (query->sql :v4 nil))))))))
+           (set (query-environments :v4))))))
 
 (def jsonify (comp json/parse-strict-string json/generate-string))
 
 (deftest test-environment-queries
   (testing "without environments"
-    (is (empty? (:result (query-environments :v4 (query->sql :v4 nil))))))
+    (is (empty? (query-environments :v4))))
 
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
       (storage/ensure-environment env))
 
-    (are [query result] (= result (set (:result (query-environments :v4 (query->sql :v4 (jsonify query))))))
+    (are [query result] (= result (set (query-environments :v4 (jsonify query))))
 
          '[= name foo]
          #{{:name "foo"}}
@@ -65,7 +70,7 @@
 (deftest test-failed-comparison
   (are [query] (thrown-with-msg? IllegalArgumentException
                                  #"Query operators >,>=,<,<= are not allowed on field name"
-                                 (query-environments :v4 (query->sql :v4 (jsonify query))))
+                                 (query-environments :v4 (jsonify query)))
 
        '[<= name foo]
        '[>= name foo]

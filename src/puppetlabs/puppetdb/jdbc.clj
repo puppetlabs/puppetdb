@@ -254,7 +254,7 @@
   (retry-sql 5
              (sql/with-connection db-spec
                (when-let [isolation-level (get isolation-levels tx-isolation-level)]
-                 (.setTransactionIsolation (:connection jint/*db*) isolation-level))
+                 (.setTransactionIsolation (jint/find-connection*) isolation-level))
                (sql/transaction (f)))))
 
 (defmacro with-transacted-connection'

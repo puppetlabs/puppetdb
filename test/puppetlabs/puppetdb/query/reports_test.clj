@@ -100,20 +100,16 @@
                (munge-actual-reports actual)))))))
 
 (deftest paging-results
-  (let [report1      (:basic my-reports)
-        report2      (:basic2 my-reports)
-        report3      (:basic3 my-reports)
-        report4      (:basic4 my-reports)
+  (let [{report1 :basic
+         report2 :basic2
+         report3 :basic3
+         report4 :basic4} my-reports
         report-count 4]
 
     (store-example-report! report1 (now))
     (store-example-report! report2 (now))
     (store-example-report! report3 (now))
     (store-example-report! report4 (now))
-
-    (testing "include total results count"
-      (let [actual (:count (raw-reports-query-result :v4 ["=" "certname" "foo.local"] {:count? true}))]
-        (is (= actual report-count))))
 
     (testing "limit results"
       (doseq [[limit expected] [[1 1] [2 2] [100 report-count]]]

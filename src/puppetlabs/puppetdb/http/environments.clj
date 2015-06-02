@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.http.environments
-  (:require [puppetlabs.puppetdb.query.environments :as e]
+  (:require [puppetlabs.puppetdb.query-eng :as eng]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.http.facts :as f]
@@ -14,11 +14,17 @@
 
 (defn environment-status
   "Produce a response body for a single environment."
-  [version environment db]
-  (if-let [status (with-transacted-connection db
-                    (e/status version environment))]
-    (http/json-response status)
-    (http/json-response {:error (str "No information is known about " environment)} http/status-not-found)))
+  [api-version environment db]
+  (let [status (first
+                (eng/stream-query-result :environments
+                                         api-version
+                                         ["=" "name" environment]
+                                         {}
+                                         db
+                                         ""))]
+    (if status 
+      (http/json-response status)
+      (http/status-not-found-response "environment" environment))))
 
 (defn routes
   [version]

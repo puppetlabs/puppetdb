@@ -30,26 +30,3 @@
               (jdbc/valid-jdbc-query? (:count-query %)))]}
      (paging/validate-order-by! (node-columns version) paging-options)
      (qe/compile-user-query->sql qe/nodes-query query paging-options)))
-
-(defn query-nodes
-  "Search for nodes satisfying the given SQL filter."
-  [version query-sql url-prefix]
-  {:pre  [(map? query-sql)
-          (jdbc/valid-jdbc-query? (:results-query query-sql))]
-   :post [(map? %)
-          (sequential? (:result %))]}
-  (let [{:keys [count-query results-query]} query-sql
-         result {:result (jdbc/with-query-results-cursor results-query doall)}]
-    (if count-query
-      (assoc result :count (jdbc/get-result-count count-query))
-      result)))
-
-(defn status
-  "Given a node's name, return the current status of the node.  Results
-  include whether it's active and the timestamp of its most recent catalog, facts,
-  and report."
-  [version node url-prefix]
-  {:pre  [string? node]}
-  (let [sql (query->sql version ["=" "certname" node])
-        results (:result (query-nodes version sql url-prefix))]
-    (first results)))

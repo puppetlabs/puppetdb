@@ -6,7 +6,6 @@
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.fixtures :refer :all]
-            [puppetlabs.puppetdb.query.catalogs :as c]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [puppetlabs.puppetdb.utils :as utils]))
@@ -24,9 +23,8 @@
 
 (defn munge-resources
   [resources]
-  (map
-   (comp #(update-in % [:tags] vec)
-         #(update-in % [:parameters] keywordize-keys))
+  (map (comp #(update % :tags vec)
+             #(update % :parameters keywordize-keys))
    (set resources)))
 
 (defn munge-expected
@@ -41,17 +39,6 @@
   [catalog]
   (-> catalog
       catalogs/catalog-query->wire-v6
-      (update-in [:producer_timestamp] time-coerce/to-string)
+      (update :producer_timestamp time-coerce/to-string)
       strip-expanded
       (utils/update-when [:resources] munge-resources)))
-
-;; TESTS
-
-(deftest catalog-query
-  (let [catalog-str (slurp (resource "puppetlabs/puppetdb/cli/export/tiny-catalog.json"))
-        {:strs [certname version transaction_uuid environment] :as catalog} (json/parse-string
-                                                                             catalog-str)]
-    (testcat/replace-catalog catalog-str)
-    (testing "status"
-      (is (= (munge-expected (json/parse-string catalog-str true))
-             (munge-actual (c/status :v4 certname "")))))))

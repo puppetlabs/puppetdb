@@ -5,9 +5,10 @@
             [fs.core :as fs]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.catalogs :as catalogs]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.query.catalogs :as qcat]
-            [puppetlabs.puppetdb.query.resources :as resources]
+            [puppetlabs.puppetdb.query-eng :as eng]
             [puppetlabs.puppetdb.query.edges :as edges]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]))
@@ -35,63 +36,45 @@
   "Updates the edge relationships from the DB to keywords for easier diffing
    with the new catalog."
   [edges]
-  (map #(update-in % [:relationship] keyword) edges))
+  (map #(update % :relationship keyword) edges))
 
 (defn resource-params->kwds
   "Updates the resource parameter keys from the DB to keywords for easier diffing
    with the new catalog."
   [resources]
-  (map (fn [resource]
-         (update-in resource [:parameters] #(kitchensink/mapkeys keyword %)))
-       resources))
+  (map #(update % :parameters (partial kitchensink/mapkeys keyword)) resources))
 
-(defn query-resources
-  [certname
-   version]
-  (let [query-sql (resources/query->sql version ["=" "certname" certname])
-        results (resources/query-resources version query-sql "")]
-    (:result results)))
+(defn get-entity
+  "An unfortunate copy of `query_eng.clj`'s `stream-query-result` without the `with-transacted-connection`
+  because we use the old version of jdbc which means that we don't pass the db-spec down through
+  this codepath and need to rely on the dynamic db connection."
+  [entity version query]
+  (let [[query->sql munge-fn] (eng/entity->sql-fns entity version {} "")
+        {:keys [results-query]} (query->sql query)]
+    (jdbc/with-query-results-cursor results-query (comp doall munge-fn))))
 
-(defn query-edges
-  [certname
-   version]
-  (let [query-sql (edges/query->sql version ["=" "certname" certname])
-        results (edges/query-edges version query-sql "")]
-    (:result results)))
-
-(defn expand-catalog-edges
-  [edges
-   certname
-   version]
-  (if (:data edges)
-    edges
-    (assoc edges :data (query-edges certname version))))
-
-(defn expand-catalog-resources
-  [resources
-   certname
-   version]
-  (if (:data resources)
-    resources
-    (assoc resources :data (query-resources certname version))))
-
-(defn query-catalog
-  [certname
-   version]
-  (-> (qcat/status version certname "")
-      (update-in [:resources] expand-catalog-resources certname version)
-      (update-in [:edges] expand-catalog-edges certname version)))
+(defn maybe-expand
+  [parent child version query]
+  (if (contains? (get parent child) :data)
+    parent
+    (assoc-in parent [child :data] (get-entity child version query))))
 
 (defn diffable-old-catalog
   "Query for the existing catalog from the DB, prep the results
    for easy diffing."
   [certname]
-  (-> (query-catalog certname :v4)
-      catalogs/catalog-query->wire-v6
-      (update-in [:edges] edge-relationships->kwds)
-      (update-in [:resources] resource-params->kwds)))
+  (let [version :v4
+        query ["=" "certname" certname]]
+    (-> (get-entity :catalogs version query)
+        first
+        (maybe-expand :resources version query)
+        (maybe-expand :edges version query)
+        catalogs/catalog-query->wire-v6
+        (update :edges edge-relationships->kwds)
+        (update :resources resource-params->kwds))))
 
-(defn debug-catalog [debug-output-dir new-hash {certname :certname new-resources :resources new-edges :edges :as catalog}]
+(defn debug-catalog
+  [debug-output-dir new-hash {certname :certname new-resources :resources new-edges :edges :as catalog}]
   (let [{old-resources :resources old-edges :edges} (diffable-old-catalog certname)
         old-catalog (shash/catalog-similarity-format certname old-resources old-edges)
         new-catalog (shash/catalog-similarity-format certname (vals new-resources) new-edges)

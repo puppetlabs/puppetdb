@@ -102,7 +102,7 @@ test_name "validate that nodes are expired and deleted based on ttl settings" do
       result = on database, %Q|curl -G #{puppetdb_query_url}/v4/nodes/#{agent.node_name}|
       result_node_status = JSON.parse(result.stdout)
 
-      assert_equal({"error" => "No information is known about #{agent.node_name}"}, result_node_status, "Got a result back for #{agent.node_name} when it shouldn't exist")
+      assert_equal({"error" => "No information is known about node #{agent.node_name}"}, result_node_status, "Got a result back for #{agent.node_name} when it shouldn't exist")
     end
   end
 

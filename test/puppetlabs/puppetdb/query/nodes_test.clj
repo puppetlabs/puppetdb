@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.query.nodes-test
   (:require [clojure.set :as set]
-            [puppetlabs.puppetdb.query.nodes :as node]
+            [puppetlabs.puppetdb.query-eng :as eng]
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -12,17 +12,17 @@
 
 (use-fixtures :each with-test-db)
 
-(defn- raw-retrieve-nodes
-  [version filter-expr paging-options]
-  (let [sql (node/query->sql version filter-expr paging-options)]
-    (node/query-nodes version sql "")))
-
 (defn- retrieve-node-names
-  ([version filter-expr] (retrieve-node-names version filter-expr {}))
-  ([version filter-expr paging-options]
-     (->> (raw-retrieve-nodes version filter-expr paging-options)
-          (:result)
-          (mapv :certname))))
+  [version query & [paging-options]]
+  (->> (eng/stream-query-result :nodes
+                                version
+                                query
+                                (or paging-options {})
+                                *db*
+                                "")
+       (mapv :certname)))
+
+(def distinct-node-names (comp set retrieve-node-names))
 
 (def names #{"node_a" "node_b" "node_c" "node_d" "node_e"})
 
@@ -40,13 +40,13 @@
                 not-expr   ["not" (vec (cons "or" exprs))]
                 not-result (apply set/difference names results)]]
     (testing (str "for version " version)
-      (is (= (set (retrieve-node-names version and-expr))
+      (is (= (distinct-node-names version and-expr)
              (set and-result))
           (format "%s => %s" and-expr and-result))
-      (is (= (set (retrieve-node-names version or-expr))
+      (is (= (distinct-node-names version or-expr)
              (set or-result))
           (format "%s => %s" or-expr or-result))
-      (is (= (set (retrieve-node-names version not-expr))
+      (is (= (distinct-node-names version not-expr)
              (set not-result))
           (format "%s => %s" not-expr not-result)))))
 
@@ -127,10 +127,6 @@
   (let [version [:v4]]
 
     (testing (str "version " version)
-      (testing "include total results count"
-        (let [actual (:count (raw-retrieve-nodes version nil {:count? true}))]
-          (is (= actual (count names)))))
-
       (testing "limit results"
         (doseq [[limit expected] [[1 1] [2 2] [100 5]]]
           (let [results (retrieve-node-names version nil {:limit limit})

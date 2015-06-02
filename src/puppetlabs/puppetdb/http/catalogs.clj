@@ -2,8 +2,7 @@
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.query.catalogs :as c]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
+            [puppetlabs.puppetdb.query-eng :as eng :refer [produce-streaming-body]]
             [puppetlabs.puppetdb.middleware :as middleware]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.http.edges :as edges]
@@ -18,10 +17,16 @@
 (defn catalog-status
   "Produce a response body for a request to retrieve the catalog for `node`."
   [api-version node db url-prefix]
-  (if-let [catalog (with-transacted-connection db
-                     (c/status api-version node url-prefix))]
-    (http/json-response (s/validate catalogs/catalog-query-schema catalog))
-    (http/json-response {:error (str "Could not find catalog for " node)} http/status-not-found)))
+  (let [catalog (first
+                 (eng/stream-query-result :catalogs
+                                          api-version
+                                          ["=" "certname" node]
+                                          {}
+                                          db
+                                          url-prefix))]
+    (if catalog
+      (http/json-response (s/validate catalogs/catalog-query-schema catalog))
+      (http/status-not-found-response "catalog" node))))
 
 (defn build-catalog-app
   [version entity]
