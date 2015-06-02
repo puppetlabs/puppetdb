@@ -17,10 +17,18 @@ The KahaDB storage for PuppetDB is located in a sub-directory underneath your co
 Why does corruption occur?
 -----
 
-In some cases this database may corrupt. Lots of things may cause this:
+In some cases KahaDB's storage may become corrupt or simply unreadable
+by the version of PuppetDB that you've launched.  There are a number
+of possible causes, for example:
 
 * Your disk may fill up, so writes are not finalised within the journal or database index.
+
 * There might be a bug in the KahaDB code that the developers haven't catered for.
+
+* You might downgrade PuppetDB to a version that uses an incompatible
+  ActiveMQ without clearing the queue directory.  If so, you can
+  simply remove the `mq/localhost` directory inside `<vardir>`, but
+  note that any unprocessed data will be lost.
 
 How do I recover?
 -----
