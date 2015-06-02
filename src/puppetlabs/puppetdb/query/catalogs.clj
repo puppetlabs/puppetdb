@@ -5,7 +5,6 @@
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.schema :as pls]
@@ -67,12 +66,10 @@
           (jdbc/valid-jdbc-query? (:results-query query-sql))]
    :post [(map? %)
           (sequential? (:result %))]}
-  (let [{[sql & params] :results-query
-         count-query    :count-query} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params
-                          (comp doall
-                                (munge-result-rows version url-prefix)))}]
+  (let [{:keys [count-query results-query]} query-sql
+         result {:result (jdbc/with-query-results-cursor
+                           results-query (comp doall
+                                               (munge-result-rows version url-prefix)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

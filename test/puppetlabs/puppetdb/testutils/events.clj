@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.events
   (:require [puppetlabs.puppetdb.query.events :as events]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.query :as query]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
             [clj-time.coerce :refer [to-timestamp to-string]]))
@@ -80,12 +79,10 @@
   and count (if supplied)."
   [version query-sql]
   {:pre [(map? query-sql)]}
-  (let [{[sql & params] :results-query count-query :count-query} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params
-                          ;; The doall simply forces the seq to be traversed
-                          ;; fully.
-                          (comp doall (events/munge-result-rows version nil)))}]
+  (let [{:keys [count-query results-query]} query-sql
+         result {:result (jdbc/with-query-results-cursor
+                           results-query (comp doall
+                                               (events/munge-result-rows version nil)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

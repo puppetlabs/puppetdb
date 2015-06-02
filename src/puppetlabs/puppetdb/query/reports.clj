@@ -3,7 +3,6 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.events :as events]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng.engine :as qe]
@@ -84,13 +83,10 @@
   and count (if supplied)."
   [version url-prefix query-sql]
   {:pre [(map? query-sql)]}
-  (let [{[sql & params] :results-query
-         count-query    :count-query} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params
-                          ;; The doall simply forces the seq to be traversed
-                          ;; fully.
-                          (comp doall (munge-result-rows version url-prefix)))}]
+  (let [{:keys [count-query results-query]} query-sql
+         result {:result (jdbc/with-query-results-cursor
+                          results-query (comp doall
+                                              (munge-result-rows version url-prefix)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))
