@@ -29,7 +29,8 @@
     [puppetdb-sync-service pe-puppetdb-service stub-server-service]
     (fn [] ~@body)))
 
-(def pdb-url-prefix "/pdb/query")
+(def pdb-query-url-prefix "/pdb/query")
+(def pdb-cmd-url-prefix "/pdb/cmd")
 (def pe-pdb-url-prefix "/pdb/ext")
 (def sync-url-prefix "/pdb/sync")
 (def stub-url-prefix "/stub")
@@ -49,11 +50,17 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; URL helper functions for inside a with-puppetdb-instance block
-(defn pdb-url []
-  (assoc svcs/*base-url* :prefix pdb-url-prefix :version :v4))
+(defn pdb-query-url []
+  (assoc svcs/*base-url* :prefix pdb-query-url-prefix :version :v4))
 
-(defn pdb-url-str []
-  (base-url->str (pdb-url)))
+(defn pdb-query-url-str []
+  (base-url->str (pdb-query-url)))
+
+(defn pdb-cmd-url []
+  (assoc svcs/*base-url* :prefix pdb-cmd-url-prefix :version :v1))
+
+(defn pdb-cmd-url-str []
+  (base-url->str (pdb-cmd-url)))
 
 (defn pe-pdb-url []
   (assoc svcs/*base-url* :prefix pe-pdb-url-prefix :version :v1))
