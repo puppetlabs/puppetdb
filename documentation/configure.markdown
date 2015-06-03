@@ -12,6 +12,7 @@ canonical: "/puppetdb/latest/configure.html"
 [module]: ./install_via_module.html
 [low_catalog_dupe]: ./trouble_low_catalog_duplication.html
 [puppetdb.conf]: ./connect_puppet_master.html#edit-puppetdbconf
+[hsqldb_deprecation_mail]: https://groups.google.com/d/msg/puppet-users/8K5sPqNgErM/8PI5pjI5iRgJ
 
 Summary
 -----
@@ -148,7 +149,9 @@ The `[global]` section is used to configure application-wide behavior.
 
 ### `vardir`
 
-This defines the parent directory for the MQ's data directory. Also, if a database isn't specified, the default database's files will be stored in `<vardir>/db`. The directory must exist and be writable by the PuppetDB user in order for the application to run.
+This defines the parent directory for the MQ's data directory. The
+directory must exist and be writable by the PuppetDB user in order for
+the application to run.
 
 ### `logging-config`
 
@@ -191,26 +194,14 @@ Optional.  Setting this to `true` disables checking for updated versions of Pupp
 -----
 
 The `[database]` section configures PuppetDB's database settings.
-
-PuppetDB can use either **a built-in HSQLDB database** or **a PostgreSQL database.** If no database information is supplied, an HSQLDB database at `<vardir>/db` will be used.
+PuppetDB can store its data in PostgreSQL or a built-in HSQLDB
+database.  Note that HSQLDB support has been [deprecated][#using-hsqldb].
 
 > **FAQ: Why no MySQL or Oracle support?**
 >
 > MySQL lacks several features that PuppetDB relies on; the most notable is recursive queries. We have no plans to ever support MySQL.
 >
 > Depending on demand, Oracle support may be forthcoming in a future version of PuppetDB. This hasn't been decided yet.
-
-### Using Built-in HSQLDB
-
-To use an HSQLDB database at the default `<vardir>/db`, you can simply remove all database settings. To configure the DB for a different location, put the following in the `[database]` section:
-
-    classname = org.hsqldb.jdbcDriver
-    subprotocol = hsqldb
-    subname = file:</PATH/TO/DB>;hsqldb.tx=mvcc;sql.syntax_pgs=true
-
-Replace `</PATH/TO/DB>` with the filesystem location in which you'd like to persist the database.
-
-Do not use the `username` or `password` settings.
 
 ### Using PostgreSQL
 
@@ -263,6 +254,22 @@ The main difference in the config file is that you must be sure to add `?ssl=tru
 
     subname = //<HOST>:<PORT>/<DATABASE>?ssl=true
 
+### Using Built-in HSQLDB {#using-hsqldb}
+
+Note that support for HSQLDB has been deprecated and will be removed
+in a future release. Please see [this email][hsqldb_deprecation_mail]
+to the puppet-users list for further information.
+
+To configure PuppetDB to use HSQLDB, put the following in the
+`[database]` section:
+
+    classname = org.hsqldb.jdbcDriver
+    subprotocol = hsqldb
+    subname = file:</PATH/TO/DB>;hsqldb.tx=mvcc;sql.syntax_pgs=true
+
+Replace `</PATH/TO/DB>` with the filesystem location in which you'd like to persist the database.
+
+Do not use the `username` or `password` settings.
 
 ### `gc-interval`
 

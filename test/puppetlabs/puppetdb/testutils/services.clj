@@ -99,7 +99,7 @@
    (when (zero? attempts)
      (throw (RuntimeException. "Repeated attempts to bind port failed, giving up")))
    (let [[log-file config] (-> config
-                               conf/adjust-tk-config
+                               conf/adjust-and-validate-tk-config
                                assoc-open-port
                                assoc-logging-config)
          port (get-in config [:jetty :port])

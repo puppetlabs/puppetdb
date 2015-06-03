@@ -1,14 +1,16 @@
 (ns puppetlabs.puppetdb.config-test
   (:import [java.security KeyStore])
   (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.config :refer :all]
+            [puppetlabs.puppetdb.config :refer :all :as conf]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.time :as pl-time]
             [clj-time.core :as time]
             [puppetlabs.trapperkeeper.testutils.logging :as tu-log]
             [puppetlabs.puppetdb.testutils :as tu]
             [clojure.string :as str]
-            [fs.core :as fs]))
+            [fs.core :as fs]
+            [slingshot.slingshot :refer [throw+ try+]]
+            [slingshot.test]))
 
 (deftest puppetdb-configuration
   (testing "puppetdb-configuration"
@@ -55,21 +57,30 @@
 
 (deftest database-configuration
   (testing "database"
-    (testing "should use the value specified"
-      (let [config (defaulted-db-connection {:database {:classname "something"
-                                                        :subname "stuff"
-                                                        :subprotocol "more stuff"}})]
-        (is (= (get-in config [:database :classname]) "something"))
-        (is (= "more stuff" (get-in config [:database :subprotocol])))
-        (is (= "stuff" (get-in config [:database :subname])))))
-
-    (testing "should default to hsqldb"
-      (let [config (defaulted-db-connection {:global {:vardir "/var/lib/puppetdb"}})
-            expected {:classname "org.hsqldb.jdbcDriver"
-                      :subprotocol "hsqldb"
-                      :subname "file:/var/lib/puppetdb/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"}]
-        (is (= (select-keys (:database config) #{:classname :subprotocol :subname})
-               expected))))
+    (testing "validate-db-settings"
+      (let [cfg {:database {:classname "foo" :subprotocol "bar" :subname "baz"}}]
+        (is (= cfg (validate-db-settings cfg))))
+      (is (thrown+-with-msg?
+           [:type ::conf/configuration-error]
+           #"database configuration is now required.* classname = .* subprotocol = .* subname = .*"
+           (validate-db-settings {})))
+      (let [settings [:classname :subprotocol :subname]]
+        (doseq [x settings]
+          (let [other-settings (remove #(= % x) settings)
+                cfg-rx (re-pattern
+                        (apply str "database configuration is now required.*"
+                               (map #(str " " (name %) " = .*")
+                                    other-settings)))]
+            ;; Make sure the message contains settings for all but x.
+            (is (thrown+-with-msg? [:type ::conf/configuration-error] cfg-rx
+                  (validate-db-settings {x "foo"})))
+            ;; Make sure the message doesn't contain a setting for x.
+            (is (try+
+                 (validate-db-settings {:database {x "foo"}})
+                 true
+                 (catch [:type ::conf/configuration-error] {:keys [message]}
+                   (not (re-find (re-pattern (str " " (name x) " = "))
+                                 message)))))))))
 
     (testing "the read-db defaulted to the specified write-db"
       (let [config (-> {:database {:classname "something"
@@ -95,10 +106,13 @@
         (is (= "stuff" (get-in config [:read-database :subname])))))))
 
 (deftest garbage-collection
-  (let [configure-dbs (fn [config]
+  (let [add-dummy-db #(update % :database merge (hsql-default-connection "/x"))
+        configure-dbs (fn [config]
                         (-> config
-                            defaulted-db-connection
-                            (configure-section :database write-database-config-in write-database-config-out)))]
+                            add-dummy-db
+                            (configure-section :database
+                                               write-database-config-in
+                                               write-database-config-out)))]
     (testing "gc-interval"
       (testing "should use the value specified in minutes"
         (let [{:keys [gc-interval]} (:database (configure-dbs {:database {:gc-interval 900}}))]

@@ -1388,12 +1388,12 @@
                    #'sutils/sql-current-connection-database-version (constantly version)}
     f))
 
-(deftest test-db-unsupported?
+(deftest test-db-unsupported-msg
   (testing "should return a string if db is deprecated"
     (are [db version result]
       (with-db-version db version
         (fn []
-          (is (= result (db-unsupported?)))))
+          (is (= result (db-unsupported-msg)))))
       "PostgreSQL" [8 1] "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
       "PostgreSQL" [8 2] "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
       "PostgreSQL" [8 3] "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
@@ -1405,6 +1405,7 @@
       "PostgreSQL" [9 4] nil)))
 
 (def not-supported-regex #"PostgreSQL DB versions 9.2 and older are no longer supported")
+(def hsqldb-deprecated-regex #"HSQLDB support has been deprecated .*")
 
 (deftest test-unsupported-fail
   (testing "unsupported postgres version"
@@ -1427,6 +1428,18 @@
                    (validate-database-version #(reset! fail? true)))))
             (is (false? @fail?))
             (is (empty? @log))))))))
+
+(deftest test-db-deprecation
+  (let [fail? (atom false)]
+    (with-db-version "HSQLDB" [2 2]
+      (fn []
+        (pllog/with-log-output log
+          (is (str/blank?
+               (tu/with-err-str
+                 (validate-database-version #(reset! fail? true)))))
+          (is (false? @fail?))
+          (is (= 1 (count @log)))
+          (is (re-find hsqldb-deprecated-regex (last (first @log)))))))))
 
 (deftest test-catalog-schemas
   (is (= (:basic catalogs) (s/validate catalog-schema (:basic catalogs)))))

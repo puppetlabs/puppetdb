@@ -200,10 +200,9 @@
           (try+
            (apply main args)
            0
-           (catch (and (map? %) (::exit-status %)) {:keys [::exit-status]}
-             (let [msg (:message &throw-context)]
-               (when-not (empty? msg)
-                 (println-err (:message &throw-context))))
+           (catch (and (map? %) (::exit-status %)) {:keys [::exit-status message]}
+             (when-not (empty? message)
+               (println-err "error:" message))
              exit-status))]
       (shutdown-agents)
       ;; The JVM doesn't always flush on the way out.

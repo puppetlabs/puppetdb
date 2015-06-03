@@ -7,6 +7,7 @@ canonical: "/puppetdb/latest/scaling_recommendations.html"
 [configure_heap]: ./configure.html#configuring-the-java-heap-size
 [dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
 [heap]: ./maintain_and_tune.html#tune-the-max-heap-size
+[hsqldb_deprecation_mail]: https://groups.google.com/d/msg/puppet-users/8K5sPqNgErM/8PI5pjI5iRgJ
 [threads]: ./maintain_and_tune.html#tune-the-number-of-threads
 [postgres]: ./configure.html#using-postgresql
 [pg_ha]: http://www.postgresql.org/docs/current/interactive/high-availability.html
@@ -26,12 +27,17 @@ Bottleneck: Database Performance
 
 PuppetDB has two available database backends:
 
-* Embedded HSQLDB
 * PostgreSQL
+* Embedded HSQLDB
 
-The embedded database works with no additional daemons or setup beyond installation, but is only suitable for up to about 100 Puppet nodes. [It also requires a significantly larger Java heap][ram].
+The PostgreSQL backend provides the best performance, and can be set
+up as described in the [configuration documentation][postgres].
 
-You can increase performance by setting up a PostgreSQL server and [switching PuppetDB to the PostgreSQL backend][postgres].
+The embedded database is only suitable for up to about 100 Puppet
+nodes and [requires a significantly larger Java heap][ram].  It has
+also been deprecated, and will be removed in a future release.  Please
+see this [email][hsqldb_deprecation_mail] to the puppet-users list for
+further information.
 
 ### PostgreSQL Speed and Availability
 

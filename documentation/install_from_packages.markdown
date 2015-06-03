@@ -11,6 +11,7 @@ canonical: "/puppetdb/latest/install_from_packages.html"
 [configure_postgres]: ./configure.html#using-postgresql
 [configure_heap]: ./configure.html#configuring-the-java-heap-size
 [configure_jetty]: ./configure.html#jetty-http-settings
+[hsqldb_deprecation_mail]: https://groups.google.com/d/msg/puppet-users/8K5sPqNgErM/8PI5pjI5iRgJ
 [requirements]: ./index.html#standard-install-rhel-centos-debian-ubuntu-or-fedora
 [module]: ./install_via_module.html
 [migrating]: ./migrate.html
@@ -60,10 +61,16 @@ Use Puppet to install PuppetDB:
 Step 4: Configure Database
 -----
 
-**If this is a production deployment,** you should confirm and configure your database settings:
+- Most deployments should
+  [set up a PostgreSQL server and configure PuppetDB to use it][configure_postgres]. You
+  may also need to [adjust the maximum heap size][configure_heap].
 
-- Deployments of **100 nodes or fewer** can continue to use the default built-in database backend, but should [increase PuppetDB's maximum heap size][configure_heap] to at least 1 GB.
-- Large deployments over 100 nodes should [set up a PostgreSQL server and configure PuppetDB to use it][configure_postgres]. You may also need to [adjust the maximum heap size][configure_heap].
+- For the moment, PuppetDB also supports an embedded HSQLDB database,
+  but this support has been deprecated and will be removed in a future
+  release. Please see [this email][hsqldb_deprecation_mail] to the
+  puppet-users list for further information.  If you do choose HSQLDB,
+  you should [increase PuppetDB's maximum heap size][configure_heap]
+  to at least 1 GB.
 
 You can change PuppetDB's database at any time, but note that changing the database does not migrate PuppetDB's data, so the new database will be empty. However, as this data is automatically generated many times a day, PuppetDB should recover in a relatively short period of time.
 

@@ -1159,7 +1159,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database support/deprecation
 
-(defn db-unsupported?
+(defn db-deprecated-msg
+  "Returns a string with a deprecation message if the DB is deprecated,
+   nil otherwise."
+  []
+  (when-not (sutils/postgres?)
+    (str "HSQLDB support has been deprecated and will be removed in a future version. "
+         "Please migrate to PostgreSQL.")))
+
+(defn db-unsupported-msg
   "Returns a string with an unsupported message if the DB is not supported,
   nil otherwise."
   []
@@ -1271,15 +1279,17 @@
   (add-report!* report received-timestamp true))
 
 (defn validate-database-version
-  "Log an error message to the log and console if the currently
-  configured database is unsupported, then call fail-fn  (probably to
-  exit)."
+  "Check the currently configured database and if it isn't supported,
+  notify the user and call fail-fn.  Then (if fail-fn returns) notify
+  the user if the database is deprecated."
   [fail-fn]
-  (let [msg (db-unsupported?)]
-    (when-let [attn-msg (and msg (utils/attention-msg msg))]
-      (utils/println-err attn-msg)
-      (log/error attn-msg)
-      (fail-fn))))
+  (when-let [msg (db-unsupported-msg)]
+    (let [msg (utils/attention-msg msg)]
+      (utils/println-err msg)
+      (log/error msg)
+      (fail-fn)))
+  (when-let [msg (db-deprecated-msg)]
+    (log/warn msg)))
 
 (def ^:dynamic *orphaned-path-gc-limit* 200)
 (def ^:dynamic *orphaned-value-gc-limit* 200)
