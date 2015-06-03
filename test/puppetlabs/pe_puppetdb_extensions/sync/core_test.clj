@@ -532,10 +532,10 @@
       (with-pdbs periodic-sync-configs
         (fn [master mirror]
           (with-alt-mq (:mq-name master)
+            (is (nil? (facts-from mirror)))
             (pdb-client/submit-command-via-http! (:command-url master)
                                                  "replace facts" 4 facts)
             @(rt/block-until-results 100 (facts-from master)))
-          (is (nil? (facts-from mirror)))
           @(rt/block-until-results 100 (facts-from mirror))
           (is (=-after? without-timestamp
                         (facts-from mirror)
