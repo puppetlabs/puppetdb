@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.http.v4
-  (:require [puppetlabs.puppetdb.http.version :as ver]
-            [puppetlabs.puppetdb.http.server-time :as st]
-            [puppetlabs.puppetdb.http.aggregate-event-counts :as aec]
+  (:require [puppetlabs.puppetdb.http.aggregate-event-counts :as aec]
             [puppetlabs.puppetdb.http.event-counts :as ec]
             [puppetlabs.puppetdb.http.catalogs :as catalogs]
             [puppetlabs.puppetdb.http.reports :as reports]
@@ -48,14 +46,6 @@
    ["resources" &]
    {:any (resources/resources-app version)}
 
-   ["version" &]
-   (moustache/app
-    [""]
-    {:get ver/current-version}
-
-    ["latest"]
-    {:get ver/latest-version})
-
    ["catalogs" &]
    {:any (catalogs/catalog-app version)}
 
@@ -69,7 +59,4 @@
    {:any (aec/aggregate-event-counts-app version)}
 
    ["reports" &]
-   {:any (reports/reports-app version)}
-
-   ["server-time" &]
-   {:any st/server-time-app}))
+   {:any (reports/reports-app version)}))

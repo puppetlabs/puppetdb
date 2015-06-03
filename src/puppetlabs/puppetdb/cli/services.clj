@@ -59,10 +59,12 @@
             [clojure.java.io :refer [file]]
             [clj-time.core :refer [ago]]
             [overtone.at-at :refer [mk-pool interspaced]]
-            [puppetlabs.puppetdb.time :refer [to-seconds to-millis parse-period format-period period?]]
+            [puppetlabs.puppetdb.time :refer [to-seconds to-millis parse-period
+                                              format-period period?]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
-            [puppetlabs.puppetdb.version :refer [version update-info]]
+            [puppetlabs.puppetdb.meta.version :refer [version update-info]]
+            [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query-eng :as qeng])
   (:import [javax.jms ExceptionListener]))
@@ -309,9 +311,9 @@
             gc-task #(interspaced gc-interval-millis % job-pool)
             seconds-pos? (comp pos? to-seconds)
             db-maintenance-tasks (fn []
-                                   (do 
+                                   (do
                                      (when (seconds-pos? node-ttl) (auto-expire-nodes! node-ttl write-db mq-connection))
-                                     (when (seconds-pos? node-purge-ttl) (purge-nodes! node-purge-ttl write-db)) 
+                                     (when (seconds-pos? node-purge-ttl) (purge-nodes! node-purge-ttl write-db))
                                      (when (seconds-pos? report-ttl) (sweep-reports! report-ttl write-db))
                                      ;; Order is important here to ensure
                                      ;; anything referencing an env or resource
@@ -321,7 +323,7 @@
         ;; competition. Each task must handle its own errors.
         (gc-task db-maintenance-tasks)
         (gc-task #(compress-dlo! dlo-compression-threshold discard-dir)))
-      (-> context 
+      (-> context
           (assoc :broker broker
                  :mq-factory mq-factory
                  :mq-connection mq-connection

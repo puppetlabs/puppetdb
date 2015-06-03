@@ -10,6 +10,7 @@
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service]]
             [puppetlabs.puppetdb.http.command :refer [puppetdb-command-service]]
+            [puppetlabs.puppetdb.meta :refer [metadata-service]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
             [clj-http.util :refer [url-encode]]
@@ -115,7 +116,8 @@
                   message-listener-service
                   command-service
                   metrics-service
-                  puppetdb-command-service]
+                  puppetdb-command-service
+                  metadata-service]
                  services)
          config
          (binding [*server* server
