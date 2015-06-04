@@ -46,7 +46,7 @@
                  ;; Job scheduling
                  [overtone/at-at "1.2.0"]
                  ;; Nicer exception handling with try+/throw+
-                 [slingshot "0.10.3"]
+                 [slingshot "0.12.2"]
 
                  ;; Database connectivity
                  [com.jolbox/bonecp "0.7.1.RELEASE" :exclusions [org.slf4j/slf4j-api]]

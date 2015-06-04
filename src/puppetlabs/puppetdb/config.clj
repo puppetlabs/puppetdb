@@ -14,6 +14,7 @@
             [fs.core :as fs]
             [clojure.string :as str]
             [schema.core :as s]
+            [slingshot.slingshot :refer [throw+]]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]))
 
@@ -154,12 +155,29 @@
    :subprotocol "hsqldb"
    :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (io/file vardir "db"))})
 
-(defn defaulted-db-connection
-  "Adds each of `hsql-default-connection` keypairs to `database` if classname, subprotocol and subname
-   are not found in the `database` config"
-  [{:keys [global database] :as config :or {database {}}}]
-  (cond-> config (not-any? database [:classname :subprotocol :subname])
-    (update :database merge (hsql-default-connection (:vardir global)))))
+(defn validate-db-settings
+  "Throws a {:type ::configuration-error :message m} exception
+  describing the required additions if the [database] configuration
+  doesn't specify classname, subprotocol and subname, all of which are
+  now required."
+  [{global :global db-config :database :or {db-config {}} :as config}]
+  ;; If the user has none of these settings, then they've either been
+  ;; relying on the old HSQLDB default, or they just have no settings.
+  ;; Testing not-any? is fine because we catch partial configurations
+  ;; elsewhere.
+  (when (not-any? db-config [:classname :subprotocol :subname])
+    (let [default (hsql-default-connection (:vardir global))
+          setting-needed #(when-not (% db-config)
+                            (format "\n  %s = %s" (name %) (% default)))
+          msg (str "database configuration is now required."
+                   " Previously HSQLDB was the default, but support has been deprecated."
+                   " If you were relying on that default,"
+                   " please add this to the [database] section of your config file:"
+                   (setting-needed :classname)
+                   (setting-needed :subprotocol)
+                   (setting-needed :subname))]
+      (throw+ {:type ::configuration-error :message msg})))
+  config)
 
 (defn convert-section-config
   "validates and converts a `section-config` to `section-schema-out` using defaults from `section-schema-in`."
@@ -200,7 +218,6 @@
    to the internal Clojure format that PuppetDB expects"
   [config]
   (-> config
-      defaulted-db-connection
       (configure-section :database write-database-config-in write-database-config-out)
       configure-read-db
       (configure-section :command-processing command-processing-in command-processing-out)
@@ -337,16 +354,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(def adjust-tk-config
+(def adjust-and-validate-tk-config
   (comp add-web-routing-service-config
-        warn-retirements))
+        warn-retirements
+        validate-db-settings))
 
 (defn hook-tk-parse-config-data
   "This is a robert.hooke compatible hook that is designed to intercept
    trapperkeeper configuration before it is used, so that we may munge &
-   customize it."
+   customize it.  It may throw {:type ::configuration-error :message m}."
   [f args]
-  (adjust-tk-config (f args)))
+  (adjust-and-validate-tk-config (f args)))
 
 (defn process-config!
   "Accepts a map containing all of the user-provided configuration values

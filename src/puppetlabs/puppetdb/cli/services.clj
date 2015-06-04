@@ -53,12 +53,13 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.kitchensink.core :as kitchensink]
             [robert.hooke :as rh]
-            [puppetlabs.trapperkeeper.core :refer [defservice main]]
+            [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [compojure.core :as compojure]
             [clojure.java.io :refer [file]]
             [clj-time.core :refer [ago]]
             [overtone.at-at :refer [mk-pool interspaced]]
+            [slingshot.slingshot :refer [throw+ try+]]
             [puppetlabs.puppetdb.time :refer [to-seconds to-millis parse-period
                                               format-period period?]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
@@ -66,7 +67,8 @@
             [puppetlabs.puppetdb.meta.version :refer [version update-info]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.query-eng :as qeng])
+            [puppetlabs.puppetdb.query-eng :as qeng]
+            [puppetlabs.puppetdb.utils :as utils])
   (:import [javax.jms ExceptionListener]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -356,11 +358,17 @@
          (let [{db :scf-read-db url-prefix :url-prefix} (get (service-context this) :shared-globals)]
            (qeng/stream-query-result query-obj version query-expr paging-options db url-prefix row-callback-fn))))
 
-(defn -main
-  "Calls the trapperkeeper main argument to initialize tk.
-
-  For configuration customization, we intercept the call to parse-config-data
-  within TK."
-  [& args]
-  (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data #'conf/hook-tk-parse-config-data)
-  (apply main args))
+(def ^{:arglists `([& args])
+       :doc "Starts PuppetDB as a service via Trapperkeeper.  Aguments
+        TK's normal config parsing to do a bit of extra
+        customization."}
+  -main
+  (utils/wrap-main
+   (fn [& args]
+     (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data
+                  #'conf/hook-tk-parse-config-data)
+     (try+
+      (apply tk/main args)
+      (catch [:type ::conf/configuration-error] obj
+        (log/error (:message obj))
+        (throw+ (assoc obj ::utils/exit-status 1)))))))
