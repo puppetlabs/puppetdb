@@ -20,16 +20,26 @@
                                     (-> urt parse-number seconds ago)
                                     (-> 1 hours ago)))
          [{noops :count}] (produce-reports ["extract" [["function" "count"]]
-                                            ["and" ["=" "noop" true] ["=" "latest_report?" true]
+                                            ["and"
+                                             ["=" ["node" "active"] true]
+                                             ["=" "noop" true]
+                                             ["=" "latest_report?" true]
                                              [">" "end_time" unresponsive-threshold]]])
          basics (produce-reports ["extract" ["status" ["function" "count"]]
-                                    ["and" ["=" "noop" false] ["=" "latest_report?" true]
+                                    ["and"
+                                     ["=" ["node" "active"] true]
+                                     ["=" "noop" false]
+                                     ["=" "latest_report?" true]
                                      [">" "end_time" unresponsive-threshold]]
                                     ["group_by" "status"]])
          [{unresponsives :count}] (produce-nodes ["extract" [["function" "count"]]
-                                                  ["<" "report_timestamp" unresponsive-threshold]])
+                                                  ["and"
+                                                   ["=" ["node" "active"] true]
+                                                   ["<" "report_timestamp" unresponsive-threshold]]])
          [{unreporteds :count}] (produce-nodes ["extract" [["function" "count"]]
-                                                ["and" ["null?" "report_timestamp" true]
+                                                ["and"
+                                                 ["=" ["node" "active"] true]
+                                                 ["null?" "report_timestamp" true]
                                                  ["null?" "report_environment" true]]])]
      (->> (for [{:keys [status count]} basics] [(keyword status) count])
           (into {:unresponsive unresponsives :unreported unreporteds :noop noops})
