@@ -1,6 +1,8 @@
 (ns puppetlabs.puppetdb.middleware
   "Ring middleware"
   (:require [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.query-eng :as qe]
             [puppetlabs.puppetdb.utils.metrics :refer [multitime!]]
             [puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
@@ -76,13 +78,6 @@
   (fn [req]
     (let [new-req (assoc req :globals globals)]
       (app new-req))))
-
-(defn wrap-read-db-tx
-  "Ring middleware that creates a database transaction on the read-db"
-  [handler]
-  (fn [{:keys [globals] :as req}]
-    (with-transacted-connection (:scf-read-db globals)
-      (handler req))))
 
 (defn wrap-with-paging-options
   "Ring middleware that will add to each request a :paging-options attribute:
@@ -293,3 +288,19 @@
       wrap-with-certificate-cn
       wrap-with-default-body
       wrap-with-debug-logging))
+
+(defn wrap-with-parent-check
+  "Middleware that checks the parent exists before serving the rest of the
+   application. This ensures we always return 404's on child paths when the
+   parent data is empty."
+  [app version parent id]
+  (fn [{:keys [globals] :as req}]
+    (let [{:keys [scf-read-db url-prefix]} globals]
+      ;; There is a race condition here, in particular we open up 1 transaction
+      ;; for the parent test, but the rest of the query results are done via the
+      ;; streaming query. This can't be solved until we work out a way to
+      ;; pass through an existing db handle through to the streamed query thread.
+      (if (jdbc/with-transacted-connection scf-read-db
+            (qe/object-exists? parent id))
+        (app req)
+        (http/json-response {:error (str "No information is known about " (name parent) " " id)} http/status-not-found)))))

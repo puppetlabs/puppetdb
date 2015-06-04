@@ -101,7 +101,12 @@
     (testing "environment testing"
       (let [test-cases {["=" "facts_environment" "production"]
                         #{"node_a" "node_b" "node_c" "node_d" "node_e"}}]
-        (combination-tests [:v4] test-cases)))))
+        (combination-tests [:v4] test-cases)))
+
+    (testing "node-exists? function"
+      (is (= true (eng/object-exists? :node "node_a")))
+      (is (= true (eng/object-exists? :node "node_d")))
+      (is (= false (eng/object-exists? :node "rikmayall"))))))
 
 (deftest paging-results
   (let [right-now (now)]

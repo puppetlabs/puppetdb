@@ -14,11 +14,14 @@
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
+;; RETRIEVAL
+
 (defn get-response
   ([endpoint]      (get-response endpoint nil))
   ([endpoint query] (fixt/*app* (get-request endpoint query)))
   ([endpoint query params] (fixt/*app* (get-request endpoint query params))))
 
+;; HELPERS
 
 (defn get-version
   "Lookup version from endpoint uri"
@@ -62,6 +65,8 @@
           (str "Query was: " query)))
 
     (is (= status http/status-ok))))
+
+;; TESTS
 
 (deftestseq node-queries
   [[version endpoint] endpoints]
@@ -262,3 +267,13 @@
       (let [{:keys [status body] :as result} (get-response endpoint query)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))))))
+
+(def no-parent-endpoints [[:v4 "/v4/nodes/foo/facts"]
+                          [:v4 "/v4/nodes/foo/resources"]])
+
+(deftestseq unknown-parent-handling
+  [[version endpoint] no-parent-endpoints]
+
+  (let [{:keys [status body] :as result} (get-response endpoint)]
+    (is (= status http/status-not-found))
+    (is (= {:error "No information is known about node foo"} (json/parse-string body true)))))

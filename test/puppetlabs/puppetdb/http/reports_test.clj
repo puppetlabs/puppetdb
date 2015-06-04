@@ -29,11 +29,13 @@
 ;; RETRIEVAL
 
 (defn get-response
-  [endpoint query]
-  (let [resp (fixt/*app* (get-request endpoint query))]
-    (if (string? (:body resp))
-      resp
-      (update-in resp [:body] slurp))))
+  ([endpoint]
+   (get-response endpoint nil))
+  ([endpoint query]
+   (let [resp (fixt/*app* (get-request endpoint query))]
+     (if (string? (:body resp))
+       resp
+       (update-in resp [:body] slurp)))))
 
 ;; TRANSFORMATIONS
 
@@ -165,7 +167,7 @@
   (let [report-hash (:hash (store-example-report! (:basic reports) (now)))
         basic (assoc (:basic reports) :hash report-hash)
         get-data (fn [hash field]
-                   (get-response (format "/v4/reports/%s/%s" hash field) nil))]
+                   (get-response (format "/v4/reports/%s/%s" hash field)))]
     (testing (format "%s endpoint returns the proper data" (name field))
       (response-equal? (get-data report-hash (name field))  (-> basic field set)))))
 
@@ -257,10 +259,13 @@
          (reports-response version [basic])
          munge-reports-for-comparison)))
     (testing "PROD environment"
-      (is (empty? (json/parse-string
-                   (:body
-                    (get-response "/v4/environments/PROD/reports"
-                                  ["=" "certname" (:certname basic)]))))))))
+      (is (=
+           {:error "No information is known about environment PROD"}
+           (json/parse-string
+            (:body
+             (get-response "/v4/environments/PROD/reports"
+                           ["=" "certname" (:certname basic)]))
+            true))))))
 
 (deftestseq query-by-puppet-version
   [[version endpoint] endpoints]
@@ -542,3 +547,14 @@
       (let [{:keys [status body] :as result} (get-response endpoint query)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))))))
+
+(def no-parent-endpoints [[:v4 "/v4/reports/foo/events"]
+                          [:v4 "/v4/reports/foo/metrics"]
+                          [:v4 "/v4/reports/foo/logs"]])
+
+(deftestseq unknown-parent-handling
+  [[version endpoint] no-parent-endpoints]
+
+  (let [{:keys [status body]} (get-response endpoint)]
+    (is (= status http/status-not-found))
+    (is (= {:error "No information is known about report foo"} (json/parse-string body true)))))

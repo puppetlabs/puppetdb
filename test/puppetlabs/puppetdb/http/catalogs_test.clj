@@ -5,6 +5,7 @@
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.fixtures :as fixt]
+            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq strip-hash]]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]))
@@ -15,6 +16,8 @@
 
 (def c-t "application/json")
 
+;; RETRIEVAL
+
 (defn get-response
   ([endpoint]
      (get-response endpoint nil))
@@ -24,6 +27,8 @@
    (fixt/*app* (get-request (str endpoint "/" node) query)))
   ([endpoint node query params]
    (fixt/*app* (get-request (str endpoint "/" node) query params))))
+
+;; TEST DATA
 
 (def catalog1
   (-> (slurp (resource "puppetlabs/puppetdb/cli/export/tiny-catalog.json"))
@@ -71,9 +76,13 @@
    {:order_by (json/generate-string [{:field "certname" :order "desc"}])}
    [catalog1 catalog2]})
 
+;; HELPERS
+
 (defn extract-tags
   [xs]
   (sort (flatten (map :tags (flatten (map :resources xs))))))
+
+;; TESTS
 
 (deftestseq catalog-queries
   [[version endpoint] endpoints]
@@ -139,3 +148,13 @@
     (let [{:keys [body]} (get-response endpoint "myhost.localdomain")
           response-body  (json/parse-string body true)]
       (is (= "myhost.localdomain" (:certname response-body))))))
+
+(def no-parent-endpoints [[:v4 "/v4/catalogs/foo/edges"]
+                          [:v4 "/v4/catalogs/foo/resources"]])
+
+(deftestseq unknown-parent-handling
+  [[version endpoint] no-parent-endpoints]
+
+  (let [{:keys [status body]} (get-response endpoint)]
+    (is (= status http/status-not-found))
+    (is (= {:error "No information is known about catalog foo"} (json/parse-string body true)))))

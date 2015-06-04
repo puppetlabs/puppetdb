@@ -9,6 +9,7 @@
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.reports :as r]
+            [puppetlabs.puppetdb.query-eng :as qe]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils.reports :refer :all]))
@@ -97,7 +98,11 @@
     (testing "should return reports based on hash"
       (let [actual (reports-query-result :v4 ["=" "hash" report-hash])]
         (is (= (munge-expected-reports [basic])
-               (munge-actual-reports actual)))))))
+               (munge-actual-reports actual)))))
+
+    (testing "report-exists? function"
+      (is (= true (qe/object-exists? :report report-hash)))
+      (is (= false (qe/object-exists? :report "chrissyamphlett"))))))
 
 (deftest paging-results
   (let [{report1 :basic

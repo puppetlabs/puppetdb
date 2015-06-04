@@ -9,7 +9,8 @@
             [puppetlabs.puppetdb.http.reports :as rp]
             [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params wrap-with-paging-options]]
+            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
+                                                    wrap-with-paging-options wrap-with-parent-check]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection get-result-count]]))
 
 (defn environment-status
@@ -51,20 +52,20 @@
         (validate-query-params {}))}
 
    [environment "facts" &]
-   {:get
-    (comp (f/facts-app version) (partial http-q/restrict-query-to-environment environment))}
+   (-> (comp (f/facts-app version) (partial http-q/restrict-query-to-environment environment))
+       (wrap-with-parent-check version :environment environment))
 
    [environment "resources" &]
-   {:get
-    (comp (r/resources-app version) (partial http-q/restrict-query-to-environment environment))}
+   (-> (comp (r/resources-app version) (partial http-q/restrict-query-to-environment environment))
+       (wrap-with-parent-check version :environment environment))
 
    [environment "events" &]
-   {:get
-    (comp (ev/events-app version) (partial http-q/restrict-query-to-environment environment))}
+   (-> (comp (ev/events-app version) (partial http-q/restrict-query-to-environment environment))
+       (wrap-with-parent-check version :environment environment))
 
    [environment "reports" &]
-   {:get
-    (comp (rp/reports-app version) (partial http-q/restrict-query-to-environment environment))}))
+   (-> (comp (rp/reports-app version) (partial http-q/restrict-query-to-environment environment))
+       (wrap-with-parent-check version :environment environment))))
 
 (defn environments-app
   [version]

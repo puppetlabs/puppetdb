@@ -8,7 +8,8 @@
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
                                                     validate-query-params
                                                     validate-no-query-params
-                                                    wrap-with-paging-options]]))
+                                                    wrap-with-paging-options
+                                                    wrap-with-parent-check]]))
 
 (defn report-responder
   "Respond with reports."
@@ -37,18 +38,21 @@
   [version]
   (app
    [hash "events" &]
-   (comp (e/events-app version)
-         (partial http-q/restrict-query-to-report hash))
+   (-> (comp (e/events-app version)
+             (partial http-q/restrict-query-to-report hash))
+       (wrap-with-parent-check version :report hash))
 
    [hash "metrics" &]
    (-> (report-data-responder version :report-metrics hash)
        validate-no-query-params
-       verify-accepts-json)
+       verify-accepts-json
+       (wrap-with-parent-check version :report hash))
 
    [hash "logs" &]
    (-> (report-data-responder version :report-logs hash)
        validate-no-query-params
-       verify-accepts-json)
+       verify-accepts-json
+       (wrap-with-parent-check version :report hash))
 
    [&]
    (-> (report-responder version)
