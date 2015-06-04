@@ -350,7 +350,7 @@ module PuppetDBExtensions
       puppetdb_startup_timeout => 120,
       manage_report_processor  => true,
       enable_reports           => true,
-      strict_validation        => false,
+      strict_validation        => true,
       restart_puppet           => false,
       terminus_package         => '#{terminus_package}',
       test_url => '#{test_url}',
