@@ -1,6 +1,6 @@
 ---
 layout: default
-title: "PuppetDB 2.3 » FAQ"
+title: "PuppetDB 3.0 » FAQ"
 subtitle: "Frequently Asked Questions"
 canonical: "/puppetdb/latest/puppetdb-faq.html"
 ---

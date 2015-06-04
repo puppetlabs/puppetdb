@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 2.3 » Overview"
+title: "PuppetDB 3.0 » Overview"
 layout: default
 canonical: "/puppetdb/latest/index.html"
 ---
@@ -36,7 +36,7 @@ To start using PuppetDB today:
 Version Note
 -----
 
-This manual covers the 2.3.x series of PuppetDB releases, which adds
+This manual covers the 3.0.x series of PuppetDB releases, which adds
 several new features and contains some breaking changes since the 1.x
 series. [See the release notes][releasenotes] for information on all
 changes.
