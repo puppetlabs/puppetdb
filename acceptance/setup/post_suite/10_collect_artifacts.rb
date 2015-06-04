@@ -6,6 +6,6 @@ step "Create artifacts directory" do
 end
 step "Collect puppetdb log file" do
 
-  scp_from(database, "/var/log/puppetdb/puppetdb.log", "./artifacts")
+  scp_from(database, "/var/log/puppetlabs/puppetdb/puppetdb.log", "./artifacts")
 
 end

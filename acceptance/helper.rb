@@ -196,23 +196,23 @@ module PuppetDBExtensions
   end
 
   def puppetdb_confdir(host)
-    host.is_pe? ? "/etc/puppetlabs/puppetdb" : "/etc/puppetdb"
+    "/etc/puppetlabs/puppetdb"
   end
 
   def puppetdb_sharedir(host)
-    host.is_pe? ? "/opt/puppet/share/puppetdb" : "/usr/share/puppetdb"
+    "/opt/puppetlabs/server/apps/puppetdb/share"
   end
 
   def puppetdb_bin_dir(host)
-    host.is_pe? ? "/opt/puppet/bin" : "/usr/bin"
+    "/opt/puppetlabs/server/bin"
   end
 
   def puppetdb_log_dir(host)
-    host.is_pe? ? "/var/log/pe-puppetdb" : "/var/log/puppetdb"
+    "/var/log/puppetlabs/puppetdb"
   end
 
   def puppetdb_vardir(host)
-    host.is_pe? ? "/var/lib/pe-puppetdb" : "/var/lib/puppetdb"
+    "/opt/puppetlabs/server/data/puppetdb"
   end
 
   def catalog_hash_debug_dir(host)
@@ -368,10 +368,10 @@ module PuppetDBExtensions
 
   def print_ini_files(host)
     step "Print out jetty.ini for posterity" do
-      on host, "cat /etc/puppetdb/conf.d/jetty.ini"
+      on host, "cat /etc/puppetlabs/puppetdb/conf.d/jetty.ini"
     end
     step "Print out database.ini for posterity" do
-      on host, "cat /etc/puppetdb/conf.d/database.ini"
+      on host, "cat /etc/puppetlabs/puppetdb/conf.d/database.ini"
     end
   end
 
