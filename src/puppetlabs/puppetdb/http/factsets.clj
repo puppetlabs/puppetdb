@@ -1,16 +1,31 @@
 (ns puppetlabs.puppetdb.http.factsets
   (:require [net.cgrand.moustache :refer [app]]
+            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.facts :as facts]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
                                                     wrap-with-paging-options wrap-with-parent-check]]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]))
+            [puppetlabs.puppetdb.query-eng :as eng]))
+
+(defn factset-status
+  "Produces a response body for a request to retrieve the factset for `node`."
+  [api-version node db url-prefix]
+  (let [factset (first
+                 (eng/stream-query-result :factsets
+                                          api-version
+                                          ["=" "certname" node]
+                                          {}
+                                          db
+                                          url-prefix))]
+    (if factset
+      (http/json-response factset)
+      (http/status-not-found-response "factset" node))))
 
 (defn build-factsets-app
   [version entity]
   (fn [{:keys [params globals paging-options]}]
-    (produce-streaming-body
+    (eng/produce-streaming-body
      entity
      version
      (params "query")
@@ -24,6 +39,10 @@
    []
    {:get (comp (build-factsets-app version :factsets)
                http-q/restrict-query-to-active-nodes)}
+
+   [node]
+   (fn [{:keys [globals]}]
+     (factset-status version node (:scf-read-db globals) (:url-prefix globals)))
 
    [node "facts" &]
    (-> (comp (facts/facts-app version false) (partial http-q/restrict-query-to-node node))

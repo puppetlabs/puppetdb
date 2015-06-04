@@ -139,6 +139,36 @@ which returns
       "hash" : "d118d161990f202e911b6fda09f79d24f3a5d4f4"
     } ]
 
+## `GET /pdb/query/v4/factsets/<NODE>`
+
+This will return the most recent factset for the given node. Supplying a node
+this way will restrict any given query to only apply to that node, but in
+practice this endpoint is typically used without a query string or URL
+parameters.
+
+The result will be a single map of the factset structure described above, or
+a JSON error message if the factset is not found:
+
+### Examples
+
+    curl 'http://localhost:8080/pdb/query/v4/factsets/kb.local'
+
+    {
+      "certname" : "kb.local",
+      "environment" : "production",
+      "facts" : {...},
+      "hash" : "93253d31af6d718cf81f5bc028be2a671f23ed78",
+      "producer_timestamp" : "2015-06-04T15:27:56.893Z",
+      "timestamp" : "2015-06-04T15:27:56.979Z"
+    }
+
+    curl -X GET http://localhost:8080/pdb/query/v4/factsets/my_fake_hostname
+
+    {
+      "error" : "No information is known about factset my_fake_hostname"
+    }
+
+
 ## `GET /pdb/query/v4/factsets/<NODE>/facts`
 
 This will return all facts for a particular factset, designated by a node certname.
