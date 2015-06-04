@@ -1172,8 +1172,8 @@
   nil otherwise."
   []
   (when (and (sutils/postgres?)
-             (sutils/db-version-older-than? [9 3]))
-    "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."))
+             (sutils/db-version-older-than? [9 4]))
+    "PostgreSQL DB versions older than 9.4 are no longer supported. Please upgrade Postgres and restart PuppetDB."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

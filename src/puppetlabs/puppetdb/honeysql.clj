@@ -64,16 +64,6 @@
     (keyword (.s raw-sql))
     s))
 
-;; COMPOSITE FUNCTION HELPERS
-
-(pls/defn-validated convert-to-iso8601-utc :- SqlRaw
-  "Wraps to_char() and timezone() to return a UTC fixed ISO8601 format. This is
-  required for PostgreSQL 9.3 especially when relying on the basic row_to_json
-  response which is _not_ by default ISO 8601 when extracting a timezone (fixed
-  in 9.4)."
-  [expr :- key-or-sql]
-  (hcore/raw (str "to_char(timezone('UTC'," (hfmt/to-sql expr) "), 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")))
-
 ;; NEW OPERATORS
 
 ; Custom formatter for PostgreSQL's ~ operator
