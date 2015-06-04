@@ -104,5 +104,9 @@
         :body
         (json/parse-string true))))
 
+(defn get-response
+  [base-url suffix opts]
+  (http/get (str (base-url->str base-url) suffix) opts))
+
 ;; alias to a different name because 'sync' means 'synchronous' here, and that's REALLY confusing.
 (def blocking-command-post svcs/sync-command-post)
