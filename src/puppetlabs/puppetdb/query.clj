@@ -62,7 +62,6 @@
    applying ordering constraints."
   (:require [clojure.string :as str]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.kitchensink.core :refer [parse-number keyset valset order-by-expr?]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
@@ -70,7 +69,8 @@
             [puppetlabs.puppetdb.jdbc
              :refer [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
             [puppetlabs.puppetdb.query.paging :refer [requires-paging?]]
-            [clojure.core.match :refer [match]]))
+            [clojure.core.match :refer [match]]
+            [puppetlabs.puppetdb.utils :as utils]))
 
 (defn execute-paged-query*
   "Helper function to executed paged queries.  Builds up the paged sql string,
@@ -558,7 +558,7 @@
             (string? (:where %))]}
     (when-not (= (count args) 2)
       (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
-    (let [path (jdbc/dashes->underscores path)]
+    (let [path (utils/dashes->underscores path)]
       (match [path]
              ["certname"]
              {:where "reports.certname = ?"
@@ -608,7 +608,7 @@
             (string? (:where %))]}
     (when-not (= (count args) 2)
       (throw (IllegalArgumentException. (format "~ requires exactly two arguments, but %d were supplied" (count args)))))
-    (let [path (jdbc/dashes->underscores path)]
+    (let [path (utils/dashes->underscores path)]
       (match [path]
              ["certname"]
              {:where (sql-regexp-match "reports.certname")
@@ -642,7 +642,7 @@
           (string? (:where %))]}
   (when-not (= (count args) 2)
     (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
-  (let [db-field (jdbc/dashes->underscores path)]
+  (let [db-field (utils/dashes->underscores path)]
     (match [db-field]
            [(field :guard #{"successes" "failures" "noops" "skips"})]
            {:where (format "%s = ?" field)

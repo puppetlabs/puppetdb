@@ -257,3 +257,25 @@
       {:href (to-href data)}
       (-> (sutils/parse-db-json data)
           (update :href to-href)))))
+
+(defn dashes->underscores
+  "Accepts a string or a keyword as an argument, replaces all occurrences of the
+  dash/hyphen character with an underscore, and returns the same type (string
+  or keyword) that was passed in.  This is useful for translating data structures
+  from their wire format to the format that is needed for JDBC."
+  [str]
+  (let [result (string/replace (name str) \- \_)]
+    (if (keyword? str)
+      (keyword result)
+      result)))
+
+(defn underscores->dashes
+  "Accepts a string or a keyword as an argument, replaces all occurrences of the
+  underscore character with a dash, and returns the same type (string
+  or keyword) that was passed in.  This is useful for translating data structures
+  from their JDBC-compatible representation to their wire format representation."
+  [str]
+  (let [result (string/replace (name str) \_ \-)]
+    (if (keyword? str)
+      (keyword result)
+      result)))

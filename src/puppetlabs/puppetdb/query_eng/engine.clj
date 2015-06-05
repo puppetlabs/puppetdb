@@ -959,7 +959,7 @@
             [op field (su/db-serialize value)]
 
             [["=" field nil]]
-            ["null?" (jdbc/dashes->underscores field) true]
+            ["null?" (utils/dashes->underscores field) true]
 
             [[op "tag" array-value]]
             [op "tags" (string/lower-case array-value)]
@@ -1313,7 +1313,7 @@
   [node state]
   (cm/match [node]
             [[(op :guard binary-operators) (field :guard string?) value]]
-            {:node (with-meta [op (jdbc/dashes->underscores field) value]
+            {:node (with-meta [op (utils/dashes->underscores field) value]
                      (meta node))
              :state state}
             :else {:node node :state state}))
