@@ -230,7 +230,7 @@
    similar to timed-update-host, but always sends the update (doesn't run/skip
    based on the clock)"
   [{:keys [host lastrun catalog report factset base-url run-interval rand-percentage] :as state}]
-  (let [catalog (some-> catalog (maybe-tweak-catalog rand-percentage))
+  (let [catalog (some-> catalog update-catalog (maybe-tweak-catalog rand-percentage))
         report (some-> report update-report-run-fields)
         factset (some-> factset (update-factset rand-percentage))]
     (when catalog (client/submit-catalog base-url 6 (json/generate-string catalog)))
