@@ -143,13 +143,13 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should return the facts if they're found" do
-      body = [{:node => 'some_node', :name => 'a', :value => '1'},
-              {:node => 'some_node', :name => 'b', :value => '2'}].to_json
+      body = [{"certname" => "some_node", "environment" => "production", "name" => "a", "value" => "1"},
+              {"certname" => "some_node", "environment" => "production", "name" => "b", "value" => "2"}].to_json
 
       response = Net::HTTPOK.new('1.1', 200, 'OK')
       response.stubs(:body).returns body
 
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts",  subject.headers).returns response
+      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers).returns response
 
       result = find_facts
       result.should be_a(Puppet::Node::Facts)
@@ -158,12 +158,12 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should return nil if no facts are found" do
-      body = [].to_json
+      body = {"error" => "No information known about factset some_node"}.to_json
 
-      response = Net::HTTPOK.new('1.1', 200, 'OK')
+      response = Net::HTTPNotFound.new('1.1', 404, 'NotFound')
       response.stubs(:body).returns body
 
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts",  subject.headers).returns response
+      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers).returns response
 
       find_facts.should be_nil
     end
@@ -172,7 +172,7 @@ describe Puppet::Node::Facts::Puppetdb do
       response = Net::HTTPForbidden.new('1.1', 403, "Forbidden")
       response.stubs(:body).returns ''
 
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts",  subject.headers).returns response
+      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers).returns response
 
       expect {
         find_facts
@@ -180,7 +180,7 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should fail if an error occurs" do
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts",  subject.headers).raises Puppet::Error, "Everything is terrible!"
+      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers).raises Puppet::Error, "Everything is terrible!"
 
       expect {
         find_facts
@@ -195,7 +195,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       response.stubs(:body).returns body
 
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts",  subject.headers).returns(response)
+      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers).returns(response)
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /This is deprecated!/

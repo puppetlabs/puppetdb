@@ -64,24 +64,21 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           profile("Parse fact query response (size: #{response.body.size})",
                   [:puppetdb, :facts, :find, :parse_response, request.key]) do
             result = JSON.parse(response.body)
-            # Note: the Inventory Service API appears to expect us to return nil here
-            # if the node isn't found.  However, PuppetDB returns an empty array in
-            # this case; for now we will just look for that condition and assume that
-            # it means that the node wasn't found, so we will return nil.  In the
-            # future we may want to improve the logic such that we can distinguish
-            # between the "node not found" and the "no facts for this node" cases.
-            if result.empty?
-              return nil
-            end
+
             facts = result.inject({}) do |a,h|
               a.merge(h['name'] => h['value'])
             end
+
             Puppet::Node::Facts.new(request.key, facts)
           end
         else
           # Newline characters cause an HTTP error, so strip them
           raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
         end
+      rescue NotFoundError => e
+        Puppet.warning("Unable to find results for #{request.key} error: #{e.message}")
+        # This is what the inventory service expects when there is no data
+        return nil
       rescue => e
         raise Puppet::Error, "Failed to find facts from PuppetDB at #{self.class.server}:#{self.class.port}: #{e}"
       end

@@ -55,7 +55,7 @@ module Puppet::Util::Puppetdb
             response = nil
           elsif response.is_a? Net::HTTPNotFound
             Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG if server_url_config}")
-            response = nil
+            response = :notfound
           else
             break
           end
@@ -86,19 +86,29 @@ module Puppet::Util::Puppetdb
         end
       end
 
-      if response.nil?
-
+      if response.nil? or response == :notfound
         if server_url_config
           server_url_strings = Puppet::Util::Puppetdb.config.server_urls.map {|url| url.to_s}.join(', ')
-          raise Puppet::Error, "Failed to execute '#{path_suffix}' on any of the following 'server_urls': #{server_url_strings}"
+          if response == :notfound
+            raise NotFoundError, "Failed to find '#{path_suffix}' on any of the following 'server_urls': #{server_url_strings}"
+          else
+            raise Puppet::Error, "Failed to execute '#{path_suffix}' on any of the following 'server_urls': #{server_url_strings}"
+          end
         else
           uri = Puppet::Util::Puppetdb.config.server_urls.first
-          raise Puppet::Error, "Failed to execute '#{path_suffix}' on server: '#{uri.host}' and port: '#{uri.port}'"
+          if response == :notfound
+            raise NotFoundError, "Failed to find '#{path_suffix}' on server: '#{uri.host}' and port: '#{uri.port}'"
+          else
+            raise Puppet::Error, "Failed to execute '#{path_suffix}' on server: '#{uri.host}' and port: '#{uri.port}'"
+          end
         end
       end
 
       response
 
     end
+  end
+
+  class NotFoundError < Puppet::Error
   end
 end
