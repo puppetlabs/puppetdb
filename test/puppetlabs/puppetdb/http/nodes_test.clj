@@ -6,7 +6,8 @@
             [puppetlabs.kitchensink.core :refer [keyset]]
             [puppetlabs.puppetdb.testutils :refer [get-request
                                                    paged-results
-                                                   deftestseq]]
+                                                   deftestseq
+                                                   query-request]]
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
             [flatland.ordered.map :as omap]))
 
@@ -15,14 +16,12 @@
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
 ;; RETRIEVAL
-
-(defn get-response
-  ([endpoint]      (get-response endpoint nil))
-  ([endpoint query] (fixt/*app* (get-request endpoint query)))
-  ([endpoint query params] (fixt/*app* (get-request endpoint query params))))
+(defn query-response
+  ([method endpoint]      (query-response method endpoint nil))
+  ([method endpoint query] (query-response method endpoint query {}))
+  ([method endpoint query params] (fixt/*app* (query-request method endpoint query {:params params}))))
 
 ;; HELPERS
-
 (defn get-version
   "Lookup version from endpoint uri"
   [endpoint]
@@ -35,16 +34,16 @@
 
 (defn status-for-node
   "Returns status information for the given `node-name`"
-  [endpoint node-name]
-  (-> (get-response endpoint ["=" (certname (get-version endpoint)) node-name])
+  [method endpoint node-name]
+  (-> (query-response method endpoint ["=" (certname (get-version endpoint)) node-name])
       :body
       slurp
       (json/parse-string true)
       first))
 
 (defn is-query-result
-  [endpoint query expected]
-  (let [{:keys [body status]} (get-response endpoint query)
+  [method endpoint query expected]
+  (let [{:keys [body status]} (query-response method endpoint query)
         body   (if (string? body)
                  body
                  (slurp body))
@@ -69,57 +68,61 @@
 ;; TESTS
 
 (deftestseq node-queries
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
 
-  (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
+  (let [status-for-node' #(status-for-node method endpoint %)
+        {:keys [web1 web2 db puppet]} (store-example-nodes)
+        is-query-result' (fn [query expected] (is-query-result method endpoint query expected))]
     (testing "status objects should reflect fact/catalog activity"
       (testing "when node is active"
-        (let [status (status-for-node endpoint web1)]
+        (let [status (status-for-node' web1)]
           (is (nil? (:deactivated status)))
           (is (nil? (:expired status)))))
 
       (testing "when node has facts, but no catalog"
-        (is (:facts_timestamp (status-for-node endpoint web2)))
-        (is (nil? (:catalog_timestamp (status-for-node endpoint web2)))))
+        (is (:facts_timestamp (status-for-node' web2)))
+        (is (nil? (:catalog_timestamp (status-for-node' web2)))))
 
       (testing "when node has an associated catalog and facts"
-        (is (:catalog_timestamp (status-for-node endpoint web1)))
-        (is (:facts_timestamp (status-for-node endpoint web1)))))
+        (is (:catalog_timestamp (status-for-node' web1)))
+        (is (:facts_timestamp (status-for-node' web1)))))
 
     (testing "basic equality is supported for name"
-      (is-query-result endpoint ["=" (certname version) "web1.example.com"] [web1]))
+      (is-query-result' ["=" (certname version) "web1.example.com"] [web1]))
 
     (testing "regular expressions are supported for name"
-      (is-query-result endpoint ["~" (certname version) "web\\d+.example.com"] [web1 web2])
-      (is-query-result endpoint ["~" (certname version) "\\w+.example.com"] [db puppet web1 web2])
-      (is-query-result endpoint ["~" (certname version) "example.net"] []))
+      (is-query-result' ["~" (certname version) "web\\d+.example.com"] [web1 web2])
+      (is-query-result' ["~" (certname version) "\\w+.example.com"] [db puppet web1 web2])
+      (is-query-result' ["~" (certname version) "example.net"] []))
 
     (testing "basic equality works for facts, and is based on string equality"
-      (is-query-result endpoint ["=" ["fact" "operatingsystem"] "Debian"] [db web1 web2])
-      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 10000] [web1])
-      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] "10000"] [])
-      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 10000.0] [web1])
-      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] true] [])
-      (is-query-result endpoint ["=" ["fact" "uptime_seconds"] 0] []))
+      (is-query-result' ["=" ["fact" "operatingsystem"] "Debian"] [db web1 web2])
+      (is-query-result' ["=" ["fact" "uptime_seconds"] 10000] [web1])
+      (is-query-result' ["=" ["fact" "uptime_seconds"] "10000"] [])
+      (is-query-result' ["=" ["fact" "uptime_seconds"] 10000.0] [web1])
+      (is-query-result' ["=" ["fact" "uptime_seconds"] true] [])
+      (is-query-result' ["=" ["fact" "uptime_seconds"] 0] []))
 
     (testing "missing facts are not equal to anything"
-      (is-query-result endpoint ["=" ["fact" "fake_fact"] "something"] [])
-      (is-query-result endpoint ["not" ["=" ["fact" "fake_fact"] "something"]] [db puppet web1 web2]))
+      (is-query-result' ["=" ["fact" "fake_fact"] "something"] [])
+      (is-query-result' ["not" ["=" ["fact" "fake_fact"] "something"]] [db puppet web1 web2]))
 
     (testing "arithmetic works on facts"
-      (is-query-result endpoint ["<" ["fact" "uptime_seconds"] 12000] [web1])
-      (is-query-result endpoint ["<" ["fact" "uptime_seconds"] 12000.0] [web1])
-      (is-query-result endpoint ["and" [">" ["fact" "uptime_seconds"] 10000] ["<" ["fact" "uptime_seconds"] 15000]] [web2])
-      (is-query-result endpoint ["<=" ["fact" "uptime_seconds"] 15000] [puppet web1 web2]))
+      (is-query-result' ["<" ["fact" "uptime_seconds"] 12000] [web1])
+      (is-query-result' ["<" ["fact" "uptime_seconds"] 12000.0] [web1])
+      (is-query-result' ["and" [">" ["fact" "uptime_seconds"] 10000] ["<" ["fact" "uptime_seconds"] 15000]] [web2])
+      (is-query-result' ["<=" ["fact" "uptime_seconds"] 15000] [puppet web1 web2]))
 
     (testing "regular expressions work on facts"
-      (is-query-result endpoint ["~" ["fact" "ipaddress"] "192.168.1.11\\d"] [db puppet])
-      (is-query-result endpoint ["~" ["fact" "hostname"] "web\\d"] [web1 web2]))))
+      (is-query-result' ["~" ["fact" "ipaddress"] "192.168.1.11\\d"] [db puppet])
+      (is-query-result' ["~" ["fact" "hostname"] "web\\d"] [web1 web2]))))
 
 (deftestseq test-string-coercion-fail
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
   (store-example-nodes)
-  (let [{:keys [body status]} (get-response endpoint ["<" ["fact" "uptime_seconds"] "12000"])]
+  (let [{:keys [body status]} (query-response method endpoint ["<" ["fact" "uptime_seconds"] "12000"])]
     (is (= 400 status))
     (is (re-find #"not allowed on value '12000'" body))))
 
@@ -127,7 +130,8 @@
   "certname")
 
 (deftestseq basic-node-subqueries
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
     (doseq [[query expected] {
                               ;; Basic sub-query for fact operatingsystem
@@ -154,10 +158,11 @@
 
                               [web1]}]
       (testing (str "query: " query " is supported")
-        (is-query-result endpoint query expected)))))
+        (is-query-result method endpoint query expected)))))
 
 (deftestseq node-subqueries
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
 
   (testing "subqueries: valid"
     (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
@@ -172,7 +177,7 @@
 
                                 ["db.example.com" "puppet.example.com" "web1.example.com"]}]
         (testing (str "query: " query " is supported")
-          (is-query-result endpoint query expected)))))
+          (is-query-result method endpoint query expected)))))
 
   (testing "subqueries: invalid"
     (doseq [[query msg] {
@@ -193,45 +198,50 @@
           (is (re-find msg body)))))))
 
 (deftestseq node-query-paging
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
 
   (let [expected (store-example-nodes)]
 
     (doseq [[label count?] [["without" false]
                             ["with" true]]]
       (testing (str endpoint " should support paging through nodes " label " counts")
-        (let [results (paged-results
+        (let [results (paged-results method
                        {:app-fn  fixt/*app*
                         :path    endpoint
                         :limit   1
                         :total   (count expected)
                         :include_total  count?
-                        :params {:order_by (json/generate-string [{:field (certname version) :order "asc"}])}})]
+                        :params {:order_by (if (= :get method)
+                                             (json/generate-string [{:field (certname version) :order "asc"}])
+                                             [{:field (certname version) :order "asc"}])}})]
           (is (= (count results) (count expected)))
           (is (= (set (vals expected))
                  (set (map :certname results)))))))))
 
 (deftestseq node-timestamp-queries
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
 
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)
-        web1-catalog-ts (:catalog_timestamp (status-for-node endpoint web1))
-        web1-facts-ts (:facts_timestamp (status-for-node endpoint web1))
-        web1-report-ts (:report_timestamp (status-for-node endpoint web1))]
+        web1-catalog-ts (:catalog_timestamp (status-for-node method endpoint web1))
+        web1-facts-ts (:facts_timestamp (status-for-node method endpoint web1))
+        web1-report-ts (:report_timestamp (status-for-node method endpoint web1))
+        is-query-result' (fn [query expected] (is-query-result method endpoint query expected))]
 
     (testing "basic query for timestamps"
 
-      (is-query-result endpoint ["=" "facts_timestamp" web1-facts-ts] [web1])
-      (is-query-result endpoint [">" "facts_timestamp" web1-facts-ts] [web2 db puppet])
-      (is-query-result endpoint [">=" "facts_timestamp" web1-facts-ts] [web1 web2 db puppet])
+      (is-query-result' ["=" "facts_timestamp" web1-facts-ts] [web1])
+      (is-query-result' [">" "facts_timestamp" web1-facts-ts] [web2 db puppet])
+      (is-query-result' [">=" "facts_timestamp" web1-facts-ts] [web1 web2 db puppet])
 
-      (is-query-result endpoint ["=" "catalog_timestamp" web1-catalog-ts] [web1])
-      (is-query-result endpoint [">" "catalog_timestamp" web1-catalog-ts] [db puppet])
-      (is-query-result endpoint [">=" "catalog_timestamp" web1-catalog-ts] [web1 db puppet])
+      (is-query-result' ["=" "catalog_timestamp" web1-catalog-ts] [web1])
+      (is-query-result' [">" "catalog_timestamp" web1-catalog-ts] [db puppet])
+      (is-query-result' [">=" "catalog_timestamp" web1-catalog-ts] [web1 db puppet])
 
-      (is-query-result endpoint ["=" "report_timestamp" web1-report-ts] [web1])
-      (is-query-result endpoint [">" "report_timestamp" web1-report-ts] [db puppet])
-      (is-query-result endpoint [">=" "report_timestamp" web1-report-ts] [web1 db puppet]))))
+      (is-query-result' ["=" "report_timestamp" web1-report-ts] [web1])
+      (is-query-result' [">" "report_timestamp" web1-report-ts] [db puppet])
+      (is-query-result' [">=" "report_timestamp" web1-report-ts] [web1 db puppet]))))
 
 (def invalid-projection-queries
   (omap/ordered-map
@@ -243,12 +253,13 @@
      #"Can't extract unknown 'nodes' fields: 'nothing', 'nothing2'.*Acceptable fields are.*"))
 
 (deftestseq invalid-projections
-  [[version endpoint] endpoints]
-  (doseq [[query msg] invalid-projection-queries]
-    (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body] :as result} (get-response endpoint query)]
-        (is (re-find msg body))
-        (is (= status http/status-bad-request))))))
+  [[version endpoint] endpoints
+   method [:get :post]
+   [query msg] invalid-projection-queries]
+  (testing (str "query: " query " should fail with msg: " msg)
+    (let [{:keys [status body] :as result} (query-response method endpoint query)]
+      (is (re-find msg body))
+      (is (= status http/status-bad-request)))))
 
 (def pg-versioned-invalid-regexps
   (omap/ordered-map
@@ -260,20 +271,20 @@
                   #".*invalid regular expression: brackets.*not balanced")))
 
 (deftestseq ^{:hsqldb false} pg-invalid-regexps
-  [[version endpoint] endpoints]
-
-  (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
-    (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body] :as result} (get-response endpoint query)]
-        (is (re-find msg body))
-        (is (= status http/status-bad-request))))))
+  [[version endpoint] endpoints
+   method [:get :post]
+   [query msg] (get pg-versioned-invalid-regexps endpoint)]
+  (testing (str "query: " query " should fail with msg: " msg)
+    (let [{:keys [status body] :as result} (query-response method endpoint query)]
+      (is (re-find msg body))
+      (is (= status http/status-bad-request)))))
 
 (def no-parent-endpoints [[:v4 "/v4/nodes/foo/facts"]
                           [:v4 "/v4/nodes/foo/resources"]])
 
 (deftestseq unknown-parent-handling
-  [[version endpoint] no-parent-endpoints]
-
-  (let [{:keys [status body] :as result} (get-response endpoint)]
+  [[version endpoint] no-parent-endpoints
+   method [:get :post]]
+  (let [{:keys [status body] :as result} (query-response method endpoint)]
     (is (= status http/status-not-found))
     (is (= {:error "No information is known about node foo"} (json/parse-string body true)))))

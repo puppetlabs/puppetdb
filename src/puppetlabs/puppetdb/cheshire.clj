@@ -66,6 +66,23 @@
 
 (def parse-stream core/parse-stream)
 
+(defn coerce-from-json
+  "Parses as json if `s` is a string/stream/reader, otherwise return `s`"
+  [obj]
+  (cond
+   (string? obj)
+   (parse-strict-string obj true)
+
+   (instance? java.io.Reader obj)
+   (parse-stream obj true)
+
+   (instance? java.io.InputStream obj)
+   (with-open [reader (clojure.java.io/reader obj)]
+     (coerce-from-json reader))
+
+   :else
+   obj))
+
 (defn spit-json
   "Similar to clojure.core/spit, but writes the Clojure
    datastructure as JSON to `f`"
