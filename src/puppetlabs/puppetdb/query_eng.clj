@@ -98,14 +98,10 @@
                               FROM certnames
                               INNER JOIN catalogs
                                 ON catalogs.certname = certnames.certname
-                              WHERE certnames.certname=?
-                                AND deactivated IS NULL
-                                AND expired IS NULL"
+                              WHERE certnames.certname=?"
                     :node "SELECT 1
                            FROM certnames
-                           WHERE certname=?
-                             AND deactivated IS NULL
-                             AND expired IS NULL"
+                           WHERE certname=? "
                     :report (str "SELECT 1
                                   FROM reports
                                   WHERE " (su/sql-hash-as-str "hash") "=?
@@ -117,9 +113,7 @@
                               FROM certnames
                               INNER JOIN factsets
                               ON factsets.certname = certnames.certname
-                              WHERE certnames.certname=?
-                                AND deactivated IS NULL
-                               AND expired IS NULL")]
+                              WHERE certnames.certname=?")]
     (sql/with-query-results result-set
       [check-sql id]
       (pos? (count result-set)))))
