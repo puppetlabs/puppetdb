@@ -5,7 +5,10 @@
             [puppetlabs.trapperkeeper.testutils.logging :as pllog]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as str]
-            [clojure.walk :as walk]))
+            [clojure.walk :as walk]
+            [clojure.test.check.generators :as gen]
+            [clojure.test.check.properties :as prop]
+            [clojure.test.check.clojure-test :as cct]))
 
 (deftest test-println-err
   (is (= "foo\n"
@@ -72,3 +75,23 @@
 (deftest describe-bad-base-url-behavior
   (is (not (describe-bad-base-url {:protocol "http" :host "xy" :port 0})))
   (is (string? (describe-bad-base-url {:protocol "http" :host "x:y" :port 0}))))
+
+(def dash-keyword-generator
+  (gen/fmap (comp keyword #(str/join "-" %))
+            (gen/not-empty (gen/vector gen/string-alpha-numeric))))
+
+(def underscore-keyword-generator
+  (gen/fmap (comp keyword #(str/join "_" %))
+            (gen/not-empty (gen/vector gen/string-alpha-numeric))))
+
+(cct/defspec test-dash-conversions
+  50
+  (prop/for-all [w (gen/map dash-keyword-generator gen/any)]
+                (= w
+                   (underscore->dash-keys (dash->underscore-keys w)))))
+
+(cct/defspec test-underscore-conversions
+  50
+  (prop/for-all [w (gen/map underscore-keyword-generator gen/any)]
+                (= w
+                   (dash->underscore-keys (underscore->dash-keys w)))))

@@ -6,7 +6,8 @@
   (:require [puppetlabs.puppetdb.catalogs :as cat]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.random :refer [random-resource random-kw-resource
-                                                random-parameters]]))
+                                                random-parameters]]
+            [clj-time.core :refer [now]]))
 
 (defn convert-to-wire
   "Converts a catalog in the internal format to the wire format"
@@ -24,7 +25,7 @@
   (fn [wire-catalog]
     (-> wire-catalog
         walk/keywordize-keys
-        (cat/parse-catalog 6)
+        (cat/parse-catalog 6 (now))
         f
         convert-to-wire)))
 
