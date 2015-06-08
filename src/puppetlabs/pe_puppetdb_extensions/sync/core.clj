@@ -297,7 +297,7 @@
                                    remote-url entity status body))]
         (-> url
             (http-get {:query-params {:query (json/generate-string query)
-                                      :order_by (order-by-clause-to-wire-format (json/generate-string order))}
+                                      :order_by (json/generate-string (order-by-clause-to-wire-format order))}
                        :as :stream
                        :throw-entire-message true}
                       error-message-fn)
