@@ -59,6 +59,7 @@
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.reports :as report]
+            [puppetlabs.puppetdb.facts :as fact]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -71,7 +72,8 @@
             [puppetlabs.trapperkeeper.services :refer [defservice]]
             [schema.core :as s]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [clj-time.core :refer [now]]))
+            [clj-time.core :refer [now]]
+            [clojure.set :as set]))
 
 ;; ## Command parsing
 
@@ -175,10 +177,10 @@
 
 (defn replace-catalog*
   [{:keys [payload annotations version]} {:keys [db catalog-hash-debug-dir]}]
-  (let [catalog (upon-error-throw-fatality (cat/parse-catalog payload version))
+  (let [received-timestamp (:received annotations)
+        catalog (upon-error-throw-fatality (cat/parse-catalog payload version received-timestamp))
         certname (:certname catalog)
         id (:id annotations)
-        received-timestamp (:received annotations)
         producer-timestamp (:producer_timestamp catalog)]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
@@ -193,8 +195,16 @@
   [version command]
   (log/warnf "command '%s' version %s is deprecated, use the latest version" command version))
 
+(defmethod process-command! [(command-names :replace-catalog) 4]
+  [command options]
+  (replace-catalog* command options))
+
+(defmethod process-command! [(command-names :replace-catalog) 5]
+  [command options]
+  (replace-catalog* command options))
+
 (defmethod process-command! [(command-names :replace-catalog) 6]
-  [{:keys [version] :as command} options]
+  [command options]
   (replace-catalog* command options))
 
 ;; Fact replacement
@@ -215,7 +225,33 @@
       (scf-storage/replace-facts! fact-data))
     (log/infof "[%s] [%s] %s" id (command-names :replace-facts) certname)))
 
+(defmethod process-command! [(command-names :replace-facts) 3]
+  [command config]
+  (-> command
+      fact/v3-wire->v4-wire
+      (process-command! config)))
+
+(defmethod process-command! [(command-names :replace-facts) 2]
+  [command config]
+  (let [received-time (get-in command [:annotations :received])]
+    (-> command
+        (fact/v2-wire->v4-wire received-time)
+        (process-command! config))))
+
 ;; Node deactivation
+(defmethod process-command! [(command-names :deactivate-node) 1]
+  [command config]
+  (-> command
+      (assoc :version 2)
+      (update :payload #(upon-error-throw-fatality (json/parse-string % true)))
+      (process-command! config)))
+
+(defmethod process-command! [(command-names :deactivate-node) 2]
+  [command config]
+  (-> command
+      (assoc :version 3)
+      (update :payload #(hash-map :certname %))
+      (process-command! config)))
 
 (defmethod process-command! [(command-names :deactivate-node) 3]
   [{:keys [payload annotations]} {:keys [db]}]
@@ -248,6 +284,16 @@
     (log/infof "[%s] [%s] puppet v%s - %s"
                id (command-names :store-report)
                puppet_version certname)))
+
+(defmethod process-command! [(command-names :store-report) 3]
+  [{:keys [version] :as command} {:keys [db]}]
+  (store-report* 5 db (-> command
+                          (update :payload report/wire-v3->wire-v5 (get-in command [:annotations :received])))))
+
+(defmethod process-command! [(command-names :store-report) 4]
+  [{:keys [version] :as command} {:keys [db]}]
+  (store-report* 5 db (-> command
+                          (update :payload report/wire-v4->wire-v5 (get-in command [:annotations :received])))))
 
 (defmethod process-command! [(command-names :store-report) 5]
   [{:keys [version] :as command} {:keys [db]}]

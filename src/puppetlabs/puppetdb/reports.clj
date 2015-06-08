@@ -5,7 +5,8 @@
    internal PuppetDB format, including validation."
   (:require [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.utils :as utils]
+            [com.rpl.specter :as sp]))
 
 ;; SCHEMA
 
@@ -21,6 +22,9 @@
    :file               (s/maybe s/Str)
    :line               (s/maybe s/Int)
    :containment_path   [s/Str]})
+
+(def resource-event-v4-wireformat-schema
+  (utils/underscore->dash-keys resource-event-wireformat-schema))
 
 (def metric-schema
   {:category s/Str
@@ -50,7 +54,16 @@
    :metrics                  (s/maybe [metric-schema])
    :logs                     (s/maybe [log-schema])
    :environment              s/Str
-   :status                   s/Str})
+   :status                   (s/maybe s/Str)})
+
+(def report-v4-wireformat-schema
+  (-> report-wireformat-schema
+      utils/underscore->dash-keys
+      (assoc :resource-events [resource-event-v4-wireformat-schema])
+      (dissoc :logs :metrics :noop :producer-timestamp)))
+
+(def report-v3-wireformat-schema
+  (dissoc report-v4-wireformat-schema :status))
 
 (pls/defn-validated sanitize-events :- [resource-event-wireformat-schema]
   "This function takes an array of events and santizes them, ensuring only
@@ -153,3 +166,24 @@
   [reports :- [report-query-schema]]
   (map report-query->wire-v5
        reports))
+
+(defn dash->underscore-report-keys [report]
+  (->> report
+       utils/dash->underscore-keys
+       (sp/update [:resource_events sp/ALL sp/ALL]
+                  #(update % 0 utils/dashes->underscores))))
+
+(pls/defn-validated wire-v4->wire-v5
+  [report received-time]
+  (-> report
+      dash->underscore-report-keys
+      (assoc :metrics nil
+             :logs nil
+             :noop nil
+             :producer_timestamp received-time)))
+
+(pls/defn-validated wire-v3->wire-v5
+  [report received-time]
+  (-> report
+      (assoc :status nil)
+      (wire-v4->wire-v5 received-time)))

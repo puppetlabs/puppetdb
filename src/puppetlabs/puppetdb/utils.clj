@@ -11,7 +11,8 @@
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [clojure.walk :as walk]
-            [slingshot.slingshot :refer [try+]])
+            [slingshot.slingshot :refer [try+]]
+            [com.rpl.specter :as sp])
   (:import [java.net MalformedURLException URISyntaxException URL]
            [org.postgresql.util PGobject]))
 
@@ -279,3 +280,19 @@
     (if (keyword? str)
       (keyword result)
       result)))
+
+(defn dash->underscore-keys
+  "Converts all top-level keys (including nested maps) in `m` to use dashes
+  instead of underscores as word separatators"
+  [m]
+  (sp/update [sp/ALL]
+             #(update % 0 dashes->underscores)
+             m))
+
+(defn underscore->dash-keys
+  "Converts all top-level keys (including nested maps) in `m` to use underscores
+  instead of underscores as word separatators"
+  [m]
+  (sp/update [sp/ALL]
+             #(update % 0 underscores->dashes)
+             m))

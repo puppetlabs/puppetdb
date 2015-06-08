@@ -16,12 +16,14 @@
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.reports :refer [munge-example-report-for-storage]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
-            [clj-time.coerce :refer [to-timestamp]]
+            [clj-time.coerce :refer [to-timestamp to-date-time to-string]]
             [clj-time.core :as t :refer [days ago now]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
             [slingshot.slingshot :refer [throw+]]
-            [puppetlabs.puppetdb.mq-listener :as mql]))
+            [puppetlabs.puppetdb.mq-listener :as mql]
+            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.time :as pt]))
 
 (use-fixtures :each with-test-db)
 
@@ -213,7 +215,7 @@
   [row-map]
   (assoc row-map :environment_id (scf-store/environment-id "DEV")))
 
-(defn version-num
+(defn version-kwd->num
   "Converts a version keyword into a correct number (expected by the command).
    i.e. :v4 -> 4"
   [version-kwd]
@@ -241,7 +243,7 @@
     (testing (str (command-names :replace-catalog) " " version)
       (let [certname (get-in command [:payload :certname])
             catalog-hash (shash/catalog-similarity-hash
-                          (catalog/parse-catalog (:payload command) (version-num version)))
+                          (catalog/parse-catalog (:payload command) (version-kwd->num version) (now)))
             command (stringify-payload command)
             one-day      (* 24 60 60 1000)
             yesterday    (to-timestamp (- (System/currentTimeMillis) one-day))
@@ -347,6 +349,55 @@
                                          (sutils/sql-hash-as-str "hash")))))
             (is (= 0 (times-called publish)))
             (is (empty? (fs/list-dir discard-dir)))))))))
+
+;; If there are messages in the user's MQ when they upgrade, we could
+;; potentially have commands of an unsupported format that need to be
+;; processed. Although we don't support the catalog versions below, we
+;; need to test that those commands will be processed properly
+(deftest replace-catalog-with-v5
+  (testing "catalog wireformat v5"
+    (let [command {:command (command-names :replace-catalog)
+                   :version 5
+                   :payload (get-in wire-catalogs [5 :empty])}
+          certname (get-in command [:payload :name])
+          cmd-producer-timestamp (get-in command [:payload :producer-timestamp])
+          current-time (now)]
+      (with-fixtures
+        (test-msg-handler command publish discard-dir
+
+          ;;names in v5 are hyphenated, this check ensures we're sending a v5 catalog
+          (is (contains? (:payload command) :producer-timestamp))
+          (is (= [(with-env {:certname certname})]
+                 (query-to-vec "SELECT certname, environment_id FROM catalogs")))
+          (is (= 0 (times-called publish)))
+          (is (empty? (fs/list-dir discard-dir)))
+
+          ;;this should be the hyphenated producer timestamp provided above
+          (is (= (-> (query-to-vec "SELECT producer_timestamp FROM catalogs")
+                     first
+                     :producer_timestamp)
+                 (to-timestamp cmd-producer-timestamp))))))))
+
+(deftest replace-catalog-with-v4
+  (let [command {:command (command-names :replace-catalog)
+                 :version 4
+                 :payload (get-in wire-catalogs [4 :empty])}
+        certname (get-in command [:payload :name])
+        cmd-producer-timestamp (get-in command [:payload :producer-timestamp])
+        current-time (now)]
+    (with-fixtures
+      (test-msg-handler command publish discard-dir
+        (is (false? (contains? (:payload command) :producer-timestamp)))
+        (is (= [(with-env {:certname certname})]
+               (query-to-vec "SELECT certname, environment_id FROM catalogs")))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))
+        ;;v4 does not include a producer_timestmap, the backend
+        ;;should use the time the command was received instead
+        (is (t/before? current-time (-> (query-to-vec "SELECT producer_timestamp FROM catalogs")
+                                        first
+                                        :producer_timestamp
+                                        to-date-time)))))))
 
 (defn update-resource
   "Updated the resource in `catalog` with the given `type` and `title`.
@@ -644,6 +695,91 @@
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir))))))))
 
+;;v2 and v3 fact commands are only supported when commands are still
+;;sitting in the queue from before upgrading
+(deftest replace-facts-with-v3-wire-format
+  (let [certname  "foo.example.com"
+        producer-time (-> (now)
+                          to-timestamp
+                          json/generate-string
+                          json/parse-string
+                          pt/to-timestamp)
+        facts-cmd {:command (command-names :replace-facts)
+                   :version 3
+                   :payload {:name certname
+                             :environment "DEV"
+                             :producer-timestamp producer-time
+                             :values {"a" "1"
+                                      "b" "2"
+                                      "c" "3"}}}]
+    (test-msg-handler facts-cmd publish discard-dir
+      (is (= (query-to-vec
+              "SELECT fp.path as name,
+                          COALESCE(fv.value_string,
+                                   cast(fv.value_integer as text),
+                                   cast(fv.value_boolean as text),
+                                   cast(fv.value_float as text),
+                                   '') as value,
+                          fs.certname,
+                          e.name as environment,
+                          fs.producer_timestamp
+                   FROM factsets fs
+                     INNER JOIN facts as f on fs.id = f.factset_id
+                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
+                     INNER JOIN environments as e on fs.environment_id = e.id
+                   WHERE fp.depth = 0
+                   ORDER BY name ASC")
+             [{:certname certname :name "a" :value "1" :producer_timestamp producer-time :environment "DEV"}
+              {:certname certname :name "b" :value "2" :producer_timestamp producer-time :environment "DEV"}
+              {:certname certname :name "c" :value "3" :producer_timestamp producer-time :environment "DEV"}]))
+      (is (= 0 (times-called publish)))
+      (is (empty? (fs/list-dir discard-dir)))
+      (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
+        (is (= result [(with-env {:certname certname})]))))))
+
+(deftest replace-facts-with-v2-wire-format
+  (let [certname  "foo.example.com"
+        before-test-starts-time (now)
+        facts-cmd {:command (command-names :replace-facts)
+                   :version 2
+                   :payload {:name certname
+                             :environment "DEV"
+                             :values {"a" "1"
+                                      "b" "2"
+                                      "c" "3"}}}]
+    (test-msg-handler facts-cmd publish discard-dir
+      (is (= (query-to-vec
+              "SELECT fp.path as name,
+                          COALESCE(fv.value_string,
+                                   cast(fv.value_integer as text),
+                                   cast(fv.value_boolean as text),
+                                   cast(fv.value_float as text),
+                                   '') as value,
+                          fs.certname,
+                          e.name as environment
+                   FROM factsets fs
+                     INNER JOIN facts as f on fs.id = f.factset_id
+                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
+                     INNER JOIN environments as e on fs.environment_id = e.id
+                   WHERE fp.depth = 0
+                   ORDER BY name ASC")
+             [{:certname certname :name "a" :value "1" :environment "DEV"}
+              {:certname certname :name "b" :value "2" :environment "DEV"}
+              {:certname certname :name "c" :value "3" :environment "DEV"}]))
+
+      (is (= (every? (comp #(t/before? before-test-starts-time %)
+                           to-date-time
+                           :producer_timestamp)
+                     (query-to-vec
+                      "SELECT fs.producer_timestamp
+                         FROM factsets fs"))))
+      (is (= 0 (times-called publish)))
+      (is (empty? (fs/list-dir discard-dir)))
+      (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
+        (is (= result [(with-env {:certname certname})]))))))
+
 (deftest replace-facts-bad-payload
   (let [bad-command {:command (command-names :replace-facts)
                      :version 4
@@ -879,7 +1015,7 @@
   (testing "Should allow only one replace catalogs update for a given cert at a time"
     (let [test-catalog (get-in catalogs [:empty])
           {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
-          nonwire-catalog (catalog/parse-catalog wire-catalog 6)
+          nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
           command {:command (command-names :replace-catalog)
                    :version 6
                    :payload (json/generate-string wire-catalog)}
@@ -924,7 +1060,7 @@
   (testing "Should allow only one replace catalogs update for a given cert at a time"
     (let [test-catalog (get-in catalogs [:empty])
           {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
-          nonwire-catalog (catalog/parse-catalog wire-catalog 6)
+          nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
           command {:command (command-names :replace-catalog)
                    :version 6
                    :payload (json/generate-string wire-catalog)}
@@ -981,7 +1117,15 @@
               :command {:command (command-names :deactivate-node)
                         :version 3
                         :payload {:certname "bar.example.com"
-                                  :producer_timestamp (now)}}}]]
+                                  :producer_timestamp (now)}}}
+             {:certname "bar.example.com"
+              :command {:command (command-names :deactivate-node)
+                        :version 2
+                        :payload "bar.example.com"}}
+             {:certname "bar.example.com"
+              :command {:command (command-names :deactivate-node)
+                        :version 1
+                        :payload (json/generate-string "bar.example.com")}}]]
 
   (deftest deactivate-node-node-active
     (testing "should deactivate the node"
@@ -1046,6 +1190,57 @@
                  [(with-env {:certname (:certname report) :configuration_version (:configuration_version report)})]))
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir))))))))
+
+(let [old-report (-> (:basic report-examples/reports)
+                     (assoc :environment "DEV")
+                     munge-example-report-for-storage
+                     (dissoc :producer_timestamp :metrics :logs :noop)
+                     utils/underscore->dash-keys)
+      current-time (now)]
+  (deftest store-v4-report
+    (let [command {:command (command-names :store-report)
+                   :version 4
+                   :payload old-report}]
+      (test-msg-handler command publish discard-dir
+        (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
+               [(with-env {:certname (:certname old-report)
+                           :configuration_version (:configuration-version old-report)})]))
+
+        ;;Status is present in v4+ (but not in v3)
+        (is (= "unchanged" (-> (query-to-vec "SELECT rs.status FROM reports r inner join report_statuses rs on r.status_id = rs.id")
+                               first
+                               :status)))
+
+        ;;No producer_timestamp is included in v4, message received time (now) is used intead
+        (is (t/before? current-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
+                                        first
+                                        :producer_timestamp
+                                        to-date-time)))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir))))))
+
+  (deftest store-v3-report
+    (let [current-time (now)
+          command {:command (command-names :store-report)
+                   :version 3
+                   :payload (dissoc old-report :status)}]
+      (test-msg-handler command publish discard-dir
+        (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
+               [(with-env {:certname (:certname old-report)
+                           :configuration_version (:configuration-version old-report)})]))
+
+        ;;No producer_timestamp is included in v4, message received time (now) is used intead
+        (is (t/before? current-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
+                                        first
+                                        :producer_timestamp
+                                        to-date-time)))
+
+        ;;Status is not supported in v3, should be nil
+        (is (nil? (-> (query-to-vec "SELECT status_id FROM reports")
+                      first
+                      :status)))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))))))
 
 ;; Local Variables:
 ;; mode: clojure
