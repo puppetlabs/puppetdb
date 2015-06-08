@@ -38,4 +38,9 @@
                           :unresponsive 2
                           :changed 0
                           :unreported 0}]
-            (is (= expected actual))))))))
+            (is (= expected actual)))))
+      (testing "invalid url returns 404"
+        (let [status (-> (utils/pe-pdb-url)
+                         (utils/get-response "/fbar" {:throw-exceptions false})
+                         :status)]
+          (is (= 404 status)))))))
