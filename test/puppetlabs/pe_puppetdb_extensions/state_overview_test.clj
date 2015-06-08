@@ -39,8 +39,23 @@
                           :changed 0
                           :unreported 0}]
             (is (= expected actual)))))
+
       (testing "invalid url returns 404"
         (let [status (-> (utils/pe-pdb-url)
                          (utils/get-response "/fbar" {:throw-exceptions false})
                          :status)]
-          (is (= 404 status)))))))
+          (is (= 404 status))))
+
+      (testing "state-overview excludes deactivated nodes"
+        (do
+          (blocking-command-post (utils/pdb-cmd-url) "deactivate node" 3 {"certname" "bar.local"})
+          ;; Sleep to allow status to change to unresponsive with threshold=1
+          (Thread/sleep 1000)
+          (let [actual (get-json (utils/pe-pdb-url) (format "/state-overview?unresponsive_threshold=1"))
+                expected {:unchanged 0
+                          :failed 0
+                          :noop 0
+                          :unresponsive 1
+                          :changed 0
+                          :unreported 0}]
+            (is (= expected actual))))))))
