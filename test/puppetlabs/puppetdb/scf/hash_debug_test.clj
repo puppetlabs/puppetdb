@@ -5,7 +5,7 @@
             [puppetlabs.puppetdb.examples :refer [catalogs]]
             [puppetlabs.puppetdb.scf.storage :as store]
             [puppetlabs.puppetdb.testutils :as tu]
-            [fs.core :as fs]
+            [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.kitchensink.core :as kitchensink]

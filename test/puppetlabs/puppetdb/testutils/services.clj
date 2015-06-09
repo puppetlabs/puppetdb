@@ -16,7 +16,7 @@
             [clj-http.util :refer [url-encode]]
             [clj-http.client :as client]
             [clojure.string :as str]
-            [fs.core :as fs]
+            [me.raynes.fs :as fs]
             [slingshot.slingshot :refer [throw+]]
             [clojure.tools.logging :as log]
             [clojure.data.xml :as xml]))

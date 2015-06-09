@@ -8,7 +8,7 @@
             [puppetlabs.trapperkeeper.testutils.logging :as tu-log]
             [puppetlabs.puppetdb.testutils :as tu]
             [clojure.string :as str]
-            [fs.core :as fs]
+            [me.raynes.fs :as fs]
             [slingshot.slingshot :refer [throw+ try+]]
             [slingshot.test]))
 
@@ -191,7 +191,7 @@
            (configure-catalog-debugging {:global {:catalog-hash-conflict-debugging "something that is not true"}}))))
 
   (testing "creating the directory when not present"
-    (let [vardir (str (tu/temp-dir))
+    (let [vardir (str (tu/temp-dir "catalog-dbg-dir"))
           config {:global {:vardir vardir
                            :catalog-hash-conflict-debugging "true"}}]
       (is (false? (fs/exists? (catalog-debug-path config))))
@@ -199,7 +199,7 @@
              (configure-catalog-debugging config)))))
 
   (testing "failure to create directory"
-    (let [vardir (str (tu/temp-dir))
+    (let [vardir (str (tu/temp-dir "catalog-dbg-dir-fail"))
           config {:global {:vardir vardir
                            :catalog-hash-conflict-debugging "true"}}
           mkdirs-called? (atom true)]

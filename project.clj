@@ -40,7 +40,7 @@
                  [clj-time "0.9.0"]
                  [org.clojure/java.jmx "0.3.1"]
                  ;; Filesystem utilities
-                 [fs "1.1.2"]
+                 [me.raynes/fs "1.4.5"]
                  ;; Version information
                  [trptcolin/versioneer "0.1.0"]
                  ;; Job scheduling

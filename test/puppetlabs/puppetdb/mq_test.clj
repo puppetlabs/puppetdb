@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.mq-test
   (:import [org.apache.activemq ScheduledMessage]
            [org.apache.activemq.broker BrokerService])
-  (:require [fs.core :as fs]
+  (:require [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.mq :refer :all]
             [puppetlabs.puppetdb.testutils :refer :all]
             [puppetlabs.puppetdb.fixtures :refer [with-test-logging-silenced]]
@@ -53,7 +53,7 @@
       ;; restarting the broker ourselves is still needed.
       ;;
       ;; Upstream bug is: https://issues.apache.org/jira/browse/AMQ-4339
-      (let [dir          (fs/absolute-path (fs/temp-dir))
+      (let [dir (fs/absolute-path (fs/temp-dir "corrupt-kahadb-handling"))
             broker-name  "test"]
         (try
           ;; Start and stop a broker, then corrupt the journal
@@ -71,7 +71,7 @@
       ;; Current work-around is to restart the broker upon this kind of
       ;; corruption. This test makes sure this continues to work for the
       ;; lifetime of this code.
-      (let [dir         (fs/absolute-path (fs/temp-dir))
+      (let [dir (fs/absolute-path (fs/temp-dir "ignore-kahadb-corruption"))
             broker-name "test"]
         (try
           ;; Start and stop a broker, then corrupt the journal

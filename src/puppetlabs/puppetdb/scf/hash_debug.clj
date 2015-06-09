@@ -2,7 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.pprint :as pp]
             [clojure.tools.logging :as log]
-            [fs.core :as fs]
+            [me.raynes.fs :as fs]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.jdbc :as jdbc]

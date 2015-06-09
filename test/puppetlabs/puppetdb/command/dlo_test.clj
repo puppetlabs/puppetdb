@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.command.dlo-test
-  (:require [fs.core :as fs]
+  (:require [me.raynes.fs :as fs]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.test :refer :all]
             [clj-time.core :refer [years days seconds ago now]]
@@ -7,7 +7,7 @@
 
 (deftest dlo-compression-introspection
   (testing "an empty directory"
-    (let [dir (fs/temp-dir)
+    (let [dir (fs/temp-dir "dlo-compress-intro-empty")
           threshold (years 20)]
       (testing "should have no archives"
         (is (empty? (archives dir))))
@@ -25,7 +25,7 @@
         (is (not (already-archived? dir threshold))))))
 
   (testing "a directory with a few new messages"
-    (let [dir (fs/temp-dir)
+    (let [dir (fs/temp-dir "dlo-compress-intro-new-msgs")
           threshold (-> 20 years)]
       (fs/touch (fs/file dir "foo"))
       (fs/touch (fs/file dir "bar"))
@@ -41,12 +41,12 @@
         (is (empty? (compressible-files dir threshold))))))
 
   (testing "a directory with some old and new messages"
-    (let [dir (fs/temp-dir)
+    (let [dir (fs/temp-dir "dlo-compress-intro-old-and-new")
           threshold (-> 7 days)
           stale-timestamp (.getMillis (-> 8 days ago))]
-      (fs/touch (fs/file dir "foo") stale-timestamp)
-      (fs/touch (fs/file dir "bar") stale-timestamp)
-      (fs/touch (fs/file dir "baz"))
+      (doto (fs/file dir "foo") fs/create (#(fs/touch % stale-timestamp)))
+      (doto (fs/file dir "bar") fs/create (#(fs/touch % stale-timestamp)))
+      (fs/create (fs/file dir "baz"))
 
       (testing "should have no archives"
         (is (empty? (archives dir))))
@@ -58,7 +58,7 @@
         (is (= 2 (count (compressible-files dir threshold)))))))
 
   (testing "a directory with an old archive"
-    (let [dir (fs/temp-dir)
+    (let [dir (fs/temp-dir "dlo-compress-intro-old-archive")
           threshold (days 7)
           more-than-threshold (days 8)
           archive-time (ago more-than-threshold)]
@@ -93,7 +93,7 @@
             (is (already-archived? dir threshold))))))))
 
 (deftest dlo-compression
-  (let [dlo (fs/temp-dir)
+  (let [dlo (fs/temp-dir "dlo-compress")
         threshold (-> 7 days)
         short-threshold (-> 0 seconds)
         stale-timestamp (.getMillis (-> 8 days ago))]
@@ -102,8 +102,8 @@
       (is (empty? (fs/list-dir dlo))))
 
     (testing "with subdirectories"
-      (let [subdir (fs/temp-dir dlo)
-            other-subdir (fs/temp-dir dlo)
+      (let [subdir (doto (fs/file dlo "dir-1") fs/mkdir)
+            other-subdir (doto (fs/file dlo "dir-2") fs/mkdir)
             compression (get-in @metrics [:global :compression])
             failures (get-in @metrics [:global :compression-failures])]
         (testing "should not archive empty subdirectories"

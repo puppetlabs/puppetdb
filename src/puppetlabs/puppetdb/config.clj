@@ -11,7 +11,7 @@
             [puppetlabs.trapperkeeper.bootstrap :refer [find-bootstrap-config]]
             [clj-time.core :as time]
             [clojure.java.io :as io]
-            [fs.core :as fs]
+            [me.raynes.fs :as fs]
             [clojure.string :as str]
             [schema.core :as s]
             [slingshot.slingshot :refer [throw+]]
@@ -268,7 +268,7 @@
    PuppetDB to crash on startup."
   [path]
   (try
-    (str (fs/mkdirs path))
+    (do (fs/mkdirs path) (str path))
     (catch SecurityException e
       (log/warnf e
                 (str "catalog-hash-conflig-debugging was enabled, "
