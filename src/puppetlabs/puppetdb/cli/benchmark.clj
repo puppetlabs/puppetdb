@@ -173,7 +173,7 @@
 (defn update-factset
   "Updates the producer_timestamp to be current, and randomly updates the leaves
    of the factset based on a percentage provided in `rand-percentage`."
-  [factset rand-percentage]
+  [rand-percentage factset]
   (-> factset
       (assoc "producer_timestamp" (time/now))
       (update "values" (partial randomize-map-leaves rand-percentage))))
@@ -195,8 +195,8 @@
   (if-not (> (- clock lastrun) run-interval)
     state
     (let [catalog (some-> catalog update-catalog (maybe-tweak-catalog rand-percentage))
-          report (some-> report update-report-run-fields)
-          factset (some-> factset (update-factset rand-percentage))]
+          report (some-> report update-report-run-fields json/generate-string)
+          factset (some->> factset (update-factset rand-percentage) json/generate-string)]
       ;; Submit the catalog and reports in separate threads, so as to not
       ;; disturb the world-loop and otherwise distort the space-time continuum.
       (when catalog
@@ -209,34 +209,45 @@
       (when report
         (future
           (try
-            (client/submit-report base-url 5 (json/generate-string report))
+            (client/submit-report base-url 5 report)
             (log/infof "[%s] submitted report" host)
             (catch Exception e
               (log/errorf "[%s] failed to submit report: %s" host e)))))
       (when factset
         (future
           (try
-            (client/submit-facts base-url 4 (json/generate-string factset))
+            (client/submit-facts base-url 4 factset)
             (log/infof "[%s] submitted factset" host)
             (catch Exception e
               (log/errorf "[%s] failed to submit factset: %s" host e)))))
       (assoc state
-        :lastrun clock
-        :catalog catalog))))
+             :lastrun clock
+             :catalog catalog))))
 
-(defn update-host
+(defn update-host-catalog-and-factset
+  "Submit a `catalog` for `hosts` (when present), possibly mutating it before submission.
+  Also submit a `factset` for `hosts`."
+  [{:keys [catalog factset base-url rand-percentage]}]
+  (some->> catalog
+           update-catalog
+           maybe-tweak-catalog
+           json/generate-string
+           (client/submit-catalog base-url 6))
+  (some->> factset
+           (update-factset rand-percentage)
+           json/generate-string
+           (client/submit-facts base-url 4)))
+
+(defn update-host-report
   "Submit a `catalog` for `hosts` (when present), possibly mutating it before
    submission.  Also submit a report for the host (if present). This is
    similar to timed-update-host, but always sends the update (doesn't run/skip
    based on the clock)"
-  [{:keys [host lastrun catalog report factset base-url run-interval rand-percentage] :as state}]
-  (let [catalog (some-> catalog update-catalog (maybe-tweak-catalog rand-percentage))
-        report (some-> report update-report-run-fields)
-        factset (some-> factset (update-factset rand-percentage))]
-    (when catalog (client/submit-catalog base-url 6 (json/generate-string catalog)))
-    (when report (client/submit-report base-url 5 (json/generate-string report)))
-    (when factset (client/submit-facts base-url 4 (json/generate-string factset)))
-    (assoc state :catalog catalog)))
+  [report base-url]
+  (some->> report
+           update-report-run-fields
+           json/generate-string
+           (client/submit-report base-url 5)))
 
 (defn submit-n-messages
   "Given a list of host maps, send `num-messages` to each host.  The function
@@ -245,10 +256,11 @@
   [hosts num-msgs]
   (log/infof "Sending %s messages for %s hosts, will exit upon completion"
              num-msgs (count hosts))
-  (loop [mutated-hosts hosts
-         msgs-to-send num-msgs]
-    (when-not (zero? msgs-to-send)
-      (recur (mapv update-host mutated-hosts) (dec msgs-to-send)))))
+  (dotimes [n num-msgs]
+    (doseq [host hosts]
+      (update-host-report host)))
+  (doseq [host hosts]
+    (update-host-catalog-and-report host)))
 
 (defn world-loop
   "Sends out new _clock tick_ messages to all agents.
