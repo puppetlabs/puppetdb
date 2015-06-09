@@ -257,3 +257,14 @@
       {:href (to-href data)}
       (-> (sutils/parse-db-json data)
           (update :href to-href)))))
+
+(defn hsql?
+  "given a db-spec style database object, determine if hsqldb is being used."
+  [db-spec]
+  (cond
+    (:subprotocol db-spec)
+    (= (:subprotocol db-spec) "hsqldb")
+
+    (:datasource db-spec)
+    (re-matches #"jdbc:hsqldb.*"
+                (.getJdbcUrl (:datasource db-spec)))))

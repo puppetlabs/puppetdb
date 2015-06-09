@@ -17,7 +17,7 @@
      (-> (aggregate-event-counts/query->sql version query [summarize_by extra-query-params])
          (aggregate-event-counts/query-aggregate-event-counts))))
 
-(deftest aggregate-event-count-queries
+(deftest ^{:hsqldb false} aggregate-event-count-queries
   (store-example-report! (:basic reports) (now))
 
   (let [version :v4]
@@ -28,75 +28,109 @@
              (aggregate-counts-query-result version ["these" "are" "unused"] "illegal-summarize-by"))))
 
       (testing "containing_class"
-        (let [expected  {:successes 1
-                         :failures 0
-                         :noops 0
-                         :skips 1
-                         :total 2}
+        (let [expected  [{:successes 1
+                          :failures 0
+                          :noops 0
+                          :skips 1
+                          :total 2
+                          :summarize_by "containing_class"}]
               actual    (aggregate-counts-query-result version ["=" "certname" "foo.local"] "containing_class")]
           (is (= actual expected))))
 
       (testing "certname"
-        (let [expected  {:successes 1
-                         :failures 0
-                         :noops 0
-                         :skips 1
-                         :total 1}
+        (let [expected  [{:successes 1
+                          :failures 0
+                          :noops 0
+                          :skips 1
+                          :total 1
+                          :summarize_by "certname"}]
               actual    (aggregate-counts-query-result version ["=" "certname" "foo.local"] "certname")]
           (is (= actual expected))))
 
       (testing "resource"
-        (let [expected  {:successes 2
+        (let [expected  [{:successes 2
+                          :failures 0
+                          :noops 0
+                          :skips 1
+                          :total 3
+                          :summarize_by "resource"}]
+              actual    (aggregate-counts-query-result version ["=" "certname" "foo.local"] "resource")]
+          (is (= actual expected))))
+
+      (testing "resource,unsupported"
+        (is (thrown-with-msg?
+              IllegalArgumentException
+              #"Unsupported value for 'summarize_by': 'unsupported'"
+              (aggregate-counts-query-result
+                version
+                ["these" "are" "unused"]
+                "resource,unsupported"))))
+
+      (testing "resource,containing_class"
+        (let [expected [{:successes 2
                          :failures 0
                          :noops 0
                          :skips 1
-                         :total 3}
-              actual    (aggregate-counts-query-result version ["=" "certname" "foo.local"] "resource")]
-          (is (= actual expected)))))
+                         :total 3
+                         :summarize_by "resource"}
+                        {:successes 1
+                         :failures 0
+                         :noops 0
+                         :skips 1
+                         :total 2
+                         :summarize_by "containing_class"}]
+              actual (aggregate-counts-query-result version ["=" "certname" "foo.local"]
+                                                    "resource,containing_class")]
+          (is (= (sort-by :summarize_by actual) (sort-by :summarize_by expected))))))
 
     (testing "counts_filter"
       (testing "= operator"
-        (let [expected  {:successes 1
-                         :failures 0
-                         :noops 0
-                         :skips 0
-                         :total 1}
+        (let [expected  [{:successes 1
+                          :failures 0
+                          :noops 0
+                          :skips 0
+                          :total 1
+                          :summarize_by "containing_class"}]
               actual    (aggregate-counts-query-result version ["=" "certname" "foo.local"] "containing_class" {:counts_filter ["=" "successes" 2]})]
           (is (= actual expected))))
 
       (testing "> operator"
-        (let [expected  {:successes 2
-                         :failures 0
-                         :noops 0
-                         :skips 0
-                         :total 2}
+        (let [expected  [{:successes 2
+                          :failures 0
+                          :noops 0
+                          :skips 0
+                          :total 2
+                          :summarize_by "resource"}]
               actual    (aggregate-counts-query-result version ["=" "certname" "foo.local"] "resource" {:counts_filter [">" "successes" 0]})]
           (is (= actual expected))))
 
       (testing ">= operator"
-        (let [expected  {:successes 2
-                         :failures 0
-                         :noops 0
-                         :skips 1
-                         :total 3}
+        (let [expected  [{:successes 2
+                          :failures 0
+                          :noops 0
+                          :skips 1
+                          :total 3
+                          :summarize_by "resource"}]
               actual    (aggregate-counts-query-result version ["=" "certname" "foo.local"] "resource" {:counts_filter [">=" "successes" 0]})]
           (is (= actual expected))))
 
       (testing "< operator"
-        (let [expected  {:successes 2
-                         :failures 0
-                         :noops 0
-                         :skips 0
-                         :total 2}
+        (let [expected  [{:successes 2
+                          :failures 0
+                          :noops 0
+                          :skips 0
+                          :total 2
+                          :summarize_by "resource"}]
               actual    (aggregate-counts-query-result version ["=" "certname" "foo.local"] "resource" {:counts_filter ["<" "skips" 1]})]
           (is (= actual expected))))
 
       (testing "<= operator"
-        (let [expected  {:successes 2
-                         :failures 0
-                         :noops 0
-                         :skips 1
-                         :total 3}
+        (let [expected  [{:successes 2
+                          :failures 0
+                          :noops 0
+                          :skips 1
+                          :total 3
+                          :summarize_by "resource"}]
               actual    (aggregate-counts-query-result version ["=" "certname" "foo.local"] "resource" {:counts_filter ["<=" "skips" 1]})]
           (is (= actual expected)))))
 
@@ -107,29 +141,32 @@
              (aggregate-counts-query-result version ["=" "certname" "foo.local"] "certname" {:count_by "illegal-count-by"}))))
 
       (testing "resource"
-        (let [expected  {:successes 1
-                         :failures 0
-                         :noops 0
-                         :skips 1
-                         :total 2}
+        (let [expected  [{:successes 1
+                          :failures 0
+                          :noops 0
+                          :skips 1
+                          :total 2
+                          :summarize_by "containing_class"}]
               actual    (aggregate-counts-query-result version ["=" "certname" "foo.local"] "containing_class" {:count_by "resource"})]
           (is (= actual expected))))
 
       (testing "certname"
-        (let [expected  {:successes 1
-                         :failures 0
-                         :noops 0
-                         :skips 1
-                         :total 1}
+        (let [expected  [{:successes 1
+                          :failures 0
+                          :noops 0
+                          :skips 1
+                          :total 1
+                          :summarize_by "certname"}]
               actual    (aggregate-counts-query-result version ["=" "certname" "foo.local"] "certname" {:count_by "certname"})]
           (is (= actual expected)))))
 
     (testing "when nothing matches, should return zeroes rather than nils"
-      (let [expected  {:successes 0
-                       :failures 0
-                       :noops 0
-                       :skips 0
-                       :total 0}
+      (let [expected  [{:successes 0
+                        :failures 0
+                        :noops 0
+                        :skips 0
+                        :total 0
+                        :summarize_by "resource"}]
 
             actual    (aggregate-counts-query-result version ["<" "timestamp" 0] "resource")]
         (is (= actual expected))))))

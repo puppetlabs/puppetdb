@@ -12,6 +12,9 @@ canonical: "/puppetdb/latest/api/query/v4/aggregate-event-counts.html"
 > **Experimental Endpoint**: The aggregate-event-counts endpoint is designated
 > as experimental. It may be altered or removed in a future release.
 
+> **Not supported on HSQLDB**: The aggregate-event-counts endpoint is not
+> supported on HSQLDB.
+
 Puppet agent nodes submit reports after their runs, and the puppet master forwards these to PuppetDB. Each report includes:
 
 * Some data about the entire run
@@ -37,8 +40,9 @@ This endpoint builds on top of the [`event-counts`][event-counts] endpoint, and 
 * `query`: Required. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
 This query is forwarded to the [`events`][events] endpoint - see there for additional documentation. For general info about queries, see [the page on query structure.][query]
 
-* `summarize_by`: Required. A string specifying which type of object you'd like count. Supported values are
-`resource`, `containing_class`, and `certname`.
+* `summarize_by`: Required. A string specifying which object types you'd like counted. Supported values are
+`resource`, `containing_class`, and `certname`, or any comma-separated
+combination thereof.
 
 * `count_by`: Optional. A string specifying what type of object is counted when building up the counts of
 `successes`, `failures`, `noops`, and `skips`. Supported values are `resource` (default) and `certname`.
@@ -61,16 +65,18 @@ This endpoint builds on top of the [`event-counts`][event-counts] and [`events`]
 
 ### Response Format
 
-The response is a single JSON map containing aggregated event-count information and a `total` for how many
+The response is an array of JSON maps containing the summarize_by parameter,
+aggregated event-count information and a `total` for how many
 event-count results were aggregated.
 
-    {
-      "successes": 2,
-      "failures": 0,
-      "noops": 0,
-      "skips": 1,
-      "total": 3
-    }
+    [ {
+        "summarize_by": "containing_class",
+        "successes": 2,
+        "failures": 0,
+        "noops": 0,
+        "skips": 1,
+        "total": 3
+    } ]
 
 ### Examples
 
@@ -80,7 +86,35 @@ You can use [`curl`][curl] to query information about aggregated resource event 
       --data-urlencode 'query=["=", "certname", "foo.local"]' \
       --data-urlencode 'summarize_by=containing_class'
 
+    [ {
+        "summarize_by" : "containing_class",
+        "successes" : 2,
+        "failures" : 0,
+        "noops" : 0,
+        "skips" : 0,
+        "total" : 2
+    } ]
+
+    curl -G 'http://localhost:8080/pdb/query/v4/aggregate-event-counts'
+    -d 'query=["=","certname","foo.local"]' \
+    -d 'summarize_by=containing_class,certname'
+
+    [ {
+        "summarize_by" : "containing_class",
+        "successes" : 2,
+        "failures" : 0,
+        "noops" : 0,
+        "skips" : 0,
+        "total" : 2
+    }, {
+        "summarize_by" : "certname",
+         "successes" : 1,
+         "failures" : 0,
+         "noops" : 0,
+         "skips" : 0,
+         "total" : 1
+    } ]
+
 ## No Paging
 
-This endpoint always returns a single result, so paging is not necessary.
-
+This endpoint does not support paging options, and results are unordered.

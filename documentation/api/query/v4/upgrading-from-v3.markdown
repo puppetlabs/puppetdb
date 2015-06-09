@@ -83,6 +83,16 @@ Each change below is marked with the corresponding release version. Changes mark
 * (3.0) The `/pdb/query/v4/factsets/<node>/facts` endpoints will now
   return results even for deactivated or expired nodes.
 
+#### /pdb/query/v4/aggregate-event-counts
+
+* (3.0) the `aggregate-event-counts` endpoint is no longer supported on HSQLDB.
+
+* (3.0) the `aggregate-event-counts` endpoint now accepts multiple `summarize_by`
+  parameters and returns an array of maps instead of a map. An additional
+  `summarize_by` field has also been added to describe the parameter used. For
+  more information see the [aggregate-event-counts
+  documentation](./api/query/v4/aggregate_event_counts).
+
 #### /metrics/v1 (formerly /v3/metrics)
 
 * (3.0) The former metrics endpoint has been split off into a separate service, and

@@ -14,7 +14,7 @@
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
-(deftestseq query-aggregate-event-counts
+(deftestseq ^{:hsqldb false} query-aggregate-event-counts
   [[version endpoint] endpoints]
 
   (store-example-report! (:basic reports) (now))
@@ -37,29 +37,51 @@
       (is (= (:status response) http/status-bad-request))
       (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'" body))))
 
+  (testing "summarize_by accepts multiple parameters"
+    (let [expected [{:successes 1
+                     :failures 0
+                     :noops 0
+                     :skips 1
+                     :total 1
+                     :summarize_by "certname"}
+                    {:successes 2
+                     :skips 1
+                     :failures 0
+                     :noops 0
+                     :total 3
+                     :summarize_by "resource"}]
+          response (get-response endpoint
+                                 ["=" "certname" "foo.local"]
+                                 "certname,resource"
+                                 {} true)
+          actual (json/parse-string (:body response) true)]
+      (is (= (sort-by :summarize_by actual) (sort-by :summarize_by expected)))))
+
   (testing "nontrivial query using all the optional parameters"
     (let [expected  {:successes 0
                      :failures 0
                      :noops 0
                      :skips 1
-                     :total 1}
+                     :total 1
+                     :summarize_by "containing_class"}
           response  (get-response endpoint
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
                                   "containing_class"
                                   {"count_by"      "certname"
                                    "counts_filter" ["<" "successes" 1]})
-          actual    (json/parse-string (:body response) true)]
+          actual    (first (json/parse-string (:body response) true))]
       (is (= actual expected)))))
 
-(deftestseq query-distinct-event-counts
+(deftestseq ^{:hsqldb false} query-distinct-event-counts
   [[version endpoint] endpoints]
   (let [current-time (now)
         current-time-str (coerce/to-string current-time)
-        expected  {:successes 1
+        expected  [{:successes 1
                    :skips 1
                    :failures 1
                    :noops 0
-                   :total 3}]
+                   :total 3
+                   :summarize_by "resource"}]]
     (store-example-report! (:basic reports) current-time)
     (store-example-report! (:basic3 reports) current-time)
     (are [query] (= expected
@@ -74,7 +96,7 @@
          ["<=" "run_start_time" current-time-str]
          ["<=" "run_end_time" current-time-str])))
 
-(deftestseq query-with-environment
+(deftestseq ^{:hsqldb false} query-with-environment
   [[version endpoint] endpoints]
 
   (store-example-report! (:basic reports) (now))
@@ -89,46 +111,52 @@
                                                    "distinct_end_time" (now)})
                                     :body
                                     (json/parse-string true)))
-       {:successes 2
+       [{:successes 2
         :skips 1
         :failures 0
         :noops 0
-        :total 3}
+        :total 3
+        :summarize_by "resource"}]
        ["=" "environment" "DEV"]
 
-       {:successes 2
+       [{:successes 2
         :skips 1
         :failures 0
         :noops 0
-        :total 3}
+        :total 3
+        :summarize_by "resource"}]
        ["~" "environment" "DE"]
 
-       {:successes 3
+       [{:successes 3
         :skips 0
         :failures 0
         :noops 0
-        :total 3}
+        :total 3
+        :summarize_by "resource"}]
        ["=" "environment" "PROD"]
 
-       {:successes 3
+       [{:successes 3
         :skips 0
         :failures 0
         :noops 0
-        :total 3}
+        :total 3
+        :summarize_by "resource"}]
        ["~" "environment" "PR"]
 
-       {:successes 5
+       [{:successes 5
         :skips 1
         :failures 0
         :noops 0
-        :total 6}
+        :total 6
+        :summarize_by "resource"}]
        ["~" "environment" "D"]
 
-       {:successes 5
+       [{:successes 5
         :skips 1
         :failures 0
         :noops 0
-        :total 6}
+        :total 6
+        :summarize_by "resource"}]
        ["OR"
         ["=" "environment" "DEV"]
         ["=" "environment" "PROD"]]))
