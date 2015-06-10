@@ -3,7 +3,7 @@
             [clojure.string :as str]
             [clj-time.core :as time]
             [puppetlabs.puppetdb.cheshire :as json]
-            [fs.core :as fs]
+            [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.utils :refer [export-root-dir]]))
 
 (defn path

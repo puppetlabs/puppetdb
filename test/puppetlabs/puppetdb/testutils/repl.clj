@@ -2,7 +2,7 @@
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.testutils :as testutils]
-            [fs.core :as fs]
+            [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.cli.services :as svcs]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
             [puppetlabs.puppetdb.cli.services :refer [puppetdb-service]]

@@ -6,7 +6,7 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
-            [fs.core :as fs]
+            [me.raynes.fs :as fs]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
             [slingshot.slingshot :refer [throw+]]
             [ring.mock.request :as mock]
@@ -88,7 +88,7 @@
   duration of the call."
   [name conn-var & body]
   `(with-log-output broker-logs#
-     (let [dir#                   (fs/absolute-path (fs/temp-dir))
+     (let [dir#                   (fs/absolute-path (fs/temp-dir "test-broker"))
            broker-name#           ~name
            conn-str#              (str "vm://" ~name)
            size-megs#              50
@@ -298,7 +298,7 @@
   temp-file (comp delete-on-exit fs/temp-file))
 
 (def ^{:doc "Creates a temp directory, deletes the directory on JVM shutdown"}
-  temp-dir (comp delete-on-exit fs/temp-dir))
+  temp-dir (comp delete-on-exit (partial fs/temp-dir "tu-tmpdir")))
 
 (defmacro with-err-str
   "Similar to with-out-str, but captures standard error rather than standard out"

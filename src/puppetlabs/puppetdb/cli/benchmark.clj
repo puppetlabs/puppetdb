@@ -41,7 +41,7 @@
             [puppetlabs.trapperkeeper.logging :as logutils]
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.puppetdb.cheshire :as json]
-            [fs.core :as fs]
+            [me.raynes.fs :as fs]
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as ks]

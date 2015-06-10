@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.command-test
-  (:require [fs.core :as fs]
+  (:require [me.raynes.fs :as fs]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -74,7 +74,7 @@
   [command publish-var discard-var opts-map & body]
   `(let [log-output#     (atom [])
          publish#        (call-counter)
-         discard-dir#    (fs/temp-dir)
+         discard-dir#    (fs/temp-dir "test-msg-handler")
          handle-message# (mql/create-message-handler
                           publish# discard-dir# #(process-command! % ~opts-map))
          msg#            {:headers {:id "foo-id-1"
@@ -278,7 +278,7 @@
           (with-fixtures
             (sql/insert-record :certnames {:certname certname})
 
-            (let [debug-dir (fs/absolute-path (temp-dir))]
+            (let [debug-dir (fs/absolute-path (temp-dir "catalog-inspection"))]
 
               (sql/insert-records :catalogs
                                   {:hash (sutils/munge-hash-for-storage "0000")

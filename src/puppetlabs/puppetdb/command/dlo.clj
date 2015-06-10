@@ -5,7 +5,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [clj-time.format :as time-format]
             [puppetlabs.puppetdb.cheshire :as json]
-            [fs.core :as fs]
+            [me.raynes.fs :as fs]
             [clojure.java.io :refer [file make-parents]]
             [clj-time.core :refer [ago after?]]
             [metrics.gauges :refer [gauge]]

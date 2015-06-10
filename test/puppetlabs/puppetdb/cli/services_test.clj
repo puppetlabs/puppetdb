@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.cli.services-test
   (:import [java.security KeyStore])
-  (:require [fs.core :as fs]
+  (:require [me.raynes.fs :as fs]
             [clj-http.client :as client]
             [puppetlabs.puppetdb.meta.version :as v]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
@@ -29,7 +29,7 @@
 
 (deftest whitelisting
   (testing "should log on reject"
-    (let [wl (fs/temp-file)]
+    (let [wl (fs/temp-file "whitelist-log-reject")]
       (.deleteOnExit wl)
       (spit wl "foobar")
       (let [f (build-whitelist-authorizer (fs/absolute-path wl))]
