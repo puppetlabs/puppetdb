@@ -70,7 +70,7 @@
 
 (defn load-sample-data
   "Load all .json files contained in `dir`."
-  [dir & [from-classpath?]]
+  [dir from-classpath?]
   (let [target-files (if from-classpath?
                        (remove #(.isDirectory %) (file-seq (io/file (io/resource dir))))
                        (fs/glob (fs/file dir "*.json")))]
@@ -126,7 +126,7 @@
 (defn maybe-tweak-catalog
   "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`
   percent of the time."
-  [catalog rand-percentage]
+  [rand-percentage catalog]
   (if (< (rand 100) rand-percentage)
     (rand-catalog-mutation catalog)
     catalog))
@@ -173,7 +173,7 @@
 (defn update-factset
   "Updates the producer_timestamp to be current, and randomly updates the leaves
    of the factset based on a percentage provided in `rand-percentage`."
-  [factset rand-percentage]
+  [rand-percentage factset]
   (-> factset
       (assoc "producer_timestamp" (time/now))
       (update "values" (partial randomize-map-leaves rand-percentage))))
@@ -194,9 +194,9 @@
   [{:keys [host lastrun catalog report factset base-url run-interval rand-percentage] :as state} clock]
   (if-not (> (- clock lastrun) run-interval)
     state
-    (let [catalog (some-> catalog update-catalog (maybe-tweak-catalog rand-percentage))
-          report (some-> report update-report-run-fields)
-          factset (some-> factset (update-factset rand-percentage))]
+    (let [catalog (some->> catalog update-catalog (maybe-tweak-catalog rand-percentage))
+          report (some-> report update-report-run-fields json/generate-string)
+          factset (some->> factset (update-factset rand-percentage) json/generate-string)]
       ;; Submit the catalog and reports in separate threads, so as to not
       ;; disturb the world-loop and otherwise distort the space-time continuum.
       (when catalog
@@ -209,34 +209,45 @@
       (when report
         (future
           (try
-            (client/submit-report base-url 5 (json/generate-string report))
+            (client/submit-report base-url 5 report)
             (log/infof "[%s] submitted report" host)
             (catch Exception e
               (log/errorf "[%s] failed to submit report: %s" host e)))))
       (when factset
         (future
           (try
-            (client/submit-facts base-url 4 (json/generate-string factset))
+            (client/submit-facts base-url 4 factset)
             (log/infof "[%s] submitted factset" host)
             (catch Exception e
               (log/errorf "[%s] failed to submit factset: %s" host e)))))
       (assoc state
-        :lastrun clock
-        :catalog catalog))))
+             :lastrun clock
+             :catalog catalog))))
 
-(defn update-host
+(defn update-host-catalog-and-factset
+  "Submit a `catalog` for `hosts` (when present), possibly mutating it before submission.
+  Also submit a `factset` for `hosts`."
+  [{:keys [catalog factset base-url rand-percentage]}]
+  (some->> catalog
+           update-catalog
+           (maybe-tweak-catalog rand-percentage)
+           json/generate-string
+           (client/submit-catalog base-url 6))
+  (some->> factset
+           (update-factset rand-percentage)
+           json/generate-string
+           (client/submit-facts base-url 4)))
+
+(defn update-host-report
   "Submit a `catalog` for `hosts` (when present), possibly mutating it before
    submission.  Also submit a report for the host (if present). This is
    similar to timed-update-host, but always sends the update (doesn't run/skip
    based on the clock)"
-  [{:keys [host lastrun catalog report factset base-url run-interval rand-percentage] :as state}]
-  (let [catalog (some-> catalog update-catalog (maybe-tweak-catalog rand-percentage))
-        report (some-> report update-report-run-fields)
-        factset (some-> factset (update-factset rand-percentage))]
-    (when catalog (client/submit-catalog base-url 6 (json/generate-string catalog)))
-    (when report (client/submit-report base-url 5 (json/generate-string report)))
-    (when factset (client/submit-facts base-url 4 (json/generate-string factset)))
-    (assoc state :catalog catalog)))
+  [report base-url]
+  (some->> report
+           update-report-run-fields
+           json/generate-string
+           (client/submit-report base-url 5)))
 
 (defn submit-n-messages
   "Given a list of host maps, send `num-messages` to each host.  The function
@@ -245,10 +256,11 @@
   [hosts num-msgs]
   (log/infof "Sending %s messages for %s hosts, will exit upon completion"
              num-msgs (count hosts))
-  (loop [mutated-hosts hosts
-         msgs-to-send num-msgs]
-    (when-not (zero? msgs-to-send)
-      (recur (mapv update-host mutated-hosts) (dec msgs-to-send)))))
+  (dotimes [n num-msgs]
+    (doseq [host hosts]
+      (update-host-report host)))
+  (doseq [host hosts]
+    (update-host-catalog-and-factset host)))
 
 (defn world-loop
   "Sends out new _clock tick_ messages to all agents.
@@ -287,9 +299,8 @@
 
 (defn activate-logging!
   [options]
-  (-> (:config options)
-      (get-in [:global :logging-config])
-      logutils/configure-logging!))
+  (logutils/configure-logging!
+   (get-in options [:config :global :logging-config])))
 
 (defn validate-options
   [options action-on-error-fn]
@@ -342,32 +353,30 @@
 
 (defn process-tar-entry
   [archive-path tar-reader]
-  (let [catalog-pattern (re-pattern "catalogs.*\\.json$")
-        report-pattern (re-pattern "reports.*\\.json$")
-        facts-pattern (re-pattern "facts.*\\.json$")]
+  (let [matches-pattern? (fn [path pattern]
+                           (re-find (re-pattern pattern) path))]
     (fn [acc entry]
       (let [path (.getName entry)
             parsed-entry (-> tar-reader
                              archive/read-entry-content
                              json/parse-string)]
-        (cond
-          (re-find catalog-pattern path) (update acc :catalogs conj parsed-entry)
-          (re-find report-pattern path) (update acc :reports conj parsed-entry)
-          (re-find facts-pattern path) (update acc :facts conj parsed-entry)
+        (condp matches-pattern? path
+          "catalogs.*\\.json$" (update acc :catalogs conj parsed-entry)
+          "reports.*\\.json$" (update acc :reports conj parsed-entry)
+          "facts.*\\.json$" (update acc :facts conj parsed-entry)
           :else acc)))))
 
 (defn load-data-from-options
-  [{:keys [catalogs facts reports archive from-cp?]}]
+  [{:keys [archive] :as options}]
   (if archive
     (let [tar-reader (archive/tarball-reader archive)
           process-entries-fn (process-tar-entry archive tar-reader)]
       (->> (archive/all-entries tar-reader)
-           (reduce process-entries-fn {:catalogs [] :reports [] :facts []})
-           (remove (comp empty? val))
-           (into {})))
-    {:catalogs (when catalogs (load-sample-data catalogs from-cp?))
-     :facts (when facts (load-sample-data facts from-cp?))
-     :reports (when reports (load-sample-data reports from-cp?))}))
+           (reduce process-entries-fn {})))
+    (let [{:keys [catalogs facts reports from-cp?]} options]
+      {:catalogs (when catalogs (load-sample-data catalogs from-cp?))
+       :facts (when facts (load-sample-data facts from-cp?))
+       :reports (when reports (load-sample-data reports from-cp?))})))
 
 (defn -main
   [& args]
