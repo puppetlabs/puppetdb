@@ -54,8 +54,15 @@ module Puppet::Util::Puppetdb
             Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG if server_url_config}")
             response = nil
           elsif response.is_a? Net::HTTPNotFound
-            Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG if server_url_config}")
-            response = :notfound
+            if response.body && response.body[0] == "{"
+              # If it appears to be json, we've probably gotten an authentic 'not found' message.
+              Puppet.debug("HTTP 404 (probably normal) when connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG if server_url_config}")
+              response = :notfound
+            else
+              # But we can also get 404s when conneting to a puppetdb that's still starting or due to misconfiguration.
+              Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG if server_url_config}")
+              response = nil
+            end
           else
             break
           end

@@ -76,7 +76,6 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           raise "[#{response.code} #{response.message}] #{response.body.gsub(/[\r\n]/, '')}"
         end
       rescue NotFoundError => e
-        Puppet.warning("Unable to find results for #{request.key} error: #{e.message}")
         # This is what the inventory service expects when there is no data
         return nil
       rescue => e
