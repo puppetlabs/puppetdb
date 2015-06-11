@@ -80,14 +80,14 @@ test_name "basic validation of puppet report submission" do
     end
 
     step "ensure that logs check out for #{agent}" do
-      line_change = logs.detect {|l| l["line"] == 3}
+      line_change = logs.detect {|l| l["line"] == 1}
       notice_level = logs.select {|l| l["level"] == "notice"}
       info_level = logs.select {|l| l["level"] == "info"}
 
       assert(line_change["tags"].to_set == ["notice", "notify", "hi", "class"].to_set,
             "tags of logs do not match!")
       assert(notice_level.count == 3, "notice level count does not match!")
-      assert(info_level.count == 5, "info level count does not match!")
+      assert(info_level.count == 4, "info level count does not match!")
     end
   end
 end

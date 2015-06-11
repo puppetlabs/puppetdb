@@ -32,7 +32,17 @@ class Puppet::Util::Puppetdb::Command
         :command => command,
         :version => version,
         :payload => payload,
-      }.to_json)
+      # We use to_pson still here, to work around the support for shifting
+      # binary data from a catalog to PuppetDB. Attempting to use to_json
+      # we get to_json conversion errors:
+      #
+      #   Puppet source sequence is illegal/malformed utf-8
+      #   json/ext/GeneratorMethods.java:71:in `to_json'
+      #   puppet/util/puppetdb/command.rb:31:in `initialize'
+      #
+      # This is roughly inline with how Puppet serializes for catalogs as of
+      # Puppet 4.1.0. We need a better answer to non-utf8 data end-to-end.
+      }.to_pson)
     end
   end
 

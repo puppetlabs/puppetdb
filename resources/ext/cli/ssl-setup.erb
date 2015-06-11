@@ -227,13 +227,13 @@ else
   PATH=/opt/puppetlabs/bin:/opt/puppet/bin:$PATH
   agent_confdir=`puppet agent --configprint confdir`
   agent_vardir=`puppet agent --configprint vardir`
+  user=<%= EZBake::Config[:user] %>
+  group=<%= EZBake::Config[:group] %>
 
   if [ -d "/etc/puppetlabs/puppetdb" ] ; then
     puppetdb_confdir="/etc/puppetlabs/puppetdb"
-    user=pe-puppetdb
   else
     puppetdb_confdir="/etc/puppetdb"
-    user=puppetdb
   fi
 fi
 
@@ -335,7 +335,7 @@ fi
 # Fix SSL permissions
 chmod 600 ${ssl_dir}/*
 chmod 700 ${ssl_dir}
-chown -R ${user}:${user} ${ssl_dir}
+chown -R ${user}:${group} ${ssl_dir}
 
 if [ -f "$jettyfile" ] ; then
   # Check settings are correct and fix or warn
