@@ -27,6 +27,13 @@ canonical: "/puppetdb/latest/release_notes.html"
 * Make sure to upgrade your puppetdb-terminus package (on the host
  where your Puppet Master lives), and restart your master service.
 
+* Ensure during a package upgrade that you analyze any changed
+  configuration files. For Debian you will receive warnings when
+  upgrading interactively about these files, and for RedHat based
+  distributions you will find that the RPM drops .rpmnew files that
+  you should diff and ensure that any new content is merged into your
+  existing configuration.
+
 * There are some migrations provided in this release, that may mean
   you have to wait while these run after upgrading. Before upgrading
   you should also ensure you have as much free disk space as you have
