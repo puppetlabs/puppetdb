@@ -79,17 +79,17 @@
                      (.getPath (apply io/file export-root-dir file-suffix))
                      contents))
 
-(defn assoc-when
-  "Assoc to `m` only when `k` is not already present in `m`"
-  [m & kvs]
+(defmacro assoc-when
+  "Assocs the provided values with the corresponding keys if and only
+  if the key is not already present in map."
+  [map key val & kvs]
   {:pre [(even? (count kvs))]}
-  (let [missing-map-entries (into {}
-                                  (for [[k v] (partition 2 kvs)
-                                        :when (not (contains? m k))]
-                                    [k v]))]
-    (if (seq missing-map-entries)
-      (merge m missing-map-entries)
-      m)))
+  (let [deferred-kvs (vec (for [[k v] (cons [key val] (partition 2 kvs))]
+                            [k `(fn [] ~v)]))]
+    `(let [updates# (for [[k# v#] ~deferred-kvs
+                          :when (= ::not-found (get ~map k# ::not-found))]
+                      [k# (v#)])]
+       (merge ~map (into {} updates#)))))
 
 (pls/defn-validated kwd->str
   "Convert a keyword to a string. This is different from `name` in
