@@ -2,8 +2,11 @@
   (:require [puppetlabs.pe-puppetdb-extensions.semlog :as semlog :refer :all]
             [clojure.test :refer :all]
             [clojure.tools.logging :as tlog]
-            [clojure.tools.logging.impl :as impl])
+            [clojure.tools.logging.impl :as impl]
+            [puppetlabs.kitchensink.core :refer [mapkeys]])
   (:import [org.slf4j MDC]))
+
+(def ^:private stns *ns*)
 
 (deftest interleave-all-test
   (are [a b result] (= result (interleave-all a b))
@@ -58,7 +61,7 @@
   (testing "custom logp"
    (are [f expected] (expect-log f expected)
      #(logp :error "Test" 123)
-     [{:ns *ns*, :level :error, :message "Test 123"}]
+     [{:ns stns, :level :error, :message "Test 123"}]
 
      #(logp [:sync :error] "Test" 123)
      [{:ns :sync, :level :error, :message "Test 123"}]
@@ -69,7 +72,7 @@
   (testing "custom logf"
    (are [f expected] (expect-log f expected)
      #(logf :error "Test %s" 123)
-     [{:ns *ns*, :level :error, :message "Test 123"}]
+     [{:ns stns, :level :error, :message "Test 123"}]
 
      #(logf [:sync :error] "Test %s" 123)
      [{:ns :sync, :level :error, :message "Test 123"}]
@@ -80,7 +83,7 @@
 (deftest maplog-test
   (are [f expected] (expect-log f expected)
     #(maplog :error {:key :val} "Test")
-    [{:ns *ns*, :level :error, :message "Test", :mdc {"key" ":val"}}]
+    [{:ns stns, :level :error, :message "Test", :mdc {"key" ":val"}}]
 
     #(maplog [:sync :error] {:key :val} "Test")
     [{:ns :sync, :level :error, :message "Test", :mdc {"key" ":val"}}]
@@ -91,3 +94,12 @@
     #(maplog [:sync :error] {:key :val} "Test, {key} %s" 42)
     [{:ns :sync, :level :error, :message "Test, :val 42", :mdc {"key" ":val"}}]))
 
+(deftest maplog-format-escaping
+  (let [ctx {:w "%foo"
+             :x "%"
+             :y "%%"
+             :z "%%%"}]
+    (expect-log #(maplog :info ctx "%s {w} {x} {y} {z}" "embedded")
+                [{:ns stns :level :info
+                  :message "embedded %foo % %% %%%"
+                  :mdc (mapkeys name ctx)}])))
