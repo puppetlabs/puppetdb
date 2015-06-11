@@ -300,6 +300,7 @@ module PuppetDBExtensions
     puppetdb_manifest = <<-EOS
     class { 'puppetdb::server':
       database         => '#{db}',
+      database_embedded_path => '/opt/puppetlabs/server/data/puppetdb/db/db',
       manage_firewall  => false,
       puppetdb_version => '#{get_package_version(host, version)}',
       condfdir         => '/etc/puppetlabs/puppetdb/conf.d',
@@ -447,6 +448,7 @@ module PuppetDBExtensions
         class { 'puppetdb::server::database_ini':
           confdir  => '/etc/puppetlabs/puppetdb/conf.d',
           database => $database,
+          database_embedded_path => '/opt/puppetlabs/server/data/puppetdb/db/db',
         }"
 
       apply_manifest_on(host, manifest)
