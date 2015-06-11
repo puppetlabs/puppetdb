@@ -355,14 +355,14 @@ module PuppetDBExtensions
       strict_validation        => true,
       restart_puppet           => false,
       terminus_package         => '#{terminus_package}',
-      test_url => '#{test_url}',
+      test_url                 => '#{test_url}',
     }
     ini_setting {'server_urls':
-      ensure => present,
+      ensure  => present,
       section => 'main',
-      path => "/etc/puppetlabs/puppetdb/conf.d/puppetdb.conf",
+      path    => "${puppetdb::params::puppet_confdir}/puppetdb.conf",
       setting => 'server_urls',
-      value => '#{server_urls}',
+      value   => '#{server_urls}',
     }
     EOS
     apply_manifest_on(host, manifest)
@@ -440,6 +440,9 @@ module PuppetDBExtensions
   # @return [void]
   # @api public
   def install_puppetdb_via_rake(host)
+    # TODO: remove once merged and released
+    ezbake_dev_build("git@github.com:kbarber/ezbake.git", "pdb-1455")
+
     install_from_ezbake host
 
     step "Configure database.ini file" do
@@ -458,6 +461,9 @@ module PuppetDBExtensions
   end
 
   def install_puppetdb_termini_via_rake(host, database)
+    # TODO: remove once merged and released
+    ezbake_dev_build("git@github.com:kbarber/ezbake.git", "pdb-1455")
+
     install_termini_from_ezbake host
 
     server_urls = databases.map {|db| "https://#{db.node_name}:8081"}.join(',')
