@@ -11,7 +11,7 @@ test_name "validation of basic PuppetDB resource event queries" do
     second_db_manifest = <<-EOS
     class { 'postgresql::globals':
         manage_package_repo => true,
-        version             => '9.3',
+        version             => '9.4',
     }->
     class { '::postgresql::server':
       ip_mask_allow_all_users => '0.0.0.0/0',
@@ -32,7 +32,10 @@ test_name "validation of basic PuppetDB resource event queries" do
   step "Copy db schema to the new puppetdb2 database" do
 
     duplicate_db_command = <<DUPE
-    su postgres -c "PATH=/usr/pgsql-9.3/bin:/usr/lib/postgresql/9.3/bin:$PATH pg_dump puppetdb | sed -e 's/OWNER TO.*;/OWNER TO puppetdb2;/i' | psql puppetdb2"
+    su postgres -c "PATH=/usr/pgsql-9.4/bin:/usr/lib/postgresql/9.4/bin:$PATH \
+    pg_dump puppetdb \
+    | sed -e 's/OWNER TO.*;/OWNER TO puppetdb2;/i' \
+    | psql puppetdb2"
 DUPE
   
     on database, duplicate_db_command

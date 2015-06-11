@@ -17,7 +17,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 * For the best-possible performance and scaling capacity, we recommend
  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
  extension enabled, as explained [here][configure_postgres], and we
- have officially retired versions earlier than 9.3. HSQLDB is
+ have officially retired versions earlier than 9.4. HSQLDB is
  only recommended for local development because it has a number of
  scaling and operational issues.
 
@@ -113,7 +113,7 @@ stable release of PuppetDB, which included an experimental v4 API.
     The 'com.' prefix has been removed from the JMX and ActiveMQ endpoints. They are now in the
     puppetlabs.puppetdb namespace.
 
-* Retire support for PostgreSQL versions less than 9.3 ([PDB-775](https://tickets.puppetlabs.com/browse/PDB-775))
+* Retire support for PostgreSQL versions less than 9.4 ([PDB-1592](https://tickets.puppetlabs.com/browse/PDB-1592))
 
 * Retire support for Debian 6 & Ubuntu 10.04 ([PDB-663](https://tickets.puppetlabs.com/browse/PDB-663))
 

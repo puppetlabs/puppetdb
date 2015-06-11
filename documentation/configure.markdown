@@ -212,10 +212,9 @@ Before using the PostgreSQL backend, you must set up a PostgreSQL server, ensure
     $ createdb -E UTF8 -O puppetdb puppetdb
     $ exit
 
-If you are running PostgreSQL 9.3 or above you should install the
-regexp optimized index extension [`pg_trgm`][pg_trgm]. This may
-require installing the `postgresql-contrib` (or equivalent) package,
-depending on your distribution:
+If you are running PostgreSQL you should install the regexp optimized index
+extension [`pg_trgm`][pg_trgm]. This may require installing the
+`postgresql-contrib` (or equivalent) package, depending on your distribution:
 
     $ sudo -u postgres sh
     $ psql puppetdb -c 'create extension pg_trgm'

@@ -368,7 +368,8 @@
                          :field {:select [(h/row-to-json :event_data)]
                                  :from [[{:select [[(json-agg-row :t) :data]
                                                    [(hsql-hash-as-str :hash) :href]]
-                                          :from [[{:select [:re.status [(h/convert-to-iso8601-utc :re.timestamp) :timestamp]
+                                          :from [[{:select [:re.status
+                                                            :re.timestamp
                                                             :re.resource_type :re.resource_title :re.property
                                                             :re.new_value :re.old_value :re.message
                                                             :re.file :re.line :re.containment_path :re.containing_class]
