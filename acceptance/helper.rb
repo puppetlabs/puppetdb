@@ -303,7 +303,7 @@ module PuppetDBExtensions
       database_embedded_path => '/opt/puppetlabs/server/data/puppetdb/db/db',
       manage_firewall  => false,
       puppetdb_version => '#{get_package_version(host, version)}',
-      condfdir         => '/etc/puppetlabs/puppetdb/conf.d',
+      confdir          => '/etc/puppetlabs/puppetdb/conf.d',
     }
     EOS
     if db == :postgres
