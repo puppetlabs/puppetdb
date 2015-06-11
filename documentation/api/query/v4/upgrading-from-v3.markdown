@@ -18,9 +18,8 @@ Each change below is marked with the corresponding release version. Changes mark
 #### Changes affecting all endpoints
 
 * (3.0) The query API has been moved from `/` to `/pdb/query`, so
-<<<<<<< HEAD
-  http://localhost:8080/v4/version has become
-  http://localhost:8080/pdb/query/v4/version.
+  http://localhost:8080/v4/facts has become
+  http://localhost:8080/pdb/query/v4/facts.
   
 * (3.0) The `/commands` endpoint has been moved to its own API at `/pdb/cmd`, so
   http://localhost:8080/v3/commands has become
