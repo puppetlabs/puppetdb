@@ -49,6 +49,21 @@ unless (test_config[:skip_presuite_provisioning])
           end
         end
       end
+
+      # This works around the fact that puppetlabs-concat 1.2.3 requires a ruby in
+      # the normal path, here we work around this for AIO by just installing one
+      # on the database node that needs it.
+      #
+      # https://github.com/puppetlabs/puppetlabs-concat/blob/1.2.3/files/concatfragments.rb#L1
+      #
+      # This can be removed with concat 2.x onces its re-released, as this doesn't
+      # need an external ruby vm, it uses proper types & providers.
+      if options[:type] == 'aio' && os == :debian &&
+        database['platform'] !~ /ubuntu/ then
+        step "Install rubygems on database for AIO on Debian" do
+          on database, "apt-get install -y rubygems ruby-dev"
+        end
+      end
     end
 
     step "Install rubygems and sqlite3 on master" do
@@ -90,21 +105,6 @@ unless (test_config[:skip_presuite_provisioning])
 
       # Make sure there isn't a gemrc file, because that could ruin our day.
       on master, "rm -f ~/.gemrc"
-    end
-
-    # This works around the fact that puppetlabs-concat 1.2.3 requires a ruby in
-    # the normal path, here we work around this for AIO by just installing one
-    # on the database node that needs it.
-    #
-    # https://github.com/puppetlabs/puppetlabs-concat/blob/1.2.3/files/concatfragments.rb#L1
-    #
-    # This can be removed with concat 2.x onces its re-released, as this doesn't
-    # need an external ruby vm, it uses proper types & providers.
-    if options[:type] == 'aio' && test_config[:os_families][database.name] == :debian &&
-      database['platform'] !~ /ubuntu/ then
-      step "Install rubygems on database for AIO on Debian" do
-        on database, "apt-get install -y rubygems ruby-dev"
-      end
     end
   end
 end
