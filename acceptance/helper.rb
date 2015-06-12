@@ -228,7 +228,14 @@ module PuppetDBExtensions
     pids
   end
 
-  def start_puppetdb(host, test_url="/pdb/meta/v1/version")
+  def start_puppetdb(host, legacy=false)
+    if legacy
+      # PDB 2.x support
+      test_url = "/v3/version"
+    else
+      test_url = "/pdb/meta/v1/version"
+    end
+
     step "Starting PuppetDB" do
       if host.is_pe?
         on host, "service pe-puppetdb start"
@@ -296,14 +303,25 @@ module PuppetDBExtensions
     end
   end
 
-  def install_puppetdb(host, db, version=nil, test_url='/pdb/meta/v1/version')
+  def install_puppetdb(host, db, version=nil, legacy=false)
+    if legacy
+      # PDB 2.x support
+      test_url = '/v3/version'
+      embedded_path = '/var/lib/puppetdb/db/db'
+      confdir = '/etc/puppetdb/conf.d'
+    else
+      test_url = '/pdb/meta/v1/version'
+      embedded_path = '/opt/puppetlabs/server/data/puppetdb/db/db'
+      confdir = '/etc/puppetlabs/puppetdb/conf.d'
+    end
+
     puppetdb_manifest = <<-EOS
     class { 'puppetdb::server':
       database         => '#{db}',
-      database_embedded_path => '/opt/puppetlabs/server/data/puppetdb/db/db',
+      database_embedded_path => '#{embedded_path}',
       manage_firewall  => false,
       puppetdb_version => '#{get_package_version(host, version)}',
-      confdir          => '/etc/puppetlabs/puppetdb/conf.d',
+      confdir          => '#{confdir}',
     }
     EOS
     if db == :postgres
@@ -341,7 +359,16 @@ module PuppetDBExtensions
     end
   end
 
-  def install_puppetdb_termini(host, database, version=nil, terminus_package='puppetdb-termini', test_url='/pdb/meta/v1/version')
+  def install_puppetdb_termini(host, database, version=nil, legacy=false)
+    if legacy
+      # PDB 2.x support
+      terminus_package = 'puppetdb-terminus'
+      test_url = '/v3/version'
+    else
+      terminus_package = 'puppetdb-termini'
+      test_url = '/pdb/meta/v1/version'
+    end
+
     # We pass 'restart_puppet' => false to prevent the module from trying to
     # manage the puppet master service, which isn't actually installed on the
     # acceptance nodes (they run puppet master from the CLI).
