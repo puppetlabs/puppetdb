@@ -12,7 +12,10 @@ module PuppetDBExtensions
 
   GitReposDir = Beaker::DSL::InstallUtils::SourcePath
 
-  LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true LEIN_SNAPSHOTS_IN_RELEASE=true"
+  # We include the Puppet path here so we can use the Puppet ecosystem when
+  # using rake, which needs the facter gem to work - AIO ruby contains this
+  # by default.
+  LeinCommandPrefix = "cd #{GitReposDir}/puppetdb; LEIN_ROOT=true LEIN_SNAPSHOTS_IN_RELEASE=true PATH=/opt/puppetlabs/puppet/bin:$PATH"
 
   def self.initialize_test_config(options, os_families)
 
