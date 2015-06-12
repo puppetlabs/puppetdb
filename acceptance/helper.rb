@@ -332,7 +332,7 @@ module PuppetDBExtensions
       manifest = puppetdb_manifest
       apply_manifest_on(host, manifest)
     end
-    print_ini_files(host)
+    print_ini_files(host, confdir)
     sleep_until_started(host, test_url)
   end
 
@@ -395,12 +395,12 @@ module PuppetDBExtensions
     apply_manifest_on(host, manifest)
   end
 
-  def print_ini_files(host)
+  def print_ini_files(host, confdir='/etc/puppetlabs/puppetdb/conf.d')
     step "Print out jetty.ini for posterity" do
-      on host, "cat /etc/puppetlabs/puppetdb/conf.d/jetty.ini"
+      on host, "cat #{confdir}/jetty.ini"
     end
     step "Print out database.ini for posterity" do
-      on host, "cat /etc/puppetlabs/puppetdb/conf.d/database.ini"
+      on host, "cat #{confdir}/database.ini"
     end
   end
 
