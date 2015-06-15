@@ -379,12 +379,7 @@
         TK's normal config parsing to do a bit of extra
         customization."}
   -main
-  (utils/wrap-main
-   (fn [& args]
-     (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data
-                  #'conf/hook-tk-parse-config-data)
-     (try+
-      (apply tk/main args)
-      (catch [:type ::conf/configuration-error] obj
-        (log/error (:message obj))
-        (throw+ (assoc obj ::utils/exit-status 1)))))))
+  (fn [& args]
+    (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data
+                 #'conf/hook-tk-parse-config-data)
+    (apply tk/main args)))

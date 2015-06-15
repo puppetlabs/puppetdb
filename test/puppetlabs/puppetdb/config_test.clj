@@ -60,10 +60,9 @@
     (testing "validate-db-settings"
       (let [cfg {:database {:classname "foo" :subprotocol "bar" :subname "baz"}}]
         (is (= cfg (validate-db-settings cfg))))
-      (is (thrown+-with-msg?
-           [:type ::conf/configuration-error]
-           #"database configuration is now required.* classname = .* subprotocol = .* subname = .*"
-           (validate-db-settings {})))
+      (is (thrown+-with-msg? [:type ::conf/cli-error]
+                             #"database configuration is now required.* classname = .* subprotocol = .* subname = .*"
+                             (validate-db-settings {})))
       (let [settings [:classname :subprotocol :subname]]
         (doseq [x settings]
           (let [other-settings (remove #(= % x) settings)
@@ -72,13 +71,14 @@
                                (map #(str " " (name %) " = .*")
                                     other-settings)))]
             ;; Make sure the message contains settings for all but x.
-            (is (thrown+-with-msg? [:type ::conf/configuration-error] cfg-rx
-                  (validate-db-settings {x "foo"})))
+            (is (thrown+-with-msg? [:type ::conf/cli-error]
+                                   cfg-rx
+                                   (validate-db-settings {x "foo"})))
             ;; Make sure the message doesn't contain a setting for x.
             (is (try+
                  (validate-db-settings {:database {x "foo"}})
                  true
-                 (catch [:type ::conf/configuration-error] {:keys [message]}
+                 (catch [:type ::conf/cli-error] {:keys [message]}
                    (not (re-find (re-pattern (str " " (name x) " = "))
                                  message)))))))))
 
