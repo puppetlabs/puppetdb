@@ -10,7 +10,47 @@
             [clj-time.format :as tf]
             [clojure.tools.logging :as log]
             [slingshot.slingshot :refer [try+ throw+]]
+            [puppetlabs.pe-puppetdb-extensions.semlog :refer [maplog]]
             [puppetlabs.puppetdb.time :refer [parse-period]]))
+
+;; Currently sync events are logged under the :sync keyword, and each
+;; log message has relevant data attached via MDC key/value pairs,
+;; which means (among other things) that you can include the data in
+;; the log by adding "%mdc" to the pattern, i.e.
+;;
+;;   "%-4relative [%thread] %-5level %logger{35} [%mdc] - %msg%n"
+;;
+;; or log in JSON format and include an "mdc" map with the data like
+;; this: https://github.com/clj-io/logging#json-logging
+;;
+;; The events:
+;;
+;;   Logged at :info level.
+;;   {:event "start-sync" :remote url}
+;;
+;;   Logged at :info level when :ok is true and :warn when :ok is false.
+;;   {:event "finished-sync" :remote url :ok boolean :elapsed ms}
+;;
+;;   Logged at :info level.
+;;   {:event "start-entity-sync" :remote url :entity name}
+;;
+;;   Logged :info level when :ok is true, and :warn when :ok is false.
+;;   {:event "finished-entity-sync" :remote url :entity name
+;;    :transferred count :failed count :ok boolean :elapsed ms}
+;;
+;;   Logged at :debug level when :ok is true, and :warn when :ok is false.
+;;   {:event "finished-sync-deactivation" :entity "nodes" :certname name
+;;    :ok boolean}
+;;
+;;   Logged at :debug level when :ok is true, and :warn when :ok is false.
+;;   {:event "finished-record-sync" :remote url
+;;    :entity "factsets" :certname name :ok boolean :elapsed ms}
+;;   {:event "finished-record-sync" :remote url
+;;    :entity "catalogs" :certname name :ok boolean :elapsed ms}
+;;   {:event "finished-record-sync" :remote url
+;;    :entity "reports" :certname name :hash hash :ok boolean :elapsed ms}
+
+(defn now-ms [] (System/currentTimeMillis))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; How to sync each entity
@@ -129,13 +169,11 @@
   failure status codes. '"
   [url opts error-message-fn]
   (try+
-   (log/debug (format "HTTP GET %s %s" url opts))
-   (client/get url opts)
+   (log/debugf "HTTP GET %s %s" url opts)
+   (client/get url
+               (merge {:throw-exceptions true :throw-entire-message true} opts))
    (catch :status  {:keys [body status] :as response}
-     (throw+ {:type ::remote-host-error
-              :error-response response
-              :throw-exceptions true
-              :throw-entire-message true}
+     (throw+ {:type ::remote-host-error :error-response response}
              (error-message-fn status body)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -195,40 +233,80 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Pull from remote instance
 
+(defn remote-query-url [remote-url entity query]
+  (let [uri (java.net.URI. remote-url)]
+    (str (java.net.URI. (.getScheme uri)
+                        (.getAuthority uri)
+                        (str (.getPath uri) "/" (name entity))
+                        (str "query=" (json/generate-string query))
+                        (.getFragment uri)))))
+
 (defn query-remote
-  "Queries a resource from `remote-url`/`entity`, where
-  `entity` is a keyword like :reports, :factsets, etc. '"
-  [remote-url entity query]
-  (let [json-query (json/generate-string query)
-        url (str remote-url "/" (name entity))
-        error-message-fn (fn [status body] (format "Error querying %s for %s with query %s. Received HTTP status code %s with the error message '%s'"
-                                                   remote-url (name entity) query status body))
-        {:keys [status body]} (http-get url {:query-params {:query json-query}} error-message-fn)]
+  "Queries url and returns the body after parsing it as JSON."
+  [url error-message-fn]
+  (let [{:keys [status body]} (http-get url {} error-message-fn)]
     (json/parse-string body true)))
 
 (defn query-record-and-transfer!
   "Query for a record where `record-fetch-key` (from `sync-config`) equals
   `record-fetch-val` and submit a command locally to copy that record, via
   `store-record-locally-fn`."
-  [remote-url record-fetch-val submit-command-fn sync-config]
-  (let [{:keys [entity record-fetch-key clean-up-record-fn submit-command]} sync-config
-        store-record-locally-fn (partial submit-command-fn (:command submit-command) (:version submit-command))]
-    (-> (query-remote remote-url entity ["and" ["=" (name record-fetch-key) record-fetch-val]
-                                               include-inactive-nodes-criteria])
-        first
-        (collapse-and-download-collections remote-url)
-        strip-timestamp-and-hash
-        clean-up-record-fn
-        store-record-locally-fn)))
+  [remote-url record submit-command-fn sync-config]
+  (let [{:keys [entity record-fetch-key clean-up-record-fn
+                submit-command]} sync-config
+        start-time (now-ms)
+        entity-name (name entity)
+        record-fetch-val (record-fetch-key record)
+        store-record-locally-fn (partial submit-command-fn
+                                         (:command submit-command)
+                                         (:version submit-command))
+        query ["and" ["=" (name record-fetch-key) record-fetch-val]
+               include-inactive-nodes-criteria]
+        query-url (remote-query-url remote-url entity query)
+        finish-ctx #(merge {:event "finished-record-sync"
+                            :entity entity-name
+                            :remote query-url
+                            :elapsed (- (now-ms) start-time)
+                            :ok (boolean %)}
+                           (select-keys record [:certname :hash]))
+        qerr-msg (fn [status body]
+                   (str "unable to ask" remote-url "for" entity-name
+                        "using query" query "; received"
+                        (pr-str {:status status :body body})))]
+    (try
+      (-> (query-remote query-url qerr-msg)
+          first
+          (collapse-and-download-collections remote-url)
+          strip-timestamp-and-hash
+          clean-up-record-fn
+          store-record-locally-fn)
+      (maplog [:sync :debug] (finish-ctx true)
+              "transferred {entity} for %s via {remote} in {elapsed} ms" query)
+      (catch Exception ex
+        (maplog [:sync :warn] ex (finish-ctx false)
+                "failed to sync {entity}" "for query %s via {remote} in {elapsed}ms"
+                query)
+        (throw ex)))))
 
 (defn set-local-deactivation-status!
-  [{:keys [certname deactivated] :as remote-record} submit-command-fn]
+  [remote-url
+   entity
+   {:keys [certname deactivated] :as remote-record}
+   submit-command-fn]
   ;; deactivated never goes false (null) by itself; one of the other entities
   ;; will change, reactivating it as a side effect
   (when deactivated
-    (submit-command-fn :deactivate-node 3
-                       {:certname certname
-                        :producer_timestamp deactivated})))
+    (let [log-ctx #(hash-map :event "finished-sync-deactivation"
+                             :entity (name entity)
+                             :certname certname
+                             :ok (boolean %))]
+      (try
+        (submit-command-fn :deactivate-node 3
+                           {:certname certname :producer_timestamp deactivated})
+        (maplog [:sync :debug] (log-ctx true) "deactivated %s" certname)
+        (catch Exception ex
+          (maplog [:sync :warn] ex (log-ctx false) "failed to deactivate {certname}")
+          (throw ex))))))
 
 (defn outer-join-unique-sorted-seqs
   "Outer join two seqs, `xs` and `ys`, that are sorted and unique under
@@ -294,7 +372,7 @@
         url (str remote-url "/" (name entity))
         error-message-fn (fn [status body]
                            (format "Error querying %s for record summaries (%s). Received HTTP status code %s with the error message '%s'"
-                                   remote-url entity status body))]
+                                   remote-url (name entity) status body))]
         (-> url
             (http-get {:query-params {:query (json/generate-string query)
                                       :order_by (json/generate-string (order-by-clause-to-wire-format order))}
@@ -305,31 +383,64 @@
 
 (defn pull-records-from-remote!
   "Query `remote-url` using the query api and the local PDB using `query-fn`,
-  using the entity and comparison information in `sync-config` (see comments
-  above). If the remote record is newer than the local one or it doesn't exist locally,
-  download it over http and place it in the queue with `submit-command-fn`."
+  using the entity and comparison information in `sync-config` (see
+  comments above). If the remote record is newer than the local one or
+  it doesn't exist locally, download it over http and place it in the
+  queue with `submit-command-fn`.  Return false if any records
+  failed."
   [query-fn submit-command-fn remote-url sync-config now node-ttl]
-  (with-open [summary-response-stream (streamed-summary-query remote-url
-                                                              sync-config)]
-    (let [remote-sync-data (map parse-time-fields
-                                (-> summary-response-stream clojure.java.io/reader (json/parse-stream true)))
-          {:keys [entity record-hashes-query record-id-fn record-ordering-fn record-fetch-key]} sync-config
-          {:keys [version query order]} record-hashes-query]
-      (query-fn entity version query order
-                (fn [local-sync-data]
-                  (let [records-to-fetch (records-to-fetch record-id-fn
-                                                           record-ordering-fn
-                                                           local-sync-data
-                                                           remote-sync-data
-                                                           now
-                                                           node-ttl)]
-                    (doseq [record records-to-fetch]
-                      (if (= entity :nodes)
-                        (set-local-deactivation-status! record submit-command-fn)
-                        (query-record-and-transfer! remote-url
-                                                    (get record record-fetch-key)
-                                                    submit-command-fn
-                                                    sync-config)))))))))
+  (let [start-time (now-ms)
+        entity (:entity sync-config)
+        entity-name (name entity)]
+    (maplog [:sync :info]
+            {:event "start-entity-sync" :entity entity-name :remote remote-url}
+            "syncing {entity} from {remote}")
+    (with-open [summary-stream (streamed-summary-query remote-url sync-config)]
+      (let [remote-sync-data (map parse-time-fields
+                                  (-> summary-stream
+                                      clojure.java.io/reader
+                                      (json/parse-stream true)))
+            remote-host-404? #(and (= ::remote-host-error (get % :type))
+                                   (= 404 (get-in % [:error-response :status])))
+            stats (atom {:transferred 0 :failed 0})
+            log-ctx #(merge {:event "finished-entity-sync"
+                             :entity entity-name
+                             :remote remote-url
+                             :elapsed (- (now-ms) start-time)
+                             :ok (boolean %)}
+                            (select-keys @stats [:transferred :failed]))
+            {:keys [record-hashes-query record-id-fn
+                    record-ordering-fn]} sync-config
+            {:keys [version query order]} record-hashes-query
+            incoming-records #(records-to-fetch record-id-fn record-ordering-fn
+                                                % remote-sync-data now node-ttl)
+            deactivate! #(set-local-deactivation-status! remote-url entity %
+                                                         submit-command-fn)
+            query-and-transfer! #(query-record-and-transfer!
+                                  remote-url % submit-command-fn sync-config)]
+        (query-fn entity version query order
+                  (fn [local-sync-data]
+                    (try
+                      (doseq [record (incoming-records local-sync-data)]
+                        (try+
+                          (if (= entity :nodes)
+                            (deactivate! record)
+                            (query-and-transfer! record))
+                          (swap! stats update-in [:transferred] inc)
+                          (catch (remote-host-404? %) _
+                            (swap! stats update-in [:failed] inc))))
+                      (maplog [:sync :info] (log-ctx true)
+                              "transferred {transferred} from {remote} in {elapsed}ms")
+                      (catch Exception ex
+                        (swap! stats update-in [:failed] inc)
+                        (let [ctx (log-ctx false)]
+                          (maplog [:sync :warn] ex ctx
+                                  (str
+                                   "transferred {transferred} {entity} from {remote};"
+                                   " stopped after {failed} failure%s in {elapsed}ms")
+                                  (if (= 1 (:failed ctx)) "" "s")))
+                        (throw ex)))))
+        (zero? (:failed @stats))))))
 
 (defmacro wrap-with-logging [f level message]
   `(fn [& args#]
@@ -344,12 +455,23 @@
   `query-fn` to query PuppetDB in process and `submit-command-fn` when
   new data is found."
   [query-fn submit-command-fn remote-url node-ttl]
-  (let [submit-command-fn (wrap-with-logging submit-command-fn :debug "Submitting command")
+  (let [submit-command-fn (wrap-with-logging submit-command-fn
+                                             :debug "Submitting command")
         now (t/now)]
-   (doseq [sync-config sync-configs]
-     (try+
-      (pull-records-from-remote! query-fn submit-command-fn remote-url sync-config now node-ttl)
-
-      (catch [:type ::remote-host-error] _
-        (let [{:keys [throwable message]} &throw-context]
-          (log/errorf throwable "Sync from remote host failed due to: %s" message)))))))
+    (maplog [:sync :info] {:event "start-sync" :remote remote-url}
+            "syncing with {remote}")
+    (let [start-time (now-ms)
+          log-ctx #(hash-map :event "finished-sync"
+                             :remote remote-url
+                             :elapsed (- (now-ms) start-time)
+                             :ok (boolean %))]
+      (try
+        (if (every? identity (map #(pull-records-from-remote!
+                                    query-fn submit-command-fn remote-url %
+                                    now node-ttl)
+                                  sync-configs))
+          (maplog [:sync :info] (log-ctx true) "synced with {remote}")
+          (maplog [:sync :warn] (log-ctx false) "trouble syncing with {remote}"))
+        (catch Exception ex
+          (maplog [:sync :warn] (log-ctx false) "trouble syncing with {remote}")
+          (throw ex))))))
