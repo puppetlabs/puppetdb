@@ -1,16 +1,15 @@
 (ns puppetlabs.puppetdb.cli.anonymize
   (:require [clojure.java.io :as io]
             [clojure.string :as string]
-            [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.anonymizer :as anon]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.cli.export :refer [export-metadata-file-name]]
+            [puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.puppetdb.cli.import :as import]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.utils :as utils :refer [export-root-dir add-tar-entry]]
+            [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]
             [slingshot.slingshot :refer [try+]])
   (:import [org.apache.commons.compress.archivers.tar TarArchiveEntry]
@@ -182,8 +181,8 @@
   [tar-writer :- TarGzWriter
    suffix :- [String]
    contents :- {s/Any s/Any}]
-  (add-tar-entry tar-writer {:file-suffix suffix
-                             :contents (json/generate-pretty-string contents)}))
+  (utils/add-tar-entry tar-writer {:file-suffix suffix
+                                   :contents (json/generate-pretty-string contents)}))
 
 (defn next-json-tar-entry
   "Read and parse a JSON item from `tar-reader`"
@@ -195,7 +194,7 @@
 (defn add-anonymized-entity
   [tar-writer old-path entity file-name data]
   (let [file-suffix [entity file-name]
-        new-path (.getPath (apply io/file export-root-dir file-suffix))
+        new-path (.getPath (apply io/file utils/export-root-dir file-suffix))
         singular-entity (case entity
                           "facts" "facts"
                           "catalogs" "catalog"
@@ -267,7 +266,7 @@
     (with-open [tar-reader (archive/tarball-reader infile)
                 tar-writer (archive/tarball-writer outfile)]
       ;; Write out the metadata first
-      (add-json-tar-entry tar-writer [export-metadata-file-name] metadata)
+      (add-json-tar-entry tar-writer [export/export-metadata-file-name] metadata)
       ;; Now process each entry
       (doseq [tar-entry (archive/all-entries tar-reader)]
         (process-tar-entry tar-reader tar-entry tar-writer profile-config (:command_versions metadata))))

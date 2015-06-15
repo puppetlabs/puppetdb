@@ -148,7 +148,7 @@
              "producer_timestamp" stamp)))
 
 (defn randomize-map-leaf
-  "Randomizes a fact leaf/"
+  "Randomizes a fact leaf."
   [leaf]
   (cond
     (string? leaf) (random-string (inc (rand-int 100)))
@@ -208,27 +208,21 @@
       (when catalog
         (future
           (try
-            (->> catalog
-                 json/generate-string
-                 (client/submit-catalog base-url 6))
+            (client/submit-catalog base-url 6 (json/generate-string catalog))
             (log/infof "[%s] submitted catalog" host)
             (catch Exception e
               (log/errorf "[%s] failed to submit catalog: %s" host e)))))
       (when report
         (future
           (try
-            (->> report
-                 json/generate-string
-                 (client/submit-report base-url 5))
+            (client/submit-report base-url 5 (json/generate-string report))
             (log/infof "[%s] submitted report" host)
             (catch Exception e
               (log/errorf "[%s] failed to submit report: %s" host e)))))
       (when factset
         (future
           (try
-            (->> factset
-                 json/generate-string
-                 (client/submit-facts base-url 4))
+            (client/submit-facts base-url 4 (json/generate-string factset))
             (log/infof "[%s] submitted factset" host)
             (catch Exception e
               (log/errorf "[%s] failed to submit factset: %s" host e)))))
@@ -278,7 +272,7 @@
   This function never terminates.
 
   The time resolution of this loop is 10ms."
-  [hosts base-url run-interval rand-percentage]
+  [base-url run-interval rand-percentage hosts]
   (loop [last-time (time/now)]
     (let [curr-time (time/now)]
       ;; Send out updated ticks to each agent
