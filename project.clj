@@ -98,7 +98,7 @@
   :lein-release {:scm        :git
                  :deploy-via :lein-deploy}
 
-  :uberjar-name "puppetdb-release.jar"
+  :uberjar-name "puppetdb.jar"
   :lein-ezbake {:vars {:user "puppetdb"
                        :group "puppetdb"
                        :build-type "foss"

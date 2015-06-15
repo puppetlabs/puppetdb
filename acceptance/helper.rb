@@ -221,7 +221,7 @@ module PuppetDBExtensions
 
   def puppetdb_pids(host)
     java_bin = "java"
-    jar_file = "puppetdb-release.jar"
+    jar_file = "puppetdb.jar"
     result = on host, %Q(ps -ef | grep "#{java_bin}" | grep "#{jar_file}" | grep " services -c " | awk '{print $2}')
     pids = result.stdout.chomp.split("\n")
     Beaker::Log.notify "PuppetDB PIDs appear to be: '#{pids}'"
