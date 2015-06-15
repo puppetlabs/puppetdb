@@ -1319,6 +1319,25 @@
              [{"certname" "foo1"
                "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}])))))
 
+(deftestseq factset-single-response
+  [[version endpoint] factsets-endpoints]
+  (populate-for-structured-tests reference-time)
+
+  (testing "querying singleton endpoint should return a single result"
+    (let [response (json/parse-string (:body (get-response (str endpoint "/foo1"))))]
+      (is (= (munge-factset-response response)
+             (strip-expanded {"certname" "foo1"
+                              "environment" "DEV"
+                              "facts" {"data" #{{"name" "my_structured_fact", "value" {"a" 1, "b" 3.14, "c" ["a" "b" "c"], "d" {"n" ""}, "e" "1", "f" nil}}
+                                                {"name" "domain", "value" "testing.com"}
+                                                {"name" "test#~delimiter", "value" "foo"}
+                                                {"name" "uptime_seconds", "value" "4000"}}
+                                       "href" "/v4/factsets/foo1/facts"}
+                              "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"
+                              "producer_timestamp" "2014-10-28T20:26:21.727Z"
+                              "timestamp" "2014-10-28T20:26:21.727Z"}))))))
+
+
 ;; STRUCTURED FACTS TESTS
 
 (defn structured-fact-results
