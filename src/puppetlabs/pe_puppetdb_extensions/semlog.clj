@@ -2,18 +2,8 @@
   (:require [clojure.tools.logging :as tlog]
             [clojure.tools.logging.impl :as impl]
             [io.clj.logging :refer [with-logging-context]]
-            [clojure.core.match :as cm]))
-
-(defn- log-level [level-or-pair]
-  (if (vector? level-or-pair)
-      (second level-or-pair)
-      level-or-pair))
-
-(defmacro ^:private log-ns [level-or-pair]
-  `(let [lop# ~level-or-pair]
-     (if (vector? lop#)
-       (first lop#)
-       `*ns*)))
+            [clojure.core.match :as cm]
+            [puppetlabs.kitchensink.core :refer [mapvals]]))
 
 (defmacro logp
   "This is just like `clojure.core.logging/logp`, except it accepts
@@ -21,16 +11,18 @@
   {:arglists '([level-or-pair message & more]
                [level-or-pair throwable message & more])}
   [level-or-pair x & more]
-  (let [level (log-level level-or-pair)
-        log-ns (log-ns level-or-pair)]
-   (if (or (instance? String x) (nil? more)) ; optimize for common case
-     `(tlog/log ~log-ns ~level nil (print-str ~x ~@more))
-     `(let [logger# (impl/get-logger tlog/*logger-factory* ~log-ns)]
-        (if (impl/enabled? logger# ~level)
-          (let [x# ~x]
-            (if (instance? Throwable x#) ; type check only when enabled
-              (tlog/log* logger# ~level x# (print-str ~@more))
-              (tlog/log* logger# ~level nil (print-str x# ~@more)))))))))
+  (if (or (instance? String x) (nil? more)) ; optimize for common case
+    `(let [lop# ~level-or-pair
+           [ns# level#] (if (coll? lop#) lop# [~*ns* lop#])]
+       (tlog/log ns# level# nil (print-str ~x ~@more)))
+    `(let [lop# ~level-or-pair
+           [ns# level#] (if (coll? lop#) lop# [~*ns* lop#])
+           logger# (impl/get-logger tlog/*logger-factory* ns#)]
+       (if (impl/enabled? logger# level#)
+         (let [x# ~x]
+           (if (instance? Throwable x#) ; type check only when enabled
+             (tlog/log* logger# level# x# (print-str ~@more))
+             (tlog/log* logger# level# nil (print-str x# ~@more))))))))
 
 (defmacro logf
   "This is just like `clojure.core.logging/logf`, except it accepts
@@ -38,16 +30,18 @@
   {:arglists '([level-or-pair fmt & fmt-args]
                [level-or-pair throwable fmt & fmt-args])}
   [level-or-pair x & more]
-  (let [level (log-level level-or-pair)
-        log-ns (log-ns level-or-pair)]
-   (if (or (instance? String x) (nil? more)) ; optimize for common case
-     `(tlog/log ~log-ns ~level nil (format ~x ~@more))
-     `(let [logger# (impl/get-logger tlog/*logger-factory* ~log-ns)]
-        (if (impl/enabled? logger# ~level)
-          (let [x# ~x]
-            (if (instance? Throwable x#) ; type check only when enabled
-              (tlog/log* logger# ~level x# (format ~@more))
-              (tlog/log* logger# ~level nil (format x# ~@more)))))))))
+  (if (or (instance? String x) (nil? more)) ; optimize for common case
+    `(let [lop# ~level-or-pair
+           [ns# level#] (if (coll? lop#) lop# [~*ns* lop#])]
+       (tlog/log ns# level# nil (format ~x ~@more)))
+    `(let [lop# ~level-or-pair
+           [ns# level#] (if (coll? lop#) lop# [~*ns* lop#])
+           logger# (impl/get-logger tlog/*logger-factory* ns#)]
+       (if (impl/enabled? logger# level#)
+         (let [x# ~x]
+           (if (instance? Throwable x#) ; type check only when enabled
+             (tlog/log* logger# level# x# (format ~@more))
+             (tlog/log* logger# level# nil (format x# ~@more))))))))
 
 (defn interleave-all
   ([s t] (interleave-all s t true))
@@ -75,12 +69,23 @@
   `(interpolate-message \"{animal} is eating his good {meal}!\"
                         {:animal \"Bunny\" :meal \"supper\"}`"
   [message ctx-map]
+  {:pre [(every? keyword? (keys ctx-map))]}
   (let [pat (re-pattern "\\{\\w+\\}")
         in-between-text (clojure.string/split message pat)
         replacements (->> (re-seq pat message)
                           (map #(subs % 1 (dec (count %))))
                           (map #(get ctx-map (keyword %))))]
     (apply str (interleave-all in-between-text replacements))))
+
+(defn maplog' [logger ns level throwable-or-ctx ctx-or-message & more]
+  (let [[throwable ctx msg fmt-args]
+        (if (instance? Throwable throwable-or-ctx)
+          [throwable-or-ctx ctx-or-message (first more) (rest more)]
+          [nil throwable-or-ctx ctx-or-message more])
+        esc-ctx (mapvals #(.replace (str %) "%" "%%") ctx)]
+    (with-logging-context ctx
+      (tlog/log* logger level throwable
+                 (apply format (interpolate-message msg esc-ctx) fmt-args)))))
 
 (defmacro maplog
   "Log, as data, the map `ctx-map`. This will be made available to slf4j as the
@@ -111,26 +116,9 @@
 
   {:arglists '([level-or-pair ctx-map message & format-args]
                [level-or-pair throwable ctx-map message & format-args])}
-
   [level-or-pair x y & more]
-  (let [level (log-level level-or-pair)
-        log-ns (log-ns level-or-pair)]
-   `(let [logger# (impl/get-logger tlog/*logger-factory* ~log-ns)]
-      (if (impl/enabled? logger# ~level)
-        (let [x# ~x, y# ~y, more# (list ~@more)]
-          (if (instance? Throwable x#)
-
-            (let [throwable# x#
-                  ctx-map# y#
-                  message# (first more#)
-                  format-args# (rest more#)]
-              (with-logging-context ctx-map#
-                (tlog/log* logger# ~level throwable#
-                          (-> message# (interpolate-message ctx-map#) (format format-args#)))))
-
-            (let [ctx-map# x#
-                  message# y#
-                  format-args# more#]
-              (with-logging-context ctx-map#
-                (tlog/log* logger# ~level nil
-                           (apply format (interpolate-message message# ctx-map#) format-args#))))))))))
+  `(let [lop# ~level-or-pair
+         [ns# level#] (if (coll? lop#) lop# [~*ns* lop#])
+         logger# (impl/get-logger tlog/*logger-factory* ns#)]
+     (when (impl/enabled? logger# level#)
+       (maplog' logger# ns# level# ~x ~y ~@more))))
