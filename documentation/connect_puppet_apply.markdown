@@ -56,11 +56,11 @@ Currently, Puppet needs extra Ruby plugins in order to use PuppetDB. Unlike cust
 * First, ensure that the appropriate Puppet Labs package repository ([Puppet Enterprise](/guides/puppetlabs_package_repositories.html#puppet-enterprise-repositories), or [open source](/guides/puppetlabs_package_repositories.html#open-source-repositories)) is enabled. You can use a [package][] resource to do this or use the apt::source (from the [puppetlabs-apt][apt] module) and [yumrepo][] types.
 * Next, use Puppet to ensure that the `puppetdb-terminus` package is installed:
 
-{% highlight ruby %}
+~~~ ruby
     package {'puppetdb-terminus':
       ensure => installed,
     }
-{% endhighlight %}
+~~~
 
 
 ### On Platforms Without Packages
@@ -71,7 +71,7 @@ If your puppet master isn't running Puppet from a supported package, you will ne
 * Identify the install location of Puppet on your nodes.
 * Create a [file][] resource in your manifests for each of the plugin files, to move them into place on each node.
 
-{% highlight ruby %}
+~~~ ruby
     # <modulepath>/puppetdb/manifests/terminus.pp
     class puppetdb::terminus {
       $puppetdir = "$rubysitedir/puppet"
@@ -85,7 +85,7 @@ If your puppet master isn't running Puppet from a supported package, you will ne
         mode => 0644,
       }
     }
-{% endhighlight %}
+~~~
 
 ## Step 3: Manage Config Files on Every Puppet Node
 
