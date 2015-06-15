@@ -23,52 +23,47 @@
                                          {}
                                          db
                                          ""))]
-    (if status 
+    (if status
       (http/json-response status)
       (http/status-not-found-response "environment" environment))))
 
 (defn routes
-  [version]
+  [{:keys [api-version scf-read-db url-prefix] :as globals}]
   (app
    []
-   {:get
-    (-> (fn [{:keys [params globals paging-options]}]
-          (produce-streaming-body
-           :environments
-           version
-           (params "query")
-           paging-options
-           (:scf-read-db globals)
-           (:url-prefix globals)))
-        (validate-query-params
-         {:optional (cons "query" paging/query-params)}))}
+   {:get (-> (fn [{:keys [params paging-options]}]
+               (produce-streaming-body
+                :environments
+                api-version
+                (params "query")
+                paging-options
+                scf-read-db
+                url-prefix))
+             (validate-query-params {:optional (cons "query" paging/query-params)}))}
 
    [environment]
-   {:get
-    (-> (fn [{:keys [globals]}]
-          (environment-status version environment (:scf-read-db globals)))
-        ;; Being a singular item, querying and pagination don't really make
-        ;; sense here
-        (validate-query-params {}))}
+   {:get (-> (constantly
+              (environment-status api-version environment scf-read-db))
+             (validate-query-params {}))}
 
    [environment "facts" &]
-   (-> (comp (f/facts-app version) (partial http-q/restrict-query-to-environment environment))
-       (wrap-with-parent-check version :environment environment))
+   (-> (comp (f/facts-app globals) (partial http-q/restrict-query-to-environment environment))
+       (wrap-with-parent-check globals :environment environment))
 
    [environment "resources" &]
-   (-> (comp (r/resources-app version) (partial http-q/restrict-query-to-environment environment))
-       (wrap-with-parent-check version :environment environment))
+   (-> (comp (r/resources-app globals) (partial http-q/restrict-query-to-environment environment))
+       (wrap-with-parent-check globals :environment environment))
 
    [environment "events" &]
-   (-> (comp (ev/events-app version) (partial http-q/restrict-query-to-environment environment))
-       (wrap-with-parent-check version :environment environment))
+   (-> (comp (ev/events-app globals) (partial http-q/restrict-query-to-environment environment))
+       (wrap-with-parent-check globals :environment environment))
 
    [environment "reports" &]
-   (-> (comp (rp/reports-app version) (partial http-q/restrict-query-to-environment environment))
-       (wrap-with-parent-check version :environment environment))))
+   (-> (comp (rp/reports-app globals) (partial http-q/restrict-query-to-environment environment))
+       (wrap-with-parent-check globals :environment environment))))
 
 (defn environments-app
-  [version]
-  (-> (routes version)
+  [globals]
+  (-> (routes globals)
       verify-accepts-json
       wrap-with-paging-options))

@@ -71,14 +71,6 @@
         response
         (assoc response :body (http/default-body req response))))))
 
-(defn wrap-with-globals
-  "Ring middleware that will add to each request a :globals attribute:
-  a map containing various global settings"
-  [app globals]
-  (fn [req]
-    (let [new-req (assoc req :globals globals)]
-      (app new-req))))
-
 (defn wrap-with-paging-options
   "Ring middleware that will add to each request a :paging-options attribute:
   a map optionally containing :limit, :offset, and :order_by keys used to
@@ -293,10 +285,10 @@
   "Middleware that checks the parent exists before serving the rest of the
    application. This ensures we always return 404's on child paths when the
    parent data is empty."
-  [app version parent id]
-  (fn [{:keys [globals] :as req}]
-    (let [{:keys [scf-read-db url-prefix]} globals]
-      ;; There is a race condition here, in particular we open up 1 transaction
+  [app globals parent id]
+  (let [{:keys [scf-read-db url-prefix api-version]} globals]
+    ;; There is a race condition here, in particular we open up 1 transaction
+    (fn [req]
       ;; for the parent test, but the rest of the query results are done via the
       ;; streaming query. This can't be solved until we work out a way to
       ;; pass through an existing db handle through to the streamed query thread.

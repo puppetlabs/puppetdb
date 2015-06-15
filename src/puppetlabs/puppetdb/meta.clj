@@ -3,8 +3,7 @@
             [net.cgrand.moustache :as moustache]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.middleware
-             :refer [verify-accepts-json wrap-with-globals
-                     validate-no-query-params wrap-with-puppetdb-middleware]]
+             :refer [verify-accepts-json validate-no-query-params wrap-with-puppetdb-middleware]]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [compojure.core :as compojure]
             [puppetlabs.kitchensink.core :as kitchensink]

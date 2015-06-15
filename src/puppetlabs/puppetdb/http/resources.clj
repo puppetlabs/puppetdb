@@ -7,18 +7,18 @@
                                                     wrap-with-paging-options]]))
 
 (defn query-app
-  ([version] (query-app version true))
-  ([version restrict-to-active-nodes]
+  ([globals] (query-app globals true))
+  ([{:keys [api-version scf-read-db url-prefix]} restrict-to-active-nodes]
    (app
     [&]
-    {:get (comp (fn [{:keys [params globals paging-options]}]
+    {:get (comp (fn [{:keys [params paging-options]}]
                   (produce-streaming-body
                    :resources
-                   version
+                   api-version
                    (params "query")
                    paging-options
-                   (:scf-read-db globals)
-                   (:url-prefix globals)))
+                   scf-read-db
+                   url-prefix))
                 (if restrict-to-active-nodes
                   http-q/restrict-query-to-active-nodes
                   identity))})))
@@ -39,10 +39,9 @@
          (partial http-q/restrict-resource-query-to-type type))))
 
 (defn resources-app
-  ([version] (resources-app version true))
-  ([version restrict-to-active-nodes]
+  ([globals] (resources-app globals true))
+  ([globals restrict-to-active-nodes]
      (build-resources-app
-      (-> (query-app version restrict-to-active-nodes)
-          (validate-query-params
-           {:optional (cons "query" paging/query-params)})
+      (-> (query-app globals restrict-to-active-nodes)
+          (validate-query-params {:optional (cons "query" paging/query-params)})
           wrap-with-paging-options))))

@@ -9,11 +9,11 @@
             [net.cgrand.moustache :refer [app]]))
 
 (defn routes
-  [version]
+  [{:keys [scf-read-db url-prefix api-version]}]
   (app
     [""]
-    {:get (fn [{:keys [params globals]}]
-            (if (utils/hsql? (:scf-read-db globals))
+    {:get (fn [{:keys [params]}]
+            (if (utils/hsql? scf-read-db)
               (http/json-response
                 {:error "The aggregate-event-counts endpoint does not support HSQLDB."}
                 http/status-not-implemented)
@@ -28,16 +28,16 @@
                        " and may be altered or removed in the future."))
                 (produce-streaming-body
                   :aggregate-event-counts
-                  version
+                  api-version
                   query
                   [summarize_by query-options]
-                  (:scf-read-db globals)
-                  (:url-prefix globals)))))}))
+                  scf-read-db
+                  url-prefix))))}))
 
 (defn aggregate-event-counts-app
   "Ring app for querying for aggregated summary information about resource events."
-  [version]
-  (-> (routes version)
+  [globals]
+  (-> (routes globals)
       verify-accepts-json
       (validate-query-params {:required ["query" "summarize_by"]
                               :optional ["counts_filter" "count_by" "distinct_resources"
