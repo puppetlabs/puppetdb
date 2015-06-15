@@ -1,5 +1,6 @@
 (ns puppetlabs.pe-puppetdb-extensions.semlog-test
   (:require [puppetlabs.pe-puppetdb-extensions.semlog :as semlog :refer :all]
+            [puppetlabs.pe-puppetdb-extensions.semlog-protocols :refer :all]
             [clojure.test :refer :all]
             [clojure.tools.logging :as tlog]
             [clojure.tools.logging.impl :as impl]
@@ -28,26 +29,29 @@
     "first {a} then {b} end" {:a 1, :b 2} "first 1 then 2 end"
     "kw {key}" {:key :val} "kw :val"))
 
-(defn make-log-record [logger-ns level ex message]
+(defn make-log-record [logger-ns level ex message marker]
   (letfn [(maybe-add-exception [rec]
             (if ex (assoc rec :throwable ex) rec))
-
-          (maybe-add-mdc [rec]
-            (let [mdc (into {} (seq (MDC/getCopyOfContextMap)))]
-              (if (pos? (count mdc))
-                (assoc rec :mdc mdc)
-                rec)))]
+          (maybe-add-marker [rec]
+            (if marker
+              (assoc rec :marker marker)
+              rec))]
     (-> {:ns logger-ns, :level level, :message message}
         maybe-add-exception
-        maybe-add-mdc)))
+        maybe-add-marker)))
 
 (defn atom-logger-factory [log-atom]
   (reify impl/LoggerFactory
     (name [_] "atomLogger")
-    (get-logger [_ logger-ns] (reify impl/Logger
-                                (enabled? [_ _] true)
-                                (write! [_ level ex message]
-                                  (swap! log-atom conj (make-log-record logger-ns level ex message)))))))
+    (get-logger [_ logger-ns]
+      (reify
+        impl/Logger
+        (enabled? [_ _] true)
+        (write! [_ level ex message]
+          (swap! log-atom conj (make-log-record logger-ns level ex message nil)))
+        MarkerLogger
+        (write-with-marker! [logger level ex message marker]
+          (swap! log-atom conj (make-log-record logger-ns level ex message marker)))))))
 
 (defn expect-log [f expected-log]
   (let [log (atom [])]
@@ -83,16 +87,16 @@
 (deftest maplog-test
   (are [f expected] (expect-log f expected)
     #(maplog :error {:key :val} "Test")
-    [{:ns stns, :level :error, :message "Test", :mdc {"key" ":val"}}]
+    [{:ns stns, :level :error, :message "Test", :marker {:key :val}}]
 
     #(maplog [:sync :error] {:key :val} "Test")
-    [{:ns :sync, :level :error, :message "Test", :mdc {"key" ":val"}}]
+    [{:ns :sync, :level :error, :message "Test", :marker {:key :val}}]
 
     #(maplog [:sync :error] {:key :val} "Test, {key}")
-    [{:ns :sync, :level :error, :message "Test, :val", :mdc {"key" ":val"}}]
+    [{:ns :sync, :level :error, :message "Test, :val", :marker {:key :val}}]
 
     #(maplog [:sync :error] {:key :val} "Test, {key} %s" 42)
-    [{:ns :sync, :level :error, :message "Test, :val 42", :mdc {"key" ":val"}}]))
+    [{:ns :sync, :level :error, :message "Test, :val 42", :marker {:key :val}}]))
 
 (deftest maplog-format-escaping
   (let [ctx {:w "%foo"
@@ -102,4 +106,4 @@
     (expect-log #(maplog :info ctx "%s {w} {x} {y} {z}" "embedded")
                 [{:ns stns :level :info
                   :message "embedded %foo % %% %%%"
-                  :mdc (mapkeys name ctx)}])))
+                  :marker ctx}])))
