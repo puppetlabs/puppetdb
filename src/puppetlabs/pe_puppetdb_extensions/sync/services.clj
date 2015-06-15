@@ -12,7 +12,8 @@
             [compojure.core :refer [routes POST] :as compojure]
             [schema.core :as s]
             [clj-time.coerce :refer [to-date-time]]
-            [puppetlabs.puppetdb.time :refer [parse-period]]))
+            [puppetlabs.puppetdb.time :refer [parse-period]]
+            [slingshot.slingshot :refer [throw+]]))
 
 (defn- sync-with! [host query-fn submit-command-fn node-ttl]
   (try
@@ -32,6 +33,36 @@
            (sync-from-remote! query-fn submit-command-fn (:remote_host_path sync-request) node-ttl)
            {:status 200 :body "success"}))))
 
+(defn enable-periodic-sync? [remotes]
+  (cond
+    (or (nil? remotes) (zero? (count remotes)))
+    (do
+      (log/warn "No remotes specified, sync disabled")
+      false)
+
+    (and remotes (> (count remotes) 1))
+    (throw+ {:type :puppetlabs.puppetdb.config/configuration-error
+             :message "Only a single remote is allowed"})
+    :else
+    (let [interval (-> remotes first (get :interval ::none))]
+      (cond
+        (= interval ::none)
+        false
+
+        (not (integer? interval))
+        (throw+ {:type :puppetlabs.puppetdb.config/configuration-error
+                 :message (str "Invalid sync interval: " interval)})
+
+        (neg? interval)
+        (throw+ {:type :puppetlabs.puppetdb.config/configuration-error
+                 :message (str "Sync interval must be positive or zero: " interval)})
+
+        (zero? interval)
+        (do (log/warn "Zero sync interval specified, disabling sync.")
+            false)
+
+        :else true))))
+
 (defservice puppetdb-sync-service
   [[:ConfigService get-in-config]
    [:WebroutingService add-ring-handler get-route]
@@ -45,15 +76,14 @@
                         (compojure/context (get-route this) []))]
            (add-ring-handler this app)
            (let [remotes (get-in-config [:sync :remotes])]
-             (when (and remotes (> (count remotes) 1))
-               (throw (IllegalArgumentException. "Only a single remote is allowed")))
-             (assoc context
-                    :scheduled-sync
-                    (when remotes
+             (if (enable-periodic-sync? remotes)
+               (assoc context
+                      :scheduled-sync
                       (atat/interspaced
                        (to-millis (time/seconds (get (first remotes) :interval 120)))
-                       #(sync-with! (:endpoint (remotes 0)) query submit-command node-ttl)
-                       (atat/mk-pool)))))))
+                       #(sync-with! (:endpoint (first remotes)) query submit-command node-ttl)
+                       (atat/mk-pool)))
+               context))))
 
   (stop [this context]
         (when-let [s (:scheduled-sync context)]
