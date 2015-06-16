@@ -3,7 +3,12 @@
             [clojure.tools.logging.impl :as impl]
             [io.clj.logging :refer [with-logging-context]]
             [clojure.core.match :as cm]
-            [puppetlabs.kitchensink.core :refer [mapvals]]))
+            [puppetlabs.kitchensink.core :refer [mapvals]]
+            [puppetlabs.pe-puppetdb-extensions.semlog-protocols :refer :all]
+            [cheshire.core :as cheshire])
+  (:import [net.logstash.logback.marker Markers LogstashMarker]
+           [com.fasterxml.jackson.core JsonGenerator]))
+
 
 (defmacro logp
   "This is just like `clojure.core.logging/logp`, except it accepts
@@ -77,15 +82,70 @@
                           (map #(get ctx-map (keyword %))))]
     (apply str (interleave-all in-between-text replacements))))
 
+
+(defn- merge-clojure-map-marker
+  "Create a marker that, when written to the LogStash json encoder, will
+  json-encode the given map `m` and merge it with any already-created json.
+
+  Use the following encoder configuration inside your logback appender
+  configuration to write your log messages as json:
+
+    <encoder class=\"net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder\">
+      <providers>
+        <timestamp/>
+        <message/>
+        <loggerName/>
+        <threadName/>
+        <logLevel/>
+        <logLevelValue/>
+        <stackTrace/>
+        <logstashMarkers/>
+      </providers>
+    </encoder>
+  "
+  [m]
+  (proxy [LogstashMarker] ["SEMLOG_MAP"]
+    (writeTo [^JsonGenerator generator]
+      (binding [cheshire/*generator* generator]
+        ;; `::none` is the 'wholeness' parameter to cheshire, which indicates which
+        ;; start- and end-object markers to write. In this case we don't want any
+        ;; of them, so we'll pass `::none`. This is not on the list of supported values,
+        ;; but the fact that it's not equal to any of them means it will work.
+        (cheshire/write m ::none)))))
+
+(extend-protocol MarkerLogger
+  org.slf4j.Logger
+  (write-with-marker! [logger level e msg marker-map]
+    (let [^String msg (str msg)
+          marker (merge-clojure-map-marker marker-map)]
+      (if e
+        (case level
+          :trace (.trace logger marker msg e)
+          :debug (.debug logger marker msg e)
+          :info  (.info  logger marker msg e)
+          :warn  (.warn  logger marker msg e)
+          :error (.error logger marker msg e)
+          :fatal (.error logger marker msg e)
+          (throw (IllegalArgumentException. (str level))))
+        (case level
+          :trace (.trace logger marker msg)
+          :debug (.debug logger marker msg)
+          :info  (.info  logger marker msg)
+          :warn  (.warn  logger marker msg)
+          :error (.error logger marker msg)
+          :fatal (.error logger marker msg)
+          (throw (IllegalArgumentException. (str level))))))))
+
 (defn maplog' [logger ns level throwable-or-ctx ctx-or-message & more]
   (let [[throwable ctx msg fmt-args]
         (if (instance? Throwable throwable-or-ctx)
           [throwable-or-ctx ctx-or-message (first more) (rest more)]
           [nil throwable-or-ctx ctx-or-message more])
         esc-ctx (mapvals #(.replace (str %) "%" "%%") ctx)]
-    (with-logging-context ctx
-      (tlog/log* logger level throwable
-                 (apply format (interpolate-message msg esc-ctx) fmt-args)))))
+
+    (write-with-marker! logger level throwable
+                        (apply format (interpolate-message msg esc-ctx) fmt-args)
+                        ctx)))
 
 (defmacro maplog
   "Log, as data, the map `ctx-map`. This will be made available to slf4j as the
