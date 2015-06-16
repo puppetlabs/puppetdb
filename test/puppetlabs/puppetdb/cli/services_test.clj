@@ -2,11 +2,11 @@
   (:import [java.security KeyStore])
   (:require [me.raynes.fs :as fs]
             [clj-http.client :as client]
-            [puppetlabs.puppetdb.meta.version :as v]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :refer :all]
             [puppetlabs.puppetdb.http.command :refer :all]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.meta.version :as version]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*base-url*]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
@@ -17,10 +17,8 @@
 
 (deftest update-checking
   (testing "should check for updates if running as puppetdb"
-    (with-redefs [v/update-info (constantly {:version "0.0.0" :newer true})]
-      (with-log-output log-output
-        (maybe-check-for-updates "puppetdb" "update-server!" {})
-        (is (= 1 (count (logs-matching #"Newer version 0.0.0 is available!" @log-output)))))))
+    (with-redefs [version/check-for-updates! (constantly "Checked for updates!")]
+      (is (= (maybe-check-for-updates "puppetdb" "update-server!" {}) "Checked for updates!"))))
 
   (testing "should skip the update check if running as pe-puppetdb"
     (with-log-output log-output

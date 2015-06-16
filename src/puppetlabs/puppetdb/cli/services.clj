@@ -64,7 +64,7 @@
                                               format-period period?]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
-            [puppetlabs.puppetdb.meta.version :refer [version update-info]]
+            [puppetlabs.puppetdb.meta.version :as version]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query-eng :as qeng]
@@ -150,24 +150,10 @@
     (catch Exception e
       (log/error e "Error during garbage collection"))))
 
-(defn check-for-updates
-  "This will fetch the latest version number of PuppetDB and log if the system
-  is out of date."
-  [update-server db]
-  (let [{:keys [version newer link]} (try
-                                       (update-info update-server db)
-                                       (catch Throwable e
-                                         (log/debugf e "Could not retrieve update information (%s)" update-server)))]
-    (when newer
-      (log/info (cond-> (format "Newer version %s is available!" version)
-                  link (str " Visit " link " for details."))))))
-
 (defn maybe-check-for-updates
-  "Check for updates if our `product-name` indicates we should, and skip the
-  check otherwise."
-  [product-name update-server db]
+  [product-name update-server read-db]
   (if (= product-name "puppetdb")
-    (check-for-updates update-server db)
+    (version/check-for-updates! update-server read-db)
     (log/debug "Skipping update check on Puppet Enterprise")))
 
 (defn build-whitelist-authorizer
@@ -203,13 +189,8 @@
   "Shuts down PuppetDB, releasing resources when possible.  If this is
   not a normal shutdown, emergency? must be set, which currently just
   produces a fatal level level log message, instead of info."
-  [context emergency?]
-  (if emergency?
-    (log/error "A fatal error occurred; shutting down all subsystems.")
-    (log/info "Shutdown request received; puppetdb exiting."))
-  (when-let [updater (context :updater)]
-    (log/info "Shutting down updater thread.")
-    (future-cancel updater))
+  [context]
+  (log/info "Shutdown request received; puppetdb exiting.")
   (shutdown-mq context)
   (when-let [ds (get-in context [:shared-globals :scf-write-db :datasource])]
     (.close ds))
@@ -238,11 +219,10 @@
       (log/info "Removed legacy queue"))))
 
 (defn start-puppetdb
-  [context config service add-ring-handler get-route shutdown-on-error]
+  [context config service add-ring-handler get-route]
   {:pre [(map? context)
          (map? config)
-         (ifn? add-ring-handler)
-         (ifn? shutdown-on-error)]
+         (ifn? add-ring-handler)]
    :post [(map? %)
           (every? (partial contains? %) [:broker])]}
   (let [{:keys [global   jetty
@@ -265,7 +245,7 @@
         authorizer (when certificate-whitelist
                      (build-whitelist-authorizer certificate-whitelist))]
 
-    (when-let [v (version)]
+    (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
 
     ;; Ensure the database is migrated to the latest version, and warn
@@ -311,13 +291,12 @@
                    :mq-threads threads
                    :catalog-hash-debug-dir catalog-hash-debug-dir
                    :command-mq {:connection mq-connection
-                                :endpoint mq-endpoint}}
-          updater (when-not disable-update-checking
-                    (future (shutdown-on-error
-                             (service-id service)
-                             #(maybe-check-for-updates product-name update-server read-db)
-                             #(stop-puppetdb % true))))]
+                                :endpoint mq-endpoint}}]
       (transfer-old-messages! mq-connection)
+
+      (when-not disable-update-checking
+        (maybe-check-for-updates product-name update-server read-db))
+
       (let [app (->> (server/build-app globals)
                      (compojure/context url-prefix []))]
         (log/info "Starting query server")
@@ -341,12 +320,11 @@
         ;; competition. Each task must handle its own errors.
         (gc-task db-maintenance-tasks)
         (gc-task #(compress-dlo! dlo-compression-threshold discard-dir)))
-      (-> context
-          (assoc :broker broker
-                 :mq-factory mq-factory
-                 :mq-connection mq-connection
-                 :shared-globals globals)
-          (merge (when updater {:updater updater}))))))
+      (assoc context
+             :broker broker
+             :mq-factory mq-factory
+             :mq-connection mq-connection
+             :shared-globals globals))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
@@ -360,14 +338,13 @@
   that trapperkeeper will call on exit."
   PuppetDBServer
   [[:ConfigService get-config]
-   [:WebroutingService add-ring-handler get-route]
-   [:ShutdownService shutdown-on-error]]
+   [:WebroutingService add-ring-handler get-route]]
 
   (start [this context]
-         (start-puppetdb context (get-config) this add-ring-handler get-route shutdown-on-error))
+         (start-puppetdb context (get-config) this add-ring-handler get-route))
 
   (stop [this context]
-        (stop-puppetdb context false))
+        (stop-puppetdb context))
   (shared-globals [this]
                   (:shared-globals (service-context this)))
   (query [this query-obj version query-expr paging-options row-callback-fn]

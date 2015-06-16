@@ -8,6 +8,7 @@
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [compojure.core :as compojure]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [slingshot.slingshot :refer [try+]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.meta.version :as v]))
 
@@ -36,11 +37,14 @@
       ;; display info about a newer version
       ;; being available
       (if (= product-name "pe-puppetdb")
-        (http/json-response {:newer false :version (v/version) :link nil})
-        (if-let [result (v/update-info update-server scf-read-db)]
-          (http/json-response result)
-          (do (log/debugf "Unable to determine latest version via update-server: '%s'" update-server)
-              (http/error-response "Could not find version" 404))))
+        (http/json-response {:newer false
+                             :version (v/version)
+                             :link nil})
+        (try+
+         (http/json-response (v/update-info update-server scf-read-db))
+         (catch map? {m :message}
+           (log/debug m (format "Could not retrieve update information (%s)" update-server))
+           (http/error-response "Could not find version" 404))))
 
       (catch java.io.IOException e
         (log/debugf "Error when checking for latest version: %s" e)
