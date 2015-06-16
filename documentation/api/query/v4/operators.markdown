@@ -74,7 +74,7 @@ The following example would match if the `certname` field's actual value resembl
 > * [PostgreSQL regexp features](http://www.postgresql.org/docs/9.4/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
 > * [HSQLDB (embedded database) regexp features](http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html)
 
-### '~>' (regexp array match)
+### `~>` (regexp array match)
 
 **Works with:** paths
 
