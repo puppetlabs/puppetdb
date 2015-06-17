@@ -115,7 +115,7 @@ If you _do_ need to change rare settings that the module doesn't manage, you can
 
 Create a new class in a new module (something like `site::puppetdb::server::extra`), declare any number of `ini_setting` resources as shown below, set the class to refresh the `puppetdb::server` class, and assign it to your PuppetDB server.
 
-{% highlight ruby %}
+~~~ ruby
     # Site-specific PuppetDB settings. Declare this class on any node that gets the puppetdb::server class.
     class site::puppetdb::server::extra {
 
@@ -139,7 +139,7 @@ Create a new class in a new module (something like `site::puppetdb::server::extr
         value   => 'true',
       }
     }
-{% endhighlight %}
+~~~
 
 `[global]` Settings
 -----

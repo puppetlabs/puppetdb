@@ -330,6 +330,57 @@ derive data from a PuppetDB export tarball.
 
 TODO
 
+2.3.5
+-----
+
+PuppetDB 2.3.5 is a backwards-compatible bugfix release primarily geared toward
+extending support for the all in one agent.
+
+### Upgrading
+
+* For the best-possible performance and scaling capacity, we recommend
+  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
+  extension enabled, as explained [here][configure_postgres], and we
+  have officially deprecated versions earlier than 9.2.  HSQLDB is
+  only recommended for local development because it has a number of
+  scaling and operational issues.
+
+* Make sure that all of your PuppetDB instances are shut down, and
+  only upgrade one at a time.
+
+* Make sure to upgrade your puppetdb-terminus package (on the host
+  where your Puppet master lives), and restart your master service.
+
+### Contributors
+John Duarte, Ken Barber, Matthaus Owens, Melissa Stone, Rob Browning, Russell
+Mull, Ryan Senior, Wyatt Alt
+
+### Changes
+
+#### Bug Fixes and Maintenance
+
+* We have fixed a bug that caused PuppetDB to reject resource relationship
+  titles containing newlines. ([PDB-1529](https://tickets.puppetlabs.com/browse/PDB-1529))
+
+* We have removed an extraneous dependency on rubygem-json, which was
+  preventing the PuppetDB terminus from installing with the all in one agent on RHEL 6.
+  ([PDB-1469](https://tickets.puppetlabs.com/browse/PDB-1469))
+
+* We have fixed a bug that caused unneccessary contention on the certnames
+  table during command submission, which in turn caused commands to be retried
+  more often than necessary.
+  ([PDB-1550](https://tickets.puppetlabs.com/browse/PDB-1550))
+
+* We have added additional error handling around PuppetDB startup failures that
+  can be caused by server downgrades that implicitly downgrade ActiveMQ.
+  ([PDB-1454](https://tickets.puppetlabs.com/browse/PDB-1454))
+
+#### Testing
+
+* We have updated our acceptance tests to run against Puppet 4 with AIO in
+  addition to Puppet 3.
+  ([PDB-1300](https://tickets.puppetlabs.com/browse/PDB-1300))
+
 2.3.4
 -----
 
