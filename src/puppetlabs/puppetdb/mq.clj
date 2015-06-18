@@ -132,10 +132,17 @@
     (start-broker! (build-embedded-broker brokername dir config))
     (catch java.io.EOFException e
       (log/warn
-       (str "Caught EOFException on broker startup, trying to restart it "
-            "again to see if that solves it. This is probably due to "
-            "KahaDB corruption."))
-      (start-broker! (build-embedded-broker brokername dir config)))))
+       "Caught EOFException on broker startup, trying again."
+       "This is probably due to KahaDB corruption"
+       "(see \"KahaDB Corruption\" in the PuppetDB manual).")
+      (start-broker! (build-embedded-broker brokername dir config)))
+    (catch java.io.IOException e
+      (throw (java.io.IOException.
+              (str "Unable to start broker in " (str (pr-str dir) ".")
+                   " This is probably due to KahaDB corruption"
+                   " or version incompatibility after a PuppetDB downgrade"
+                   " (see \"KahaDB Corruption\" in the PuppetDB manual)."))
+             e))))
 
 (defn extract-headers
   "Creates a map of custom headers included in `message`, currently only
