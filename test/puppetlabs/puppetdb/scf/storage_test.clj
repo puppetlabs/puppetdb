@@ -1187,7 +1187,7 @@
 
         (testing "should do nothing if the node is already active"
           (activate-node! certname)
-          (is (= true (maybe-activate-node! certname (now))))
+          (is (= false (maybe-activate-node! certname (now))))
           (is (= (query-certnames) [{:certname certname :deactivated nil}])))))))
 
 (deftest node-staleness-age
