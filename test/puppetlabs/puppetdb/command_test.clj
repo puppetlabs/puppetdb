@@ -718,11 +718,8 @@
 
           (test-msg-handler new-facts-cmd publish discard-dir
             (reset! second-message? true)
-            (is (re-matches
-                  (if (sutils/postgres?)
-                    #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
-                    #".*BatchUpdateException.*(rollback|abort).*")
-                  (extract-error-message publish))))
+            (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
+                            (extract-error-message publish))))
           @fut
           (is (true? @first-message?))
           (is (true? @second-message?)))))))
