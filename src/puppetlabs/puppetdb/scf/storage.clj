@@ -1194,7 +1194,7 @@
     (add-certname! certname))
   (let [timestamp (to-timestamp time)
         replaced  (sql/update-values :certnames
-                                     ["certname=? AND (deactivated<? OR deactivated IS NULL) AND (expired<? OR expired IS NULL)"
+                                     ["certname=? AND (deactivated<? OR expired<?)"
                                       certname timestamp timestamp]
                                      {:deactivated nil, :expired nil})]
     (pos? (first replaced))))
