@@ -1215,6 +1215,15 @@
         (dorun (map #(%) func-set))
         (is (= (stale-nodes (-> 1 days ago)) ["node1"]))))))
 
+(deftest node-stale-reports
+  (testing "should not return a node with a recent report and nothing else"
+    (let [report (-> (:basic reports)
+                     (assoc :environment "ENV2")
+                     (assoc :end_time (now))
+                     (assoc :producer_timestamp (now)))]
+      (store-example-report! report (now))
+      (is (= (stale-nodes (-> 1 days ago)) [])))))
+
 (deftest node-max-age
   (testing "should only return nodes older than max age, and leave others alone"
     (let [catalog (:empty catalogs)]

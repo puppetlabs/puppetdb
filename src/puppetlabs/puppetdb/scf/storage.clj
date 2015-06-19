@@ -220,11 +220,13 @@
     (map :certname (jdbc/query-to-vec "SELECT c.certname FROM certnames c
                                        LEFT OUTER JOIN catalogs clogs ON c.certname=clogs.certname
                                        LEFT OUTER JOIN factsets fs ON c.certname=fs.certname
+                                       LEFT OUTER JOIN reports r ON c.certname=r.certname
                                        WHERE c.deactivated IS NULL
                                        AND c.expired IS NULL
                                        AND (clogs.producer_timestamp IS NULL OR clogs.producer_timestamp < ?)
-                                       AND (fs.producer_timestamp IS NULL OR fs.producer_timestamp < ?)"
-                                      ts ts))))
+                                       AND (fs.producer_timestamp IS NULL OR fs.producer_timestamp < ?)
+                                       AND (r.producer_timestamp IS NULL OR r.producer_timestamp < ?)"
+                                      ts ts ts))))
 
 (defn node-deactivated-time
   "Returns the time the node specified by `certname` was deactivated, or nil if
