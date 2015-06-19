@@ -152,4 +152,43 @@ resources, storing edges, etc.). Metrics of particular note include:
 
 [Using `curl` from localhost][curl]:
 
+    curl 'http://localhost:8080/metrics/v1/mbeans/puppetlabs.puppetdb.command%3Atype%3Dglobal%2Cname%3Dprocessing-time'
+    {
+        "EventType" : "calls",
+        "OneMinuteRate" : 0.015222994059151214,
+        "MeanRate" : 0.05202494702450243,
+        "FifteenMinuteRate" : 0.024600100098031683,
+        "Max" : 69.326,
+        "50thPercentile" : 0.441,
+        "Mean" : 4.334236842105263,
+        "95thPercentile" : 22.597399999999862,
+        "99thPercentile" : 69.326,
+        "98thPercentile" : 69.326,
+        "Min" : 0.319,
+        "999thPercentile" : 69.326,
+        "RateUnit" : "SECONDS",
+        "75thPercentile" : 1.492,
+        "LatencyUnit" : "MILLISECONDS",
+        "Count" : 38,
+        "StdDev" : 11.981603160418109,
+        "FiveMinuteRate" : 0.028576112435005956
+    }
+
     curl 'http://localhost:8080/metrics/v1/mbeans/java.lang:type=Memory'
+    {
+      "ObjectPendingFinalizationCount" : 0,
+      "HeapMemoryUsage" : {
+        "committed" : 807403520,
+        "init" : 268435456,
+        "max" : 3817865216,
+        "used" : 129257096
+      },
+      "NonHeapMemoryUsage" : {
+        "committed" : 85590016,
+        "init" : 24576000,
+        "max" : 184549376,
+        "used" : 85364904
+      },
+      "Verbose" : false,
+      "ObjectName" : "java.lang:type=Memory"
+    }

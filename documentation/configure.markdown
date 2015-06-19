@@ -278,7 +278,7 @@ This controls how often, in minutes, to compact the database. The compaction pro
 ### `node-ttl`
 
 Mark as 'expired' nodes that haven't seen any activity (no new catalogs,
-facts, etc) in the specified amount of time. Expired nodes behave the same
+facts, or reports) in the specified amount of time. Expired nodes behave the same
 as manually-deactivated nodes.
 
 You may specify the time as a string using any of the following suffixes:

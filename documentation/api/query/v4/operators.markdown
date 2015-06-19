@@ -72,7 +72,7 @@ The following example would match if the `certname` field's actual value resembl
 > **Note:** Regular expression matching is performed by the database backend, and the available regexp features are backend-dependent. For best results, use the simplest and most common features that can accomplish your task. See the links below for details:
 >
 > * [PostgreSQL regexp features](http://www.postgresql.org/docs/9.4/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
-> * [HSQLDB (embedded database) regexp features](http://docs.oracle.com/javase/6/docs/api/java/util/regex/Pattern.html)
+> * [HSQLDB (embedded database) regexp features](http://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html)
 
 ### `~>` (regexp array match)
 
@@ -80,7 +80,7 @@ The following example would match if the `certname` field's actual value resembl
 
 **Matches if:** the array matches using the regular expressions provided within in each element. Array indexes are coerced to strings.
 
-The following example would match any network interface names starting with eth:
+The following example would match any network interface names starting with "eth":
 
     ["~>", "path", ["networking", "eth.*", "macaddress"]]
 
@@ -102,7 +102,6 @@ Similarly, the below query would return events that do have a specified line num
 
     ["null?" "line" false]
 
-
 ## Boolean Operators
 
 Every argument of these operators should be a **complete query string** in its own right. These operators are **transitive:** the order of their arguments does not matter.
@@ -123,7 +122,7 @@ Every argument of these operators should be a **complete query string** in its o
 
 ### `extract`
 
-To reduce the keypairs returned for each result in the response, you can use **extract**. Using extract outside of a subquery (which is discussed below) has the form below:
+To reduce the keypairs returned for each result in the response, you can use **extract**:
 
     ["extract", ["hash", "certname", "transaction_uuid"]
       ["=", "certname", "foo.com"]]
@@ -133,7 +132,7 @@ When only extracting a single column, the [] are optional
     ["extract", "transaction_uuid"
       ["=", "certname", "foo.com"]]
 
-When applying an aggregate function over a group-by clause, an extract
+When applying an aggregate function over a `group_by` clause, an extract
 statement takes the form
 
     ["extract", [["function", "count"], "status"],
@@ -144,7 +143,8 @@ Extract can also be used with a standalone function application:
 
     ["extract", [["function", "count"]], ["~", "certname", ".\*.com"]]
 
-At this time extract must always have an expression to extract from, like `["=" "certname" "foo.com"]` above.
+At this time extract must always have an expression to extract from, like `["=" "certname" "foo.com"]`
+in the example above.
 
 ### `function`
 
@@ -155,10 +155,12 @@ is applied within the first argument of an extract, as in the examples above.
 ### `group_by`
 
 The **group_by** operator must be applied as the last argument of an extract,
-and takes one or more column names as arguments.
+and takes one or more column names as arguments. For instance, to get event
+status counts for active certname by status, you can query the events endpoint
+with:
 
-**Note** Currently function and `group_by` are not supported on the facts or
-fact-contents endpoints.
+    ["extract", [["function", "count"], "status", "certname"],
+      ["=", ["node", "active"], true], ["group_by", "status", "certname"]]
 
 ## Subquery Operators
 
@@ -296,3 +298,18 @@ starting with "up" and value less than 100:
           ["and",
             ["~>", "path", ["up.*"]],
             ["<", "value", 100]]]]]
+
+To use a subquery to restrict a query to active nodes only, you can use this
+query:
+
+    ["in", "certname",
+      ["extract", "certname",
+        ["select_nodes",
+          ["and", ["null?", "deactivated", true],
+                  ["null?", "expired", true]]]]]
+
+For the previous query, we also allow the shorthand
+
+    ["=", ["node", "active"], true]
+
+and its counterpart with `false`.

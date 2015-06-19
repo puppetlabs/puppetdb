@@ -11,7 +11,7 @@ The `/server-time` endpoint can be used to retrieve the server time from the Pup
 
 ## `GET /pdb/meta/v1/server-time`
 
-This query endpoint will return the current time of the clock on the PuppetDB
+This metadata endpoint will return the current time of the clock on the PuppetDB
 server.  This can be useful as input to other time-based queries against PuppetDB,
 to eliminate the possibility of time differences between the clocks on client
 machines.
