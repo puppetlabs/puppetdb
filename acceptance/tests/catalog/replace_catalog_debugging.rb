@@ -53,7 +53,7 @@ MANIFEST
   Log.notify "Clearing the catalog hash debugging directory: #{catalog_hash_dir}"
 
   on database, "rm -rf #{catalog_hash_dir}*"
-  
+
   run_agents_with_new_site_pp(master, second_run_manifest)
 
   sleep_until_queue_empty database
@@ -90,6 +90,32 @@ MANIFEST
     new_bar_resource = new_catalog['resources'].select{ |res| res['title'] == "#{catalog_file_dir}/bar" }.first
     assert_equal("bar", new_bar_resource['parameters']['content'])
 
+  end
+
+  step "relationship on resource alias" do
+
+    manifest = <<MANIFEST
+
+    package { foo:
+      ensure => installed,
+      alias=>baz,
+    }
+    notify { bar:
+      message => "hi I'm noop.",
+      require => Package[baz]
+    }
+
+MANIFEST
+
+    ## under the failure case, this will cause the test to fail with exit=1
+    run_agents_with_new_site_pp(master, manifest, {}, "--noop")
+
+    sleep_until_queue_empty database
+
+    result = on database,
+      %Q|curl -G http://localhost:8080/v3/events -d 'query=["=","resource-title","foo"]'|
+    events = JSON.parse(result.stdout)
+    assert_equal(agents.count, events.count)
   end
 
   on database, "cp -p #{puppetdb_confdir(database)}/conf.d/config.ini.bak #{puppetdb_confdir(database)}/conf.d/config.ini"
