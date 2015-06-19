@@ -1276,13 +1276,6 @@
 
     (sql/do-commands
       "ALTER TABLE resource_events ADD CONSTRAINT resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"
-      "CREATE INDEX resource_events_containing_class_idx ON resource_events(containing_class)"
-      "CREATE INDEX resource_events_property_idx ON resource_events(property)"
-      "CREATE INDEX resource_events_reports_id_idx ON resource_events(report_id)"
-      "CREATE INDEX resource_events_resource_type_idx ON resource_events(resource_type)"
-      "CREATE INDEX resource_events_resource_title_idx ON resource_events(resource_title)"
-      "CREATE INDEX resource_events_status_idx ON resource_events(status)"
-      "CREATE INDEX resource_events_timestamp_idx ON resource_events(timestamp)"
       "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE")
 
     (sql/do-commands
@@ -1340,6 +1333,91 @@
    "ALTER TABLE reports ALTER COLUMN producer_timestamp SET NOT NULL"
    "CREATE INDEX idx_reports_producer_timestamp ON reports(producer_timestamp)"))
 
+(defn add-certname-id-to-certnames
+  []
+
+  (sql/do-commands
+    "CREATE SEQUENCE certname_id_seq CYCLE")
+
+  (sql/create-table :certnames_transform
+                    ;; Rename the 'name' column of certnames to 'certname'.
+                    ["id" "bigint NOT NULL PRIMARY KEY default nextval('certname_id_seq')"]
+                    ["certname"  "text NOT NULL UNIQUE"]
+                    ["latest_report_id" "bigint"]
+                    ["deactivated" "timestamp with time zone"]
+                    ["expired" "timestamp with time zone"])
+
+  (sql/do-commands
+    "INSERT INTO certnames_transform
+     (certname, latest_report_id, deactivated, expired)
+     SELECT certname, latest_report_id, deactivated, expired
+     FROM certnames"
+    "ALTER TABLE certnames DROP CONSTRAINT certnames_pkey CASCADE"
+    "DROP TABLE certnames"
+    "ALTER TABLE certnames_transform RENAME to certnames"
+    "ALTER TABLE catalogs ADD CONSTRAINT catalogs_certname_fkey
+     FOREIGN KEY (certname) REFERENCES certnames(certname)
+     ON UPDATE NO ACTION ON DELETE CASCADE"
+    "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_fk
+     FOREIGN KEY (certname) REFERENCES certnames(certname)
+     ON UPDATE CASCADE ON DELETE CASCADE"
+    "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey
+     FOREIGN KEY (certname)
+     REFERENCES certnames(certname) ON DELETE CASCADE")
+
+  (when (sutils/postgres?)
+    (sql/do-commands
+      "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey
+       FOREIGN KEY (latest_report_id)
+       REFERENCES reports(id) ON DELETE SET NULL")))
+
+(defn add-certname-id-to-resource-events
+  []
+  (sql/create-table :resource_events_transform
+                    ["report_id"        "bigint NOT NULL"]
+                    ["certname_id"      "bigint NOT NULL"]
+                    ["status"           "varchar(40) NOT NULL"]
+                    ["timestamp"        "timestamp with time zone NOT NULL"]
+                    ["resource_type"    "text NOT NULL"]
+                    ["resource_title"   "text NOT NULL"]
+                    ["property"         "varchar (40)"]
+                    ["new_value"        "text"]
+                    ["old_value"        "text"]
+                    ["message"          "text"]
+                    ["file"             "varchar(1024) DEFAULT NULL"]
+                    ["line"             "integer"]
+                    ["containment_path" (sutils/sql-array-type-string "TEXT")]
+                    ["containing_class" "varchar(255)"])
+
+  (sql/do-commands
+    "INSERT INTO resource_events_transform (
+     report_id, certname_id, status, timestamp, resource_type, resource_title,
+     property, new_value, old_value, message, file, line, containment_path,
+     containing_class)
+     SELECT reports.id as report_id,certnames.id as certname_id, status,
+     timestamp, resource_type, resource_title, property, new_value, old_value,
+     message, file, line, containment_path, containing_class
+     FROM resource_events as re
+     inner join reports on re.report_id = reports.id
+     inner join certnames on reports.certname=certnames.certname")
+
+  (sql/do-commands
+    "DROP TABLE resource_events"
+    "ALTER TABLE resource_events_transform RENAME to resource_events"
+    "CREATE INDEX resource_events_resource_timestamp ON
+     resource_events(resource_type, resource_title, timestamp)")
+
+  (sql/do-commands
+    "ALTER TABLE resource_events ADD CONSTRAINT resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"
+    "CREATE INDEX resource_events_containing_class_idx ON resource_events(containing_class)"
+    "CREATE INDEX resource_events_property_idx ON resource_events(property)"
+    "CREATE INDEX resource_events_reports_id_idx ON resource_events(report_id)"
+    "CREATE INDEX resource_events_resource_type_idx ON resource_events(resource_type)"
+    "CREATE INDEX resource_events_resource_title_idx ON resource_events(resource_title)"
+    "CREATE INDEX resource_events_status_idx ON resource_events(status)"
+    "CREATE INDEX resource_events_timestamp_idx ON resource_events(timestamp)"
+    "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1373,7 +1451,9 @@
    29 version-2yz-to-300-migration
    30 add-expired-to-certnames
    31 coalesce-fact-values
-   32 add-producer-timestamp-to-reports})
+   32 add-producer-timestamp-to-reports
+   33 add-certname-id-to-certnames
+   34 add-certname-id-to-resource-events})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -1452,7 +1532,8 @@
 (defn indexes!
   "Create missing indexes for applicable database platforms."
   [product-name]
-  (if (sutils/postgres?)
+  (if (and (sutils/postgres?)
+           (sutils/db-version-newer-than? [9 2]))
     (sql/transaction
      (if (sutils/pg-extension? "pg_trgm")
        (trgm-indexes!)
@@ -1464,9 +1545,10 @@
          "    CREATE EXTENSION pg_trgm;\n\n"
          "as the database super user on the PuppetDB database to correct\n"
          "this, then restart PuppetDB.\n"))))
+    (when (= product-name "puppetdb")
       (log/warn
        (str
         "Unable to install optimal indexing\n\n"
         "We are unable to create optimal indexes for your database.\n"
-        "To take advantage of trigram matching for text search,\n"
-        "consider using PostgreSQL.\n"))))
+        "For maximum index performance, we recommend using PostgreSQL 9.3 or\n"
+        "greater.\n")))))

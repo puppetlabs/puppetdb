@@ -116,7 +116,7 @@
   "Helper function to transform the event count subject data from the raw format that we get back from the
   database into the more structured format that the API specifies."
   [summarize_by]
-  (fn [_ _] 
+  (fn [_ _]
    (fn [rows]
      (map (partial munge-subject summarize_by) rows))))
 
@@ -124,7 +124,12 @@
   "Convert an event-counts `query` and a value to `summarize_by` into a SQL string.
   A second `counts-filter` query may be provided to further reduce the results, and
   the value to `count_by` may also be specified (defaults to `resource`)."
-  ([version query [summarize_by {:keys [counts_filter count_by] :as query-options} paging-options]]
+  ([version query [summarize_by query-options paging-options]]
+   (query->sql false version query [summarize_by query-options paging-options]))
+  ([will-union?
+    version
+    query
+    [summarize_by {:keys [counts_filter count_by] :as query-options} paging-options]]
      {:pre  [(sequential? query)
              (string? summarize_by)
              ((some-fn nil? sequential?) counts_filter)
@@ -142,10 +147,13 @@
            {counts-filter-where  :where
             counts-filter-params :params}  (get-counts-filter-where-clause counts_filter)
            distinct-opts                   (select-keys query-options
-                                                        [:distinct_resources? :distinct_start_time :distinct_end_time])
+                                                        [:distinct_resources?
+                                                         :distinct_start_time
+                                                         :distinct_end_time])
            [event-sql & event-params]      (:results-query
-                                            (if (:distinct_resources? query-options) ;;<- The query engine does not support distinct-resources!
-                                              (events/query->sql version query [distinct-opts nil])
+                                            (if (:distinct_resources? query-options)
+                                              ;;The query engine does not support distinct-resources!
+                                              (events/query->sql will-union? version query [distinct-opts nil])
                                               (qe/compile-user-query->sql qe/report-events-query query)))
            count-by-sql                    (get-count-by-sql event-sql count_by group-by)
            event-count-sql                 (get-event-count-sql count-by-sql group-by)

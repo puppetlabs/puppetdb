@@ -47,6 +47,23 @@
     where)
    params])
 
+(defn with-latest-events
+  "CTE to wrap unioned queries when distinct_resources is used"
+  [query]
+  (format
+    "WITH latest_events AS
+           (SELECT certnames.certname,
+                   resource_events.resource_type,
+                   resource_events.resource_title,
+                   resource_events.property,
+                   MAX(resource_events.timestamp) AS timestamp
+                   FROM resource_events
+                   JOIN certnames ON resource_events.certname_id = certnames.id
+                   WHERE resource_events.timestamp >= ?
+                   AND resource_events.timestamp <= ?
+                   GROUP BY certname, resource_type, resource_title, property)
+           %s" query))
+
 (defn distinct-select
   "Build the SELECT statement that we use in the `distinct-resources` case (where
   we are filtering out multiple events on the same resource on the same node).
@@ -65,16 +82,7 @@
          FROM resource_events
          JOIN reports ON resource_events.report_id = reports.id
          LEFT OUTER JOIN environments ON reports.environment_id = environments.id
-         JOIN (SELECT reports.certname,
-                      resource_events.resource_type,
-                      resource_events.resource_title,
-                      resource_events.property,
-                      MAX(resource_events.timestamp) AS timestamp
-                  FROM resource_events
-                  JOIN reports ON resource_events.report_id = reports.id
-                  WHERE resource_events.timestamp >= ?
-                     AND resource_events.timestamp <= ?
-                  GROUP BY certname, resource_type, resource_title, property) latest_events
+         JOIN latest_events
               ON reports.certname = latest_events.certname
                AND resource_events.resource_type = latest_events.resource_type
                AND resource_events.resource_title = latest_events.resource_title
@@ -88,7 +96,7 @@
 
 (defn legacy-query->sql
   "Compile a resource event `query` into an SQL expression."
-  [version query-options query paging-options]
+  [will-union? version query-options query paging-options]
   {:pre  [(or (sequential? query) (nil? query))
           (let [distinct-options [:distinct_resources? :distinct_start_time :distinct_end_time]]
             (or (not-any? #(contains? query-options %) distinct-options)
@@ -112,7 +120,11 @@
                                                    (:distinct_start_time query-options)
                                                    (:distinct_end_time query-options))
                                   (default-select select-fields where params))
-        paged-select (jdbc/paged-sql sql paging-options)
+        paged-select (cond-> (jdbc/paged-sql sql paging-options)
+                       ;; if the caller is aggregate-event-counts, this is one
+                       ;; of potentially three unioned queries, and
+                       ;; with-latest-events must be applied higher up
+                       (not will-union?) with-latest-events)
         result {:results-query (apply vector paged-select params)}]
     (if (:count? paging-options)
       (assoc result :count-query (apply vector (jdbc/count-sql sql) params))
@@ -120,19 +132,21 @@
 
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
-  [version query [query-options paging-options]]
-  {:pre  [(or (sequential? query) (nil? query))
-          (let [distinct-options [:distinct_resources? :distinct_start_time :distinct_end_time]]
-            (or (not-any? #(contains? query-options %) distinct-options)
-                (every? #(contains? query-options %) distinct-options)))]
-   :post [(map? %)
-          (jdbc/valid-jdbc-query? (:results-query %))
-          (or
-           (not (:count? paging-options))
-           (jdbc/valid-jdbc-query? (:count-query %)))]}
-  (paging/validate-order-by! (map keyword (keys query/event-columns)) paging-options)
-  (if (:distinct_resources? query-options)
-    ;; The new query engine does not support distinct-resources yet, so we
-    ;; fall back to the old
-    (legacy-query->sql version query-options query paging-options)
-    (qe/compile-user-query->sql qe/report-events-query query paging-options)))
+  ([version query [query-options paging-options]]
+   (query->sql false version query [query-options paging-options]))
+  ([will-union? version query [query-options paging-options]]
+   {:pre  [(or (sequential? query) (nil? query))
+           (let [distinct-options [:distinct_resources? :distinct_start_time :distinct_end_time]]
+             (or (not-any? #(contains? query-options %) distinct-options)
+                 (every? #(contains? query-options %) distinct-options)))]
+    :post [(map? %)
+           (jdbc/valid-jdbc-query? (:results-query %))
+           (or
+             (not (:count? paging-options))
+             (jdbc/valid-jdbc-query? (:count-query %)))]}
+   (paging/validate-order-by! (map keyword (keys query/event-columns)) paging-options)
+   (if (:distinct_resources? query-options)
+     ;; The new query engine does not support distinct-resources yet, so we
+     ;; fall back to the old
+     (legacy-query->sql will-union? version query-options query paging-options)
+     (qe/compile-user-query->sql qe/report-events-query query paging-options))))

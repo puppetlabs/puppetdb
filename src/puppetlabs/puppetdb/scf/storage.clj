@@ -297,6 +297,10 @@
   [env-name :- s/Str]
   (query-id :environments {:name env-name}))
 
+(pls/defn-validated certname-id :- (s/maybe s/Int)
+  [certname :- s/Str]
+  (query-id :certnames {:certname certname}))
+
 (pls/defn-validated ensure-environment :- (s/maybe s/Int)
   "Check if the given `env-name` exists, creates it if it does not. Always returns
    the id of the `env-name` (whether created or existing)"
@@ -1138,9 +1142,12 @@
                                     :end_time               end_time
                                     :receive_time           (to-timestamp received-timestamp)
                                     :environment_id         (ensure-environment environment)
-                                    :status_id              (ensure-status status)}))]
+                                    :status_id              (ensure-status status)}))
+                   assoc-ids #(assoc %
+                                     :report_id id
+                                     :certname_id (certname-id certname))]
                (->> resource_events
-                    (map (comp convert-containment-path #(assoc % :report_id id)))
+                    (map (comp convert-containment-path assoc-ids))
                     (apply sql/insert-records :resource_events))
                (when update-latest-report?
                  (update-latest-report! certname)))))))
