@@ -471,8 +471,8 @@ module PuppetDBExtensions
   # @return [void]
   # @api public
   def install_puppetdb_via_rake(host)
-    # TODO: remove once merged and released
-    ezbake_dev_build("git@github.com:kbarber/ezbake.git", "pdb-1455")
+    # Uncomment for pinning against a particular ezbake revision
+    #ezbake_dev_build("git@github.com:kbarber/ezbake.git", "pdb-1455")
 
     install_from_ezbake host
 
@@ -492,8 +492,8 @@ module PuppetDBExtensions
   end
 
   def install_puppetdb_termini_via_rake(host, database)
-    # TODO: remove once merged and released
-    ezbake_dev_build("git@github.com:kbarber/ezbake.git", "pdb-1455")
+    # Uncomment for pinning against a particular ezbake revision
+    #ezbake_dev_build("git@github.com:kbarber/ezbake.git", "pdb-1455")
 
     install_termini_from_ezbake host
 

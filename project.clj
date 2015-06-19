@@ -102,8 +102,7 @@
   :lein-ezbake {:vars {:user "puppetdb"
                        :group "puppetdb"
                        :build-type "foss"
-                       :main-namespace "puppetlabs.puppetdb.main"
-                       :create-varlib true}
+                       :main-namespace "puppetlabs.puppetdb.main"}
                 :config-dir "ext/config/foss"
                 }
 
@@ -133,8 +132,7 @@
                                            [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]]
                   :lein-ezbake {:vars {:user "pe-puppetdb"
                                        :group "pe-puppetdb"
-                                       :build-type "pe"
-                                       :create-varlib true}
+                                       :build-type "pe"}
                                 :config-dir "ext/config/pe"}
                   :version ~pdb-version
                   :name "pe-puppetdb"}
