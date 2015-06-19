@@ -66,8 +66,8 @@ This endpoint builds on top of the [`event-counts`][event-counts] and [`events`]
 ### Response Format
 
 The response is an array of JSON maps containing the summarize_by parameter,
-aggregated event-count information and a `total` for how many
-event-count results were aggregated.
+aggregated event-count information and a `total` field expressing the number of
+event-count results that were aggregated.
 
     [ {
         "summarize_by": "containing_class",
@@ -82,7 +82,7 @@ event-count results were aggregated.
 
 You can use [`curl`][curl] to query information about aggregated resource event counts like so:
 
-    curl -G 'http://localhost:8080/pdb/query/v4/aggregate-event-counts'
+    curl -G 'http://localhost:8080/pdb/query/v4/aggregate-event-counts' \
       --data-urlencode 'query=["=", "certname", "foo.local"]' \
       --data-urlencode 'summarize_by=containing_class'
 
@@ -95,7 +95,7 @@ You can use [`curl`][curl] to query information about aggregated resource event 
         "total" : 2
     } ]
 
-    curl -G 'http://localhost:8080/pdb/query/v4/aggregate-event-counts'
+    curl -G 'http://localhost:8080/pdb/query/v4/aggregate-event-counts' \
     -d 'query=["=","certname","foo.local"]' \
     -d 'summarize_by=containing_class,certname'
 

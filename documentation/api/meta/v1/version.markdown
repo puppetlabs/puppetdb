@@ -16,6 +16,10 @@ server.
 
 This endpoint does not use any URL parameters or query strings.
 
+## `GET /pdb/meta/v1/version/latest`
+
+This query will display a message describing the latest version of PuppetDB.
+
 ### Response Format
 
 The response will be in `application/json`, and will return a JSON map with a
@@ -31,3 +35,13 @@ of the running PuppetDB server.
     curl -X GET http://localhost:8080/pdb/meta/v1/version
 
     {"version": "X.Y.Z"}
+
+    curl -X GET http://localhost:8080/pdb/meta/v1/version/latest
+
+    {
+      "newer" : false,
+      "product" : "puppetdb",
+      "link" : "https://docs.puppetlabs.com/puppetdb/2.3/release_notes.html",
+      "message" : "Version 2.3.4 is now available!",
+      "version" : "2.3.4"
+    }

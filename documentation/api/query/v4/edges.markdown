@@ -9,7 +9,10 @@ canonical: "/puppetdb/latest/api/query/v4/edges.html"
 [query]: ./query.html
 [resources]: ./resources.html
 
-Catalog edges, are relationships formed between two [resources][resources]. They represent the edges inside the catalog graph, whereas resources represent the nodes in the graph. You can query edges by making an HTTP request to the `/edges` endpoint.
+Catalog edges, are relationships formed between two [resources][resources].
+They represent the edges inside the catalog graph, whereas resources represent
+the nodes in the graph. You can query edges by making an HTTP request to the
+`/edges` endpoint.
 
 ## `GET /pdb/query/v4/edges`
 
@@ -17,7 +20,10 @@ This will return all edges known to PuppetDB.
 
 ### URL Parameters
 
-* `query`: Optional. A JSON array containing the query in prefix notation. If not provided, all results will be returned. See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
+* `query`: Optional. A JSON array containing the query in prefix notation.
+If not provided, all results will be returned. See the sections below for the
+supported operators and fields. For general info about queries, see
+[the page on query structure.][query]
 
 ### Query Operators
 
