@@ -16,15 +16,15 @@ migration_command="puppetdb config-migration"
 #
 function backupfile() {
   # Create the global array if it doesn't already exist
-  if [ -z $backupfile_list ]; then
+  if [ -z "$backupfile_list" ]; then
     backupfile_list=()
   fi
 
   # We check the array to make sure the file isn't already backed up
-  if ! contains ${backupfile_list[@]} $1; then
-    local backup_path="$1.bak.`date +%s`"
+  if ! contains ${backupfile_list[@]} "$1"; then
+    local backup_path="$1.bak.$(date +%s)"
     echo "Backing up $1 to ${backup_path} before making changes"
-    cp -p $1 $backup_path
+    cp -p "$1" "$backup_path"
 
     # Append to the array, so we don't need to back it up again later
     backupfile_list+=($1)
@@ -68,48 +68,53 @@ function contains() {
 #    replaceline "^$mysetting.*" "mysetting = myvalue" /etc/myconfig
 #
 function replaceline {
-  backupfile $3
-  tmp=$3.tmp.`date +%s`
-  sed "s/$1/$(echo $2 | sed -e 's/[\/&]/\\&/g')/g" $3 > $tmp
-  mv $tmp $3
+  backupfile "$3"
+  tmp="$3.tmp.$(date +%s)"
+  sed "s/$1/$(echo "$2" | sed -e 's/[\/&]/\\&/g')/g" "$3" > "$tmp"
+  mv "$tmp" "$3"
 }
 
 # This function copies the necessary PEM files from Puppet to the PuppetDB
 # SSL directory.
 #
 # This expects various environment variables to have already been set to work.
-function copy_configs {
-  orig_files=($orig_config_file $orig_database_file $orig_jetty_file)
-  for orig_file in "${orig_files[@]}"; do
-    if [ ! -e $orig_file ]; then
-      echo "Warning: Unable to find all ini configuration files to copy"
-      echo
-      echo "  This tool requires the following certificates to exist:"
-      echo
-      echo "  * $orig_config_file"
-      echo "  * $orig_database_file"
-      echo "  * $orig_jetty_file"
-      echo
-      echo "  These files may be missing due to the fact that your host's Puppet"
-      echo "  certificates may not have been signed yet, probably due to the"
-      echo "  lack of a complete Puppet agent run. Try running puppet first, for"
-      echo "  example:"
-      echo
-      echo "      puppet agent --test"
-      echo
-      echo "  Afterwards re-run this tool then restart PuppetDB to complete the SSL"
-      echo "  setup:"
-      echo
-      echo "      ${migration_command} -f"
-      exit 1
+#
+# Note: This does not respect directory structures, and will move files blindly
+function migrate_files() {
+  destination=$1
+  orig_file=$2
+  if [ ! -e "$orig_file" ]; then
+    echo "Warning: Unable to find all ini configuration files to copy"
+    echo
+    echo "  This tool requires the following files to exist:"
+    echo
+    echo "  * $orig_file"
+    echo
+    echo "  These files may be missing due to the fact that your host's Puppet"
+    echo "  certificates may not have been signed yet, probably due to the"
+    echo "  lack of a complete Puppet agent run. Try running puppet first, for"
+    echo "  example:"
+    echo
+    echo "      puppet agent --test"
+    echo
+    echo "  Afterwards re-run this tool then restart PuppetDB to complete the SSL"
+    echo "  setup:"
+    echo
+    echo "      ${migration_command} -f"
+    exit 1
+  fi
+  if [ -e "${destination}/${orig_file##*/}" ] ; then
+    if $force ; then
+      echo "Replacing file: ${destination}/${orig_file##*/} with ${orig_file}"
+      cp -p "$orig_file" "${destination}/${orig_file##*/}"
+    else
+      echo "${destination}/${orig_file##*/} already exists. To replace with original file, rerun ${migration_command} -f"
     fi
-  done
-  rm -rf $config_dir
-  mkdir -p $config_dir
-  echo "Copying files: ${orig_config_file}, ${orig_database_file} and ${orig_jetty_file} to ${config_dir}"
-  cp -pr $orig_config_file $config_file
-  cp -pr $orig_database_file $database_file
-  cp -pr $orig_jetty_file $jetty_file
+  else
+    echo "Copying file: ${orig_file} to ${destination}"
+    mkdir -p "$destination"
+    cp -p "$orig_file" "${destination}/${orig_file##*/}"
+  fi
 }
 
 # This function copies the necessary KahaDB queue from the old varlib dir to the
@@ -119,10 +124,10 @@ function copy_configs {
 # $2 - migration target location
 #
 # This expects various environment variables to have already been set to work.
-function migrate_contents() {
-  old_location=$1
-  new_location=$2
-  if [ ! -e $old_location ]; then
+function migrate_directory() {
+  old_location="$1"
+  new_location="$2"
+  if [ ! -e "$old_location" ]; then
     echo "Warning: Unable to find directory to copy"
     echo
     echo "  This tool requires the following directory to exist:"
@@ -142,7 +147,7 @@ function migrate_contents() {
     echo "      ${migration_command} -f"
     exit 1
   fi
-  mkdir -p $new_location
+  mkdir -p "${new_location}"
   echo "Copying files from ${old_location} to ${new_location}"
   cp -pr $old_location/* $new_location/
 }
@@ -153,7 +158,7 @@ function migrate_contents() {
 ########
 
 # Gather command line options
-while getopts "ifh" opt;
+while getopts "fh" opt;
 do
   case $opt in
     f)
@@ -173,24 +178,23 @@ orig_config_dir=/etc/puppetdb/conf.d
 orig_jetty_file=${orig_config_dir}/jetty.ini
 orig_database_file=${orig_config_dir}/database.ini
 orig_config_file=${orig_config_dir}/config.ini
+orig_ini_files=($orig_jetty_file $orig_database_file $orig_config_file)
 
 config_dir=/etc/puppetlabs/puppetdb/conf.d
 database_file=${config_dir}/database.ini
 jetty_file=${config_dir}/jetty.ini
 config_file=${config_dir}/config.ini
-
-ini_files=($config_file)
+ini_files=($config_file $jetty_file $database_file)
 
 # Deal with config files
-if [ -f $config_file -a -f $database_file -a -f $jetty_file ]; then
-  echo "Config files in ${config_dir} already exists."
-else
-  echo "Config files in ${config_dir} are missing, we will move them into place for you"
-  copy_configs
-fi
+echo "Migrating configuration files ${orig_ini_files[*]} to ${config_dir}"
+for orig_ini_file in "${orig_ini_files[@]}" ; do
+  migrate_files "${config_dir}" "${orig_ini_file}"
+done
 
+echo "Checking to see if we need to update default settings"
 for ini_file in "${ini_files[@]}"; do
-  if [ -f "$ini_file" ] ; then
+  if [ -f "${ini_file}" ] ; then
     # Check settings are correct and fix or warn
     orig_settings=(
       "vardir:/var/lib/puppetdb"
@@ -205,14 +209,14 @@ for ini_file in "${ini_files[@]}"; do
       for j in "${new_settings[@]}"; do
         if [ "${j%%:*}" == "${setting}" ] ; then
           new_value="${j#*:}"
-          if grep -qe "^${setting}" ${ini_file}; then
-            if grep -qe "^${setting}[[:space:]]*=[[:space:]]*${orig_value}$" ${ini_file}; then
+          if grep -qe "^${setting}" "$ini_file"; then
+            if grep -qe "^${setting}[[:space:]]*=[[:space:]]*${orig_value}$" "$ini_file"; then
               if $force; then
-                replaceline "^${setting}.*" "${setting} = ${new_value}" ${ini_file}
+                replaceline "^${setting}.*" "${setting} = ${new_value}" "$ini_file"
                 echo "Updated setting ${setting} in ${ini_file}."
                 if [ "${setting}" == "vardir" ] ; then
                   echo "Copying over the contents of ${orig_value} to ${new_value}"
-                  migrate_contents $orig_value $new_value
+                  migrate_directory "$orig_value" "$new_value"
                 fi
               else
                 echo "Warning: Default setting ${setting} in ${ini_file} should be ${new_value}. This can be remedied with ${migration_command} -f."
@@ -221,8 +225,8 @@ for ini_file in "${ini_files[@]}"; do
               echo "Setting ${setting} in ${ini_file} has been changed from the default, so will not be updated."
             fi
           else
-            if grep -qE "^# ?${setting} = <[A-Za-z_]+>$" ${ini_file}; then
-              replaceline "^# ?${setting}.*" "${setting} = ${new_value}" ${ini_file}
+            if grep -qE "^# ?${setting} = <[A-Za-z_]+>$" "$ini_file"; then
+              replaceline "^# ?${setting}.*" "${setting} = ${new_value}" "$ini_file"
               echo "Updated default settings from package installation for ${setting} in ${ini_file}."
             fi
           fi
@@ -230,7 +234,7 @@ for ini_file in "${ini_files[@]}"; do
       done
     done
   else
-    echo "Error: Unable to find PuppetDB configuration file at ${ini_file} or ${orig_${ini_file}} so unable to provide automatic configuration for that file."
+    echo "Error: Unable to find PuppetDB configuration file at ${ini_file} so unable to provide automatic configuration for that file."
     echo
     echo "   Confirm the file exists in either path specified before running the"
     echo "   tool again. The file should have been created automatically when"
