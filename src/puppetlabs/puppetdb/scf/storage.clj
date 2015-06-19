@@ -41,7 +41,7 @@
             [metrics.gauges :refer [gauge]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.jdbc :refer [query-to-vec dashes->underscores]]
+            [puppetlabs.puppetdb.jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [honeysql.core :as hcore]))
 

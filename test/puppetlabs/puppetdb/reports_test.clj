@@ -3,8 +3,11 @@
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.reports :refer :all]
             [schema.core :as s]
-            [puppetlabs.puppetdb.testutils.reports
-             :refer [munge-example-report-for-storage]]))
+            [puppetlabs.puppetdb.testutils.reports :refer [munge-example-report-for-storage]]
+            [com.rpl.specter :as sp]
+            [puppetlabs.puppetdb.utils :as utils]
+            [clj-time.core :refer [now]]
+            [schema.core :as s]))
 
 (let [report (munge-example-report-for-storage (:basic reports))]
 
@@ -50,3 +53,33 @@
   (testing "no action on valid reports"
     (let [test-data (:basic reports)]
       (= (sanitize-report test-data) test-data))))
+
+(defn underscore->dash-report-keys [m]
+  (->> m
+       utils/underscore->dash-keys
+       (sp/update [:resource-events sp/ALL sp/ALL]
+                  #(update % 0 utils/underscores->dashes))))
+
+(def v4-example-report
+  (-> reports
+      :basic
+      munge-example-report-for-storage
+      underscore->dash-report-keys
+      (dissoc :logs :metrics :noop :producer-timestamp)))
+
+(deftest test-v5-conversion
+  (let [current-time (now)
+        v5-report (wire-v4->wire-v5 v4-example-report current-time)]
+
+    (is (s/validate report-v4-wireformat-schema v4-example-report))
+    (is (s/validate report-wireformat-schema v5-report))
+    (is (= current-time (:producer_timestamp v5-report)))))
+
+(deftest test-v4-conversion
+  (let [current-time (now)
+        v3-report (dissoc v4-example-report :status)
+        v5-report (wire-v3->wire-v5 v3-report current-time)]
+    (is (s/validate report-v3-wireformat-schema v3-report))
+    (is (s/validate report-wireformat-schema (wire-v3->wire-v5 v3-report current-time)))
+    (is (= current-time (:producer_timestamp v5-report)))
+    (is (nil? (:status v5-report)))))

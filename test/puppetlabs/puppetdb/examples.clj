@@ -1,4 +1,5 @@
-(ns puppetlabs.puppetdb.examples)
+(ns puppetlabs.puppetdb.examples
+  (:require [puppetlabs.puppetdb.utils :as utils]))
 
 (def catalogs
   {:empty
@@ -130,7 +131,16 @@
 
 (def wire-catalogs
   "Catalogs keyed by version."
-  {6 {:empty v6-empty-wire-catalog
+  {4 {:empty (-> v6-empty-wire-catalog
+                 (dissoc :producer_timestamp)
+                 (assoc :name (:certname v6-empty-wire-catalog))
+                 (dissoc :certname)
+                 utils/underscore->dash-keys)}
+   5 {:empty (-> v6-empty-wire-catalog
+                 (assoc :name (:certname v6-empty-wire-catalog))
+                 (dissoc :certname)
+                 utils/underscore->dash-keys)}
+   6 {:empty v6-empty-wire-catalog
       :basic
       (-> v6-empty-wire-catalog
           (assoc :certname "basic.wire-catalogs.com")
