@@ -147,7 +147,6 @@
   `(let [fixture-fn# (join-fixtures (:clojure.test/each-fixtures (meta ~*ns*)))]
      (fixture-fn# (fn [] ~@body))))
 
-;; TODO: change order of expected/actual?
 (defn response-equal?
   "Test if the HTTP request is a success, and if the result is equal
   to the result of the form supplied to this method.  Arguments:
@@ -172,7 +171,7 @@
                         (json/parse-string true)
                         (body-munge-fn)
                         (set)))]
-       (is (= expected actual)
+       (is (= actual expected)
            (str response)))))
 
 (defmacro =-after?

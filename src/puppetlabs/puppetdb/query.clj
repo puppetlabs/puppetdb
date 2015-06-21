@@ -63,10 +63,12 @@
   (:require [clojure.string :as str]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.kitchensink.core :refer [parse-number keyset valset order-by-expr?]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
-             :refer [db-serialize sql-as-numeric sql-array-query-string sql-regexp-match sql-regexp-array-match]]
+             :refer [db-serialize sql-as-numeric sql-array-query-string
+                     legacy-sql-regexp-match sql-regexp-array-match]]
             [puppetlabs.puppetdb.jdbc
              :refer [valid-jdbc-query? limited-query-to-vec query-to-vec paged-sql count-sql get-result-count]]
             [puppetlabs.puppetdb.query.paging :refer [requires-paging?]]
@@ -192,11 +194,6 @@
 (def fact-columns {"certname"         "facts"
                    "name"             "facts"
                    "value"            "facts"
-                   "depth"            "facts"
-                   "value_integer"    "facts"
-                   "value_float"      "facts"
-                   "type"             "facts"
-                   "path"             "facts"
                    "environment"      "facts"})
 
 ;; This map's keys are the queryable fields for factsets, and the values are the
@@ -256,6 +253,12 @@
    "environment"           "reports"
    "status"                "reports"})
 
+(defn qualified-column
+  "given a field and one of the column maps above, produce the fully qualified
+   column name"
+  [field columns]
+  (let [source-table (first (utils/vector-maybe (get columns field)))]
+    (format "%s.%s" source-table field)))
 
 (defn column-map->sql
   "Helper function that converts one of our column maps to a SQL string suitable
@@ -324,8 +327,16 @@
   (when-not (= (first subquery) "extract")
     (throw (IllegalArgumentException.
              (format "The subquery argument of 'in' must be an 'extract', not '%s'" (first subquery)))))
-  (let [{:keys [where] :as compiled-subquery} (compile-term ops subquery)]
-    (assoc compiled-subquery :where (format "%s IN (%s)" field where))))
+  (let [{:keys [where] :as compiled-subquery} (compile-term ops subquery)
+        columns (case kind
+                  :fact fact-columns
+                  :resource resource-columns
+                  :event event-columns
+                  :report report-columns
+                  :factset factset-columns)
+        qualified-field (qualified-column field columns)]
+    (assoc compiled-subquery
+           :where (format "%s IN (%s)" qualified-field where))))
 
 (defn resource-query->sql
   "Compile a resource query, returning a vector containing the SQL and
@@ -422,21 +433,23 @@
           (:where %)]}
   (match [path]
          ["tag"]
-         {:where (sql-regexp-array-match "catalog_resources" "catalog_resources" "tags")
+         {:where (.s (sql-regexp-array-match "catalog_resources"
+                                             "catalog_resources"
+                                             "tags"))
           :params [value]}
 
          ;; node join.
          ["certname"]
-         {:where  (sql-regexp-match "catalogs.certname")
+         {:where (legacy-sql-regexp-match "catalogs.certname")
           :params [value]}
 
          ["environment"]
-         {:where  (sql-regexp-match "catalog_resources.environment")
+         {:where (legacy-sql-regexp-match "catalog_resources.environment")
           :params [value]}
 
          ;; metadata match.
          [(metadata :guard #{"type" "title" "exported" "file"})]
-         {:where  (sql-regexp-match (format "catalog_resources.%s" metadata))
+         {:where (legacy-sql-regexp-match (format "catalog_resources.%s" metadata))
           :params [value]}
 
          ;; ...else, failure
@@ -485,7 +498,8 @@
            (string? pattern)]
      :post [(map? %)
             (string? (:where %))]}
-    (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
+    (let [query (fn [col] {:where (legacy-sql-regexp-match col)
+                           :params [pattern]})]
       (match [path]
              ["certname"]
              (query "facts.certname")
@@ -497,7 +511,8 @@
              (query "facts.name")
 
              ["value"]
-             {:where (format "%s and depth = 0" (sql-regexp-match "facts.value"))
+             {:where (format "%s and depth = 0"
+                             (legacy-sql-regexp-match "facts.value"))
               :params [pattern]}
 
              :else (throw (IllegalArgumentException.
@@ -607,19 +622,20 @@
     {:post [(map? %)
             (string? (:where %))]}
     (when-not (= (count args) 2)
-      (throw (IllegalArgumentException. (format "~ requires exactly two arguments, but %d were supplied" (count args)))))
+      (throw (IllegalArgumentException.
+               (format "~ requires exactly two arguments, but %d were supplied" (count args)))))
     (let [path (jdbc/dashes->underscores path)]
       (match [path]
              ["certname"]
-             {:where (sql-regexp-match "reports.certname")
+             {:where (legacy-sql-regexp-match "reports.certname")
               :params [pattern]}
 
              ["environment"]
-             {:where (sql-regexp-match "environments.name")
+             {:where (legacy-sql-regexp-match "environments.name")
               :params [pattern]}
 
              [(field :guard #{"report" "resource_type" "resource_title" "status"})]
-             {:where  (sql-regexp-match (format "resource_events.%s" field))
+             {:where  (legacy-sql-regexp-match (format "resource_events.%s" field))
               :params [pattern] }
 
              ;; these fields allow NULL, which causes a change in semantics when
@@ -627,9 +643,9 @@
              ;; about the NULL case.
              [(field :guard #{"property" "message" "file" "line" "containing_class"})]
              {:where (format "%s AND resource_events.%s IS NOT NULL"
-                             (sql-regexp-match (format "resource_events.%s" field))
+                             (legacy-sql-regexp-match (format "resource_events.%s" field))
                              field)
-              :params [pattern] }
+              :params [pattern]}
 
              :else (throw (IllegalArgumentException.
                            (format "'%s' is not a queryable object for version %s of the resource events API" path (last (name version)))))))))
