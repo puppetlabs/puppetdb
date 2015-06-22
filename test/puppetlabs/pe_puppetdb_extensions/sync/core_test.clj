@@ -424,6 +424,7 @@
                                          :config config
                                          :server svcs/*server*
                                          :db db
+                                         :server-url svcs/*base-url*
                                          :query-url (utils/pdb-query-url)
                                          :command-url (utils/pdb-cmd-url)
                                          :sync-url (utils/sync-url)}))))))
@@ -517,15 +518,15 @@
             (is (:deactivated node))))))))
 
 (deftest periodic-sync
-  (let [sync-interval 2]
+  (let [sync-interval "2s"]
     (let [periodic-sync-configs
           (fn [infos]
             (case (count infos)
               ;; infos length tells us which server we're handling.
               0 (utils/sync-config)
-              1 (let [url (base-url->str (:query-url (infos 0)))]
+              1 (let [url (base-url->str (:server-url (infos 0)))]
                   (assoc (utils/sync-config)
-                         :sync {:remotes [{:endpoint url
+                         :sync {:remotes [{:server_url url
                                            :interval sync-interval}]}))
               nil))
           facts-from #(get-factset (:query-url %) (:certname facts))]
