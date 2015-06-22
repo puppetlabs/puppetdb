@@ -167,7 +167,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
           end
         end
 
-        resource['parameters']['alias'] = aliases unless aliases.empty?
+        resource['parameters'][:alias] = aliases unless aliases.empty?
       end
     end
 
@@ -214,7 +214,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     profile("Map aliases to title (resource count: #{resources.count})",
             [:puppetdb, :aliases, :map_to_title]) do
       resources.each do |resource|
-        names = resource['parameters']['alias'] || []
+        names = Array(resource['parameters'][:alias]) || []
         resource_hash = {'type' => resource['type'], 'title' => resource['title']}
         names.each do |name|
           alias_array = [resource['type'], name]

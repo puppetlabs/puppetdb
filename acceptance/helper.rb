@@ -1049,7 +1049,7 @@ PP
     remote_path
   end
 
-  def run_agents_with_new_site_pp(host, manifest, env_vars = {})
+  def run_agents_with_new_site_pp(host, manifest, env_vars = {}, extra_cli_args = "")
 
     manifest_path = create_remote_site_pp(host, manifest)
     with_puppet_running_on host, {
@@ -1062,7 +1062,8 @@ PP
         'environmentpath' => manifest_path,
       }} do
       #only some of the opts work on puppet_agent, acceptable exit codes does not
-      agents.each{ |agent| on agent, puppet_agent("--test --server #{host}", { 'ENV' => env_vars }), :acceptable_exit_codes => [0,2] }
+      agents.each{ |agent| on agent, puppet_agent("--test --server #{host} #{extra_cli_args}",
+                                                  { 'ENV' => env_vars }), :acceptable_exit_codes => [0,2] }
 
     end
   end
