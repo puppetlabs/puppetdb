@@ -1,4 +1,4 @@
-(def pdb-version "3.0.0-SNAPSHOT")
+(def pdb-version "3.1.0-SNAPSHOT")
 (def pe-pdb-version "0.1.0-SNAPSHOT")
 
 (defn deploy-info
