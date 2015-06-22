@@ -6,7 +6,7 @@
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [clj-http.client :as http]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.testutils :as testutils :refer [=-after?]]
+            [puppetlabs.puppetdb.testutils :refer [=-after? without-jmx]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :as rt]
             [puppetlabs.pe-puppetdb-extensions.sync.core :refer :all]
@@ -112,7 +112,7 @@
 
 (deftest two-instance-test
   (muting-amq-shutdown-log-noise
-   (svcs/without-jmx
+   (without-jmx
     (with-alt-mq "puppetlabs.puppetdb.commands-1"
       (let [config-1 (utils/sync-config)
             config-2 (utils/sync-config)]
@@ -429,7 +429,7 @@
                                          :sync-url (utils/sync-url)}))))))
               (apply f infos)))]
     (muting-amq-shutdown-log-noise
-     (svcs/without-jmx
+     (without-jmx
       (spawn-pdbs [])))))
 
 (defn- default-pdb-configs [n]
