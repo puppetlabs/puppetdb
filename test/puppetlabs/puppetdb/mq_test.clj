@@ -2,11 +2,12 @@
   (:import [org.apache.activemq ScheduledMessage]
            [org.apache.activemq.broker BrokerService])
   (:require [me.raynes.fs :as fs]
-            [puppetlabs.puppetdb.mq :refer :all]
+            [puppetlabs.puppetdb.mq :refer :all :as mq]
             [puppetlabs.puppetdb.testutils :refer :all]
             [puppetlabs.puppetdb.fixtures :refer [with-test-logging-silenced]]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils]))
+            [puppetlabs.puppetdb.testutils.services :as svc-utils]
+            [slingshot.test]))
 
 (use-fixtures :each with-test-logging-silenced)
 
@@ -109,8 +110,56 @@
       (is (= size-bytes (.. broker (getSystemUsage) (getTempUsage) (getLimit)))))))
 
 (deftest test-jmx-enabled
-  (svc-utils/without-jmx
+  (without-jmx
    (svc-utils/with-puppetdb-instance
      (is (thrown-with-msg? clojure.lang.ExceptionInfo
                            #"status 404"
                            (svc-utils/current-queue-depth))))))
+
+(deftest test-queue-size
+  (with-test-broker "test" conn
+    (is (thrown+? [:type ::mq/queue-not-found] (queue-size "test" "foo")))
+    (send-message! conn "foo" "1")
+    (send-message! conn "bar" "1")
+    (send-message! conn "bar" "2")
+    (while (and (not= 1 (queue-size "test" "foo"))
+                (not= 2 (queue-size "test" "bar")))
+      (Thread/sleep 100))
+    (bounded-drain-into-vec! conn "foo" 1)
+    (bounded-drain-into-vec! conn "bar" 1)
+    (is (zero? (queue-size "test" "foo")))
+    (is (= 1 (queue-size "test" "bar")))
+    (bounded-drain-into-vec! conn "bar" 1)
+    (is (zero? (queue-size "test" "bar")))
+    (remove-queue! "test" "bar")
+    (is (thrown+? [:type ::mq/queue-not-found] (queue-size "test" "bar")))
+    (is (zero? (queue-size "test" "foo")))
+    (remove-queue! "test" "foo")
+    (is (thrown+? [:type ::mq/queue-not-found] (queue-size "test" "foo")))))
+
+(deftest test-remove-queue!
+  (with-test-broker "test" conn
+    (is (thrown+? [:type ::mq/queue-not-found] (queue-size "test" "foo")))
+    (remove-queue! "test" "foo")
+    (send-message! conn "foo" "1")
+    (bounded-drain-into-vec! conn "foo" 1)
+    (is (zero? (queue-size "test" "foo")))
+    (remove-queue! "test" "foo")
+    (is (thrown+? [:type ::mq/queue-not-found] (queue-size "test" "foo")))))
+
+(deftest test-transfer-messages!
+  (with-test-broker "test" conn
+    ;; Once when dest doesn't already exist, and once when it does.
+    (dotimes [_ 2]
+      (send-message! conn "foo" "1")
+      (send-message! conn "foo" "2")
+      (send-message! conn "foo" "3")
+      (while (not= 3 (queue-size "test" "foo"))
+        (Thread/sleep 100))
+      (transfer-messages! "test" "foo" "bar")
+      (is (zero? (queue-size "test" "foo")))
+      (is (= 3 (queue-size "test" "bar")))
+      (is (= [{:headers {}, :body "1"}
+              {:headers {}, :body "2"}
+              {:headers {}, :body "3"}])
+          (bounded-drain-into-vec! conn "bar" 3)))))

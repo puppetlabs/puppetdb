@@ -5,9 +5,11 @@
            [javax.jms Connection Message TextMessage BytesMessage Session]
            [org.apache.activemq ActiveMQConnectionFactory]
            [org.apache.activemq.pool PooledConnectionFactory])
-  (:require [puppetlabs.puppetdb.schema :refer [defn-validated]]
+  (:require [clojure.java.jmx :as jmx]
             [clojure.tools.logging :as log]
-            [schema.core :as s]))
+            [puppetlabs.puppetdb.schema :refer [defn-validated]]
+            [schema.core :as s]
+            [slingshot.slingshot :refer [throw+]]))
 
 (defn- set-usage!*
   "Internal helper function for setting `SystemUsage` values on a `BrokerService`
@@ -263,6 +265,44 @@
               consumer (.createConsumer s (.createQueue s endpoint))]
     (vec (repeatedly n #(commit-or-rollback s
                           (convert-jms-message (.receive consumer)))))))
+
+(defn- broker-mb
+  [name]
+  (str "org.apache.activemq:type=Broker,brokerName=" name))
+
+(defn-validated queue-size
+  "Returns the number of pending messages in the named broker queue.
+  Throws {:type ::queue-not-found :broker broker :name name} when the
+  queue doesn't exist."
+  [broker :- s/Str
+   queue :- s/Str]
+  (try
+    (jmx/read (format "%s,destinationType=Queue,destinationName=%s"
+                      (broker-mb broker) queue)
+              :QueueSize)
+    (catch javax.management.InstanceNotFoundException ex
+      (throw+ {:type ::queue-not-found :broker broker :name queue}))))
+
+(defn-validated transfer-messages!
+  "Transfers all of the messages currently available in the named
+  source queue to the destination and returns the number transferred.
+  Each message successfully transferred will be committed."
+  [broker :- s/Str
+   source :- s/Str
+   destination :- s/Str]
+  (jmx/invoke-signature (format "%s,destinationType=Queue,destinationName=%s"
+                                (broker-mb broker) source)
+                        :moveMatchingMessagesTo
+                        ["java.lang.String" "java.lang.String"]
+                        "JMSMessageID is NOT NULL"
+                        destination))
+
+(defn-validated remove-queue!
+  "Deletes the named broker queue.  Does nothing if the queue doesn't exist."
+  [broker :- s/Str
+   queue :- s/Str]
+  (jmx/invoke-signature (broker-mb broker)
+                        :removeQueue ["java.lang.String"] queue))
 
 (defn delay-property
   "Returns an ActiveMQ property map indicating a message should be

@@ -286,15 +286,6 @@
       (client/get {:as :json})
       (get-in [:body :DispatchCount])))
 
-(defmacro without-jmx
-  "Disable ActiveMQ's usage of JMX. If you start two AMQ brokers in
-  the same instance, their JMX beans will collide. Disabling JMX will
-  allow them both to be started."
-  [& body]
-  `(with-redefs [puppetlabs.puppetdb.mq/enable-jmx (fn [broker# _#]
-                                                     (.setUseJmx broker# false))]
-     (do ~@body)))
-
 (defn sync-command-post
   "Syncronously post a command to PDB by blocking until the message is consumed
    off the queue."
