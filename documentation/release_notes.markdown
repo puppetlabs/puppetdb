@@ -620,7 +620,6 @@ Ryan Senior, and Wyatt Alt
 #### New Features
 
 * PuppetDB now supports Puppet 4
-  ([RE-3879](https://tickets.puppetlabs.com/browse/RE-3879))
 
 * To support Puppet 2.7.x - 3.7.x. PuppetDB now handles hyphenated
   classnames
@@ -703,7 +702,7 @@ Ryan Senior, and Wyatt Alt
 * The tests have been adjusted to accommodate Puppet 4.
   ([PDB-1052](https://tickets.puppetlabs.com/browse/PDB-1052)
   [PDB-995](https://tickets.puppetlabs.com/browse/PDB-995)
-  [PDB-1271](https://tickets.puppetlabs.com/browse/RE-1271)
+  [PDB-1271](https://tickets.puppetlabs.com/browse/PDB-1271)
   [68bf176e0bd4d51c1ba3](https://github.com/puppetlabs/puppetdb/commit/68bf176e0bd4d51c1ba36909f4966671379a775e)
   [9ef68b635d1bb1f5338b](https://github.com/puppetlabs/puppetdb/commit/9ef68b635d1bb1f5338b3e40034a2ed787f2e107))
 
@@ -731,7 +730,6 @@ Ryan Senior, and Wyatt Alt
   ([PDB-1109](https://tickets.puppetlabs.com/browse/PDB-1109))
 
 * The source of the Leiningen command has been updated.
-  ([OPS-5175](https://tickets.puppetlabs.com/browse/OPS-5175))
 
 * The ec2 acceptance test template's el-5 image has been updated.
   ([7cd01ac051c719c6c768](https://github.com/puppetlabs/puppetdb/commit/68bf176e0bd4d51c1ba36909f4966671379a775e))
