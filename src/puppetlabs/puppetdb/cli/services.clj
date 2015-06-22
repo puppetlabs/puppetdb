@@ -222,6 +222,21 @@
   [max-frame-size url]
   (format "%s&wireFormat.maxFrameSize=%s&marshal=true" url max-frame-size))
 
+(defn- transfer-old-messages! [connection]
+  (let [[pending exists?]
+        (try+
+         [(mq/queue-size "localhost" "com.puppetlabs.puppetdb.commands") true]
+         (catch [:type ::mq/queue-not-found] ex [0 false]))]
+    (when (pos? pending)
+      (log/infof "Transferring %d commands from legacy queue" pending)
+      (let [n (mq/transfer-messages! "localhost"
+                                     "com.puppetlabs.puppetdb.commands"
+                                     mq-endpoint)]
+        (log/infof "Transferred %d commands from legacy queue" n)))
+    (when exists?
+      (mq/remove-queue! "localhost" "com.puppetlabs.puppetdb.commands")
+      (log/info "Removed legacy queue"))))
+
 (defn start-puppetdb
   [context config service add-ring-handler get-route shutdown-on-error]
   {:pre [(map? context)
@@ -302,6 +317,7 @@
                              (service-id service)
                              #(maybe-check-for-updates product-name update-server read-db)
                              #(stop-puppetdb % true))))]
+      (transfer-old-messages! mq-connection)
       (let [app (->> (server/build-app globals)
                      (compojure/context url-prefix []))]
         (log/info "Starting query server")

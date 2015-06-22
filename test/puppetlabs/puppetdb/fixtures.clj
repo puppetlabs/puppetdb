@@ -10,7 +10,8 @@
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-test-logging]]
             [clojure.tools.macro :as tmacro]
             [clojure.test :refer [join-fixtures use-fixtures]]
-            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db with-test-broker]]
+            [puppetlabs.puppetdb.testutils
+             :refer [clear-db-for-testing! test-db with-test-broker without-jmx]]
             [puppetlabs.trapperkeeper.logging :refer [reset-logging]]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]))
 
@@ -51,12 +52,13 @@
 
 (defn with-test-mq
   "Calls f after starting an embedded MQ broker that will be available
-  for the duration of the call via *mq*."
+  for the duration of the call via *mq*.  JMX will be disabled."
   [f]
-  (with-test-broker "test" connection
-    (binding [*mq* {:connection connection
-                    :endpoint "puppetlabs.puppetdb.commands"}]
-      (f))))
+  (without-jmx
+   (with-test-broker "test" connection
+     (binding [*mq* {:connection connection
+                     :endpoint "puppetlabs.puppetdb.commands"}]
+       (f)))))
 
 (defn with-command-app
   "A fixture to build a Command app and make it available as `*command-app*` within
