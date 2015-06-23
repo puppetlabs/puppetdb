@@ -10,8 +10,8 @@ canonical: "/puppetdb/latest/api/query/v4/fact-paths.html"
 [fact-names]: ./query/v4/fact-names.html
 
 The `/fact-paths` endpoint retrieves the set of all known fact paths for all
-known nodes, and is intended with the introduction of structured facts as the
-successor to the [fact-names][fact-names] endpoint.  The endpoint may be useful for
+known nodes, and is intended as a counterpart to the [fact-names][fact-names]
+endpoint with increased granularity around structured facts. The endpoint may be useful for
 building autocompletion in GUIs or for other applications that require a
 basic top-level view of fact paths.
 

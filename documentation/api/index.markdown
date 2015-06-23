@@ -55,9 +55,9 @@ This is the current stable API.
 * [Events Endpoint](./query/v4/events.html)
 * [Event Counts Endpoint](./query/v4/event-counts.html)
 * [Aggregate Event Counts Endpoint](./query/v4/aggregate-event-counts.html)
-* [Metrics Endpoint](./query/v4/metrics.html)
-* [Server Time Endpoint](./query/v4/server-time.html)
-* [Version Endpoint](./query/v4/version.html)
+* [Metrics Endpoint](./metrics/v1/mbeans.html)
+* [Server Time Endpoint](./meta/v1/server-time.html)
+* [Version Endpoint](./meta/v1/version.html)
 
 #### Version 3 (Retired)
 
@@ -76,7 +76,7 @@ PuppetDB supports a relatively small number of commands. The command submission 
 
 * [Commands (all commands, all API versions)][commands]
 
-Unlike the query API, these commands are generally only useful to Puppet itself, and all format conversion and command submission is handled by the [PuppetDB termini][termini] on your puppet master.
+Unlike the query API, these commands are generally only useful to Puppet itself, and all format conversion and command submission is handled by the [PuppetDB termini][termini] on your Puppet master.
 
 The "replace" commands all require data in one of the wire formats described below.
 

@@ -82,7 +82,7 @@ event-count results were aggregated.
 
 You can use [`curl`][curl] to query information about aggregated resource event counts like so:
 
-    curl -G 'http://localhost:8080/pdb/query/v4/aggregate-event-counts'
+    curl -G 'http://localhost:8080/pdb/query/v4/aggregate-event-counts' \
       --data-urlencode 'query=["=", "certname", "foo.local"]' \
       --data-urlencode 'summarize_by=containing_class'
 
@@ -95,7 +95,7 @@ You can use [`curl`][curl] to query information about aggregated resource event 
         "total" : 2
     } ]
 
-    curl -G 'http://localhost:8080/pdb/query/v4/aggregate-event-counts'
+    curl -G 'http://localhost:8080/pdb/query/v4/aggregate-event-counts' \
     -d 'query=["=","certname","foo.local"]' \
     -d 'summarize_by=containing_class,certname'
 

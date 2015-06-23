@@ -37,8 +37,6 @@ See [the Operators page.](./operators.html)
   recent catalog
 * `producer_timestamp` (string): a string representing the time at which the
   `replace_catalog` command for a given catalog was submitted from the master.
-  Generation of this field will be pushed back to the agent in a later release, so it
-  should not be relied on in its current form.
 
 ### Response Format
 

@@ -34,6 +34,9 @@ lists of legal fields, please refer to the documentation for the specific query 
 
 [Using `curl` from localhost][curl]:
 
+This query will order the results of the facts endpoint in descending order by
+`certname`, breaking ties with an ascending ordering `name`.
+
     curl -X GET http://localhost:8080/pdb/query/v4/facts --data-urlencode \
       'order_by=[{"field": "certname", "order": "desc"}, {"field": "name"}]'
 
@@ -54,8 +57,34 @@ NOTE: setting this flag to `true` will introduce a minor performance hit on the 
 
 [Using `curl` from localhost][curl]:
 
-    curl -X GET http://localhost:8080/pdb/query/v4/facts \
-      --data-urlencode 'limit=5' --data-urlencode 'include_total=true'
+    curl -vv -X GET http://localhost:8080/pdb/query/v4/facts \
+      --data-urlencode 'limit=1' --data-urlencode 'include_total=true'
+
+    * Hostname was NOT found in DNS cache
+    *   Trying ::1...
+    * Connected to localhost (::1) port 8080 (#0)
+    > GET /pdb/query/v4/facts HTTP/1.1
+    > User-Agent: curl/7.37.1
+    > Host: localhost:8080
+    > Accept: */*
+    > Content-Length: 26
+    > Content-Type: application/x-www-form-urlencoded
+    >
+    * upload completely sent off: 26 out of 26 bytes
+    < HTTP/1.1 200 OK
+    < Date: Mon, 22 Jun 2015 19:17:35 GMT
+    < Content-Type: application/json; charset=utf-8
+    < X-Records: 1148
+    < Content-Length: 105
+    * Server Jetty(9.2.10.v20150310) is not blacklisted
+    < Server: Jetty(9.2.10.v20150310)
+    <
+    [ {
+      "certname" : "host-0",
+      "environment" : "production",
+      "name" : "kernel",
+      "value" : "Linux"
+    } ]
 
 ### `offset`
 
