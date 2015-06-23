@@ -87,35 +87,16 @@ what's wrong. See below for common troubleshooting info.
 
 ### Building PE PuppetDB
 
-#### 1 - Build/Install EZBake from HEAD of master
+#### 1 - Install PuppetDB
 
-If you don't have a copy of
-[EZBake](https://github.com/puppetlabs/ezbake) cloned locally, do that
-now. Then run `lein do clean, install`. Note that this step becomes
-unnecessary once EZBake 0.3.9 has been released.
-
-#### 2 - Install PuppetDB
-
-This is a multi-step process. First you need to create a branch based
-off the commit you're wanting to create a build for. Assuming your local master branch is up to date and that's what you want to push, below are the steps you would follow:
-
-```
-git checkout -b pe-promote master
-git rebase upstream/pr/1436
-```
-
-For now, we need Ken's patch from PR 1436. If you have a different way
-of grabbing that patch and adding it to your branch, that's fine
-too. Next, go into the PuppetDB project.clj file and change all
-references of EZBake's version to `0.3.9-SNAPSHOT`. Also you'll need
-to comment out the line that says `:pedantic? :abort`. Commit the
-changes, then run:
+You'll need to comment out the line that says `:pedantic? :abort` in the project.clj. Commit the
+changes locally, then run:
 
 ```
 lein do clean, install
 ```
 
-#### 3 - Install pe-puppetdb-extensions
+#### 2 - Install pe-puppetdb-extensions
 
 Whever you have the PuppetDB extensions project checkout out (pointing at the correct commit):
 
@@ -123,7 +104,7 @@ Whever you have the PuppetDB extensions project checkout out (pointing at the co
 lein do clean, install
 ```
 
-#### 4 - Build the PE PuppetDB Packages
+#### 3 - Build the PE PuppetDB Packages
 
 Note you need to be on the VPN or on Puppet Lab's local network for
 this part. `cd` back into the PuppetDB repository, then run the
@@ -146,9 +127,9 @@ did work. So ultimately I ended up going to a URL like
 `http://builds.delivery.puppetlabs.net/pe-puppetdb/3.0.0...`. From
 there you can download the packages and install them in a VM locally.
 
-#### 5 - Promoting a PE PuppetDB package
+#### 4 - Promoting a PE PuppetDB package
 
-Step 4 above gives you a package you can use, but is not included in
+Step 3 above gives you a package you can use, but is not included in
 the next snapshot release of PE, do do that you need to promote the
 package you just built. To do that you need to use the
 [Package-Promotion job](http://jenkins-compose.delivery.puppetlabs.net/view/Promotion/job/Package-Promotion/)
@@ -159,7 +140,7 @@ promoting `pe-puppetdb`. The REF is the version string you were given
 in the previous step, which includes the version and the time, an
 example of that REF is `3.0.0.SNAPSHOT.2015.06.09T1428`.
 
-#### 6 - Compose will create a new PE tarball
+#### 5 - Compose will create a new PE tarball
 
 Every half hour a job kicks off to grab the latest (promoted) PE
 components and creates a new PE package. The compose jobs can be found
