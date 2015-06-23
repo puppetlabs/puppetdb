@@ -89,25 +89,28 @@
 
 (deftest test-build-broker
   (testing "build-embedded-broker"
-    (let [broker (build-embedded-broker "somedir")]
-      (is (instance? BrokerService broker)))
-    (let [broker (build-embedded-broker "localhost" "somedir")]
-      (is (instance? BrokerService broker)))
-    (let [broker (build-embedded-broker "localhost" "somedir" {})]
-      (is (instance? BrokerService broker)))
-    (let [size-megs 50
-          size-bytes (* size-megs 1024 1024)
+    (try
+      (let [broker (build-embedded-broker "somedir")]
+        (is (instance? BrokerService broker)))
+      (let [broker (build-embedded-broker "localhost" "somedir")]
+        (is (instance? BrokerService broker)))
+      (let [broker (build-embedded-broker "localhost" "somedir" {})]
+        (is (instance? BrokerService broker)))
+      (let [size-megs 50
+            size-bytes (* size-megs 1024 1024)
 
-          broker (build-embedded-broker "localhost" "somedir"
-                                        {:store-usage size-megs
-                                         :temp-usage  size-megs})]
-      (is (instance? BrokerService broker))
-      (is (.. broker (getPersistenceAdapter) (isIgnoreMissingJournalfiles)))
-      (is (.. broker (getPersistenceAdapter) (isArchiveCorruptedIndex)))
-      (is (.. broker (getPersistenceAdapter) (isCheckForCorruptJournalFiles)))
-      (is (.. broker (getPersistenceAdapter) (isChecksumJournalFiles)))
-      (is (= size-bytes (.. broker (getSystemUsage) (getStoreUsage) (getLimit))))
-      (is (= size-bytes (.. broker (getSystemUsage) (getTempUsage) (getLimit)))))))
+            broker (build-embedded-broker "localhost" "somedir"
+                                          {:store-usage size-megs
+                                           :temp-usage  size-megs})]
+        (is (instance? BrokerService broker))
+        (is (.. broker (getPersistenceAdapter) (isIgnoreMissingJournalfiles)))
+        (is (.. broker (getPersistenceAdapter) (isArchiveCorruptedIndex)))
+        (is (.. broker (getPersistenceAdapter) (isCheckForCorruptJournalFiles)))
+        (is (.. broker (getPersistenceAdapter) (isChecksumJournalFiles)))
+        (is (= size-bytes (.. broker (getSystemUsage) (getStoreUsage) (getLimit))))
+        (is (= size-bytes (.. broker (getSystemUsage) (getTempUsage) (getLimit)))))
+      (finally
+        (fs/delete-dir "somedir")))))
 
 (deftest test-jmx-enabled
   (without-jmx
@@ -159,7 +162,7 @@
       (transfer-messages! "test" "foo" "bar")
       (is (zero? (queue-size "test" "foo")))
       (is (= 3 (queue-size "test" "bar")))
-      (is (= [{:headers {}, :body "1"}
-              {:headers {}, :body "2"}
-              {:headers {}, :body "3"}])
-          (bounded-drain-into-vec! conn "bar" 3)))))
+      (is (= [{:headers {} :body "1"}
+              {:headers {} :body "2"}
+              {:headers {} :body "3"}]
+             (bounded-drain-into-vec! conn "bar" 3))))))

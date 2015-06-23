@@ -143,7 +143,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         end
 
         resource.should_not be_nil
-        resource['parameters']['alias'].should include(name)
+        resource['parameters'][:alias].should include(name)
       end
 
       context "with resource types that provide #title_patterns" do
@@ -184,8 +184,8 @@ describe Puppet::Resource::Catalog::Puppetdb do
             #  this test should cover other resource types that fall into
             #  this category as well.
             resource.should_not be_nil
-            resource['parameters']['alias'].should_not be_nil
-            resource['parameters']['alias'].should include('/tmp/foo')
+            resource['parameters'][:alias].should_not be_nil
+            resource['parameters'][:alias].should include('/tmp/foo')
           end
         end
       end
@@ -199,7 +199,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         end
 
         resource.should_not be_nil
-        resource['parameters']['alias'].should be_nil
+        resource['parameters'][:alias].should be_nil
       end
 
       describe "for resources with composite namevars" do
@@ -218,7 +218,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           end
 
           resource.should_not be_nil
-          resource['parameters']['alias'].should be_nil
+          resource['parameters'][:alias].should be_nil
         end
       end
 
@@ -236,7 +236,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           end
 
           resource.should_not be_nil
-          resource['parameters']['alias'].should == ['something awesome']
+          resource['parameters'][:alias].should == ['something awesome']
         end
       end
     end
