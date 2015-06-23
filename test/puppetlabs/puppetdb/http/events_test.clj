@@ -255,6 +255,15 @@
         (assert-success! response)
         (response-equal? response expected munge-event-values)))
 
+    (testing "distinct params should work with include_total"
+      (let [expected  (http-expected-resource-events version basic3-events basic3)
+            response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct_resources true
+                                                                           :distinct_start_time 0
+                                                                           :include_total true
+                                                                           :distinct_end_time (now)})]
+        (assert-success! response)
+        (response-equal? response expected munge-event-values)))
+
     (testing "events should be contained within distinct resource timestamps"
       (let [expected  (http-expected-resource-events version basic-events basic)
             response  (get-response endpoint ["=" "certname" "foo.local"]
