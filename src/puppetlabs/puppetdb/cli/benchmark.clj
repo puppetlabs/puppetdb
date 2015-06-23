@@ -125,25 +125,30 @@
 
 (defn maybe-tweak-catalog
   "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`
-  percent of the time."
-  [catalog rand-percentage]
-  (if (< (rand 100) rand-percentage)
-    (rand-catalog-mutation catalog)
-    catalog))
+   percent of the time."
+  [catalog rand-percentage stamp]
+  (let [catalog' (assoc catalog "producer_timestamp" stamp)]
+    (if (< (rand 100) rand-percentage)
+      (rand-catalog-mutation catalog')
+      catalog')))
 
-(defn update-catalog [catalog]
-  (assoc catalog "producer_timestamp" (time/now)))
+(defn jitter
+  "jitter a timestamp (rand-int n) seconds in the forward direction"
+  [stamp n]
+  (time/plus stamp (time/seconds (rand-int n))))
 
 (defn update-report-run-fields
   "configuration_version, start_time and end_time should always change
    on subsequent report submittions, this changes those fields to avoid
    computing the same hash again (causing constraint errors in the DB)"
-  [report]
-  (assoc report
-         "configuration_version" (ks/uuid)
-         "start_time" (time/now)
-         "end_time" (time/now)
-         "producer_timestamp" (time/now)))
+  [report stamp]
+  (-> report
+      (update "resource_events" (partial map #(assoc % "timestamp"
+                                                     (jitter stamp 300))))
+      (assoc "configuration_version" (ks/uuid)
+             "start_time" (time/minus stamp (time/seconds 10))
+             "end_time" (time/minus stamp (time/seconds 5))
+             "producer_timestamp" stamp)))
 
 (defn randomize-map-leaf
   "Randomizes a fact leaf based on a percentage provided with `rp`."
@@ -173,9 +178,9 @@
 (defn update-factset
   "Updates the producer_timestamp to be current, and randomly updates the leaves
    of the factset based on a percentage provided in `rand-percentage`."
-  [factset rand-percentage]
+  [factset rand-percentage stamp]
   (-> factset
-      (assoc "producer_timestamp" (time/now))
+      (assoc "producer_timestamp" stamp)
       (update "values" (partial randomize-map-leaves rand-percentage))))
 
 (defn timed-update-host
@@ -191,12 +196,19 @@
     hosts catalog changes in accordance to the users preference)
 
   * Submit the resulting catalog"
-  [{:keys [host lastrun catalog report factset base-url run-interval rand-percentage] :as state} clock]
-  (if-not (> (- clock lastrun) run-interval)
+  [{:keys [host lastrun catalog report factset
+           base-url run-interval rand-percentage] :as state}
+   current-time]
+  (if-not (time/after?
+            current-time
+            (time/plus lastrun run-interval))
     state
-    (let [catalog (some-> catalog update-catalog (maybe-tweak-catalog rand-percentage))
-          report (some-> report update-report-run-fields)
-          factset (some-> factset (update-factset rand-percentage))]
+    (let [catalog (some-> catalog
+                          (maybe-tweak-catalog rand-percentage current-time))
+          report (some-> report
+                         (update-report-run-fields current-time))
+          factset (some-> factset
+                          (update-factset rand-percentage current-time))]
       ;; Submit the catalog and reports in separate threads, so as to not
       ;; disturb the world-loop and otherwise distort the space-time continuum.
       (when catalog
@@ -221,7 +233,7 @@
             (catch Exception e
               (log/errorf "[%s] failed to submit factset: %s" host e)))))
       (assoc state
-        :lastrun clock
+        :lastrun current-time
         :catalog catalog))))
 
 (defn update-host
@@ -229,10 +241,15 @@
    submission.  Also submit a report for the host (if present). This is
    similar to timed-update-host, but always sends the update (doesn't run/skip
    based on the clock)"
-  [{:keys [host lastrun catalog report factset base-url run-interval rand-percentage] :as state}]
-  (let [catalog (some-> catalog update-catalog (maybe-tweak-catalog rand-percentage))
-        report (some-> report update-report-run-fields)
-        factset (some-> factset (update-factset rand-percentage))]
+  [current-ts {:keys [host lastrun catalog report factset
+                      base-url run-interval rand-percentage] :as state}]
+  (let [stamp (jitter current-ts 1800)
+        catalog (some-> catalog
+                        (maybe-tweak-catalog rand-percentage stamp))
+        report (some-> report
+                       (update-report-run-fields stamp))
+        factset (some-> factset
+                        (update-factset rand-percentage stamp))]
     (when catalog (client/submit-catalog base-url 6 (json/generate-string catalog)))
     (when report (client/submit-report base-url 5 (json/generate-string report)))
     (when factset (client/submit-facts base-url 4 (json/generate-string factset)))
@@ -245,10 +262,13 @@
   [hosts num-msgs]
   (log/infof "Sending %s messages for %s hosts, will exit upon completion"
              num-msgs (count hosts))
-  (loop [mutated-hosts hosts
-         msgs-to-send num-msgs]
-    (when-not (zero? msgs-to-send)
-      (recur (mapv update-host mutated-hosts) (dec msgs-to-send)))))
+    (loop [mutated-hosts hosts
+           msgs-to-send num-msgs
+           stamp (time/minus (time/now) (time/minutes (* 30 num-msgs)))]
+      (when-not (zero? msgs-to-send)
+          (recur (mapv (partial update-host stamp) mutated-hosts)
+                 (dec msgs-to-send)
+                 (time/plus stamp (time/minutes 30))))))
 
 (defn world-loop
   "Sends out new _clock tick_ messages to all agents.
@@ -257,8 +277,8 @@
 
   The time resolution of this loop is 10ms."
   [hosts]
-  (loop [last-time (System/currentTimeMillis)]
-    (let [curr-time (System/currentTimeMillis)]
+  (loop [last-time (time/now)]
+    (let [curr-time (time/now)]
 
       ;; Send out updated ticks to each agent
       (doseq [host hosts]
@@ -401,9 +421,10 @@
     (when-not facts (log/info "No facts specified; skipping fact submission"))
     (if-let [num-cmds (:nummsgs options)]
       (submit-n-messages hosts (Long/valueOf num-cmds))
-      (let [run-interval (* 60 1000 (Integer/parseInt (:runinterval options)))
+      (let [run-interval (time/minutes (Integer/parseInt (:runinterval options)))
             rand-lastrun (fn [run-interval]
-                           (- (System/currentTimeMillis) (rand-int run-interval)))]
+                           (jitter (time/minus (time/now) run-interval)
+                                   (time/in-seconds run-interval)))]
         (->> hosts
              (mapv #(agent (merge % {:run-interval run-interval
                                      :lastrun (rand-lastrun run-interval)})))
