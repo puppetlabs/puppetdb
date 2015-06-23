@@ -350,7 +350,7 @@
 (defmulti parse-catalog
   "Parse a wire-format `catalog` object or string of the specified `version`,
   returning a PuppetDB-suitable representation."
-  (fn [catalog version]
+  (fn [catalog version received-time]
     (match [catalog version]
            [(_ :guard string?) _]
            String
@@ -367,13 +367,32 @@
            (throw (IllegalArgumentException. (format "Catalog must be specified as a string or a map, not '%s'" (class catalog)))))))
 
 (defmethod parse-catalog String
-  [catalog version]
+  [catalog version received-time]
   {:pre   [(string? catalog)]
    :post  [(map? %)]}
-  (parse-catalog (json/parse-string catalog true) version))
+  (parse-catalog (json/parse-string catalog true) version received-time))
+
+(defmethod parse-catalog 4
+  [catalog version received-time]
+  {:pre [(map? catalog)
+         (number? version)]
+   :post [(map? %)]}
+  (-> catalog
+      (assoc :producer_timestamp received-time)
+      (parse-catalog 5 received-time)))
+
+(defmethod parse-catalog 5
+  [catalog version received-time]
+  {:pre [(map? catalog)
+         (number? version)]
+   :post [(map? %)]}
+  (-> catalog
+      (set/rename-keys {:name :certname})
+      utils/dash->underscore-keys
+      (parse-catalog 6 received-time)))
 
 (defmethod parse-catalog 6
-  [catalog version]
+  [catalog version _]
   {:pre [(map? catalog)
          (number? version)]
    :post [(map? %)]}
@@ -383,7 +402,7 @@
        validate))
 
 (defmethod parse-catalog :default
-  [catalog version]
+  [catalog version _]
   (throw (IllegalArgumentException. (format "Unknown catalog version '%s'" version))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -427,4 +446,3 @@
   (map
    catalog-query->wire-v6
    catalogs))
-
