@@ -112,7 +112,7 @@ MANIFEST
     sleep_until_queue_empty database
 
     result = on database,
-      %Q|curl -G http://localhost:8080/v3/events -d 'query=["=","resource-title","foo"]'|
+      %Q|curl -G http://localhost:8080/pdb/v4/query/events -d 'query=["=","resource_title","foo"]'|
     events = JSON.parse(result.stdout)
     assert_equal(agents.count, events.count)
   end
