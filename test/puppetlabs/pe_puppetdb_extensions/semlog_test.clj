@@ -4,8 +4,7 @@
             [clojure.test :refer :all]
             [clojure.tools.logging :as tlog]
             [clojure.tools.logging.impl :as impl]
-            [puppetlabs.kitchensink.core :refer [mapkeys]])
-  (:import [org.slf4j MDC]))
+            [puppetlabs.kitchensink.core :refer [mapkeys]]))
 
 (def ^:private stns *ns*)
 
