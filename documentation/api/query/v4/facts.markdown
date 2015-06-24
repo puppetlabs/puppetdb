@@ -31,7 +31,7 @@ See [the Operators page.](./operators.html)
 ### Query Fields
 
 * `name` (string): the name of the fact
-* `value` (string, coercible to number): the value of the fact
+* `value` (string, numeric, boolean): the value of the fact
 * `certname` (string): the node associated with the fact
 * `environment` (string): the environment associated with the fact
 
@@ -84,7 +84,7 @@ Subquery against `/fact-contents` to get all remotely-authenticated trusted fact
       'query=["in", ["name","certname"],
                ["extract", ["name","certname"],
                  ["select_fact_contents",
-                   ["and", ["~>", "path", [".*", "authenticated"]],
+                   ["and", ["=", "path", ["trusted", "authenticated"]],
                            ["=","value","remote"]]]]]]]'
 
     [ {
@@ -95,6 +95,22 @@ Subquery against `/fact-contents` to get all remotely-authenticated trusted fact
         "name" : "trusted",
         "environment" : "production",
         "certname" : "desktop.localdomain"
+    } ]
+
+Use `count` and `group_by` to get tallies of each operating system in your
+infrastructure:
+
+    curl -X GET http://localhost:8080/pdb/query/v4/facts --data-urlencode \
+      'query=["extract",[["function","count"],"value"],
+               ["=","name","operatingsystem"],
+               ["group_by", "value"]]'
+
+    [ {
+        "value" : "Debian",
+        "count" : 67
+    }, {
+        "value" : "CentOS",
+        "count" : 33
     } ]
 
 ## `GET /pdb/query/v4/facts/<FACT NAME>`
@@ -121,7 +137,7 @@ Get the operating system fact for all nodes:
      {"certname": "b.example.com", "name": "operatingsystem", "value": "Redhat"},
      {"certname": "c.example.com", "name": "operatingsystem", "value": "Ubuntu"}]
 
-Get the structured partitions fact for a single node:
+Get the partitions fact for a single node:
 
     curl -X GET http://localhost:8080/pdb/query/v4/facts/partitions \
       --data-urlencode 'query=["=", "certname", "a.example.com"]'
@@ -176,7 +192,7 @@ this route.
 
 ## Paging
 
-The v4 /facts endpoint does not allow ordering by fact value, but otherwise
+The v4 `/facts` endpoint does not allow ordering by fact value, but otherwise
 supports the common PuppetDB paging URL parameters. For more information,
 please see the documentation on [paging][paging]. Ordering by value is
 supported on the fact-contents endpoint.

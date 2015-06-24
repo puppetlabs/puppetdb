@@ -34,9 +34,7 @@ See [the Operators page.](./operators.html)
 * `timestamp` (string): the most recent time of fact submission from the
    associated certname
 * `producer_timestamp` (string): the most recent time of fact submission for
-  the relevant certname from the master. Generation of this field will
-  be pushed back to the agent in a later release, so it should not be relied on
-  in its current form (use the `timestamp` field instead.)
+  the relevant certname from the master.
 * `hash` (string): a hash of the factset's certname, environment,
   timestamp, facts, and producer_timestamp.
 

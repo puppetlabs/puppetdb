@@ -60,6 +60,7 @@ The response is a JSON array of hashes, where each hash has the form:
 
     {"certname": <string>,
      "deactivated": <timestamp or null>,
+     "expired": <timestamp or null>,
      "catalog_timestamp": <timestamp or null>,
      "facts_timestamp": <timestamp or null>,
      "report_timestamp": <timestamp or null>,
@@ -67,7 +68,7 @@ The response is a JSON array of hashes, where each hash has the form:
      "facts_environment": <string or null>,
      "report_environment": <string or null>}
 
-At least one of the `-timestamp` fields will be non-null.
+At least one of the `_timestamp` fields will be non-null.
 
 The array is unsorted.
 
@@ -78,8 +79,6 @@ If no nodes match the query, an empty JSON array will be returned.
 [You can use `curl`][curl] to query information about nodes like so:
 
     curl http://localhost:8080/pdb/query/v4/nodes
-    curl -G http://localhost:8080/pdb/query/v4/nodes \
-      --data-urlencode 'query=["=", ["fact", "kernel"], "Linux"]'
 
 This query will return nodes whose kernel is Linux and whose uptime is less
 than 30 days:
@@ -88,11 +87,31 @@ than 30 days:
       ["=", ["fact", "kernel"], "Linux"],
       [">", ["fact", "uptime_days"], 30]]
 
+This query will return node counts for each distinct `facts_environment` among
+active nodes:
+
+    ["extract", [["function","count"],"facts_environment"],
+      ["null?", "deactivated", true],
+      ["group_by", "facts_environment"]]
+
 ## `GET /pdb/query/v4/nodes/<NODE>`
 
 This will return status information for the given node, active or
 not. It behaves exactly like a call to `/pdb/query/v4/nodes` with a query string
 of `["=", "certname", "<NODE>"]`.
+
+    curl -X GET http://localhost:8080/pdb/query/v4/nodes/mbp.local
+    {
+        "deactivated" : null,
+        "facts_environment" : "production",
+        "report_environment" : "production",
+        "catalog_environment" : "production",
+        "facts_timestamp" : "2015-06-19T23:03:42.401Z",
+        "expired" : null,
+        "report_timestamp" : "2015-06-19T23:03:37.709Z",
+        "certname" : "mbp.local",
+        "catalog_timestamp" : "2015-06-19T23:03:43.007Z"
+    }
 
 ### URL Parameters / Query Operators / Query Fields
 

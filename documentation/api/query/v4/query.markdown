@@ -15,9 +15,13 @@ canonical: "/puppetdb/latest/api/query/v4/query.html"
 
 ## Summary
 
-PuppetDB's query API can retrieve data objects from PuppetDB for use in other applications. For example, the PuppetDB termini for puppet masters use this API to collect exported resources.
+PuppetDB's query API can retrieve data objects from PuppetDB for use in other
+applications. For example, the PuppetDB termini for Puppet masters use this
+API to collect exported resources.
 
-The query API is implemented as HTTP URLs on the PuppetDB server. By default, it can only be accessed over the network via host-verified HTTPS; [see the jetty settings][jetty] if you need to access the API over unencrypted HTTP.
+The query API is implemented as HTTP URLs on the PuppetDB server. By default,
+it can only be accessed over the network via host-verified HTTPS; [see the
+jetty settings][jetty] if you need to access the API over unencrypted HTTP.
 
 ## Query Structure
 

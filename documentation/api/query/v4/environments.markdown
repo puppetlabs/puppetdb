@@ -23,7 +23,9 @@ This will return all environments known to PuppetDB.
 ### URL Parameters
 
 * `query`: Optional. A JSON array containing the query in prefix notation. If
-  not provided, all results will be returned. See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
+  not provided, all results will be returned. See the sections below for the
+  supported operators and fields. For general info about queries,
+  see [the page on query structure.][query]
 
 ### Query Operators
 
@@ -67,6 +69,10 @@ The response is a JSON hash of the form:
 [You can use `curl`][curl] to query information about nodes like so:
 
     curl 'http://localhost:8080/pdb/query/v4/environments/production'
+
+    {
+      "name" : "production"
+    }
 
 ## `GET /pdb/query/v4/environments/<ENVIRONMENT>/[events|facts|reports|resources]`
 

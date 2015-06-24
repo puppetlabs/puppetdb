@@ -36,8 +36,8 @@ String. The name of the node for which the catalog was compiled.
 
 #### `producer_timestamp`
 
-Datetime.  The time of command submission from the master to PuppetDB.  This
-field is currently populated by the master.
+Datetime.  The time of command submission from the master to PuppetDB,
+according to the clock on the master.
 
 `producer_timestamp` is optional but *highly* recommended. When provided, it is
 used to determine the precedence between this command and other commands which

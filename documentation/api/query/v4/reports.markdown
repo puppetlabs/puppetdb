@@ -60,7 +60,7 @@ The below fields are allowed as filter criteria and are returned in all response
 
 * `end_time` (timestamp): is the time on the agent at which the Puppet run ended. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `producer_timestamp` (timestamp): is the time of catalog submission from the master to PuppetDB.  This field is currently populated by the master. Timestamps are always [ISO-8601][8601] compatible date/time strings.
+* `producer_timestamp` (timestamp): is the time of catalog submission from the master to PuppetDB, according to the clock on the master. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
 * `receive_time` (timestamp): is the time at which PuppetDB received the report. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
