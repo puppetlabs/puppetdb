@@ -64,6 +64,10 @@
     (keyword (.s raw-sql))
     s))
 
+(defn sqlraw->str
+  [^SqlRaw raw-sql]
+  (.s raw-sql))
+
 ;; NEW OPERATORS
 
 ; Custom formatter for PostgreSQL's ~ operator
