@@ -5,12 +5,12 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def pdb-version "3.1.0-SNAPSHOT")
+(def pdb-version "3.0.0-SNAPSHOT")
 
 (def tk-version "1.1.1")
 (def ks-version "1.0.0")
 
-(defproject puppetlabs/pe-puppetdb-extensions "0.1.0-SNAPSHOT"
+(defproject puppetlabs/pe-puppetdb-extensions "3.0.0-SNAPSHOT"
   :pedantic? :abort
 
   :description "Library for replicating PuppetDB instances"
