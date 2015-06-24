@@ -1126,11 +1126,13 @@
 (defn db-deprecated?
   "Returns a string with an deprecation message if the DB is deprecated,
    nil otherwise."
-  []
+  [enterprise?]
   (when (and (sutils/postgres?)
              (sutils/db-version-newer-than? [8 3])
-             (sutils/db-version-older-than? [9 2]))
-    "PostgreSQL DB versions 8.4 - 9.1 are deprecated and won't be supported in the future."))
+             (sutils/db-version-older-than? [9 4])
+             (not (and enterprise?
+                       (sutils/db-version? [9 2]))))
+    "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."))
 
 (defn db-unsupported?
   "Returns a string with an unsupported message if the DB is not supported,
@@ -1220,8 +1222,8 @@
 
 (defn warn-on-db-deprecation
   "Log a warning message if the database is deprecated"
-  []
-  (when-let [deprecated-message (db-deprecated?)]
+  [enterprise?]
+  (when-let [deprecated-message (db-deprecated? enterprise?)]
     (log/warn deprecated-message)))
 
 (defn fail-on-unsupported
@@ -1238,9 +1240,9 @@
 (defn validate-database-version
   "Checks to ensure that the database is supported, fails if supported, logs
    if deprecated"
-  [action-for-unsupported-fn]
+  [enterprise? action-for-unsupported-fn]
   (fail-on-unsupported action-for-unsupported-fn)
-  (warn-on-db-deprecation))
+  (warn-on-db-deprecation enterprise?))
 
 (def ^:dynamic *orphaned-path-gc-limit* 200)
 (def ^:dynamic *orphaned-value-gc-limit* 200)
