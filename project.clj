@@ -1,5 +1,5 @@
 (def pdb-version "3.1.0-SNAPSHOT")
-(def pe-pdb-version "0.1.0-SNAPSHOT")
+(def pe-pdb-version "3.1.0-SNAPSHOT")
 
 (defn deploy-info
   "Generate deployment information from the URL supplied and the username and
@@ -76,7 +76,8 @@
                  [fast-zip-visit "1.0.2"]
                  [robert/hooke "1.3.0"]
                  [honeysql "0.5.2"]
-                 [org.clojure/data.xml "0.0.8"]]
+                 [org.clojure/data.xml "0.0.8"]
+                 [com.rpl/specter "0.5.2"]]
 
   :jvm-opts ["-XX:MaxPermSize=128M"]
 
@@ -125,7 +126,7 @@
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "0.3.9"
+                      :plugins [[puppetlabs/lein-ezbake "0.3.10"
                                  :exclusions [org.clojure/clojure]]]}
              :pe {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                            [org.clojure/tools.nrepl "0.2.3"]

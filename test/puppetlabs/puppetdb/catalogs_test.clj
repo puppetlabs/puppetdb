@@ -4,7 +4,10 @@
             [puppetlabs.puppetdb.catalogs :refer :all]
             [puppetlabs.puppetdb.testutils.catalogs :refer [canonical->wire-format]]
             [puppetlabs.puppetdb.examples :refer :all]
-            [clojure.test :refer :all]))
+            [clojure.test :refer :all]
+            [clojure.set :as set]
+            [puppetlabs.puppetdb.utils :as utils]
+            [clj-time.core :refer [now]]))
 
 (defn catalog-before-and-after
   "Test that a wire format catalog is equal, post-processing, to the
@@ -176,3 +179,46 @@
         (is (not (contains? wire-catalog :metadata)))
         (is (= (dissoc catalog :api_version)
                wire-catalog))))))
+
+(deftest test-v6-conversion
+  (testing "v5->v6"
+    (let [v5-catalog (get-in wire-catalogs [5 :empty])]
+      (are [pred key] (pred (contains? v5-catalog key))
+           true? :name
+           false? :certname
+           true? :transaction-uuid)
+
+      (let [v6-catalog (parse-catalog v5-catalog 5 (now))]
+        (are [pred key] (pred (contains? v6-catalog key))
+             false? :name
+             true? :certname
+             false? :transaction-uuid
+             true? :transaction_uuid))))
+
+  (testing "v4->v6"
+    (let [v4-catalog (get-in wire-catalogs [4 :empty])]
+      (are [pred key] (pred (contains? v4-catalog key))
+           true? :name
+           false? :certname
+           true? :transaction-uuid
+           false? :producer_timestamp
+           false? :producer-timestamp)
+
+      (let [v6-catalog (parse-catalog v4-catalog 4 (now))]
+        (are [pred key] (pred (contains? v6-catalog key))
+             false? :name
+             true? :certname
+             false? :transaction-uuid
+             true? :transaction_uuid
+             true? :producer_timestamp
+             false? :producer-timestamp))))
+
+  (testing "v5 with dashed resource-param names"
+    (let [v5-catalog (-> wire-catalogs
+                         (get-in [5 :empty])
+                         (update :resources (fn [resources]
+                                              (mapv #(assoc-in % [:parameters :foo-bar] "baz") resources))))]
+      (is (true? (contains? (get-in v5-catalog [:resources 0 :parameters]) :foo-bar)))
+      (let [v6-catalog (parse-catalog v5-catalog 5 (now))]
+        (is (every? (comp true? #(contains? % :foo-bar) :parameters) (vals (:resources v6-catalog))))
+        (is (every? (comp false? #(contains? % :foo_bar) :parameters) (vals (:resources v6-catalog))))))))

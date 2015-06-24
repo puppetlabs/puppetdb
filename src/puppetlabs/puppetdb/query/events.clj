@@ -127,7 +127,8 @@
                        (not will-union?) with-latest-events)
         result {:results-query (apply vector paged-select params)}]
     (if (:count? paging-options)
-      (assoc result :count-query (apply vector (jdbc/count-sql sql) params))
+      (let [count-sql (jdbc/count-sql (with-latest-events sql))]
+        (assoc result :count-query (apply vector count-sql params)))
       result)))
 
 (defn query->sql
