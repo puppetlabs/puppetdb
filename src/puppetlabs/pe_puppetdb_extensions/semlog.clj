@@ -148,31 +148,24 @@
                         ctx)))
 
 (defmacro maplog
-  "Log, as data, the map `ctx-map`. This will be made available to slf4j as the
-  'mapped diagnostic context', or MDC. It may be included in a logback message
-  using the '%mdc' formatter.
+  "Logs an event after expanding any braced references to ctx-map keys
+  in the message into the corresponding ctx-map values, and then
+  passing the expanded string and format-args to clojure.core/format.
+  Includes the ctx-map in the event as an slf4j event Marker.
 
-  Note that the MDC is a string->string map; you can provide anything you like
-  as map entries, but the keys will be passed through `name` and the values
-  through `str`.
-
-  The message parameter is formatted first with string interpolation, using the
-  `interpolate-message` function against `ctx-map`. This should be sufficient
-  for most cases. But if needed, the result is then passed to
-  `clojure.core/format` with the remaining arguments.
-
-  The `level-or-pair` parameter may be either a log level keyword like `:error`
-  or a vector of a custom logger and the log level, like `[:sync :error]`.
+  The level-or-pair parameter may be either a log level keyword like
+  :error or a vector of a custom logger and the log level, like
+  [:sync :error].
 
   Examples:
 
-  `(maplog :info {:status 200} \"Received success status {status}\")`
+  (maplog :info {:status 200} \"Received success status {status}\")
 
-  `(maplog [:sync :warn] {:remote ..., :response ...}
-           \"Failed to pull record from remote {remote}. Response: status {status}\")`
+  (maplog [:sync :warn] {:remote ..., :response ...}
+           \"Failed to pull record from remote {remote}. Response: status {status}\")
 
-  `(maplog [:sync :info] {:remote ...}
-           \"Finished pull from {remote} in %s seconds\" sync-time)`"
+  (maplog [:sync :info] {:remote ...}
+           \"Finished pull from {remote} in %s seconds\" sync-time)"
 
   {:arglists '([level-or-pair ctx-map message & format-args]
                [level-or-pair throwable ctx-map message & format-args])}
