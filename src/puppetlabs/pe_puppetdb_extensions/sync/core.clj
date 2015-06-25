@@ -281,7 +281,7 @@
           clean-up-record-fn
           store-record-locally-fn)
       (maplog [:sync :debug] (finish-ctx true)
-              "transferred {entity} for %s via {remote} in {elapsed} ms" query)
+              "transferred {entity} where %s via {remote} in {elapsed} ms" query)
       (catch Exception ex
         (maplog [:sync :warn] ex (finish-ctx false)
                 "failed to sync {entity}" "for query %s via {remote} in {elapsed}ms"
@@ -430,13 +430,13 @@
                           (catch (remote-host-404? %) _
                             (swap! stats update-in [:failed] inc))))
                       (maplog [:sync :info] (log-ctx true)
-                              "transferred {transferred} from {remote} in {elapsed}ms")
+                              "transferred {entity} ({transferred}) from {remote} in {elapsed}ms")
                       (catch Exception ex
                         (swap! stats update-in [:failed] inc)
                         (let [ctx (log-ctx false)]
                           (maplog [:sync :warn] ex ctx
                                   (str
-                                   "transferred {transferred} {entity} from {remote};"
+                                   "transferred {entity} ({transferred}) from {remote};"
                                    " stopped after {failed} failure%s in {elapsed}ms")
                                   (if (= 1 (:failed ctx)) "" "s")))
                         (throw ex)))))
