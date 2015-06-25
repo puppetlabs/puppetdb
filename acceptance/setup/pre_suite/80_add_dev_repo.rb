@@ -16,7 +16,7 @@ if (test_config[:install_type] == :package)
       Log.notify("APT LIST FILE CONTENTS:\n#{result.stdout}\n")
       on database, "apt-get update"
     when :redhat
-      el_version = db_facts["operatingsystemmajrelease"]
+      el_version = db_facts["os"]["release"]["major"]
       yum_repo_url = "#{test_config[:package_repo_url]}/repo_configs/rpm/pl-puppetdb-#{test_config[:git_ref]}-el-#{el_version}-x86_64.repo"
       yum_repo_file_path = "/etc/yum.repos.d/puppetlabs-prerelease.repo"
       on database, "curl \"#{yum_repo_url}\" | #{sed_cmd} > #{yum_repo_file_path}"
@@ -24,7 +24,7 @@ if (test_config[:install_type] == :package)
       result = on database, "cat #{yum_repo_file_path}"
       Log.notify("Yum REPO DEFINITION:\n\n#{result.stdout}\n\n")
     when :fedora
-      version = db_facts["operatingsystemrelease"]
+      version = db_facts["os"]["release"]["major"]
       yum_repo_url = "#{test_config[:package_repo_url]}/repo_configs/rpm/pl-puppetdb-#{test_config[:git_ref]}-fedora-f#{version}-x86_64.repo"
       yum_repo_file_path = "/etc/yum.repos.d/puppetlabs-prerelease.repo"
       on database, "curl \"#{yum_repo_url}\" | #{sed_cmd} > #{yum_repo_file_path}"
