@@ -221,6 +221,14 @@
    :prefix "/pdb/query"
    :version (or version :v4)})
 
+(defn pdb-admin-base-url
+  [host port & [version]]
+  {:protocol "http"
+   :host host
+   :port port
+   :prefix "/pdb/admin"
+   :version (or version :v1)})
+
 (defn pdb-cmd-base-url
   [host port & [version]]
   {:protocol "http"

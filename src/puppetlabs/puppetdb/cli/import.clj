@@ -7,6 +7,8 @@
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])
   (:require [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.client :as client]
+            [clj-http.client :as http-client]
+            [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.java.io :as io]
@@ -15,14 +17,15 @@
             [puppetlabs.puppetdb.utils :as utils
              :refer [base-url-schema export-root-dir]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.cli.export :refer [export-metadata-file-name]]
+            [puppetlabs.puppetdb.cli.export :as export]
+            [clj-time.core :refer [now]]
             [schema.core :as s]
             [slingshot.slingshot :refer [try+ throw+]]))
 
 (def cli-description "Import PuppetDB catalog data from a backup file")
 
 (def metadata-path
-  (.getPath (io/file export-root-dir export-metadata-file-name)))
+  (.getPath (io/file export-root-dir export/export-metadata-file-name)))
 
 (defn parse-metadata
   "Parses the export metadata file to determine, e.g., what versions of the
@@ -47,32 +50,34 @@
 (defn-validated process-tar-entry
   "Determine the type of an entry from the exported archive, and process it
   accordingly."
-  [^TarGzReader tar-reader :- TarGzReader
-   ^TarArchiveEntry tar-entry :- TarArchiveEntry
-   dest :- base-url-schema
-   command-versions :- {s/Any s/Any}]
+  [command-fn
+   tar-reader :- TarGzReader
+   tar-entry :- TarArchiveEntry
+   command-versions]
   (let [path (.getName tar-entry)]
     (condp re-find path
       (file-pattern "catalogs")
-      (do (println (format "Importing catalog from archive entry '%s'" path))
+      (do (log/infof "Importing catalog from archive entry '%s'" path)
           ;; NOTE: these submissions are async and we have no guarantee that they
           ;;   will succeed. We might want to add something at the end of the import
           ;;   that polls puppetdb until the command queue is empty, then does a
           ;;   query to the /nodes endpoint and shows the set difference between
           ;;   the list of nodes that we submitted and the output of that query
-          (client/submit-catalog dest
-                                 (:replace_catalog command-versions)
-                                 (archive/read-entry-content tar-reader)))
+          (command-fn :replace-catalog
+                      (:replace_catalog command-versions)
+                      (json/parse-string (archive/read-entry-content tar-reader))))
       (file-pattern "reports")
-      (do (println (format "Importing report from archive entry '%s'" path))
-          (client/submit-report dest
-                                (:store_report command-versions)
-                                (archive/read-entry-content tar-reader)))
+      (do (log/infof "Importing report from archive entry '%s'" path)
+          (command-fn :store-report
+                      (:store_report command-versions)
+                      (-> (archive/read-entry-content tar-reader)
+                          (json/parse-string true)
+                          puppetlabs.puppetdb.reports/sanitize-report)))
       (file-pattern "facts")
-      (do (println (format "Importing facts from archive entry '%s'" path))
-          (client/submit-facts dest
-                               (:replace_facts command-versions)
-                               (archive/read-entry-content tar-reader)))
+      (do (log/infof "Importing facts from archive entry '%s'" path)
+          (command-fn :replace-facts
+                      (:replace_facts command-versions)
+                      (json/parse-string (archive/read-entry-content tar-reader))))
       nil)))
 
 (defn- validate-cli!
@@ -91,7 +96,7 @@
                              options)
         construct-base-url (fn [{:keys [host port] :as options}]
                              (-> options
-                                 (assoc :base-url (utils/pdb-cmd-base-url host port :v1))
+                                 (assoc :base-url (utils/pdb-admin-base-url host port export/admin-api-version))
                                  (dissoc :host :port)))]
     (utils/try+-process-cli!
      (fn []
@@ -102,11 +107,23 @@
            construct-base-url
            utils/validate-cli-base-url!)))))
 
+(defn import!
+  [infile command-versions command-fn]
+  (with-open [tar-reader (archive/tarball-reader infile)]
+    (doseq [tar-entry (archive/all-entries tar-reader)]
+      (process-tar-entry command-fn tar-reader tar-entry command-versions))))
+
 (defn -main
   [& args]
   (let [{:keys [infile base-url]} (validate-cli! args)
-        command-versions (:command_versions (parse-metadata infile))]
-    ;; TODO: do we need to deal with SSL or can we assume this only works over a plaintext port?
-    (with-open [tar-reader (archive/tarball-reader infile)]
-      (doseq [tar-entry (archive/all-entries tar-reader)]
-        (process-tar-entry tar-reader tar-entry base-url command-versions)))))
+        import-archive (fs/normalized-path infile)
+        command-versions (:command_versions (parse-metadata import-archive))]
+    (try
+      (println " Importing " infile " to PuppetDB...")
+      (http-client/post (str (utils/base-url->str base-url) "/archive")
+                        {:multipart [{:name "Content/type" :content "application/octet-stream"}
+                                     {:name "archive" :content import-archive}
+                                     {:name "command_versions" :content (json/generate-pretty-string command-versions)}]})
+      (println " Finished importing " infile " to PuppetDB.")
+      (catch Throwable e
+        (println e "Error importing " infile)))))

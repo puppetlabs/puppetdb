@@ -42,33 +42,33 @@
      data may linger in the database. We periodically sweep the
      database, compacting it and performing regular cleanup so we can
      maintain acceptable performance."
-  (:require [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.command.dlo :as dlo]
-            [puppetlabs.puppetdb.query.population :as pop]
-            [puppetlabs.puppetdb.jdbc :as pl-jdbc]
-            [puppetlabs.puppetdb.mq :as mq]
+  (:require [clj-time.core :refer [ago]]
+            [clojure.java.io :as io]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.http.server :as server]
-            [puppetlabs.puppetdb.config :as conf]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [robert.hooke :as rh]
-            [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
-            [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [compojure.core :as compojure]
-            [clojure.java.io :refer [file]]
-            [clj-time.core :refer [ago]]
             [overtone.at-at :refer [mk-pool interspaced]]
-            [slingshot.slingshot :refer [throw+ try+]]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [puppetlabs.puppetdb.command.dlo :as dlo]
+            [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.puppetdb.http.server :as server]
+            [puppetlabs.puppetdb.jdbc :as pl-jdbc]
+            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
+            [puppetlabs.puppetdb.meta.version :as version]
+            [puppetlabs.puppetdb.mq :as mq]
+            [puppetlabs.puppetdb.query-eng :as qeng]
+            [puppetlabs.puppetdb.query.population :as pop]
+            [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
+            [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.time :refer [to-seconds to-millis parse-period
                                               format-period period?]]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
-            [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
-            [puppetlabs.puppetdb.meta.version :as version]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.query-eng :as qeng]
-            [puppetlabs.puppetdb.utils :as utils])
+            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
+            [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
+            [robert.hooke :as rh]
+            [slingshot.slingshot :refer [throw+ try+]])
   (:import [javax.jms ExceptionListener]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -267,8 +267,8 @@
         url-prefix (get-route service)
         write-db (pl-jdbc/pooled-datasource database)
         read-db (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
-        mq-dir (str (file vardir "mq"))
-        discard-dir (file mq-dir "discarded")
+        mq-dir (str (io/file vardir "mq"))
+        discard-dir (io/file mq-dir "discarded")
         mq-connection-str (add-max-framesize max-frame-size mq-addr)
         authorizer (when certificate-whitelist
                      (build-whitelist-authorizer certificate-whitelist))]
