@@ -13,7 +13,7 @@ Queries are performed by performing an HTTP GET request to an endpoint URL and s
 which contains the query to execute. Results are always returned in
 `application/json` form.
 
-Oueries are usually issued from code, but you can easily issue them from the command line using curl.
+Queries are usually issued from code, but you can easily issue them from the command line using curl.
 
 ### Querying with Curl
 
@@ -250,15 +250,25 @@ this time.
 We can also query for nodes. Once again, this is quite similar to resource and
 fact queries:
 
-    ["=", "name", "foo.example.com"]
+    ["=", "certname", "foo.example.com"]
 
 The result of this query is:
 
-    ["foo.example.com"]
+    {
+        "deactivated" : null,
+        "facts_environment" : "production",
+        "report_environment" : "production",
+        "catalog_environment" : "production",
+        "facts_timestamp" : "2015-06-22T17:25:11.886Z",
+        "expired" : null,
+        "report_timestamp" : "2015-06-22T17:25:07.484Z",
+        "certname" : "foo.example.com",
+        "catalog_timestamp" : "2015-06-22T17:25:12.023Z"
+    }
 
-This will find the node foo.example.com. Note that the results of a node query
-contain only the node names, rather than an object with multiple fields as with
-resources and facts.
+This will return an object containing the certname "foo.example.com", as well
+as some metadata detailing deactivation status and the most recent fact,
+report, and catalog updates from that node.
 
 ### Querying on Facts
 

@@ -26,7 +26,9 @@ Structured fact data is normally represented as a hash, which allows hashes, arr
       }
     }
 
-With the fact points endpoint it allows you to query data at a particular part of the tree using the `path` field, and then either analyze or filter on the `value` of that node.
+With the fact-contents endpoint you can query data at a specific location in
+the tree using the `path` field, and then either analyze or filter on the
+`value` of that node.
 
 ### `GET /pdb/query/v4/fact-contents`
 
@@ -108,6 +110,7 @@ which returns:
     }, {
       "certname" : "node-0",
       "path" : [ "foo", "bar", 1, "foobar" ],
+      "name" "foo",
       "value" : 5,
       "environment" : "foo"
     } ]
@@ -127,11 +130,13 @@ which returns:
       "certname" : "node-0",
       "path" : [ "networking", "eth0", "macaddresses", 1 ],
       "value" : "aa:bb:cc:dd:ee:01",
+      "name" : "networking",
       "environment" : "foo"
     }, {
       "certname" : "node-0",
       "path" : [ "networking", "eth0", "macaddresses", 0 ],
       "value" : "aa:bb:cc:dd:ee:00",
+      "name": "networking",
       "environment" : "foo"
     } ]
 
@@ -139,4 +144,5 @@ which returns:
 
 This query endpoint supports paged results via the common PuppetDB paging
 URL parameters. For more information, please see the documentation
-on [paging][paging].
+on [paging][paging]. When the `order_by` parameter is set to "value", the
+ordering will be lexicographical.

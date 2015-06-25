@@ -56,7 +56,7 @@ String. An arbitrary string that uniquely identifies this specific catalog acros
 
 #### `environment`
 
-String. The envrionment associated to the node when the catalog was compiled.
+String. The environment associated to the node when the catalog was compiled.
 
 #### `edges`
 

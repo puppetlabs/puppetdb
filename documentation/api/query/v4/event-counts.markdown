@@ -51,7 +51,7 @@ Supported fields are `failures`, `successes`, `noops`, and `skips`.
 
 * `distinct_resources`: Optional.  (EXPERIMENTAL: it is possible that the behavior
 of this parameter may change in future releases.)  This parameter is passed along
-to the [`event`][events] query - see there for additional documentation.
+to the [`events`][events] query - see there for additional documentation.
 
 ### Query Operators
 

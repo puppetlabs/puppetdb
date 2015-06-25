@@ -56,18 +56,20 @@ See [the Operators page](./operators.html) for the full list of available operat
 An array of zero or more resource objects, with each object having the
 following form:
 
-    {"certname":   "the certname of the associated host",
-     "resource":   "the resource's unique hash",
-     "type":       "File",
-     "title":      "/etc/hosts",
-     "exported":   "true",
-     "tags":       ["foo", "bar"],
-     "file": "/etc/puppet/manifests/site.pp",
-     "line": "1",
-     "environment": "production",
-     "parameters": {<parameter>: <value>,
-                   <parameter>: <value>,
-                   ...}}
+    {
+      "certname": "the certname of the associated host",
+       "resource": "the resource's unique hash",
+       "type": "File",
+       "title": "/etc/hosts",
+       "exported": "true",
+       "tags": ["foo", "bar"],
+       "file": "/etc/puppet/manifests/site.pp",
+       "line": "1",
+       "environment": "production",
+       "parameters": {<parameter>: <value>,
+                      <parameter>: <value>,
+                      ...}
+    }
 
 ### Examples
 

@@ -153,6 +153,18 @@ The returned SQL fragment will contain *one* parameter placeholder, which
 must be supplied as the value to be matched."
   (fn [column] (sql-current-connection-database-name)))
 
+(defmulti legacy-sql-regexp-match
+  "Returns db-specific code for performing a regexp match"
+  (fn [_] (sql-current-connection-database-name)))
+
+(defmethod legacy-sql-regexp-match "PostgreSQL"
+  [column]
+  (format "(%s ~ ? AND %s IS NOT NULL)" column column))
+
+(defmethod legacy-sql-regexp-match "HSQL Database Engine"
+  [column]
+  (format "REGEXP_SUBSTRING(%s, ?) IS NOT NULL" column))
+
 (defmulti sql-regexp-match
   "Returns db-specific code for performing a regexp match"
   (fn [_] (sql-current-connection-database-name)))

@@ -1,9 +1,7 @@
 puppetdb_query_url = "http://localhost:8080/pdb/query"
 test_name "storeconfigs export and import" do
 
-  confine :except, :platform => 'ubuntu-10.04-amd64'
-
-  skip_test "storeconfigs not supported in puppet >= 4.0" unless version_is_less(facts(master.name)['puppetversion'], '4.0.0')
+  skip_test "storeconfigs not supported in puppet >= 4.0" if options[:type] == 'aio'
 
   skip_test "Skipping test for PE because sqlite3 isn't available" if master.is_pe?
 

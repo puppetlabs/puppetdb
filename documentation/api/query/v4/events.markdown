@@ -41,12 +41,12 @@ of this parameter may change in future releases.) If specified, the result set w
     would only return the success event, since it's the most recent event for that resource.
 
     Since a `distinct_resources` query can be expensive, it requires a limited
-    window of time to examine. Use the `distinct-start-time` and
-    `distinct-end-time` parameters to define this interval.
+    window of time to examine. Use the `distinct_start_time` and
+    `distinct_end_time` parameters to define this interval.
     Issuing a `distinct_resources` query without specifying both of these parameters will cause an error.
 
-* `distinct-start-time`: Used with `distinct_resources`. The start of the window of time to examine, as an [ISO-8601][8601] compatible date/time string.
-* `distinct-end-time`: Used with `distinct_resources`. The end of the window of time to examine, as an [ISO-8601][8601] compatible date/time string.
+* `distinct_start_time`: Used with `distinct_resources`. The start of the window of time to examine, as an [ISO-8601][8601] compatible date/time string.
+* `distinct_end_time`: Used with `distinct_resources`. The end of the window of time to examine, as an [ISO-8601][8601] compatible date/time string.
 
 ### Query Operators
 
@@ -55,10 +55,6 @@ Note that inequality operators (`<`, `>`, `<=`, `>=`) are only supported against
 the `timestamp` field.
 
 ### Query Fields
-
-Unless otherwise noted, all fields support
-both equality and regular expression match operators, but do not support inequality
-operators.
 
 > **Note on fields that allow `NULL` values**
 >
@@ -74,21 +70,17 @@ operators.
 
 * `status` (string): the status of the event; legal values are `success`, `failure`, `noop`, and `skipped`.
 
-* `timestamp` (timestamp): the timestamp (from the puppet agent) at which the event occurred.  This field
-  supports the inequality operators.  Timestamps are always [ISO-8601][8601]
-  compatible date/time strings.
+* `timestamp` (timestamp): the timestamp (from the puppet agent) at which the event occurred.
+Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `run_start_time` (timestamp): the timestamp (from the puppet agent) at which the puppet run began.  This field
-  supports the inequality operators.  Timestamps are always [ISO-8601][8601]
-  compatible date/time strings.
+* `run_start_time` (timestamp): the timestamp (from the puppet agent) at which the puppet run began.
+Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
-* `run_end_time` (timestamp): the timestamp (from the puppet agent) at which the puppet run finished.  This field
-  supports the inequality operators.  Timestamps are always [ISO-8601][8601]
-  compatible date/time strings.
+* `run_end_time` (timestamp): the timestamp (from the puppet agent) at which the puppet run finished.
+Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
 * `report_receive_time` (timestamp): the timestamp (from the PuppetDB server) at which the puppet report was
-  received.  This field supports the inequality operators.  Timestamps are always [ISO-8601][8601]
-  compatible date/time strings.
+  received. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
 * `resource_type` (string, with first letter always capitalized): the type of resource that the event occurred on; e.g., `File`, `Package`, etc.
 
@@ -203,11 +195,12 @@ To retrieve latest events that are tied to the class found in your update.pp fil
     ["and", ["=", "latest_report?", true],
       ["~", "file", "update.pp"]]
 
-To retrieve counts by event status for a particular node:
+To retrieve event status counts for each active node:
 
-    ["extract", [["function", "count"], "status"],
-      ["=", "certname", "foo.com"],
-      ["group_by", "status"]]
+    curl -X GET http://localhost:8080/pdb/query/v4/events --data-urlencode \
+    'query=["extract", [["function", "count"], "status","certname"],
+                       ["=", ["node","active"], true],
+                       ["group_by","status","certname"]]'
 
 ## Paging
 
