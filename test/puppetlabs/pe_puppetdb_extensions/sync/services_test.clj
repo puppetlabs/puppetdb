@@ -16,7 +16,7 @@
       nil))
 
   (testing "Invalid sync configs"
-    (are [remote-config] (thrown+? [:type :puppetlabs.puppetdb.config/configuration-error]
+    (are [remote-config] (thrown+? [:type :puppetlabs.puppetdb.utils/cli-error]
                                    (enable-periodic-sync? remote-config))
 
       [{:endpoint "http://foo.bar:8080", :interval "NOT A NUMBER!"}]

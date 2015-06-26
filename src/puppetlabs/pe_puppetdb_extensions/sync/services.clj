@@ -41,8 +41,7 @@
       false)
 
     (and remotes (> (count remotes) 1))
-    (throw+ {:type :puppetlabs.puppetdb.config/configuration-error
-             :message "Only a single remote is allowed"})
+    (utils/throw+-cli-error! "Only a single remote is allowed")
     :else
     (let [interval (-> remotes first (get :interval ::none))]
       (cond
@@ -50,12 +49,10 @@
         false
 
         (not (integer? interval))
-        (throw+ {:type :puppetlabs.puppetdb.config/configuration-error
-                 :message (str "Invalid sync interval: " interval)})
+        (utils/throw+-cli-error! (str "Invalid sync interval: " interval))
 
         (neg? interval)
-        (throw+ {:type :puppetlabs.puppetdb.config/configuration-error
-                 :message (str "Sync interval must be positive or zero: " interval)})
+        (utils/throw+-cli-error! (str "Sync interval must be positive or zero: " interval))
 
         (zero? interval)
         (do (log/warn "Zero sync interval specified, disabling sync.")
