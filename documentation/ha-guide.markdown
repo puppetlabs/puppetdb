@@ -1,4 +1,4 @@
----
+-
 title: "PE PuppetDB 3.0 » PuppetDB HA Guide"
 layout: default
 canonical: "/puppetdb/latest/ha-guide.html
@@ -6,6 +6,7 @@ canonical: "/puppetdb/latest/ha-guide.html
 
 [configure]: ./configure.html
 [pe-configure]: ./pe-configure.html
+[logging]: ./logging.html
 
 Configuring PuppetDB for High Availability
 -----
@@ -136,3 +137,72 @@ database or command queue are completely destroyed before the data can be
 synchronized with the replica. This will be fixed in first stable version by
 retaining a log of submitted commands on the Puppet master and using it to
 recover from data loss cases.
+
+Operations
+-----
+
+PuppetDB provides several facilities to help you keep your HA cluster running.
+
+## Structured Logging
+
+HA-related events are written to a log named ":sync"; you can configure the
+handling of these events to fit your requirements.
+
+If you have configured structured logging as described in the
+[logging][Logging Configuration Guide], you will see additional attributes on each JSON log message.
+
+### Common fields
+
+* `phase`: The sync is divided into nested phases: `"sync"`, `"entity"`, `"record"`, and
+  `"deactivate"`. These are described in more detail below.
+
+* `event`: All sync log messages have an event field, indicating its position
+  within the phase. This is one of `"start"`, `"finished"`, or `"error"`.
+
+* `ok`:
+  * `finished` messages have the JSON boolean value `true`.
+  * `error` messages have the JSON boolean value `false`.
+
+* `elapsed`: `finished` and `error` messages have an `elapsed` field whose value
+  is the time span since the corresponding start event in milliseconds
+  (formatted as a JSON number).
+
+
+### Sync phase
+
+`sync` events have the following fields:
+
+* remote: The URL on the remote system from which data is being pulled.
+
+### Entity phase
+
+`entity` events surround the syncing for each type of record, i.e. catalogs,
+facts, or reports.
+
+* `entity`: The entity being processed. One of `"catalogs"`, `"facts"`, `"reports"`, or
+  `"nodes"`. (nodes is used only to sync node deactivation status)
+
+* remote: As above
+
+### Record phase
+
+`record` events surround the transfer of each record, for the `catalogs`,
+`facts`, and `reports` entities. They are logged at debug level, unless there is
+a problem.
+
+* query: The query issued to the remote PuppetDB server to retrieve this record.
+
+* certname: The certname of the node with which this record is associated
+
+* hash: The hash of the report being transferred, for reports only.
+
+* entity: As above
+
+* remote: As above
+
+### Deactivate phase
+
+`deactivate` events surround the process of issuing a local `deactivate node`
+command for a particular node.
+
+* certname: The certname of the node being deactivated

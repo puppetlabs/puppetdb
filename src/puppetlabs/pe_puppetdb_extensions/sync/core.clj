@@ -229,10 +229,11 @@
                    (str "unable to ask" remote-url "for" entity-name
                         "using query" query "; received"
                         (pr-str {:status status :body body})))]
-    (with-sync-events {:type :record
-                       :context {:entity entity-name
-                                 :remote query-url
-                                 :query query}
+    (with-sync-events {:context (merge {:phase "record"
+                                        :entity entity-name
+                                        :remote query-url
+                                        :query query}
+                                       (select-keys record [:certname :hash]))
                        :start [:debug "    syncing {entity} record ({certname} {hash}) from {remote}"]
                        :finished [:debug "    --> transferred {entity} record for query {query} via {remote} in {elapsed} ms"]
                        :error [:warn "    *** failed to sync {entity} record for query {query} via {remote} in {elapsed} ms"]}
@@ -251,17 +252,13 @@
   ;; deactivated never goes false (null) by itself; one of the other entities
   ;; will change, reactivating it as a side effect
   (when deactivated
-    (let [log-ctx #(hash-map :event "finished-sync-deactivation"
-                             :entity (name entity)
-                             :certname certname
-                             :ok (boolean %))]
-      (try
-        (submit-command-fn :deactivate-node 3
-                           {:certname certname :producer_timestamp deactivated})
-        (maplog [:sync :debug] (log-ctx true) "deactivated %s" certname)
-        (catch Exception ex
-          (maplog [:sync :warn] ex (log-ctx false) "failed to deactivate {certname}")
-          (throw ex))))))
+    (with-sync-events {:context {:phase "deactivate"
+                                 :certname certname
+                                 :producer_timestamp deactivated}
+                       :start [:debug "    deactivating {certname} as of {producer_timestamp}"]
+                       :finished [:debug "    deactivated {certname}"]}
+      (submit-command-fn :deactivate-node 3
+                         {:certname certname :producer_timestamp deactivated}))))
 
 (defn outer-join-unique-sorted-seqs
   "Outer join two seqs, `xs` and `ys`, that are sorted and unique under
@@ -347,8 +344,8 @@
   (let [entity (:entity sync-config)
         entity-name (name entity)
         stats (atom {:transferred 0 :failed 0})]
-    (with-sync-events {:type :entity
-                       :context {:entity entity-name
+    (with-sync-events {:context {:phase "entity"
+                                 :entity entity-name
                                  :remote remote-url
                                  :transferred #(:transferred @stats)
                                  :failed #(:failed @stats)}
@@ -400,8 +397,8 @@
   (let [submit-command-fn (wrap-with-logging submit-command-fn
                                              :debug "Submitting command")
         now (t/now)]
-    (with-sync-events {:type :sync
-                       :context {:remote remote-url}
+    (with-sync-events {:context {:phase "sync"
+                                 :remote remote-url}
                        :start [:info "syncing with {remote}"]
                        :finished [:info "--> synced with {remote}"]
                        :error [:warn "*** trouble syncing with {remote}"]}
