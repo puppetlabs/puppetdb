@@ -260,6 +260,7 @@
   (let [{:keys [jetty database read-database global command-processing puppetdb]
          :as config}                            (conf/process-config! config)
         product-name                               (:product-name global)
+        enterprise?                                (= "pe-puppetdb" product-name)
         update-server                              (:update-server global)
         url-prefix                                 (:url-prefix global)
         write-db                                   (pl-jdbc/pooled-datasource database)
@@ -288,9 +289,10 @@
     ;; confused if the database doesn't exist but we open and close a
     ;; connection without creating anything.
     (sql/with-connection write-db
-                         (scf-store/validate-database-version #(System/exit 1))
+                         (scf-store/validate-database-version
+                           enterprise? #(System/exit 1))
                          (migrate!)
-                         (indexes! (:product-name globals)))
+                         (indexes! product-name))
 
     ;; Initialize database-dependent metrics and dlo metrics if existent.
     (pop/initialize-metrics write-db)
