@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.services
-  (:require [puppetlabs.puppetdb.testutils :refer [temp-dir temp-file]]
+  (:require [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.testutils :refer [temp-dir temp-file]]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
@@ -19,7 +20,10 @@
             [me.raynes.fs :as fs]
             [slingshot.slingshot :refer [throw+]]
             [clojure.tools.logging :as log]
-            [clojure.data.xml :as xml]))
+            [clojure.data.xml :as xml])
+  (:import [ch.qos.logback.core Appender spi.LifeCycle]
+           [ch.qos.logback.classic Level Logger]
+           [org.slf4j LoggerFactory]))
 
 ;; See utils.clj for more information about base-urls.
 (def ^:dynamic *base-url* nil) ; Will not have a :version.
@@ -30,6 +34,56 @@
 (def ^:dynamic *log-levels* {}) ; a map like {"puppetlabs.puppetdb.command" "ERROR"}
 (def ^:dynamic *extra-log-config* nil)
 (def ^:dynamic *extra-appender-config* nil)
+
+(defmacro with-log-level
+  "Sets the (logback) log level for the logger specified by logger-id
+  during the execution of body.  If logger-id is not a class, it is
+  converted via str, and the level must be a clojure.tools.logging
+  key, i.e. :info, :error, etc."
+  [logger-id level & body]
+  ;; Assumes use of logback (i.e. logger supports Levels).
+  `(let [logger-id# ~logger-id
+         logger-id# (if (class? logger-id#) logger-id# (str logger-id#))
+         logger# (.getLogger (LoggerFactory/getILoggerFactory) logger-id#)
+         original-level# (.getLevel logger#)]
+     (.setLevel logger# (case ~level
+                          :trace Level/TRACE
+                          :debug Level/DEBUG
+                          :info Level/INFO
+                          :warn Level/WARN
+                          :error Level/ERROR
+                          :fatal Level/ERROR))
+     (try
+       (do ~@body)
+       (finally (.setLevel logger# original-level#)))))
+
+(defn create-log-appender-to-atom
+  [destination-atom]
+  ;; No clue yet if we're supposed to start with a default name.
+  (let [name (atom (str "log-appender-to-atom-" (kitchensink/uuid)))]
+    (reify
+      Appender
+      (doAppend [this event] (swap! destination-atom conj event))
+      (getName [this] @name)
+      (setName [this x] (reset! name x))
+      LifeCycle
+      (start [this] true)
+      (stop [this] true))))
+
+(defmacro with-logging-to-atom
+  "Conjoins all logger-id events produced during the execution of the
+  body to the destination atom, which must contain a collection.  If
+  logger-id is not a class, it is converted via str."
+  [logger-id destination & body]
+  ;; Specify the root logger via org.slf4j.Logger/ROOT_LOGGER_NAME.
+  `(let [logger-id# ~logger-id
+         logger-id# (if (class? logger-id#) logger-id# (str logger-id#))
+         logger# (.getLogger (LoggerFactory/getILoggerFactory) logger-id#)
+         appender# (doto (create-log-appender-to-atom ~destination) .start)]
+     (.addAppender logger# appender#)
+     (try
+       (do ~@body)
+       (finally (.detachAppender logger# appender#)))))
 
 (defn log-config
   "Returns a logback.xml string with the specified `log-file` `log-level`."
