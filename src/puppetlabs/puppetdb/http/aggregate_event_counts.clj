@@ -23,9 +23,10 @@
                     query-options (-> {:counts_filter counts_filter'
                                        :count_by count_by}
                                       (merge distinct-options))]
-                (log/warn
-                  (str "The aggregate-event-counts endpoint is experimental"
-                       " and may be altered or removed in the future."))
+                (when-not (= "puppetdb" (:product-name globals))
+                  (log/warn
+                   (str "The aggregate-event-counts endpoint is experimental"
+                        " and may be altered or removed in the future.")))
                 (produce-streaming-body
                   :aggregate-event-counts
                   version

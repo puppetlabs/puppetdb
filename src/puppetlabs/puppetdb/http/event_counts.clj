@@ -13,6 +13,9 @@
   (app
    [""]
    {:get (fn [{:keys [params globals paging-options]}]
+           (when-not (= "puppetdb" (:product-name globals))
+             (log/warn (str "The aggregate-event-counts endpoint is experimental"
+                            " and may be altered or removed in the future.")))
            (let [{:strs [query summarize_by counts_filter count_by] :as query-params} params
                  query-options (merge {:counts_filter (if counts_filter (json/parse-strict-string counts_filter true))
                                        :count_by count_by}
@@ -28,7 +31,6 @@
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."
   [version]
-  (log/warn "The event-counts endpoint is experimental and may be altered or removed in the future.")
   (-> (routes version)
       verify-accepts-json
       (validate-query-params {:required ["query" "summarize_by"]
