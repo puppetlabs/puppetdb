@@ -76,7 +76,7 @@ event-count results were aggregated.
 
 You can use [`curl`][curl] to query information about aggregated resource event counts like so:
 
-    curl -G 'http://localhost:8080/v3/aggregate-event-counts'
+    curl -G 'http://localhost:8080/v3/aggregate-event-counts' \
             --data-urlencode 'query=["=", "certname", "foo.local"]' \
             --data-urlencode 'summarize-by=containing-class'
 
