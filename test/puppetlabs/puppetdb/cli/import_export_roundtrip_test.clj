@@ -115,9 +115,9 @@
                           (export/facts-for-node *base-url*)
                           first)))
 
-        (#'export/main "--outfile" export-out-file
-                       "--host" (:host *base-url*)
-                       "--port" (:port *base-url*))))
+        (#'export/-main "--outfile" export-out-file
+                        "--host" (:host *base-url*)
+                        "--port" (str (:port *base-url*)))))
 
     (svc-utils/puppetdb-instance
       (fn []
@@ -126,8 +126,9 @@
         (svc-utils/until-consumed
          3
          (fn []
-           (#'import/main "--infile" export-out-file
-                          "--host" (:host *base-url*) "--port" (:port *base-url*))))
+           (#'import/-main "--infile" export-out-file
+                           "--host" (:host *base-url*)
+                           "--port" (str (:port *base-url*)))))
 
         (is (testutils/=-after? munge-catalog catalog (->> (:certname catalog)
                                                            (export/catalogs-for-node *base-url*)
@@ -164,19 +165,3 @@
                                   (->> (:certname catalog)
                                        (export/catalogs-for-node *base-url*)
                                        first))))))))
-
-(defn- check-invalid-url-handling [cmd expected-msg-re]
-  (let [ex (is (thrown+-with-msg? #(and (map? %) (:utils/exit-status %))
-                                  expected-msg-re
-                                  (cmd)))]
-    (is (not (zero? (:utils/exit-status ex))))))
-
-(deftest invalid-export-source-handling
-  (check-invalid-url-handling
-   #(#'export/main "--host" "local:host" "--outfile" "/dev/null" "--port" 10000)
-   #"^Invalid source .*"))
-
-(deftest invalid-import-destination-handling
-  (check-invalid-url-handling
-   #(#'import/main "--host" "local:host" "--infile" "/dev/null" "--port" 10000)
-   #"^Invalid destination .*"))

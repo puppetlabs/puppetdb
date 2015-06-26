@@ -256,33 +256,33 @@
 
 (defn- validate-cli!
   [args]
-  (let [specs    [["-o" "--outfile OUTFILE" "Path to backup file (required)"]
-                  ["-H" "--host HOST" "Hostname of PuppetDB server" :default "localhost"]
-                  ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)"
-                   :parse-fn #(Integer. %) :default 8080]]
-        required [:outfile]]
-    (try+
-     (kitchensink/cli! args specs required)
-     (catch map? m
-       (println (:message m))
-       (case (:type m)
-         ::kitchensink/cli-error (System/exit 1)
-         ::kitchensink/cli-help  (System/exit 0))))))
+  (let [specs [["-o" "--outfile OUTFILE" "Path to backup file (required)"]
+               ["-H" "--host HOST" "Hostname of PuppetDB server"
+                :default "127.0.0.1"]
+               ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)"
+                :default 8080
+                :parse-fn #(Integer/parseInt %)]]
+        required [:outfile]
+        construct-base-url (fn [{:keys [host port] :as options}]
+                             (-> options
+                                 (assoc :base-url (utils/pdb-query-base-url host port :v4))
+                                 (dissoc :host :port)))]
+    (utils/try+-process-cli!
+     (fn []
+       (-> args
+           (kitchensink/cli! specs required)
+           first
+           construct-base-url
+           utils/validate-cli-base-url!)))))
 
-(defn- main
+(defn -main
   [& args]
-  (let [[{:keys [outfile host port] :as opts} _] (validate-cli! args)
-        src {:protocol "http" :host host :port port :prefix "/pdb/query" :version :v4}
-        _ (when-let [why (utils/describe-bad-base-url src)]
-            (throw+ {:type ::invalid-url :utils/exit-status 1}
-                    (format "Invalid source (%s)" why)))
-        nodes (get-nodes src)]
+  (let [{:keys [outfile base-url] :as opts} (validate-cli! args)
+        nodes (get-nodes base-url)]
     (with-open [tar-writer (archive/tarball-writer outfile)]
       (utils/add-tar-entry tar-writer (export-metadata))
       (doseq [node nodes
-              :let [node-data (get-node-data src node)]]
+              :let [node-data (get-node-data base-url node)]]
         (doseq [{:keys [msg] :as tar-item} (mapcat node-data [:catalog :reports :facts])]
           (println msg)
           (utils/add-tar-entry tar-writer tar-item))))))
-
-(def -main (utils/wrap-main main))

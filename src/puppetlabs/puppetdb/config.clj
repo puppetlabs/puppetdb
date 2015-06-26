@@ -156,7 +156,7 @@
    :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (io/file vardir "db"))})
 
 (defn validate-db-settings
-  "Throws a {:type ::configuration-error :message m} exception
+  "Throws a {:type ::cli-error :message m} exception
   describing the required additions if the [database] configuration
   doesn't specify classname, subprotocol and subname, all of which are
   now required."
@@ -176,7 +176,8 @@
                    (setting-needed :classname)
                    (setting-needed :subprotocol)
                    (setting-needed :subname))]
-      (throw+ {:type ::configuration-error :message msg})))
+      (throw+ {:type ::cli-error
+               :message msg})))
   config)
 
 (defn convert-section-config
@@ -362,7 +363,7 @@
 (defn hook-tk-parse-config-data
   "This is a robert.hooke compatible hook that is designed to intercept
    trapperkeeper configuration before it is used, so that we may munge &
-   customize it.  It may throw {:type ::configuration-error :message m}."
+   customize it.  It may throw {:type ::cli-error :message m}."
   [f args]
   (adjust-and-validate-tk-config (f args)))
 

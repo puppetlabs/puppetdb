@@ -11,7 +11,7 @@
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [clojure.walk :as walk]
-            [slingshot.slingshot :refer [try+]]
+            [slingshot.slingshot :refer [try+ throw+]]
             [com.rpl.specter :as sp])
   (:import [java.net MalformedURLException URISyntaxException URL]
            [org.postgresql.util PGobject]))
@@ -189,35 +189,45 @@
     (catch MalformedURLException ex (.getLocalizedMessage ex))
     (catch URISyntaxException ex (.getLocalizedMessage ex))))
 
-(defn wrap-main
-  "Returns a new main function that handles \"normal\" activities.
-  For now that means that if a map containing a :utils/exit-status
-  member is throw+n, then the exception's message (if any) will be
-  printed to *err* and the process will exit with that status.
-  Otherwise the exit status will be 0."
-  [main]
-  (fn [& args]
-    (let [status
-          (try+
-           (apply main args)
-           0
-           (catch (and (map? %) (::exit-status %)) {:keys [::exit-status message]}
-             (when-not (empty? message)
-               (println-err "error:" message))
-             exit-status))]
-      (shutdown-agents)
-      ;; The JVM doesn't always flush on the way out.
-      (binding [*out* *err*] (flush))
-      (flush)
-      (System/exit status))))
+(defn throw+-cli-error!
+  [msg]
+  (throw+ {:type ::cli-error
+           :message msg}))
 
-(defn create-certname-pred
-  "Create a function to compare the certnames in a list of
-  rows with that of the first row."
-  [rows]
-  (let [certname (:certname (first rows))]
-    (fn [row]
-      (= certname (:certname row)))))
+(defn validate-cli-base-url!
+  "A utility function which will validate the base-url
+  and throw+ a slingshot error appropriate for `kitchensink/cli!`"
+  [{:keys [base-url] :as options}]
+  (when-let [why (describe-bad-base-url base-url)]
+    (throw+-cli-error! (format "Invalid source (%s)" why)))
+  options)
+
+(defn try+-process-cli!
+  [body]
+  (try+
+   (body)
+   (catch map? m
+     (println (:message m))
+     (case (kitchensink/without-ns (:type m))
+       :cli-error (System/exit 1)
+       :cli-help (System/exit 0)
+       (throw+ m)))))
+
+(defn pdb-query-base-url
+  [host port & [version]]
+  {:protocol "http"
+   :host host
+   :port port
+   :prefix "/pdb/query"
+   :version (or version :v4)})
+
+(defn pdb-cmd-base-url
+  [host port & [version]]
+  {:protocol "http"
+   :host host
+   :port port
+   :prefix "/pdb/cmd"
+   :version (or version :v1)})
 
 (defn assoc-if-exists
   "Assoc only if the key is already present"

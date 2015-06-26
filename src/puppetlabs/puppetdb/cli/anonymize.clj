@@ -1,16 +1,15 @@
 (ns puppetlabs.puppetdb.cli.anonymize
   (:require [clojure.java.io :as io]
             [clojure.string :as string]
-            [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.anonymizer :as anon]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.cli.export :refer [export-metadata-file-name]]
-            [puppetlabs.puppetdb.cli.import :refer [parse-metadata]]
+            [puppetlabs.puppetdb.cli.export :as export]
+            [puppetlabs.puppetdb.cli.import :as import]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.utils :refer [export-root-dir add-tar-entry]]
+            [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]
             [slingshot.slingshot :refer [try+]])
   (:import [org.apache.commons.compress.archivers.tar TarArchiveEntry]
@@ -182,8 +181,8 @@
   [tar-writer :- TarGzWriter
    suffix :- [String]
    contents :- {s/Any s/Any}]
-  (add-tar-entry tar-writer {:file-suffix suffix
-                             :contents (json/generate-pretty-string contents)}))
+  (utils/add-tar-entry tar-writer {:file-suffix suffix
+                                   :contents (json/generate-pretty-string contents)}))
 
 (defn next-json-tar-entry
   "Read and parse a JSON item from `tar-reader`"
@@ -192,84 +191,84 @@
        archive/read-entry-content
        json/parse-string))
 
-(defn process-tar-entry
+(defn add-anonymized-entity
+  [tar-writer old-path entity file-name data]
+  (let [file-suffix [entity file-name]
+        new-path (.getPath (apply io/file utils/export-root-dir file-suffix))
+        singular-entity (case entity
+                          "facts" "facts"
+                          "catalogs" "catalog"
+                          "reports" "report")]
+    (-> "Anonymizing %s from archive entry '%s' into '%s'"
+        (format singular-entity old-path new-path)
+        println)
+    (add-json-tar-entry tar-writer file-suffix data)))
+
+(pls/defn-validated process-tar-entry
   "Determine the type of an entry from the exported archive, and process it
   accordingly."
-  [^TarGzReader tar-reader ^TarArchiveEntry tar-entry ^TarGzWriter tar-writer config metadata]
-  {:pre  [(instance? TarGzReader tar-reader)
-          (instance? TarArchiveEntry tar-entry)
-          (instance? TarGzWriter tar-writer)]}
-  (let [path    (.getName tar-entry)
-        catalog-pattern (str "^" (.getPath (io/file export-root-dir "catalogs" ".*\\.json")) "$")
-        report-pattern (str "^" (.getPath (io/file export-root-dir "reports" ".*\\.json")) "$")
-        facts-pattern (str "^" (.getPath (io/file export-root-dir "facts" ".*\\.json")) "$")]
+  [tar-reader :- TarGzReader
+   tar-entry :- TarArchiveEntry
+   tar-writer :- TarGzWriter
+   config
+   command-versions]
+  (let [path (.getName tar-entry)]
+    (condp re-find path
+      ;; Process catalogs
+      (import/file-pattern "catalogs")
+      (let [{:strs [certname] :as new-catalog} (->> (next-json-tar-entry tar-reader)
+                                                    (anon/anonymize-catalog config))]
+        (add-anonymized-entity tar-writer path "catalogs" (format "%s.json" certname) new-catalog))
 
-    ;; Process catalogs
-    (when (re-find (re-pattern catalog-pattern) path)
-      (let [new-catalog  (->> (next-json-tar-entry tar-reader)
-                              (anon/anonymize-catalog config))
-            new-hostname (get new-catalog "certname")
-            file-suffix  ["catalogs" (format "%s.json" new-hostname)]
-            new-path     (.getPath (apply io/file export-root-dir file-suffix))]
-        (println (format "Anonymizing catalog from archive entry '%s' into '%s'" path new-path))
-        (add-json-tar-entry tar-writer file-suffix new-catalog)))
+      ;; Process reports
+      (import/file-pattern "reports")
+      (let [cmd-version (:store_report command-versions)
+            {:strs [start_time configuration_version certname] :as new-report}
+            (->> (next-json-tar-entry tar-reader)
+                 (anon/anonymize-report config cmd-version))]
+        (add-anonymized-entity tar-writer path "reports" (->> (str start_time configuration_version)
+                                                              kitchensink/utf8-string->sha1 
+                                                              (format "%s-%s.json" certname)) new-report))
 
-    ;; Process reports
-    (when (re-find (re-pattern report-pattern) path)
-      (let [cmd-version  (get-in metadata [:command_versions :store_report])
-            new-report   (->> (next-json-tar-entry tar-reader)
-                              (anon/anonymize-report config cmd-version))
-            new-hostname (get new-report "certname")
-            new-hash     (kitchensink/utf8-string->sha1
-                          (str
-                           (get new-report "start_time")
-                           (get new-report "configuration_version")))
-            file-suffix  ["reports" (format "%s-%s.json" new-hostname new-hash)]
-            new-path     (.getPath (apply io/file export-root-dir file-suffix))]
-        (println (format "Anonymizing report from archive entry '%s' to '%s'" path new-path))
-        (add-json-tar-entry tar-writer file-suffix new-report)))
-
-    ;; Process facts
-    (when (re-find (re-pattern facts-pattern) path)
-      (let [new-facts    (->> (next-json-tar-entry tar-reader)
-                              (anon/anonymize-facts config))
-            new-hostname (get new-facts "certname")
-            file-suffix  ["facts" (format "%s.json" new-hostname)]
-            new-path     (.getPath (apply io/file export-root-dir file-suffix))]
-        (println (format "Anonymizing facts from archive entry '%s' to '%s'" path new-path))
-        (add-json-tar-entry tar-writer file-suffix new-facts)))))
+      ;; Process facts
+      (import/file-pattern "facts")
+      (let [{:strs [certname] :as new-facts} (->> (next-json-tar-entry tar-reader)
+                                                  (anon/anonymize-facts config))]
+        (add-anonymized-entity tar-writer path "facts" (format "%s.json" certname) new-facts))
+      nil)))
 
 (defn- validate-cli!
   [args]
   (let [profiles (string/join ", " (keys anon-profiles))
-        specs    [["-o" "--outfile OUTFILE" "Path to output file (required)"]
-                  ["-i" "--infile INFILE" "Path to input file (required)"]
-                  ["-p" "--profile PROFILE" (str "Choice of anonymization profile: " profiles) :default "moderate"]
-                  ["-c" "--config CONFIG" "Configuration file path for extra profile definitions (experimental) (optional)"]]
+        specs [["-o" "--outfile OUTFILE" "Path to output file (required)"]
+               ["-i" "--infile INFILE" "Path to input file (required)"]
+               ["-p" "--profile PROFILE" (str "Choice of anonymization profile: " profiles)
+                :default "moderate"]
+               ["-c" "--config CONFIG" "Configuration file path for extra profile definitions (experimental) (optional)"
+                :default {}
+                :parse-fn (comp clojure.edn/read-string slurp)]]
         required [:outfile :infile]]
-    (try+
-     (kitchensink/cli! args specs required)
-     (catch map? m
-       (println (:message m))
-       (case (:type m)
-         :puppetlabs.kitchensink.core/cli-error (System/exit 1)
-         :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
+    (utils/try+-process-cli!
+     (fn []
+       (first
+        (kitchensink/cli! args specs required))))))
 
 (defn -main
   [& args]
-  (let [[{:keys [outfile infile profile config]} _] (validate-cli! args)
-        extra-config                                (if (empty? config) {} (clojure.edn/read-string (slurp config)))
-        profile-config                              (get (merge anon-profiles extra-config) profile)
-        metadata                                    (parse-metadata infile)]
+  (let [{:keys [outfile infile profile config]} (validate-cli! args)
+        profile-config (-> anon-profiles
+                           (merge config)
+                           (get profile))
+        metadata (import/parse-metadata infile)]
 
     (println (str "Anonymizing input data file: " infile " with profile type: " profile " to output file: " outfile))
 
-    (with-open [tar-reader (archive/tarball-reader infile)]
-      (with-open [tar-writer (archive/tarball-writer outfile)]
-        ;; Write out the metadata first
-
-        (add-json-tar-entry tar-writer [export-metadata-file-name] metadata)
-        ;; Now process each entry
-        (doseq [tar-entry (archive/all-entries tar-reader)]
-          (process-tar-entry tar-reader tar-entry tar-writer profile-config metadata))))
-    (println (str "Anonymization complete. Check output file contents " outfile " to ensure anonymization was adequate before sharing data"))))
+    (with-open [tar-reader (archive/tarball-reader infile)
+                tar-writer (archive/tarball-writer outfile)]
+      ;; Write out the metadata first
+      (add-json-tar-entry tar-writer [export/export-metadata-file-name] metadata)
+      ;; Now process each entry
+      (doseq [tar-entry (archive/all-entries tar-reader)]
+        (process-tar-entry tar-reader tar-entry tar-writer profile-config (:command_versions metadata))))
+    (println (str "Anonymization complete. "
+                  "Check output file contents " outfile " to ensure anonymization was adequate before sharing data"))))
