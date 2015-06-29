@@ -17,7 +17,7 @@
             [puppetlabs.puppetdb.testutils.reports :refer [munge-example-report-for-storage]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [clj-time.coerce :refer [to-timestamp to-date-time to-string]]
-            [clj-time.core :as t :refer [days ago now]]
+            [clj-time.core :as t :refer [days ago now seconds]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
             [slingshot.slingshot :refer [throw+]]
@@ -360,8 +360,7 @@
                    :version 5
                    :payload (get-in wire-catalogs [5 :empty])}
           certname (get-in command [:payload :name])
-          cmd-producer-timestamp (get-in command [:payload :producer-timestamp])
-          current-time (now)]
+          cmd-producer-timestamp (get-in command [:payload :producer-timestamp])]
       (with-fixtures
         (test-msg-handler command publish discard-dir
 
@@ -384,7 +383,7 @@
                  :payload (get-in wire-catalogs [4 :empty])}
         certname (get-in command [:payload :name])
         cmd-producer-timestamp (get-in command [:payload :producer-timestamp])
-        current-time (now)]
+        recent-time (-> 1 seconds ago)]
     (with-fixtures
       (test-msg-handler command publish discard-dir
         (is (false? (contains? (:payload command) :producer-timestamp)))
@@ -394,10 +393,11 @@
         (is (empty? (fs/list-dir discard-dir)))
         ;;v4 does not include a producer_timestmap, the backend
         ;;should use the time the command was received instead
-        (is (t/before? current-time (-> (query-to-vec "SELECT producer_timestamp FROM catalogs")
-                                        first
-                                        :producer_timestamp
-                                        to-date-time)))))))
+        (is (t/before? recent-time
+                       (-> (query-to-vec "SELECT producer_timestamp FROM catalogs")
+                           first
+                           :producer_timestamp
+                           to-date-time)))))))
 
 (defn update-resource
   "Updated the resource in `catalog` with the given `type` and `title`.
@@ -1199,7 +1199,7 @@
                      munge-example-report-for-storage
                      (dissoc :producer_timestamp :metrics :logs :noop)
                      utils/underscore->dash-keys)
-      current-time (now)]
+      recent-time (-> 1 seconds ago)]
   (deftest store-v4-report
     (let [command {:command (command-names :store-report)
                    :version 4
@@ -1215,7 +1215,7 @@
                                :status)))
 
         ;;No producer_timestamp is included in v4, message received time (now) is used intead
-        (is (t/before? current-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
+        (is (t/before? recent-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
                                         first
                                         :producer_timestamp
                                         to-date-time)))
@@ -1223,17 +1223,18 @@
         (is (empty? (fs/list-dir discard-dir))))))
 
   (deftest store-v3-report
-    (let [current-time (now)
+    (let [recent-time (-> 1 seconds ago)
           command {:command (command-names :store-report)
                    :version 3
                    :payload (dissoc old-report :status)}]
+      (Thread/sleep 100)
       (test-msg-handler command publish discard-dir
         (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
                [(with-env {:certname (:certname old-report)
                            :configuration_version (:configuration-version old-report)})]))
 
         ;;No producer_timestamp is included in v4, message received time (now) is used intead
-        (is (t/before? current-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
+        (is (t/before? recent-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
                                         first
                                         :producer_timestamp
                                         to-date-time)))
