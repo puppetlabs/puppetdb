@@ -41,12 +41,14 @@
   (app
     [""]
     {:get (fn [{:keys [params globals]}]
+            (when (= "puppetdb" (:product-name globals))
+              (log/warn "The aggregate-event-counts endpoint is experimental"
+                        " and may be altered or removed in the future."))
             (produce-body version params (:scf-read-db globals)))}))
 
 (defn aggregate-event-counts-app
   "Ring app for querying for aggregated summary information about resource events."
   [version]
-  (log/warn "The aggregate-event-counts endpoint is experimental and may be altered or removed in the future.")
   (-> (routes version)
       verify-accepts-json
       (validate-query-params {:required ["query" "summarize-by"]

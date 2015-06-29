@@ -51,6 +51,9 @@
   (app
     [""]
     {:get (fn [{:keys [params globals paging-options]}]
+            (when (= "puppetdb" (:product-name globals))
+              (log/warn "The event-counts endpoint is experimental"
+                        " and may be altered or removed in the future."))
             (produce-body
              version
              params
@@ -60,7 +63,6 @@
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."
   [version]
-  (log/warn "The event-counts endpoint is experimental and may be altered or removed in the future.")
   (-> (routes version)
       verify-accepts-json
       (validate-query-params {:required ["query" "summarize-by"]
