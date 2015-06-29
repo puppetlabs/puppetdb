@@ -1398,7 +1398,7 @@
     f))
 
 (deftest test-db-unsupported-msg
-  (testing "should return a string if db is deprecated"
+  (testing "should return a string if db is unsupported"
     (are [db version result]
       (with-db-version db version
         (fn []
