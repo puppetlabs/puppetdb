@@ -51,9 +51,16 @@
       [{:server_url "http://foo.bar:8080", :interval (parse-period "120s")}]
 
 
-      {:server_urls "one,two", :intervals "1s,2s"}
-      [{:server_url "one", :interval (parse-period "1s")}
-       {:server_url "two", :interval (parse-period "2s")}]))
+      {:server_urls "http://one:8080,http://two:8080", :intervals "1s,2s"}
+      [{:server_url "http://one:8080", :interval (parse-period "1s")}
+       {:server_url "http://two:8080", :interval (parse-period "2s")}]
+
+      ;; default port
+      {:server_urls "https://foo.bar", :intervals "120s"}
+      [{:server_url "https://foo.bar:8081", :interval (parse-period "120s")}]
+
+      {:server_urls "http://foo.bar", :intervals "120s"}
+      [{:server_url "http://foo.bar:8080", :interval (parse-period "120s")}]))
 
   (testing "Invalid configs"
     (are [sync-config] (thrown+? [:type :puppetlabs.puppetdb.utils/cli-error]

@@ -32,8 +32,10 @@ In the configuration file, you specify a `remote` for each server you want to
 pull data from. (It is perfectly reasonable, and expected, for two servers to
 pull data from each other.) For each remote, you must provide:
 
- - The remote server url. This is a root url which must include the protocol and
-   port to use. (eg. "https://puppetdb.myco.net:8081")
+ - The remote server url. This is a root url which should include the protocol
+   and port to use. (eg. "https://puppetdb.myco.net:8081") The protocol is
+   mandatory and must be either "http" or "https"; if the port is not provided,
+   it will default to `8080` for http and `8081` for https.
 
  - The interval at which to poll the remote server for new data. This is
    formatted as a timespan with units (e.g. '2m'). See the
