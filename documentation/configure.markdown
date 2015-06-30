@@ -370,6 +370,10 @@ The maximum time (in minutes) a pooled connection should remain open. Any connec
 
 If not supplied, we won't terminate connections based on their age alone.
 
+### `connection-timeout`
+
+The maximum time to wait (in milliseconds) to acquire a connection from the pool of database connections. If not supplied, defaults to 1000.
+
 ###`statements-cache-size`
 
 This setting defines how many prepared statements are cached automatically. For a large amount of dynamic queries this number could be increased to increase performance, at the cost of memory consumption and database resources.
@@ -446,6 +450,10 @@ If not supplied, we default to 45 minutes.
 The maximum time (in minutes) a pooled connection should remain open. Any connections older than this setting will be closed off. Connections currently in use will not be affected until they are returned to the pool.
 
 If not supplied, we won't terminate connections based on their age alone.
+
+### `connection-timeout`
+
+The maximum time to wait (in milliseconds) to acquire a connection from the pool of database connections. If not supplied, defaults to 500.
 
 
 `[command-processing]` Settings

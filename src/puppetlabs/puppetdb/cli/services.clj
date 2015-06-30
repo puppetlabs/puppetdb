@@ -237,6 +237,35 @@
       (mq/remove-queue! "localhost" "com.puppetlabs.puppetdb.commands")
       (log/info "Removed legacy queue"))))
 
+(defn initialize-schema
+  "Ensure the database is migrated to the latest version, and warn if
+  it's deprecated, log and exit if it's unsupported. We do this in a
+  single connection because HSQLDB seems to get confused if the
+  database doesn't exist but we open and close a connection without
+  creating anything."
+  [db-conn-pool product-name]
+  (sql/with-connection db-conn-pool
+    (scf-store/validate-database-version #(System/exit 1))
+    (migrate!)
+    (indexes! product-name)))
+
+(defn init-with-db
+  "All initialization operations needing a database connection should
+  happen here. This function creates a connection pool using
+  `write-db-config` that will hang until it is able to make a
+  connection to the database. This covers the case of the database not
+  being fully started when PuppetDB starts. This connection pool will
+  be opened and closed within the body of this function."
+  [write-db-config product-name]
+  (with-open [init-db-pool (pl-jdbc/make-connection-pool (assoc write-db-config
+                                                           ;; Block waiting to grab a connection
+                                                           :connection-timeout 0
+                                                           ;; Only allocate connections when needed
+                                                           :pool-availability-threshold 0))]
+    (let [db-pool-map {:datasource init-db-pool}]
+      (initialize-schema db-pool-map product-name)
+      (pop/initialize-metrics db-pool-map))))
+
 (defn start-puppetdb
   [context config service add-ring-handler get-route shutdown-on-error]
   {:pre [(map? context)
@@ -268,18 +297,8 @@
     (when-let [v (version)]
       (log/infof "PuppetDB version %s" v))
 
-    ;; Ensure the database is migrated to the latest version, and warn
-    ;; if it's deprecated, log and exit if it's unsupported. We do
-    ;; this in a single connection because HSQLDB seems to get
-    ;; confused if the database doesn't exist but we open and close a
-    ;; connection without creating anything.
-    (sql/with-connection write-db
-      (scf-store/validate-database-version #(System/exit 1))
-      (migrate!)
-      (indexes! product-name))
+    (init-with-db database product-name)
 
-    ;; Initialize database-dependent metrics and dlo metrics if existent.
-    (pop/initialize-metrics write-db)
     (when (.exists discard-dir)
       (dlo/create-metrics-for-dlo! discard-dir))
     (let [broker (try

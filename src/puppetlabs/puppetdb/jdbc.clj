@@ -282,7 +282,8 @@
   [{:keys [classname subprotocol subname user username password
            partition-conn-min partition-conn-max partition-count
            stats log-statements log-slow-statements statements-cache-size
-           conn-max-age conn-lifetime conn-keep-alive read-only?]
+           conn-max-age conn-lifetime conn-keep-alive read-only?
+           connection-timeout pool-availability-threshold]
     :as db}]
   (let [;; Load the database driver class explicitly, to avoid jar load ordering
         ;; issues.
@@ -302,12 +303,14 @@
                           (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
                           (.setConnectionHook (connection-hook log-statements log-slow-statements-duration))
                           (.setStatementsCacheSize statements-cache-size)
-                          (.setDefaultReadOnly read-only?))
+                          (.setDefaultReadOnly read-only?)
+                          (.setConnectionTimeoutInMs connection-timeout))
         user (or user username)]
     ;; configurable without default
     (when user (.setUsername config (str user)))
     (when password (.setPassword config (str password)))
     (when conn-lifetime (.setMaxConnectionAge config (pl-time/to-minutes conn-lifetime) TimeUnit/MINUTES))
+    (some->> pool-availability-threshold (.setPoolAvailabilityThreshold config))
     (when log-statements (.setLogStatementsEnabled config log-statements))
 
     (.setQueryExecuteTimeLimit config log-slow-statements-duration (TimeUnit/SECONDS))
