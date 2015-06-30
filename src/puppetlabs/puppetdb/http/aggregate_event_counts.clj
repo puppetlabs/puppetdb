@@ -13,6 +13,9 @@
   (app
     [""]
     {:get (fn [{:keys [params globals]}]
+            (when (= "puppetdb" (:product-name globals))
+              (log/warn "The aggregate-event-counts endpoint is experimental"
+                        " and may be altered or removed in the future."))
             (if (utils/hsql? (:scf-read-db globals))
               (http/json-response
                 {:error "The aggregate-event-counts endpoint does not support HSQLDB."}
