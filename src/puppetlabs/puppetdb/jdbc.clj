@@ -307,11 +307,11 @@
                           (.setConnectionTimeoutInMs connection-timeout))
         user (or user username)]
     ;; configurable without default
-    (when user (.setUsername config (str user)))
-    (when password (.setPassword config (str password)))
-    (when conn-lifetime (.setMaxConnectionAge config (pl-time/to-minutes conn-lifetime) TimeUnit/MINUTES))
+    (some->> user str (.setUsername config))
+    (some->> password str (.setPassword config))
     (some->> pool-availability-threshold (.setPoolAvailabilityThreshold config))
-    (when log-statements (.setLogStatementsEnabled config log-statements))
+    (some->> log-statements (.setLogStatementsEnabled config))
+    (when conn-lifetime (.setMaxConnectionAge config (pl-time/to-minutes conn-lifetime) TimeUnit/MINUTES))
 
     (.setQueryExecuteTimeLimit config log-slow-statements-duration (TimeUnit/SECONDS))
     ;; ...aaand, create the pool.
