@@ -226,7 +226,7 @@ else
   agent_confdir=`puppet agent --configprint confdir`
   agent_vardir=`puppet agent --configprint vardir`
 
-  if [ -d "/etc/puppetlabs/puppetdb" ] ; then
+  if id -u pe-puppetdb > /dev/null 2>&1; then
     puppetdb_confdir="/etc/puppetlabs/puppetdb"
     user=pe-puppetdb
   else
