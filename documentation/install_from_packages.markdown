@@ -37,7 +37,7 @@ Step 1: Install and Configure Puppet
 -----
 If Puppet isn't fully installed and configured yet on your PuppetDB server, [install it][installpuppet] and request/sign/retrieve a certificate for the node.
 
-[installpuppet]: /guides/install_puppet/pre_install.html
+[installpuppet]: /puppet/latest/reference/install_pre.html
 
 Your PuppetDB server should be running puppet agent and have a signed certificate from your puppet master server. If you run `puppet agent --test`, it should successfully complete a run, ending with "`notice: Finished catalog run in X.XX seconds`."
 
@@ -47,7 +47,7 @@ Your PuppetDB server should be running puppet agent and have a signed certificat
 Step 2: Enable the Puppet Labs Package Repository
 -----
 
-If you didn't already use it to install Puppet, you will need to [enable the Puppet Labs package repository](/guides/puppetlabs_package_repositories.html#open-source-repositories) for your system.
+If you didn't already use it to install Puppet, you will need to [enable the Puppet Labs package repository](/guides/puppetlabs_package_repositories.html) for your system.
 
 
 Step 3: Install PuppetDB

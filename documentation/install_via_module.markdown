@@ -25,7 +25,7 @@ Step 1: Enable the Puppet Labs Package Repository
 
 If you haven't already, you will need to do **one** of the following:
 
-* [Enable the Puppet Labs package repository](/guides/puppetlabs_package_repositories.html#open-source-repositories) on your PuppetDB server and puppet master server.
+* [Enable the Puppet Labs package repository](/guides/puppetlabs_package_repositories.html) on your PuppetDB server and puppet master server.
 * Grab the PuppetDB and termini packages, and import them into your site's local package repos.
 
 Step 2: Assign Classes to Nodes
