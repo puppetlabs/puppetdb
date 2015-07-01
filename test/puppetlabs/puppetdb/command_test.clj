@@ -769,12 +769,12 @@
               {:certname certname :name "b" :value "2" :environment "DEV"}
               {:certname certname :name "c" :value "3" :environment "DEV"}]))
 
-      (is (= (every? (comp #(t/before? before-test-starts-time %)
-                           to-date-time
-                           :producer_timestamp)
-                     (query-to-vec
-                      "SELECT fs.producer_timestamp
-                         FROM factsets fs"))))
+      (is (every? (comp #(t/before? before-test-starts-time %)
+                        to-date-time
+                        :producer_timestamp)
+                  (query-to-vec
+                   "SELECT fs.producer_timestamp
+                         FROM factsets fs")))
       (is (= 0 (times-called publish)))
       (is (empty? (fs/list-dir discard-dir)))
       (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
