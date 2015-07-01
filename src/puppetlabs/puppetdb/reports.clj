@@ -170,8 +170,8 @@
 (defn dash->underscore-report-keys [report]
   (->> report
        utils/dash->underscore-keys
-       (sp/update [:resource_events sp/ALL sp/ALL]
-                  #(update % 0 utils/dashes->underscores))))
+       (sp/transform [:resource_events sp/ALL sp/ALL]
+                     #(update % 0 utils/dashes->underscores))))
 
 (pls/defn-validated wire-v4->wire-v5
   [report received-time]

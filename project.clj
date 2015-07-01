@@ -77,7 +77,7 @@
                  [robert/hooke "1.3.0"]
                  [honeysql "0.5.2"]
                  [org.clojure/data.xml "0.0.8"]
-                 [com.rpl/specter "0.5.2"]]
+                 [com.rpl/specter "0.5.7"]]
 
   :jvm-opts ["-XX:MaxPermSize=128M"]
 
