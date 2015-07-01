@@ -7,13 +7,13 @@
                                                     wrap-with-paging-options]]))
 
 (defn query-app
-  [version]
+  [globals]
   (app
    [&]
-   {:get (comp (fn [{:keys [params globals paging-options] :as request}]
+   {:get (comp (fn [{:keys [params paging-options] :as request}]
                  (produce-streaming-body
                   :fact-paths
-                  version
+                  (:api-version globals)
                   (params "query")
                   paging-options
                   (:scf-read-db globals)
@@ -26,9 +26,9 @@
    (verify-accepts-json query-app)))
 
 (defn fact-paths-app
-  [version]
+  [globals]
   (routes
-   (-> (query-app version)
+   (-> (query-app globals)
        verify-accepts-json
        (validate-query-params {:optional (cons "query" paging/query-params)})
        wrap-with-paging-options)))

@@ -282,15 +282,10 @@
   paging parameters. Also accepts GETs and POSTs. Composes
   `optional-handlers` with the middleware function that executes the
   query."
-  [entity version & optional-handlers]
+  [entity {:keys [scf-read-db url-prefix api-version]} & optional-handlers]
   (app
    extract-query
    (apply comp
-          (fn [{:keys [params globals puppetdb-query] :as foo}]
-            (produce-streaming-body'
-             entity
-             version
-             puppetdb-query
-             (:scf-read-db globals)
-             (:url-prefix globals)))
+          (fn [{:keys [params puppetdb-query] :as foo}]
+            (produce-streaming-body' entity api-version puppetdb-query scf-read-db url-prefix))
           optional-handlers)))

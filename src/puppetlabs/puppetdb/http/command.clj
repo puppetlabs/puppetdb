@@ -33,8 +33,7 @@
         mid/payload-to-body-string
         (mid/verify-content-type ["application/json"])
         (mid/wrap-with-puppetdb-middleware authorizer)
-        (mid/wrap-with-metrics (atom {}) http/leading-uris)
-        (mid/wrap-with-globals globals))))
+        (mid/wrap-with-metrics (atom {}) http/leading-uris))))
 
 (defprotocol PuppetDBCommand
   (submit-command [this command version payload]))

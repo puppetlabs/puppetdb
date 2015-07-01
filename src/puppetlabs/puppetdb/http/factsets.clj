@@ -23,34 +23,34 @@
       (http/status-not-found-response "factset" node))))
 
 (defn build-factsets-app
-  [version entity]
-  (fn [{:keys [params globals paging-options]}]
+  [globals entity]
+  (fn [{:keys [params paging-options]}]
     (eng/produce-streaming-body
      entity
-     version
+     (:api-version globals)
      (params "query")
      paging-options
      (:scf-read-db globals)
      (:url-prefix globals))))
 
 (defn routes
-  [version]
+  [{:keys [url-prefix scf-read-db api-version] :as globals}]
   (app
    []
-   {:get (comp (build-factsets-app version :factsets)
+   {:get (comp (build-factsets-app globals :factsets)
                http-q/restrict-query-to-active-nodes)}
 
    [node]
-   (fn [{:keys [globals]}]
-     (factset-status version node (:scf-read-db globals) (:url-prefix globals)))
+   (constantly
+    (factset-status api-version node scf-read-db url-prefix))
 
    [node "facts" &]
-   (-> (comp (facts/facts-app version false) (partial http-q/restrict-query-to-node node))
-       (wrap-with-parent-check version :factset node))))
+   (-> (comp (facts/facts-app globals false) (partial http-q/restrict-query-to-node node))
+       (wrap-with-parent-check globals :factset node))))
 
 (defn factset-app
-  [version]
-  (-> (routes version)
+  [globals]
+  (-> (routes globals)
       verify-accepts-json
       (validate-query-params
        {:optional (cons "query" paging/query-params)})

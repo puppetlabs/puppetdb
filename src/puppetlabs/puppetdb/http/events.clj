@@ -45,26 +45,26 @@
              "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
 
 (defn routes
-  [version]
+  [{:keys [scf-read-db url-prefix api-version]}]
   (app
    [""]
-   {:get (fn [{:keys [params globals paging-options]}]
+   {:get (fn [{:keys [params paging-options]}]
            (try
              (let [query-options (validate-distinct-options! params)]
                (produce-streaming-body
                 :events
-                version
+                api-version
                 (params "query")
                 [query-options paging-options]
-                (:scf-read-db globals)
-                (:url-prefix globals)))
+                scf-read-db
+                url-prefix))
              (catch IllegalArgumentException e
                (http/error-response e))))}))
 
 (defn events-app
   "Ring app for querying events"
-  [version]
-  (-> (routes version)
+  [globals]
+  (-> (routes globals)
       middleware/verify-accepts-json
       (middleware/validate-query-params {:optional (concat
                                                     ["query"
