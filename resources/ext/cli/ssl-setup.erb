@@ -230,11 +230,7 @@ else
   user=<%= EZBake::Config[:user] %>
   group=<%= EZBake::Config[:group] %>
 
-  if [ -d "/etc/puppetlabs/puppetdb" ] ; then
-    puppetdb_confdir="/etc/puppetlabs/puppetdb"
-  else
-    puppetdb_confdir="/etc/puppetdb"
-  fi
+  puppetdb_confdir="/etc/puppetlabs/puppetdb"
 fi
 
 set -e

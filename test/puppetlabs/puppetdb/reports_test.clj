@@ -57,8 +57,8 @@
 (defn underscore->dash-report-keys [m]
   (->> m
        utils/underscore->dash-keys
-       (sp/update [:resource-events sp/ALL sp/ALL]
-                  #(update % 0 utils/underscores->dashes))))
+       (sp/transform [:resource-events sp/ALL sp/ALL]
+                     #(update % 0 utils/underscores->dashes))))
 
 (def v4-example-report
   (-> reports

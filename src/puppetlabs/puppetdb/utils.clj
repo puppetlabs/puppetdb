@@ -306,14 +306,14 @@
   "Converts all top-level keys (including nested maps) in `m` to use dashes
   instead of underscores as word separatators"
   [m]
-  (sp/update [sp/ALL]
-             #(update % 0 dashes->underscores)
-             m))
+  (sp/transform [sp/ALL]
+                #(update % 0 dashes->underscores)
+                m))
 
 (defn underscore->dash-keys
   "Converts all top-level keys (including nested maps) in `m` to use underscores
   instead of underscores as word separatators"
   [m]
-  (sp/update [sp/ALL]
-             #(update % 0 underscores->dashes)
-             m))
+  (sp/transform [sp/ALL]
+                #(update % 0 underscores->dashes)
+                m))

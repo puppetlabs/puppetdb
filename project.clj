@@ -27,7 +27,7 @@
   ;; requires lein 2.2.0+.
   :pedantic? :abort
 
-  :dependencies [[org.clojure/clojure "1.7.0-RC2"]
+  :dependencies [[org.clojure/clojure "1.7.0"]
                  [cheshire "5.4.0"]
                  [org.clojure/core.match "0.2.2"]
                  [org.clojure/math.combinatorics "0.0.4"]
@@ -77,7 +77,7 @@
                  [robert/hooke "1.3.0"]
                  [honeysql "0.5.2"]
                  [org.clojure/data.xml "0.0.8"]
-                 [com.rpl/specter "0.5.2"]]
+                 [com.rpl/specter "0.5.7"]]
 
   :jvm-opts ["-XX:MaxPermSize=128M"]
 
