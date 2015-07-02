@@ -120,10 +120,10 @@
     :else nil))
 
 (defn parse-sync-config-intervals [sync-config]
-   (sp/update [:remotes sp/ALL :interval]
-              #(or (coerce-to-period %)
-                   (throw+-cli-error! (format "Interval '%s' cannot be parsed as a time period. Did you mean '%ss?'" % %)))
-              sync-config))
+  (sp/transform [:remotes sp/ALL :interval]
+                #(or (coerce-to-period %)
+                     (throw+-cli-error! (format "Interval '%s' cannot be parsed as a time period. Did you mean '%ss?'" % %)))
+                sync-config))
 
 (defn uri-has-port [uri]
   (not= -1 (.getPort uri)))
@@ -140,16 +140,16 @@
 (defn set-default-ports
   "Use port 8081 for all server_urls that haven't specified one."
   [sync-config]
-  (sp/update [:remotes sp/ALL :server_url]
-             (fn [server_url]
-               (let [uri (java.net.URI. server_url)]
-                 (if (uri-has-port uri)
-                   server_url
-                   (case (.getScheme uri)
-                     "https" (str (uri-with-port uri 8081))
-                     "http"  (str (uri-with-port uri 8080))
-                     server_url))))
-             sync-config))
+  (sp/transform [:remotes sp/ALL :server_url]
+                (fn [server_url]
+                  (let [uri (java.net.URI. server_url)]
+                    (if (uri-has-port uri)
+                      server_url
+                      (case (.getScheme uri)
+                        "https" (str (uri-with-port uri 8081))
+                        "http"  (str (uri-with-port uri 8080))
+                        server_url))))
+                sync-config))
 
 (defn extract-and-check-remotes-config [sync-config]
   (-> sync-config
