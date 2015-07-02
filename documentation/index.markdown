@@ -37,7 +37,7 @@ Version Note
 -----
 
 This manual covers the 3.0.x series of PuppetDB releases, which adds
-several new features and contains some breaking changes since the 1.x
+several new features and contains some breaking changes since the 2.x
 series. [See the release notes][releasenotes] for information on all
 changes.
 
@@ -55,11 +55,6 @@ Together, these give you a huge inventory of metadata about every node in your i
 
 Puppet itself can search a subset of this data using [exported resources][exported], which allow nodes to manage resources on other nodes. This is similar to the capabilities of the legacy ActiveRecord `storeconfigs` interface, but much, much faster. The remaining data is available through PuppetDB's query APIs (see navigation sidebar for details).
 
-### What Next?
-
-In future versions, PuppetDB will store historical catalogs for every node.
-
-
 System Requirements
 -----
 
@@ -69,10 +64,10 @@ System Requirements
 
 Puppet Labs provides packages and a Puppet module for PuppetDB which simplify setup of its SSL certificates and init scripts. These packages are available for the following operating systems:
 
-* Red Hat Enterprise Linux 5, 6 and 7 (and any distro derived from it including CentOS)
-* Debian Wheezy
+* Red Hat Enterprise Linux 6 and 7 (and any distro derived from it including CentOS)
+* Debian 7 (Wheezy)
 * Ubuntu 12.04 LTS, 14.04 LTS
-* Fedora 19, 20
+* Fedora 21
 
 [See here for instructions for installing via the PuppetDB puppet module.][install_via_module]
 
