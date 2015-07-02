@@ -42,7 +42,7 @@
                  ;; Filesystem utilities
                  [me.raynes/fs "1.4.5"]
                  ;; Version information
-                 [trptcolin/versioneer "0.1.0"]
+                 [puppetlabs/dujour-version-check "0.1.3"]
                  ;; Job scheduling
                  [overtone/at-at "1.2.0"]
                  ;; Nicer exception handling with try+/throw+
