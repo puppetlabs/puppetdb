@@ -63,7 +63,8 @@
      :partition-count (pls/defaulted-maybe s/Int 1)
      :stats (pls/defaulted-maybe String "true")
      :log-statements (pls/defaulted-maybe String "true")
-     :statements-cache-size (pls/defaulted-maybe s/Int 1000)}))
+     :statements-cache-size (pls/defaulted-maybe s/Int 1000)
+     :connection-timeout (pls/defaulted-maybe s/Int 500)}))
 
 (def write-database-config-in
   "Includes the common database config params, also the write-db specific ones"
@@ -72,7 +73,8 @@
            {:gc-interval (pls/defaulted-maybe s/Int 60)
             :report-ttl (pls/defaulted-maybe String "14d")
             :node-purge-ttl (pls/defaulted-maybe String "0s")
-            :node-ttl (pls/defaulted-maybe String "0s")})))
+            :node-ttl (pls/defaulted-maybe String "0s")
+            :connection-timeout (pls/defaulted-maybe s/Int 1000)})))
 
 (def database-config-out
   "Schema for parsed/processed database config"
@@ -89,6 +91,7 @@
    :stats Boolean
    :log-statements Boolean
    :statements-cache-size s/Int
+   :connection-timeout s/Int
    (s/optional-key :conn-lifetime) (s/maybe Minutes)
    (s/optional-key :username) String
    (s/optional-key :user) String
