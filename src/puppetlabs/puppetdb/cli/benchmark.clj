@@ -309,7 +309,7 @@
                ["-F" "--facts FACTS" "Path to a directory containing sample JSON facts (files must end with .json)"]
                ["-C" "--catalogs CATALOGS" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
                ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
-               ["-A" "--archive ARCHIVE" "Path to a PuppetDB export tarball. Incompatible with -C, -F, -R, or -D"]
+               ["-A" "--archive ARCHIVE" "Path to a PuppetDB export tarball. Incompatible with -C, -F or -R"]
                ["-i" "--runinterval RUNINTERVAL" "What runinterval (in minutes) to use during simulation"
                 :parse-fn #(Integer/parseInt %)]
                ["-n" "--numhosts NUMHOSTS" "How many hosts to use during simulation (required)"
