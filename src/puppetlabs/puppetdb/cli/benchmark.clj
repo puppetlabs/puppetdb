@@ -123,8 +123,10 @@
 (defn update-catalog
   "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`
    percent of the time."
-  [catalog rand-percentage stamp]
-  (let [catalog' (assoc catalog "producer_timestamp" stamp)]
+  [catalog rand-percentage uuid stamp]
+  (let [catalog' (assoc catalog
+                        "producer_timestamp" stamp
+                        "transaction_uuid" uuid)]
     (if (< (rand 100) rand-percentage)
       (rand-catalog-mutation catalog')
       catalog')))
@@ -138,11 +140,12 @@
   "configuration_version, start_time and end_time should always change
    on subsequent report submittions, this changes those fields to avoid
    computing the same hash again (causing constraint errors in the DB)"
-  [report stamp]
+  [report uuid stamp]
   (-> report
       (update "resource_events" (partial map #(assoc % "timestamp"
                                                      (jitter stamp 300))))
       (assoc "configuration_version" (kitchensink/uuid)
+             "transaction_uuid" uuid
              "start_time" (time/minus stamp (time/seconds 10))
              "end_time" (time/minus stamp (time/seconds 5))
              "producer_timestamp" stamp)))
@@ -197,10 +200,11 @@
             current-time
             (time/plus lastrun run-interval))
     state
-    (let [catalog (some-> catalog
-                          (update-catalog rand-percentage current-time))
+    (let [uuid (kitchensink/uuid)
+          catalog (some-> catalog
+                          (update-catalog rand-percentage uuid current-time))
           report (some-> report
-                         (update-report current-time))
+                         (update-report uuid current-time))
           factset (some-> factset
                           (update-factset rand-percentage current-time))]
       ;; Submit the catalog and reports in separate threads, so as to not
@@ -238,10 +242,11 @@
    based on the clock)"
   [{:keys [catalog report factset] :as state} base-url rand-percentage current-time]
   (let [stamp (jitter current-time 1800)
+        uuid (kitchensink/uuid)
         catalog (some-> catalog
-                        (update-catalog rand-percentage stamp))
+                        (update-catalog rand-percentage uuid stamp))
         report (some-> report
-                       (update-report stamp))
+                       (update-report uuid stamp))
         factset (some-> factset
                         (update-factset rand-percentage stamp))]
     (when catalog (client/submit-catalog base-url 6 (json/generate-string catalog)))
