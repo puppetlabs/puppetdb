@@ -34,20 +34,20 @@
              (count
               (take 10
                     (structured-data-seq :v4
-                     (mapcat (fn [certname]
-                               [{:certname certname :environment "DEV" :path "a#~b#~c"
-                                 :value "abc" :type "string" :timestamp current-time
-                                 :value_integer nil :value_float nil}
-                                {:certname certname :environment "DEV" :path "a#~b#~d"
-                                 :value_integer 1 :type "integer" :timestamp current-time
-                                 :value nil :value_float nil}
-                                {:certname certname :environment "DEV" :path "a#~b#~e"
-                                 :value_float 3.14 :type "float" :timestamp current-time
-                                 :value_integer nil :value nil}
-                                {:certname certname :environment "DEV" :path "a#~b#~f"
-                                 :value "true" :type "boolean" :timestamp current-time
-                                 :value_integer nil :value_float nil}])
-                             (map #(str "foo" % ".com") (range 0 ten-billion))))))))))
+                                         (mapcat (fn [certname]
+                                                   [{:certname certname :environment "DEV" :path "a#~b#~c"
+                                                     :value "abc" :type "string" :timestamp current-time
+                                                     :value_integer nil :value_float nil}
+                                                    {:certname certname :environment "DEV" :path "a#~b#~d"
+                                                     :value_integer 1 :type "integer" :timestamp current-time
+                                                     :value nil :value_float nil}
+                                                    {:certname certname :environment "DEV" :path "a#~b#~e"
+                                                     :value_float 3.14 :type "float" :timestamp current-time
+                                                     :value_integer nil :value nil}
+                                                    {:certname certname :environment "DEV" :path "a#~b#~f"
+                                                     :value "true" :type "boolean" :timestamp current-time
+                                                     :value_integer nil :value_float nil}])
+                                                 (map #(str "foo" % ".com") (range 0 ten-billion))))))))))
 
   (testing "map with a nested vector"
     (let [test-rows [{:certname "foo.com" :environment "DEV"
@@ -161,7 +161,7 @@
 (deftest test-int-map->vector
   (are [v m] (= v (int-map->vector m))
 
-       ["foo" "bar" "baz"] {1 "bar" 0 "foo" 2 "baz"}
-       nil {"1" "bar" "0" "foo" "2" "baz"}
-       nil {1 "bar" "0" "foo" "2" "baz"} ;;shouldn't be possible
-       ))
+    ["foo" "bar" "baz"] {1 "bar" 0 "foo" 2 "baz"}
+    nil {"1" "bar" "0" "foo" "2" "baz"}
+    nil {1 "bar" "0" "foo" "2" "baz"} ;;shouldn't be possible
+))

@@ -445,66 +445,66 @@
   [node]
   (cm/match [node]
 
-            [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
-            ["or" [op "value_integer" value] [op "value_float" value]]
+    [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
+    ["or" [op "value_integer" value] [op "value_float" value]]
 
-            [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
-            (when (= :facts (get-in (meta node) [:query-context :entity]))
-              ["and" ["=" "depth" 0] [op "value" value]])
+    [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
+    (when (= :facts (get-in (meta node) [:query-context :entity]))
+      ["and" ["=" "depth" 0] [op "value" value]])
 
-            [["=" ["node" "active"] value]]
-            ["in" "certname"
-             ["extract" "certname"
-              ["select-nodes"
-               ["null?" "deactivated" value]]]]
+    [["=" ["node" "active"] value]]
+    ["in" "certname"
+     ["extract" "certname"
+      ["select-nodes"
+       ["null?" "deactivated" value]]]]
 
-            [[(op :guard #{"=" "~"}) ["parameter" param-name] param-value]]
-            ["in" "resource"
-             ["extract" "res_param_resource"
-              ["select-params"
-               ["and"
-                [op "res_param_name" param-name]
-                [op "res_param_value" (db-serialize param-value)]]]]]
+    [[(op :guard #{"=" "~"}) ["parameter" param-name] param-value]]
+    ["in" "resource"
+     ["extract" "res_param_resource"
+      ["select-params"
+       ["and"
+        [op "res_param_name" param-name]
+        [op "res_param_value" (db-serialize param-value)]]]]]
 
-            [[(op :guard #{"=" "~"}) ["fact" fact-name] (fact-value :guard #(or (string? %)
-                                                                                (instance? Boolean %)))]]
-            ["in" "certname"
-             ["extract" "certname"
-              ["select-facts"
-               ["and"
-                ["=" "name" fact-name]
-                [op "value" fact-value]]]]]
+    [[(op :guard #{"=" "~"}) ["fact" fact-name] (fact-value :guard #(or (string? %)
+                                                                        (instance? Boolean %)))]]
+    ["in" "certname"
+     ["extract" "certname"
+      ["select-facts"
+       ["and"
+        ["=" "name" fact-name]
+        [op "value" fact-value]]]]]
 
-            [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
-            (if-not (number? fact-value)
-              (throw (IllegalArgumentException. (format "Operator '%s' not allowed on value '%s'" op fact-value)))
-              ["in" "certname"
-               ["extract" "certname"
-                ["select-facts"
-                 ["and"
-                  ["=" "name" fact-name]
-                  ["or"
-                   [op "value_float" fact-value]
-                   [op "value_integer" fact-value]]]]]])
+    [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
+    (if-not (number? fact-value)
+      (throw (IllegalArgumentException. (format "Operator '%s' not allowed on value '%s'" op fact-value)))
+      ["in" "certname"
+       ["extract" "certname"
+        ["select-facts"
+         ["and"
+          ["=" "name" fact-name]
+          ["or"
+           [op "value_float" fact-value]
+           [op "value_integer" fact-value]]]]]])
 
-            [["=" "latest_report?" value]]
-            (let [expanded-latest ["in" "report"
-                                   ["extract" "latest_report_hash"
-                                    ["select-latest-report"]]]]
-              (if value
-                expanded-latest
-                ["not" expanded-latest]))
+    [["=" "latest_report?" value]]
+    (let [expanded-latest ["in" "report"
+                           ["extract" "latest_report_hash"
+                            ["select-latest-report"]]]]
+      (if value
+        expanded-latest
+        ["not" expanded-latest]))
 
-            [[op (field :guard #{"new_value" "old_value"}) value]]
-            [op field (db-serialize value)]
+    [[op (field :guard #{"new_value" "old_value"}) value]]
+    [op field (db-serialize value)]
 
-            [["=" field nil]]
-            ["null?" (jdbc/dashes->underscores field) true]
+    [["=" field nil]]
+    ["null?" (jdbc/dashes->underscores field) true]
 
-            [[op "tag" array-value]]
-            [op "tags" (str/lower-case array-value)]
+    [[op "tag" array-value]]
+    [op "tags" (str/lower-case array-value)]
 
-            :else nil))
+    :else nil))
 
 (def binary-operator-checker
   "A function that will return nil if the query snippet successfully validates, otherwise
@@ -531,17 +531,17 @@
   (let [query-context (:query-context (meta node))]
     (cm/match [node]
 
-              [[(:or ">" ">=" "<" "<=") field _]]
-              (let [col-type (get-in query-context [:project field])]
-                (when-not (or (vec? field)
-                              (contains? #{:number :timestamp :multi}
-                                         col-type))
-                  (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field)))))
+      [[(:or ">" ">=" "<" "<=") field _]]
+      (let [col-type (get-in query-context [:project field])]
+        (when-not (or (vec? field)
+                      (contains? #{:number :timestamp :multi}
+                                 col-type))
+          (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field)))))
 
-              [["~>" field _]]
-              (let [col-type (get-in query-context [:project field])]
-                (when-not (contains? #{:path} col-type)
-                  (throw (IllegalArgumentException. (format "Query operator ~> is not allowed on field %s" field)))))
+      [["~>" field _]]
+      (let [col-type (get-in query-context [:project field])]
+        (when-not (contains? #{:path} col-type)
+          (throw (IllegalArgumentException. (format "Query operator ~> is not allowed on field %s" field)))))
 
               ;;This validation check is added to fix a failing facts
               ;;test. The facts test is checking that you can't submit
@@ -550,23 +550,23 @@
               ;;to fall through to the and clause. Adding this here to
               ;;pass the test, but better validation for all clauses
               ;;needs to be added
-              [["and" & clauses]]
-              (when (some (complement seq) clauses)
-                (throw (IllegalArgumentException. "[] is not well-formed: queries must contain at least one operator")))
+      [["and" & clauses]]
+      (when (some (complement seq) clauses)
+        (throw (IllegalArgumentException. "[] is not well-formed: queries must contain at least one operator")))
 
               ;;Facts is doing validation against nots only having 1
               ;;clause, adding this here to fix that test, need to make
               ;;another pass once other validations are known
-              [["not" & clauses]]
-              (when (not= 1 (count clauses))
-                (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %s were supplied" (count clauses)))))
+      [["not" & clauses]]
+      (when (not= 1 (count clauses))
+        (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %s were supplied" (count clauses)))))
 
-              [[op & _]]
-              (when (and (contains? binary-operators op)
-                         (binary-operator-checker node))
-                (throw (IllegalArgumentException. (format "%s requires exactly two arguments" op))))
+      [[op & _]]
+      (when (and (contains? binary-operators op)
+                 (binary-operator-checker node))
+        (throw (IllegalArgumentException. (format "%s requires exactly two arguments" op))))
 
-              :else nil)))
+      :else nil)))
 
 (defn expand-user-query
   "Expands/translates the query from a user provided one to a
@@ -581,106 +581,103 @@
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
   (cm/match [node]
-            [["=" column value]]
-            (let [col-type (get-in query-rec [:project column])]
-              (cond
-               (= col-type :timestamp)
-               (map->BinaryExpression {:operator "="
-                                       :column column
-                                       :value (to-timestamp value)})
+    [["=" column value]]
+    (let [col-type (get-in query-rec [:project column])]
+      (cond
+        (= col-type :timestamp)
+        (map->BinaryExpression {:operator "="
+                                :column column
+                                :value (to-timestamp value)})
 
-               (= col-type :array)
-               (map->ArrayBinaryExpression {:column column
-                                            :value value})
+        (= col-type :array)
+        (map->ArrayBinaryExpression {:column column
+                                     :value value})
 
-               (= col-type :number)
-               (map->BinaryExpression {:operator "="
-                                       :column column
-                                       :value (if (string? value)
-                                                (ks/parse-number (str value))
-                                                value)})
+        (= col-type :number)
+        (map->BinaryExpression {:operator "="
+                                :column column
+                                :value (if (string? value)
+                                         (ks/parse-number (str value))
+                                         value)})
 
-               (= col-type :path)
-               (map->BinaryExpression {:operator "="
-                                       :column column
-                                       :value (facts/factpath-to-string value)})
+        (= col-type :path)
+        (map->BinaryExpression {:operator "="
+                                :column column
+                                :value (facts/factpath-to-string value)})
 
-               (= col-type :multi)
-               (map->BinaryExpression {:operator "="
-                                       :column (str column "_hash")
-                                       :value (hash/generic-identity-hash value)})
+        (= col-type :multi)
+        (map->BinaryExpression {:operator "="
+                                :column (str column "_hash")
+                                :value (hash/generic-identity-hash value)})
 
-               :else
-               (map->BinaryExpression {:operator "="
-                                       :column column
-                                       :value value})))
+        :else
+        (map->BinaryExpression {:operator "="
+                                :column column
+                                :value value})))
 
-            [[(op :guard #{">" "<" ">=" "<="}) column value]]
-            (let [col-type (get-in query-rec [:project column])]
-              (if value
-                (case col-type
-                  :multi
-                  (map->BinaryExpression {:operator op
-                                          :column ["value_integer" "value_float"]
-                                          :value (if (number? value) [value value]
-                                                     (map ks/parse-number [value value]))})
+    [[(op :guard #{">" "<" ">=" "<="}) column value]]
+    (let [col-type (get-in query-rec [:project column])]
+      (if value
+        (case col-type
+          :multi
+          (map->BinaryExpression {:operator op
+                                  :column ["value_integer" "value_float"]
+                                  :value (if (number? value) [value value]
+                                             (map ks/parse-number [value value]))})
 
-                  (map->BinaryExpression {:operator op
-                                          :column column
-                                          :value  (if (= :timestamp col-type)
-                                                    (to-timestamp value)
-                                                    (ks/parse-number (str value)))}))
-                (throw (IllegalArgumentException.
-                        (format "Value %s must be a number for %s comparison." value op)))))
+          (map->BinaryExpression {:operator op
+                                  :column column
+                                  :value  (if (= :timestamp col-type)
+                                            (to-timestamp value)
+                                            (ks/parse-number (str value)))}))
+        (throw (IllegalArgumentException.
+                (format "Value %s must be a number for %s comparison." value op))))) [["null?" column value]]
+    (map->NullExpression {:column column
+                          :null? value})
 
+    [["~" column value]]
+    (let [col-type (get-in query-rec [:project column])]
+      (case col-type
+        :array
+        (map->ArrayRegexExpression {:table (:source-table query-rec)
+                                    :alias (:alias query-rec)
+                                    :column column
+                                    :value value})
 
-            [["null?" column value]]
-            (map->NullExpression {:column column
-                                  :null? value})
+        :multi
+        (map->RegexExpression {:column (str column "_string")
+                               :value value})
 
-            [["~" column value]]
-            (let [col-type (get-in query-rec [:project column])]
-              (case col-type
-                :array
-                (map->ArrayRegexExpression {:table (:source-table query-rec)
-                                            :alias (:alias query-rec)
-                                            :column column
-                                            :value value})
+        (map->RegexExpression {:column column
+                               :value value})))
 
-                :multi
-                (map->RegexExpression {:column (str column "_string")
-                                       :value value})
+    [["~>" column value]]
+    (let [col-type (get-in query-rec [:project column])]
+      (case col-type
+        :path
+        (map->RegexExpression {:column column
+                               :value (facts/factpath-regexp-to-regexp value)})))
 
-                (map->RegexExpression {:column column
-                                       :value value})))
+    [["and" & expressions]]
+    (map->AndExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
 
-            [["~>" column value]]
-            (let [col-type (get-in query-rec [:project column])]
-              (case col-type
-                :path
-                (map->RegexExpression {:column column
-                                       :value (facts/factpath-regexp-to-regexp value)})))
+    [["or" & expressions]]
+    (map->OrExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
 
-            [["and" & expressions]]
-            (map->AndExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
+    [["in" column subquery-expression]]
+    (map->InExpression {:column (maybe-vectorize-string column)
+                        :subquery (user-node->plan-node query-rec subquery-expression)})
 
-            [["or" & expressions]]
-            (map->OrExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
+    [["not" expression]] (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
 
-            [["in" column subquery-expression]]
-            (map->InExpression {:column (maybe-vectorize-string column)
-                                :subquery (user-node->plan-node query-rec subquery-expression)})
-
-            [["not" expression]] (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
-
-            [["extract" column
-              [subquery-name & subquery-expression]]]
-            (let [columns (maybe-vectorize-string column)]
-              (assoc (user-query->logical-obj subquery-name)
-                :project (zipmap columns (repeat (count columns) nil))
-                :where (when (seq subquery-expression)
-                         (user-node->plan-node (user-query->logical-obj subquery-name) (first subquery-expression)))))
-            :else nil))
+    [["extract" column
+      [subquery-name & subquery-expression]]]
+    (let [columns (maybe-vectorize-string column)]
+      (assoc (user-query->logical-obj subquery-name)
+             :project (zipmap columns (repeat (count columns) nil))
+             :where (when (seq subquery-expression)
+                      (user-node->plan-node (user-query->logical-obj subquery-name) (first subquery-expression)))))
+    :else nil))
 
 (defn convert-to-plan
   "Converts the given `user-query` to a query plan that can later be converted into
@@ -697,85 +694,85 @@
   (fn [node state]
     (when (vec? node)
       (cm/match [node]
-                [["extract" column
-                  [subquery-name subquery-expression]]]
-                (let [subquery-expr (push-down-context (user-query->logical-obj subquery-name) subquery-expression)
-                      nested-qc (:query-context (meta subquery-expr))
-                      queryable-fields (:queryable-fields nested-qc)]
+        [["extract" column
+          [subquery-name subquery-expression]]]
+        (let [subquery-expr (push-down-context (user-query->logical-obj subquery-name) subquery-expression)
+              nested-qc (:query-context (meta subquery-expr))
+              queryable-fields (:queryable-fields nested-qc)]
 
-                  {:node (vary-meta ["extract" column
-                                     (vary-meta [subquery-name subquery-expr]
-                                                assoc :query-context nested-qc)]
-                                    assoc :query-context nested-qc)
+          {:node (vary-meta ["extract" column
+                             (vary-meta [subquery-name subquery-expr]
+                                        assoc :query-context nested-qc)]
+                            assoc :query-context nested-qc)
 
                    ;;Might need to revisit this once all of the
                    ;;validations are known, but the :cut true will no
                    ;;longer traverse the tree, which was causing
                    ;;problems with the validation below when it was
                    ;;included in the validate-query-fields function
-                   :state (if (and (not (vec? column))
-                                   (not (contains? (set queryable-fields) column)))
-                            (conj state (format "Can't extract unknown '%s' field '%s'. Acceptable fields are: %s"
-                                                (:alias nested-qc)
-                                                column
-                                                (json/generate-string queryable-fields)))
+           :state (if (and (not (vec? column))
+                           (not (contains? (set queryable-fields) column)))
+                    (conj state (format "Can't extract unknown '%s' field '%s'. Acceptable fields are: %s"
+                                        (:alias nested-qc)
+                                        column
+                                        (json/generate-string queryable-fields)))
 
-                            state)
-                   :cut true})
+                    state)
+           :cut true})
 
-                :else
-                (when (instance? clojure.lang.IMeta node)
-                  {:node (vary-meta node assoc :query-context context)
-                   :state state})))))
+        :else
+        (when (instance? clojure.lang.IMeta node)
+          {:node (vary-meta node assoc :query-context context)
+           :state state})))))
 
 (defn validate-query-fields
   "Add an error message to `state` if the field is not available for querying
    by the associated query-context"
   [node state]
   (cm/match [node]
-            [[(:or "=" "~" ">" "<" "<=" ">=") field _]]
-            (let [query-context (:query-context (meta node))
-                  queryable-fields (:queryable-fields query-context)]
-              (when (and (not (vec? field))
-                         (not (contains? (set queryable-fields) field)))
-                {:node node
-                 :state (conj state (format "'%s' is not a queryable object for %s, known queryable objects are %s"
-                                            field
-                                            (:alias query-context)
-                                            (json/generate-string queryable-fields)))}))
+    [[(:or "=" "~" ">" "<" "<=" ">=") field _]]
+    (let [query-context (:query-context (meta node))
+          queryable-fields (:queryable-fields query-context)]
+      (when (and (not (vec? field))
+                 (not (contains? (set queryable-fields) field)))
+        {:node node
+         :state (conj state (format "'%s' is not a queryable object for %s, known queryable objects are %s"
+                                    field
+                                    (:alias query-context)
+                                    (json/generate-string queryable-fields)))}))
 
-            [["in" field & _]]
-            (let [query-context (:query-context (meta node))
-                  queryable-fields (:queryable-fields query-context)]
-              (when (and (not (vec? field))
-                         (not (contains? (set queryable-fields) field)))
-                {:node node
-                 :state (conj state (format "Can't match on unknown '%s' field '%s' for 'in'. Acceptable fields are: %s"
-                                            (:alias query-context)
-                                            field
-                                            (json/generate-string queryable-fields)))}))
+    [["in" field & _]]
+    (let [query-context (:query-context (meta node))
+          queryable-fields (:queryable-fields query-context)]
+      (when (and (not (vec? field))
+                 (not (contains? (set queryable-fields) field)))
+        {:node node
+         :state (conj state (format "Can't match on unknown '%s' field '%s' for 'in'. Acceptable fields are: %s"
+                                    (:alias query-context)
+                                    field
+                                    (json/generate-string queryable-fields)))}))
 
-            :else nil))
+    :else nil))
 
 (defn dashes-to-underscores
   "Convert field names with dashes to underscores"
   [node state]
   (cm/match [node]
-            [[(op :guard binary-operators) (field :guard string?) value]]
-            {:node (with-meta [op (jdbc/dashes->underscores field) value]
-                     (meta node))
-             :state state}
-            :else {:node node :state state}))
+    [[(op :guard binary-operators) (field :guard string?) value]]
+    {:node (with-meta [op (jdbc/dashes->underscores field) value]
+             (meta node))
+     :state state}
+    :else {:node node :state state}))
 
 (defn ops-to-lower
   "Lower cases operators (such as and/or)."
   [node state]
   (cm/match [node]
-            [[op & stmt-rest]]
-            {:node (with-meta (vec (cons (str/lower-case op) stmt-rest))
-                     (meta node))
-             :state state}
-            :else {:node node :state state}))
+    [[op & stmt-rest]]
+    {:node (with-meta (vec (cons (str/lower-case op) stmt-rest))
+             (meta node))
+     :state state}
+    :else {:node node :state state}))
 
 (defn push-down-context
   "Pushes the top level query context down to each query node, throws IllegalArgumentException

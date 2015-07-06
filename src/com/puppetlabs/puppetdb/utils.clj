@@ -83,8 +83,8 @@
   [m & kvs]
   {:pre [(even? (count kvs))]}
   (let [missing-map-entries (for [[k v] (partition 2 kvs)
-                                 :when (= ::not-found (get m k ::not-found))]
-                             [k v])]
+                                  :when (= ::not-found (get m k ::not-found))]
+                              [k v])]
     (if (seq missing-map-entries)
       (apply assoc m (apply concat missing-map-entries))
       m)))
@@ -95,7 +95,7 @@
    keywords to strings instead of trying to resolve them in a namespace first."
   [m]
   (let [f (fn [[k v]] (if (keyword? k)
-                       [(subs (str k) 1) v] [k v]))]
+                        [(subs (str k) 1) v] [k v]))]
     ;; only apply to maps
     (walk/postwalk (fn [x] (if (map? x) (into {} (map f x)) x)) m)))
 
@@ -110,7 +110,7 @@
   keys rather than nested.  Applies function f to values corresponding to keys
   ks in map m."
   [m ks f]
-    (reduce #(update-in %1 [%2] f) m ks))
+  (reduce #(update-in %1 [%2] f) m ks))
 
 (defn update-when
   "Works like update, but only if ks is found in the map(s)"

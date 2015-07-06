@@ -64,17 +64,17 @@
   are available. Note this means this fixture should be nested _within_
   `with-test-db` or `with-test-mq`."
   ([f]
-     (with-http-app {} f))
+   (with-http-app {} f))
   ([globals-overrides f]
-     (binding [*app* (server/build-app
-                      :globals (merge
-                                {:scf-read-db          *db*
-                                 :scf-write-db         *db*
-                                 :command-mq           *mq*
-                                 :product-name         "puppetdb"
-                                 :url-prefix           ""}
-                                globals-overrides))]
-       (f))))
+   (binding [*app* (server/build-app
+                    :globals (merge
+                              {:scf-read-db          *db*
+                               :scf-write-db         *db*
+                               :command-mq           *mq*
+                               :product-name         "puppetdb"
+                               :url-prefix           ""}
+                              globals-overrides))]
+     (f))))
 
 (defn defaulted-write-db-config
   "Defaults and converts `db-config` from the write database INI format to the internal
@@ -112,37 +112,37 @@
    application middlewares, suitable for invoking one of the api functions
    (where it assumes the middleware have already assoc'd in various attributes)."
   ([]
-     (internal-request {}))
+   (internal-request {}))
   ([params]
-     (internal-request {} params))
+   (internal-request {} params))
   ([global-overrides params]
-     {:params params
-      :headers {"accept" "application/json"
-                "content-type" "application/x-www-form-urlencoded"}
-      :content-type "application/x-www-form-urlencoded"
-      :globals (merge {:update-server "FOO"
-                       :scf-read-db          *db*
-                       :scf-write-db         *db*
-                       :command-mq           *mq*
-                       :product-name         "puppetdb"}
-                      global-overrides)}))
+   {:params params
+    :headers {"accept" "application/json"
+              "content-type" "application/x-www-form-urlencoded"}
+    :content-type "application/x-www-form-urlencoded"
+    :globals (merge {:update-server "FOO"
+                     :scf-read-db          *db*
+                     :scf-write-db         *db*
+                     :command-mq           *mq*
+                     :product-name         "puppetdb"}
+                    global-overrides)}))
 
 (defn internal-request-post
   "A variant of internal-request designed to submit application/json requests
   instead."
   ([body]
-    (internal-request-post body {}))
+   (internal-request-post body {}))
   ([body params]
-     {:params params
-      :headers {"accept" "application/json"
-                "content-type" "application/json"}
-      :content-type "application/json"
-      :globals (merge {:update-server "FOO"
-                       :scf-read-db          *db*
-                       :scf-write-db         *db*
-                       :command-mq           *mq*
-                       :product-name         "puppetdb"})
-      :body (ByteArrayInputStream. (.getBytes body "utf8"))}))
+   {:params params
+    :headers {"accept" "application/json"
+              "content-type" "application/json"}
+    :content-type "application/json"
+    :globals (merge {:update-server "FOO"
+                     :scf-read-db          *db*
+                     :scf-write-db         *db*
+                     :command-mq           *mq*
+                     :product-name         "puppetdb"})
+    :body (ByteArrayInputStream. (.getBytes body "utf8"))}))
 
 (defmacro defixture
   "Defs a var `name` that is the composed fixtures for the ns and then uses those fixtures.

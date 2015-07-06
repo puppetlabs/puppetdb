@@ -48,18 +48,17 @@
   (update-counts counts)
   (inc item))
 
-
 (deftest test-bound-via-semaphore
   (doseq [bound [1 2 5]]
     (testing (format "Testing bound-via-semaphore with semaphore size %s" bound)
       (let [sem     (Semaphore. bound)
             counts  (atom {:current 0 :max 0})
             futures (create-futures 10
-                      (bound-via-semaphore sem update-counts) counts)]
-      (doseq [fut futures]
+                                    (bound-via-semaphore sem update-counts) counts)]
+        (doseq [fut futures]
         ;; deref all of the futures to make sure we've waited for them to complete
-        @fut)
-      (is (= {:current 0 :max bound} @counts))))))
+          @fut)
+        (is (= {:current 0 :max bound} @counts))))))
 
 (deftest test-bounded-pmap
   (doseq [bound [1 2 5]]

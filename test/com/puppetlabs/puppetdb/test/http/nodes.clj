@@ -22,7 +22,6 @@
   ([endpoint query] (fixt/*app* (get-request endpoint query)))
   ([endpoint query params] (fixt/*app* (get-request endpoint query params))))
 
-
 (defn get-version
   "Lookup version from endpoint uri"
   [endpoint]
@@ -161,8 +160,7 @@
 (deftestseq basic-node-subqueries
   [[version endpoint] endpoints]
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
-    (doseq [[query expected] {
-                              ;; Basic sub-query for fact operatingsystem
+    (doseq [[query expected] {;; Basic sub-query for fact operatingsystem
                               ["in" (certname version)
                                ["extract" "certname"
                                 ["select-facts"
@@ -200,8 +198,7 @@
 
   (testing "subqueries: valid"
     (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
-      (doseq [[query expected] {
-                                ;; Nodes with matching select-resources for file/line
+      (doseq [[query expected] {;; Nodes with matching select-resources for file/line
                                 ["in" (certname version)
                                  ["extract" "certname"
                                   ["select-resources"
@@ -214,8 +211,7 @@
           (is-query-result endpoint query expected)))))
 
   (testing "subqueries: invalid"
-    (doseq [[query msg] {
-                         ;; Ensure the v2 version of sourcefile/sourceline returns
+    (doseq [[query msg] {;; Ensure the v2 version of sourcefile/sourceline returns
                          ;; a proper error.
                          ["in" (certname version)
                           ["extract" "certname"

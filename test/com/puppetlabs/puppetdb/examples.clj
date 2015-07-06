@@ -156,7 +156,6 @@
       v3->v4-catalog
       (assoc :producer-timestamp "2014-07-10T22:33:54.781Z")))
 
-
 (def wire-catalogs
   "Catalogs keyed by version, the version 2 below is really a version 3
    catalog that happens to work for version 2, TODO on fixing this."

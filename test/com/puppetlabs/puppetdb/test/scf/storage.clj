@@ -211,7 +211,7 @@
                  (factset-map "some_certname"))))))))
 
 (deftest fact-persistance-with-environment
-    (testing "Persisted facts"
+  (testing "Persisted facts"
     (let [certname "some_certname"
           facts {"domain" "mydomain.com"
                  "fqdn" "myhost.mydomain.com"
@@ -288,14 +288,14 @@
             {:name c :values v
              :environment nil :timestamp (now) :producer-timestamp nil})
           (paths [& fact-sets]
-            (set (for [k (mapcat keys fact-sets)] {:path k :name k :depth 0})))
+                 (set (for [k (mapcat keys fact-sets)] {:path k :name k :depth 0})))
           (values [& fact-sets] (set (mapcat vals fact-sets)))
           (db-paths []
-            (set (query-to-vec "SELECT path, name, depth FROM fact_paths")))
+                    (set (query-to-vec "SELECT path, name, depth FROM fact_paths")))
           (db-vals []
-            (set (mapv :value (query-to-vec
+                   (set (mapv :value (query-to-vec
                                ;; Note: currently can't distinguish 10 from "10".
-                               "SELECT COALESCE(fv.value_string,
+                                      "SELECT COALESCE(fv.value_string,
                                                 cast(fv.value_integer as text),
                                                 cast(fv.value_boolean as text),
                                                 cast(fv.value_float as text),
@@ -505,12 +505,12 @@
                {["d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
                  "57495b553981551c5194a21b9a26554cd93db3d9"
                  "contains"] nil,
-                 ["57495b553981551c5194a21b9a26554cd93db3d9"
-                  "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
-                  "required-by"] nil,
-                  ["d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
-                   "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
-                   "contains"] nil})))
+                ["57495b553981551c5194a21b9a26554cd93db3d9"
+                 "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                 "required-by"] nil,
+                ["d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
+                 "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                 "contains"] nil})))
 
       ;; Lets intercept the insert/update/delete level so we can test it later
       ;; Here we only replace edges, so we can capture those specific SQL
@@ -527,12 +527,12 @@
                    {["d9b87fb0aaafa5f56cc49e9dbfa83b1c573c6e8a"
                      "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
                      "contains"] nil,
-                     ["57495b553981551c5194a21b9a26554cd93db3d9"
-                      "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
-                      "required-by"] nil
-                      ["57495b553981551c5194a21b9a26554cd93db3d9"
-                       "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
-                       "before"] nil})))
+                    ["57495b553981551c5194a21b9a26554cd93db3d9"
+                     "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                     "required-by"] nil
+                    ["57495b553981551c5194a21b9a26554cd93db3d9"
+                     "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                     "before"] nil})))
 
           (testing "should only delete the 1 edge"
             (is (= [[:edges ["certname=? and source=? and target=? and type=?"
@@ -554,7 +554,7 @@
             (testing "should delete no edges"
               (is (empty? @deletes)))
             (testing "should insert no edges"
-              (is (empty?@adds)))))))))
+              (is (empty? @adds)))))))))
 
 (deftest catalog-duplicates
   (testing "should share structure when duplicate catalogs are detected for the same host"
@@ -743,7 +743,7 @@
 
       ; Nothing should have been persisted for this catalog
       (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
-            [{:nrows 0}])))))
+             [{:nrows 0}])))))
 
 (defn foobar->foobar2 [x]
   (if (and (string? x) (= x "/etc/foobar"))
@@ -786,9 +786,9 @@
       (let [{orig-id :id
              orig-tx-id :transaction_uuid
              orig-timestamp :timestamp} (first (query-to-vec "SELECT id from catalogs where certname=?" certname))
-             updated-catalog (walk/prewalk foobar->foobar2 (:basic catalogs))
-             new-uuid (kitchensink/uuid)
-             metrics-map metrics]
+            updated-catalog (walk/prewalk foobar->foobar2 (:basic catalogs))
+            new-uuid (kitchensink/uuid)
+            metrics-map metrics]
 
         (is (= #{{:type "Class" :title "foobar"}
                  {:type "File" :title "/etc/foobar"}
@@ -847,8 +847,8 @@
     (is (= 3 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname)))))
 
     (tu/with-wrapped-fn-args [inserts sql/insert-records
-                           updates sql/update-values
-                           deletes sql/delete-rows]
+                              updates sql/update-values
+                              deletes sql/delete-rows]
       (add-catalog! (assoc-in catalog
                               [:resources {:type "File" :title "/etc/foobar2"}]
                               {:type "File"
@@ -1119,7 +1119,7 @@
 
       ; Nothing should have been persisted for this catalog
       (is (= (query-to-vec ["SELECT count(*) as nrows from certnames"])
-            [{:nrows 0}])))))
+             [{:nrows 0}])))))
 
 (deftest node-deactivation
   (let [certname        "foo.example.com"
@@ -1237,15 +1237,15 @@
       (store-example-report! report timestamp)
 
       (is (= (query-to-vec ["SELECT certname FROM reports"])
-            [{:certname (:certname report)}]))
+             [{:certname (:certname report)}]))
 
       (is (= (query-to-vec ["SELECT hash FROM reports"])
-            [{:hash report-hash}])))
+             [{:hash report-hash}])))
 
     (testing "should store report with long puppet version string"
       (store-example-report!
-        (assoc report
-          :puppet-version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
+       (assoc report
+              :puppet-version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
 
   (deftest report-storage-with-environment
     (is (nil? (environment-id "DEV")))
@@ -1285,25 +1285,22 @@
             report-hash (:hash (store-example-report! report timestamp))]
         (is (is-latest-report? node report-hash))
         (let [new-report-hash (:hash (store-example-report!
-                                        (-> report
+                                      (-> report
                                           (assoc :configuration-version "bar")
                                           (assoc :end-time (now)))
-                                        timestamp))]
+                                      timestamp))]
           (is (is-latest-report? node new-report-hash))
-          (is (not (is-latest-report? node report-hash)))))))
-
-
-  (deftest report-cleanup
-    (testing "should delete reports older than the specified age"
-      (let [report1       (assoc report :end-time (to-string (ago (days 5))))
-            report1-hash  (:hash (store-example-report! report1 timestamp))
-            report2       (assoc report :end-time (to-string (ago (days 2))))
-            report2-hash  (:hash (store-example-report! report2 timestamp))
-            certname      (:certname report1)
-            _             (delete-reports-older-than! (ago (days 3)))
-            expected      (expected-reports [(assoc report2 :hash report2-hash)])
-            actual        (reports-query-result :v4 ["=" "certname" certname])]
-        (is (= expected actual)))))
+          (is (not (is-latest-report? node report-hash))))))) (deftest report-cleanup
+                                                                (testing "should delete reports older than the specified age"
+                                                                  (let [report1       (assoc report :end-time (to-string (ago (days 5))))
+                                                                        report1-hash  (:hash (store-example-report! report1 timestamp))
+                                                                        report2       (assoc report :end-time (to-string (ago (days 2))))
+                                                                        report2-hash  (:hash (store-example-report! report2 timestamp))
+                                                                        certname      (:certname report1)
+                                                                        _             (delete-reports-older-than! (ago (days 3)))
+                                                                        expected      (expected-reports [(assoc report2 :hash report2-hash)])
+                                                                        actual        (reports-query-result :v4 ["=" "certname" certname])]
+                                                                    (is (= expected actual)))))
 
   (deftest report-with-event-timestamp
     (let [z-report (update-event-timestamps report "2011-01-01T12:00:01Z")
@@ -1331,37 +1328,37 @@
 (deftest db-deprecation
   (testing "should return a string if db is deprecated"
     (are [db enterprise? version result]
-      (with-db-version db version
-        (fn []
-          (is (= result (db-deprecated? enterprise?)))))
+         (with-db-version db version
+           (fn []
+             (is (= result (db-deprecated? enterprise?)))))
       "PostgreSQL" false [8 4]
-         "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
+      "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
 
       "PostgreSQL" false [9 0]
-         "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
+      "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
 
       "PostgreSQL" false [9 1]
-         "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
+      "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
 
       "PostgreSQL" false [9 2]
-         "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
+      "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
 
       "PostgreSQL" true [9 2] nil
 
       "PostgreSQL" false [9 3]
-         "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
+      "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
 
       "PostgreSQL" true [9 3]
-         "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
+      "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
 
       "PostgreSQL" false [9 4] nil)))
 
 (deftest test-db-unsupported?
   (testing "should return a string if db is deprecated"
     (are [db version result]
-      (with-db-version db version
-        (fn []
-          (is (= result (db-unsupported?)))))
+         (with-db-version db version
+           (fn []
+             (is (= result (db-unsupported?)))))
       "PostgreSQL" [8 1] "PostgreSQL DB versions 8.3 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
       "PostgreSQL" [8 2] "PostgreSQL DB versions 8.3 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
       "PostgreSQL" [8 3] "PostgreSQL DB versions 8.3 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
@@ -1384,7 +1381,7 @@
               (is (re-find not-supported-regex
                            (tu/with-err-str
                              (validate-database-version
-                               enterprise? #(reset! fail? true)))))
+                              enterprise? #(reset! fail? true)))))
               (is (true? @fail?))
               (is (re-find not-supported-regex (last (first @log)))))))))
     (testing "supported postgres version"
@@ -1393,9 +1390,9 @@
           (fn []
             (pllog/with-log-output log
               (is (str/blank?
-                    (tu/with-err-str
-                      (validate-database-version
-                        enterprise? #(reset! fail? true)))))
+                   (tu/with-err-str
+                     (validate-database-version
+                      enterprise? #(reset! fail? true)))))
               (is (false? @fail?))
               (is (empty? @log)))))))))
 
@@ -1404,40 +1401,40 @@
 
 (deftest test-resource-metadata-diff
   (are [expected left right] (= expected (basic-diff left right))
-       {}
-       {:type "foo" :title "bar"}
-       {:type "foo" :title "bar"}
+    {}
+    {:type "foo" :title "bar"}
+    {:type "foo" :title "bar"}
 
-       {:line       20}
-       {:type       "File"
-        :title      "/etc/foobar/baz"
-        :exported   false
-        :file       "/tmp/bar"
-        :line       10
-        :tags       #{"file" "class" "foobar"}}
-       {:type       "File"
-        :title      "/etc/foobar/baz"
-        :exported   false
-        :file       "/tmp/bar"
-        :line       20
-        :tags       #{"file" "class" "foobar"}}
+    {:line       20}
+    {:type       "File"
+     :title      "/etc/foobar/baz"
+     :exported   false
+     :file       "/tmp/bar"
+     :line       10
+     :tags       #{"file" "class" "foobar"}}
+    {:type       "File"
+     :title      "/etc/foobar/baz"
+     :exported   false
+     :file       "/tmp/bar"
+     :line       20
+     :tags       #{"file" "class" "foobar"}}
 
-       {:exported   true
-        :file       "/tmp/bar/baz"
-        :line       30
-        :tags       #{"file" "class" "foobar" "baz"}}
-       {:type       "File"
-        :title      "/etc/foobar/baz"
-        :exported   false
-        :file       "/tmp/bar"
-        :line       20
-        :tags       #{"file" "class" "foobar"}}
-       {:type       "File"
-        :title      "/etc/foobar/baz"
-        :exported   true
-        :file       "/tmp/bar/baz"
-        :line       30
-        :tags       #{"file" "class" "foobar" "baz"}}))
+    {:exported   true
+     :file       "/tmp/bar/baz"
+     :line       30
+     :tags       #{"file" "class" "foobar" "baz"}}
+    {:type       "File"
+     :title      "/etc/foobar/baz"
+     :exported   false
+     :file       "/tmp/bar"
+     :line       20
+     :tags       #{"file" "class" "foobar"}}
+    {:type       "File"
+     :title      "/etc/foobar/baz"
+     :exported   true
+     :file       "/tmp/bar/baz"
+     :line       30
+     :tags       #{"file" "class" "foobar" "baz"}}))
 
 (deftest test-diff-resources-metadata
   (let [resources-1 {{:type "File" :title "/etc/foobar"}
@@ -1473,25 +1470,25 @@
 
     (are [expected left right] (= expected (diff-resources-metadata left right))
 
-         {}
-         resources-1
-         resources-1
+      {}
+      resources-1
+      resources-1
 
-         {{:type "File" :title "/etc/foobar"}
-          {:line 30}}
-         resources-1
-         (assoc-in resources-1 [{:type "File" :title "/etc/foobar"} :line] 30)
+      {{:type "File" :title "/etc/foobar"}
+       {:line 30}}
+      resources-1
+      (assoc-in resources-1 [{:type "File" :title "/etc/foobar"} :line] 30)
 
-         {{:type "File" :title "/etc/foobar"}
-          {:line 20}
+      {{:type "File" :title "/etc/foobar"}
+       {:line 20}
 
-          {:type "File" :title "/etc/foobar/baz"}
-          {:exported   true
-           :file       "/tmp/bar/baz"
-           :line       30
-           :tags       #{"file" "class" "foobar" "baz"}}}
-         resources-1
-         resources-2)))
+       {:type "File" :title "/etc/foobar/baz"}
+       {:exported   true
+        :file       "/tmp/bar/baz"
+        :line       30
+        :tags       #{"file" "class" "foobar" "baz"}}}
+      resources-1
+      resources-2)))
 
 (deftest test-merge-resource-hash
   (let [ref->resource {{:type "File" :title "/tmp/foo"}

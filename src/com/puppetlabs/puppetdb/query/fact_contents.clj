@@ -39,7 +39,7 @@
 (defn query->sql
   "Compile a query into an SQL expression."
   [version query paging-options]
-  {:pre [((some-fn nil? sequential?) query) ]
+  {:pre [((some-fn nil? sequential?) query)]
    :post [(map? %)
           (string? (first (:results-query %)))
           (every? (complement coll?) (rest (:results-query %)))]}

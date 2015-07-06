@@ -32,42 +32,42 @@
 
     (are [query result] (= result (set (:result (query-environments :v4 (query->sql :v4 (jsonify query))))))
 
-         '[= name foo]
-         #{{:name "foo"}}
+      '[= name foo]
+      #{{:name "foo"}}
 
-         '["~" name f.*]
-         #{{:name "foo"}}
+      '["~" name f.*]
+      #{{:name "foo"}}
 
-         '[not [= name foo]]
-         #{{:name "bar"}
-           {:name "baz"}}
+      '[not [= name foo]]
+      #{{:name "bar"}
+        {:name "baz"}}
 
-         '[not ["~" name f.*]]
-         #{{:name "bar"}
-           {:name "baz"}}
+      '[not ["~" name f.*]]
+      #{{:name "bar"}
+        {:name "baz"}}
 
-         '[or
-           [= name foo]
-           [= name bar]]
-         #{{:name "foo"}
-           {:name "bar"}}
+      '[or
+        [= name foo]
+        [= name bar]]
+      #{{:name "foo"}
+        {:name "bar"}}
 
-         '[and
-           ["~" name f.*]
-           ["~" name .*o]]
-         #{{:name "foo"}}
+      '[and
+        ["~" name f.*]
+        ["~" name .*o]]
+      #{{:name "foo"}}
 
-         '[and
-           ["~" name f.*]
-           ["~" name .*o]]
-         #{{:name "foo"}})))
+      '[and
+        ["~" name f.*]
+        ["~" name .*o]]
+      #{{:name "foo"}})))
 
 (deftest test-failed-comparison
   (are [query] (thrown-with-msg? IllegalArgumentException
                                  #"Query operators >,>=,<,<= are not allowed on field name"
                                  (query-environments :v4 (query->sql :v4 (jsonify query))))
 
-       '[<= name foo]
-       '[>= name foo]
-       '[< name foo]
-       '[> name foo]))
+    '[<= name foo]
+    '[>= name foo]
+    '[< name foo]
+    '[> name foo]))

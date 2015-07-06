@@ -15,7 +15,6 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as s]))
 
-
 ;; ## HTTP Status codes
 ;;
 ;; This section creates a series of variables representing legal HTTP
@@ -107,23 +106,23 @@
   alredy be JSON-ified. To auto-serialize body to JSON, look at
   `json-response`."
   ([body]
-     (json-response* body status-ok))
+   (json-response* body status-ok))
   ([body code]
-     (-> body
-         (rr/response)
-         (rr/header "Content-Type" "application/json")
-         (rr/charset "utf-8")
-         (rr/status code))))
+   (-> body
+       (rr/response)
+       (rr/header "Content-Type" "application/json")
+       (rr/charset "utf-8")
+       (rr/status code))))
 
 (defn json-response
   "Returns a Ring response object with the supplied `body` and response `code`,
   and a JSON content type. If unspecified, `code` will default to 200."
   ([body]
-     (json-response body status-ok))
+   (json-response body status-ok))
   ([body code]
-     (-> body
-         json/generate-pretty-string
-         (json-response* code))))
+   (-> body
+       json/generate-pretty-string
+       (json-response* code))))
 
 (def json-response-content-type "application/json; charset=utf-8")
 
@@ -133,15 +132,15 @@
    Otherwise, `error` itself is used.  If unspecified, `code` will default to
    `status-bad-request`."
   ([error]
-     (error-response error status-bad-request))
+   (error-response error status-bad-request))
   ([error code]
-     (let [msg (if (instance? Throwable error)
-                 (.getMessage error)
-                 (str error))]
-       (log/debug error "Caught HTTP processing exception")
-       (-> msg
-           (rr/response)
-           (rr/status code)))))
+   (let [msg (if (instance? Throwable error)
+               (.getMessage error)
+               (str error))]
+     (log/debug error "Caught HTTP processing exception")
+     (-> msg
+         (rr/response)
+         (rr/status code)))))
 
 (defn uri-segments
   "Converts the given URI into a seq of path segments. Empty segments
@@ -161,16 +160,16 @@
   => [\"|foo\", \"|foo|bar\", \"|foo|bar|baz\"]
 "
   ([uri]
-     (leading-uris uri "/"))
+   (leading-uris uri "/"))
   ([uri delimiter]
-     {:pre  [(.startsWith uri "/")]
-      :post [(coll? %)]}
-     (let [segments (uri-segments uri)
-           f        (fn [[segs strs] u]
-                      (let [segs' (conj segs u)]
-                        [segs'
-                         (conj strs (str delimiter (s/join delimiter segs')))]))]
-       (second (reduce f [[] []] segments)))))
+   {:pre  [(.startsWith uri "/")]
+    :post [(coll? %)]}
+   (let [segments (uri-segments uri)
+         f        (fn [[segs strs] u]
+                    (let [segs' (conj segs u)]
+                      [segs'
+                       (conj strs (str delimiter (s/join delimiter segs')))]))]
+     (second (reduce f [[] []] segments)))))
 
 (defn stream-json
   "Serializes the supplied sequence to `buffer`, which is a `Writer`
@@ -231,7 +230,7 @@
    (streamed-response buffer
      ;; We pass the stream function back to the stream-query-result so that
      ;; it gets executed inside the cursor function.
-     (f #(stream-json % buffer)))))
+                      (f #(stream-json % buffer)))))
 
 (defn parse-boolean-query-param
   "Utility method for parsing a query parameter whose value is expected to be
@@ -247,7 +246,7 @@
        ;; If the original query string contains the query param w/o a
        ;; a value, it will show up here as nil.  We assume that in that
        ;; case, the caller intended to use it as a flag.
-       (nil? val)                   true
-       (Boolean/parseBoolean val)   true
-       :else                        false))
+        (nil? val)                   true
+        (Boolean/parseBoolean val)   true
+        :else                        false))
     false))

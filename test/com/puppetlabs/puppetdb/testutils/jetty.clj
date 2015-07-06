@@ -24,7 +24,7 @@
    currently running PuppetDB instance"
   ([] (current-url "/v4/"))
   ([suffix]
-     (format "http://localhost:%s%s" *port* suffix)))
+   (format "http://localhost:%s%s" *port* suffix)))
 
 (defn current-port
   "Given a trapperkeeper server, return the port of the running jetty instance.
@@ -42,11 +42,11 @@
    If the port is assigned by Jetty, use *port* to get the currently running port."
   ([f] (puppetdb-instance (create-config) f))
   ([config f]
-     (tkbs/with-app-with-config server
-       [jetty9-service puppetdb-service]
-       config
-       (binding [*port* (current-port server)]
-         (f)))))
+   (tkbs/with-app-with-config server
+     [jetty9-service puppetdb-service]
+     config
+     (binding [*port* (current-port server)]
+       (f)))))
 
 (defmacro with-puppetdb-instance
   "Convenience macro to launch a puppetdb instance"

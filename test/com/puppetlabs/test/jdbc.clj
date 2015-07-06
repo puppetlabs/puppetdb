@@ -52,7 +52,7 @@
            (set (map #(hash-map :key (name %)) [:absence :abundant])))))
   (testing "query exceeds limit"
     (is (thrown-with-msg? IllegalStateException #"more than the maximum number of results"
-          (subject/limited-query-to-vec 1 "SELECT key FROM test WHERE key LIKE 'ab%'")))))
+                          (subject/limited-query-to-vec 1 "SELECT key FROM test WHERE key LIKE 'ab%'")))))
 
 (deftest order-by->sql
   (testing "should return an empty string if no order-by is provided"
@@ -65,7 +65,7 @@
     (is (= " ORDER BY foo DESC" (subject/order-by->sql [[:foo :descending]]))))
   (testing "should support multiple order-by fields"
     (is (= " ORDER BY foo DESC, bar"
-          (subject/order-by->sql
+           (subject/order-by->sql
             [[:foo :descending]
              [:bar :ascending]])))))
 
@@ -93,7 +93,6 @@
     (is (thrown-with-msg? java.lang.AssertionError #"Assert failed"
                           (subject/in-clause-multi nil 1)))))
 
-
 (deftest transaction-isolation
   (let [evaled-body? (atom false)
         db (test-db)]
@@ -110,6 +109,6 @@
                                                  (let [conn (:connection jint/*db*)]
                                                    (= isolation-level (.getTransactionIsolation conn))))
 
-         java.sql.Connection/TRANSACTION_REPEATABLE_READ :repeatable-read
-         java.sql.Connection/TRANSACTION_SERIALIZABLE :serializable
-         java.sql.Connection/TRANSACTION_READ_COMMITTED :read-committed)))
+      java.sql.Connection/TRANSACTION_REPEATABLE_READ :repeatable-read
+      java.sql.Connection/TRANSACTION_SERIALIZABLE :serializable
+      java.sql.Connection/TRANSACTION_READ_COMMITTED :read-committed)))

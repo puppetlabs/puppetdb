@@ -77,21 +77,21 @@
                   {"context" {"node" "/puppetlabs/"} "anonymize" false}
                   {"context" {} "anonymize" true}]
           context {"node" "forge.puppetlabs.com"}]
-       (is (true? (rules-match rules context)))))
+      (is (true? (rules-match rules context)))))
 
   (testing "ensure we match on the second rule block"
     (let [rules  [{"context" {"node" "/forge/"} "anonymize" true}
                   {"context" {"node" "/puppetlabs/"} "anonymize" false}
                   {"context" {} "anonymize" true}]
           context {"node" "heyjude.puppetlabs.com"}]
-       (is (false? (rules-match rules context)))))
+      (is (false? (rules-match rules context)))))
 
   (testing "ensure we work with the default trailing rule"
     (let [rules  [{"context" {"node" "/forge/"} "anonymize" false}
                   {"context" {"node" "/puppetlabs/"} "anonymize" false}
                   {"context" {} "anonymize" true}]
           context {"node" "myhost.mynode.com"}]
-       (is (true? (rules-match rules context))))))
+      (is (true? (rules-match rules context))))))
 
 (deftest test-anonymize-leaf-node
   (testing "should return the same string twice"
@@ -226,7 +226,7 @@
           result (anonymize-parameters input {} {})]
       (is (map? result))
       (is (= 2 (count result))
-      (is (not (= input result)))))))
+          (is (not (= input result)))))))
 
 (deftest test-capitalize-resource-type
   (testing "should change a resource type to upcase format like Foo::Bar"
@@ -303,12 +303,12 @@
 
       (are [k] (not= (get test-resource k)
                      (get result k))
-           "parameters"
-           "line"
-           "title"
-           "tags"
-           "type"
-           "file"))))
+        "parameters"
+        "line"
+        "title"
+        "tags"
+        "type"
+        "file"))))
 
 (deftest test-anonymize-resource-event
   (testing "should handle a resource event"

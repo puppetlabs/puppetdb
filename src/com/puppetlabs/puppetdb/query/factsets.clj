@@ -82,7 +82,7 @@
   (let [first-row (first certname-rows)
         facts (reduce recreate-fact-path {} certname-rows)]
     (assoc (select-keys first-row [:certname :environment :timestamp])
-      :facts (int-maps->vectors facts))))
+           :facts (int-maps->vectors facts))))
 
 (pls/defn-validated structured-data-seq
   "Produce a lazy sequence of facts from a list of rows ordered by fact name"
@@ -105,10 +105,10 @@
   "Compile a query into an SQL expression."
   [version :- s/Keyword
    query paging-options]
-  {:pre [((some-fn nil? sequential?) query) ]
+  {:pre [((some-fn nil? sequential?) query)]
    :post [(map? %)
           (string? (first (:results-query %)))
           (every? (complement coll?) (rest (:results-query %)))]}
   (paging/validate-order-by! (map keyword (keys query/factset-columns)) paging-options)
-    (qe/compile-user-query->sql
-     qe/factsets-query query paging-options))
+  (qe/compile-user-query->sql
+   qe/factsets-query query paging-options))

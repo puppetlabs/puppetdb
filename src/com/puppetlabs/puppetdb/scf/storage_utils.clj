@@ -40,7 +40,7 @@
   "Return the version of the database product currently in use."
   []
   (let [db-metadata (.. (sql/find-connection)
-                      (getMetaData))
+                        (getMetaData))
         major (.getDatabaseMajorVersion db-metadata)
         minor (.getDatabaseMinorVersion db-metadata)]
     [major minor]))
@@ -111,19 +111,19 @@
 (pls/defn-validated index-exists? :- s/Bool
   "Returns true if the index exists. Only supported on PostgreSQL currently."
   ([index :- s/Str]
-     (index-exists? index "public"))
+   (index-exists? index "public"))
   ([index :- s/Str
     namespace :- s/Str]
-     {:pre [(postgres?)]}
-     (let [query "SELECT c.relname
+   {:pre [(postgres?)]}
+   (let [query "SELECT c.relname
                     FROM   pg_index as idx
                     JOIN   pg_class as c ON c.oid = idx.indexrelid
                     JOIN   pg_namespace as ns ON ns.oid = c.relnamespace
                     WHERE  ns.nspname = ?
                       AND  c.relname = ?"
-           results (jdbc/query-to-vec [query namespace index])]
-       (= (:relname (first results))
-          index))))
+         results (jdbc/query-to-vec [query namespace index])]
+     (= (:relname (first results))
+        index))))
 
 (defn to-jdbc-varchar-array
   "Takes the supplied collection and transforms it into a
@@ -233,25 +233,25 @@ must be supplied as the value to be matched."
   {:pre [(string? table)
          (string? column)]}
   (sql/transaction
-    (if (postgres?)
+   (if (postgres?)
       ;; PostgreSQL specific way
-      (do
-        (sql/do-commands (str "LOCK TABLE " table " IN ACCESS EXCLUSIVE MODE"))
-        (sql/with-query-results _
-          [(str "SELECT setval(
+     (do
+       (sql/do-commands (str "LOCK TABLE " table " IN ACCESS EXCLUSIVE MODE"))
+       (sql/with-query-results _
+         [(str "SELECT setval(
             pg_get_serial_sequence(?, ?),
             (SELECT max(" column ") FROM " table "))") table column]))
 
       ;; HSQLDB specific way
-      (let [_ (sql/do-commands (str "LOCK TABLE " table " WRITE"))
-            maxid (sql/with-query-results result-set
-                      [(str "SELECT max(" column ") as id FROM " table)]
-                      (:id (first result-set)))
+     (let [_ (sql/do-commands (str "LOCK TABLE " table " WRITE"))
+           maxid (sql/with-query-results result-set
+                   [(str "SELECT max(" column ") as id FROM " table)]
+                   (:id (first result-set)))
             ;; While postgres handles a nil case gracefully, hsqldb does not
             ;; so here we return 1 if the maxid is nil, and otherwise return
             ;; maxid +1 to indicate that the next number should be higher
             ;; then the current one.
-            restartid (if (nil? maxid) 1 (inc maxid))]
-        (sql/do-commands
-          (str "ALTER TABLE " table " ALTER COLUMN " column
-            " RESTART WITH " restartid))))))
+           restartid (if (nil? maxid) 1 (inc maxid))]
+       (sql/do-commands
+        (str "ALTER TABLE " table " ALTER COLUMN " column
+             " RESTART WITH " restartid))))))

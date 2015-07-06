@@ -14,54 +14,54 @@
 (deftest test-plan-sql
   (are [sql plan] (= sql (plan->sql plan))
 
-       "foo = ?"
-       (->BinaryExpression "=" "foo" "?")
+    "foo = ?"
+    (->BinaryExpression "=" "foo" "?")
 
-       (su/sql-regexp-match "foo")
-       (->RegexExpression "foo" "?")
+    (su/sql-regexp-match "foo")
+    (->RegexExpression "foo" "?")
 
-       (su/sql-array-query-string "foo")
-       (->ArrayBinaryExpression "foo" "?")
+    (su/sql-array-query-string "foo")
+    (->ArrayBinaryExpression "foo" "?")
 
-       " ( foo = ? AND bar = ? ) "
-       (->AndExpression [(->BinaryExpression "=" "foo" "?")
-                         (->BinaryExpression "=" "bar" "?")])
+    " ( foo = ? AND bar = ? ) "
+    (->AndExpression [(->BinaryExpression "=" "foo" "?")
+                      (->BinaryExpression "=" "bar" "?")])
 
-       " ( foo = ? OR bar = ? ) "
-       (->OrExpression [(->BinaryExpression "=" "foo" "?")
-                        (->BinaryExpression "=" "bar" "?")])
+    " ( foo = ? OR bar = ? ) "
+    (->OrExpression [(->BinaryExpression "=" "foo" "?")
+                     (->BinaryExpression "=" "bar" "?")])
 
-       "NOT ( foo = ? )"
-       (->NotExpression (->BinaryExpression "=" "foo" "?"))
+    "NOT ( foo = ? )"
+    (->NotExpression (->BinaryExpression "=" "foo" "?"))
 
-       "foo IS NULL"
-       (->NullExpression "foo" true)
+    "foo IS NULL"
+    (->NullExpression "foo" true)
 
-       "foo IS NOT NULL"
-       (->NullExpression "foo" false)
+    "foo IS NOT NULL"
+    (->NullExpression "foo" false)
 
-       "SELECT thefoo.foo FROM ( select foo from table ) AS thefoo WHERE 1 = 1"
-       (map->Query {:project {"foo" :string}
-                    :alias "thefoo"
-                    :subquery? false
-                    :where (->BinaryExpression "=" 1 1)
-                    :source "select foo from table"})))
+    "SELECT thefoo.foo FROM ( select foo from table ) AS thefoo WHERE 1 = 1"
+    (map->Query {:project {"foo" :string}
+                 :alias "thefoo"
+                 :subquery? false
+                 :where (->BinaryExpression "=" 1 1)
+                 :source "select foo from table"})))
 
 (deftest test-extract-params
 
   (are [expected plan] (= expected (extract-all-params plan))
 
-       {:plan (->AndExpression [(->BinaryExpression "="  "foo" "?")
-                                (->RegexExpression "bar" "?")
-                                (->NotExpression (->BinaryExpression "=" "baz" "?"))])
-        :params ["1" "2" "3"]}
-       (->AndExpression [(->BinaryExpression "=" "foo" "1")
-                         (->RegexExpression "bar" "2")
-                         (->NotExpression (->BinaryExpression "=" "baz" "3"))])
+    {:plan (->AndExpression [(->BinaryExpression "="  "foo" "?")
+                             (->RegexExpression "bar" "?")
+                             (->NotExpression (->BinaryExpression "=" "baz" "?"))])
+     :params ["1" "2" "3"]}
+    (->AndExpression [(->BinaryExpression "=" "foo" "1")
+                      (->RegexExpression "bar" "2")
+                      (->NotExpression (->BinaryExpression "=" "baz" "3"))])
 
-       {:plan (map->Query {:where (->BinaryExpression "=" "foo" "?")})
-        :params ["1"]}
-       (map->Query {:where (->BinaryExpression "=" "foo" "1")})))
+    {:plan (map->Query {:where (->BinaryExpression "=" "foo" "?")})
+     :params ["1"]}
+    (map->Query {:where (->BinaryExpression "=" "foo" "1")})))
 
 (deftest test-expand-user-query
   (is (= [["=" "prop" "foo"]]
@@ -84,8 +84,7 @@
          (expand-user-query [["=" "prop" "foo"]
                              ["=" ["parameter" "bar"] "baz"]]))))
 
-
 (deftest test-valid-query-fields
   (is (thrown-with-msg? IllegalArgumentException
                         #"'foo' is not a queryable object for resources, known queryable objects are.*"
-       (compile-user-query->sql resources-query ["=" "foo" "bar"]))))
+                        (compile-user-query->sql resources-query ["=" "foo" "bar"]))))

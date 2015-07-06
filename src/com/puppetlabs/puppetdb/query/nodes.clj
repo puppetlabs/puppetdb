@@ -24,22 +24,22 @@
   "Converts a vector-structured `query` to a corresponding SQL query which will
   return nodes matching the `query`."
   ([version query]
-     (query->sql version query {}))
+   (query->sql version query {}))
   ([version query paging-options]
-     {:pre  [((some-fn nil? sequential?) query)]
-      :post [(map? %)
-             (jdbc/valid-jdbc-query? (:results-query %))
-             (or
-              (not (:count? paging-options))
-              (jdbc/valid-jdbc-query? (:count-query %)))]}
-     (paging/validate-order-by! (node-columns version) paging-options)
-     (case version
-       (:v2 :v3)
-       (let [operators (query/node-operators version)
-             [subselect & params] (query/node-query->sql version operators query)
-             sql (case version
-                   (:v1 :v2 :v3)
-                   (format "SELECT subquery1.name,
+   {:pre  [((some-fn nil? sequential?) query)]
+    :post [(map? %)
+           (jdbc/valid-jdbc-query? (:results-query %))
+           (or
+            (not (:count? paging-options))
+            (jdbc/valid-jdbc-query? (:count-query %)))]}
+   (paging/validate-order-by! (node-columns version) paging-options)
+   (case version
+     (:v2 :v3)
+     (let [operators (query/node-operators version)
+           [subselect & params] (query/node-query->sql version operators query)
+           sql (case version
+                 (:v1 :v2 :v3)
+                 (format "SELECT subquery1.name,
                                    subquery1.deactivated,
                                    catalogs.timestamp AS catalog_timestamp,
                                    factsets.timestamp AS facts_timestamp,
@@ -56,14 +56,14 @@
                             ORDER BY subquery1.name ASC" subselect)
 
                    ;; For :v4 the query now all lives in node-query->sql
-                   subselect)
-             paged-select (jdbc/paged-sql sql paging-options)
-             result {:results-query (apply vector paged-select params)}]
-         (if (:count? paging-options)
-           (assoc result :count-query (apply vector (jdbc/count-sql subselect) params))
-           result))
-       (qe/compile-user-query->sql
-        qe/nodes-query query paging-options))))
+                 subselect)
+           paged-select (jdbc/paged-sql sql paging-options)
+           result {:results-query (apply vector paged-select params)}]
+       (if (:count? paging-options)
+         (assoc result :count-query (apply vector (jdbc/count-sql subselect) params))
+         result))
+     (qe/compile-user-query->sql
+      qe/nodes-query query paging-options))))
 
 (defn munge-result-rows
   [version]
@@ -84,9 +84,9 @@
           (sequential? (:result %))]}
   (let [{[sql & params] :results-query
          count-query    :count-query} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params
-                          (comp doall (munge-result-rows version)))}]
+        result {:result (query/streamed-query-result
+                         version sql params
+                         (comp doall (munge-result-rows version)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

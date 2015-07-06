@@ -94,11 +94,11 @@
    paths."
   [factpaths :- [fact-path-types-to-ids-map]]
   (let [factpath-data (map (fn [data]
-                          [(:path data)
-                           (:depth data)
-                           (:value_type_id data)
-                           (:name data)])
-                        factpaths)]
+                             [(:path data)
+                              (:depth data)
+                              (:value_type_id data)
+                              (:name data)])
+                           factpaths)]
     (sql/with-query-results result-set
       (vec (flatten [(str "SELECT fp.id, fp.path, fp.depth, fp.value_type_id, fp.name
                              FROM fact_paths fp
@@ -149,9 +149,9 @@
   as the value."
   [factvalues :- [fact-values-to-ids-map]]
   (let [fv-triples (map (fn [data] [(:path_id data)
-                                   (:value_type_id data)
-                                   (:value_hash data)])
-                       factvalues)]
+                                    (:value_type_id data)
+                                    (:value_hash data)])
+                        factvalues)]
     (sql/with-query-results result-set
       (vec (flatten [(str "SELECT fv.id, fv.value_type_id, fv.value_hash, fv.path_id
                              FROM fact_values fv

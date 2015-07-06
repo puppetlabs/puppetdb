@@ -5,12 +5,12 @@
             [clojure.java.io :as io]))
 
 (deftest test-tar-read-write
-  (let [bazfile     { :path   (.getPath (io/file "foo" "bar" "baz.txt"))
-                      :content "This is a test" }
-        blingfile   { :path   (.getPath (io/file "foo" "blah" "bling.txt"))
-                      :content "This is another test" }
-        tar-entries { (:path bazfile) (:content bazfile)
-                      (:path blingfile) (:content blingfile) }
+  (let [bazfile     {:path   (.getPath (io/file "foo" "bar" "baz.txt"))
+                     :content "This is a test"}
+        blingfile   {:path   (.getPath (io/file "foo" "blah" "bling.txt"))
+                     :content "This is another test"}
+        tar-entries {(:path bazfile) (:content bazfile)
+                     (:path blingfile) (:content blingfile)}
         out-stream (ByteArrayOutputStream.)]
     (testing "should be able to write a simple tarball w/o errors"
       (with-open [tar-writer (archive/tarball-writer out-stream)]

@@ -22,7 +22,7 @@
       (let [parsed-query (json/parse-strict-string query true)
             {[sql & params] :results-query
              count-query :count-query} (facts/query->sql version parsed-query
-                                                      paging-options)
+                                                         paging-options)
             resp (pl-http/stream-json-response
                   (fn [f]
                     (jdbc/with-transacted-connection db
@@ -39,29 +39,29 @@
 (defn query-app
   [version]
   (app
-    [&]
-    {:get (comp (fn [{:keys [params globals paging-options] :as request}]
-                  (produce-body
-                   version
-                   (params "query")
-                   paging-options
-                   (:scf-read-db globals)))
-            http-q/restrict-query-to-active-nodes)}))
+   [&]
+   {:get (comp (fn [{:keys [params globals paging-options] :as request}]
+                 (produce-body
+                  version
+                  (params "query")
+                  paging-options
+                  (:scf-read-db globals)))
+               http-q/restrict-query-to-active-nodes)}))
 
 (defn build-facts-app
   [query-app]
   (app
-    []
-    (verify-accepts-json query-app)
+   []
+   (verify-accepts-json query-app)
 
-    [fact value &]
-    (comp query-app
-          (partial http-q/restrict-fact-query-to-name fact)
-          (partial http-q/restrict-fact-query-to-value value))
+   [fact value &]
+   (comp query-app
+         (partial http-q/restrict-fact-query-to-name fact)
+         (partial http-q/restrict-fact-query-to-value value))
 
-    [fact &]
-    (comp query-app
-          (partial http-q/restrict-fact-query-to-name fact))))
+   [fact &]
+   (comp query-app
+         (partial http-q/restrict-fact-query-to-name fact))))
 
 (defn facts-app
   [version]
@@ -70,11 +70,11 @@
     :v2 (build-facts-app
          (-> (query-app version)
              (validate-query-params
-               {:optional ["query"]})))
+              {:optional ["query"]})))
     (build-facts-app
      (-> (query-app version)
          (validate-query-params
-           {:optional (cons "query" paging/query-params)})
+          {:optional (cons "query" paging/query-params)})
          wrap-with-paging-options))))
 
 ;; Local Variables:

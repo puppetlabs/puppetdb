@@ -10,7 +10,7 @@
   This namespace when 'required' will also setup some common JSON encoders
   globally, so you can avoid doing this for each call."}
 
-  com.puppetlabs.cheshire
+ com.puppetlabs.cheshire
   (:require [cheshire.generate :as generate]
             [cheshire.core :as core]
             [clj-time.coerce :as coerce]
@@ -20,9 +20,9 @@
   "Non-memoize version of add-common-json-encoders!"
   []
   (generate/add-encoder
-    org.joda.time.DateTime
-    (fn [data jsonGenerator]
-      (.writeString jsonGenerator (coerce/to-string data)))))
+   org.joda.time.DateTime
+   (fn [data jsonGenerator]
+     (.writeString jsonGenerator (coerce/to-string data)))))
 
 (def
   ^{:doc "Registers some common encoders for cheshire JSON encoding.
@@ -49,17 +49,17 @@
   "Thinly wraps cheshire.core/generate-string, adding the PuppetDB default date format
    and pretty printing from `default-pretty-opts`"
   ([obj]
-     (generate-pretty-string obj default-pretty-opts))
+   (generate-pretty-string obj default-pretty-opts))
   ([obj opts]
-     (generate-string obj (merge default-pretty-opts opts))))
+   (generate-string obj (merge default-pretty-opts opts))))
 
 (defn generate-pretty-stream
   "Thinly wraps cheshire.core/generate-stream, adding the PuppetDB default date format
    and pretty printing from `default-pretty-opts`"
   ([obj writer]
-     (generate-pretty-stream obj writer default-pretty-opts))
+   (generate-pretty-stream obj writer default-pretty-opts))
   ([obj writer opts]
-     (generate-stream obj writer (merge default-pretty-opts opts))))
+   (generate-stream obj writer (merge default-pretty-opts opts))))
 
 (def parse-string core/parse-string)
 

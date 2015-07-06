@@ -16,19 +16,19 @@
   (into {} (for [[k v] mbean]
              (cond
               ;; Nested structures should themselves be filtered
-              (map? v)
-              [k (filter-mbean v)]
+               (map? v)
+               [k (filter-mbean v)]
 
-              (instance? java.util.HashMap v)
-              [k (filter-mbean (into {} v))]
+               (instance? java.util.HashMap v)
+               [k (filter-mbean (into {} v))]
 
               ;; Cheshire can serialize to JSON anything that
               ;; implements the JSONable protocol
-              (satisfies? JSONable v)
-              [k v]
+               (satisfies? JSONable v)
+               [k v]
 
-              :else
-              [k (str v)]))))
+               :else
+               [k (str v)]))))
 
 (defn all-mbean-names
   "Return a set of all mbeans names"
@@ -72,20 +72,20 @@
           ;; we documented as supported, but we broke when we
           ;; went to versioned apis.
           name' (cond
-                 (.startsWith name "com.puppetlabs.puppetdb.http.server:type=metrics")
-                 (s/replace name #"type=metrics" "type=/v2/metrics")
+                  (.startsWith name "com.puppetlabs.puppetdb.http.server:type=metrics")
+                  (s/replace name #"type=metrics" "type=/v2/metrics")
 
-                 (.startsWith name "com.puppetlabs.puppetdb.http.server:type=commands")
-                 (s/replace name #"type=commands" "type=/v2/commands")
+                  (.startsWith name "com.puppetlabs.puppetdb.http.server:type=commands")
+                  (s/replace name #"type=commands" "type=/v2/commands")
 
-                 (.startsWith name "com.puppetlabs.puppetdb.http.server:type=facts")
-                 (s/replace name #"type=facts" "type=/v2/facts")
+                  (.startsWith name "com.puppetlabs.puppetdb.http.server:type=facts")
+                  (s/replace name #"type=facts" "type=/v2/facts")
 
-                 (.startsWith name "com.puppetlabs.puppetdb.http.server:type=resources")
-                 (s/replace name #"type=resources" "type=/v2/resources")
+                  (.startsWith name "com.puppetlabs.puppetdb.http.server:type=resources")
+                  (s/replace name #"type=resources" "type=/v2/resources")
 
-                 :else
-                 name)]
+                  :else
+                  name)]
       (get-mbean name'))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -90,13 +90,13 @@
   (fn [{:keys [params] :as req}]
     (try
       (app (assoc req :paging-options
-             (-> params
-               (select-keys ["limit" "offset" "order-by" "include-total"])
-               (keywordize-keys)
-               (paging/parse-limit)
-               (paging/parse-offset)
-               (paging/parse-count)
-               (paging/parse-order-by))))
+                  (-> params
+                      (select-keys ["limit" "offset" "order-by" "include-total"])
+                      (keywordize-keys)
+                      (paging/parse-limit)
+                      (paging/parse-offset)
+                      (paging/parse-count)
+                      (paging/parse-order-by))))
       (catch IllegalArgumentException e
         (pl-http/error-response e)))))
 
@@ -109,8 +109,8 @@
   {:pre (string? content-type)}
   (fn [{:keys [headers] :as req}]
     (if (pl-http/acceptable-content-type
-          content-type
-          (headers "accept"))
+         content-type
+         (headers "accept"))
       (app req)
       (rr/status (rr/response (str "must accept " content-type))
                  pl-http/status-not-acceptable))))
@@ -142,17 +142,17 @@
          (every? string? (:optional param-specs))]}
   (fn [{:keys [params] :as req}]
     (kitchensink/cond-let [p]
-      (kitchensink/excludes-some params (:required param-specs))
-      (pl-http/error-response (str "Missing required query parameter '" p "'"))
+                          (kitchensink/excludes-some params (:required param-specs))
+                          (pl-http/error-response (str "Missing required query parameter '" p "'"))
 
-      (let [diff (set/difference (kitchensink/keyset params)
-                    (set (:required param-specs))
-                    (set (:optional param-specs)))]
-        (seq diff))
-      (pl-http/error-response (str "Unsupported query parameter '" (first p) "'"))
+                          (let [diff (set/difference (kitchensink/keyset params)
+                                                     (set (:required param-specs))
+                                                     (set (:optional param-specs)))]
+                            (seq diff))
+                          (pl-http/error-response (str "Unsupported query parameter '" (first p) "'"))
 
-      :else
-      (app req))))
+                          :else
+                          (app req))))
 
 (defn validate-no-query-params
   "Ring middleware that verifies that there are no query params on the request.
@@ -168,7 +168,7 @@
   application/json, a 406 Not Acceptable status is returned with an error
   message indicating the problem."
   (fn [app]
-   (verify-accepts-content-type app "application/json")))
+    (verify-accepts-content-type app "application/json")))
 
 (defn verify-checksum
   "Ring middleware which will verify that the content of the body-string
@@ -204,18 +204,18 @@
 
       (let [timers (map #(get-in @storage [:timers %]) metric-roots)]
         (multitime! timers
-           (let [response  (app req)
-                 status    (:status response)]
+                    (let [response  (app req)
+                          status    (:status response)]
 
              ;; Create meter objects for each metric the user has
              ;; requested
-             (doseq [metric-root metric-roots
-                     :let [meter-key [:meters metric-root status]]
-                     :when (not (get-in @storage meter-key))]
-               (swap! storage assoc-in meter-key (meter [prefix metric-root (str status)] "reqs/s"))
-               (mark! (get-in @storage meter-key)))
+                      (doseq [metric-root metric-roots
+                              :let [meter-key [:meters metric-root status]]
+                              :when (not (get-in @storage meter-key))]
+                        (swap! storage assoc-in meter-key (meter [prefix metric-root (str status)] "reqs/s"))
+                        (mark! (get-in @storage meter-key)))
 
-             response))))))
+                      response))))))
 
 (defmacro wrap-with-metrics
   "Ring middleware that will tack performance counters for each URL.
@@ -266,14 +266,14 @@
                         (str (media/base-type content-type)))]
       (case mediatype
         "application/x-www-form-urlencoded"
-          (if-let [payload (params "payload")]
-            (app (assoc req :body-string payload))
-            (pl-http/error-response (str "Missing required parameter 'payload'")))
+        (if-let [payload (params "payload")]
+          (app (assoc req :body-string payload))
+          (pl-http/error-response (str "Missing required parameter 'payload'")))
         "application/json"
-          (let [body-string (request/body-string req)]
-            (if (nil? body-string)
-              (pl-http/error-response (str "Empty body for application/json submission"))
-              (app (assoc req :body-string body-string))))
+        (let [body-string (request/body-string req)]
+          (if (nil? body-string)
+            (pl-http/error-response (str "Empty body for application/json submission"))
+            (app (assoc req :body-string body-string))))
         (if-let [payload (params "payload")]
           (app (assoc req :body-string payload))
           (pl-http/error-response (str "Missing required parameter 'payload'")))))))

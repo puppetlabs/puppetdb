@@ -66,7 +66,6 @@
     "Query returns more than the maximum number of results (max: %s)"
     limit)))
 
-
 (defn limit-result-set!
   "Given a `limit` and a `result-set` (which is usually the result of a call to
   `clojure.java.jdbc/with-query-results`), this function verifies that the

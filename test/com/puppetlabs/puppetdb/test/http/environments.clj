@@ -64,33 +64,33 @@
     (are [query expected] (= expected (json/parse-string (slurp (:body (fixt/*app* (get-request endpoint query))))
                                                          true))
 
-         ["in" "name"
-          ["extract" "environment"
-           ["select-facts"
-            ["and"
-             ["=" "name" "operatingsystem"]
-             ["=" "value" "Debian"]]]]]
-         [{:name "DEV"}]
+      ["in" "name"
+       ["extract" "environment"
+        ["select-facts"
+         ["and"
+          ["=" "name" "operatingsystem"]
+          ["=" "value" "Debian"]]]]]
+      [{:name "DEV"}]
 
-         ["not"
-          ["in" "name"
-           ["extract" "environment"
-            ["select-facts"
+      ["not"
+       ["in" "name"
+        ["extract" "environment"
+         ["select-facts"
+          ["and"
+           ["=" "name" "operatingsystem"]
+           ["=" "value" "Debian"]]]]]]
+      [{:name "foo"}
+       {:name "bar"}
+       {:name "baz"}]
+
+      ["in" "name"
+       ["extract" "environment"
+        ["select-facts"
+         ["and"
+          ["=" "name" "hostname"]
+          ["in" "value"
+           ["extract" "title"
+            ["select-resources"
              ["and"
-              ["=" "name" "operatingsystem"]
-              ["=" "value" "Debian"]]]]]]
-         [{:name "foo"}
-          {:name "bar"}
-          {:name "baz"}]
-
-         ["in" "name"
-          ["extract" "environment"
-           ["select-facts"
-            ["and"
-             ["=" "name" "hostname"]
-             ["in" "value"
-              ["extract" "title"
-               ["select-resources"
-                ["and"
-                 ["=" "type" "Class"]]]]]]]]]
-         [{:name "DEV"}])))
+              ["=" "type" "Class"]]]]]]]]]
+      [{:name "DEV"}])))

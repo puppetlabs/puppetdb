@@ -56,8 +56,8 @@
 
 (defmacro after-v3 [version v3-or-before v4-or-after]
   `(if (contains? #{:v2 :v3} ~version)
-    ~v3-or-before
-    ~v4-or-after))
+     ~v3-or-before
+     ~v4-or-after))
 
 (deftest resource-event-queries
   (let [basic             (store-example-report! (:basic reports) (now))
@@ -344,26 +344,26 @@
     (are [query event-ids] (= (actual* query)
                               (expected* basic-events-map event-ids basic))
 
-         ["=" "configuration-version" "a81jasj123"] [1 2 3]
-         ["=" "run-start-time" "2011-01-01T12:00:00-03:00"] [1 2 3]
-         ["=" "run-end-time" "2011-01-01T12:10:00-03:00"] [1 2 3]
-         ["=" "timestamp" "2011-01-01T12:00:01-03:00"] [1]
-         ["~" "configuration-version" "a81jasj"] [1 2 3]
-         ["<" "line" 2] [1]
-         ["null?" "line" true] [2]
-         ["or"
-          ["<" "line" 2]
-          ["null?" "line" true]] [1 2]
-         ["<=" "line" 2] [1 3])
+      ["=" "configuration-version" "a81jasj123"] [1 2 3]
+      ["=" "run-start-time" "2011-01-01T12:00:00-03:00"] [1 2 3]
+      ["=" "run-end-time" "2011-01-01T12:10:00-03:00"] [1 2 3]
+      ["=" "timestamp" "2011-01-01T12:00:01-03:00"] [1]
+      ["~" "configuration-version" "a81jasj"] [1 2 3]
+      ["<" "line" 2] [1]
+      ["null?" "line" true] [2]
+      ["or"
+       ["<" "line" 2]
+       ["null?" "line" true]] [1 2]
+      ["<=" "line" 2] [1 3])
 
     (are [query basic-event-ids basic2-event-ids] (= (actual* query)
                                                      (into (expected* basic-events-map basic-event-ids basic)
                                                            (expected* basic2-events-map basic2-event-ids basic2)))
-         ["=" "containment-path" "Foo"] [3] [6]
-         ["~" "containment-path" "Fo"] [3] [6]
-         [">" "line" 1] [3] [4 5 6]
-         [">=" "line" 1] [1 3] [4 5 6]
-         ["null?" "line" false] [1 3] [4 5 6])))
+      ["=" "containment-path" "Foo"] [3] [6]
+      ["~" "containment-path" "Fo"] [3] [6]
+      [">" "line" 1] [3] [4 5 6]
+      [">=" "line" 1] [1 3] [4 5 6]
+      ["null?" "line" false] [1 3] [4 5 6])))
 
 (deftest latest-report-resource-event-queries
   (let [basic1        (store-example-report! (:basic reports) (now))
@@ -543,7 +543,7 @@
         (doseq [query [["=" "environment" "DEV"]
                        ["not" ["=" "environment" "PROD"]]
                        ["~" "environment" "DE.*"]
-                       ["not"["~" "environment" "PR.*"]]]
+                       ["not" ["~" "environment" "PR.*"]]]
                 :let [actual (set (:result (raw-resource-events-query-result :v4 query {})))]]
           (is (every? #(= "DEV" (:environment %)) actual))
           (is (= actual expected)))))
@@ -552,7 +552,7 @@
         (doseq [query [["=" "environment" "PROD"]
                        ["not" ["=" "environment" "DEV"]]
                        ["~" "environment" "PR.*"]
-                       ["not"["~" "environment" "DE.*"]]]
+                       ["not" ["~" "environment" "DE.*"]]]
                 :let [actual  (set (:result (raw-resource-events-query-result :v4 query {})))]]
           (is (every? #(= "PROD" (:environment %)) actual))
           (is (= actual expected)))))))
@@ -567,6 +567,6 @@
         (doseq [query [["=" "environment" "DEV"]
                        ["not" ["=" "environment" "PROD"]]
                        ["~" "environment" "DE.*"]
-                       ["not"["~" "environment" "PR.*"]]]]
+                       ["not" ["~" "environment" "PR.*"]]]]
           (is (thrown-with-msg? IllegalArgumentException #"'environment' is not a queryable object.*version 3"
-               (raw-resource-events-query-result :v3 query {}))))))))
+                                (raw-resource-events-query-result :v3 query {}))))))))

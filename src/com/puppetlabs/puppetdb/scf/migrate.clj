@@ -65,9 +65,9 @@
   "Drop all constraints of given `constraint-type` on `table`."
   [table constraint-type]
   (let [results     (query-to-vec
-                      (str "SELECT constraint_name FROM information_schema.table_constraints "
-                           "WHERE LOWER(table_name) = LOWER(?) AND LOWER(constraint_type) = LOWER(?)")
-                      table constraint-type)
+                     (str "SELECT constraint_name FROM information_schema.table_constraints "
+                          "WHERE LOWER(table_name) = LOWER(?) AND LOWER(constraint_type) = LOWER(?)")
+                     table constraint-type)
         constraints (map :constraint_name results)]
     (if (seq constraints)
       (apply sql/do-commands
@@ -213,8 +213,8 @@
   []
   (log/warn "Adding additional indexes; this may take several minutes, depending on the size of your database. Trust us, it will all be worth it in the end.")
   (sql/do-commands
-    "CREATE INDEX idx_catalog_resources_catalog ON catalog_resources(catalog)"
-    "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources(type,title)")
+   "CREATE INDEX idx_catalog_resources_catalog ON catalog_resources(catalog)"
+   "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources(type,title)")
 
   (when (scf-utils/postgres?)
     (sql/do-commands
@@ -225,7 +225,7 @@
   does equality comparisons against array columns)"
   []
   (sql/do-commands
-    "DROP INDEX idx_catalog_resources_tags"))
+   "DROP INDEX idx_catalog_resources_tags"))
 
 (defn drop-classes-and-tags
   "Removes the `classes` and `tags` tables, as this information can be derived
@@ -238,62 +238,62 @@
   "Renames the `fact` column on `certname_facts` to `name`, for consistency."
   []
   (sql/do-commands
-    (if (scf-utils/postgres?)
-      "ALTER TABLE certname_facts RENAME COLUMN fact TO name"
-      "ALTER TABLE certname_facts ALTER COLUMN fact RENAME TO name")
-    "ALTER INDEX idx_certname_facts_fact RENAME TO idx_certname_facts_name"))
+   (if (scf-utils/postgres?)
+     "ALTER TABLE certname_facts RENAME COLUMN fact TO name"
+     "ALTER TABLE certname_facts ALTER COLUMN fact RENAME TO name")
+   "ALTER INDEX idx_certname_facts_fact RENAME TO idx_certname_facts_name"))
 
 (defn add-reports-tables
   "Add a resource_events and reports tables."
   []
   (sql/create-table :reports
-    ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
-    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
-    ["puppet_version" "VARCHAR(40)" "NOT NULL"]
-    ["report_format" "SMALLINT" "NOT NULL"]
-    ["configuration_version" "VARCHAR(255)" "NOT NULL"]
-    ["start_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
-    ["end_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
-    ["receive_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"])
+                    ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
+                    ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["puppet_version" "VARCHAR(40)" "NOT NULL"]
+                    ["report_format" "SMALLINT" "NOT NULL"]
+                    ["configuration_version" "VARCHAR(255)" "NOT NULL"]
+                    ["start_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
+                    ["end_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
+                    ["receive_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"])
 
   (sql/create-table :resource_events
-    ["report" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(hash)" "ON DELETE CASCADE"]
-    ["status" "VARCHAR(40)" "NOT NULL"]
-    ["timestamp" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
-    ["resource_type" "TEXT" "NOT NULL"]
-    ["resource_title" "TEXT" "NOT NULL"]
+                    ["report" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(hash)" "ON DELETE CASCADE"]
+                    ["status" "VARCHAR(40)" "NOT NULL"]
+                    ["timestamp" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
+                    ["resource_type" "TEXT" "NOT NULL"]
+                    ["resource_title" "TEXT" "NOT NULL"]
     ;; I wish these next two could be "NOT NULL", but for now we are
     ;; fabricating skipped resources as events, and in those cases we don't
     ;; have any legitimate values to put into these fields.
-    ["property" "VARCHAR(40)"]
-    ["new_value" "TEXT"]
-    ["old_value" "TEXT"]
-    ["message" "TEXT"]
+                    ["property" "VARCHAR(40)"]
+                    ["new_value" "TEXT"]
+                    ["old_value" "TEXT"]
+                    ["message" "TEXT"]
     ; we can't set the "correct" primary key because `property` is nullable
     ; (because of skipped resources).
     ; We decided to just use a UNIQUE constraint for now, but another option
     ; would be to split this out into two tables.
-    ["CONSTRAINT constraint_resource_events_unique UNIQUE (report, resource_type, resource_title, property)"])
+                    ["CONSTRAINT constraint_resource_events_unique UNIQUE (report, resource_type, resource_title, property)"])
 
   (sql/do-commands
-    "CREATE INDEX idx_reports_certname ON reports(certname)")
+   "CREATE INDEX idx_reports_certname ON reports(certname)")
 
   ; I presume we'll be doing a decent number of queries sorted by a timestamp,
   ; and this seems like the most likely candidate out of the timestamp fields
   (sql/do-commands
-    "CREATE INDEX idx_reports_end_time ON reports(end_time)")
+   "CREATE INDEX idx_reports_end_time ON reports(end_time)")
 
   (sql/do-commands
-    "CREATE INDEX idx_resource_events_report ON resource_events(report)")
+   "CREATE INDEX idx_resource_events_report ON resource_events(report)")
 
   (sql/do-commands
-    "CREATE INDEX idx_resource_events_resource_type ON resource_events(resource_type)")
+   "CREATE INDEX idx_resource_events_resource_type ON resource_events(resource_type)")
 
   (sql/do-commands
-    "CREATE INDEX idx_resource_events_resource_type_title ON resource_events(resource_type, resource_title)")
+   "CREATE INDEX idx_resource_events_resource_type_title ON resource_events(resource_type, resource_title)")
 
   (sql/do-commands
-    "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"))
+   "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"))
 
 (defn add-parameter-cache
   "Creates the new resource_params_cache table, and populates it using
@@ -338,19 +338,19 @@
   "Add an index to the `status` column of the event table."
   []
   (sql/do-commands
-    "CREATE INDEX idx_resource_events_status ON resource_events(status)"))
+   "CREATE INDEX idx_resource_events_status ON resource_events(status)"))
 
 (defn increase-puppet-version-field-length
   "Increase the length of the puppet_version field in the reports table, as we've
   encountered some version strings that are longer than 40 chars."
   []
   (sql/do-commands
-    (condp = (scf-utils/sql-current-connection-database-name)
-      "PostgreSQL" "ALTER TABLE reports ALTER puppet_version TYPE VARCHAR(255)"
-      "HSQL Database Engine" "ALTER TABLE reports ALTER puppet_version VARCHAR(255)"
-      (throw (IllegalArgumentException.
-               (format "Unsupported database engine '%s'"
-                 (scf-utils/sql-current-connection-database-name)))))))
+   (condp = (scf-utils/sql-current-connection-database-name)
+     "PostgreSQL" "ALTER TABLE reports ALTER puppet_version TYPE VARCHAR(255)"
+     "HSQL Database Engine" "ALTER TABLE reports ALTER puppet_version VARCHAR(255)"
+     (throw (IllegalArgumentException.
+             (format "Unsupported database engine '%s'"
+                     (scf-utils/sql-current-connection-database-name)))))))
 
 (defn burgundy-schema-changes
   "Schema changes for the initial release of Burgundy. These include:
@@ -363,38 +363,38 @@
     - Add index to 'property' column in resource_events table"
   []
   (sql/do-commands
-    "ALTER TABLE resource_events ADD COLUMN file VARCHAR(1024) DEFAULT NULL"
-    "ALTER TABLE resource_events ADD COLUMN line INTEGER DEFAULT NULL")
+   "ALTER TABLE resource_events ADD COLUMN file VARCHAR(1024) DEFAULT NULL"
+   "ALTER TABLE resource_events ADD COLUMN line INTEGER DEFAULT NULL")
   (sql/do-commands
-    (format "ALTER TABLE resource_events ADD containment_path %s" (scf-utils/sql-array-type-string "TEXT"))
-    "ALTER TABLE resource_events ADD containing_class VARCHAR(255)"
-    "CREATE INDEX idx_resource_events_containing_class ON resource_events(containing_class)"
-    "CREATE INDEX idx_resource_events_property ON resource_events(property)")
+   (format "ALTER TABLE resource_events ADD containment_path %s" (scf-utils/sql-array-type-string "TEXT"))
+   "ALTER TABLE resource_events ADD containing_class VARCHAR(255)"
+   "CREATE INDEX idx_resource_events_containing_class ON resource_events(containing_class)"
+   "CREATE INDEX idx_resource_events_property ON resource_events(property)")
   (sql/do-commands
     ;; It would be nice to change the transaction UUID column to NOT NULL in the future
     ;; once we stop supporting older versions of Puppet that don't have this field.
-    "ALTER TABLE reports ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
-    "CREATE INDEX idx_reports_transaction_uuid ON reports(transaction_uuid)"
-    "ALTER TABLE catalogs ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
-    "CREATE INDEX idx_catalogs_transaction_uuid ON catalogs(transaction_uuid)")
+   "ALTER TABLE reports ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
+   "CREATE INDEX idx_reports_transaction_uuid ON reports(transaction_uuid)"
+   "ALTER TABLE catalogs ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
+   "CREATE INDEX idx_catalogs_transaction_uuid ON catalogs(transaction_uuid)")
   (sql/do-commands
-    (if (scf-utils/postgres?)
-      "ALTER TABLE catalog_resources RENAME COLUMN sourcefile TO file"
-      "ALTER TABLE catalog_resources ALTER COLUMN sourcefile RENAME TO file")
-    (if (scf-utils/postgres?)
-      "ALTER TABLE catalog_resources RENAME COLUMN sourceline TO line"
-      "ALTER TABLE catalog_resources ALTER COLUMN sourceline RENAME TO line")))
+   (if (scf-utils/postgres?)
+     "ALTER TABLE catalog_resources RENAME COLUMN sourcefile TO file"
+     "ALTER TABLE catalog_resources ALTER COLUMN sourcefile RENAME TO file")
+   (if (scf-utils/postgres?)
+     "ALTER TABLE catalog_resources RENAME COLUMN sourceline TO line"
+     "ALTER TABLE catalog_resources ALTER COLUMN sourceline RENAME TO line")))
 
 (defn add-latest-reports-table
   "Add `latest_reports` table for easy lookup of latest report for each certname."
   []
   (sql/create-table :latest_reports
-    ["certname" "TEXT" "NOT NULL" "PRIMARY KEY" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
-    ["report" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(hash)" "ON DELETE CASCADE"])
+                    ["certname" "TEXT" "NOT NULL" "PRIMARY KEY" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
+                    ["report" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(hash)" "ON DELETE CASCADE"])
   (sql/do-commands
-    "CREATE INDEX idx_latest_reports_report ON latest_reports(report)")
+   "CREATE INDEX idx_latest_reports_report ON latest_reports(report)")
   (sql/do-commands
-    "INSERT INTO latest_reports (certname, report)
+   "INSERT INTO latest_reports (certname, report)
         SELECT reports.certname, reports.hash
         FROM reports INNER JOIN (
           SELECT reports.certname, MAX(reports.end_time) as max_end_time
@@ -421,7 +421,7 @@
   []
   (sql/do-commands
     ;; catalogs: Create new table without constraints
-    "CREATE TABLE catalogs_transform (
+   "CREATE TABLE catalogs_transform (
       id bigserial NOT NULL,
       hash character varying(40) NOT NULL,
       api_version integer NOT NULL,
@@ -429,37 +429,37 @@
       transaction_uuid character varying(255) DEFAULT NULL)"
 
     ;; Catalogs: Insert data from old table
-    "INSERT INTO catalogs_transform (hash, api_version, catalog_version, transaction_uuid)
+   "INSERT INTO catalogs_transform (hash, api_version, catalog_version, transaction_uuid)
       SELECT hash, api_version, catalog_version, transaction_uuid
         FROM catalogs"
 
     ;; certname_catalogs: Create new table without constraints
-    "CREATE TABLE certname_catalogs_transform (
+   "CREATE TABLE certname_catalogs_transform (
       catalog_id bigint NOT NULL,
       certname text NOT NULL,
       timestamp TIMESTAMP WITH TIME ZONE)"
 
     ;; certname_catalogs: insert data from old table
-    "INSERT INTO certname_catalogs_transform (catalog_id, certname, timestamp)
+   "INSERT INTO certname_catalogs_transform (catalog_id, certname, timestamp)
       SELECT c.id, certname, timestamp
         FROM certname_catalogs cc, catalogs_transform c
         WHERE cc.catalog = c.hash"
 
     ;; edges: create new table
-    "CREATE TABLE edges_transform (
+   "CREATE TABLE edges_transform (
       catalog_id bigint NOT NULL,
       source character varying(40) NOT NULL,
       target character varying(40) NOT NULL,
       type text NOT NULL)"
 
     ;; edges: insert data from old table
-    "INSERT INTO edges_transform (catalog_id, source, target, type)
+   "INSERT INTO edges_transform (catalog_id, source, target, type)
       SELECT c.id, source, target, type
         FROM edges e, catalogs_transform c
         WHERE e.catalog = c.hash"
 
     ;; catalog_resources: create new table
-    (str "CREATE TABLE catalog_resources_transform (
+   (str "CREATE TABLE catalog_resources_transform (
       catalog_id bigint NOT NULL,
       resource character varying(40) NOT NULL,
       type text NOT NULL,
@@ -470,79 +470,79 @@
       line integer)")
 
     ;; catalog_resources: insert data from old table
-    "INSERT INTO catalog_resources_transform (catalog_id, resource, type, title, tags, exported, file, line)
+   "INSERT INTO catalog_resources_transform (catalog_id, resource, type, title, tags, exported, file, line)
       SELECT c.id, resource, type, title, tags, exported, file, line
         FROM catalog_resources cr, catalogs_transform c
         WHERE cr.catalog = c.hash"
 
     ;; Drop the old tables
-    "DROP TABLE catalog_resources"
-    "DROP TABLE certname_catalogs"
-    "DROP TABLE edges"
-    "DROP TABLE catalogs"
+   "DROP TABLE catalog_resources"
+   "DROP TABLE certname_catalogs"
+   "DROP TABLE edges"
+   "DROP TABLE catalogs"
 
     ;; Rename the new tables
-    "ALTER TABLE catalog_resources_transform RENAME to catalog_resources"
-    "ALTER TABLE certname_catalogs_transform RENAME to certname_catalogs"
-    "ALTER TABLE edges_transform RENAME to edges"
-    "ALTER TABLE catalogs_transform RENAME to catalogs"
+   "ALTER TABLE catalog_resources_transform RENAME to catalog_resources"
+   "ALTER TABLE certname_catalogs_transform RENAME to certname_catalogs"
+   "ALTER TABLE edges_transform RENAME to edges"
+   "ALTER TABLE catalogs_transform RENAME to catalogs"
 
     ;; catalogs: Add constraints to new catalogs table
     ;;   hsqldb automatically creates the primary key when we created the table
     ;;   with a bigserial so its only needed for pgsql.
-    (if (scf-utils/postgres?)
-      "ALTER TABLE catalogs
+   (if (scf-utils/postgres?)
+     "ALTER TABLE catalogs
         ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)"
-      "select 1")
-    "ALTER TABLE catalogs
+     "select 1")
+   "ALTER TABLE catalogs
       ADD CONSTRAINT catalogs_hash_key UNIQUE (hash)"
 
     ;; catalogs: create other indexes
-    "CREATE INDEX idx_catalogs_transaction_uuid
+   "CREATE INDEX idx_catalogs_transaction_uuid
       ON catalogs (transaction_uuid)"
 
     ;; certname_catalogs: Add constraints
-    "ALTER TABLE certname_catalogs
+   "ALTER TABLE certname_catalogs
       ADD CONSTRAINT certname_catalogs_pkey PRIMARY KEY (certname, catalog_id)"
-    "ALTER TABLE certname_catalogs
+   "ALTER TABLE certname_catalogs
       ADD CONSTRAINT certname_catalogs_catalog_id_fkey FOREIGN KEY (catalog_id)
           REFERENCES catalogs (id)
           ON UPDATE NO ACTION ON DELETE CASCADE"
-    "ALTER TABLE certname_catalogs
+   "ALTER TABLE certname_catalogs
       ADD CONSTRAINT certname_catalogs_certname_fkey FOREIGN KEY (certname)
           REFERENCES certnames (name)
           ON UPDATE NO ACTION ON DELETE CASCADE"
-    "ALTER TABLE certname_catalogs
+   "ALTER TABLE certname_catalogs
       ADD CONSTRAINT certname_catalogs_certname_key UNIQUE (certname)"
 
     ;; edges: add constraints
-    "ALTER TABLE edges
+   "ALTER TABLE edges
       ADD CONSTRAINT edges_pkey PRIMARY KEY (catalog_id, source, target, type)"
-    "ALTER TABLE edges
+   "ALTER TABLE edges
       ADD CONSTRAINT edges_catalog_id_fkey FOREIGN KEY (catalog_id)
           REFERENCES catalogs (id)
           ON UPDATE NO ACTION ON DELETE CASCADE"
 
     ;; catalog_resources: add constraints
-    "ALTER TABLE catalog_resources
+   "ALTER TABLE catalog_resources
       ADD CONSTRAINT catalog_resources_pkey PRIMARY KEY (catalog_id, resource)"
-    "ALTER TABLE catalog_resources
+   "ALTER TABLE catalog_resources
       ADD CONSTRAINT catalog_resources_catalog_id_fkey FOREIGN KEY (catalog_id)
           REFERENCES catalogs (id)
           ON UPDATE NO ACTION ON DELETE CASCADE"
-    "ALTER TABLE catalog_resources
+   "ALTER TABLE catalog_resources
       ADD CONSTRAINT catalog_resources_resource_fkey FOREIGN KEY (resource)
           REFERENCES resource_params_cache (resource)
           ON UPDATE NO ACTION ON DELETE CASCADE"
 
     ;; catalog_resources: create other indexes
-    "CREATE INDEX idx_catalog_resources_resource
+   "CREATE INDEX idx_catalog_resources_resource
       ON catalog_resources (resource)"
 
-    "CREATE INDEX idx_catalog_resources_type
+   "CREATE INDEX idx_catalog_resources_type
       ON catalog_resources (type)"
 
-    "CREATE INDEX idx_catalog_resources_type_title
+   "CREATE INDEX idx_catalog_resources_type_title
       ON catalog_resources (type)"))
 
 (defn add-index-on-exported-column
@@ -551,10 +551,10 @@
   since the more common value is false its not useful to index this."
   []
   (sql/do-commands
-    (if (scf-utils/postgres?)
-      "CREATE INDEX idx_catalog_resources_exported_true
+   (if (scf-utils/postgres?)
+     "CREATE INDEX idx_catalog_resources_exported_true
          ON catalog_resources (exported) WHERE exported = true"
-      "CREATE INDEX idx_catalog_resources_exported
+     "CREATE INDEX idx_catalog_resources_exported
          ON catalog_resources (exported)")))
 
 (defn differential-edges
@@ -569,32 +569,32 @@
   (sql/delete-rows :catalogs ["NOT EXISTS (SELECT * FROM certname_catalogs cc WHERE cc.catalog_id=catalogs.id)"])
   (sql/do-commands
     ;; Create the new edges table
-    "CREATE TABLE edges_transform (
+   "CREATE TABLE edges_transform (
       certname text NOT NULL,
       source character varying(40) NOT NULL,
       target character varying(40) NOT NULL,
       type text NOT NULL)"
 
     ;; Migrate data from old table
-    "INSERT INTO edges_transform (certname, source, target, type)
+   "INSERT INTO edges_transform (certname, source, target, type)
       SELECT cc.certname, e.source, e.target, e.type
         FROM edges e, catalogs c, certname_catalogs cc
         WHERE e.catalog_id = c.id and cc.catalog_id = c.id"
 
     ;; Drop old table
-    "DROP TABLE edges"
+   "DROP TABLE edges"
 
     ;; Rename the new table
-    "ALTER TABLE edges_transform RENAME TO edges"
+   "ALTER TABLE edges_transform RENAME TO edges"
 
     ;; Add foreign key constraints
-    "ALTER TABLE edges
+   "ALTER TABLE edges
       ADD CONSTRAINT edges_certname_fkey FOREIGN KEY (certname)
           REFERENCES certnames (name)
           ON UPDATE NO ACTION ON DELETE CASCADE"
 
     ;; Add unique constraint to edge table
-    "ALTER TABLE edges
+   "ALTER TABLE edges
       ADD CONSTRAINT edges_certname_source_target_type_unique_key UNIQUE (certname, source, target, type)"))
 
 (defn differential-catalog-resources []
@@ -689,8 +689,7 @@
     ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id)
     REFERENCES environments (id) ON UPDATE NO ACTION ON DELETE CASCADE"
 
-   "CREATE INDEX idx_reports_env ON reports(environment_id)"
-   ))
+   "CREATE INDEX idx_reports_env ON reports(environment_id)"))
 
 (defn add-report-status []
   (sql/create-table :report_statuses
@@ -708,8 +707,8 @@
 
 (defn add-producer-timestamps []
   (sql/do-commands
-    "ALTER TABLE catalogs ADD producer_timestamp TIMESTAMP WITH TIME ZONE"
-    "CREATE INDEX idx_catalogs_producer_timestamp ON catalogs(producer_timestamp)"))
+   "ALTER TABLE catalogs ADD producer_timestamp TIMESTAMP WITH TIME ZONE"
+   "CREATE INDEX idx_catalogs_producer_timestamp ON catalogs(producer_timestamp)"))
 
 (defn migrate-to-structured-facts
   "Pulls data from 'pre-structured' tables and moves to new."
@@ -725,11 +724,11 @@
                              :name)]
         (when-not (empty? facts)
           (legacy/add-facts-27!
-            {:name (str certname)
-             :values facts
-             :timestamp timestamp
-             :environment environment
-             :producer-timestamp nil}))))))
+           {:name (str certname)
+            :values facts
+            :timestamp timestamp
+            :environment environment
+            :producer-timestamp nil}))))))
 
 (defn structured-facts []
   ;; -----------
@@ -1040,8 +1039,8 @@
           (apply < 0 (keys %))
           (<= (count %) (count migrations))]}
   (let [pending (difference (kitchensink/keyset migrations) (applied-migrations))]
-      (into (sorted-map)
-        (select-keys migrations pending))))
+    (into (sorted-map)
+          (select-keys migrations pending))))
 
 (defn migrate!
   "Migrates database to the latest schema version. Does nothing if database is
@@ -1049,7 +1048,7 @@
   []
   (if-let [unexpected (first (difference (applied-migrations) (kitchensink/keyset migrations)))]
     (throw (IllegalStateException.
-              (format "Your PuppetDB database contains a schema migration numbered %d, but this version of PuppetDB does not recognize that version."
+            (format "Your PuppetDB database contains a schema migration numbered %d, but this version of PuppetDB does not recognize that version."
                     unexpected))))
 
   (if-let [pending (seq (pending-migrations))]

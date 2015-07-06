@@ -29,10 +29,10 @@
   ([endpoint]              (get-response endpoint nil))
   ([endpoint query]        (get-response endpoint query {}))
   ([endpoint query params]
-     (let [resp (fixt/*app* (get-request endpoint query params))]
-       (if (string? (:body resp))
-         resp
-         (update-in resp [:body] slurp)))))
+   (let [resp (fixt/*app* (get-request endpoint query params))]
+     (if (string? (:body resp))
+       resp
+       (update-in resp [:body] slurp)))))
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal
@@ -203,9 +203,9 @@ to the result of the form supplied to this method."
     (when (= version :v2)
       (testing "sourcefile and sourceline is queryable"
         (are [query] (is-response-equal (get-response endpoint query) #{bar2})
-             ["=" "sourcefile" "/foo/bar"]
-             ["~" "sourcefile" "foo"]
-             ["=" "sourceline" 22]))
+          ["=" "sourcefile" "/foo/bar"]
+          ["~" "sourcefile" "foo"]
+          ["=" "sourceline" 22]))
 
       (testing "querying by file and line is not supported"
         (let [query ["=" "line" 22]
@@ -290,7 +290,7 @@ to the result of the form supplied to this method."
   (when (= version :v2)
     (testing "does not support paging-related query parameters"
       (doseq [[k v] {:limit 10 :offset 10 :order-by [{:field "foo"}]}]
-        (let [ {:keys [status body]} (get-response v2-endpoint nil {k v})]
+        (let [{:keys [status body]} (get-response v2-endpoint nil {k v})]
           (is (= status pl-http/status-bad-request))
           (is (= body (format "Unsupported query parameter '%s'" (name k))))))))
 
@@ -336,16 +336,16 @@ to the result of the form supplied to this method."
     (when (not-any? #(= version %) [:v2 :v3])
       (testing "querying by equality and regexp should be allowed"
         (are [query] (is-response-equal (get-response endpoint query) #{foo1 foo2})
-             ["=" "environment" "DEV"]
-             ["~" "environment" ".*V"]
-             ["not" ["~" "environment" "PR.*"]]
-             ["not" ["=" "environment" "PROD"]])
+          ["=" "environment" "DEV"]
+          ["~" "environment" ".*V"]
+          ["not" ["~" "environment" "PR.*"]]
+          ["not" ["=" "environment" "PROD"]])
         (are [query] (is-response-equal (get-response endpoint query) #{bar1 bar2})
-             ["=" "environment" "PROD"]
-             ["~" "environment" "PR.*"]
-             ["not" ["=" "environment" "DEV"]])
+          ["=" "environment" "PROD"]
+          ["~" "environment" "PR.*"]
+          ["not" ["=" "environment" "DEV"]])
         (are [query] (is-response-equal (get-response endpoint query) #{foo1 foo2 bar1 bar2})
-             ["not" ["=" "environment" "null"]])))
+          ["not" ["=" "environment" "null"]])))
 
     (when (some #(= version %) [:v2 :v3])
       (testing "querying environment not allowed"

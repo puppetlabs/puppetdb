@@ -97,8 +97,8 @@
           size-bytes (* size-megs 1024 1024)
 
           broker (build-embedded-broker "localhost" "somedir"
-                      {:store-usage size-megs
-                       :temp-usage  size-megs})]
+                                        {:store-usage size-megs
+                                         :temp-usage  size-megs})]
       (is (instance? BrokerService broker))
       (is (.. broker (getPersistenceAdapter) (isIgnoreMissingJournalfiles)))
       (is (.. broker (getPersistenceAdapter) (isArchiveCorruptedIndex)))

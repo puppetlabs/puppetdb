@@ -100,19 +100,19 @@
           (is (seq old-json-edges))
 
           (are [metadata-key] (contains? catalog-metadata metadata-key)
-               "java version"
-               "new catalog hash"
-               "old catalog hash"
-               "database name"
-               "database version")
+            "java version"
+            "new catalog hash"
+            "old catalog hash"
+            "database name"
+            "database version")
 
           (are [metadata-key] (and (kitchensink/string-contains? (:name new-catalog)
-                                                           (get catalog-metadata metadata-key))
+                                                                 (get catalog-metadata metadata-key))
                                    (.startsWith (get catalog-metadata metadata-key) debug-dir))
-               "old catalog path - edn"
-               "new catalog path - edn"
-               "old catalog path - json"
-               "new catalog path - json")
+            "old catalog path - edn"
+            "new catalog path - edn"
+            "old catalog path - json"
+            "new catalog path - json")
 
           (is (not= (get catalog-metadata "new catalog hash")
                     (get catalog-metadata "old catalog hash"))))))))

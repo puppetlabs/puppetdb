@@ -27,9 +27,9 @@
   config file was invalid or not read properly."
   []
   (throw (IllegalStateException.
-           (str "No test database configuration found!  Please make sure that "
-              "your test config file defines a no-arg function named "
-              "'test-db-config'."))))
+          (str "No test database configuration found!  Please make sure that "
+               "your test config file defines a no-arg function named "
+               "'test-db-config'."))))
 
 (defn load-test-config
   "Loads the test configuration file from the classpath.  First looks for
@@ -64,14 +64,14 @@
   Exercise extreme caution when calling this function!"
   [table-name]
   (sql/do-commands
-    (format "DROP TABLE IF EXISTS %s CASCADE" table-name)))
+   (format "DROP TABLE IF EXISTS %s CASCADE" table-name)))
 
 (defn drop-sequence!
   "Drops a sequence from the database.  Expects to be called from within a db binding.
   Exercise extreme caution when calling this function!"
   [sequence-name]
   (sql/do-commands
-    (format "DROP SEQUENCE IF EXISTS %s" sequence-name)))
+   (format "DROP SEQUENCE IF EXISTS %s" sequence-name)))
 
 (defn clear-db-for-testing!
   "Completely clears the database, dropping all puppetdb tables and other objects
@@ -102,15 +102,15 @@
   "
   [name conn-var & body]
   `(with-log-output broker-logs#
-    (let [dir#                   (fs/absolute-path (fs/temp-dir))
-          broker-name#           ~name
-          conn-str#              (str "vm://" ~name)
-          size-megs#              50
-          ^BrokerService broker# (mq/build-embedded-broker
-                                    broker-name#
-                                    dir#
-                                    {:store-usage size-megs#
-                                     :temp-usage  size-megs#})]
+     (let [dir#                   (fs/absolute-path (fs/temp-dir))
+           broker-name#           ~name
+           conn-str#              (str "vm://" ~name)
+           size-megs#              50
+           ^BrokerService broker# (mq/build-embedded-broker
+                                   broker-name#
+                                   dir#
+                                   {:store-usage size-megs#
+                                    :temp-usage  size-megs#})]
 
        (.setUseJmx broker# false)
        (.setPersistent broker# false)
@@ -178,17 +178,17 @@
                     be used to filter out fields that aren't relevant to the tests,
                     etc."
   ([response expected]
-    (response-equal? response expected identity))
+   (response-equal? response expected identity))
   ([response expected body-munge-fn]
-    (is (= pl-http/status-ok   (:status response)))
-    (is (= pl-http/json-response-content-type (get-in response [:headers "Content-Type"])))
-    (let [actual (when (:body response)
-                   (-> (:body response)
-                       (json/parse-string true)
-                       (body-munge-fn)
-                       (set)))]
-      (is (= expected actual)
-        (str response)))))
+   (is (= pl-http/status-ok   (:status response)))
+   (is (= pl-http/json-response-content-type (get-in response [:headers "Content-Type"])))
+   (let [actual (when (:body response)
+                  (-> (:body response)
+                      (json/parse-string true)
+                      (body-munge-fn)
+                      (set)))]
+     (is (= expected actual)
+         (str response)))))
 
 (defn assert-success!
   "Given a Ring response, verify that the status
@@ -205,13 +205,13 @@
   ([path query] (get-request path query {}))
   ([path query params] (get-request path query params {"accept" c-t}))
   ([path query params headers]
-    (let [request (mock/request :get path
-                    (if query
-                      (assoc params
-                        "query" (if (string? query) query (json/generate-string query)))
-                      params))
-          orig-headers (:headers request)]
-      (assoc request :headers (merge orig-headers headers)))))
+   (let [request (mock/request :get path
+                               (if query
+                                 (assoc params
+                                        "query" (if (string? query) query (json/generate-string query)))
+                                 params))
+         orig-headers (:headers request)]
+     (assoc request :headers (merge orig-headers headers)))))
 
 (defn post-request
   "Submit a POST request against path, suitable as an argument to a ring
@@ -221,12 +221,12 @@
   ([path query params] (post-request path query params {"accept" c-t "content-type" c-t}))
   ([path query params headers] (post-request path query params headers nil))
   ([path query params headers body]
-    (let [request (mock/request :post path)
-          orig-headers (:headers request)]
-      (assoc request :headers (merge orig-headers headers)
-                     :content-type c-t
-                     :body body
-                     :params params))))
+   (let [request (mock/request :post path)
+         orig-headers (:headers request)]
+     (assoc request :headers (merge orig-headers headers)
+            :content-type c-t
+            :body body
+            :params params))))
 
 (defn content-type
   "Returns the content type of the ring response"
@@ -264,18 +264,18 @@
                  (keyset paged-test-params)
                  #{:app-fn :path :query :params :limit :total :include-total}))]}
   (reduce
-    (fn [coll n]
-      (let [{:keys [status body headers] :as resp} (paged-results* (assoc paged-test-params :offset (* limit n)))]
-        (assert-success! resp)
-        (is (>= limit (count body)))
-        (if include-total
-          (do
-            (is (contains? headers paging/count-header))
-            (is (= total (parse-int (headers paging/count-header)))))
-          (is (excludes? headers paging/count-header)))
-        (concat coll body)))
-    []
-    (range (java.lang.Math/ceil (/ total (float limit))))))
+   (fn [coll n]
+     (let [{:keys [status body headers] :as resp} (paged-results* (assoc paged-test-params :offset (* limit n)))]
+       (assert-success! resp)
+       (is (>= limit (count body)))
+       (if include-total
+         (do
+           (is (contains? headers paging/count-header))
+           (is (= total (parse-int (headers paging/count-header)))))
+         (is (excludes? headers paging/count-header)))
+       (concat coll body)))
+   []
+   (range (java.lang.Math/ceil (/ total (float limit))))))
 
 (defn delete-on-exit
   "Will delete file `f` on shutdown of the JVM"
@@ -317,16 +317,16 @@
      (= '[(1 4) (2 5) (3 6)] @+-call-args))"
   [bindings & body]
   (cond
-   (zero? (count bindings))
+    (zero? (count bindings))
     `(do ~@body)
 
     (symbol? (first bindings))
-   `(let [~(get bindings 0) (atom [])
-          orig-fn# ~(get bindings 1)]
-      (with-redefs [~(get bindings 1) (wrap-capture-args orig-fn# ~(get bindings 0))]
-        (with-wrapped-fn-args ~(subvec bindings 2)
-          ~@body)))
-   :else (throw+ "with-wrapped-fn-args bindings should be pairs of count-atom-sym and fn-to-wrap with the call-count function")))
+    `(let [~(get bindings 0) (atom [])
+           orig-fn# ~(get bindings 1)]
+       (with-redefs [~(get bindings 1) (wrap-capture-args orig-fn# ~(get bindings 0))]
+         (with-wrapped-fn-args ~(subvec bindings 2)
+           ~@body)))
+    :else (throw+ "with-wrapped-fn-args bindings should be pairs of count-atom-sym and fn-to-wrap with the call-count function")))
 
 (defn uuid-in-response?
   "Returns true when the response contains a properly formed
@@ -357,8 +357,8 @@
   `(let [each-fixture# (join-fixtures (:clojure.test/each-fixtures (meta ~*ns*)))]
      (doseq ~seq-exprs
        (each-fixture#
-         (fn []
-           (wrap-with-testing ~body))))))
+        (fn []
+          (wrap-with-testing ~body))))))
 
 (defn parse-result
   "Stringify (if needed) then parse the response"

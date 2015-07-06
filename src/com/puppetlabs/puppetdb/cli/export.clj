@@ -46,16 +46,16 @@
   "Given a node name, retrieve the catalog for the node."
   ([host port node] (catalog-for-node host port :v4 node))
   ([host port version node]
-     {:pre  [(string? host)
-             (integer? port)
-             (string? node)]
-      :post [((some-fn string? nil?) %)]}
-     (let [{:keys [status body]} (client/get
-                                  (format
-                                   "http://%s:%s/%s/catalogs/%s"
-                                   host port (name version) node)
-                                  { :accept :json})]
-       (when (= status 200) body))))
+   {:pre  [(string? host)
+           (integer? port)
+           (string? node)]
+    :post [((some-fn string? nil?) %)]}
+   (let [{:keys [status body]} (client/get
+                                (format
+                                 "http://%s:%s/%s/catalogs/%s"
+                                 host port (name version) node)
+                                {:accept :json})]
+     (when (= status 200) body))))
 
 (pls/defn-validated catalog->tar :- utils/tar-item
   "Create a tar-item map for the `catalog`"
@@ -81,22 +81,22 @@
   ([host :- String
     port :- s/Int
     node :- String]
-     (facts-for-node host port :v4 node))
+   (facts-for-node host port :v4 node))
   ([host :- String
     port :- s/Int
     version :- s/Keyword
     node :- String]
-      (when-let [facts (first (parse-response
-                         (client/get
-                           (format
-                             "http://%s:%s/%s/factsets?query=%s"
-                             host port (name version)
-                             (url-encode
+   (when-let [facts (first (parse-response
+                            (client/get
+                             (format
+                              "http://%s:%s/%s/factsets?query=%s"
+                              host port (name version)
+                              (url-encode
                                (format "[\"=\",\"certname\",\"%s\"]" node)))
-                           {:accept :json})))]
-        {:name node
-         :values (:facts facts)
-         :environment (:environment facts)})))
+                             {:accept :json})))]
+     {:name node
+      :values (:facts facts)
+      :environment (:environment facts)})))
 
 (pls/defn-validated facts->tar :- utils/tar-item
   "Creates a tar-item map for the collection of facts"
@@ -113,42 +113,42 @@
   "Given a report hash, returns all events as a vector of maps."
   ([host port report-hash] (events-for-report-hash host port :v4 report-hash))
   ([host port version report-hash]
-     {:pre [(string? host)
-             (integer? port)
-             (string? report-hash)]
-      :post [(seq? %)]}
-     (let [body (parse-response
-                 (client/get
-                  (format
-                   "http://%s:%s/%s/events?query=%s"
-                   host port (name version)
-                   (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash)))))]
-       (sort-by
-        #(mapv % [:timestamp :resource-type :resource-title :property])
-        (map
-         #(dissoc % :report :certname :configuration-version :containing-class
-                  :run-start-time :run-end-time :report-receive-time :environment)
-         body)))))
+   {:pre [(string? host)
+          (integer? port)
+          (string? report-hash)]
+    :post [(seq? %)]}
+   (let [body (parse-response
+               (client/get
+                (format
+                 "http://%s:%s/%s/events?query=%s"
+                 host port (name version)
+                 (url-encode (format "[\"=\",\"report\",\"%s\"]" report-hash)))))]
+     (sort-by
+      #(mapv % [:timestamp :resource-type :resource-title :property])
+      (map
+       #(dissoc % :report :certname :configuration-version :containing-class
+                :run-start-time :run-end-time :report-receive-time :environment)
+       body)))))
 
 (defn reports-for-node
   "Given a node name, retrieves the reports for the node."
   ([host port node] (reports-for-node host port :v4 node))
   ([host port version node]
-     {:pre  [(string? host)
-             (integer? port)
-             (string? node)]
-      :post [(or (nil? %) (seq? %))]}
-     (when-let [body (parse-response
-                      (client/get
-                       (format
-                        "http://%s:%s/%s/reports?query=%s"
-                        host port (name version) (url-encode (format "[\"=\",\"certname\",\"%s\"]" node)))
-                       {:accept :json}))]
-       (map
-        #(dissoc % :receive-time)
-        (map
-         #(merge % {:resource-events (events-for-report-hash host port version (get % :hash))})
-         body)))))
+   {:pre  [(string? host)
+           (integer? port)
+           (string? node)]
+    :post [(or (nil? %) (seq? %))]}
+   (when-let [body (parse-response
+                    (client/get
+                     (format
+                      "http://%s:%s/%s/reports?query=%s"
+                      host port (name version) (url-encode (format "[\"=\",\"certname\",\"%s\"]" node)))
+                     {:accept :json}))]
+     (map
+      #(dissoc % :receive-time)
+      (map
+       #(merge % {:resource-events (events-for-report-hash host port version (get % :hash))})
+       body)))))
 
 (pls/defn-validated report->tar :- [utils/tar-item]
   "Create a tar-item map for the `report`"
@@ -205,16 +205,16 @@
   {:msg (str "Exporting PuppetDB metadata")
    :file-suffix [export-metadata-file-name]
    :contents (json/generate-pretty-string
-               {:timestamp (now)
-                :command-versions
+              {:timestamp (now)
+               :command-versions
                 ;; This is not ideal that we are hard-coding the command version here, but
                 ;;  in our current architecture I don't believe there is any way to introspect
                 ;;  on which version of the `replace catalog` matches up with the current
                 ;;  version of the `catalog` endpoint... or even to query what the latest
                 ;;  version of a command is.  We should improve that.
-                {:replace-catalog 5
-                 :store-report 3
-                 :replace-facts 3}})})
+               {:replace-catalog 5
+                :store-report 3
+                :replace-facts 3}})})
 
 (defn- validate-cli!
   [args]
@@ -223,12 +223,12 @@
                   ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]]
         required [:outfile]]
     (try+
-      (kitchensink/cli! args specs required)
-      (catch map? m
-        (println (:message m))
-        (case (:type m)
-          :puppetlabs.kitchensink.core/cli-error (System/exit 1)
-          :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
+     (kitchensink/cli! args specs required)
+     (catch map? m
+       (println (:message m))
+       (case (:type m)
+         :puppetlabs.kitchensink.core/cli-error (System/exit 1)
+         :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
 
 (defn -main
   [& args]

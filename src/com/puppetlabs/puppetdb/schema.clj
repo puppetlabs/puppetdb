@@ -96,11 +96,11 @@
   [m :- {Class (s/make-fn-schema s/Any s/Any)}]
   (reduce-kv (fn [acc clazz f]
                (assoc acc
-                 clazz
-                 (fn [obj]
-                   (if (instance? clazz obj)
-                     obj
-                     (f obj))) ))
+                      clazz
+                      (fn [obj]
+                        (if (instance? clazz obj)
+                          obj
+                          (f obj)))))
              {} m))
 
 (def conversion-fns
