@@ -126,7 +126,7 @@
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "0.3.11"
+                      :plugins [[puppetlabs/lein-ezbake "0.3.13"
                                  :exclusions [org.clojure/clojure]]]}
              :pe {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                            [org.clojure/tools.nrepl "0.2.3"]
