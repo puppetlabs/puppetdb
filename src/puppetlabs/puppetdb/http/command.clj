@@ -1,12 +1,40 @@
 (ns puppetlabs.puppetdb.http.command
   (:require [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.cheshire :as json]
             [net.cgrand.moustache :as moustache]
             [puppetlabs.puppetdb.middleware :as mid]
             [compojure.core :as compojure]))
+
+(def min-supported-commands
+  {"replace catalog" 6
+   "replace facts" 4
+   "store report" 5
+   "deactivate node" 3})
+
+(def valid-commands-str (str/join ", " (sort (vals command-names))))
+
+(defn validate-command-version
+  [app]
+  (fn [{:keys [body-string] :as req}]
+    (let [{:keys [command version]} (json/parse-string body-string true)
+          min-supported (get min-supported-commands command ::invalid)]
+      (cond
+        (= ::invalid min-supported)
+        (http/bad-request-response
+          (format "Supported commands are %s. Received '%s'."
+                  valid-commands-str command))
+
+        (< version min-supported)
+        (http/bad-request-response
+          (format "%s version %s is retired. The minimum supported version is %s."
+                  command version min-supported))
+
+        :else (app req)))))
 
 (defn enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
@@ -27,6 +55,7 @@
         app (moustache/app
              ["v1" &] {:any (enqueue-command-handler connection endpoint)})]
     (-> app
+        validate-command-version
         mid/verify-accepts-json
         mid/verify-checksum
         (mid/validate-query-params {:optional ["checksum"]})

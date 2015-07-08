@@ -244,8 +244,7 @@
                                                            ;; Only allocate connections when needed
                                                            :pool-availability-threshold 0))]
     (let [db-pool-map {:datasource init-db-pool}]
-      (initialize-schema db-pool-map product-name)
-      (pop/initialize-metrics db-pool-map))))
+      (initialize-schema db-pool-map product-name))))
 
 (defn start-puppetdb
   [context config service add-ring-handler get-route]
@@ -278,6 +277,7 @@
       (log/infof "PuppetDB version %s" v))
 
     (init-with-db database product-name)
+    (pop/initialize-metrics write-db)
 
     (when (.exists discard-dir)
       (dlo/create-metrics-for-dlo! discard-dir))

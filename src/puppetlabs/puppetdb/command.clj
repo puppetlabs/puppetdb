@@ -299,11 +299,8 @@
   [{:keys [version] :as command} {:keys [db]}]
   (store-report* 5 db command))
 
-(def supported-commands
-  #{"replace facts" "replace catalog" "store report" "deactivate node"})
-
 (def supported-command?
-  (comp supported-commands :command))
+  (comp (kitchensink/valset command-names) :command))
 
 (defservice command-service
   [[:PuppetDBServer shared-globals]

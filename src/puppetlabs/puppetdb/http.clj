@@ -254,3 +254,8 @@
   "Produces a json response for when an entity (catalog/nodes/environment/...) is not found."
   [type id]
   (json-response {:error (format "No information is known about %s %s" type id)} status-not-found))
+
+(defn bad-request-response
+  "Produce a json 400 response with an :error key holding message."
+  [message]
+  (json-response {:error message} status-bad-request))
