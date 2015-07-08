@@ -283,9 +283,15 @@ module PuppetDBExtensions
 
     version = PuppetDBExtensions.config[:package_build_version].to_s
 
+    # version can look like:
+    #   3.0.0
+    #   3.0.0.SNAPSHOT.2015.07.08T0945
+
     # Rewrite version if its a SNAPSHOT in rc form
     if version.include?("SNAPSHOT")
       version = version.sub(/^(.*)\.(SNAPSHOT\..*)$/, "\\1-0.1\\2")
+    else
+      version = version + "-1"
     end
 
     ## These 'platform' values come from the acceptance config files, so
