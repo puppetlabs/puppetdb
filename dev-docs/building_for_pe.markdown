@@ -107,11 +107,11 @@ lein do clean, install
 #### 3 - Build the PE PuppetDB Packages
 
 Note you need to be on the VPN or on Puppet Lab's local network for
-this part. `cd` back into the PuppetDB repository, then run the
-following commands:
+this part. From within the PuppetDB extensions checkout, run the following
+commands:
 
 ```
-lein with-profile ezbake,pe ezbake stage
+lein with-profile ezbake ezbake stage
 cd target/staging
 rake package:bootstrap
 rake pe:jenkins:uber_build PE_VER=4.0
