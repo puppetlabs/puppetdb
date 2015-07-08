@@ -1,0 +1,289 @@
+#!/bin/bash
+
+set -e
+
+migration_command="puppetdb config-migration"
+
+#############
+# FUNCTIONS #
+#############
+
+# Display usage information and exit
+#
+# This function simply displays the usage information to the screen and exits
+# with exit code 0.
+#
+# Example:
+#
+#   usage
+#
+function usage() {
+  echo "Usage: ${migration_command}"
+  echo "Configuration helper for migrating config files for PuppetDB upgrade."
+  echo
+  echo "This tool will attempt to copy the necessary PuppetDB config files into "\
+       "place for use by the PuppetDB HTTPS service. It updates the pathing of "\
+       "the files to align with new path expectations in the PuppetDB 3 series. "\
+       "It will ensure the config files contain either existing edits or up "\
+       "to date default settings. If the default settings are changed, the script "\
+       "will also migrate any associated data into the new default location."
+  echo
+  echo "Options:"
+  echo " -h  Help"
+  exit 0
+}
+
+# Backs up a file, if it hasn't already been backed up
+#
+# $1 - file to backup
+#
+# Example:
+#
+#   backupfile "/etc/myconfig"
+#
+function backupfile {
+  # Create the global array if it doesn't already exist
+  if [ -z "$backupfile_list" ]; then
+    backupfile_list=()
+  fi
+
+  # We check the array to make sure the file isn't already backed up
+  if ! contains ${backupfile_list[@]} "$1"; then
+    local backup_path="$1.bak.$(date +%s)"
+    echo "Backing up $1 to ${backup_path} before making changes"
+    cp -p "$1" "$backup_path"
+
+    # Append to the array, so we don't need to back it up again later
+    backupfile_list+=($1)
+  fi
+}
+
+# This function searches for an element in an array returning 1 if it exists.
+#
+# $1 - array
+# $2 - item to search for
+#
+# Example:
+#
+#   myarray=('element1', 'element2')
+#   if contains ${myarray[@]}, "element1'; then
+#     echo "element1 exists in the array"
+#   fi
+#
+function contains {
+  local n=$#
+  local value=${!n}
+  for ((i=1;i < $#;i++)); do
+    if [ "${!i}" == "${value}" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# This function wraps sed for a line focused search and replace.
+#
+# * Makes sure its atomic by writing to a temp file and moving it _after_
+# * Escapes any forward slashes and ampersands on the RHS for you
+#
+# $1 - regexp to match
+# $2 - line to replace
+# $3 - file to operate on
+#
+# Example:
+#
+#    replaceline "^$mysetting.*" "mysetting = myvalue" /etc/myconfig
+#
+function replaceline {
+  backupfile "$3"
+  tmp="$3.tmp.$(date +%s)"
+  sed "s/$1/$(echo "$2" | sed -e 's/[\/&]/\\&/g')/g" "$3" > "$tmp"
+  mv "$tmp" "$3"
+}
+
+# This funtion gives a generic error message if a given path or file isn't found
+#
+# $1 - missing path
+#
+function path_not_found {
+  echo "Warning: Unable to find the path to copy"
+  echo
+  echo "  This tool requires the following to exist:"
+  echo
+  echo "  * $1"
+  echo
+  echo "  Re-run this tool then restart PuppetDB to complete the config"
+  echo "  setup:"
+  echo
+  echo "      ${migration_command}"
+}
+
+
+# This function copies the give file to the given destination
+#
+# $1 - file or directory to be moved
+# $2 - destination
+#
+# Example:
+#
+#    migrate_file "/etc/puppetdb/conf.d/config.ini" "/etc/puppetlabs/puppetdb/conf.d"
+#
+function migrate {
+  origin=$1
+  destination=$2
+  if [ "${destination##*/}" = "${origin##*/}" ] ; then
+    destination_path="${destination%/*}"
+  else
+    destination_path="$destination"
+    destination="${destination}/${origin##*/}"
+  fi
+  if [ ! -e "$origin" ]; then
+    path_not_found "$origin"
+  else
+    if [ -e "$destination" ] ; then
+      echo "Replacing: ${destination} with ${origin}"
+      cp -pr "$origin" "$destination_path"
+    else
+      echo "Copying: ${origin} to ${destination}"
+      mkdir -p "$destination_path"
+      cp -pr "$origin" "$destination_path"
+    fi
+  fi
+}
+
+########
+# MAIN #
+########
+
+# Gather command line options
+while getopts "h" opt;
+do
+  case $opt in
+    h)
+      usage ;;
+    *)
+      usage ;;
+  esac
+done
+
+
+# Figure out where the config files are we want to deal with
+# Either they exist in the archive created by the preinst script
+# during the upgrade, or the user is running this script by hand
+# and they exist in the PDB 2 series location
+if [ -e '/tmp/puppetdb-upgrade-config-files.tgz' ] ; then
+  orig_config_dir=/tmp/puppetdb-orig-configs
+  mkdir -p $orig_config_dir
+  tar -xzf '/tmp/puppetdb-upgrade-config-files.tgz' -C $orig_config_dir
+elif [ -e '/etc/puppetdb/conf.d/config.ini' -a -e '/etc/puppetdb/conf.d/database.ini' -a -e '/etc/puppetdb/conf.d/jetty.ini' ] ; then
+  orig_config_dir=/etc/puppetdb/conf.d
+else
+  echo "Config archive not found. Not proceeding with migration"
+  exit 0
+fi
+
+orig_jetty_file=${orig_config_dir}/jetty.ini
+orig_database_file=${orig_config_dir}/database.ini
+orig_config_file=${orig_config_dir}/config.ini
+orig_ini_files=($orig_jetty_file $orig_database_file $orig_config_file)
+
+config_dir=/etc/puppetlabs/puppetdb/conf.d
+database_file=${config_dir}/database.ini
+jetty_file=${config_dir}/jetty.ini
+config_file=${config_dir}/config.ini
+ini_files=($config_file $jetty_file $database_file)
+
+
+echo "Migrating configuration files ${orig_ini_files[*]} to ${config_dir}"
+for orig_ini_file in "${orig_ini_files[@]}" ; do
+  migrate "$orig_ini_file" "$config_dir"
+done
+
+echo "Checking to see if we need to update default settings"
+for ini_file in "${ini_files[@]}"; do
+  if [ -f "${ini_file}" ] ; then
+    # Check settings are correct and fix or warn
+    orig_settings=(
+      "vardir:/var/lib/puppetdb"
+      "logging-config:/etc/puppetdb/logback.xml"
+      "subname:file:/var/lib/puppetdb/db/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"
+      "ssl-key:/etc/puppetdb/ssl/private.pem"
+      "ssl-cert:/etc/puppetdb/ssl/public.pem"
+      "ssl-ca-cert:/etc/puppetdb/ssl/ca.pem"
+    )
+    new_settings=(
+      "vardir:/opt/puppetlabs/server/data/puppetdb"
+      "logging-config:/etc/puppetlabs/puppetdb/logback.xml"
+      "subname:file:/opt/puppetlabs/server/data/puppetdb/db/db;hsqldb.tx=mvcc;sql.syntax_pgs=true"
+      "ssl-key:/etc/puppetlabs/puppetdb/ssl/private.pem"
+      "ssl-cert:/etc/puppetlabs/puppetdb/ssl/public.pem"
+      "ssl-ca-cert:/etc/puppetlabs/puppetdb/ssl/ca.pem"
+    )
+
+    for i in "${orig_settings[@]}"; do
+      setting="${i%%:*}"
+      orig_value="${i#*:}"
+      for j in "${new_settings[@]}"; do
+        if [ "${j%%:*}" == "${setting}" ] ; then
+          new_value="${j#*:}"
+          if grep -qe "^${setting}" "$ini_file"; then
+            if grep -qe "^${setting}[[:space:]]*=[[:space:]]*${orig_value}$" "$ini_file"; then
+              replaceline "^${setting}.*" "${setting} = ${new_value}" "$ini_file"
+              echo "Updated setting ${setting} in ${ini_file}."
+              case "$setting" in
+                vardir|ssl-*)
+                  migrate "$orig_value" "$new_value"
+                  rm -rf "$orig_value"
+                  ;;
+                subname)
+                  orig_value="${orig_value#file:}"
+                  orig_value="${orig_value%/db;hsqldb.tx=mvcc;sql.syntax_pgs=true}"
+                  new_value="${new_value#file:}"
+                  new_value="${new_value%/db;hsqldb.tx=mvcc;sql.syntax_pgs=true}"
+                  echo "Copying over the contents of ${orig_value} to ${new_value}"
+                  migrate "$orig_value" "$new_value"
+                  rm -rf "$orig_value"
+                  ;;
+              esac
+            else
+              echo "Setting ${setting} in ${ini_file} has been changed from the default, so will not be updated."
+            fi
+          else
+            if grep -qE "^# ?${setting} = <[A-Za-z_]+>$" "$ini_file"; then
+              replaceline "^# ?${setting}.*" "${setting} = ${new_value}" "$ini_file"
+              echo "Updated default settings from package installation for ${setting} in ${ini_file}."
+            fi
+          fi
+        fi
+      done
+    done
+  else
+    echo "Error: Unable to find PuppetDB configuration file at ${ini_file} so unable to provide automatic configuration for that file."
+    echo
+    echo "   Confirm the file exists before running the tool again."
+    echo "   The file should have been created automatically when"
+    echo "   the package was installed."
+  fi
+done
+echo "cleaning up old config files"
+old_config_dir=/etc/puppetdb/conf.d
+old_jetty_file=${old_config_dir}/jetty.ini
+old_database_file=${old_config_dir}/database.ini
+old_config_file=${old_config_dir}/config.ini
+old_ini_files=($old_jetty_file $old_database_file $old_config_file)
+
+for old_ini_file in "${old_ini_files[@]}" ; do
+  if [ -e "$old_ini_file" ] ; then
+    echo "Removing $old_ini_file"
+    rm "$old_ini_file"
+  fi
+  if [ -e "${old_ini_file}.rpmsave" ] ; then
+    echo "Removing ${old_ini_file}.rpmsave"
+    rm "${old_ini_file}.rpmsave"
+  fi
+done
+
+echo "Modifications may have been made to PuppetDB config files. To ensure these changes have been picked up, please do the following: "
+echo "  1) upgrade the puppetdb-termini package"
+echo "  2) restart the puppetdb service"
+echo "  3) restart the puppetserver service"
