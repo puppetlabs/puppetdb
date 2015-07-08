@@ -18,11 +18,11 @@
 (defn- generic-mapvals [f m]
   (into (empty m) (for [[k v] m] [k (f v)])))
 
-(defn sync-event [event {:keys [type context] :as opts}]
+(defn sync-event [event {:keys [context] :as opts}]
   (let [[level message] (get opts event)
         context (-> (generic-mapvals resolve-thunk
                                      (into (sorted-map) context))
-                    (assoc :event (str (name type) "-" (name event)))
+                    (assoc :event (name event))
                     (maybe-assoc-ok event))]
     (if-let [ex (:exception context)]
      (maplog [:sync level] ex context message)
@@ -46,8 +46,8 @@
   "Surround the given code block with logging events. The options map should be
   of the form:
 
-      {:type :some-custom-type
-       :context {:my-data :my-val
+      {:context {:phase \"somePhase\"
+                 :my-data :my-val
                  :computed-data #(+ 1 2)}
        :start [:info \"Started.\"]
        :finished [:info \"Finished.\"]
