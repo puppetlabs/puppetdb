@@ -202,7 +202,9 @@ done
 echo "Checking to see if we need to update default settings"
 for ini_file in "${ini_files[@]}"; do
   if [ -f "${ini_file}" ] ; then
-    # Check settings are correct and fix or warn
+
+    # Check settings are correct and fix or warn. Do not move vardir behind
+    # subname.
     orig_settings=(
       "vardir:/var/lib/puppetdb"
       "logging-config:/etc/puppetdb/logback.xml"
@@ -236,13 +238,18 @@ for ini_file in "${ini_files[@]}"; do
                   rm -rf "$orig_value"
                   ;;
                 subname)
-                  orig_value="${orig_value#file:}"
-                  orig_value="${orig_value%/db;hsqldb.tx=mvcc;sql.syntax_pgs=true}"
-                  new_value="${new_value#file:}"
-                  new_value="${new_value%/db;hsqldb.tx=mvcc;sql.syntax_pgs=true}"
-                  echo "Copying over the contents of ${orig_value} to ${new_value}"
-                  migrate "$orig_value" "$new_value"
-                  rm -rf "$orig_value"
+                  orig_hsql_path="${orig_value#file:}"
+                  orig_hsql_dir="${orig_hsql_path%/db;hsqldb.tx=mvcc;sql.syntax_pgs=true}"
+                  new_hsql_path="${new_value#file:}"
+                  new_hsql_dir="${new_hsql_path%/db;hsqldb.tx=mvcc;sql.syntax_pgs=true}"
+                  ## if the default vardir still exists, then the vardir was
+                  ## changed, but the subname still points to the default
+                  ## vardir.
+                  if [ -e "$orig_hsql_dir" ] ; then
+                    echo "Copying over the contents of ${orig_hsql_dir} to ${new_hsql_dir}"
+                    migrate "$orig_hsql_dir" "$new_hsql_dir"
+                    rm -rf "$orig_hsql_dir"
+                  fi
                   ;;
               esac
             else
