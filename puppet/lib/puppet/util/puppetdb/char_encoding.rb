@@ -257,6 +257,9 @@ module CharEncoding
 
       private
 
+      # Splitting the string does the following two things:
+      #   - split hashes and array that are values from their keys
+      #   - split lists of hashes into new lines
       def split
         @string.gsub(/(['"]:)({|\[)/, "\\1\n\\2").gsub(/(}|\]),({|\[)/, "\\1,\n\\2")
       end
@@ -284,7 +287,6 @@ module CharEncoding
 
         file.puts "diff of #{orig_fn} and #{conv_fn}"
         file.puts ""
-
         file.puts `diff -u5 #{orig_fn} #{conv_fn}`
 
         file.puts diff_footer
@@ -293,6 +295,8 @@ module CharEncoding
         file.flock(File::LOCK_UN)
       end
     end
+
+    private
 
     def diff_header
       <<-EOSTRING
