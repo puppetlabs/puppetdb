@@ -294,10 +294,12 @@ module PuppetDBExtensions
 
   def install_puppetdb(host, db, version=nil)
     manifest = add_el5_postgres(host, "
+    class { 'puppetdb::globals':
+      version => '#{get_package_version(host, version)}'
+    }
     class { 'puppetdb':
       database             => '#{db}',
       manage_firewall      => false,
-      puppetdb_version     => '#{get_package_version(host, version)}',
     }")
 
     apply_manifest_on(host, manifest)
@@ -335,9 +337,11 @@ module PuppetDBExtensions
     # manage the puppet master service, which isn't actually installed on the
     # acceptance nodes (they run puppet master from the CLI).
     manifest = <<-EOS
+    class { 'puppetdb::globals':
+      version => '#{get_package_version(host, version)}'
+    }
     class { 'puppetdb::master::config':
       puppetdb_server          => '#{database.node_name}',
-      puppetdb_version         => '#{get_package_version(host, version)}',
       puppetdb_startup_timeout => 120,
       manage_report_processor  => true,
       enable_reports           => true,
@@ -451,6 +455,9 @@ module PuppetDBExtensions
 
     step "Configure database.ini file" do
       manifest = add_el5_postgres(host, "
+        class { 'puppetdb::globals':
+          version => '#{get_package_version(host, version)}'
+        }
         $database = '#{PuppetDBExtensions.config[:database]}'
         class { 'puppetdb::server::database_ini':
           database => $database,
@@ -466,6 +473,9 @@ module PuppetDBExtensions
     on host, "#{LeinCommandPrefix} rake sourceterminus"
 
     manifest = <<-EOS
+      class { 'puppetdb::globals':
+        version => '#{get_package_version(host, version)}'
+      }
       include puppetdb::master::storeconfigs
       class { 'puppetdb::master::puppetdb_conf':
         server => '#{database.node_name}',
