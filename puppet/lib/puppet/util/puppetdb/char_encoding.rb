@@ -229,16 +229,36 @@ module CharEncoding
   class EncodingAnalyser
 
     class String
-      def initialize(string)
-        @string = string
-      end
+      attr_reader :filename
 
-      def split!
-        @string.gsub!(/(['"]:)({|\[)/, "\\1\n\\2").gsub!(/(}|\]),({|\[)/, "\\1,\n\\2")
+      def initialize(string, base_filename, type)
+        @string   = string
+        @type     = type
+        @filename = "#{base_filename}-#{@type}"
       end
 
       def encoding
         @string.encoding
+      end
+
+      def size
+        @string.size
+      end
+
+      def write
+        File.open(@filename, 'w') do |file|
+          file.flock(File::LOCK_EX)
+          file.puts split
+          file.chmod(0666)
+          file.flock(File::LOCK_UN)
+        end
+        filename
+      end
+
+      private
+
+      def split
+        @string.gsub(/(['"]:)({|\[)/, "\\1\n\\2").gsub(/(}|\]),({|\[)/, "\\1,\n\\2")
       end
     end
 
@@ -247,11 +267,11 @@ module CharEncoding
     end
 
     def original= string
-      @original = String.new(string)
+      @original = String.new(string, @filename, 'original')
     end
 
     def converted= string
-      @converted = String.new(string)
+      @converted = String.new(string, @filename, 'converted')
     end
 
     def write_summary
@@ -259,8 +279,8 @@ module CharEncoding
         file.flock(File::LOCK_EX)
         file.puts diff_header
 
-        orig_fn = write_string(@original.split!, 'original')
-        conv_fn = write_string(@converted.split!, 'converted')
+        orig_fn = @original.write
+        conv_fn = @converted.write
 
         file.puts "diff of #{orig_fn} and #{conv_fn}"
         file.puts ""
@@ -272,17 +292,6 @@ module CharEncoding
         file.chmod(0666)
         file.flock(File::LOCK_UN)
       end
-    end
-
-    def write_string(string, type)
-      fn = "#{@filename}-#{type}"
-      File.open(fn, 'w') do |file|
-        file.flock(File::LOCK_EX)
-        file.puts string
-        file.chmod(0666)
-        file.flock(File::LOCK_UN)
-      end
-      fn
     end
 
     def diff_header
@@ -301,8 +310,8 @@ converted_str: #{@converted.encoding} #{@converted.size}
 
 The other full catalog-json is stored with some line-breaks in
 
-  #{@filename}-original
-  #{@filename}-converted
+  #{@original.filename}
+  #{@converted.filename}
 
 Your faithful employee,
 puppetdb-terminus
