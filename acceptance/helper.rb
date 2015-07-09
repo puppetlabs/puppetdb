@@ -233,15 +233,13 @@ module PuppetDBExtensions
   end
 
   def start_puppetdb(host)
-    test_url = "/pdb/meta/v1/version"
-
     step "Starting PuppetDB" do
       if host.is_pe?
         on host, "service pe-puppetdb start"
       else
         on host, "service puppetdb start"
       end
-      sleep_until_started(host, test_url)
+      sleep_until_started(host)
     end
   end
 
@@ -309,17 +307,15 @@ module PuppetDBExtensions
   end
 
   def install_puppetdb(host, db, version=nil)
-    test_url = '/pdb/meta/v1/version'
     embedded_path = '/opt/puppetlabs/server/data/puppetdb/db/db'
-    confdir = '/etc/puppetlabs/puppetdb/conf.d'
-
     puppetdb_manifest = <<-EOS
+    class { 'puppetdb::globals':
+      version => '#{get_package_version(host, version)}'
+    }
     class { 'puppetdb::server':
-      database         => '#{db}',
+      database               => '#{db}',
       database_embedded_path => '#{embedded_path}',
-      manage_firewall  => false,
-      puppetdb_version => '#{get_package_version(host, version)}',
-      confdir          => '#{confdir}',
+      manage_firewall        => false,
     }
     EOS
     if db == :postgres
@@ -331,7 +327,7 @@ module PuppetDBExtensions
       apply_manifest_on(host, manifest)
     end
     print_ini_files(host, confdir)
-    sleep_until_started(host, test_url)
+    sleep_until_started(host)
   end
 
   def validate_package_version(host)
@@ -358,23 +354,20 @@ module PuppetDBExtensions
   end
 
   def install_puppetdb_termini(host, database, version=nil)
-    terminus_package = 'puppetdb-termini'
-    test_url = '/pdb/meta/v1/version'
-
     # We pass 'restart_puppet' => false to prevent the module from trying to
     # manage the puppet master service, which isn't actually installed on the
     # acceptance nodes (they run puppet master from the CLI).
     server_urls = databases.map {|db| "https://#{db.node_name}:8081"}.join(',')
     manifest = <<-EOS
+    class { 'puppetdb::globals':
+      version => '#{get_package_version(host, version)}'
+    }
     class { 'puppetdb::master::config':
-      puppetdb_version         => '#{get_package_version(host, version)}',
       puppetdb_startup_timeout => 120,
       manage_report_processor  => true,
       enable_reports           => true,
       strict_validation        => true,
       restart_puppet           => false,
-      terminus_package         => '#{terminus_package}',
-      test_url                 => '#{test_url}',
     }
     ini_setting {'server_urls':
       ensure  => present,
@@ -466,11 +459,8 @@ module PuppetDBExtensions
 
     step "Configure database.ini file" do
       manifest = "
-        $database = '#{PuppetDBExtensions.config[:database]}'
         class { 'puppetdb::server::database_ini':
-          confdir  => '/etc/puppetlabs/puppetdb/conf.d',
-          database => $database,
-          database_embedded_path => '/opt/puppetlabs/server/data/puppetdb/db/db',
+          database =>  '#{PuppetDBExtensions.config[:database]}',
         }"
 
       apply_manifest_on(host, manifest)
@@ -487,6 +477,9 @@ module PuppetDBExtensions
 
     server_urls = databases.map {|db| "https://#{db.node_name}:8081"}.join(',')
     manifest = <<-EOS
+      class { 'puppetdb::globals':
+        version => '#{get_package_version(host)}'
+      }
       include puppetdb::master::routes
       include puppetdb::master::storeconfigs
       class { 'puppetdb::master::report_processor':
