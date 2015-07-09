@@ -71,6 +71,20 @@ module CharEncoding
   def self.warn_if_changed(str, converted_str)
     if converted_str != str
       Puppet.warning "Ignoring invalid UTF-8 byte sequences in data to be sent to PuppetDB"
+
+      begin
+        fn = '/tmp/puppetdb-invalid-utf8-sequences'
+
+        analyser = EncodingAnalyser.new(fn)
+        analyser.original = str
+        analyser.converted = converted_str
+        analyser.write_summary
+
+        Puppet.warning "See #{fn} for details of last occurence"
+      rescue NameError => e
+        Puppet.warning "EncodingAnalyser could not be started"
+        Puppet.warning e
+      end
     end
     converted_str
   end
@@ -205,6 +219,97 @@ module CharEncoding
       str[index]
     end
   end
+
+  # This EncodingAnalyser is supposed to be used by this module only it tries
+  # to break the string into smaller pieces in order to make line-wise diffing
+  # possible.
+  #
+  # In most circumstances the diff should give enough context to understand the
+  # issue better.
+  class EncodingAnalyser
+
+    class String
+      def initialize(string)
+        @string = string
+      end
+
+      def split!
+        @string.gsub!(/(['"]:)({|\[)/, "\\1\n\\2").gsub!(/(}|\]),({|\[)/, "\\1,\n\\2")
+      end
+
+      def encoding
+        @string.encoding
+      end
+    end
+
+    def initialize(filename)
+      @filename = filename
+    end
+
+    def original= string
+      @original = String.new(string)
+    end
+
+    def converted= string
+      @converted = String.new(string)
+    end
+
+    def write_summary
+      File.open(@filename, 'w') do |file|
+        file.flock(File::LOCK_EX)
+        file.puts diff_header
+
+        orig_fn = write_string(@original.split!, 'original')
+        conv_fn = write_string(@converted.split!, 'converted')
+
+        file.puts "diff of #{orig_fn} and #{conv_fn}"
+        file.puts ""
+
+        file.puts `diff -u5 #{orig_fn} #{conv_fn}`
+
+        file.puts diff_footer
+
+        file.chmod(0666)
+        file.flock(File::LOCK_UN)
+      end
+    end
+
+    def write_string(string, type)
+      fn = "#{@filename}-#{type}"
+      File.open(fn, 'w') do |file|
+        file.flock(File::LOCK_EX)
+        file.puts string
+        file.chmod(0666)
+        file.flock(File::LOCK_UN)
+      end
+      fn
+    end
+
+    def diff_header
+      <<-EOSTRING
+Ignoring invalid UTF-8 byte sequences in data to be sent to PuppetDB
+These are the details of the last occurence
+
+str: #{@original.encoding} #{@original.size}
+converted_str: #{@converted.encoding} #{@converted.size}
+
+      EOSTRING
+    end
+
+    def diff_footer
+      <<-EOSTRING
+
+The other full catalog-json is stored with some line-breaks in
+
+  #{@filename}-original
+  #{@filename}-converted
+
+Your faithful employee,
+puppetdb-terminus
+      EOSTRING
+    end
+  end
+
 
 end
 end
