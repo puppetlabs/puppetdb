@@ -81,8 +81,8 @@ module CharEncoding
         analyser.write_summary
 
         Puppet.warning "See #{fn} for details of last occurence"
-      rescue NameError => e
-        Puppet.warning "EncodingAnalyser could not be started"
+      rescue => e
+        Puppet.warning "EncodingAnalyser failed because of #{e.class.name}"
         Puppet.warning e
       end
     end
