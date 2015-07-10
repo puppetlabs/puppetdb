@@ -5,8 +5,8 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def pdb-version "3.0.3-SNAPSHOT")
-(def pe-pdb-version "3.0.3-SNAPSHOT")
+(def pdb-version "3.1.0-SNAPSHOT")
+(def pe-pdb-version "3.1.0-SNAPSHOT")
 
 (def tk-version "1.1.1")
 (def ks-version "1.0.0")
@@ -19,10 +19,7 @@
                  ["snapshots"  "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
   :source-paths ["src"]
   :dependencies [[puppetlabs/puppetdb ~pdb-version]
-                 [net.logstash.logback/logstash-logback-encoder "4.2"]
-                 [io.clj/logging "0.8.1" :exclusions [org.clojure/tools.logging
-                                                      org.slf4j/slf4j-api
-                                                      org.clojure/clojure]]]
+                 [net.logstash.logback/logstash-logback-encoder "4.2"]]
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
   :resource-paths ["resources"]
@@ -44,9 +41,11 @@
                                                [org.clojure/tools.nrepl "0.2.3"]
                                                [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]]
                       :plugins [[puppetlabs/lein-ezbake "0.3.18"
-                                :exclusions [org.clojure/clojure]]]
+                                 :exclusions [org.clojure/clojure]]]
                       :version ~pe-pdb-version
                       :name "pe-puppetdb"}}
   :lein-release {:scm :git, :deploy-via :lein-deploy}
+
+  :jvm-opts ["-XX:MaxPermSize=128M"]
 
   :main ^:skip-aot puppetlabs.puppetdb.core)
