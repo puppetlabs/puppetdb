@@ -12,6 +12,7 @@ ext/packaging/*
 /scripts
 Gemfile.lock
 /log/
+/tmp/
 Vagrantfile
 .vagrant
 *.tar.gz
