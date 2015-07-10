@@ -8,6 +8,10 @@ test_name "validation of basic PuppetDB resource event queries" do
 
   step "Create second database as a read-only database" do
     second_db_manifest = add_el5_postgres(database, "
+class { 'postgresql::globals':
+  version => '9.4',
+  manage_package_repo => true
+}
 include postgresql::server
 postgresql::server::db{ 'puppetdb2':
   user     => 'puppetdb2',
