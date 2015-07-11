@@ -246,27 +246,69 @@ module PuppetDBExtensions
                       "https://#{host.node_name}:8081/", [35, 60])
   end
 
-  def get_package_version(host, version = nil)
-    return version unless version.nil?
+  def platform_is_rpm_based(platform)
+    platform.include?('el-') or platform.include?('fedora')
+  end
 
+  def platform_is_deb_based(platform)
+    platform.include?('ubuntu') or platform.include?('debian')
+  end
+
+  def expected_version_for_platform(platform)
+    if platform_is_rpm_based(platform)
+      PuppetDBExtensions.config[:expected_rpm_version]
+    elsif platform_is_deb_based(platform)
+      PuppetDBExtensions.config[:expected_deb_version]
+    else
+      raise ArgumentError, "Unsupported platform: '#{platform}'"
+    end
+  end
+
+  def ensure_suffix(s, suffix)
+    if s.end_with?(suffix)
+      s
+    else
+      s + suffix
+    end
+  end
+
+  def format_package_version_for_platform(platform, version)
     ## These 'platform' values come from the acceptance config files, so
     ## we're relying entirely on naming conventions here.  Would be nicer
     ## to do this using lsb_release or something, but...
-    if host['platform'].include?('el-5')
-      "#{PuppetDBExtensions.config[:expected_rpm_version]}.el5"
-    elsif host['platform'].include?('el-6')
-      "#{PuppetDBExtensions.config[:expected_rpm_version]}.el6"
-    elsif host['platform'].include?('el-7')
-      "#{PuppetDBExtensions.config[:expected_rpm_version]}.el7"
-    elsif host['platform'].include?('fedora')
-      version_tag = host['platform'].match(/^fedora-(\d+)/)[1]
-      "#{PuppetDBExtensions.config[:expected_rpm_version]}.fc#{version_tag}"
-    elsif host['platform'].include?('ubuntu') or host['platform'].include?('debian')
-      "#{PuppetDBExtensions.config[:expected_deb_version]}"
+    if platform.include?('el-5')
+      ensure_suffix(version, ".el5")
+    elsif platform.include?('el-6')
+      ensure_suffix(version, ".el6")
+    elsif platform.include?('el-7')
+      ensure_suffix(version, ".el7")
+    elsif platform.include?('fedora')
+      version_tag = platform.match(/^fedora-(\d+)/)[1]
+      ensure_suffix(version, ".fc#{version_tag}")
+    elsif platform.include?('ubuntu') or platform.include?('debian')
+      ensure_suffix(version, "-1puppetlabs1")
     else
-      raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
+      raise ArgumentError, "Unsupported platform: '#{platform}'"
     end
+  end
 
+  def get_package_version(host, version = nil)
+    # Handle a few different kinds of input:
+    # - version = nil -> use PUPPETDB_EXPECTED_RPM_VERSION or PUPPETDB_EXPECTED_DEB_VERSION,
+    #                    depending on the distro. Add distro-specific formatting if it's not already there.
+    # - version = "x.y.z" -> Add distro-specific formatting to the given version.
+    # - anything else: assume it's already been formatted correctly, just return it.
+
+    platform = host['platform']
+
+    if version.nil?
+      expected_version = expected_version_for_platform(platform)
+      format_package_version_for_platform(platform, expected_version)
+    elsif version =~ /\d+\.\d+\.\d+/
+      format_package_version_for_platform(platform, version)
+    else
+      version
+    end
   end
 
   def el5?(host)
