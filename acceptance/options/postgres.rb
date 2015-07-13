@@ -5,10 +5,8 @@ require File.expand_path(File.join(File.dirname(options_file_path), 'common.rb')
 
 common_options_hash.tap do |my_hash|
   my_hash[:puppetdb_database] = 'postgres'
-  if ENV['BEAKER_TYPE'] == 'aio'
-    my_hash[:is_puppetserver]        = 'true'
-    my_hash[:'use-service']          = 'true'
-    my_hash[:'puppetserver-confdir'] = '/etc/puppetlabs/puppetserver/conf.d'
-    my_hash[:puppetservice]          = 'puppetserver'
-  end
+  my_hash[:is_puppetserver]        = 'true'
+  my_hash[:'use-service']          = 'true'
+  my_hash[:'puppetserver-confdir'] = '/etc/puppetlabs/puppetserver/conf.d'
+  my_hash[:puppetservice]          = 'puppetserver'
 end

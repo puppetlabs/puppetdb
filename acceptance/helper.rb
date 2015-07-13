@@ -232,13 +232,8 @@ module PuppetDBExtensions
     pids
   end
 
-  def start_puppetdb(host, legacy=false)
-    if legacy
-      # PDB 2.x support
-      test_url = "/v3/version"
-    else
-      test_url = "/pdb/meta/v1/version"
-    end
+  def start_puppetdb(host)
+    test_url = "/pdb/meta/v1/version"
 
     step "Starting PuppetDB" do
       if host.is_pe?
@@ -283,9 +278,15 @@ module PuppetDBExtensions
 
     version = PuppetDBExtensions.config[:package_build_version].to_s
 
+    # version can look like:
+    #   3.0.0
+    #   3.0.0.SNAPSHOT.2015.07.08T0945
+
     # Rewrite version if its a SNAPSHOT in rc form
     if version.include?("SNAPSHOT")
       version = version.sub(/^(.*)\.(SNAPSHOT\..*)$/, "\\1-0.1\\2")
+    else
+      version = version + "-1"
     end
 
     ## These 'platform' values come from the acceptance config files, so
@@ -307,17 +308,10 @@ module PuppetDBExtensions
     end
   end
 
-  def install_puppetdb(host, db, version=nil, legacy=false)
-    if legacy
-      # PDB 2.x support
-      test_url = '/v3/version'
-      embedded_path = '/var/lib/puppetdb/db/db'
-      confdir = '/etc/puppetdb/conf.d'
-    else
-      test_url = '/pdb/meta/v1/version'
-      embedded_path = '/opt/puppetlabs/server/data/puppetdb/db/db'
-      confdir = '/etc/puppetlabs/puppetdb/conf.d'
-    end
+  def install_puppetdb(host, db, version=nil)
+    test_url = '/pdb/meta/v1/version'
+    embedded_path = '/opt/puppetlabs/server/data/puppetdb/db/db'
+    confdir = '/etc/puppetlabs/puppetdb/conf.d'
 
     puppetdb_manifest = <<-EOS
     class { 'puppetdb::server':
@@ -363,15 +357,9 @@ module PuppetDBExtensions
     end
   end
 
-  def install_puppetdb_termini(host, database, version=nil, legacy=false)
-    if legacy
-      # PDB 2.x support
-      terminus_package = 'puppetdb-terminus'
-      test_url = '/v3/version'
-    else
-      terminus_package = 'puppetdb-termini'
-      test_url = '/pdb/meta/v1/version'
-    end
+  def install_puppetdb_termini(host, database, version=nil)
+    terminus_package = 'puppetdb-termini'
+    test_url = '/pdb/meta/v1/version'
 
     # We pass 'restart_puppet' => false to prevent the module from trying to
     # manage the puppet master service, which isn't actually installed on the
