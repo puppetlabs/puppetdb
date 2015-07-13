@@ -10,6 +10,31 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrading]: ./api/query/v4/preparing-for-3.0.html
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 
+3.0.1
+-----
+
+PuppetDB 3.0.1 is a bugfix release to fix packaging problems in PuppetDB 3.0.0
+for RPM-based systems.
+
+### Bug Fixes and Maintenance
+
+* As part of the PuppetDB 3.0.0 release, the puppetdb-terminus package was
+  renamed to puppetdb-termini for consistency with other Puppet Labs products. A
+  flawed dependency in the puppetdb-termini package prevented installation of
+  the older 2.3.x puppetdb-terminus package on RPM-based platforms. This release
+  fixes that dependency, allowing the older version to be installed.
+  ([PDB-1760](https://tickets.puppetlabs.com/browse/PDB-1760))
+
+  To fully correct the problem, the existing 3.0.0 puppetdb and puppetdb-termini
+  packages will be removed from the Puppet Collection 1 yum repository. The new
+  3.0.1 packages will take their place.
+
+* The 2.x->3.x migration script now only runs on upgrades from 2.x versions of
+  PuppetDB. ([PDB-1763](https://tickets.puppetlabs.com/browse/PDB-1763))
+
+### Contributors
+Andrew Roetker, Michael Stahnke, Nick Fagerlund, Wyatt Alt
+
 3.0.0
 -----
 
