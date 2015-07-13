@@ -234,6 +234,7 @@ module CharEncoding
         @string   = string
         @type     = type
         @filename = "#{base_filename}-#{@type}"
+        @errors   = []
       end
 
       def encoding
@@ -267,12 +268,19 @@ module CharEncoding
       # Splitting the string does the following two things:
       #   - split hashes and array that are values from their keys
       #   - split lists of hashes into new lines
-      def split
+      def split(second_try = false)
         begin
           @string.gsub(/(['"]:)({|\[)/, "\\1\n\\2").gsub(/(}|\]),({|\[)/, "\\1,\n\\2")
         rescue ArgumentError => e
-          @string.encode!(@string.encoding, :invalid => :replace, :undef => :replace, :replace => "?")
-          split
+          if second_try
+            @errors << "The #{@type} string cannot be split into diffable chunks."
+            @string
+          else
+            @string.encode!(@string.encoding, :invalid => :replace, :undef => :replace, :replace => "?")
+            @errors << "Invalid bytes encountered. These have been replaced with '?'."
+            @errors << "This should be enough to produce a helpful diff."
+            split(:second_try)
+          end
         end
       end
     end
@@ -300,6 +308,13 @@ module CharEncoding
         file.puts "diff of #{orig_fn} and #{conv_fn}"
         file.puts ""
         file.puts `diff -u5 #{orig_fn} #{conv_fn}`
+
+        [@original, @converted].each do |str|
+          if str.errors.size > 0
+            file.puts ""
+            file.puts str.errors
+          end
+        end
 
         file.puts diff_footer
 
