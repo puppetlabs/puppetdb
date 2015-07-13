@@ -141,6 +141,10 @@ recover from data loss cases.
 Operations
 -----
 
+
+Should :transferred and :failed be documented?
+
+
 PuppetDB provides several facilities to help you keep your HA cluster running.
 
 ## Structured Logging
