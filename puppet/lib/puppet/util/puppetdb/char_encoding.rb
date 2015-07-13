@@ -227,7 +227,6 @@ module CharEncoding
   # In most circumstances the diff should give enough context to understand the
   # issue better.
   class EncodingAnalyser
-
     class String
       attr_reader :filename
 
@@ -255,13 +254,26 @@ module CharEncoding
         filename
       end
 
+      def errors
+        if @errors.any?
+          ["Errors in #{@type} string", @errors].join("\n")
+        else
+          ''
+        end
+      end
+
       private
 
       # Splitting the string does the following two things:
       #   - split hashes and array that are values from their keys
       #   - split lists of hashes into new lines
       def split
-        @string.gsub(/(['"]:)({|\[)/, "\\1\n\\2").gsub(/(}|\]),({|\[)/, "\\1,\n\\2")
+        begin
+          @string.gsub(/(['"]:)({|\[)/, "\\1\n\\2").gsub(/(}|\]),({|\[)/, "\\1,\n\\2")
+        rescue ArgumentError => e
+          @string.encode!(@string.encoding, :invalid => :replace, :undef => :replace, :replace => "?")
+          split
+        end
       end
     end
 
