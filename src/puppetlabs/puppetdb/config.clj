@@ -339,6 +339,7 @@
         {:puppetlabs.puppetdb.cli.services/puppetdb-service "/pdb/query"
          :puppetlabs.puppetdb.http.command/puppetdb-command-service "/pdb/cmd"
          :puppetlabs.puppetdb.meta/metadata-service "/pdb/meta"
+         :puppetlabs.puppetdb.admin/admin-service "/pdb/admin"
          :puppetlabs.puppetdb.dashboard/dashboard-service "/pdb"
          :puppetlabs.puppetdb.metrics/metrics-service "/metrics"}
         bootstrap-cfg (-> (find-bootstrap-config config-data)

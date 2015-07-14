@@ -2,6 +2,7 @@
   (:import [java.security KeyStore])
   (:require [me.raynes.fs :as fs]
             [clj-http.client :as client]
+            [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :refer :all]
             [puppetlabs.puppetdb.http.command :refer :all]
@@ -13,7 +14,7 @@
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :refer [block-until-results]]
             [clj-time.coerce :refer [to-string]]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.cli.export :as export :refer [facts-for-node]]))
+            [puppetlabs.puppetdb.cli.export :as export]))
 
 (deftest update-checking
   (testing "should check for updates if running as puppetdb"
@@ -56,7 +57,8 @@
 
 (deftest query-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
-    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)]
+    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)
+          query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
       (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
                                                         :environment "DEV"
                                                         :values {:foo "the foo"
@@ -64,7 +66,8 @@
                                                                  :baz "the baz"}
                                                         :producer_timestamp (to-string (now))})
 
-      @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
+      @(block-until-results 100 (export/facts-for-node query-fn "foo.local"))
+
       (check-service-query
        :facts :v4 ["=" "certname" "foo.local"]
        nil
@@ -85,12 +88,14 @@
 
 (deftest pagination-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
-    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)]
+    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)
+          query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
       (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
                                                     :environment "DEV"
                                                     :values {:a "a" :b "b" :c "c"}
                                                     :producer_timestamp (to-string (now))})
-      @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
+
+      @(block-until-results 100 (export/facts-for-node query-fn "foo.local"))
       (let [exp ["a" "b" "c"]
             rexp (reverse exp)]
         (doseq [order [:ascending :descending]
@@ -127,31 +132,3 @@
         (testing (format "%s requests are refused" (name v)))
         (is (retirement-response? v (ping v)))))))
 
-(deftest in-process-command-submission
-  (svc-utils/with-puppetdb-instance
-    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)]
-      (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
-                                                    :environment "DEV"
-                                                    :values {:foo "the foo"
-                                                             :bar "the bar"
-                                                             :baz "the baz"}
-                                                    :producer_timestamp (to-string (now))})
-      @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
-
-      (check-service-query
-       :facts :v4 ["=" "certname" "foo.local"]
-       nil
-       (fn [result]
-         (is (= #{{:value "the baz",
-                   :name "baz",
-                   :environment "DEV",
-                   :certname "foo.local"}
-                  {:value "the bar",
-                   :name "bar",
-                   :environment "DEV",
-                   :certname "foo.local"}
-                  {:value "the foo",
-                   :name "foo",
-                   :environment "DEV",
-                   :certname "foo.local"}}
-                (set result))))))))

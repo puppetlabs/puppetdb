@@ -7,7 +7,8 @@
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
             [puppetlabs.puppetdb.client :as pdb-client]
             [puppetlabs.puppetdb.cli.services :as svcs]
-            [puppetlabs.puppetdb.metrics :as metrics :refer [metrics-service]]
+            [puppetlabs.puppetdb.metrics :as metrics]
+            [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service]]
             [puppetlabs.puppetdb.http.command :refer [puppetdb-command-service]]
@@ -169,7 +170,8 @@
                   svcs/puppetdb-service
                   message-listener-service
                   command-service
-                  metrics-service
+                  metrics/metrics-service
+                  admin/admin-service
                   puppetdb-command-service
                   metadata-service]
                  services)

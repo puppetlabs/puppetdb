@@ -108,6 +108,28 @@
          (rr/charset "utf-8")
          (rr/status code))))
 
+(defn upload-file!
+  "Copies an octet-stream filetype upload to the local dir."
+  [dir {:keys [tempfile filename]}]
+  (let [local (io/file dir filename)]
+    (io/copy tempfile local)
+    local))
+
+(defn tar-response
+  [body filename]
+  (-> body
+      rr/response
+      (rr/header "Content-Type" "application/octet-stream")
+      (rr/header "Content-Disposition" (str "attachment; filename=" filename))
+      (rr/charset "utf-8")
+      (rr/status status-ok)))
+
+(defn streamed-tar-response
+  [producer filename]
+  (tar-response
+   (rio/piped-input-stream producer)
+   filename))
+
 (defn json-response
   "Returns a Ring response object with the supplied `body` and response `code`,
   and a JSON content type. If unspecified, `code` will default to 200."

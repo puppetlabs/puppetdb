@@ -30,7 +30,7 @@
      (let [message (json/generate-string command-map)
            checksum (kitchensink/utf8-string->sha1 message)
            url (str (utils/base-url->str base-url)
-                    (format "/commands?checksum=%s" checksum))]
+                    (format "?checksum=%s" checksum))]
        (http-client/post url {:body               message
                               :throw-exceptions   false
                               :content-type       :json
