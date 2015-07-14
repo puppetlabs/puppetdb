@@ -122,6 +122,7 @@ describe Puppet::Util::Puppetdb::CharEncoding do
       # UndefinedConversionError
       it "should replace undefined characters and warn when converting from binary" do
         Puppet.expects(:warning).with {|msg| msg =~ /Ignoring invalid UTF-8 byte sequences/}
+        Puppet.expects(:warning).with {|msg| msg =~ %r!See /tmp/puppetdb-invalid-utf8-sequences for details of last occurence!}
 
         str = "an invalid binary string \xff".force_encoding('binary')
         # \ufffd == unicode replacement character
@@ -131,6 +132,7 @@ describe Puppet::Util::Puppetdb::CharEncoding do
       # InvalidByteSequenceError
       it "should replace undefined characters and warn if the string is invalid UTF-8" do
         Puppet.expects(:warning).with {|msg| msg =~ /Ignoring invalid UTF-8 byte sequences/}
+        Puppet.expects(:warning).with {|msg| msg =~ %r!See /tmp/puppetdb-invalid-utf8-sequences for details of last occurence!}
 
         str = "an invalid utf-8 string \xff".force_encoding('utf-8')
         subject.utf8_string(str).should == "an invalid utf-8 string \ufffd"

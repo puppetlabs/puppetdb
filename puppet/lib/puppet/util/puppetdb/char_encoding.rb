@@ -71,6 +71,20 @@ module CharEncoding
   def self.warn_if_changed(str, converted_str)
     if converted_str != str
       Puppet.warning "Ignoring invalid UTF-8 byte sequences in data to be sent to PuppetDB"
+
+      begin
+        fn = '/tmp/puppetdb-invalid-utf8-sequences'
+
+        analyser = EncodingAnalyser.new(fn)
+        analyser.original = str
+        analyser.converted = converted_str
+        analyser.write_summary
+
+        Puppet.warning "See #{fn} for details of last occurence"
+      rescue => e
+        Puppet.warning "EncodingAnalyser failed because of #{e.class.name}"
+        Puppet.warning e
+      end
     end
     converted_str
   end
@@ -205,6 +219,137 @@ module CharEncoding
       str[index]
     end
   end
+
+  # This EncodingAnalyser is supposed to be used by this module only it tries
+  # to break the string into smaller pieces in order to make line-wise diffing
+  # possible.
+  #
+  # In most circumstances the diff should give enough context to understand the
+  # issue better.
+  class EncodingAnalyser
+    class String
+      attr_reader :filename
+
+      def initialize(string, base_filename, type)
+        @string   = string
+        @type     = type
+        @filename = "#{base_filename}-#{@type}"
+        @errors   = []
+      end
+
+      def encoding
+        @string.encoding
+      end
+
+      def size
+        @string.size
+      end
+
+      def write
+        File.open(@filename, 'w') do |file|
+          file.flock(File::LOCK_EX)
+          file.puts split
+          file.chmod(0666)
+          file.flock(File::LOCK_UN)
+        end
+        filename
+      end
+
+      def errors
+        if @errors.any?
+          ["Errors in #{@type} string", @errors].join("\n")
+        else
+          ''
+        end
+      end
+
+      private
+
+      # Splitting the string does the following two things:
+      #   - split hashes and array that are values from their keys
+      #   - split lists of hashes into new lines
+      def split(second_try = false)
+        begin
+          @string.gsub(/(['"]:)({|\[)/, "\\1\n\\2").gsub(/(}|\]),({|\[)/, "\\1,\n\\2")
+        rescue ArgumentError => e
+          if second_try
+            @errors << "The #{@type} string cannot be split into diffable chunks."
+            @string
+          else
+            @string.encode!(@string.encoding, :invalid => :replace, :undef => :replace, :replace => "?")
+            @errors << "Invalid bytes encountered. These have been replaced with '?'."
+            @errors << "This should be enough to produce a helpful diff."
+            split(:second_try)
+          end
+        end
+      end
+    end
+
+    def initialize(filename)
+      @filename = filename
+    end
+
+    def original= string
+      @original = String.new(string, @filename, 'original')
+    end
+
+    def converted= string
+      @converted = String.new(string, @filename, 'converted')
+    end
+
+    def write_summary
+      File.open(@filename, 'w') do |file|
+        file.flock(File::LOCK_EX)
+        file.puts diff_header
+
+        orig_fn = @original.write
+        conv_fn = @converted.write
+
+        file.puts "diff of #{orig_fn} and #{conv_fn}"
+        file.puts ""
+        file.puts `diff -u5 #{orig_fn} #{conv_fn}`
+
+        [@original, @converted].each do |str|
+          if str.errors.size > 0
+            file.puts ""
+            file.puts str.errors
+          end
+        end
+
+        file.puts diff_footer
+
+        file.chmod(0666)
+        file.flock(File::LOCK_UN)
+      end
+    end
+
+    private
+
+    def diff_header
+      <<-EOSTRING
+Ignoring invalid UTF-8 byte sequences in data to be sent to PuppetDB
+These are the details of the last occurence
+
+str: #{@original.encoding} #{@original.size}
+converted_str: #{@converted.encoding} #{@converted.size}
+
+      EOSTRING
+    end
+
+    def diff_footer
+      <<-EOSTRING
+
+The other full catalog-json is stored with some line-breaks in
+
+  #{@original.filename}
+  #{@converted.filename}
+
+Your faithful employee,
+puppetdb-terminus
+      EOSTRING
+    end
+  end
+
 
 end
 end
