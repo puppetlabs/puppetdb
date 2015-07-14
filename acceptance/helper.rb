@@ -269,44 +269,20 @@ module PuppetDBExtensions
 
   end
 
-  def el5?(host)
-    test_config[:os_families][host.name] == :redhat && fact_on(host, "lsbmajdistrelease") == '5'
-  end
-
-  def add_el5_postgres(host, manifest_string)
-    if el5?(host)
-      "class { 'postgresql::globals':
-         client_package_name => 'postgresql84',
-         server_package_name => 'postgresql84-server',
-         devel_package_name  => 'postgresql84-devel',
-         version => '8.4',
-         bindir => '/usr/bin',
-         service_name => 'postgresql',
-         datadir => '/var/lib/pgsql/data',
-         java_package_name => 'postgresql-jdbc',
-         plperl_package_name => 'postgresql84-plperl',
-         contrib_package_name => 'postgresql84-contrib'}
-       #{manifest_string}"
-    else
-      manifest_string
-    end
-  end
-
   def install_puppetdb(host, db, version=nil)
-    manifest = add_el5_postgres(host, "
+    manifest = "
     class { 'puppetdb::globals':
       version => '#{get_package_version(host, version)}'
     }
     class { 'puppetdb':
       database             => '#{db}',
       manage_firewall      => false,
-    }")
+    }"
 
     apply_manifest_on(host, manifest)
     print_ini_files(host)
     sleep_until_started(host)
   end
-
 
   def validate_package_version(host)
     step "Verifying package version" do
@@ -417,7 +393,7 @@ module PuppetDBExtensions
       }
       EOS
     else
-      manifest = add_el5_postgres(host, "class { 'puppetdb::database::postgresql': }")
+      manifest = "class { 'puppetdb::database::postgresql': }"
     end
     apply_manifest_on(host, manifest)
   end
@@ -425,7 +401,7 @@ module PuppetDBExtensions
   # Restart postgresql using Puppet, by notifying the postgresql::server::service
   # class, which should cause the service to restart.
   def restart_postgres(host)
-    manifest = add_el5_postgres(host, "class { 'puppetdb::database::postgresql': }\n")
+    manifest = "class { 'puppetdb::database::postgresql': }\n"
     manifest += <<-EOS
       notify { 'restarting postgresql': }~>
       Class['postgresql::server::service']
@@ -454,14 +430,14 @@ module PuppetDBExtensions
     on host, "bash -x #{GitReposDir}/puppetdb/ext/files/#{postinst}"
 
     step "Configure database.ini file" do
-      manifest = add_el5_postgres(host, "
+      manifest = "
         class { 'puppetdb::globals':
           version => '#{get_package_version(host, version)}'
         }
         $database = '#{PuppetDBExtensions.config[:database]}'
         class { 'puppetdb::server::database_ini':
           database => $database,
-        }")
+        }"
 
       apply_manifest_on(host, manifest)
     end
