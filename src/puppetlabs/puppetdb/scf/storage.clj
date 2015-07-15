@@ -901,8 +901,7 @@
                              (column-transform column)
                              (name table)
                              column
-                             (jdbc/in-clause-array values column-type))
-                     )]
+                             (jdbc/in-clause-array values column-type)))]
           [value id])))
 
 (defn realize-records!
