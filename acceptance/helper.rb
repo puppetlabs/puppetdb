@@ -256,9 +256,9 @@ module PuppetDBExtensions
 
   def expected_version_for_platform(platform)
     if platform_is_rpm_based(platform)
-      PuppetDBExtensions.config[:expected_rpm_version]
+      PuppetDBExtensions.config[:expected_rpm_version].to_s
     elsif platform_is_deb_based(platform)
-      PuppetDBExtensions.config[:expected_deb_version]
+      PuppetDBExtensions.config[:expected_deb_version].to_s
     else
       raise ArgumentError, "Unsupported platform: '#{platform}'"
     end
