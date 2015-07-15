@@ -277,14 +277,14 @@ module PuppetDBExtensions
     ## we're relying entirely on naming conventions here.  Would be nicer
     ## to do this using lsb_release or something, but...
     if platform.include?('el-5')
-      ensure_suffix(version, ".el5")
+      ensure_suffix(version, "-1.el5")
     elsif platform.include?('el-6')
-      ensure_suffix(version, ".el6")
+      ensure_suffix(version, "-1.el6")
     elsif platform.include?('el-7')
-      ensure_suffix(version, ".el7")
+      ensure_suffix(version, "-1.el7")
     elsif platform.include?('fedora')
       version_tag = platform.match(/^fedora-(\d+)/)[1]
-      ensure_suffix(version, ".fc#{version_tag}")
+      ensure_suffix(version, "-1.fc#{version_tag}")
     elsif platform.include?('ubuntu') or platform.include?('debian')
       ensure_suffix(version, "-1puppetlabs1")
     else
