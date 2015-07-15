@@ -891,16 +891,19 @@
 
 (defn existing-row-ids
   "Returns a map from value to id for each value that's already in the
-  named database column.
+   named database column.
    `column-transform` is used to modify the sql for the values"
-  [table column values column-transform]
+  [table column values column-transform column-type]
   (into {}
-   (for [{:keys [value id]}
-         (apply query-to-vec
-                (format "SELECT %s AS value, id FROM %s WHERE %s %s"
-                        (column-transform column) (name table) column (jdbc/in-clause values))
-                values)]
-     [value id])))
+        (for [{:keys [value id]}
+              (query-to-vec
+                     (format "SELECT %s AS value, id FROM %s WHERE %s %s"
+                             (column-transform column)
+                             (name table)
+                             column
+                             (jdbc/in-clause-array values column-type))
+                     )]
+          [value id])))
 
 (defn realize-records!
   "Inserts the records (maps) into the named database and returns them
@@ -915,7 +918,7 @@
   paths to ids."
   [pathstrs]
   (if-let [pathstrs (seq pathstrs)]
-    (let [existing-path-ids (existing-row-ids :fact_paths "path" pathstrs identity)
+    (let [existing-path-ids (existing-row-ids :fact_paths "path" pathstrs identity "text")
           missing-db-paths (set/difference (set pathstrs)
                                            (set (keys existing-path-ids)))]
       (merge existing-path-ids
@@ -933,7 +936,7 @@
   [valuemaps]
   (if-let [valuemaps (seq valuemaps)]
     (let [vhashes (map :value_hash valuemaps)
-          existing-vhash-ids (existing-row-ids :fact_values "value_hash" (map sutils/munge-hash-for-storage vhashes) sutils/sql-hash-as-str)
+          existing-vhash-ids (existing-row-ids :fact_values "value_hash" (map sutils/munge-hash-for-storage vhashes) sutils/sql-hash-as-str "bytea")
           missing-vhashes (set/difference (set vhashes)
                                           (set (keys existing-vhash-ids)))]
       (merge existing-vhash-ids

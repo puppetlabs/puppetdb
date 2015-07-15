@@ -11,6 +11,7 @@
             [puppetlabs.puppetdb.time :as pl-time]
             [puppetlabs.puppetdb.jdbc.internal :refer :all]
             [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.random :refer [random-string]]
             [schema.core :as s]
             [clojure.math.numeric-tower :as math]))
 
@@ -331,6 +332,20 @@
   (str "in ("
        (str/join "," (repeat (count coll) "?"))
        ")"))
+
+(defn create-temp-table
+  [coll column-type]
+  {:pre [(seq coll)]}
+  (let [table-name (random-string 40)]
+    (sql/do-commands
+      (format "CREATE TEMP TABLE %s (value %s) ON COMMIT DROP" table-name column-type))
+    (apply sql/insert-records (keyword table-name) (map (fn [x] {:value x}) coll))
+    table-name))
+
+(defn in-clause-array
+  [coll column-type]
+  (let [table-name (create-temp-table coll column-type)]
+    (format "in (SELECT value FROM %s)" table-name)))
 
 (defn in-clause-multi
   "Create a prepared statement in clause, with a `width`-sized series of ? for
