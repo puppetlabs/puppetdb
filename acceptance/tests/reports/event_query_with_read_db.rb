@@ -7,19 +7,19 @@ test_name "validation of basic PuppetDB resource event queries" do
   skip_test "Skipping read-db test for HyperSQL.  This feature is only available for Postgres" if test_config[:database] == :embedded
 
   step "Create second database as a read-only database" do
-    second_db_manifest = add_el5_postgres(database, "
-class { 'postgresql::globals':
-  version => '9.4',
-  manage_package_repo => true
-}
-include postgresql::server
-postgresql::server::db{ 'puppetdb2':
-  user     => 'puppetdb2',
-  password => 'puppetdb2',
-  grant    => 'all',
-  require  => Class['::postgresql::server'],
-}")
-  
+    second_db_manifest = "
+    class { 'postgresql::globals':
+      version => '9.4',
+      manage_package_repo => true
+    }
+    include postgresql::server
+    postgresql::server::db{ 'puppetdb2':
+      user     => 'puppetdb2',
+      password => 'puppetdb2',
+      grant    => 'all',
+      require  => Class['::postgresql::server'],
+    }"
+
     apply_manifest_on(database, second_db_manifest)
     sleep_until_started(database)
   end
@@ -29,7 +29,7 @@ postgresql::server::db{ 'puppetdb2':
     duplicate_db_command = <<DUPE
     su postgres -c "pg_dump puppetdb | sed -e 's/OWNER TO.*;/OWNER TO puppetdb2;/i' | psql puppetdb2"
 DUPE
-  
+
     on database, duplicate_db_command
   end
 
@@ -115,7 +115,7 @@ EOM
       # Now query for all of the event for this agent
       result = on database, %Q|curl -G 'http://localhost:8080/v3/events' --data 'query=#{query}'|
 
-      events = JSON.parse(result.stdout)    
+      events = JSON.parse(result.stdout)
 
       assert_equal(0, events.length, "Expected no 'Notify' events, as all of the writes should be going to the write database; found #{events.length}.")
 
@@ -127,5 +127,5 @@ EOM
   restart_puppetdb database
 
   sleep 5
-  
+
 end
