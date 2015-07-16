@@ -894,15 +894,22 @@
    named database column.
    `column-transform` is used to modify the sql for the values"
   [table column values column-transform column-type]
-  (into {}
-        (for [{:keys [value id]}
-              (query-to-vec
-                     (format "SELECT %s AS value, id FROM %s WHERE %s %s"
-                             (column-transform column)
-                             (name table)
-                             column
-                             (jdbc/in-clause-array values column-type)))]
-          [value id])))
+  (let [tmp-table (jdbc/create-temp-table values column-type)
+        source-table (name table)]
+    (into {}
+          (for [{:keys [value id]}
+                (query-to-vec
+                  (format "SELECT %s AS value, %s.id FROM %s
+                           INNER JOIN %s
+                           ON %s.%s=%s.value"
+                          (column-transform column)
+                          source-table
+                          source-table
+                          tmp-table
+                          source-table
+                          column
+                          tmp-table))]
+          [value id]))))
 
 (defn realize-records!
   "Inserts the records (maps) into the named database and returns them
