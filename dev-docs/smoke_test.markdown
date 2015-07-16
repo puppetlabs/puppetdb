@@ -110,7 +110,9 @@ PuppetDB manual smoke testing guide
         ```sh
         echo "export VERSION=<version>" >> /etc/profile
         source /etc/profile
-        yum localinstall http://builds.puppetlabs.lan/puppetdb/${VERSION}/repo_configs/rpm/pl-puppetdb-${VERSION}-el-7-x86_64.repo
+        pushd /etc/yum.repos.d
+        curl -O http://builds.puppetlabs.lan/puppetdb/${VERSION}/repo_configs/rpm/pl-puppetdb-${VERSION}-el-7-x86_64.repo
+        popd
         ```
 7. On the host box, snapshot your VM
     
