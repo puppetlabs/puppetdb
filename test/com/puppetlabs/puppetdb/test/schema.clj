@@ -41,9 +41,9 @@
 
 (deftest schema-key->data-key-test
   (are [x y] (= x (schema-key->data-key y))
-       :foo (s/optional-key :foo)
-       :foo :foo
-       :foo (s/required-key :foo)))
+    :foo (s/optional-key :foo)
+    :foo :foo
+    :foo (s/required-key :foo)))
 
 (deftest strip-unknown-keys-test
   (let [schema {(s/required-key :foo) Number
@@ -136,7 +136,7 @@
 
 (deftest schema-type-construction
   (are [expected target-schema source-schema value]
-    (= expected ((sc/coercer target-schema conversion-fns) value))
+       (= expected ((sc/coercer target-schema conversion-fns) value))
 
     (time/minutes 10) Minutes String "10"
     (time/minutes 10) Minutes Number 10

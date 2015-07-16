@@ -41,8 +41,8 @@
             :params  ["foo.local"]})))
   (testing "should fail with an invalid equality query"
     (is (thrown-with-msg?
-          IllegalArgumentException #"is not a valid query term"
-          ((query/compile-reports-equality :v4) "foo" "foo")))))
+         IllegalArgumentException #"is not a valid query term"
+         ((query/compile-reports-equality :v4) "foo" "foo")))))
 
 (deftest reports-retrieval
   (let [basic         (:basic reports)

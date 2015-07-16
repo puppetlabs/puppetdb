@@ -138,16 +138,16 @@
   present).  If a subtree of metrics already exists, this function is
   a no-op."
   ([command]
-     (create-metrics-for-command! command nil))
+   (create-metrics-for-command! command nil))
   ([command version]
-     (let [prefix     (if (nil? version) [command] [command version])
-           prefix-str (clojure.string/join "." prefix)]
-       (when-not (get-in @metrics prefix)
-         (swap! metrics assoc-in (conj prefix :processing-time) (timer [ns-str prefix-str "processing-time"]))
-         (swap! metrics assoc-in (conj prefix :retry-counts) (histogram [ns-str prefix-str "retry-counts"]))
-         (doseq [metric [:seen :processed :fatal :retried :discarded]
-                 :let [metric-str (name metric)]]
-           (swap! metrics assoc-in (conj prefix metric) (meter [ns-str prefix-str metric-str] "msgs/s")))))))
+   (let [prefix     (if (nil? version) [command] [command version])
+         prefix-str (clojure.string/join "." prefix)]
+     (when-not (get-in @metrics prefix)
+       (swap! metrics assoc-in (conj prefix :processing-time) (timer [ns-str prefix-str "processing-time"]))
+       (swap! metrics assoc-in (conj prefix :retry-counts) (histogram [ns-str prefix-str "retry-counts"]))
+       (doseq [metric [:seen :processed :fatal :retried :discarded]
+               :let [metric-str (name metric)]]
+         (swap! metrics assoc-in (conj prefix metric) (meter [ns-str prefix-str metric-str] "msgs/s")))))))
 
 ;; Create metrics for aggregate operations
 (create-metrics-for-command! "global")
@@ -214,23 +214,23 @@
   submission. Alternately accepts a command-map object (such as those
   returned by `parse-command`). Returns the server response."
   ([host port command version payload]
-     {:pre [(string? command)
-            (integer? version)]}
-     (->> payload
-          (assemble-command command version)
-          (submit-command-via-http! host port)))
+   {:pre [(string? command)
+          (integer? version)]}
+   (->> payload
+        (assemble-command command version)
+        (submit-command-via-http! host port)))
   ([host port command-map]
-     {:pre [(string? host)
-            (integer? port)
-            (map? command-map)]}
-     (let [message (json/generate-string command-map)
-           checksum (kitchensink/utf8-string->sha1 message)
-           url     (format "http://%s:%s/v4/commands?checksum=%s" host port checksum)]
-       (client/post url {:body               message
-                         :throw-exceptions   false
-                         :content-type       :json
-                         :character-encoding "UTF-8"
-                         :accept             :json}))))
+   {:pre [(string? host)
+          (integer? port)
+          (map? command-map)]}
+   (let [message (json/generate-string command-map)
+         checksum (kitchensink/utf8-string->sha1 message)
+         url     (format "http://%s:%s/v4/commands?checksum=%s" host port checksum)]
+     (client/post url {:body               message
+                       :throw-exceptions   false
+                       :content-type       :json
+                       :character-encoding "UTF-8"
+                       :accept             :json}))))
 
 (defn enqueue-raw-command!
   "Takes the given command and submits it to the `mq-endpoint`
@@ -286,9 +286,9 @@
 (defmacro upon-error-throw-fatality
   [& body]
   `(try+
-     ~@body
-     (catch Throwable e#
-       (throw+ (fatality e#)))))
+    ~@body
+    (catch Throwable e#
+      (throw+ (fatality e#)))))
 
 ;; ## Command processors
 
@@ -323,8 +323,8 @@
   (warn-deprecated version "replace catalog")
   (when-not (string? payload)
     (throw (IllegalArgumentException.
-             (format "Payload for a '%s' v1 command must be a JSON string."
-               (command-names :replace-catalog)))))
+            (format "Payload for a '%s' v1 command must be a JSON string."
+                    (command-names :replace-catalog)))))
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 2]
@@ -362,7 +362,7 @@
   (warn-deprecated version "replace facts")
   (-> command
       (assoc :version 3)
-      (update-in [:payload] #(upon-error-throw-fatality (walk/keywordize-keys (if ( string? %) (json/parse-string %) %))))
+      (update-in [:payload] #(upon-error-throw-fatality (walk/keywordize-keys (if (string? %) (json/parse-string %) %))))
       (assoc-in [:payload :producer-timestamp] nil)
       (process-command! config)))
 
@@ -412,8 +412,8 @@
       (scf-storage/maybe-activate-node! certname timestamp)
       (scf-storage/add-report! report timestamp))
     (log/info (format "[%s] [%s] puppet v%s - %s"
-                id (command-names :store-report)
-                (:puppet-version report) (:certname report)))))
+                      id (command-names :store-report)
+                      (:puppet-version report) (:certname report)))))
 
 (defmethod process-command! [(command-names :store-report) 1]
   [{:keys [version] :as command} {:keys [db]}]

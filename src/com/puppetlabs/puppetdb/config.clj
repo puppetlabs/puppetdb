@@ -171,7 +171,7 @@
             db-config
             (-> db-config
                 (assoc :node-ttl (or (maybe-days (:node-ttl-days db-config))
-                                     (pl-time/parse-period "0s")))  ))
+                                     (pl-time/parse-period "0s")))))
           :node-ttl-days))
 
 (defn convert-write-db-config
@@ -235,28 +235,28 @@
   [config]
   (let [vardir (io/file (get-in config [:global :vardir]))]
     (cond
-     (nil? vardir)
-     (throw (IllegalArgumentException.
-             "Required setting 'vardir' is not specified. Please set it to a writable directory."))
+      (nil? vardir)
+      (throw (IllegalArgumentException.
+              "Required setting 'vardir' is not specified. Please set it to a writable directory."))
 
-     (not (.isAbsolute vardir))
-     (throw (IllegalArgumentException.
-             (format "Vardir %s must be an absolute path." vardir)))
+      (not (.isAbsolute vardir))
+      (throw (IllegalArgumentException.
+              (format "Vardir %s must be an absolute path." vardir)))
 
-     (not (.exists vardir))
-     (throw (java.io.FileNotFoundException.
-             (format "Vardir %s does not exist. Please create it and ensure it is writable." vardir)))
+      (not (.exists vardir))
+      (throw (java.io.FileNotFoundException.
+              (format "Vardir %s does not exist. Please create it and ensure it is writable." vardir)))
 
-     (not (.isDirectory vardir))
-     (throw (java.io.FileNotFoundException.
-             (format "Vardir %s is not a directory." vardir)))
+      (not (.isDirectory vardir))
+      (throw (java.io.FileNotFoundException.
+              (format "Vardir %s is not a directory." vardir)))
 
-     (not (.canWrite vardir))
-     (throw (java.io.FileNotFoundException.
-             (format "Vardir %s is not writable." vardir)))
+      (not (.canWrite vardir))
+      (throw (java.io.FileNotFoundException.
+              (format "Vardir %s is not writable." vardir)))
 
-     :else
-     config)))
+      :else
+      config)))
 
 (defn catalog-debug-path
   "Given a `config` create the path to the directory directory to store
@@ -306,7 +306,7 @@
   (let [lower-product-name (str/lower-case product-name)]
     (when-not (#{"puppetdb" "pe-puppetdb"} lower-product-name)
       (throw (IllegalArgumentException.
-               (format "product-name %s is illegal; either puppetdb or pe-puppetdb are allowed" product-name))))
+              (format "product-name %s is illegal; either puppetdb or pe-puppetdb are allowed" product-name))))
     lower-product-name))
 
 (defn normalize-url-prefix

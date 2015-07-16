@@ -124,13 +124,13 @@
   "Given a piece of standard hierarchical data, returns the type as an id."
   [data :- s/Any]
   (cond
-   (keyword? data) 0
-   (string? data) 0
-   (integer? data) 1
-   (float? data) 2
-   (kitchensink/boolean? data) 3
-   (nil? data) 4
-   (coll? data) 5))
+    (keyword? data) 0
+    (string? data) 0
+    (integer? data) 1
+    (float? data) 2
+    (kitchensink/boolean? data) 3
+    (nil? data) 4
+    (coll? data) 5))
 
 (defn value->valuemap
   [value]
@@ -161,30 +161,30 @@
   ([leaf-fn facts] (flatten-facts-with leaf-fn facts [] []))
   ;; We intentionally do not validate with schema here, for performance.
   ([leaf-fn data mem path]
-     (let [depth (dec (count path))]
-       (if (coll? data)
+   (let [depth (dec (count path))]
+     (if (coll? data)
          ;; Branch
-         (if (empty? data)
-           mem
-           (let [idv (if (map? data)
-                       (into [] data)
-                       (map vector (iterate inc 0) data))]
-             (loop [[k v] (first idv)
-                    remaining (next idv)
+       (if (empty? data)
+         mem
+         (let [idv (if (map? data)
+                     (into [] data)
+                     (map vector (iterate inc 0) data))]
+           (loop [[k v] (first idv)
+                  remaining (next idv)
                     ;; We add this branch to the mem if we are depth 0
                     ;; thus allowing us to store the top level for each
                     ;; fact.
-                    fp (if (= depth 0)
-                         (conj mem (leaf-fn path data))
-                         mem)]
-               (let [new-fp (flatten-facts-with leaf-fn v fp (conj path k))]
-                 (if (empty? remaining)
-                   new-fp
-                   (recur (first remaining)
-                          (next remaining)
-                          new-fp))))))
+                  fp (if (= depth 0)
+                       (conj mem (leaf-fn path data))
+                       mem)]
+             (let [new-fp (flatten-facts-with leaf-fn v fp (conj path k))]
+               (if (empty? remaining)
+                 new-fp
+                 (recur (first remaining)
+                        (next remaining)
+                        new-fp))))))
          ;; Leaf
-         (conj mem (leaf-fn path data))))))
+       (conj mem (leaf-fn path data))))))
 
 (defn-validated path->pathmap :- pathmap-schema
   [path :- fact-path]

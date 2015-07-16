@@ -40,20 +40,20 @@
 (defn query-app
   [version]
   (app
-    [&]
-    {:get (comp (fn [{:keys [params globals paging-options] :as request}]
-                  (produce-body
-                   version
-                   (params "query")
-                   paging-options
-                   (:scf-read-db globals)))
-            http-q/restrict-query-to-active-nodes)}))
+   [&]
+   {:get (comp (fn [{:keys [params globals paging-options] :as request}]
+                 (produce-body
+                  version
+                  (params "query")
+                  paging-options
+                  (:scf-read-db globals)))
+               http-q/restrict-query-to-active-nodes)}))
 
 (defn build-factset-app
   [query-app]
   (app
-    []
-    (verify-accepts-json query-app)))
+   []
+   (verify-accepts-json query-app)))
 
 (defn factset-app
   [version]

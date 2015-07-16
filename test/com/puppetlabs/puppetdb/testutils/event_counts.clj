@@ -15,17 +15,17 @@
   "Utility function to query either the `event-counts` or `aggregate-event-counts`
   endpoint and return the results for use in test comparisons."
   ([endpoint query summarize-by]
-    (get-response endpoint query summarize-by {}))
+   (get-response endpoint query summarize-by {}))
   ([endpoint query summarize-by extra-query-params]
-    (get-response endpoint query summarize-by extra-query-params false))
+   (get-response endpoint query summarize-by extra-query-params false))
   ([endpoint query summarize-by extra-query-params ignore-failure?]
-    (let [response (*app* (get-request endpoint
-                                       query
-                                       (-> extra-query-params
-                                           (assoc "summarize-by" summarize-by)
-                                           (json-encode-counts-filter))))]
-      (when-not ignore-failure?
-        (assert-success! response))
-      (if (string? (:body response))
-        response
-        (update-in response [:body] slurp)))))
+   (let [response (*app* (get-request endpoint
+                                      query
+                                      (-> extra-query-params
+                                          (assoc "summarize-by" summarize-by)
+                                          (json-encode-counts-filter))))]
+     (when-not ignore-failure?
+       (assert-success! response))
+     (if (string? (:body response))
+       response
+       (update-in response [:body] slurp)))))

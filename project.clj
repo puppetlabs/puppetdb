@@ -26,7 +26,7 @@
   ;; dependencies. Also supports :warn to simply emit warnings.
   ;; requires lein 2.2.0+.
   :pedantic? :abort
-
+  :plugins [[lein-cljfmt "0.2.0"]]
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [cheshire "5.3.1"]
                  [org.clojure/core.match "0.2.0-rc5"]

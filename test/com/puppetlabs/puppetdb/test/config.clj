@@ -1,15 +1,15 @@
 (ns com.puppetlabs.puppetdb.test.config
   (:import [java.security KeyStore])
   (:require [clojure.test :refer :all]
-           [com.puppetlabs.puppetdb.config :refer :all]
-           [puppetlabs.kitchensink.core :as kitchensink]
-           [com.puppetlabs.time :as pl-time]
-           [clj-time.core :as time]
-           [puppetlabs.trapperkeeper.testutils.logging :as tu-log]
-           [clojure.java.io :as io]
-           [com.puppetlabs.puppetdb.testutils :as tu]
-           [fs.core :as fs]
-           [clojure.string :as str]))
+            [com.puppetlabs.puppetdb.config :refer :all]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.time :as pl-time]
+            [clj-time.core :as time]
+            [puppetlabs.trapperkeeper.testutils.logging :as tu-log]
+            [clojure.java.io :as io]
+            [com.puppetlabs.puppetdb.testutils :as tu]
+            [fs.core :as fs]
+            [clojure.string :as str]))
 
 (deftest commandproc-configuration
   (testing "should throw an error on unrecognized config options"
@@ -95,17 +95,17 @@
 
   (testing "node-ttl"
     (testing "should parse node-ttl and return a Pl-Time/Period object"
-      (let [{:keys [node-ttl]} (:database (configure-dbs { :database { :node-ttl "10d" }}))]
+      (let [{:keys [node-ttl]} (:database (configure-dbs {:database {:node-ttl "10d"}}))]
         (is (pl-time/period? node-ttl))
         (is (= (time/days 10) (time/days (pl-time/to-days node-ttl))))))
     (testing "should support node-ttl-days for backward compatibility"
-      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs { :database { :node-ttl-days 10 }}))]
+      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs {:database {:node-ttl-days 10}}))]
         (is (pl-time/period? node-ttl))
         (is (= 10 (pl-time/to-days node-ttl)))
         (is (not (contains? dbconfig :node-ttl-days)))))
     (testing "should prefer node-ttl over node-ttl-days"
-      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs { :database {:node-ttl "5d"
-                                                                                   :node-ttl-days 10 }}))]
+      (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs {:database {:node-ttl "5d"
+                                                                                  :node-ttl-days 10}}))]
         (is (pl-time/period? node-ttl))
         (is (= (time/days 5) (time/days (pl-time/to-days node-ttl))))
         (is (not (contains? dbconfig :node-ttl-days)))))
@@ -115,7 +115,7 @@
         (is (= 0 (pl-time/to-secs node-ttl))))))
   (testing "report-ttl"
     (testing "should parse report-ttl and produce report-ttl"
-      (let [{:keys [report-ttl]} (:database (configure-dbs { :database { :report-ttl "10d" }}))]
+      (let [{:keys [report-ttl]} (:database (configure-dbs {:database {:report-ttl "10d"}}))]
         (is (pl-time/period? report-ttl))
         (is (= (time/days 10) (time/days (pl-time/to-days report-ttl))))))
     (testing "should default to 14 days"
@@ -205,5 +205,5 @@
 
   (testing "should disallow anything else"
     (is (thrown-with-msg? IllegalArgumentException #"product-name puppet is illegal"
-          (normalize-product-name "puppet")))))
+                          (normalize-product-name "puppet")))))
 

@@ -136,8 +136,7 @@
                   :configuration-version "asdffdsa"
                   :start-time "2012-03-01-12:31:11.123"
                   :end-time   "2012-03-01-12:31:31.123"
-                  :resource-events [
-                                    {:type "Type"
+                  :resource-events [{:type "Type"
                                      :title "title"
                                      :parameters {:d {:b 2 :c [:a :b :c]} :c 3 :a 1}
                                      :exported false :file "/tmp/zzz"
@@ -178,9 +177,9 @@
                     tweaked-hash    (catalog-similarity-hash tweaked-catalog)]]
         (if (= catalog tweaked-catalog)
           (is (= hash tweaked-hash)
-            (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))
+              (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))
           (is (not= hash tweaked-hash)
-            (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
+              (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
 
   (testing "Catalogs with different metadata but the same content should have the same hashes"
     (let [catalog            (:basic catalogs)
@@ -201,7 +200,7 @@
               :let [tweaked-catalog (nth (iterate apply-monkey catalog) nmonkeys)
                     tweaked-hash    (catalog-similarity-hash tweaked-catalog)]]
         (is (= hash tweaked-hash)
-          (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
+            (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
 
 (deftest report-dedupe
   (let [report (:basic reports)

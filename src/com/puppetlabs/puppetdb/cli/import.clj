@@ -43,9 +43,9 @@
     (with-open [tar-reader (archive/tarball-reader tarball)]
       (when-not (archive/find-entry tar-reader metadata-path)
         (throw (IllegalStateException.
-                 (format "Unable to find export metadata file '%s' in archive '%s'"
-                   metadata-path
-                   tarball))))
+                (format "Unable to find export metadata file '%s' in archive '%s'"
+                        metadata-path
+                        tarball))))
       (json/parse-string (archive/read-entry-content tar-reader) true))))
 
 (defn submit-catalog
@@ -57,9 +57,9 @@
           (integer? command-version)
           (string?  catalog-payload)]}
   (let [result (command/submit-command-via-http!
-                 puppetdb-host puppetdb-port
-                 (command-names :replace-catalog) command-version
-                 catalog-payload)]
+                puppetdb-host puppetdb-port
+                (command-names :replace-catalog) command-version
+                catalog-payload)]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
@@ -72,12 +72,12 @@
           (integer? command-version)
           (string?  report-payload)]}
   (let [payload (-> report-payload
-                  json/parse-string
-                  reports/sanitize-report)
+                    json/parse-string
+                    reports/sanitize-report)
         result  (command/submit-command-via-http!
-                  puppetdb-host puppetdb-port
-                  (command-names :store-report) command-version
-                  payload)]
+                 puppetdb-host puppetdb-port
+                 (command-names :store-report) command-version
+                 payload)]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
@@ -120,17 +120,17 @@
       ;;   query to the /nodes endpoint and shows the set difference between
       ;;   the list of nodes that we submitted and the output of that query
       (submit-catalog host port
-        (get-in metadata [:command-versions :replace-catalog])
-        (archive/read-entry-content tar-reader)))
+                      (get-in metadata [:command-versions :replace-catalog])
+                      (archive/read-entry-content tar-reader)))
     (when (re-find (re-pattern report-pattern) path)
       (println (format "Importing report from archive entry '%s'" path))
       (submit-report host port
-        (get-in metadata [:command-versions :store-report])
-        (archive/read-entry-content tar-reader)))
+                     (get-in metadata [:command-versions :store-report])
+                     (archive/read-entry-content tar-reader)))
     (when (re-find (re-pattern facts-pattern) path)
       (println (format "Importing facts from archive entry '%s'" path))
       (submit-facts host port (get-in metadata [:command-versions :replace-facts])
-        (archive/read-entry-content tar-reader)))))
+                    (archive/read-entry-content tar-reader)))))
 
 (defn- validate-cli!
   [args]
@@ -139,12 +139,12 @@
                   ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)" :parse-fn #(Integer. %) :default 8080]]
         required [:infile]]
     (try+
-      (cli! args specs required)
-      (catch map? m
-        (println (:message m))
-        (case (:type m)
-          :puppetlabs.kitchensink.core/cli-error (System/exit 1)
-          :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
+     (cli! args specs required)
+     (catch map? m
+       (println (:message m))
+       (case (:type m)
+         :puppetlabs.kitchensink.core/cli-error (System/exit 1)
+         :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
 
 (defn -main
   [& args]

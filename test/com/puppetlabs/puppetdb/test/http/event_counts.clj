@@ -118,8 +118,8 @@
 
   (store-example-report! (:basic reports) (now))
   (store-example-report! (assoc (:basic2 reports)
-                           :certname "bar.local"
-                           :environment "PROD") (now))
+                                :certname "bar.local"
+                                :environment "PROD") (now))
   (are [result query] (response-equal? (get-response endpoint
                                                      query
                                                      "resource"
@@ -127,103 +127,103 @@
                                                       "distinct-start-time" 0
                                                       "distinct-end-time" (now)})
                                        result)
-       #{{:subject-type "resource"
-          :subject {:type "Notify" :title "notify, yo"}
-          :failures 0
-          :successes 1
-          :noops 0
-          :skips 0}
-         {:subject-type "resource"
-          :subject {:type "Notify" :title "notify, yar"}
-          :failures 0
-          :successes 1
-          :noops 0
-          :skips 0}
-         {:subject-type "resource"
-          :subject {:type "Notify" :title "hi"}
-          :failures 0
-          :successes 0
-          :noops 0
-          :skips 1}}
-       ["=" "environment" "DEV"]
+    #{{:subject-type "resource"
+       :subject {:type "Notify" :title "notify, yo"}
+       :failures 0
+       :successes 1
+       :noops 0
+       :skips 0}
+      {:subject-type "resource"
+       :subject {:type "Notify" :title "notify, yar"}
+       :failures 0
+       :successes 1
+       :noops 0
+       :skips 0}
+      {:subject-type "resource"
+       :subject {:type "Notify" :title "hi"}
+       :failures 0
+       :successes 0
+       :noops 0
+       :skips 1}}
+    ["=" "environment" "DEV"]
 
-       #{{:subject-type "resource"
-          :subject {:type "Notify" :title "notify, yo"}
-          :failures 0
-          :successes 1
-          :noops 0
-          :skips 0}
-         {:subject-type "resource"
-          :subject {:type "Notify" :title "notify, yar"}
-          :failures 0
-          :successes 1
-          :noops 0
-          :skips 0}
-         {:subject-type "resource"
-          :subject {:type "Notify" :title "hi"}
-          :failures 0
-          :successes 0
-          :noops 0
-          :skips 1}}
-       ["~" "environment" "DE.*"]
+    #{{:subject-type "resource"
+       :subject {:type "Notify" :title "notify, yo"}
+       :failures 0
+       :successes 1
+       :noops 0
+       :skips 0}
+      {:subject-type "resource"
+       :subject {:type "Notify" :title "notify, yar"}
+       :failures 0
+       :successes 1
+       :noops 0
+       :skips 0}
+      {:subject-type "resource"
+       :subject {:type "Notify" :title "hi"}
+       :failures 0
+       :successes 0
+       :noops 0
+       :skips 1}}
+    ["~" "environment" "DE.*"]
 
-       #{{:subject-type "resource"
-          :subject {:type "Notify" :title "notify, yo"}
-          :failures 0
-          :successes 1
-          :noops 0
-          :skips 0}
-         {:subject-type "resource"
-          :subject {:type "Notify" :title "notify, yar"}
-          :failures 0
-          :successes 1
-          :noops 0
-          :skips 0}
-         {:subject-type "resource"
-          :subject {:type "Notify" :title "hi"}
-          :failures 0
-          :successes 0
-          :noops 0
-          :skips 1}}
-       ["not" ["=" "environment" "PROD"]]
+    #{{:subject-type "resource"
+       :subject {:type "Notify" :title "notify, yo"}
+       :failures 0
+       :successes 1
+       :noops 0
+       :skips 0}
+      {:subject-type "resource"
+       :subject {:type "Notify" :title "notify, yar"}
+       :failures 0
+       :successes 1
+       :noops 0
+       :skips 0}
+      {:subject-type "resource"
+       :subject {:type "Notify" :title "hi"}
+       :failures 0
+       :successes 0
+       :noops 0
+       :skips 1}}
+    ["not" ["=" "environment" "PROD"]]
 
-       #{{:subject-type "resource"
-          :subject {:type "Notify" :title "notify, yo"}
-          :failures 0
-          :successes 1
-          :noops 0
-          :skips 0}
-         {:subject-type "resource"
-          :subject {:type "Notify" :title "notify, yar"}
-          :failures 0
-          :successes 1
-          :noops 0
-          :skips 0}
-         {:subject-type "resource"
-          :subject {:type "Notify" :title "hi"}
-          :failures 0
-          :successes 0
-          :noops 0
-          :skips 1}
-         {:subject-type "resource",
-          :noops 0,
-          :skips 0,
-          :successes 1,
-          :failures 0,
-          :subject {:type "File", :title "tmp-directory"}}
-         {:subject-type "resource",
-          :noops 0,
-          :skips 0,
-          :successes 1,
-          :failures 0,
-          :subject {:type "File", :title "puppet-managed-file"}}
-         {:subject-type "resource",
-          :noops 0,
-          :skips 0,
-          :successes 1,
-          :failures 0,
-          :subject
-          {:type "Notify", :title "Creating tmp directory at /Users/foo/tmp"}}}
-       ["OR"
-        ["=" "environment" "PROD"]
-        ["=" "environment" "DEV"]]))
+    #{{:subject-type "resource"
+       :subject {:type "Notify" :title "notify, yo"}
+       :failures 0
+       :successes 1
+       :noops 0
+       :skips 0}
+      {:subject-type "resource"
+       :subject {:type "Notify" :title "notify, yar"}
+       :failures 0
+       :successes 1
+       :noops 0
+       :skips 0}
+      {:subject-type "resource"
+       :subject {:type "Notify" :title "hi"}
+       :failures 0
+       :successes 0
+       :noops 0
+       :skips 1}
+      {:subject-type "resource",
+       :noops 0,
+       :skips 0,
+       :successes 1,
+       :failures 0,
+       :subject {:type "File", :title "tmp-directory"}}
+      {:subject-type "resource",
+       :noops 0,
+       :skips 0,
+       :successes 1,
+       :failures 0,
+       :subject {:type "File", :title "puppet-managed-file"}}
+      {:subject-type "resource",
+       :noops 0,
+       :skips 0,
+       :successes 1,
+       :failures 0,
+       :subject
+       {:type "Notify", :title "Creating tmp directory at /Users/foo/tmp"}}}
+    ["OR"
+     ["=" "environment" "PROD"]
+     ["=" "environment" "DEV"]]))

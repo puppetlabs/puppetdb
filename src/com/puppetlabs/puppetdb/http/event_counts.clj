@@ -33,11 +33,11 @@
                                                                              :count-by count-by}
                                                                             distinct-options)
                                                                      paging-options)
-               resp (pl-http/stream-json-response
-                     (fn [f]
-                       (jdbc/with-transacted-connection db
-                         (query/streamed-query-result version sql params
-                                                      (comp f (event-counts/munge-result-rows summarize-by))))))]
+              resp (pl-http/stream-json-response
+                    (fn [f]
+                      (jdbc/with-transacted-connection db
+                        (query/streamed-query-result version sql params
+                                                     (comp f (event-counts/munge-result-rows summarize-by))))))]
           (if count-query
             (http/add-headers resp {:count (jdbc/get-result-count count-query)})
             resp))))
@@ -49,16 +49,16 @@
 (defn routes
   [version]
   (app
-    [""]
-    {:get (fn [{:keys [params globals paging-options]}]
-            (when (= "puppetdb" (:product-name globals))
-              (log/warn "The event-counts endpoint is experimental"
-                        " and may be altered or removed in the future."))
-            (produce-body
-             version
-             params
-             paging-options
-             (:scf-read-db globals)))}))
+   [""]
+   {:get (fn [{:keys [params globals paging-options]}]
+           (when (= "puppetdb" (:product-name globals))
+             (log/warn "The event-counts endpoint is experimental"
+                       " and may be altered or removed in the future."))
+           (produce-body
+            version
+            params
+            paging-options
+            (:scf-read-db globals)))}))
 
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."
@@ -69,5 +69,5 @@
                               :optional (concat ["counts-filter" "count-by"
                                                  "distinct-resources" "distinct-start-time"
                                                  "distinct-end-time"]
-                                          paging/query-params)})
+                                                paging/query-params)})
       wrap-with-paging-options))

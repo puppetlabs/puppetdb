@@ -119,12 +119,12 @@
     ; "minutes"... so if the "minute" parser is earlier in the list,
     ; it will recognize the "m" from a millisecond string, try to parse it,
     ; fail, and throw an exception.
-    (append millisecond-formatter)
-    (append second-formatter)
-    (append minute-formatter)
-    (append hour-formatter)
-    (append day-formatter)
-    (toFormatter)))
+      (append millisecond-formatter)
+      (append second-formatter)
+      (append minute-formatter)
+      (append hour-formatter)
+      (append day-formatter)
+      (toFormatter)))
 
 (defn format-period
   "Convert a `Period` object into a human-readable String; e.g.:
@@ -141,14 +141,13 @@
                          (toPeriod)
                          (normalizedStandard (PeriodType/dayTime)))
         largest-unit (condp > 0
-                        (.getMillis normalized)  (PeriodType/millis)
-                        (.getSeconds normalized) (PeriodType/seconds)
-                        (.getMinutes normalized) (PeriodType/minutes)
-                        (.getHours normalized)   (PeriodType/hours)
-                        (PeriodType/days))
+                       (.getMillis normalized)  (PeriodType/millis)
+                       (.getSeconds normalized) (PeriodType/seconds)
+                       (.getMinutes normalized) (PeriodType/minutes)
+                       (.getHours normalized)   (PeriodType/hours)
+                       (PeriodType/days))
         normalized   (.normalizedStandard normalized largest-unit)]
     (.print period-formatter normalized)))
-
 
 ;; Comparison and predicate functions
 
@@ -165,11 +164,11 @@
   ([p] true)
   ([p1 p2] (= (.toStandardDuration p1) (.toStandardDuration p2)))
   ([p1 p2 & more]
-    (if (periods-equal? p1 p2)
-      (if (next more)
-        (recur p2 (first more) (next more))
-        (periods-equal? p2 (first more)))
-      false)))
+   (if (periods-equal? p1 p2)
+     (if (next more)
+       (recur p2 (first more) (next more))
+       (periods-equal? p2 (first more)))
+     false)))
 
 ;; Conversion functions (convert `Period` instances to numeric values of a
 ;; specified time unit)
@@ -178,7 +177,7 @@
   "Helper function for converting periods to specific units"
   [f period]
   {:pre  [(period? period)]
-   :post [(>= % 0)] }
+   :post [(>= % 0)]}
   (-> period
       (.toStandardDuration)
       (f)))

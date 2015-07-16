@@ -27,25 +27,25 @@
         ;; if we get one of these requests from pe-puppetdb, we always want to
         ;; return 'newer->false' so that the dashboard will never try to
         ;; display info about a newer version being available
-        (= product-name "pe-puppetdb")
-        (pl-http/json-response {"newer"   false
-                                "version" (v/version)
-                                "link"    nil})
+                            (= product-name "pe-puppetdb")
+                            (pl-http/json-response {"newer"   false
+                                                    "version" (v/version)
+                                                    "link"    nil})
 
-        (v/update-info update-server (:scf-read-db globals))
-        (pl-http/json-response result)
+                            (v/update-info update-server (:scf-read-db globals))
+                            (pl-http/json-response result)
 
-        :else
-        (do
-          (log/debug (format
-                       "Unable to determine latest version via update-server: '%s'"
-                       update-server))
-          (pl-http/error-response "Could not find version" 404)))
+                            :else
+                            (do
+                              (log/debug (format
+                                          "Unable to determine latest version via update-server: '%s'"
+                                          update-server))
+                              (pl-http/error-response "Could not find version" 404)))
 
       (catch java.io.IOException e
         (log/debug (format "Error when checking for latest version: %s" e))
         (pl-http/error-response
-          (format "Error when checking for latest version: %s" e))))))
+         (format "Error when checking for latest version: %s" e))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

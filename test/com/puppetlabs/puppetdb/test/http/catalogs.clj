@@ -17,9 +17,9 @@
 
 (defn get-response
   ([endpoint]
-     (get-response endpoint nil))
+   (get-response endpoint nil))
   ([endpoint node]
-     (fixt/*app* (get-request (str endpoint "/" node)))))
+   (fixt/*app* (get-request (str endpoint "/" node)))))
 
 (deftestseq catalog-retrieval
   [[version endpoint] endpoints

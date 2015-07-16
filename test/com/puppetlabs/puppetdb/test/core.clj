@@ -13,7 +13,7 @@
     (f)
     (catch Exception _
         ;;do nothing
-      )))
+)))
 
 (defn invoke-and-throw [ex-msg]
   (let [called? (atom false)]

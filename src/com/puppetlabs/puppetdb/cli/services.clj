@@ -106,11 +106,11 @@
          (period? node-ttl)]}
   (try
     (kitchensink/demarcate
-      (format "sweep of stale nodes (threshold: %s)"
-              (format-period node-ttl))
-      (with-transacted-connection db
-        (doseq [node (scf-store/stale-nodes (ago node-ttl))]
-          (send-command! (command-names :deactivate-node) 1 (json/generate-string node)))))
+     (format "sweep of stale nodes (threshold: %s)"
+             (format-period node-ttl))
+     (with-transacted-connection db
+       (doseq [node (scf-store/stale-nodes (ago node-ttl))]
+         (send-command! (command-names :deactivate-node) 1 (json/generate-string node)))))
     (catch Exception e
       (log/error e "Error while deactivating stale nodes"))))
 
@@ -121,10 +121,10 @@
          (period? node-purge-ttl)]}
   (try
     (kitchensink/demarcate
-      (format "purge deactivated nodes (threshold: %s)"
-              (format-period node-purge-ttl))
-      (with-transacted-connection db
-        (scf-store/purge-deactivated-nodes! (ago node-purge-ttl))))
+     (format "purge deactivated nodes (threshold: %s)"
+             (format-period node-purge-ttl))
+     (with-transacted-connection db
+       (scf-store/purge-deactivated-nodes! (ago node-purge-ttl))))
     (catch Exception e
       (log/error e "Error while purging deactivated nodes"))))
 
@@ -135,10 +135,10 @@
          (period? report-ttl)]}
   (try
     (kitchensink/demarcate
-      (format "sweep of stale reports (threshold: %s)"
-              (format-period report-ttl))
-      (with-transacted-connection db
-        (scf-store/delete-reports-older-than! (ago report-ttl))))
+     (format "sweep of stale reports (threshold: %s)"
+             (format-period report-ttl))
+     (with-transacted-connection db
+       (scf-store/delete-reports-older-than! (ago report-ttl))))
     (catch Exception e
       (log/error e "Error while sweeping reports"))))
 
@@ -147,9 +147,9 @@
   [dlo dlo-compression-threshold]
   (try
     (kitchensink/demarcate
-      (format "compression of discarded messages (threshold: %s)"
-              (format-period dlo-compression-threshold))
-      (dlo/compress! dlo dlo-compression-threshold))
+     (format "compression of discarded messages (threshold: %s)"
+             (format-period dlo-compression-threshold))
+     (dlo/compress! dlo dlo-compression-threshold))
     (catch Exception e
       (log/error e "Error while compressing discarded messages"))))
 
@@ -161,8 +161,8 @@
   {:pre [(map? db)]}
   (try
     (kitchensink/demarcate
-      "database garbage collection"
-      (scf-store/garbage-collect! db))
+     "database garbage collection"
+     (scf-store/garbage-collect! db))
     (catch Exception e
       (log/error e "Error during garbage collection"))))
 
@@ -236,7 +236,7 @@
   (when-let [command-procs (context :command-procs)]
     (log/info "Shutting down command processing threads.")
     (doseq [cp command-procs]
-           (future-cancel cp)))
+      (future-cancel cp)))
 
   (when-let [updater (context :updater)]
     (log/info "Shutting down updater thread.")
@@ -289,10 +289,10 @@
     ;; confused if the database doesn't exist but we open and close a
     ;; connection without creating anything.
     (sql/with-connection write-db
-                         (scf-store/validate-database-version
-                           enterprise? #(System/exit 1))
-                         (migrate!)
-                         (indexes! product-name))
+      (scf-store/validate-database-version
+       enterprise? #(System/exit 1))
+      (migrate!)
+      (indexes! product-name))
 
     ;; Initialize database-dependent metrics and dlo metrics if existent.
     (pop/initialize-metrics write-db)
@@ -304,23 +304,23 @@
                    (mq/build-and-start-broker! "localhost" mq-dir command-processing)
                    (catch java.io.EOFException e
                      (log/error
-                       "EOF Exception caught during broker start, this "
-                       "might be due to KahaDB corruption. Consult the "
-                       "PuppetDB troubleshooting guide.")
+                      "EOF Exception caught during broker start, this "
+                      "might be due to KahaDB corruption. Consult the "
+                      "PuppetDB troubleshooting guide.")
                      (throw e)))
           context (assoc context :broker broker)
           command-procs (let [nthreads (command-processing :threads)]
                           (log/info (format "Starting %d command processor threads" nthreads))
                           (vec (for [n (range nthreads)]
                                  (future (shutdown-on-error
-                                           service-id
-                                           #(load-from-mq
-                                             mq-addr
-                                             mq-endpoint
-                                             discard-dir
-                                             {:db                     write-db
-                                              :catalog-hash-debug-dir (:catalog-hash-debug-dir global)})
-                                           error-shutdown!)))))
+                                          service-id
+                                          #(load-from-mq
+                                            mq-addr
+                                            mq-endpoint
+                                            discard-dir
+                                            {:db                     write-db
+                                             :catalog-hash-debug-dir (:catalog-hash-debug-dir global)})
+                                          error-shutdown!)))))
           context (assoc context :command-procs command-procs)
           updater (future (maybe-check-for-updates product-name update-server read-db))
           context (assoc context :updater updater)

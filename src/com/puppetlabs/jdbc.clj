@@ -15,7 +15,6 @@
             [schema.core :as s]
             [clojure.math.numeric-tower :as math]))
 
-
 (defn valid-jdbc-query?
   "Most SQL queries generated in the PuppetDB code base are represented internally
   as a vector whose first item is the SQL string (with optional '?' placeholders),
@@ -25,9 +24,9 @@
   It is intended primarily for use in pre- and post-conditions, for validation."
   [q]
   (and
-    (vector? q)
-    (string? (first q))
-    (every? (complement coll?) (rest q))))
+   (vector? q)
+   (string? (first q))
+   (every? (complement coll?) (rest q))))
 
 ;; ## String operations
 
@@ -57,13 +56,13 @@
   "Converts Java and JDBC arrays in a result set using the provided function
   (eg. vec, set). Values which aren't arrays are unchanged."
   ([result-set]
-     (convert-result-arrays vec result-set))
+   (convert-result-arrays vec result-set))
   ([f result-set]
-     (let [convert #(cond
-                     (kitchensink/array? %) (f %)
-                     (isa? (class %) java.sql.Array) (f (.getArray %))
-                     :else %)]
-       (map #(kitchensink/mapvals convert %) result-set))))
+   (let [convert #(cond
+                    (kitchensink/array? %) (f %)
+                    (isa? (class %) java.sql.Array) (f (.getArray %))
+                    :else %)]
+     (map #(kitchensink/mapvals convert %) result-set))))
 
 (defn limited-query-to-vec
   "Take a limit and an SQL query (with optional parameters), and return the
@@ -104,10 +103,10 @@
     (query-to-vec [\"select * from table where column = ?\" 12])
     (query-to-vec \"select * from table where column = ?\" 12)"
   ([sql-query & params]
-     (query-to-vec (vec (concat [sql-query] params))))
+   (query-to-vec (vec (concat [sql-query] params))))
   ([sql-query-and-params]
-     {:pre [((some-fn string? vector?) sql-query-and-params)]}
-     (limited-query-to-vec 0 sql-query-and-params)))
+   {:pre [((some-fn string? vector?) sql-query-and-params)]}
+   (limited-query-to-vec 0 sql-query-and-params)))
 
 (defn order-by-term->sql
   "Given a list of legal result columns and a map containing a single order-by term,
@@ -119,8 +118,8 @@
    :post [(string? %)]}
   (let [field (dashes->underscores (name field))]
     (format "%s%s"
-      field
-      (if (= order :descending) " DESC" ""))))
+            field
+            (if (= order :descending) " DESC" ""))))
 
 (defn order-by->sql
   "Given a list of legal result columns an array of maps (where each map is
@@ -133,8 +132,8 @@
   (if (empty? order-by)
     ""
     (format " ORDER BY %s"
-      (string/join ", "
-        (map order-by-term->sql order-by)))))
+            (string/join ", "
+                         (map order-by-term->sql order-by)))))
 
 (defn paged-sql
   "Given a sql string and a map of paging options, return a modified SQL string
@@ -152,26 +151,26 @@
   ([sql {:keys [limit offset order-by]}]
    (paged-sql sql {:limit limit :offset offset :order-by order-by} nil))
   ([sql {:keys [limit offset order-by]} entity]
-  {:pre [(string? sql)
-         ((some-fn nil? integer?) limit)
-         ((some-fn nil? integer?) offset)
-         ((some-fn nil? sequential?) order-by)
-         (every? kitchensink/order-by-expr? order-by)]
-   :post [(string? %)]}
-    (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
-          offset-clause    (if offset (format " OFFSET %s" offset) "")
-          order-by-clause  (order-by->sql order-by)
-          inner-order-by   (str/replace order-by-clause #"environment"
-                                        "COALESCE(distinct_names.environment,'')")]
-      (case entity
-        :factsets
-        (format "SELECT paged_results.* FROM (%s) paged_results
+   {:pre [(string? sql)
+          ((some-fn nil? integer?) limit)
+          ((some-fn nil? integer?) offset)
+          ((some-fn nil? sequential?) order-by)
+          (every? kitchensink/order-by-expr? order-by)]
+    :post [(string? %)]}
+   (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
+         offset-clause    (if offset (format " OFFSET %s" offset) "")
+         order-by-clause  (order-by->sql order-by)
+         inner-order-by   (str/replace order-by-clause #"environment"
+                                       "COALESCE(distinct_names.environment,'')")]
+     (case entity
+       :factsets
+       (format "SELECT paged_results.* FROM (%s) paged_results
                 WHERE (certname,COALESCE(paged_results.environment,''),timestamp) IN
                 (SELECT DISTINCT certname,COALESCE(distinct_names.environment,''),timestamp FROM (%s)
                 distinct_names %s%s%s) %s"
-                sql sql inner-order-by limit-clause offset-clause order-by-clause)
-        (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
-                sql order-by-clause limit-clause offset-clause)))))
+               sql sql inner-order-by limit-clause offset-clause order-by-clause)
+       (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
+               sql order-by-clause limit-clause offset-clause)))))
 
 (defn count-sql
   "Takes a sql string and returns a modified sql string that will select
@@ -179,13 +178,13 @@
   ([sql]
    (count-sql nil sql))
   ([entity sql]
-  {:pre   [(string? sql)]
-   :post  [(string? %)]}
-  (case entity
-    :factsets
-    (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT certname
+   {:pre   [(string? sql)]
+    :post  [(string? %)]}
+   (case entity
+     :factsets
+     (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT certname
             from (%s) paged_sql) results_to_count" sql)
-    (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))))
+     (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))))
 
 (defn get-result-count
   "Takes a sql string, executes a `COUNT` statement against the database,
@@ -231,21 +230,21 @@
    current :- s/Int
    exception]
   (cond
-   (zero? remaining)
-   (do
-     (log/warn "Caught exception. Last attempt, throwing exception.")
-     (throw exception))
+    (zero? remaining)
+    (do
+      (log/warn "Caught exception. Last attempt, throwing exception.")
+      (throw exception))
 
-   :else
-   (do
-     (log/debug (format "Caught %s: '%s'. SQL Error code: '%s'. Attempt: %s of %s."
-                        (.getName (class exception))
-                        (.getMessage exception)
-                        (.getSQLState exception)
-                        (inc current)
-                        (+ current remaining)))
-     (exponential-sleep! current 1.3)
-     false)))
+    :else
+    (do
+      (log/debug (format "Caught %s: '%s'. SQL Error code: '%s'. Attempt: %s of %s."
+                         (.getName (class exception))
+                         (.getMessage exception)
+                         (.getSQLState exception)
+                         (inc current)
+                         (+ current remaining)))
+      (exponential-sleep! current 1.3)
+      false)))
 
 (pls/defn-validated retry-sql*
   "Executes f. If an exception is thrown, will retry. At most n retries
@@ -275,7 +274,7 @@
    retries are done. If still some exception is thrown it is bubbled upwards in
    the call chain."
   [n & body]
-    `(retry-sql* ~n (fn [] ~@body)))
+  `(retry-sql* ~n (fn [] ~@body)))
 
 (defn with-transacted-connection-fn
   "Function for creating a connection that has the specified isolation

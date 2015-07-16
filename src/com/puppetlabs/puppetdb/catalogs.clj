@@ -136,7 +136,6 @@
                         {s/Any {s/Any s/Any}})
    :api_version (s/maybe s/Int)})
 
-
 (def v5-catalog
   "Used for v5 commands and responses"
   (dissoc full-catalog :api_version))
@@ -326,9 +325,9 @@
    :post [(= % catalog)]}
   (doseq [[resource-spec resource] resources]
     (when-let [invalid-tag (first
-                             (remove #(re-find tag-pattern %) (:tags resource)))]
+                            (remove #(re-find tag-pattern %) (:tags resource)))]
       (throw (IllegalArgumentException.
-               (format "Resource '%s' has an invalid tag '%s'. Tags must match the pattern /%s/." resource-spec invalid-tag tag-pattern)))))
+              (format "Resource '%s' has an invalid tag '%s'. Tags must match the pattern /%s/." resource-spec invalid-tag tag-pattern)))))
   catalog)
 
 (defn validate-edges
@@ -342,10 +341,10 @@
           resource [source target]]
     (when-not (resources resource)
       (throw (IllegalArgumentException.
-               (format "Edge '%s' refers to resource '%s', which doesn't exist in the catalog." edge resource))))
+              (format "Edge '%s' refers to resource '%s', which doesn't exist in the catalog." edge resource))))
     (when-not (valid-relationships relationship)
       (throw (IllegalArgumentException.
-               (format "Edge '%s' has invalid relationship type '%s'" edge relationship)))))
+              (format "Edge '%s' has invalid relationship type '%s'" edge relationship)))))
   catalog)
 
 (defn validate-keys
@@ -384,8 +383,8 @@
   "Applies every transformation to the catalog, converting it from wire format
   to our internal structure."
   (comp
-    transform-edges
-    transform-resources))
+   transform-edges
+   transform-resources))
 
 ;; ## Deserialization
 
@@ -394,19 +393,19 @@
   returning a PuppetDB-suitable representation."
   (fn [catalog version]
     (match [catalog version]
-           [(_ :guard string?) _]
-           String
+      [(_ :guard string?) _]
+      String
 
-           [(_ :guard map?) (_ :guard number?)]
-           version
+      [(_ :guard map?) (_ :guard number?)]
+      version
 
-           [(_ :guard map?) (_ :guard (complement number?))]
-           (throw (IllegalArgumentException. (format "Catalog version '%s' is not a legal version number" version)))
+      [(_ :guard map?) (_ :guard (complement number?))]
+      (throw (IllegalArgumentException. (format "Catalog version '%s' is not a legal version number" version)))
 
            ;; At this point, catalog can't be a string or a map (regardless of
            ;; what version is), so there's our problem!
-           :else
-           (throw (IllegalArgumentException. (format "Catalog must be specified as a string or a map, not '%s'" (class catalog)))))))
+      :else
+      (throw (IllegalArgumentException. (format "Catalog must be specified as a string or a map, not '%s'" (class catalog)))))))
 
 (defmethod parse-catalog String
   [catalog version]
@@ -459,7 +458,7 @@
   {:pre [(map? catalog)
          (number? version)]
    :post [(map? %)]}
-   (->> catalog
+  (->> catalog
        transform
        (canonical-catalog :all)
        validate))

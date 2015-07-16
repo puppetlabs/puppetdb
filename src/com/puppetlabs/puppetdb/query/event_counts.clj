@@ -50,8 +50,8 @@
   [group-by]
   {:pre [(vector? group-by)]}
   (concat
-    ["failures" "successes" "noops" "skips"]
-    (map jdbc/underscores->dashes group-by)))
+   ["failures" "successes" "noops" "skips"]
+   (map jdbc/underscores->dashes group-by)))
 
 (defn- get-event-count-sql
   "Given the `event-sql` and value to `group-by`, return a SQL string that
@@ -89,28 +89,28 @@
   {:pre [(contains? #{"certname" "resource" "containing-class"} summarize-by)
          (map? result)
          (or
-           (contains? result :certname)
-           (every? #(contains? result %) [:resource_type :resource_title])
-           (contains? result :containing_class))]
+          (contains? result :certname)
+          (every? #(contains? result %) [:resource_type :resource_title])
+          (contains? result :containing_class))]
    :post [(map? %)
           (not (kitchensink/contains-some % [:certname :resource_type :resource_title :containing_class]))
           (map? (:subject %))
           (= summarize-by (:subject-type %))]}
   (condp = summarize-by
     "certname"          (-> result
-                          (assoc :subject-type "certname")
-                          (assoc :subject {:title (:certname result)})
-                          (dissoc :certname))
+                            (assoc :subject-type "certname")
+                            (assoc :subject {:title (:certname result)})
+                            (dissoc :certname))
 
     "resource"          (-> result
-                          (assoc :subject-type "resource")
-                          (assoc :subject {:type (:resource_type result) :title (:resource_title result)})
-                          (dissoc :resource_type :resource_title))
+                            (assoc :subject-type "resource")
+                            (assoc :subject {:type (:resource_type result) :title (:resource_title result)})
+                            (dissoc :resource_type :resource_title))
 
     "containing-class"  (-> result
-                          (assoc :subject-type "containing-class")
-                          (assoc :subject {:title (:containing_class result)})
-                          (dissoc :containing_class))))
+                            (assoc :subject-type "containing-class")
+                            (assoc :subject {:title (:containing_class result)})
+                            (dissoc :containing_class))))
 
 (defn munge-result-rows
   "Helper function to transform the event count subject data from the raw format that we get back from the
@@ -126,39 +126,39 @@
   A second `counts-filter` query may be provided to further reduce the results, and
   the value to `count-by` may also be specified (defaults to `resource`)."
   ([version query summarize-by]
-     (query->sql version query summarize-by {} {}))
+   (query->sql version query summarize-by {} {}))
   ([version query summarize-by {:keys [counts-filter count-by] :as query-options} paging-options]
-     {:pre  [(sequential? query)
-             (string? summarize-by)
-             ((some-fn nil? sequential?) counts-filter)
-             ((some-fn nil? string?) count-by)]
-      :post [(map? %)
-             (jdbc/valid-jdbc-query? (:results-query %))
-             (or
-              (not (:count? paging-options))
-              (jdbc/valid-jdbc-query? (:count-query %)))]}
-     (let [count-by                        (or count-by "resource")
-           group-by                        (get-group-by summarize-by)
-           _                               (paging/validate-order-by!
-                                            (map keyword (event-counts-columns group-by))
-                                            paging-options)
-           {counts-filter-where  :where
-            counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
-           distinct-opts                   (select-keys query-options [:distinct-resources? :distinct-start-time :distinct-end-time])
-           [event-sql & event-params]      (:results-query
-                                            (case version
-                                              (:v2 :v3) (events/query->sql version distinct-opts query nil)
-                                              (if (:distinct-resources? query-options) ;;<- The query engine does not support distinct-resources?
-                                                (events/query->sql version distinct-opts query nil)
-                                                (qe/compile-user-query->sql qe/report-events-query query))))
-           count-by-sql                    (get-count-by-sql event-sql count-by group-by)
-           event-count-sql                 (get-event-count-sql count-by-sql group-by)
-           sql                             (get-filtered-sql event-count-sql counts-filter-where)
-           params                          (concat event-params counts-filter-params)
-           paged-select                    (jdbc/paged-sql sql paging-options)]
-       (conj {:results-query (apply vector paged-select params)}
-             (when (:count? paging-options)
-               [:count-query (apply vector (jdbc/count-sql sql) params)])))))
+   {:pre  [(sequential? query)
+           (string? summarize-by)
+           ((some-fn nil? sequential?) counts-filter)
+           ((some-fn nil? string?) count-by)]
+    :post [(map? %)
+           (jdbc/valid-jdbc-query? (:results-query %))
+           (or
+            (not (:count? paging-options))
+            (jdbc/valid-jdbc-query? (:count-query %)))]}
+   (let [count-by                        (or count-by "resource")
+         group-by                        (get-group-by summarize-by)
+         _                               (paging/validate-order-by!
+                                          (map keyword (event-counts-columns group-by))
+                                          paging-options)
+         {counts-filter-where  :where
+          counts-filter-params :params}  (get-counts-filter-where-clause counts-filter)
+         distinct-opts                   (select-keys query-options [:distinct-resources? :distinct-start-time :distinct-end-time])
+         [event-sql & event-params]      (:results-query
+                                          (case version
+                                            (:v2 :v3) (events/query->sql version distinct-opts query nil)
+                                            (if (:distinct-resources? query-options) ;;<- The query engine does not support distinct-resources?
+                                              (events/query->sql version distinct-opts query nil)
+                                              (qe/compile-user-query->sql qe/report-events-query query))))
+         count-by-sql                    (get-count-by-sql event-sql count-by group-by)
+         event-count-sql                 (get-event-count-sql count-by-sql group-by)
+         sql                             (get-filtered-sql event-count-sql counts-filter-where)
+         params                          (concat event-params counts-filter-params)
+         paged-select                    (jdbc/paged-sql sql paging-options)]
+     (conj {:results-query (apply vector paged-select params)}
+           (when (:count? paging-options)
+             [:count-query (apply vector (jdbc/count-sql sql) params)])))))
 
 (defn query-event-counts
   "Given a SQL query and its parameters, return a vector of matching results."
@@ -166,11 +166,11 @@
   {:pre  [(map? query-sql)]}
   (let [{[sql & params] :results-query
          count-query    :count-query} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params
+        result {:result (query/streamed-query-result
+                         version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows summarize-by)))}]
+                         (comp doall (munge-result-rows summarize-by)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

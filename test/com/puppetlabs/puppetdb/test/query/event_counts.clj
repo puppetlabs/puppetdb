@@ -17,13 +17,13 @@
   "Utility function that executes an event-counts query and
   returns a set of results for use in test comparison."
   ([version query summarize-by]
-    (event-counts-query-result version query summarize-by {}))
+   (event-counts-query-result version query summarize-by {}))
   ([version query summarize-by query-options]
-    (event-counts-query-result version query summarize-by query-options {}))
+   (event-counts-query-result version query summarize-by query-options {}))
   ([version query summarize-by query-options paging-options]
-    (-> (raw-event-counts-query-result version query summarize-by query-options paging-options)
-        (:result)
-        (set))))
+   (-> (raw-event-counts-query-result version query summarize-by query-options paging-options)
+       (:result)
+       (set))))
 
 (deftest paging-results
   (let [_           (store-example-report! (:basic reports) (now))
@@ -45,41 +45,41 @@
       (testing "order-by"
         (testing "rejects invalid fields"
           (is (thrown-with-msg?
-                IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-                (event-counts-query-result
-                  version
-                  ["=" "certname" "foo.local"]
-                  "resource"
-                  {}
-                  {:order-by [[:invalid-field :ascending]]}))))
+               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+               (event-counts-query-result
+                version
+                ["=" "certname" "foo.local"]
+                "resource"
+                {}
+                {:order-by [[:invalid-field :ascending]]}))))
 
         (testing "numerical fields"
           (doseq [[order expected] [[:ascending  [count2 count1]]
                                     [:descending [count1 count2]]]]
             (testing order
               (let [actual (:result (raw-event-counts-query-result
-                                      version
-                                      ["=" "certname" "foo.local"]
-                                      "containing-class"
-                                      {}
-                                      {:order-by [[:successes order]]}))]
+                                     version
+                                     ["=" "certname" "foo.local"]
+                                     "containing-class"
+                                     {}
+                                     {:order-by [[:successes order]]}))]
                 (is (= actual expected)))))))
 
       (testing "offset"
         (doseq [[order expected-sequences] [[:ascending  [[0 [count2 count1]]
-                                                         [1 [count1]]
-                                                         [2 []]]]
+                                                          [1 [count1]]
+                                                          [2 []]]]
                                             [:descending [[0 [count1 count2]]
-                                                         [1 [count2]]
-                                                         [2 []]]]]]
+                                                          [1 [count2]]
+                                                          [2 []]]]]]
           (testing order
             (doseq [[offset expected] expected-sequences]
               (let [actual (:result (raw-event-counts-query-result
-                                      version
-                                      ["=" "certname" "foo.local"]
-                                      "containing-class"
-                                      {}
-                                      {:order-by [[:successes order]] :offset offset}))]
+                                     version
+                                     ["=" "certname" "foo.local"]
+                                     "containing-class"
+                                     {}
+                                     {:order-by [[:successes order]] :offset offset}))]
                 (is (= actual expected))))))))))
 
 (deftest resource-event-count-queries
@@ -90,8 +90,8 @@
     (testing "summarize-by"
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
-              IllegalArgumentException #"Unsupported value for 'summarize-by': 'illegal-summarize-by'"
-              (event-counts-query-result version ["these" "are" "unused"] "illegal-summarize-by"))))
+             IllegalArgumentException #"Unsupported value for 'summarize-by': 'illegal-summarize-by'"
+             (event-counts-query-result version ["these" "are" "unused"] "illegal-summarize-by"))))
 
       (testing "containing-class"
         (let [expected #{{:subject-type "containing-class"
@@ -231,8 +231,8 @@
     (testing "count-by"
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
-              IllegalArgumentException #"Unsupported value for 'count-by': 'illegal-count-by'"
-              (event-counts-query-result version ["=" "certname" "foo.local"] "certname" {:count-by "illegal-count-by"}))))
+             IllegalArgumentException #"Unsupported value for 'count-by': 'illegal-count-by'"
+             (event-counts-query-result version ["=" "certname" "foo.local"] "certname" {:count-by "illegal-count-by"}))))
 
       (testing "resource"
         (let [expected  #{{:subject-type "containing-class"

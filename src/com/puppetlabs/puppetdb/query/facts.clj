@@ -95,7 +95,7 @@
 (defn query->sql
   "Compile a query into an SQL expression."
   [version query paging-options]
-  {:pre [((some-fn nil? sequential?) query) ]
+  {:pre [((some-fn nil? sequential?) query)]
    :post [(map? %)
           (string? (first (:results-query %)))
           (every? (complement coll?) (rest (:results-query %)))]}
@@ -111,21 +111,21 @@
               (when (:count? paging-options)
                 [:count-query (apply vector (jdbc/count-sql sql) params)])))
       (qe/compile-user-query->sql
-        qe/facts-query query paging-options))))
+       qe/facts-query query paging-options))))
 
 (defn fact-names
   "Returns the distinct list of known fact names, ordered alphabetically
   ascending. This includes facts which are known only for deactivated nodes."
   ([]
-    (fact-names {}))
+   (fact-names {}))
   ([paging-options]
-    {:post [(map? %)
-            (coll? (:result %))
-            (every? string? (:result %))]}
-    (paging/validate-order-by! [:name] paging-options)
-    (let [facts (query/execute-query
-                 ["SELECT DISTINCT name
+   {:post [(map? %)
+           (coll? (:result %))
+           (every? string? (:result %))]}
+   (paging/validate-order-by! [:name] paging-options)
+   (let [facts (query/execute-query
+                ["SELECT DISTINCT name
                    FROM fact_paths
                    ORDER BY name"]
-                 paging-options)]
-      (update-in facts [:result] #(map :name %)))))
+                paging-options)]
+     (update-in facts [:result] #(map :name %)))))

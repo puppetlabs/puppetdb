@@ -29,12 +29,12 @@
 
 (defn get-response
   ([endpoint query]
-    (get-response endpoint query {}))
+   (get-response endpoint query {}))
   ([endpoint query extra-query-params]
-     (let [resp (*app* (get-request endpoint query extra-query-params))]
-       (if (string? (:body resp))
-         resp
-         (update-in resp [:body] slurp)))))
+   (let [resp (*app* (get-request endpoint query extra-query-params))]
+     (if (string? (:body resp))
+       resp
+       (update-in resp [:body] slurp)))))
 
 (defn parse-result
   "Stringify (if needed) then parse the response"
@@ -131,26 +131,23 @@
                          version
                          (kitchensink/select-values basic-events-map matches)
                          basic)]
-          (response-equal? response expected munge-event-values))))
-
-
-    (doseq [[label count?] [["without" false]
-                            ["with" true]]]
-      (testing (str "should support paging through events " label " counts")
-        (let [results (paged-results
-                       {:app-fn  *app*
-                        :path    endpoint
-                        :query   ["=" "report" report-hash]
-                        :limit   1
-                        :total   (count basic-events)
-                        :include-total  count?
-                        :params  {:order-by (json/generate-string [{"field" "status"}])}})]
-          (is (= (count basic-events) (count results)))
-          (is (= (http-expected-resource-events
-                  version
-                  basic-events
-                  basic)
-                 (set (munge-event-values results)))))))
+          (response-equal? response expected munge-event-values)))) (doseq [[label count?] [["without" false]
+                                                                                            ["with" true]]]
+                                                                      (testing (str "should support paging through events " label " counts")
+                                                                        (let [results (paged-results
+                                                                                       {:app-fn  *app*
+                                                                                        :path    endpoint
+                                                                                        :query   ["=" "report" report-hash]
+                                                                                        :limit   1
+                                                                                        :total   (count basic-events)
+                                                                                        :include-total  count?
+                                                                                        :params  {:order-by (json/generate-string [{"field" "status"}])}})]
+                                                                          (is (= (count basic-events) (count results)))
+                                                                          (is (= (http-expected-resource-events
+                                                                                  version
+                                                                                  basic-events
+                                                                                  basic)
+                                                                                 (set (munge-event-values results)))))))
 
     (testing "order-by field names"
       (testing "should accept dashes"
@@ -276,82 +273,82 @@
   (omap/ordered-map
    "/v4/events"
    (omap/ordered-map
-     ["and"
-       ["=" "containing-class" "Foo"]
-       ["in" "certname" ["extract" "certname" ["select-resources"
-                                                ["=" "title" "foobar"]]]]]
+    ["and"
+     ["=" "containing-class" "Foo"]
+     ["in" "certname" ["extract" "certname" ["select-resources"
+                                             ["=" "title" "foobar"]]]]]
 
-     #{{:containment-path ["Foo" "" "Bar[Baz]"]
-        :new-value nil
-        :containing-class "Foo"
-        :report-receive-time "2014-04-16T12:44:40.978Z"
-        :report "93d449ce6907e55e463c5ff67b9019d9bdef8ae8"
-        :resource-title "hi"
-        :property nil
-        :file "bar"
-        :old-value nil
-        :run-start-time "2011-01-01T15:00:00.000Z"
-        :line 2
-        :status "skipped"
-        :run-end-time "2011-01-01T15:10:00.000Z"
-        :resource-type "Notify"
-        :environment "DEV"
-        :timestamp "2011-01-01T15:00:02.000Z"
-        :configuration-version "a81jasj123"
-        :certname "basic.catalogs.com"
-        :message nil}}
+    #{{:containment-path ["Foo" "" "Bar[Baz]"]
+       :new-value nil
+       :containing-class "Foo"
+       :report-receive-time "2014-04-16T12:44:40.978Z"
+       :report "93d449ce6907e55e463c5ff67b9019d9bdef8ae8"
+       :resource-title "hi"
+       :property nil
+       :file "bar"
+       :old-value nil
+       :run-start-time "2011-01-01T15:00:00.000Z"
+       :line 2
+       :status "skipped"
+       :run-end-time "2011-01-01T15:10:00.000Z"
+       :resource-type "Notify"
+       :environment "DEV"
+       :timestamp "2011-01-01T15:00:02.000Z"
+       :configuration-version "a81jasj123"
+       :certname "basic.catalogs.com"
+       :message nil}}
 
-     ["and"
-       ["=" "containing-class" "Foo"]
-       ["in" "certname" ["extract" "certname" ["select-facts"
-                                                ["=" "value" "1.1.1.1"]]]]]
+    ["and"
+     ["=" "containing-class" "Foo"]
+     ["in" "certname" ["extract" "certname" ["select-facts"
+                                             ["=" "value" "1.1.1.1"]]]]]
 
-     #{{:containment-path ["Foo" "" "Bar[Baz]"]
-        :new-value nil
-        :containing-class "Foo"
-        :report-receive-time "2014-04-16T12:44:40.978Z"
-        :report "93d449ce6907e55e463c5ff67b9019d9bdef8ae8"
-        :resource-title "hi"
-        :property nil
-        :file "bar"
-        :old-value nil
-        :run-start-time "2011-01-01T15:00:00.000Z"
-        :line 2
-        :status "skipped"
-        :run-end-time "2011-01-01T15:10:00.000Z"
-        :resource-type "Notify"
-        :environment "DEV"
-        :timestamp "2011-01-01T15:00:02.000Z"
-        :configuration-version "a81jasj123"
-        :certname "basic.catalogs.com"
-        :message nil}}
+    #{{:containment-path ["Foo" "" "Bar[Baz]"]
+       :new-value nil
+       :containing-class "Foo"
+       :report-receive-time "2014-04-16T12:44:40.978Z"
+       :report "93d449ce6907e55e463c5ff67b9019d9bdef8ae8"
+       :resource-title "hi"
+       :property nil
+       :file "bar"
+       :old-value nil
+       :run-start-time "2011-01-01T15:00:00.000Z"
+       :line 2
+       :status "skipped"
+       :run-end-time "2011-01-01T15:10:00.000Z"
+       :resource-type "Notify"
+       :environment "DEV"
+       :timestamp "2011-01-01T15:00:02.000Z"
+       :configuration-version "a81jasj123"
+       :certname "basic.catalogs.com"
+       :message nil}}
 
      ;; test vector-valued field
-     ["and"
-      ["=" "containing-class" "Foo"]
-      ["in" ["certname", "environment"]
-       ["extract" ["certname", "environment"]
-        ["select-resources" ["=" "title" "foobar"]]]]]
+    ["and"
+     ["=" "containing-class" "Foo"]
+     ["in" ["certname", "environment"]
+      ["extract" ["certname", "environment"]
+       ["select-resources" ["=" "title" "foobar"]]]]]
 
-     #{{:containment-path ["Foo" "" "Bar[Baz]"]
-        :new-value nil
-        :containing-class "Foo"
-        :report-receive-time "2014-04-16T12:44:40.978Z"
-        :report "93d449ce6907e55e463c5ff67b9019d9bdef8ae8"
-        :resource-title "hi"
-        :property nil
-        :file "bar"
-        :old-value nil
-        :run-start-time "2011-01-01T15:00:00.000Z"
-        :line 2
-        :status "skipped"
-        :run-end-time "2011-01-01T15:10:00.000Z"
-        :resource-type "Notify"
-        :environment "DEV"
-        :timestamp "2011-01-01T15:00:02.000Z"
-        :configuration-version "a81jasj123"
-        :certname "basic.catalogs.com"
-        :message nil}})))
+    #{{:containment-path ["Foo" "" "Bar[Baz]"]
+       :new-value nil
+       :containing-class "Foo"
+       :report-receive-time "2014-04-16T12:44:40.978Z"
+       :report "93d449ce6907e55e463c5ff67b9019d9bdef8ae8"
+       :resource-title "hi"
+       :property nil
+       :file "bar"
+       :old-value nil
+       :run-start-time "2011-01-01T15:00:00.000Z"
+       :line 2
+       :status "skipped"
+       :run-end-time "2011-01-01T15:10:00.000Z"
+       :resource-type "Notify"
+       :environment "DEV"
+       :timestamp "2011-01-01T15:00:02.000Z"
+       :configuration-version "a81jasj123"
+       :certname "basic.catalogs.com"
+       :message nil}})))
 
 (deftestseq valid-subqueries
   [[version endpoint] endpoints]

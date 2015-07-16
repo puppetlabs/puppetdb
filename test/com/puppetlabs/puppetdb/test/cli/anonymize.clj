@@ -34,9 +34,9 @@
           {host "name" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
 
       (are [k v] (= v (get-in orig-data ["facts" "foo.com.json" "values" k]))
-           "password" "foo"
-           "reallysecret" "bar"
-           "totallyprivate" "baz")
+        "password" "foo"
+        "reallysecret" "bar"
+        "totallyprivate" "baz")
 
       (is (not (str/blank? host)))
       (is (not= host "foo.com"))
@@ -45,9 +45,9 @@
       (is (contains? anon-facts "totallyprivate"))
 
       (are [k] (not= (get orig-facts ["values" k]) (get anon-facts k))
-           "password"
-           "reallysecret"
-           "totallyprivate")
+        "password"
+        "reallysecret"
+        "totallyprivate")
 
       (is (= (get orig-facts "environment")
              anon-env))))
@@ -62,10 +62,10 @@
           {host "name" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
 
       (are [k v] (= v (get-in orig-data ["facts" "foo.com.json" "values" k]))
-           "password" "foo"
-           "id" "foo"
-           "ipaddress_lo0" "127.0.0.1"
-           "operatingsystem" "Debian")
+        "password" "foo"
+        "id" "foo"
+        "ipaddress_lo0" "127.0.0.1"
+        "operatingsystem" "Debian")
 
       (is (not (str/blank? host)))
       (is (not= host "foo.com"))
@@ -74,34 +74,31 @@
       (is (contains? anon-facts "operatingsystem"))
 
       (are [op k] (op (get-in orig-facts ["values" k]) (get anon-facts k))
-           = "id"
-           not= "ipaddress_lo0"
-           = "operatingsystem")
+        = "id"
+        not= "ipaddress_lo0"
+        = "operatingsystem")
 
       (is (= (count (get orig-facts "values"))
              (count anon-facts)))
 
       (is (not= (get orig-data "environment")
-                anon-env))))
+                anon-env)))) (testing "with profile full"
+                               (let [in-path (.getPath (tu/temp-file "input-facts" ".tar.gz"))
+                                     _ (spit-facts-tarball in-path (create-host-facts "foo.com" {"password" "foo"}))
+                                     anon-output (tu/temp-file "anon-facts" ".tar.gz")
+                                     _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "full")
+                                     orig-data (tar/mapify in-path)
+                                     orig-facts (get-in orig-data ["facts" "foo.com.json"])
+                                     {host "name" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
 
+                                 (are [k v] (= v (get-in orig-facts ["values" k]))
+                                   "password" "foo"
+                                   "id" "foo"
+                                   "ipaddress_lo0" "127.0.0.1"
+                                   "operatingsystem" "Debian")
 
-  (testing "with profile full"
-    (let [in-path (.getPath (tu/temp-file "input-facts" ".tar.gz"))
-          _ (spit-facts-tarball in-path (create-host-facts "foo.com" {"password" "foo"}))
-          anon-output (tu/temp-file "anon-facts" ".tar.gz")
-          _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "full")
-          orig-data (tar/mapify in-path)
-          orig-facts (get-in orig-data ["facts" "foo.com.json"])
-          {host "name" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
-
-      (are [k v] (= v (get-in orig-facts ["values" k]))
-           "password" "foo"
-           "id" "foo"
-           "ipaddress_lo0" "127.0.0.1"
-           "operatingsystem" "Debian")
-
-      (is (not-any? anon-facts (keys (get orig-facts "values"))))
-      (is (not-any? (set (vals anon-facts))
-                    (vals (get orig-data "values"))))
-      (is (not= (get orig-data "environment")
-                anon-env)))))
+                                 (is (not-any? anon-facts (keys (get orig-facts "values"))))
+                                 (is (not-any? (set (vals anon-facts))
+                                               (vals (get orig-data "values"))))
+                                 (is (not= (get orig-data "environment")
+                                           anon-env)))))

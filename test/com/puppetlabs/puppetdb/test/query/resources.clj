@@ -55,22 +55,22 @@
    {:name "example.local"}
    {:name "subset.local"})
   (sql/insert-records
-    :catalogs
-    {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "example.local" :environment_id (ensure-environment "DEV")}
-    {:id 2 :hash "bar" :api_version 1 :catalog_version "14" :certname "subset.local" :environment_id nil})
+   :catalogs
+   {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "example.local" :environment_id (ensure-environment "DEV")}
+   {:id 2 :hash "bar" :api_version 1 :catalog_version "14" :certname "subset.local" :environment_id nil})
 
   (sql/insert-records :catalog_resources
-    {:catalog_id 1 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 1}
-    {:catalog_id 1 :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 2}
-    {:catalog_id 1 :resource "3" :type "Notify" :title "no-params" :exported true :tags (to-jdbc-varchar-array []) :file "c" :line 1}
-    {:catalog_id 1 :resource "4" :type "File" :title "/etc/Makefile" :exported false :tags (to-jdbc-varchar-array ["vivid"]) :file "d" :line 1}
-    {:catalog_id 1 :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 2}
-    {:catalog_id 1 :resource "6" :type "Mval" :title "multivalue" :exported false :tags (to-jdbc-varchar-array []) :file "e" :line 1}
-    {:catalog_id 1 :resource "7" :type "Hval" :title "hashvalue" :exported false :tags (to-jdbc-varchar-array []) :file "f" :line 1}
-    {:catalog_id 1 :resource "8" :type "Notify" :title "semver" :exported false :tags (to-jdbc-varchar-array ["1.3.7+build.11.e0f985a"]) :file "f" :line 1}
-    {:catalog_id 2 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "b" :line 1}
-    {:catalog_id 2 :resource "3" :type "Notify" :title "no-params" :exported false :tags (to-jdbc-varchar-array []) :file "c" :line 2}
-    {:catalog_id 2 :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
+                      {:catalog_id 1 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 1}
+                      {:catalog_id 1 :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 2}
+                      {:catalog_id 1 :resource "3" :type "Notify" :title "no-params" :exported true :tags (to-jdbc-varchar-array []) :file "c" :line 1}
+                      {:catalog_id 1 :resource "4" :type "File" :title "/etc/Makefile" :exported false :tags (to-jdbc-varchar-array ["vivid"]) :file "d" :line 1}
+                      {:catalog_id 1 :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 2}
+                      {:catalog_id 1 :resource "6" :type "Mval" :title "multivalue" :exported false :tags (to-jdbc-varchar-array []) :file "e" :line 1}
+                      {:catalog_id 1 :resource "7" :type "Hval" :title "hashvalue" :exported false :tags (to-jdbc-varchar-array []) :file "f" :line 1}
+                      {:catalog_id 1 :resource "8" :type "Notify" :title "semver" :exported false :tags (to-jdbc-varchar-array ["1.3.7+build.11.e0f985a"]) :file "f" :line 1}
+                      {:catalog_id 2 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "b" :line 1}
+                      {:catalog_id 2 :resource "3" :type "Notify" :title "no-params" :exported false :tags (to-jdbc-varchar-array []) :file "c" :line 2}
+                      {:catalog_id 2 :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
   (let [foo1 {:certname   "example.local"
               :resource   "1"
               :type       "File"
@@ -185,15 +185,14 @@
               :file "f"
               :line 1
               :environment "DEV"
-              :parameters {}}
-        ]
+              :parameters {}}]
     ;; ...and, finally, ready for testing.
 
     (doseq [version [:v3 :v4]]
       (testing (str "version " version " queries against SQL data")
         (doseq [[input expect]
                 (partition
-                 2 [ ;; no match
+                 2 [;; no match
                     ["=" "type" "Banana"]            []
                     ["=" "tag"  "exotic"]            []
                     ["=" ["parameter" "foo"] "bar"]  []
@@ -252,24 +251,21 @@
                      ["not" ["=" "certname" "subset.local"]]
                      ["=" "type" "File"]
                      ["=" "tag" "vivid"]]
-                    [foo4]
-                    ])]
-         (is (= (set (query-resources version (s/query->sql version input)))
+                    [foo4]])]
+          (is (= (set (query-resources version (s/query->sql version input)))
                  (set (query/remove-all-environments version expect)))
-             (str "  " input " =>\n  " expect)))))
+              (str "  " input " =>\n  " expect)))))
 
     (testing "v2 vs v3"
       (testing "file/line in v2"
         (doseq [param ["file" "line"]]
           (is (thrown-with-msg? IllegalArgumentException #"is not a queryable object"
-                (query-resources :v2 (s/query->sql :v2 ["=" param "foo"])))))
+                                (query-resources :v2 (s/query->sql :v2 ["=" param "foo"])))))
 
         (doseq [[input expect]
                 (partition
-                  2 [
-                      ["=" "sourcefile" "c"] [foo3 bar3]
-                      ["=" "sourceline" 3] [bar5]
-                      ])]
+                 2 [["=" "sourcefile" "c"] [foo3 bar3]
+                    ["=" "sourceline" 3] [bar5]])]
           (is (= (set (query-resources :v2 (s/query->sql :v2 input)))
                  (set (map #(clojure.set/rename-keys % {:file :sourcefile :line :sourceline})
                            (query/remove-all-environments :v2 expect))))
@@ -281,7 +277,7 @@
     (testing "'not' term without arguments in later version"
       (doseq [op ["not" "NOT" "NoT"]]
         (is (thrown-with-msg? IllegalArgumentException #"'not' takes exactly one argument, but 0 were supplied"
-              (query-resources version (s/query->sql version [op]))))))))
+                              (query-resources version (s/query->sql version [op]))))))))
 
 (deftest query-resources-with-extra-FAIL
   ;; These are tests that belong in query_eng for :v4
@@ -322,16 +318,16 @@
 
 (deftest paging-results
   (sql/insert-records
-    :resource_params_cache
-    {:resource "1" :parameters (db-serialize {"ensure" "file"
-                                              "owner"  "root"
-                                              "group"  "root"})}
-    {:resource "2" :parameters (db-serialize {"random" "true"
-                                              "enabled" "false"})}
-    {:resource "3" :parameters (db-serialize {"hash" {"foo" 5 "bar" 10}
-                                              "multi" ["one" "two" "three"]})}
-    {:resource "4" :parameters (db-serialize {"ensure"  "present"
-                                              "content" "contents"})})
+   :resource_params_cache
+   {:resource "1" :parameters (db-serialize {"ensure" "file"
+                                             "owner"  "root"
+                                             "group"  "root"})}
+   {:resource "2" :parameters (db-serialize {"random" "true"
+                                             "enabled" "false"})}
+   {:resource "3" :parameters (db-serialize {"hash" {"foo" 5 "bar" 10}
+                                             "multi" ["one" "two" "three"]})}
+   {:resource "4" :parameters (db-serialize {"ensure"  "present"
+                                             "content" "contents"})})
   (sql/insert-records
    :resource_params
    {:resource "1" :name "ensure"  :value (db-serialize "file")}
@@ -345,14 +341,14 @@
    {:resource "2" :name "enabled" :value (db-serialize "false")})
 
   (sql/insert-records :certnames
-    {:name "foo.local"})
+                      {:name "foo.local"})
   (sql/insert-records :catalogs
-    {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "foo.local" :environment_id (ensure-environment "DEV")})
+                      {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "foo.local" :environment_id (ensure-environment "DEV")})
   (sql/insert-records :catalog_resources
-    {:catalog_id 1 :resource "1" :type "File" :title "alpha"   :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 1}
-    {:catalog_id 1 :resource "2" :type "File" :title "beta"    :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 4}
-    {:catalog_id 1 :resource "3" :type "File" :title "charlie" :exported true  :tags (to-jdbc-varchar-array []) :file "c" :line 2}
-    {:catalog_id 1 :resource "4" :type "File" :title "delta"   :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
+                      {:catalog_id 1 :resource "1" :type "File" :title "alpha"   :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 1}
+                      {:catalog_id 1 :resource "2" :type "File" :title "beta"    :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 4}
+                      {:catalog_id 1 :resource "3" :type "File" :title "charlie" :exported true  :tags (to-jdbc-varchar-array []) :file "c" :line 2}
+                      {:catalog_id 1 :resource "4" :type "File" :title "delta"   :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
 
   (let [r1 {:certname "foo.local" :resource "1" :type "File" :title "alpha"   :tags [] :exported true  :file "a" :line 1 :environment "DEV" :parameters {"ensure" "file" "group" "root" "owner" "root"}}
         r2 {:certname "foo.local" :resource "2" :type "File" :title "beta"    :tags [] :exported true  :file "a" :line 4 :environment "DEV" :parameters {"enabled" "false" "random" "true"}}

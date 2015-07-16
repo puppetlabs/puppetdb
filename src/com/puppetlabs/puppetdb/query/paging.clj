@@ -20,8 +20,8 @@
   values are nil, 'asc', and 'desc' (case-insensitive)."
   [order]
   (or (nil? order)
-    (= "asc" (string/lower-case order))
-    (= "desc" (string/lower-case order))))
+      (= "asc" (string/lower-case order))
+      (= "desc" (string/lower-case order))))
 
 (defn valid-paging-options?
   "Predicate that tests whether an object represents valid
@@ -29,18 +29,18 @@
   by the wrap-with-paging-options middleware."
   [{:keys [limit offset order-by] :as paging-options}]
   (and
-    (map? paging-options)
-    (or
-      (nil? limit)
-      (pos? limit))
-    (or
-      (nil? offset)
-      (>= offset 0))
-    (or
-      (nil? order-by)
-      (and
-        (sequential? order-by)
-        (every? order-by-expr? order-by)))))
+   (map? paging-options)
+   (or
+    (nil? limit)
+    (pos? limit))
+   (or
+    (nil? offset)
+    (>= offset 0))
+   (or
+    (nil? order-by)
+    (and
+     (sequential? order-by)
+     (every? order-by-expr? order-by)))))
 
 (defn parse-order-by-json
   "Parses a JSON order-by string.  Returns the parsed string, or a Ring
@@ -53,8 +53,8 @@
     (doall (json/parse-string order-by true))
     (catch JsonParseException e
       (throw (IllegalArgumentException.
-        (str "Illegal value '" order-by "' for :order-by; expected a JSON "
-          "array of maps."))))))
+              (str "Illegal value '" order-by "' for :order-by; expected a JSON "
+                   "array of maps."))))))
 
 (defn parse-order-str
   "Given an 'order' string, returns either :ascending or :descending"
@@ -74,8 +74,8 @@
           ((every-pred sequential? #(every? map? %)) order-by))
     order-by
     (throw (IllegalArgumentException.
-      (str "Illegal value '" order-by "' for :order-by; expected "
-        "an array of maps.")))))
+            (str "Illegal value '" order-by "' for :order-by; expected "
+                 "an array of maps.")))))
 
 (defn parse-required-order-by-fields
   "Validates that each map in the order-by list contains the required
@@ -86,21 +86,21 @@
   [order-by]
   {:post [(every? order-by-expr? %)]}
   (when-let [bad-order-by (some
-                            (fn [x] (when-not (contains? x :field) x))
-                            order-by)]
+                           (fn [x] (when-not (contains? x :field) x))
+                           order-by)]
     (throw (IllegalArgumentException.
-      (str "Illegal value '" bad-order-by "' in :order-by; "
-         "missing required key 'field'."))))
+            (str "Illegal value '" bad-order-by "' in :order-by; "
+                 "missing required key 'field'."))))
   (when-let [bad-order-by (some
-                            (fn [x] (when-not (valid-order-str? (:order x)) x))
-                            order-by)]
+                           (fn [x] (when-not (valid-order-str? (:order x)) x))
+                           order-by)]
     (throw (IllegalArgumentException.
-             (str "Illegal value '" bad-order-by "' in :order-by; "
-               "'order' must be either 'asc' or 'desc'"))))
+            (str "Illegal value '" bad-order-by "' in :order-by; "
+                 "'order' must be either 'asc' or 'desc'"))))
   (map
-    (fn [x]
-      [(keyword (:field x)) (parse-order-str (:order x))])
-    order-by))
+   (fn [x]
+     [(keyword (:field x)) (parse-order-str (:order x))])
+   order-by))
 
 (defn validate-no-invalid-order-by-fields
   "Validates that each map in the order-by list does not contain any invalid
@@ -108,11 +108,11 @@
   was successful; throws an exception with a useful error message otherwise."
   [order-by]
   (if-let [bad-order-by (some
-                          (fn [x] (when (keys (dissoc x :field :order)) x))
-                          order-by)]
+                         (fn [x] (when (keys (dissoc x :field :order)) x))
+                         order-by)]
     (throw (IllegalArgumentException.
-             (str "Illegal value '" bad-order-by "' in :order-by; "
-              "unknown key '" (name (first (keys (dissoc bad-order-by :field :order)))) "'.")))
+            (str "Illegal value '" bad-order-by "' in :order-by; "
+                 "unknown key '" (name (first (keys (dissoc bad-order-by :field :order)))) "'.")))
     order-by))
 
 (defn parse-order-by
@@ -138,11 +138,11 @@
           (every? order-by-expr? (% :order-by))]}
   (if-let [order-by (paging-options :order-by)]
     (->> order-by
-      (parse-order-by-json)
-      (validate-order-by-data-structure)
-      (validate-no-invalid-order-by-fields)
-      (parse-required-order-by-fields)
-      (assoc paging-options :order-by))
+         (parse-order-by-json)
+         (validate-order-by-data-structure)
+         (validate-no-invalid-order-by-fields)
+         (parse-required-order-by-fields)
+         (assoc paging-options :order-by))
     paging-options))
 
 (defn parse-count
@@ -151,8 +151,8 @@
   [paging-options]
   (let [count? (parse-boolean-query-param paging-options :include-total)]
     (-> paging-options
-      (dissoc :include-total)
-      (assoc :count? count?))))
+        (dissoc :include-total)
+        (assoc :count? count?))))
 
 (defn validate-limit
   "Validates that the limit string is a positive non-zero integer. Returns the integer
@@ -163,7 +163,7 @@
   (let [l (parse-int limit)]
     (if ((some-fn nil? neg? zero?) l)
       (throw (IllegalArgumentException.
-               (format "Illegal value '%s' for :limit; expected a positive non-zero integer." limit)))
+              (format "Illegal value '%s' for :limit; expected a positive non-zero integer." limit)))
       l)))
 
 (defn parse-limit
@@ -182,7 +182,7 @@
   (let [o (parse-int offset)]
     (if ((some-fn nil? neg?) o)
       (throw (IllegalArgumentException.
-               (format "Illegal value '%s' for :offset; expected a non-negative integer." offset)))
+              (format "Illegal value '%s' for :offset; expected a non-negative integer." offset)))
       o)))
 
 (defn parse-offset
@@ -204,16 +204,16 @@
     (doseq [field (map first (:order-by paging-options))]
       (when-not (seq-contains? columns field)
         (throw (IllegalArgumentException.
-          (format "Unrecognized column '%s' specified in :order-by; Supported columns are '%s'"
-                  (name field)
-                  (string/join "', '" (map name columns)))))))))
+                (format "Unrecognized column '%s' specified in :order-by; Supported columns are '%s'"
+                        (name field)
+                        (string/join "', '" (map name columns)))))))))
 
 (defn requires-paging?
   "Given a paging-options map, return true if the query requires paging
   and false if it does not."
   [{:keys [limit offset order-by count?] :as paging-options}]
   (not
-    (and
-      (every? nil? [limit offset])
-      ((some-fn nil? (every-pred coll? empty?)) order-by)
-      (not count?))))
+   (and
+    (every? nil? [limit offset])
+    ((some-fn nil? (every-pred coll? empty?)) order-by)
+    (not count?))))

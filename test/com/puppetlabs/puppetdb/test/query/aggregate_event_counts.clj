@@ -14,8 +14,8 @@
   ([version query summarize-by]
    (aggregate-counts-query-result version query summarize-by {}))
   ([version query summarize-by extra-query-params]
-     (-> (aggregate-event-counts/query->sql version query summarize-by extra-query-params)
-         (aggregate-event-counts/query-aggregate-event-counts))))
+   (-> (aggregate-event-counts/query->sql version query summarize-by extra-query-params)
+       (aggregate-event-counts/query-aggregate-event-counts))))
 
 (deftest aggregate-event-count-queries
   (store-example-report! (:basic reports) (now))
@@ -24,8 +24,8 @@
     (testing (str "summarize-by for api version" version)
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
-              IllegalArgumentException #"Unsupported value for 'summarize-by': 'illegal-summarize-by'"
-              (aggregate-counts-query-result version ["these" "are" "unused"] "illegal-summarize-by"))))
+             IllegalArgumentException #"Unsupported value for 'summarize-by': 'illegal-summarize-by'"
+             (aggregate-counts-query-result version ["these" "are" "unused"] "illegal-summarize-by"))))
 
       (testing "containing-class"
         (let [expected  {:successes 1
@@ -103,8 +103,8 @@
     (testing "count-by"
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
-              IllegalArgumentException #"Unsupported value for 'count-by': 'illegal-count-by'"
-              (aggregate-counts-query-result version ["=" "certname" "foo.local"] "certname" {:count-by "illegal-count-by"}))))
+             IllegalArgumentException #"Unsupported value for 'count-by': 'illegal-count-by'"
+             (aggregate-counts-query-result version ["=" "certname" "foo.local"] "certname" {:count-by "illegal-count-by"}))))
 
       (testing "resource"
         (let [expected  {:successes 1
@@ -126,10 +126,10 @@
 
     (testing "when nothing matches, should return zeroes rather than nils"
       (let [expected  {:successes 0
-                        :failures 0
-                        :noops 0
-                        :skips 0
-                        :total 0}
+                       :failures 0
+                       :noops 0
+                       :skips 0
+                       :total 0}
 
             actual    (aggregate-counts-query-result version ["<" "timestamp" 0] "resource")]
         (is (= actual expected))))))

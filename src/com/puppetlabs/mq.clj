@@ -37,13 +37,13 @@
   (when megabytes
     (log/info "Setting ActiveMQ " desc " limit to " megabytes " MB")
     (-> broker
-      (.getSystemUsage)
-      (usage-fn)
-      (.setLimit (* megabytes 1024 1024))))
+        (.getSystemUsage)
+        (usage-fn)
+        (.setLimit (* megabytes 1024 1024))))
   broker)
 
 (defn- set-store-usage!
-   "Configures the `StoreUsage` setting for an instance of `BrokerService`.
+  "Configures the `StoreUsage` setting for an instance of `BrokerService`.
 
    `broker`     - the `BrokerService` to configure
    `megabytes ` - the maximum amount of disk usage to allow for persistent messages,
@@ -82,34 +82,34 @@
       :temp-usage   - sets the limit of disk storage in the broker's temp dir
                       (in megabytes) for temporary messages"
   ([dir]
-     {:pre  [(string? dir)]
-      :post [(instance? BrokerService %)]}
-     (build-embedded-broker "localhost" dir))
+   {:pre  [(string? dir)]
+    :post [(instance? BrokerService %)]}
+   (build-embedded-broker "localhost" dir))
   ([name dir]
-     {:pre  [(string? name)
-             (string? dir)]
-      :post [(instance? BrokerService %)]}
-     (build-embedded-broker name dir {}))
+   {:pre  [(string? name)
+           (string? dir)]
+    :post [(instance? BrokerService %)]}
+   (build-embedded-broker name dir {}))
   ([name dir config]
-    {:pre   [(string? name)
-             (string? dir)
-             (map? config)]
-     :post  [(instance? BrokerService %)]}
-    (let [mq (doto (BrokerService.)
-               (.setBrokerName name)
-               (.setDataDirectory dir)
-               (.setSchedulerSupport true)
-               (.setPersistent true)
-               (set-store-usage! (:store-usage config))
-               (set-temp-usage!  (:temp-usage config)))
-          mc (doto (.getManagementContext mq)
-               (.setCreateConnector false))
-          db (doto (.getPersistenceAdapter mq)
-               (.setIgnoreMissingJournalfiles true)
-               (.setArchiveCorruptedIndex true)
-               (.setCheckForCorruptJournalFiles true)
-               (.setChecksumJournalFiles true))]
-      mq)))
+   {:pre   [(string? name)
+            (string? dir)
+            (map? config)]
+    :post  [(instance? BrokerService %)]}
+   (let [mq (doto (BrokerService.)
+              (.setBrokerName name)
+              (.setDataDirectory dir)
+              (.setSchedulerSupport true)
+              (.setPersistent true)
+              (set-store-usage! (:store-usage config))
+              (set-temp-usage!  (:temp-usage config)))
+         mc (doto (.getManagementContext mq)
+              (.setCreateConnector false))
+         db (doto (.getPersistenceAdapter mq)
+              (.setIgnoreMissingJournalfiles true)
+              (.setArchiveCorruptedIndex true)
+              (.setCheckForCorruptJournalFiles true)
+              (.setChecksumJournalFiles true))]
+     mq)))
 
 (defn start-broker!
   "Starts up the supplied broker, making it ready to accept
@@ -229,29 +229,29 @@
     (delay-property 1 :hours)
   "
   ([number unit]
-     (condp = unit
-       :seconds (delay-property (* 1000 number))
-       :minutes (delay-property (* 60 1000 number))
-       :hours   (delay-property (* 60 60 1000 number))
-       :days    (delay-property (* 24 60 60 1000 number))))
+   (condp = unit
+     :seconds (delay-property (* 1000 number))
+     :minutes (delay-property (* 60 1000 number))
+     :hours   (delay-property (* 60 60 1000 number))
+     :days    (delay-property (* 24 60 60 1000 number))))
   ([millis]
-     {:pre  [(number? millis)
-             (pos? millis)]
-      :post [(map? %)]}
-     {ScheduledMessage/AMQ_SCHEDULED_DELAY (str (long millis))}))
+   {:pre  [(number? millis)
+           (pos? millis)]
+    :post [(map? %)]}
+   {ScheduledMessage/AMQ_SCHEDULED_DELAY (str (long millis))}))
 
 (defn convert-message
   "Convert the given `message` to a string using the type-specific method."
   [^Message message]
   (cond
-   (instance? javax.jms.TextMessage message)
-   (let [^TextMessage text-message message]
-     (.getText text-message))
-   (instance? javax.jms.BytesMessage message)
-   (let [^BytesMessage bytes-message message]
-     (.readUTF8 bytes-message))
-   :else
-   (throw (ex-info (str "Expected a text message, instead found: " (class message))))))
+    (instance? javax.jms.TextMessage message)
+    (let [^TextMessage text-message message]
+      (.getText text-message))
+    (instance? javax.jms.BytesMessage message)
+    (let [^BytesMessage bytes-message message]
+      (.readUTF8 bytes-message))
+    :else
+    (throw (ex-info (str "Expected a text message, instead found: " (class message))))))
 
 (defn extract-headers
   "Creates a map of custom headers included in `message`, currently only
@@ -259,8 +259,8 @@
   [^Message msg]
   (reduce (fn [acc k]
             (assoc acc
-              (keyword k)
-              (.getStringProperty msg k)))
+                   (keyword k)
+                   (.getStringProperty msg k)))
           {} (enumeration-seq (.getPropertyNames msg))))
 
 (defn create-message-listener
@@ -282,7 +282,6 @@
               (when (= limit @counter)
                 (do (.stop container)
                     (future (.shutdown container)))))))))))
-
 
 (defn message-consumer
   "Instantiates the MQ listening container along with the
@@ -309,7 +308,7 @@
                       (doto container
                         (.start)
                         (.initialize))
-                        nil))
+                      nil))
       (close [self] (do
                       (.shutdown container)
                       nil)))))

@@ -78,7 +78,7 @@
    pick that relationship."
   ([] (rand-relationship nil))
   ([prev-relationship]
-     (rand-nth (seq (disj relationships prev-relationship)))))
+   (rand-nth (seq (disj relationships prev-relationship)))))
 
 (defn add-random-edge-to-catalog
   "Creates a new edge between 2 randomly chosen resources, and adds it
@@ -113,11 +113,11 @@
                       (disj edge1)
                       (disj edge2)
                       (conj (assoc edge1
-                              :target (:target edge2)
-                              :relationship (rand-relationship (:relationship edge1))))
+                                   :target (:target edge2)
+                                   :relationship (rand-relationship (:relationship edge1))))
                       (conj (assoc edge2
-                              :target (:target edge1)
-                              :relationship (rand-relationship (:relationship edge2)))))]
+                                   :target (:target edge1)
+                                   :relationship (rand-relationship (:relationship edge2)))))]
     (assoc c :edges new-edges)))
 
 (def swap-edge-targets-in-wire-catalog

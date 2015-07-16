@@ -42,17 +42,17 @@
 
         (are [expected response-key] (= expected
                                         (get response response-key))
-             true "newer"
-             "100.0.0" "version"
-             "http://docs.puppetlabs.com/puppetdb/100.0/release_notes.html" "link")))
+          true "newer"
+          "100.0.0" "version"
+          "http://docs.puppetlabs.com/puppetdb/100.0/release_notes.html" "link")))
     (testing "should return 'newer'->true if product is 'puppetdb"
       (let [response (parsed-body (app-with-update-server {:product-name "puppetdb"}
                                                           (get-request (str endpoint "/latest"))))]
         (are [expected response-key] (= expected
                                         (get response response-key))
-             true "newer"
-             "100.0.0" "version"
-             "http://docs.puppetlabs.com/puppetdb/100.0/release_notes.html" "link")))
+          true "newer"
+          "100.0.0" "version"
+          "http://docs.puppetlabs.com/puppetdb/100.0/release_notes.html" "link")))
     (testing "should return 'newer'->false if product is 'pe-puppetdb"
       ;; it should *always* return false for pe-puppetdb because
       ;; we don't even want to allow checking for updates
@@ -60,9 +60,9 @@
                                                           (get-request (str endpoint "/latest"))))]
         (are [expected response-key] (= expected
                                         (get response response-key))
-             false "newer"
-             "99.0.0" "version"
-             nil "link")))))
+          false "newer"
+          "99.0.0" "version"
+          nil "link")))))
 
 (deftestseq test-latest-version
   [[version endpoint] endpoints]

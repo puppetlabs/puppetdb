@@ -38,30 +38,30 @@
     (testing "order-by"
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
-              IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-              (query-fact-names {:order-by [[:invalid-field :ascending]]}))))
+             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+             (query-fact-names {:order-by [[:invalid-field :ascending]]}))))
 
       (testing "alphabetical fields"
         (doseq [[order expected] [[:ascending  [f1 f2 f3 f4]]
                                   [:descending [f4 f3 f2 f1]]]]
           (testing order
             (let [actual (query-fact-names
-                           {:order-by [[:name order]]})]
+                          {:order-by [[:name order]]})]
               (is (= actual expected)))))))
 
     (testing "offset"
       (doseq [[order expected-sequences] [[:ascending  [[0 [f1 f2 f3 f4]]
-                                                       [1 [f2 f3 f4]]
-                                                       [2 [f3 f4]]
-                                                       [3 [f4]]
-                                                       [4 []]]]
+                                                        [1 [f2 f3 f4]]
+                                                        [2 [f3 f4]]
+                                                        [3 [f4]]
+                                                        [4 []]]]
                                           [:descending [[0 [f4 f3 f2 f1]]
-                                                       [1 [f3 f2 f1]]
-                                                       [2 [f2 f1]]
-                                                       [3 [f1]]
-                                                       [4 []]]]]]
+                                                        [1 [f3 f2 f1]]
+                                                        [2 [f2 f1]]
+                                                        [3 [f1]]
+                                                        [4 []]]]]]
         (testing order
           (doseq [[offset expected] expected-sequences]
             (let [actual (query-fact-names
-                           {:order-by [[:name order]] :offset offset})]
+                          {:order-by [[:name order]] :offset offset})]
               (is (= actual expected)))))))))

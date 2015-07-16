@@ -48,8 +48,8 @@
           (doseq [m applied]
             (apply-migration-for-testing m))
           (is (= (set (keys (pending-migrations)))
-                (difference (set (keys migrations))
-                            (set applied))))))))
+                 (difference (set (keys migrations))
+                             (set applied))))))))
 
   (testing "applying the migrations"
     (let [expected-migrations (apply sorted-set (keys migrations))]
@@ -141,7 +141,7 @@
        {:name "testing4" :deactivated nil}
        {:name "testing5" :deactivated current-time})
       (sql/insert-records
-        :environments
+       :environments
        {:id 1 :name "test_env_1"}
        {:id 2 :name "test_env_2"}
        {:id 3 :name "test_env_3"}
@@ -168,7 +168,7 @@
 
       (let [response
             (query-to-vec
-              "SELECT path, e.id AS environment_id, e.name AS environment,
+             "SELECT path, e.id AS environment_id, e.name AS environment,
               timestamp, value_string
                FROM
                environments e INNER JOIN factsets fs on e.id=fs.environment_id
@@ -184,7 +184,6 @@
                 {:path "baz" :environment_id 3 :environment "test_env_3"
                  :timestamp (to-timestamp current-time) :value_string "false"}]))))))
 
-
 (deftest migration-28
   (sql/with-connection db
     (clear-db-for-testing!)
@@ -195,13 +194,13 @@
     (letfn [(one-row [db]
               (first (query-to-vec (format "SELECT * FROM %s LIMIT 1" db))))
             (facts-now [c v]
-              {:name c :values v
-               :environment nil :timestamp (now) :producer-timestamp nil})
+                       {:name c :values v
+                        :environment nil :timestamp (now) :producer-timestamp nil})
             (random-facts []
-              (into {}
-                    (for [i (range (+ 1000 (rand-int 100)))]
-                      [(str "path-" i "-" (rand-int 3))
-                       (str "value-" (rand-int 100))])))]
+                          (into {}
+                                (for [i (range (+ 1000 (rand-int 100)))]
+                                  [(str "path-" i "-" (rand-int 3))
+                                   (str "value-" (rand-int 100))])))]
       (store/add-certname! "c-x")
       (store/add-certname! "c-y")
       (store/add-certname! "c-z")

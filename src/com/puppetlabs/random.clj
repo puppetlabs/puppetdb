@@ -10,23 +10,23 @@
   "Generate a random string of optional length"
   ([] (random-string (inc (rand-int 10))))
   ([length]
-  {:pre  [(integer? length)
-          (pos? length)]
-   :post [(string? %)
-          (= length (count %))]}
-  (let [ascii-codes (concat (range 48 58) (range 65 91) (range 97 123))]
-    (apply str (repeatedly length #(char (rand-nth ascii-codes)))))))
+   {:pre  [(integer? length)
+           (pos? length)]
+    :post [(string? %)
+           (= length (count %))]}
+   (let [ascii-codes (concat (range 48 58) (range 65 91) (range 97 123))]
+     (apply str (repeatedly length #(char (rand-nth ascii-codes)))))))
 
 (defn random-string-alpha
   "Generate a random string of optional length, only lower case alphabet chars"
   ([] (random-string (inc (rand-int 10))))
   ([length]
-  {:pre  [(integer? length)
-          (pos? length)]
-   :post [(string? %)
-          (= length (count %))]}
-  (let [ascii-codes (concat (range 97 123))]
-    (apply str (repeatedly length #(char (rand-nth ascii-codes)))))))
+   {:pre  [(integer? length)
+           (pos? length)]
+    :post [(string? %)
+           (= length (count %))]}
+   (let [ascii-codes (concat (range 97 123))]
+     (apply str (repeatedly length #(char (rand-nth ascii-codes)))))))
 
 (defn random-bool
   "Generate a random boolean"
@@ -39,8 +39,8 @@
   []
   {:post [(string? %)]}
   (str (random-string-alpha 10) "."
-    (random-string-alpha 15) "."
-    (random-string-alpha 3)))
+       (random-string-alpha 15) "."
+       (random-string-alpha 3)))
 
 (defn random-type-name
   "Generate a random type name."
@@ -68,16 +68,16 @@
   ([] (random-resource (random-string) (random-string)))
   ([type title] (random-resource type title {}))
   ([type title overrides]
-     (let [extra-params (overrides "parameters")
-           overrides    (dissoc overrides "parameters")
-           r            {"type"       type
-                         "title"      title
-                         "exported"   (random-bool)
-                         "file"       (random-string)
-                         "line"       (rand-int 1000)
-                         "tags"       (set (repeatedly (inc (rand-int 10)) #(string/lower-case (random-string))))
-                         "parameters" (merge (random-parameters) extra-params)}]
-       (merge r overrides))))
+   (let [extra-params (overrides "parameters")
+         overrides    (dissoc overrides "parameters")
+         r            {"type"       type
+                       "title"      title
+                       "exported"   (random-bool)
+                       "file"       (random-string)
+                       "line"       (rand-int 1000)
+                       "tags"       (set (repeatedly (inc (rand-int 10)) #(string/lower-case (random-string))))
+                       "parameters" (merge (random-parameters) extra-params)}]
+     (merge r overrides))))
 
 ;; A version of random-resource that returns resources with keyword
 ;; keys instead of strings
@@ -86,13 +86,11 @@
 (defn random-resource-event
   "Generate a random resource event."
   []
-  {
-    "resource-type"      (random-string)
-    "resource-title"     (random-string)
-    "property"           (random-string)
-    "timestamp"          (random-string)
-    "status"             (random-string)
-    "old-value"          (random-string)
-    "new-value"          (random-string)
-    "message"            (random-string)
-  })
+  {"resource-type"      (random-string)
+   "resource-title"     (random-string)
+   "property"           (random-string)
+   "timestamp"          (random-string)
+   "status"             (random-string)
+   "old-value"          (random-string)
+   "new-value"          (random-string)
+   "message"            (random-string)})

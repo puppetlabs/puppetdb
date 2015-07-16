@@ -33,8 +33,8 @@
   "Generator for the defrecord Foo. Requires a leaves generator for
   the values of the defrecord (i.e. gen/int)"
   [leaves]
-   (gen/fmap (partial apply ->Foo)
-             (apply gen/tuple (repeat 4 leaves))))
+  (gen/fmap (partial apply ->Foo)
+            (apply gen/tuple (repeat 4 leaves))))
 
 (defn seq-gen
   "Generator for seqs of `leaves`"
@@ -112,10 +112,10 @@
                                    (meta (get-in result get-in-args))
                                    (meta (get-in result2 get-in-args)))
 
-         {:tag "foo"} [:a]
-         {:tag "bar"} [:a :b]
-         {:tag "baz"} [:a :b :c]
-         {:tag "the end"} [:a :b :c 3])))
+      {:tag "foo"} [:a]
+      {:tag "bar"} [:a :b]
+      {:tag "baz"} [:a :b :c]
+      {:tag "the end"} [:a :b :c 3])))
 
 (deftest test-pre-order-traversal
   (let [tree [1 [2 3 [4 5]] [6 7 8]]

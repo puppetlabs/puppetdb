@@ -17,8 +17,8 @@
   [data]
   {:post [(string? %)]}
   (-> data
-    (generic-identity-string)
-    (kitchensink/utf8-string->sha1)))
+      (generic-identity-string)
+      (kitchensink/utf8-string->sha1)))
 
 (defn resource-identity-hash*
   "Compute a hash for a given resource that will uniquely identify it
@@ -132,16 +132,16 @@
   [{:keys [resource-type resource-title property timestamp status old-value
            new-value message file line] :as resource-event}]
   (generic-identity-string
-    {:resource_type resource-type
-     :resource_title resource-title
-     :property property
-     :timestamp timestamp
-     :status status
-     :old_value old-value
-     :new_value new-value
-     :message message
-     :file file
-     :line line}))
+   {:resource_type resource-type
+    :resource_title resource-title
+    :property property
+    :timestamp timestamp
+    :status status
+    :old_value old-value
+    :new_value new-value
+    :message message
+    :file file
+    :line line}))
 
 (defn report-identity-hash
   "Compute a hash for a report's content
@@ -153,12 +153,12 @@
   [{:keys [certname puppet-version report-format configuration-version
            start-time end-time resource-events transaction-uuid] :as report}]
   (generic-identity-hash
-    {:certname certname
-     :puppet_version puppet-version
-     :report_format report-format
-     :configuration_version configuration-version
-     :start_time start-time
-     :end_time end-time
-     :resource_events (sort (map resource-event-identity-string resource-events))
-     :transaction_uuid transaction-uuid}))
+   {:certname certname
+    :puppet_version puppet-version
+    :report_format report-format
+    :configuration_version configuration-version
+    :start_time start-time
+    :end_time end-time
+    :resource_events (sort (map resource-event-identity-string resource-events))
+    :transaction_uuid transaction-uuid}))
 

@@ -85,7 +85,7 @@
   (let [test-string "original test string"
         app-fn      (fn [req] test-string)
         wrapped-fn  (validate-query-params app-fn
-                      {:required ["foo" "bar"] :optional ["baz" "bam"]})]
+                                           {:required ["foo" "bar"] :optional ["baz" "bam"]})]
     (testing "should do nothing if the params are valid"
       (is (= test-string (wrapped-fn {:params {"foo" 1 "bar" 2 "bam" 3}}))))
     (testing "should return an error response if a required parameter is missing"
@@ -102,20 +102,20 @@
         wrapped-fn  (wrap-with-paging-options app-fn)]
     (testing "should return an error if order-by is not a valid JSON string"
       (let [{:keys [status body]}
-              (wrapped-fn {:params {"order-by" "["}})]
+            (wrapped-fn {:params {"order-by" "["}})]
         (is (= pl-http/status-bad-request status))
         (is (= "Illegal value '[' for :order-by; expected a JSON array of maps."
-              body))))
+               body))))
 
     (testing "should return an error if order-by is not an array of maps"
       (let [{:keys [status body]}
-              (wrapped-fn {:params
-                           {"order-by"
-                            (json/generate-string {"field" "foo"})}})]
+            (wrapped-fn {:params
+                         {"order-by"
+                          (json/generate-string {"field" "foo"})}})]
         (is (= pl-http/status-bad-request status))
         (is (= (str "Illegal value '{:field \"foo\"}' for :order-by; "
-                 "expected an array of maps.")
-              body))))
+                    "expected an array of maps.")
+               body))))
 
     (testing "should return an error if an order-by map is missing 'field'"
       (let [{:keys [status body]}
@@ -124,8 +124,8 @@
                           (json/generate-string [{}])}})]
         (is (= pl-http/status-bad-request status))
         (is (= (str "Illegal value '{}' in :order-by; "
-                 "missing required key 'field'.")
-              body))))
+                    "missing required key 'field'.")
+               body))))
 
     (testing "should map nil/'asc' to :ascending for the order-by 'order'"
       (doseq [valid-order-by [{"field" "foo"}
@@ -134,12 +134,12 @@
                               {"field" "foo"
                                "order" "ASC"}]]
         (is (= :ascending (->
-                            (wrapped-fn {:params
-                                         {"order-by"
-                                          (json/generate-string [valid-order-by])}})
-                            :order-by
-                            first
-                            second)))))
+                           (wrapped-fn {:params
+                                        {"order-by"
+                                         (json/generate-string [valid-order-by])}})
+                           :order-by
+                           first
+                           second)))))
 
     (testing "should map 'desc' to :descending for the order-by 'order'"
       (doseq [valid-order-by [{"field" "foo"
@@ -147,12 +147,12 @@
                               {"field" "foo"
                                "order" "DESC"}]]
         (is (= :descending (->
-                             (wrapped-fn {:params
-                                          {"order-by"
-                                           (json/generate-string [valid-order-by])}})
-                             :order-by
-                             first
-                             second)))))
+                            (wrapped-fn {:params
+                                         {"order-by"
+                                          (json/generate-string [valid-order-by])}})
+                            :order-by
+                            first
+                            second)))))
 
     (testing "should return an error if order-by map has an invalid 'order'"
       (let [{:keys [status body]}
@@ -162,7 +162,7 @@
                                                   "order" "baz"}])}})]
         (is (= pl-http/status-bad-request status))
         (is (re-find #"^Illegal value '\{.*\}' in :order-by; 'order' must be either 'asc' or 'desc'"
-              body))))
+                     body))))
 
     (testing "should return an error if an order-by map has unknown keys"
       (let [{:keys [status body]}
@@ -172,24 +172,24 @@
                                                   "bar" "baz"}])}})]
         (is (= pl-http/status-bad-request status))
         (is (re-find #"^Illegal value '\{.*\}' in :order-by; unknown key 'bar'."
-              body))))
+                     body))))
 
     (testing "`count?` should default to `false`"
       (is (= false (:count? (wrapped-fn {:params {}})))))
 
     (testing "should make paging options available on the request"
       (is (= (wrapped-fn
-               {:params
-                  {"limit"    "10"
-                   "offset"   "10"
-                   "order-by" (json/generate-string [{"field" "foo"
-                                                      "order" "desc"}])
-                   "include-total"   "true"
-                   "foo"      "bar"}})
-            {:limit     10
-             :offset    10
-             :order-by  [[:foo :descending]]
-             :count?    true })))))
+              {:params
+               {"limit"    "10"
+                "offset"   "10"
+                "order-by" (json/generate-string [{"field" "foo"
+                                                   "order" "desc"}])
+                "include-total"   "true"
+                "foo"      "bar"}})
+             {:limit     10
+              :offset    10
+              :order-by  [[:foo :descending]]
+              :count?    true})))))
 
 (deftest payload-to-body-string-test
   (let [test-content "test content"
@@ -198,10 +198,10 @@
 
     (doseq [mt ["application/json" "application/json;charset=UTF8"]]
       (testing (str "for content-type " mt " body should populate body-string"
-        (let [test-req {:body    (test-stream)
-                        :headers {"content-type" "application/json"}}]
-          (is (= (wrapped-fn test-req)
-                 (assoc test-req :body-string test-content)))))))
+                    (let [test-req {:body    (test-stream)
+                                    :headers {"content-type" "application/json"}}]
+                      (is (= (wrapped-fn test-req)
+                             (assoc test-req :body-string test-content)))))))
 
     (testing "url encoded payload should populate body-string"
       (let [test-req {:params {"payload" test-content}

@@ -8,7 +8,6 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.set :as set]))
 
-
 (defn convert-tags
   "Tags from JSON parse as a list, change that to a set for
    easier comparison."

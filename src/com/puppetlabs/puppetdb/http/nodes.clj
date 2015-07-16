@@ -50,29 +50,29 @@
 (defn routes
   [version]
   (app
-    []
-    {:get (comp
-            (fn [{:keys [params globals paging-options]}]
-              (produce-body
-               version
-               (params "query")
-               paging-options
-               (:scf-read-db globals)))
-            http-q/restrict-query-to-active-nodes)}
+   []
+   {:get (comp
+          (fn [{:keys [params globals paging-options]}]
+            (produce-body
+             version
+             (params "query")
+             paging-options
+             (:scf-read-db globals)))
+          http-q/restrict-query-to-active-nodes)}
 
-    [node]
-    {:get
-     (-> (fn [{:keys [globals]}]
-           (node-status version node (:scf-read-db globals)))
+   [node]
+   {:get
+    (-> (fn [{:keys [globals]}]
+          (node-status version node (:scf-read-db globals)))
          ;; Being a singular item, querying and pagination don't really make
          ;; sense here
-         (validate-query-params {}))}
+        (validate-query-params {}))}
 
-    [node "facts" &]
-    (comp (f/facts-app version) (partial http-q/restrict-query-to-node node))
+   [node "facts" &]
+   (comp (f/facts-app version) (partial http-q/restrict-query-to-node node))
 
-    [node "resources" &]
-    (comp (r/resources-app version) (partial http-q/restrict-query-to-node node))))
+   [node "resources" &]
+   (comp (r/resources-app version) (partial http-q/restrict-query-to-node node))))
 
 (defn node-app
   [version]

@@ -10,7 +10,7 @@
 (defn execute-query
   [query paging-options]
   (:result
-    (q/execute-query query paging-options)))
+   (q/execute-query query paging-options)))
 
 (deftest test-execute-query
   (testing "order by"
@@ -26,21 +26,21 @@
       (testing "should return results in the correct order"
         (is (= (sort (keys antonym-data))
                (map #(get % :key)
-                  (execute-query orig-sql
-                    {:order-by [[:key :ascending]]})))))
+                    (execute-query orig-sql
+                                   {:order-by [[:key :ascending]]})))))
       (testing "should return results in correct order when :descending is specified"
         (is (= (reverse (sort (keys antonym-data)))
                (map #(get % :key)
-                (execute-query orig-sql
-                  {:order-by [[:key :descending]]}))))))
+                    (execute-query orig-sql
+                                   {:order-by [[:key :descending]]}))))))
     (testing "should support multiple order-by fields"
       (is (= [{:key "blandness" :value "zest"}
               {:key "lethargy"  :value "zest"}
               {:key "abundant"  :value "scarce"}]
-            (take 3
-              (execute-query "SELECT key, value from test"
-                {:order-by [[:value :descending]
-                            [:key :ascending]]}))))))
+             (take 3
+                   (execute-query "SELECT key, value from test"
+                                  {:order-by [[:value :descending]
+                                              [:key :ascending]]}))))))
   (testing "limit / offset"
     (let [orig-sql "SELECT key FROM test"]
       (testing "SQL not modified if no offset or limit is provided"
@@ -50,11 +50,11 @@
             (execute-query orig-sql {}))))
       (testing "Results are limited if limit is provided"
         (let [results (execute-query orig-sql
-                        {:limit 5 :order-by [[:key :ascending]]})]
+                                     {:limit 5 :order-by [[:key :ascending]]})]
           (is (= 5 (count results)))))
       (testing "Results begin at offset if offset is provided"
         (let [results     (execute-query orig-sql
-                            {:offset 2 :order-by [[:key :ascending]]})]
+                                         {:offset 2 :order-by [[:key :ascending]]})]
           (is (= "accept" (-> results first :key)))))
       (testing "Combination of limit and offset allows paging through entire result set"
         (let [orig-results        (set (jdbc/query-to-vec orig-sql))
@@ -63,15 +63,15 @@
               num-paged-queries   (java.lang.Math/ceil (/ orig-count (float limit)))
               paged-query-fn      (fn [n]
                                     (execute-query
-                                      orig-sql
-                                      {:limit     limit
-                                       :offset    (* n limit)
-                                       :order-by  [[:key :ascending]]}))
+                                     orig-sql
+                                     {:limit     limit
+                                      :offset    (* n limit)
+                                      :order-by  [[:key :ascending]]}))
               paged-result        (->> (range num-paged-queries)
-                                    (map paged-query-fn)
-                                    (apply concat))]
+                                       (map paged-query-fn)
+                                       (apply concat))]
           (is (= (count orig-results) (count paged-result)))
-            (is (= orig-results (set paged-result)))))))
+          (is (= orig-results (set paged-result)))))))
 
   (testing "count"
     (let [orig-sql            "SELECT key FROM test"
@@ -80,8 +80,8 @@
           limit               5
           paged-query-fn      (fn [paging-options]
                                 (q/execute-query
-                                  orig-sql
-                                  paging-options))]
+                                 orig-sql
+                                 paging-options))]
       (testing "count should not be returned if the option is not present"
         (let [results (paged-query-fn {:limit limit})]
           (is (= limit (count (:result results))))

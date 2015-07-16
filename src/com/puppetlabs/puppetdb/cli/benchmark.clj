@@ -81,7 +81,7 @@
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
   [puppetdb-host puppetdb-port catalog]
   (let [result (command/submit-command-via-http! puppetdb-host puppetdb-port
-                 (command-names :replace-catalog) 5 (json/generate-string catalog))]
+                                                 (command-names :replace-catalog) 5 (json/generate-string catalog))]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
@@ -90,8 +90,8 @@
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
   [puppetdb-host puppetdb-port report]
   (let [result (command/submit-command-via-http!
-                 puppetdb-host puppetdb-port
-                 (command-names :store-report) 3 report)]
+                puppetdb-host puppetdb-port
+                (command-names :store-report) 3 report)]
     (when-not (= pl-http/status-ok (:status result))
       (log/error result))))
 
@@ -117,7 +117,7 @@
     :string (random-string 4)
     :vector (into [] (take (rand-int 10)
                            (repeatedly #(random-fact-value
-                                          (rand-nth [:string :int :float :bool])))))))
+                                         (rand-nth [:string :int :float :bool])))))))
 
 (defn random-structured-fact
   "Create a 'random' structured fact.
@@ -130,9 +130,9 @@
        {(random-string 10) (random-fact-value kind)}
        {(random-string 10) (zipmap (take children (repeatedly #(random-string 10)))
                                    (take children (repeatedly
-                                                    #(random-structured-fact
-                                                       (rand-nth (range depth))
-                                                       (rand-nth (range children))))))}))))
+                                                   #(random-structured-fact
+                                                     (rand-nth (range depth))
+                                                     (rand-nth (range children))))))}))))
 
 (defn populate-database-with-facts
   "This will populate a database with semi-random structured facts.
@@ -170,9 +170,9 @@
    computing the same hash again (causing constraint errors in the DB)"
   [report]
   (assoc report
-    "configuration-version" (kitchensink/uuid)
-    "start-time" (time/now)
-    "end-time" (time/now)))
+         "configuration-version" (kitchensink/uuid)
+         "start-time" (time/now)
+         "end-time" (time/now)))
 
 (defn timed-update-host
   "Send a new _clock tick_ to a host
@@ -261,8 +261,8 @@
   `hostname`"
   [hostname catalog]
   (assoc catalog
-    "name" hostname
-    "resources" (map #(update-in % ["tags"] conj hostname) (get catalog "resources"))))
+         "name" hostname
+         "resources" (map #(update-in % ["tags"] conj hostname) (get catalog "resources"))))
 
 (defn associate-report-with-host
   "Takes the given `report` and transforms it to appear related to
@@ -285,12 +285,12 @@
 (defn- validate-cli!
   [args]
   (try+
-    (kitchensink/cli! args supported-cli-options required-cli-options)
-    (catch map? m
-      (println (:message m))
-      (case (:type m)
-        :puppetlabs.kitchensink.core/cli-error (System/exit 1)
-        :puppetlabs.kitchensink.core/cli-help (System/exit 0)))))
+   (kitchensink/cli! args supported-cli-options required-cli-options)
+   (catch map? m
+     (println (:message m))
+     (case (:type m)
+       :puppetlabs.kitchensink.core/cli-error (System/exit 1)
+       :puppetlabs.kitchensink.core/cli-help (System/exit 0)))))
 
 (defn validate-nummsgs [options action-on-error-fn]
   (when (and (contains? options :runinterval)
@@ -338,6 +338,6 @@
       (world-loop (mapv (fn [host-map]
                           (let [run-interval (* 60 1000 (Integer/parseInt (:runinterval options)))]
                             (agent (assoc host-map
-                                     :run-interval run-interval
-                                     :lastrun (- (System/currentTimeMillis) (rand-int run-interval))))))
+                                          :run-interval run-interval
+                                          :lastrun (- (System/currentTimeMillis) (rand-int run-interval))))))
                         hosts)))))

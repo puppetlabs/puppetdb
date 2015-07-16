@@ -22,14 +22,14 @@
   then the return value will also contain a key `:count-query` whose value
   contains the SQL necessary to retrieve the count data."
   ([version query]
-    (query->sql version query {}))
+   (query->sql version query {}))
   ([version query paging-options]
    {:pre  [(sequential? query)]
     :post [(map? %)
            (jdbc/valid-jdbc-query? (:results-query %))
            (or
-             (not (:count? paging-options))
-             (jdbc/valid-jdbc-query? (:count-query %)))]}
+            (not (:count? paging-options))
+            (jdbc/valid-jdbc-query? (:count-query %)))]}
    (paging/validate-order-by! (map keyword (keys query/resource-columns)) paging-options)
    (case version
      (:v2 :v3)
@@ -74,11 +74,11 @@
   {:pre [(map? query-sql)]}
   (let [{[sql & params] :results-query
          count-query    :count-query} query-sql
-         result {:result (query/streamed-query-result
-                          version sql params
+        result {:result (query/streamed-query-result
+                         version sql params
                           ;; The doall simply forces the seq to be traversed
                           ;; fully.
-                          (comp doall (munge-result-rows version)))}]
+                         (comp doall (munge-result-rows version)))}]
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))

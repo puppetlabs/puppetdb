@@ -29,11 +29,11 @@
     (is (periods-equal? (parse-period "4000ms") (secs 4))))
   (testing "should throw an exception if the string is not valid"
     (is (thrown-with-msg? IllegalArgumentException #"Invalid format: \"foo\""
-          (parse-period "foo")))
+                          (parse-period "foo")))
     (is (thrown-with-msg? IllegalArgumentException #"Invalid format: \"2d 1s\""
-          (parse-period "2d 1s")))
+                          (parse-period "2d 1s")))
     (is (thrown-with-msg? IllegalArgumentException #"Invalid format: \"2 s\""
-          (parse-period "2 s")))))
+                          (parse-period "2 s")))))
 
 (deftest test-format-period
   (testing "should return a human-readable string for a period"

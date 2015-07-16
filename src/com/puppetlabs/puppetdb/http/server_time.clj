@@ -10,10 +10,10 @@
 
 (def routes
   (app
-    [""]
-    {:get server-time-response}))
+   [""]
+   {:get server-time-response}))
 
 (def server-time-app
   (-> routes
-    verify-accepts-json
-    validate-no-query-params))
+      verify-accepts-json
+      validate-no-query-params))

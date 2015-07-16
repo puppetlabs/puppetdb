@@ -46,16 +46,16 @@
   (loop [count 0
          results (f)]
     (cond
-     (seq results)
-     results
+      (seq results)
+      results
 
-     (< n count)
-     (throw+ (format "Results not found after %d iterations, giving up" n))
+      (< n count)
+      (throw+ (format "Results not found after %d iterations, giving up" n))
 
-     :else
-     (do
-       (Thread/sleep 100)
-       (recur (inc count) (f))))))
+      :else
+      (do
+        (Thread/sleep 100)
+        (recur (inc count) (f))))))
 
 (defmacro block-until-results
   "Body is some expression that will be executed in a future. All
@@ -70,7 +70,7 @@
           (do ~@body)
           (catch Exception e#
             ;; Ignore
-            ))))))
+))))))
 
 (defn block-on-node
   "Waits for the queue to be empty, then blocks until the catalog, facts and reports are all
@@ -184,16 +184,16 @@
 
       (is (= facts
              (dissoc
-               (export/facts-for-node "localhost" jutils/*port* :v4 "foo.local")
-               :environment))))))
+              (export/facts-for-node "localhost" jutils/*port* :v4 "foo.local")
+              :environment))))))
 
 (deftest test-max-frame-size
   (let [catalog (-> (get-in wire-catalogs [4 :empty])
                     (assoc :name "foo.local"))]
     (jutils/puppetdb-instance
-      (assoc-in (jutils/create-config) [:command-processing :max-frame-size] "1024")
-      (fn []
-        (is (empty? (export/get-nodes "localhost" jutils/*port*)))
-        (submit-command :replace-catalog 5 catalog)
-        (is (thrown-with-msg? java.util.concurrent.ExecutionException #"Results not found"
-                              @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* "foo.local")))))))))
+     (assoc-in (jutils/create-config) [:command-processing :max-frame-size] "1024")
+     (fn []
+       (is (empty? (export/get-nodes "localhost" jutils/*port*)))
+       (submit-command :replace-catalog 5 catalog)
+       (is (thrown-with-msg? java.util.concurrent.ExecutionException #"Results not found"
+                             @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* "foo.local")))))))))
