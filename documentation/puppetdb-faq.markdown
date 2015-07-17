@@ -83,9 +83,9 @@ previous experience with the language on our team.
 
 ## Which versions of Java are supported?
 
-The officially supported versions are OpenJDK 1.7 and Oracle JDK
-1.7. Other versions may work and issues will be addressed on a best
-effort basis, but support is not guaranteed.
+The officially supported versions are OpenJDK and Oracle JDK 1.7 on
+Debian-derived distros and 1.8 on RHEL-derived distros. Other versions may work
+and issues will be addressed on a best effort basis, but support is not guaranteed.
 
 ## Which databases are supported?
 
