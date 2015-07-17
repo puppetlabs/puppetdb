@@ -24,7 +24,6 @@ test_name "validation of basic PuppetDB resource event queries" do
       require  => Class['::postgresql::server'],
     }
     EOS
-
     apply_manifest_on(database, second_db_manifest)
     sleep_until_started(database)
   end
