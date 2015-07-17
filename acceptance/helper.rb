@@ -326,7 +326,7 @@ module PuppetDBExtensions
       manifest = puppetdb_manifest
       apply_manifest_on(host, manifest)
     end
-    print_ini_files(host, confdir)
+    print_ini_files(host)
     sleep_until_started(host)
   end
 
