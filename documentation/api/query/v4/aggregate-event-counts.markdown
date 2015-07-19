@@ -37,12 +37,13 @@ results into a single map.
 
 This endpoint builds on top of the [`event-counts`][event-counts] endpoint, and it uses all of the same URL parameters. The supported parameters are re-listed below for reference.
 
-* `query`: Required. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
-This query is forwarded to the [`events`][events] endpoint - see there for additional documentation. For general info about queries, see [the page on query structure.][query]
-
 * `summarize_by`: Required. A string specifying which object types you'd like counted. Supported values are
 `resource`, `containing_class`, and `certname`, or any comma-separated
 combination thereof.
+
+* `query`: Optional. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
+This query is forwarded to the [`events`][events] endpoint - see there for additional documentation.
+For general info about queries, see [the page on query structure.][query]
 
 * `count_by`: Optional. A string specifying what type of object is counted when building up the counts of
 `successes`, `failures`, `noops`, and `skips`. Supported values are `resource` (default) and `certname`.

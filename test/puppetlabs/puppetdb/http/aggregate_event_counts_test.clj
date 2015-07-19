@@ -91,6 +91,7 @@
                                                         "distinct_end_time" (now)})
                         :body
                         (json/parse-string true)))
+         nil
          ["=" "certname" "foo.local"]
          ["<=" "report_receive_time" current-time-str]
          ["<=" "run_start_time" current-time-str]
@@ -105,10 +106,7 @@
                            :environment "PROD") (now))
   (are [result query] (= result (-> (get-response endpoint
                                                   query
-                                                  "resource"
-                                                  {"distinct_resources" false
-                                                   "distinct_start_time" 0
-                                                   "distinct_end_time" (now)})
+                                                  "resource")
                                     :body
                                     (json/parse-string true)))
        [{:successes 2
@@ -118,6 +116,14 @@
         :total 3
         :summarize_by "resource"}]
        ["=" "environment" "DEV"]
+
+       [{:successes 5
+        :skips 1
+        :failures 0
+        :noops 0
+        :total 6
+        :summarize_by "resource"}]
+       nil
 
        [{:successes 2
         :skips 1
