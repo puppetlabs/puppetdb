@@ -246,8 +246,8 @@
 
 (defn add-max-framesize
   "Add a maxFrameSize to broker url for activemq."
-  [config url]
-  (format "%s&wireFormat.maxFrameSize=%s&marshal=true" url (:max-frame-size config)))
+  [max-frame-size url]
+  (format "%s&wireFormat.maxFrameSize=%s&marshal=true" url max-frame-size))
 
 (defn start-puppetdb
   [context config service-id add-ring-handler shutdown-on-error]
@@ -272,9 +272,10 @@
         dlo-compression-threshold                  (get command-processing :dlo-compression-threshold)
         mq-dir                                     (str (file (:vardir global) "mq"))
         discard-dir                                (file mq-dir "discarded")
+        command-mq-connection-string               (add-max-framesize (:max-frame-size command-processing) mq-addr)
         globals                                    {:scf-read-db          read-db
                                                     :scf-write-db         write-db
-                                                    :command-mq           {:connection-string (add-max-framesize command-processing mq-addr)
+                                                    :command-mq           {:connection-string command-mq-connection-string
                                                                            :endpoint          mq-endpoint}
                                                     :update-server        update-server
                                                     :product-name         product-name
@@ -315,7 +316,7 @@
                                  (future (shutdown-on-error
                                            service-id
                                            #(load-from-mq
-                                             mq-addr
+                                             command-mq-connection-string
                                              mq-endpoint
                                              discard-dir
                                              {:db                     write-db
