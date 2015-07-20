@@ -1,8 +1,10 @@
 (ns puppetlabs.pe-puppetdb-extensions.sync.core-test
   (:refer-clojure :exclude [sync])
   (:require [clojure.test :exclude [report] :refer :all]
+            [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.random :refer [random-string]]
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
+            [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [clj-http.client :as http]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -117,14 +119,15 @@
       (let [config-1 (utils/sync-config)
             config-2 (utils/sync-config)]
         (with-puppetdb-instance config-1
-          (let [report (tur/munge-example-report-for-storage (:basic reports))]
+          (let [report (tur/munge-example-report-for-storage (:basic reports))
+                query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))]
             (pdb-client/submit-command-via-http! (utils/pdb-cmd-url) "store report" 5 report)
-            @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-query-url) (:certname report)))
+            @(rt/block-until-results 100 (export/reports-for-node query-fn (:certname report)))
 
             (with-alt-mq "puppetlabs.puppetdb.commands-2"
               (with-puppetdb-instance config-2
                 (pdb-client/submit-command-via-http! (utils/pdb-cmd-url) "store report" 5 report)
-                @(rt/block-until-results 100 (export/reports-for-node (utils/pdb-query-url) (:certname report))))))))))))
+                @(rt/block-until-results 100 (export/reports-for-node query-fn (:certname report))))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Test data
@@ -205,7 +208,8 @@
       (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-1)
       (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-2)
 
-      (let [created-report-1 (get-first-report (utils/pdb-query-url) (:certname report-1))
+      (let [query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))
+            created-report-1 (get-first-report (utils/pdb-query-url) (:certname report-1))
             created-report-2 (get-first-report (utils/pdb-query-url) (:certname report-2))]
         (is (= "3.0.1" (:puppet_version created-report-2)))
 
@@ -222,9 +226,11 @@
 
         ;; Pull data from pdb-x to pdb-y
         (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str))
+        @(rt/block-until-results 100 (export/reports-for-node query-fn (:certname report)))
 
         ;; We should see that the sync happened, and that only one report was pulled from PDB X
-        (let [puppet-versions (map :puppet_version (export/reports-for-node (utils/pdb-query-url) (:certname report-2)))]
+        (let [puppet-versions (map (comp :puppet_version #(json/parse-string % true) :contents)
+                                   (export/reports-for-node query-fn (:certname report-2)))]
           (is (= #{"4.0.0" "3.0.1"} (set puppet-versions)))
           (is (= 2 (count @pdb-x-queries))))))))
 
@@ -424,6 +430,7 @@
                                          :config config
                                          :server svcs/*server*
                                          :db db
+                                         :query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))
                                          :server-url svcs/*base-url*
                                          :query-url (utils/pdb-query-url)
                                          :command-url (utils/pdb-cmd-url)
@@ -448,8 +455,8 @@
       (with-alt-mq (:mq-name pdb2)
         (sync :from pdb1 :to pdb2 :check-with get-reports :check-for (:certname report)))
 
-      (is (= (export/reports-for-node (:query-url pdb1) (:certname report))
-             (export/reports-for-node (:query-url pdb2) (:certname report)))))))
+      (is (= (export/reports-for-node (:query-fn pdb1) (:certname report))
+             (export/reports-for-node (:query-fn pdb2) (:certname report)))))))
 
 (deftest end-to-end-factset-replication
   (with-pdbs (default-pdb-configs 2)
