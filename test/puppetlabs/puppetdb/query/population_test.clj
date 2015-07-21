@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.query.population-test
   (:require [puppetlabs.puppetdb.query.population :as pop]
-            [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.deprecated :as sql]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage :refer [deactivate-node!]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils :refer [to-jdbc-varchar-array]]

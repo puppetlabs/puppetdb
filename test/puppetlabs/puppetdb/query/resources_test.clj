@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.query.resources-test
   (:require [puppetlabs.puppetdb.query-eng :as eng]
-            [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.deprecated :as sql]
             [puppetlabs.puppetdb.scf.storage :refer [ensure-environment]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]

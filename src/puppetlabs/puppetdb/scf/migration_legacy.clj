@@ -6,7 +6,7 @@
              :refer [flatten-facts-with
                      path->pathmap]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.deprecated :as sql]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.scf.hash :as hash]

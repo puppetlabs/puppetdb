@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.fixtures
   (:import [java.io ByteArrayInputStream])
-  (:require [clojure.java.jdbc :as sql]
-            [clojure.java.jdbc.internal :as jint]
+  (:require [clojure.java.jdbc.deprecated :as sql]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.http.command :as command]
             [puppetlabs.puppetdb.jdbc :as pjdbc]
@@ -47,7 +46,7 @@
    route testing code to ensure that the route has it's own db
    connection."
   [f]
-  (binding [jint/*db* nil]
+  (binding [sql/*db* nil]
     (f)))
 
 (defn with-test-mq

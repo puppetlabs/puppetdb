@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.scf.storage-test
-  (:require [clojure.java.jdbc :as sql]
+  (:require [clojure.java.jdbc.deprecated :as sql]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.facts :as facts

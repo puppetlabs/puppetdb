@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.command-test
   (:require [me.raynes.fs :as fs]
-            [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.deprecated :as sql]
             [cheshire.core :as json]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]

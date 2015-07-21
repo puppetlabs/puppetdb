@@ -4,7 +4,7 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.query.paging :as paging]
             [clojure.string :as string]
-            [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.deprecated :as sql]
             [cheshire.core :as json]
             [me.raynes.fs :as fs]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]

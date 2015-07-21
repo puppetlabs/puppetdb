@@ -2,7 +2,7 @@
   (:require [cheshire.core :as json]
             [clj-time.coerce :refer [to-timestamp to-string]]
             [clj-time.core :refer [now]]
-            [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.deprecated :as sql]
             [clojure.java.io :as io]
             [clojure.test :refer :all]
             [flatland.ordered.map :as omap]

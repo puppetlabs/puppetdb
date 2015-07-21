@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.query-eng
-  (:require [clojure.java.jdbc :as sql]
+  (:require [clojure.java.jdbc.deprecated :as sql]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]

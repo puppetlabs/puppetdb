@@ -6,7 +6,7 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
              :refer [db-serialize postgres?]]
             [cheshire.core :as json]
-            [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.deprecated :as sql]
             [puppetlabs.puppetdb.scf.migrate :refer :all]
             [clj-time.coerce :refer [to-timestamp]]
             [clj-time.core :refer [now ago days]]
