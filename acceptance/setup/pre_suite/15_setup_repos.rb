@@ -18,6 +18,7 @@ def initialize_repo_on_host(host, os)
       on host, "curl -O http://yum.puppetlabs.com/puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
       on host, "rpm -i puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
     else
+      on host, "yum clean all -y"
       create_remote_file host, '/etc/yum.repos.d/puppetlabs-dependencies.repo', <<-REPO.gsub(' '*8, '')
 [puppetlabs-dependencies]
 name=Puppet Labs Dependencies - $basearch
