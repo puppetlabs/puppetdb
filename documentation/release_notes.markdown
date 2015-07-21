@@ -10,6 +10,31 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrading]: ./api/query/v4/preparing-for-3.0.html
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 
+3.0.1
+-----
+
+PuppetDB 3.0.1 is a bugfix release to fix packaging problems in PuppetDB 3.0.0
+for RPM-based systems.
+
+### Bug Fixes and Maintenance
+
+* As part of the PuppetDB 3.0.0 release, the puppetdb-terminus package was
+  renamed to puppetdb-termini for consistency with other Puppet Labs products. A
+  flawed dependency in the puppetdb-termini package prevented installation of
+  the older 2.3.x puppetdb-terminus package on RPM-based platforms. This release
+  fixes that dependency, allowing the older version to be installed.
+  ([PDB-1760](https://tickets.puppetlabs.com/browse/PDB-1760))
+
+  To fully correct the problem, the existing 3.0.0 puppetdb and puppetdb-termini
+  packages will be removed from the Puppet Collection 1 yum repository. The new
+  3.0.1 packages will take their place.
+
+* The 2.x->3.x migration script now only runs on upgrades from 2.x versions of
+  PuppetDB. ([PDB-1763](https://tickets.puppetlabs.com/browse/PDB-1763))
+
+### Contributors
+Andrew Roetker, Michael Stahnke, Nick Fagerlund, Wyatt Alt
+
 3.0.0
 -----
 
@@ -475,6 +500,55 @@ stable release of PuppetDB, which included an experimental v4 API.
 
 * Include the navigation sidebar inside the `puppetdb` repo ([PDB-1319](https://tickets.puppetlabs.com/browse/PDB-1319))
 
+
+2.3.6
+-----
+
+PuppetDB 2.3.6 is a backwards-compatible bugfix release to introduce
+deprecation warnings for PostgreSQL versions less than 9.4. It also fixes a bug
+in the ssl-setup script that would complicate downgrades from 3.0, and a bug
+where the PuppetDB terminus would reject resource relationships on aliases.
+
+### Upgrading
+
+* For the best-possible performance and scaling capacity, we recommend
+  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
+  extension enabled, as explained [here][configure_postgres]. We have
+  officially deprecated versions prior to 9.4.  HSQLDB is
+  only recommended for local development because it has a number of
+  scaling and operational issues.
+
+* Make sure that all of your PuppetDB instances are shut down, and
+  only upgrade one at a time.
+
+* Make sure to upgrade your puppetdb-terminus package (on the host
+  where your Puppet master lives), and restart your master service.
+
+### Contributors
+
+Andrew Roetker, Ken Barber, Nick Fagerlund, Rob Browning, Russell Mull, Wyatt
+Alt
+
+#### Bug Fixes and Maintenance
+
+* We have removed some checks for AIO pathing in our ssl-setup script, which
+  could prevent the tool from running in the case of a 3.0 downgrade.
+  ([PDB-1679](https://tickets.puppetlabs.com/browse/PDB-1679))
+
+* We have fixed a bug that would cause the PuppetDB terminus to reject catalogs
+  with relationships on resource aliases.
+  ([PDB-1629](https://tickets.puppetlabs.com/browse/PDB-1629))
+
+#### Deprecations
+
+* We have deprecated versions of PostgreSQL prior to 9.4.
+([PDB-1610](https://tickets.puppetlabs.com/browse/PDB-1610))
+
+#### Testing
+
+* We have updated our acceptance tests to use the newly released v5
+puppetlabs-puppetdb module.
+([PDB-1750](https://tickets.puppetlabs.com/browse/PDB-1750))
 
 2.3.5
 -----

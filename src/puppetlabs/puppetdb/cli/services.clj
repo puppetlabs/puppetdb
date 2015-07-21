@@ -290,8 +290,7 @@
                       "might be due to KahaDB corruption. Consult the "
                       "PuppetDB troubleshooting guide.")
                      (throw e)))
-          mq-factory (mq/activemq-connection-factory
-                      (add-max-framesize max-frame-size mq-addr))
+          mq-factory (mq/activemq-connection-factory mq-connection-str)
           mq-connection (doto (.createConnection mq-factory)
                           (.setExceptionListener
                            (reify ExceptionListener

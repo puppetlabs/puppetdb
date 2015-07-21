@@ -58,13 +58,13 @@ Puppet itself can search a subset of this data using [exported resources][export
 System Requirements
 -----
 
-### \*nix Server with JDK 1.7+
+### \*nix Server with JDK 1.7+ (Debian) or JDK 1.8+ (RHEL-derived)
 
 #### Standard Install: RHEL, CentOS, Debian, Ubuntu, or Fedora
 
 Puppet Labs provides packages and a Puppet module for PuppetDB which simplify setup of its SSL certificates and init scripts. These packages are available for the following operating systems:
 
-* Red Hat Enterprise Linux 6 and 7 (and any distro derived from it including CentOS)
+* Red Hat Enterprise Linux 6.6+ and 7 (and any derived distro that includes Java 1.8)
 * Debian 7 (Wheezy)
 * Ubuntu 12.04 LTS, 14.04 LTS
 * Fedora 21
@@ -77,23 +77,24 @@ Puppet Labs provides packages and a Puppet module for PuppetDB which simplify se
 
 If you're willing to do some manual configuration, PuppetDB can run on any Unix-like OS with JDK 1.7 or higher, including:
 
-* Recent MacOS X versions (using built-in Java support)
-* Nearly any Linux distribution (using vendor's OpenJDK packages)
-* Nearly any \*nix system running a recent Oracle-provided JDK
+* Recent MacOS X versions (using built-in Java 1.8 support)
+* Nearly any Linux distribution (using Java 1.8)
+* Nearly any \*nix system running a recent Oracle-provided 1.8 JDK
 
 [See here for advanced installation instructions.][install_advanced]
 
-### Puppet 3.8.1
+### Puppet 4.0.0
 
-Your site's puppet masters must be running Puppet 3.8.1 or
+Your site's Puppet masters must be running Puppet 4.0.0 or
 later. [You will need to connect your puppet masters to PuppetDB after installing it][connect].
 If you wish to use PuppetDB with
 [standalone nodes that are running puppet apply][apply], every node
 must be running 3.8.1 or later.
 
 > #### Note about Puppet Enterprise
->
-> * Due to packaging changes related to the integration of PuppetDB with Puppet Enterprise, the latest PuppetDB packages are not available for use with Puppet Enterprise 2.8 or below. Users of Puppet Enterprise 2.8 or below can use PuppetDB 1.1, and should visit the [PuppetDB 1.1 documentation][old_docs]. PuppetDB is now included by default in Puppet Enterprise, and will be released on a separate schedule.
+> * PuppetDB has been included in Puppet Enterprise since 3.0.0. Users of Puppet
+Enterprise 2.8 and below can use PuppetDB 1.1 as a separate package, and should
+visit the [PuppetDB 1.1 documentation][old_docs].
 
 ### Robust Hardware
 
