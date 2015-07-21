@@ -36,7 +36,7 @@ test_name "validation of basic PuppetDB resource event queries" do
     | sed -e 's/OWNER TO.*;/OWNER TO puppetdb2;/i' \
     | psql puppetdb2"
 DUPE
-  
+
     on database, duplicate_db_command
   end
 
@@ -122,7 +122,7 @@ EOM
       # Now query for all of the event for this agent
       result = on database, %Q|curl -G '#{puppetdb_query_url}/v4/events' --data 'query=#{query}'|
 
-      events = JSON.parse(result.stdout)    
+      events = JSON.parse(result.stdout)
 
       assert_equal(0, events.length, "Expected no 'Notify' events, as all of the writes should be going to the write database; found #{events.length}.")
 
@@ -134,5 +134,5 @@ EOM
   restart_puppetdb database
 
   sleep 5
-  
+
 end

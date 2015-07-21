@@ -501,6 +501,55 @@ stable release of PuppetDB, which included an experimental v4 API.
 * Include the navigation sidebar inside the `puppetdb` repo ([PDB-1319](https://tickets.puppetlabs.com/browse/PDB-1319))
 
 
+2.3.6
+-----
+
+PuppetDB 2.3.6 is a backwards-compatible bugfix release to introduce
+deprecation warnings for PostgreSQL versions less than 9.4. It also fixes a bug
+in the ssl-setup script that would complicate downgrades from 3.0, and a bug
+where the PuppetDB terminus would reject resource relationships on aliases.
+
+### Upgrading
+
+* For the best-possible performance and scaling capacity, we recommend
+  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
+  extension enabled, as explained [here][configure_postgres]. We have
+  officially deprecated versions prior to 9.4.  HSQLDB is
+  only recommended for local development because it has a number of
+  scaling and operational issues.
+
+* Make sure that all of your PuppetDB instances are shut down, and
+  only upgrade one at a time.
+
+* Make sure to upgrade your puppetdb-terminus package (on the host
+  where your Puppet master lives), and restart your master service.
+
+### Contributors
+
+Andrew Roetker, Ken Barber, Nick Fagerlund, Rob Browning, Russell Mull, Wyatt
+Alt
+
+#### Bug Fixes and Maintenance
+
+* We have removed some checks for AIO pathing in our ssl-setup script, which
+  could prevent the tool from running in the case of a 3.0 downgrade.
+  ([PDB-1679](https://tickets.puppetlabs.com/browse/PDB-1679))
+
+* We have fixed a bug that would cause the PuppetDB terminus to reject catalogs
+  with relationships on resource aliases.
+  ([PDB-1629](https://tickets.puppetlabs.com/browse/PDB-1629))
+
+#### Deprecations
+
+* We have deprecated versions of PostgreSQL prior to 9.4.
+([PDB-1610](https://tickets.puppetlabs.com/browse/PDB-1610))
+
+#### Testing
+
+* We have updated our acceptance tests to use the newly released v5
+puppetlabs-puppetdb module.
+([PDB-1750](https://tickets.puppetlabs.com/browse/PDB-1750))
+
 2.3.5
 -----
 
