@@ -188,6 +188,12 @@ facts, or reports.
 
 * remote: As above
 
+* `transferred`: For the `finished` message, the number of records that were
+  transferred (pulled) and enqueued for processing.
+
+* `failed`: For the `finished` message, the number of records that could not be
+  transferred.
+
 ### Record phase
 
 `record` events surround the transfer of each record, for the `catalogs`,
