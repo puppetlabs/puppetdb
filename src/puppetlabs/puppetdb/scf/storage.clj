@@ -23,7 +23,6 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
             [clojure.set :as set]
@@ -895,8 +894,8 @@
    `column-transform` is used to modify the sql for the values"
   [table column values column-transform column-type]
   (let [source-table (name table)
-        query-string (if (sutils/postgres?)
-                       (let [tmp-table (jdbc/create-temp-table values column-type)]
+        query-string (if true
+                       (let [tmp-table (sutils/create-temp-table values column-type)]
                          (format "SELECT %s AS value, %s.id FROM %s
                                  INNER JOIN %s
                                  ON %s.%s=%s.value"
@@ -908,7 +907,9 @@
                                (column-transform column) (name table) column (jdbc/in-clause values)))]
     (into {}
           (for [{:keys [value id]}
-                (query-to-vec query-string)]
+                (if (sutils/postgres?)
+                  (query-to-vec query-string)
+                  (apply query-to-vec query-string values))]
             [value id]))))
 
 (defn realize-records!
