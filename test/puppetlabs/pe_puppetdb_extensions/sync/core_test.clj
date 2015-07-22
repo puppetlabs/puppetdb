@@ -8,10 +8,11 @@
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [clj-http.client :as http]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.testutils :refer [=-after? without-jmx]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.cli.import-export-roundtrip-test :as rt]
-            [puppetlabs.pe-puppetdb-extensions.sync.core :refer :all]
+            [puppetlabs.pe-puppetdb-extensions.sync.core :refer :all :as syncc]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [with-puppetdb-instance index-by json-request json-response get-json blocking-command-post]]
             [puppetlabs.puppetdb.cli.export :as export]
@@ -26,11 +27,15 @@
             [clj-time.coerce :refer [to-date-time]]
             [clj-time.core :as t]
             [puppetlabs.kitchensink.core :as ks]
+            [slingshot.slingshot :refer [try+ throw+]]
             [slingshot.test]
             [clojure.core.match :refer [match]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.time :refer [parse-period]]))
+            [puppetlabs.puppetdb.time :refer [parse-period]])
+  (:import
+   [org.apache.activemq.command ActiveMQDestination]
+   [org.slf4j Logger]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Sync stream comparison tests
@@ -594,3 +599,177 @@
           ;; shouldn't get pulled
           (is (thrown+? [:status 404]
                         (get-node (:query-url pdb2) certname))))))))
+
+(defn- server-queue-info [server name]
+  (-> (get-service server :PuppetDBServer)
+      service-context
+      :broker
+      (.getDestination (ActiveMQDestination/createDestination
+                        cli-svcs/mq-endpoint
+                        ActiveMQDestination/QUEUE_TYPE))
+      .getDestinationStatistics))
+
+(defn- wait-for-empty-queue [pdb name]
+  (with-alt-mq (:mq-name pdb)
+    (while (not (zero? (-> (server-queue-info (:server pdb) cli-svcs/mq-endpoint)
+                           .getInflight
+                           .getCount)))
+      (Thread/sleep 100))))
+
+(defn- event->map [event]
+  {:level (str (.getLevel event))
+   :message (.getMessage event)
+   :map (.semlogMap (.getMarker event))})
+
+(defn- ordered-matches? [predicates items]
+  (loop [predicates predicates
+         items items]
+    (if-not (seq predicates)
+      true
+      (let [[predicate & predicates] predicates
+            match (drop-while (complement predicate) items)]
+        (when (seq match)
+          (recur predicates (next match)))))))
+
+(defn- elapsed-correct? [m]
+  (if (#{"finished" "error"} (:event m))
+    (is (number? (:elapsed m)))
+    (is (nil? (:elapsed m)))))
+
+(defn- ok-correct? [m]
+  (case (:event m)
+    ("finished") (is (:ok m))
+    ("error") (is (not (:ok m)))
+    true))
+
+(defmacro verify-sync [event item]
+  `(let [item# ~item
+         m# (:map item#)]
+     (when (= "sync" (:phase m#))
+       (and
+        (is (= ~event (:event m#)))
+        (is (= "INFO" (:level item#)))
+        (is (string? (:remote m#)))
+        (ok-correct? m#)
+        (elapsed-correct? m#)))))
+
+(defmacro verify-entity-sync [event name xfer fail item]
+  `(let [item# ~item
+         m# (:map item#)]
+     (assert (or (zero? ~fail) (not= "start" (:event m#))))
+     (when (and (= "entity" (:phase m#))
+                (= ~name (:entity m#)))
+       (and
+        (is (= "INFO" (:level item#)))
+        (is (= ~event (:event m#)))
+        (is (string? (:remote m#)))
+        (is (= ~xfer (:transferred m#)))
+        (is (= ~fail (:failed m#)))
+        (ok-correct? m#)
+        (elapsed-correct? m#)))))
+
+(defmacro verify-record-sync [event name item]
+  `(let [item# ~item
+         m# (:map item#)]
+     (when (and (= "record" (:phase m#))
+                (= ~name (:entity m#)))
+       (and
+        (is (= "DEBUG" (:level item#)))
+        (is (= ~event (:event m#)))
+        (is (string? (:remote m#)))
+        (is (string? (:certname m#)))
+        (is (string? (:hash m#)))
+        (ok-correct? m#)
+        (elapsed-correct? m#)))))
+
+(defmacro verify-deactivate-sync [event item]
+  `(let [item# ~item
+         m# (:map item#)]
+     (when (= "deactivate" (:phase m#))
+       (and
+        (is (= "DEBUG" (:level item#)))
+        (is (= ~event (:event m#)))
+        (is (string? (:certname m#)))
+        (is (string? (:producer_timestamp m#)))
+        (ok-correct? m#)
+        (elapsed-correct? m#)))))
+
+(deftest sync-logging
+  (with-pdbs (default-pdb-configs 2)
+    (fn [pdb1 pdb2]
+      (let [events (let [log (atom [])]
+                     (svcs/with-log-level ":sync" :debug
+                       (svcs/with-logging-to-atom ":sync" log
+                         (let [certname (:certname catalog)]
+                           ;; Submit a normal sequence of commands
+                           (with-alt-mq (:mq-name pdb1)
+                             (submit-catalog pdb1 catalog)
+                             (submit-factset pdb1 facts)
+                             (submit-report pdb1 report)
+                             (deactivate-node pdb1 certname))
+                           (with-alt-mq (:mq-name pdb2)
+                             (sync :from pdb1 :to pdb2
+                                   :check-with get-node :check-for certname)))))
+                     (map event->map @log))]
+        ;; Verify expected partial orderings
+        (is (ordered-matches?
+             [#(verify-sync "start" %)
+              #(verify-entity-sync "start" "factsets" 0 0 %)
+              #(verify-record-sync "start" "factsets" %)
+              #(verify-record-sync "finished" "factsets" %)
+              #(verify-entity-sync "finished" "factsets" 1 0 %)
+              #(verify-sync "finished" %)]
+             events))
+        (is (ordered-matches?
+             [#(verify-sync "start" %)
+              #(verify-entity-sync "start" "catalogs" 0 0 %)
+              #(verify-record-sync "start" "catalogs" %)
+              #(verify-record-sync "finished" "catalogs" %)
+              #(verify-entity-sync "finished" "catalogs" 1 0 %)
+              #(verify-sync "finished" %)]
+             events))
+        (is (ordered-matches?
+             [#(verify-sync "start" %)
+              #(verify-entity-sync "start" "reports" 0 0 %)
+              #(verify-record-sync "start" "reports" %)
+              #(verify-record-sync "finished" "reports" %)
+              #(verify-entity-sync "finished" "reports" 1 0 %)
+              #(verify-sync "finished" %)]
+             events))
+        (is (ordered-matches?
+             [#(verify-sync "start" %)
+              #(verify-entity-sync "start" "nodes" 0 0 %)
+              #(verify-deactivate-sync "start" %)
+              #(verify-deactivate-sync "finished" %)
+              #(verify-entity-sync "finished" "nodes" 1 0 %)
+              #(verify-sync "finished" %)]
+             events))))))
+
+(deftest sync-logging-entity-failure
+  (with-pdbs (default-pdb-configs 2)
+    (fn [pdb1 pdb2]
+      (let [events
+            ;; Force a transfer error while syncing a factset.
+            (let [log (atom [])]
+              (svcs/with-log-level ":sync" :debug
+                (svcs/with-logging-to-atom ":sync" log
+                  (let [certname (:certname catalog)]
+                    (with-alt-mq (:mq-name pdb1)
+                      (submit-factset pdb1 facts))
+                    (with-alt-mq (:mq-name pdb2)
+                      (with-redefs [query-record-and-transfer!
+                                    (fn [& args]
+                                      (throw+ {:type ::syncc/remote-host-error
+                                               :error-response {:status 404}}))]
+                        (trigger-sync (base-url->str (:query-url pdb1))
+                                      (str (base-url->str (:sync-url pdb2))
+                                           "/trigger-sync"))))
+                    (wait-for-empty-queue pdb1 cli-svcs/mq-endpoint))))
+              (map event->map @log))]
+        ;; Check that factsets :failed is 1.
+        (is (ordered-matches?
+             [#(verify-sync "start" %)
+              #(verify-entity-sync "start" "factsets" 0 0 %)
+              #(verify-entity-sync "finished" "factsets" 0 1 %)
+              #(verify-sync "finished" %)]
+             events))))))

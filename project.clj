@@ -49,4 +49,6 @@
                       :name "pe-puppetdb"}}
   :lein-release {:scm :git, :deploy-via :lein-deploy}
 
+  :jvm-opts ["-XX:MaxPermSize=128M"]
+
   :main ^:skip-aot puppetlabs.puppetdb.core)

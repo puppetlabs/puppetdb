@@ -141,6 +141,10 @@ recover from data loss cases.
 Operations
 -----
 
+
+Should :transferred and :failed be documented?
+
+
 PuppetDB provides several facilities to help you keep your HA cluster running.
 
 ## Structured Logging
@@ -183,6 +187,12 @@ facts, or reports.
   `"nodes"`. (nodes is used only to sync node deactivation status)
 
 * remote: As above
+
+* `transferred`: For the `finished` message, the number of records that were
+  transferred (pulled) and enqueued for processing.
+
+* `failed`: For the `finished` message, the number of records that could not be
+  transferred.
 
 ### Record phase
 

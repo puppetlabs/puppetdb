@@ -83,6 +83,9 @@
     (apply str (interleave-all in-between-text replacements))))
 
 
+(definterface ISemlogMarker
+  (semlogMap [] "Returns the semlog map for this marker."))
+
 (defn- merge-clojure-map-marker
   "Create a marker that, when written to the LogStash json encoder, will
   json-encode the given map `m` and merge it with any already-created json.
@@ -104,14 +107,15 @@
     </encoder>
   "
   [m]
-  (proxy [LogstashMarker] ["SEMLOG_MAP"]
+  (proxy [LogstashMarker ISemlogMarker] ["SEMLOG_MAP"]
     (writeTo [^JsonGenerator generator]
       (binding [cheshire/*generator* generator]
         ;; `::none` is the 'wholeness' parameter to cheshire, which indicates which
         ;; start- and end-object markers to write. In this case we don't want any
         ;; of them, so we'll pass `::none`. This is not on the list of supported values,
         ;; but the fact that it's not equal to any of them means it will work.
-        (cheshire/write m ::none)))))
+        (cheshire/write m ::none)))
+    (semlogMap [] m)))
 
 (extend-protocol MarkerLogger
   org.slf4j.Logger
