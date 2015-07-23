@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.scf.storage-utils
   (:require [clojure.java.jdbc :as sql]
             [honeysql.core :as hcore]
-            [puppetlabs.puppetdb.random :refer [random-string]]
+            [puppetlabs.puppetdb.random :refer [random-string-alpha]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -340,13 +340,13 @@ must be supplied as the value to be matched."
 (defn create-temp-table
   [coll column-type]
   {:pre [(seq coll)]}
-  (let [table-name (random-string 40)
+  (let [table-name (random-string-alpha 40)
         qualifier (if (postgres?)
                     "ON COMMIT DROP"
                     "ON COMMIT DELETE ROWS")]
-    (println "QUALIFIER " qualifier)
-    (println "postgres? " (postgres?))
+    (try
     (sql/do-commands
       (format "CREATE TEMP TABLE %s (value %s) %s" table-name column-type qualifier))
     (apply sql/insert-rows (keyword table-name) (map vector coll))
+      (catch Exception e (println (.getNextException e))))
     table-name))

@@ -894,8 +894,8 @@
    `column-transform` is used to modify the sql for the values"
   [table column values column-transform column-type]
   (let [source-table (name table)
-        _ (println "helllo")
-        query-string (if true
+        postgres? (sutils/postgres?)
+        query-string (if postgres?
                        (let [tmp-table (sutils/create-temp-table values column-type)]
                          (format "SELECT %s AS value, %s.id FROM %s
                                  INNER JOIN %s
@@ -906,10 +906,9 @@
                                  column tmp-table))
                        (format "SELECT %s AS value, id FROM %s WHERE %s %s"
                                (column-transform column) (name table) column (jdbc/in-clause values)))]
-    (println "FOOO")
     (into {}
           (for [{:keys [value id]}
-                (if (sutils/postgres?)
+                (if postgres?
                   (query-to-vec query-string)
                   (apply query-to-vec query-string values))]
             [value id]))))
