@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.testutils.resources
-  (:require [clojure.java.jdbc :as sql]
+  (:require [clojure.java.jdbc.deprecated :as sql]
             [clj-time.core :refer [now]]
             [clj-time.coerce :refer [to-timestamp]]
             [puppetlabs.puppetdb.fixtures :refer :all]

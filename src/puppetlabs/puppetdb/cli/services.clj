@@ -44,7 +44,7 @@
      maintain acceptable performance."
   (:require [clj-time.core :refer [ago]]
             [clojure.java.io :as io]
-            [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.deprecated :as sql]
             [clojure.tools.logging :as log]
             [compojure.core :as compojure]
             [overtone.at-at :refer [mk-pool interspaced]]
@@ -54,8 +54,7 @@
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http.server :as server]
-            [puppetlabs.puppetdb.jdbc :as pl-jdbc]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
+            [puppetlabs.puppetdb.jdbc :as pl-jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.meta.version :as version]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.query-eng :as qeng]

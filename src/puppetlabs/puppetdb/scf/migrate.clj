@@ -47,7 +47,7 @@
       in the migrations array in the old branch, but that is not a problem.
 
    _TODO: consider using multimethods for migration funcs_"
-  (:require [clojure.java.jdbc :as sql]
+  (:require [clojure.java.jdbc.deprecated :as sql]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [puppetlabs.puppetdb.scf.migration-legacy :as legacy]

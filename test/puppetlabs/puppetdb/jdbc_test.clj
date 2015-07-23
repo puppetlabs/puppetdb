@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.jdbc-test
   (:require [puppetlabs.puppetdb.jdbc :as subject]
-            [clojure.java.jdbc.internal :as jint]
+            [clojure.java.jdbc.deprecated :as sql]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [test-db]]
@@ -83,15 +83,15 @@
         db (test-db)]
 
     (subject/with-transacted-connection' db nil
-      (let [conn (:connection jint/*db*)]
-        (is (false? (.getAutoCommit (:connection jint/*db*))))
+      (let [conn (sql/find-connection)]
+        (is (false? (.getAutoCommit (sql/find-connection))))
         (is (= java.sql.Connection/TRANSACTION_READ_COMMITTED (.getTransactionIsolation conn)))
         (reset! evaled-body? true)))
 
     (is (true? @evaled-body?))
 
     (are [isolation-level isolation-level-kwd] (subject/with-transacted-connection' db isolation-level-kwd
-                                                 (let [conn (:connection jint/*db*)]
+                                                 (let [conn (sql/find-connection)]
                                                    (= isolation-level (.getTransactionIsolation conn))))
 
          java.sql.Connection/TRANSACTION_REPEATABLE_READ :repeatable-read

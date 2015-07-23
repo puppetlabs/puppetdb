@@ -3,7 +3,7 @@
 
    This namespace contains some utility functions relating to checking version
    numbers of various fun things."
-  (:require [clojure.java.jdbc :as sql]
+  (:require [clojure.java.jdbc.deprecated :as sql]
             [clojure.string :as string]
             [clj-http.client :as client]
             [ring.util.codec :as ring-codec]

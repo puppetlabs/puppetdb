@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.testutils.db
-  (:require [clojure.java.jdbc :as sql]
+  (:require [clojure.java.jdbc.deprecated :as sql]
             [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db]]))
 
 (def antonym-data {"absence"    "presence"

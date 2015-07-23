@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.query.nodes-test
   (:require [clojure.set :as set]
             [puppetlabs.puppetdb.query-eng :as eng]
-            [clojure.java.jdbc :as sql]
+            [clojure.java.jdbc.deprecated :as sql]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [clojure.test :refer :all]

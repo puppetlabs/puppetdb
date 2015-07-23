@@ -2,8 +2,7 @@
   "Database utilities"
   (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)
            (java.util.concurrent TimeUnit))
-  (:require [clojure.java.jdbc :as sql]
-            [clojure.java.jdbc.internal :as jint]
+  (:require [clojure.java.jdbc.deprecated :as sql]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -230,7 +229,7 @@
   (retry-sql 5
              (sql/with-connection db-spec
                (when-let [isolation-level (get isolation-levels tx-isolation-level)]
-                 (.setTransactionIsolation (jint/find-connection*) isolation-level))
+                 (.setTransactionIsolation (sql/find-connection) isolation-level))
                (sql/transaction (f)))))
 
 (defmacro with-transacted-connection'

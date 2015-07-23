@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.scf.storage-utils
-  (:require [clojure.java.jdbc :as sql]
+  (:require [clojure.java.jdbc.deprecated :as sql]
             [honeysql.core :as hcore]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.honeysql :as h]

@@ -49,7 +49,7 @@
 
                  ;; Database connectivity
                  [com.jolbox/bonecp "0.7.1.RELEASE" :exclusions [org.slf4j/slf4j-api]]
-                 [org.clojure/java.jdbc "0.1.1"]
+                 [org.clojure/java.jdbc "0.3.7"]
                  [org.hsqldb/hsqldb "2.2.8"]
                  [org.postgresql/postgresql "9.2-1003-jdbc4"]
 
