@@ -226,7 +226,7 @@
   [db-conn-pool product-name]
   (sql/with-connection db-conn-pool
     (scf-store/validate-database-version #(System/exit 1))
-    (migrate!)
+    (migrate! db-conn-pool)
     (indexes! product-name)))
 
 (defn init-with-db

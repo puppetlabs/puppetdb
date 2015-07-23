@@ -1453,7 +1453,11 @@
    31 coalesce-fact-values
    32 add-producer-timestamp-to-reports
    33 add-certname-id-to-certnames
-   34 add-certname-id-to-resource-events})
+   34 add-certname-id-to-resource-events
+   ;; This dummy migration ensures that even databases that were up to
+   ;; date when the "vacuum analyze" code was added to migrate! will
+   ;; still analyze their existing databases.
+   35 (fn [] true)})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -1491,28 +1495,49 @@
     (into (sorted-map)
           (select-keys migrations pending))))
 
+(defn- sql-or-die [f]
+  "Calls (f) and returns its result.  If f throws an SQLException,
+  logs the exception and its parent and then calls (System/exit 1)"
+  ;; Here we've preserved existing behavior, but this may warrant
+  ;; further consideration later.  If possible, we might want to
+  ;; avoid System/exit in favor of careful exception
+  ;; handling (cf. PDB-1118).
+  (try
+    (f)
+    (catch java.sql.SQLException e
+      (log/error e "Caught SQLException during migration")
+      (let [next (.getNextException e)]
+        (when-not (nil? next)
+          (log/error next "Unravelled exception")))
+      (binding [*out* *err*] (flush)) (flush)
+      (System/exit 1))))
+
 (defn migrate!
-  "Migrates database to the latest schema version. Does nothing if database is
-  already at the latest schema version."
-  []
+  "Migrates database to the latest schema version. Does nothing if
+  database is already at the latest schema version.  Requires a
+  connection pool because some operations may require an indepdendent
+  database connection."
+  [db-connection-pool]
   (if-let [unexpected (first (difference (applied-migrations) (kitchensink/keyset migrations)))]
     (throw (IllegalStateException.
             (format "Your PuppetDB database contains a schema migration numbered %d, but this version of PuppetDB does not recognize that version."
                     unexpected))))
-
   (if-let [pending (seq (pending-migrations))]
-    (sql/transaction
-     (doseq [[version migration] pending]
-       (log/infof "Applying database migration version %d" version)
-       (try
-         (migration)
-         (record-migration! version)
-         (catch java.sql.SQLException e
-           (log/error e "Caught SQLException during migration")
-           (let [next (.getNextException e)]
-             (when-not (nil? next)
-               (log/error next "Unravelled exception")))
-           (System/exit 1)))))
+    (do
+      (sql/transaction
+       (doseq [[version migration] pending]
+         (log/infof "Applying database migration version %d" version)
+         (sql-or-die (fn [] (migration) (record-migration! version)))))
+      (when (sutils/postgres?)
+        ;; Make sure all tables (even small static tables) are
+        ;; analyzed at least once.  Note that vacuum cannot be
+        ;; called from within a transaction block.
+        (sql/with-connection db-connection-pool
+          (log/info "Analyzing database")
+          (sql-or-die (fn []
+                        (-> (doto (sql/find-connection) (.setAutoCommit true))
+                            .createStatement
+                            (.execute "vacuum (analyze, verbose)")))))))
     (log/info "There are no pending migrations")))
 
 ;; SPECIAL INDEX HANDLING

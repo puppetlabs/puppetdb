@@ -42,7 +42,7 @@
     (testing "should return nothing if the db is completely migrated"
       (sql/with-connection db
         (clear-db-for-testing!)
-        (migrate!)
+        (migrate! db)
         (is (empty? (pending-migrations)))))
 
     (testing "should return missing migrations if the db is partially migrated"
@@ -61,11 +61,11 @@
         (clear-db-for-testing!)
         (is (= (applied-migrations) #{}))
         (testing "should migrate the database"
-          (migrate!)
+          (migrate! db)
           (is (= (applied-migrations) expected-migrations)))
 
         (testing "should not do anything the second time"
-          (migrate!)
+          (migrate! db)
           (is (= (applied-migrations) expected-migrations)))
 
         (testing "should attempt a partial migration if there are migrations missing"
@@ -75,15 +75,15 @@
           (doseq [m (filter (fn [[i migration]] (not= i 27)) (pending-migrations))]
             (apply-migration-for-testing! (first m)))
           (is (= (keys (pending-migrations)) '(27)))
-          (migrate!)
+          (migrate! db)
           (is (= (applied-migrations) expected-migrations))))))
 
   (testing "should throw error if db is at a higher schema rev than we support"
     (with-transacted-connection db
-      (migrate!)
+      (migrate! db)
       (sql/insert-record :schema_migrations
                          {:version (inc migrate/desired-schema-version) :time (to-timestamp (now))})
-      (is (thrown? IllegalStateException (migrate!))))))
+      (is (thrown? IllegalStateException (migrate! db))))))
 
 (deftest migration-14
   (testing "building parameter cache"
@@ -394,7 +394,7 @@
     (let [tables (sutils/sql-current-connection-table-names)]
       ;; Currently sql-current-connection-table-names only looks in public.
       (is (empty? (sutils/sql-current-connection-table-names)))
-      (migrate!))))
+      (migrate! db))))
 
 (deftest test-coalesce-fact-values
   (sql/with-connection db

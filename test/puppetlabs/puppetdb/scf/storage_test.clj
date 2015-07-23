@@ -36,7 +36,7 @@
 (defn reset-db!
   []
   (tu/clear-db-for-testing!)
-  (migrate/migrate!))
+  (migrate/migrate! *db*))
 
 (defn-validated factset-map :- {s/Str s/Str}
   "Return all facts and their values for a given certname as a map"

@@ -25,7 +25,7 @@
       (sql/with-connection *db*
         (sql/transaction
          (clear-db-for-testing!)
-         (migrate!)))
+         (migrate! *db*)))
       (pjdbc/pooled-datasource (assoc db :read-only? read-only?)))))
 
 (defn with-test-db
@@ -34,7 +34,7 @@
   (binding [*db* (test-db)]
     (sql/with-connection *db*
       (clear-db-for-testing!)
-      (migrate!)
+      (migrate! *db*)
       (f))))
 
 (defn without-db-var
