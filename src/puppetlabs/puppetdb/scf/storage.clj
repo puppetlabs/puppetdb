@@ -888,6 +888,14 @@
          (for [[pid vid] pairs]
            {:factset_id factset-id :fact_path_id pid :fact_value_id vid})))
 
+(defn realize-records-with-tmp!
+  "Inserts the records (maps) into the named database and returns them
+  with their new :id values."
+  [database records]
+  (map #(assoc %2 :id %1)
+       (map :id (apply sql/insert-records database records))
+       records))
+
 (defn existing-row-ids
   "Returns a map from value to id for each value that's already in the
    named database column.
