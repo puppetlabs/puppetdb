@@ -344,6 +344,8 @@ must be supplied as the value to be matched."
         qualifier (if (postgres?)
                     "ON COMMIT DROP"
                     "ON COMMIT DELETE ROWS")]
+    (println "QUALIFIER " qualifier)
+    (println "postgres? " (postgres?))
     (sql/do-commands
       (format "CREATE TEMP TABLE %s (value %s) %s" table-name column-type qualifier))
     (apply sql/insert-rows (keyword table-name) (map vector coll))
