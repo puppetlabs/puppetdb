@@ -7,7 +7,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 [configure_postgres]: ./configure.html#using-postgresql
 [kahadb_corruption]: ./trouble_kahadb_corruption.html
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
-[upgrading]: ./api/query/v4/preparing-for-3.0.html
+[upgrading]: ./api/query/v4/upgrading-from-v3.html
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 
 3.0.1
