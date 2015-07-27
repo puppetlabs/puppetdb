@@ -36,7 +36,7 @@ See [the Operators page](./operators.html) for the full list of available operat
 
 * `certname` (string): the name of the node associated with the resource.
 
-* `[parameter <PARAMETER NAME>]` (string): the value of the `<PARAMETER NAME>` parameter of the resource.
+* `[parameter, <PARAMETER NAME>]` (string): the value of the `<PARAMETER NAME>` parameter of the resource.
 
 * `type` (string, with first letter always capitalized): the resource type.
 
