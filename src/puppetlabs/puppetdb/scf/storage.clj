@@ -370,32 +370,17 @@
 
 (pls/defn-validated resources-exist? :- #{String}
   "Given a collection of resource-hashes, return the subset that
-   already exist in the database."
+  already exist in the database."
   [resource-hashes :- #{String}]
   (if (seq resource-hashes)
-    (if (sutils/postgres?)
-      (let [temp-table (sutils/create-temp-table resource-hashes {"resource" "text"})
-            query (apply vector
-                         (format "SELECT DISTINCT %s AS resource
-                                  FROM resource_params_cache rpc
-                                  INNER JOIN %s ON rpc.resource=%s.resource"
-                                 (sutils/sql-hash-as-str "resource")
-                                 temp-table
-                                 temp-table)
-                         (map sutils/munge-hash-for-storage resource-hashes))]
-        (sql/with-query-results result-set
-          query
-          (set (map :resource result-set))))
-
-      (let [query (apply vector
-                         (format "SELECT DISTINCT %s AS resource
-                                  FROM resource_params_cache WHERE resource %s"
-                                 (sutils/sql-hash-as-str "resource")
-                                 (jdbc/in-clause resource-hashes))
-                         (map sutils/munge-hash-for-storage resource-hashes))]
-        (sql/with-query-results result-set
-          query
-          (set (map :resource result-set)))))
+    (let [query (apply vector
+                       (format "SELECT DISTINCT %s AS resource FROM resource_params_cache WHERE resource %s"
+                               (sutils/sql-hash-as-str "resource")
+                               (jdbc/in-clause resource-hashes))
+                       (map sutils/munge-hash-for-storage resource-hashes))]
+      (sql/with-query-results result-set
+        query
+        (set (map :resource result-set))))
     #{}))
 
 ;;The schema definition of this function should be
