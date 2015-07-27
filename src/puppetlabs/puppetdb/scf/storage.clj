@@ -373,10 +373,14 @@
   already exist in the database."
   [resource-hashes :- #{String}]
   (if (seq resource-hashes)
-    (let [query (apply vector
-                       (format "SELECT DISTINCT %s AS resource FROM resource_params_cache WHERE resource %s"
+    (let [temp-table (sutils/create-temp-table resource-hashes {"resource" "text"})
+          query (apply vector
+                       (format "SELECT DISTINCT %s AS resource
+                                FROM resource_params_cache rpc
+                                INNER JOIN %s ON rpc.resource=%s.resource"
                                (sutils/sql-hash-as-str "resource")
-                               (jdbc/in-clause resource-hashes))
+                               temp-table
+                               temp-table)
                        (map sutils/munge-hash-for-storage resource-hashes))]
       (sql/with-query-results result-set
         query
@@ -786,17 +790,18 @@
   in other factsets."
   [factset-id dropped-pids]
   (when-let [dropped-pids (seq dropped-pids)]
-    (let [in-pids (jdbc/in-clause dropped-pids)]
+    (let [temp-table (sutils/create-temp-table dropped-pids {"id" "bigint"})
+          in-pids (jdbc/in-clause dropped-pids)]
       (sql/do-prepared
        (format
         "DELETE FROM fact_paths fp
-           WHERE fp.id %s
+           WHERE fp.id IN (SELECT id FROM %s)
              AND NOT EXISTS (SELECT 1 FROM facts f
-                               WHERE f.fact_path_id %s
-                                 AND f.fact_path_id = fp.id
+                               INNER JOIN %s ON f.fact_path_id=%s.id
+                                 WHERE f.fact_path_id = fp.id
                                  AND f.factset_id <> ?)"
-        in-pids in-pids)
-       (concat dropped-pids dropped-pids [factset-id])))))
+        temp-table temp-table)
+        [factset-id]))))
 
 (defn-validated delete-pending-value-id-orphans!
   "Delete values in removed-pid-vid-pairs that are no longer mentioned
@@ -900,11 +905,11 @@
   "Returns a map from value to id for each value that's already in the
    named database column.
    `column-transform` is used to modify the sql for the values"
-  [table column values column-transform column-type]
+  [table column values column-transform column-map]
   (let [source-table (name table)
         postgres? (sutils/postgres?)
         query-string (if postgres?
-                       (let [tmp-table (sutils/create-temp-table values column-type)]
+                       (let [tmp-table (sutils/create-temp-table values column-map)]
                          (format "SELECT %s AS value, %s.id FROM %s
                                  INNER JOIN %s
                                  ON %s.%s=%s.value"
@@ -934,7 +939,9 @@
   paths to ids."
   [pathstrs]
   (if-let [pathstrs (seq pathstrs)]
-    (let [existing-path-ids (existing-row-ids :fact_paths "path" pathstrs identity "text")
+    (let [existing-path-ids (existing-row-ids :fact_paths
+                                              "path"
+                                              pathstrs identity {"value" "text"})
           missing-db-paths (set/difference (set pathstrs)
                                            (set (keys existing-path-ids)))]
       (merge existing-path-ids
@@ -952,7 +959,11 @@
   [valuemaps]
   (if-let [valuemaps (seq valuemaps)]
     (let [vhashes (map :value_hash valuemaps)
-          existing-vhash-ids (existing-row-ids :fact_values "value_hash" (map sutils/munge-hash-for-storage vhashes) sutils/sql-hash-as-str "bytea")
+          existing-vhash-ids (existing-row-ids :fact_values
+                                               "value_hash"
+                                               (map sutils/munge-hash-for-storage vhashes)
+                                               sutils/sql-hash-as-str
+                                               {"value" "bytea"})
           missing-vhashes (set/difference (set vhashes)
                                           (set (keys existing-vhash-ids)))]
       (merge existing-vhash-ids
@@ -1031,9 +1042,9 @@
      (when rm-pairs
        (let [rm-pids (set (map first rm-pairs))]
          (sql/do-prepared
-          (format "DELETE FROM facts WHERE factset_id = ? AND fact_path_id %s"
-                  (jdbc/in-clause rm-pids))
-          (cons factset-id rm-pids))))
+           (format "DELETE FROM facts WHERE factset_id = ? AND fact_path_id %s"
+                   (jdbc/in-clause rm-pids))
+           (cons factset-id rm-pids))))
 
      (insert-facts-pv-pairs! factset-id new-pairs)
 
