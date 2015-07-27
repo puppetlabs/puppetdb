@@ -9,12 +9,14 @@
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
             [clj-time.format :as tfmt]
+            [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.command :refer :all]
             [puppetlabs.puppetdb.testutils :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.reports :refer [munge-example-report-for-storage]]
+            [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [clj-time.coerce :refer [to-timestamp to-date-time to-string]]
             [clj-time.core :as t :refer [days ago now seconds]]
@@ -23,7 +25,8 @@
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.time :as pt]))
+            [puppetlabs.puppetdb.time :as pt]
+            [puppetlabs.trapperkeeper.app :refer [get-service]]))
 
 (use-fixtures :each with-test-db)
 
@@ -1245,6 +1248,36 @@
                       :status)))
         (is (= 0 (times-called publish)))
         (is (empty? (fs/list-dir discard-dir)))))))
+
+(deftest command-service-stats
+  (svc-utils/with-puppetdb-instance
+    (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
+          dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
+          shared-globals (partial cli-svc/shared-globals pdb)
+          enqueue-command (partial enqueue-command dispatcher)
+          stats (partial stats dispatcher)
+          real-replace! scf-store/replace-facts!
+          {{:keys [connection endpoint]} :command-mq} (shared-globals)]
+      ;; Issue a single command and ensure the stats are right at each step.
+      (is (= {:received-commands 0 :executed-commands 0} (stats)))
+      (let [received-cmd? (promise)
+            go-ahead-and-execute (promise)]
+        (with-redefs [scf-store/replace-facts!
+                      (fn [& args]
+                        (deliver received-cmd? true)
+                        @go-ahead-and-execute
+                        (apply real-replace! args))]
+          (enqueue-command connection endpoint
+                           (command-names :replace-facts) 4
+                           {:environment "DEV" :certname "foo.local"
+                            :values {:foo "foo"}
+                            :producer_timestamp (to-string (now))})
+          @received-cmd?
+          (is (= {:received-commands 1 :executed-commands 0} (stats)))
+          (deliver go-ahead-and-execute true)
+          (while (not= 1 (:executed-commands (stats)))
+            (Thread/sleep 100))
+          (is (= {:received-commands 1 :executed-commands 1} (stats))))))))
 
 ;; Local Variables:
 ;; mode: clojure

@@ -2,6 +2,7 @@
   (:import [java.io ByteArrayInputStream])
   (:require [clojure.java.jdbc.deprecated :as sql]
             [puppetlabs.puppetdb.http.server :as server]
+            [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.http.command :as command]
             [puppetlabs.puppetdb.jdbc :as pjdbc]
             [puppetlabs.puppetdb.schema :as pls]
@@ -65,7 +66,9 @@
   is available. Note this means this fixture should be nested _within_
   `with-test-mq`."
   ([f]
-   (binding [*command-app* (command/command-app {:command-mq *mq*})]
+   (binding [*command-app* (command/command-app
+                            {:command-mq *mq*}
+                            #'dispatch/do-enqueue-raw-command)]
      (f))))
 
 (defn with-http-app
