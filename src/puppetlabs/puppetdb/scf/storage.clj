@@ -1213,9 +1213,10 @@
   currently inactive, no change is made."
   [certname :- String & [timestamp :- pls/Timestamp]]
   (let [timestamp (to-timestamp (or timestamp (now)))]
-   (sql/do-prepared "UPDATE certnames SET deactivated = ?
-                    WHERE certname=? AND deactivated IS NULL"
-                    [timestamp certname])))
+    (sql/do-prepared "UPDATE certnames SET deactivated = ?
+                        WHERE certname=?
+                           AND (deactivated IS NULL OR deactivated < ?)"
+                     [timestamp certname timestamp])))
 
 (pls/defn-validated expire-node!
   "Expire the given host, recording the current time. If the node is

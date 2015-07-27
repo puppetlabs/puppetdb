@@ -1158,7 +1158,12 @@
       (testing "should not change the node if it's already inactive"
         (let [original (query-certnames)]
           (deactivate-node! certname)
-          (is (= original (query-certnames))))))
+          ;; Convert any :deactivated values to #t for comparison
+          ;; since we only care about the state.
+          (letfn [(deactivated->truthy [x]
+                    (assoc x :deactivated (when (:deactivated x) true)))]
+            (is (= (map deactivated->truthy original)
+                   (map deactivated->truthy (query-certnames))))))))
 
     (testing "activating a node"
       (testing "should activate the node if it was inactive"

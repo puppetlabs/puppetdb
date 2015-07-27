@@ -16,7 +16,8 @@
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.reports :refer [munge-example-report-for-storage]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
-            [clj-time.coerce :refer [to-timestamp to-date-time to-string]]
+            [clj-time.coerce
+             :refer [from-sql-date to-timestamp to-date-time to-string]]
             [clj-time.core :as t :refer [days ago now seconds]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
@@ -1147,14 +1148,32 @@
     (doseq [{:keys [certname command]} cases]
       (testing "should leave the node alone"
        (let [one-day   (* 24 60 60 1000)
-             yesterday (to-timestamp (- (System/currentTimeMillis) one-day))]
+             yesterday (to-timestamp (- (System/currentTimeMillis) one-day))
+             command (if (#{1 2} (:version command))
+                       ;; Can't set the :producer_timestamp for the older
+                       ;; versions (so that we can control the deactivation
+                       ;; timestamp).
+                       command
+                       (assoc-in command
+                                 [:payload :producer_timestamp] yesterday))]
          (sql/insert-record :certnames {:certname certname :deactivated yesterday})
-         (test-msg-handler command publish discard-dir
-           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
-                  [{:certname certname :deactivated yesterday}]))
-           (is (= 0 (times-called publish)))
-           (is (empty? (fs/list-dir discard-dir)))
-           (sql/do-prepared "delete from certnames"))))))
+         (test-msg-handler
+           command
+           publish discard-dir
+           (let [[row & rest] (query-to-vec
+                               "SELECT certname,deactivated FROM certnames")]
+             (is (empty? rest))
+             (is (instance? java.sql.Timestamp (:deactivated row)))
+             (if (#{1 2} (:version command))
+               (do
+                 ;; Since we can't control the producer_timestamp.
+                 (is (= certname (:certname row)))
+                 (is (t/after? (from-sql-date (:deactivated row))
+                               (from-sql-date yesterday))))
+               (is (= {:certname certname :deactivated yesterday} row)))
+             (is (= 0 (times-called publish)))
+             (is (empty? (fs/list-dir discard-dir)))
+             (sql/do-prepared "delete from certnames")))))))
 
   (deftest deactivate-node-node-missing
     (testing "should add the node and deactivate it"
