@@ -370,21 +370,32 @@
 
 (pls/defn-validated resources-exist? :- #{String}
   "Given a collection of resource-hashes, return the subset that
-  already exist in the database."
+   already exist in the database."
   [resource-hashes :- #{String}]
   (if (seq resource-hashes)
-    (let [temp-table (sutils/create-temp-table resource-hashes {"resource" "text"})
-          query (apply vector
-                       (format "SELECT DISTINCT %s AS resource
-                                FROM resource_params_cache rpc
-                                INNER JOIN %s ON rpc.resource=%s.resource"
-                               (sutils/sql-hash-as-str "resource")
-                               temp-table
-                               temp-table)
-                       (map sutils/munge-hash-for-storage resource-hashes))]
-      (sql/with-query-results result-set
-        query
-        (set (map :resource result-set))))
+    (if (sutils/postgres?)
+      (let [temp-table (sutils/create-temp-table resource-hashes {"resource" "text"})
+            query (apply vector
+                         (format "SELECT DISTINCT %s AS resource
+                                  FROM resource_params_cache rpc
+                                  INNER JOIN %s ON rpc.resource=%s.resource"
+                                 (sutils/sql-hash-as-str "resource")
+                                 temp-table
+                                 temp-table)
+                         (map sutils/munge-hash-for-storage resource-hashes))]
+        (sql/with-query-results result-set
+          query
+          (set (map :resource result-set))))
+
+      (let [query (apply vector
+                         (format "SELECT DISTINCT %s AS resource
+                                  FROM resource_params_cache WHERE resource %s"
+                                 (sutils/sql-hash-as-str "resource")
+                                 (jdbc/in-clause resource-hashes))
+                         (map sutils/munge-hash-for-storage resource-hashes))]
+        (sql/with-query-results result-set
+          query
+          (set (map :resource result-set)))))
     #{}))
 
 ;;The schema definition of this function should be
@@ -787,21 +798,33 @@
 
 (defn-validated delete-pending-path-id-orphans!
   "Delete paths in dropped-pids that are no longer mentioned
-  in other factsets."
+   in other factsets."
   [factset-id dropped-pids]
   (when-let [dropped-pids (seq dropped-pids)]
-    (let [temp-table (sutils/create-temp-table dropped-pids {"id" "bigint"})
-          in-pids (jdbc/in-clause dropped-pids)]
-      (sql/do-prepared
-       (format
-        "DELETE FROM fact_paths fp
-           WHERE fp.id IN (SELECT id FROM %s)
+    (if (sutils/postgres?)
+      (let [temp-table (sutils/create-temp-table dropped-pids {"id" "bigint"})]
+        (sql/do-prepared
+          (format
+            "DELETE FROM fact_paths fp
+             WHERE fp.id IN (SELECT id FROM %s)
              AND NOT EXISTS (SELECT 1 FROM facts f
-                               INNER JOIN %s ON f.fact_path_id=%s.id
-                                 WHERE f.fact_path_id = fp.id
-                                 AND f.factset_id <> ?)"
-        temp-table temp-table)
-        [factset-id]))))
+             INNER JOIN %s ON f.fact_path_id=%s.id
+             WHERE f.fact_path_id = fp.id
+             AND f.factset_id <> ?)"
+            temp-table temp-table temp-table)
+          [factset-id]))
+
+      (let [in-pids (jdbc/in-clause dropped-pids)]
+        (sql/do-prepared
+          (format
+            "DELETE FROM fact_paths fp
+             WHERE fp.id %s
+             AND NOT EXISTS (SELECT 1 FROM facts f
+             WHERE f.fact_path_id %s
+             AND f.fact_path_id = fp.id
+             AND f.factset_id <> ?)"
+            in-pids in-pids)
+          (concat dropped-pids dropped-pids [factset-id]))))))
 
 (defn-validated delete-pending-value-id-orphans!
   "Delete values in removed-pid-vid-pairs that are no longer mentioned
@@ -909,14 +932,14 @@
   (let [source-table (name table)
         postgres? (sutils/postgres?)
         query-string (if postgres?
-                       (let [tmp-table (sutils/create-temp-table values column-map)]
+                       (let [temp-table (sutils/create-temp-table values column-map)]
                          (format "SELECT %s AS value, %s.id FROM %s
                                  INNER JOIN %s
                                  ON %s.%s=%s.value"
                                  (column-transform column)
                                  source-table source-table
-                                 tmp-table source-table
-                                 column tmp-table))
+                                 temp-table source-table
+                                 column temp-table))
                        (format "SELECT %s AS value, id FROM %s WHERE %s %s"
                                (column-transform column) (name table) column (jdbc/in-clause values)))]
     (into {}
@@ -1041,10 +1064,18 @@
      ;; Paths are unique per factset so we can delete solely based on pid.
      (when rm-pairs
        (let [rm-pids (set (map first rm-pairs))]
-         (sql/do-prepared
-           (format "DELETE FROM facts WHERE factset_id = ? AND fact_path_id %s"
-                   (jdbc/in-clause rm-pids))
-           (cons factset-id rm-pids))))
+         (if (sutils/postgres?)
+           (let [temp-table (sutils/create-temp-table rm-pids {"id" "bigint"})]
+             (sql/do-prepared
+               (format "DELETE FROM facts WHERE factset_id = ?
+                        AND fact_path_id IN (SELECT id FROM %s)"
+                       temp-table)
+               [factset-id]))
+
+           (sql/do-prepared
+             (format "DELETE FROM facts WHERE factset_id = ? AND fact_path_id %s"
+                     (jdbc/in-clause rm-pids))
+             (cons factset-id rm-pids)))))
 
      (insert-facts-pv-pairs! factset-id new-pairs)
 
