@@ -56,7 +56,8 @@
    In either case, the command itself, once string-ified, must be a
    JSON-formatted string with the aforementioned structure."
   (:require [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.scf.storage :as scf-storage]
+            [puppetlabs.puppetdb.scf.storage :as scf-storage
+             :refer [have-newer-record-for-certname?]]
             [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.facts :as fact]
@@ -257,12 +258,11 @@
   [{:keys [payload annotations]} {:keys [db]}]
   (let [certname (:certname payload)
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))
-        id  (:id annotations)
-        newer-record-exists? (fn [entity] (scf-storage/have-record-produced-after? entity certname producer-timestamp))]
+        id  (:id annotations)]
     (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
-      (if (not-any? newer-record-exists? [:catalogs :factsets :reports])
+      (if-not (have-newer-record-for-certname? certname producer-timestamp)
         (scf-storage/deactivate-node! certname producer-timestamp)
         (log/warnf "Not deactivating node %s because local data is newer than %s." certname producer-timestamp)))
     (log/infof "[%s] [%s] %s" id (command-names :deactivate-node) certname)))

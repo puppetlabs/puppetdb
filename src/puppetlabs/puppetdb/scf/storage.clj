@@ -1246,6 +1246,15 @@
              (timestamp-of-newest-record certname)
              (.after time)))))
 
+(pls/defn-validated have-newer-record-for-certname?
+  [certname :- String
+   timestamp :- pls/Timestamp]
+  "Returns a truthy value indicating whether a record exists that has
+  a producer_timestamp newer than the given timestamp."
+  (some (fn [entity]
+          (have-record-produced-after? entity certname timestamp))
+        [:catalogs :factsets :reports]))
+
 (pls/defn-validated catalog-newer-than?
   "Returns true if the most current catalog for `certname` is more recent than
   `time`."
