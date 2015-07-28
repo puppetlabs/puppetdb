@@ -23,7 +23,6 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
             [clojure.set :as set]
@@ -784,20 +783,33 @@
 
 (defn-validated delete-pending-path-id-orphans!
   "Delete paths in dropped-pids that are no longer mentioned
-  in other factsets."
+   in other factsets."
   [factset-id dropped-pids]
   (when-let [dropped-pids (seq dropped-pids)]
-    (let [in-pids (jdbc/in-clause dropped-pids)]
-      (sql/do-prepared
-       (format
-        "DELETE FROM fact_paths fp
-           WHERE fp.id %s
+    (if (sutils/postgres?)
+      (let [temp-table (sutils/create-temp-table dropped-pids {"id" "bigint"})]
+        (sql/do-prepared
+          (format
+            "DELETE FROM fact_paths fp
+             WHERE fp.id IN (SELECT id FROM %s)
              AND NOT EXISTS (SELECT 1 FROM facts f
-                               WHERE f.fact_path_id %s
-                                 AND f.fact_path_id = fp.id
-                                 AND f.factset_id <> ?)"
-        in-pids in-pids)
-       (concat dropped-pids dropped-pids [factset-id])))))
+             INNER JOIN %s ON f.fact_path_id=%s.id
+             WHERE f.fact_path_id = fp.id
+             AND f.factset_id <> ?)"
+            temp-table temp-table temp-table)
+          [factset-id]))
+
+      (let [in-pids (jdbc/in-clause dropped-pids)]
+        (sql/do-prepared
+          (format
+            "DELETE FROM fact_paths fp
+             WHERE fp.id %s
+             AND NOT EXISTS (SELECT 1 FROM facts f
+             WHERE f.fact_path_id %s
+             AND f.fact_path_id = fp.id
+             AND f.factset_id <> ?)"
+            in-pids in-pids)
+          (concat dropped-pids dropped-pids [factset-id]))))))
 
 (defn-validated delete-pending-value-id-orphans!
   "Delete values in removed-pid-vid-pairs that are no longer mentioned
@@ -889,18 +901,38 @@
          (for [[pid vid] pairs]
            {:factset_id factset-id :fact_path_id pid :fact_value_id vid})))
 
+(defn realize-records-with-tmp!
+  "Inserts the records (maps) into the named database and returns them
+  with their new :id values."
+  [database records]
+  (map #(assoc %2 :id %1)
+       (map :id (apply sql/insert-records database records))
+       records))
+
 (defn existing-row-ids
   "Returns a map from value to id for each value that's already in the
-  named database column.
+   named database column.
    `column-transform` is used to modify the sql for the values"
-  [table column values column-transform]
-  (into {}
-   (for [{:keys [value id]}
-         (apply query-to-vec
-                (format "SELECT %s AS value, id FROM %s WHERE %s %s"
-                        (column-transform column) (name table) column (jdbc/in-clause values))
-                values)]
-     [value id])))
+  [table column values column-transform column-map]
+  (let [source-table (name table)
+        postgres? (sutils/postgres?)
+        query-string (if postgres?
+                       (let [temp-table (sutils/create-temp-table values column-map)]
+                         (format "SELECT %s AS value, %s.id FROM %s
+                                 INNER JOIN %s
+                                 ON %s.%s=%s.value"
+                                 (column-transform column)
+                                 source-table source-table
+                                 temp-table source-table
+                                 column temp-table))
+                       (format "SELECT %s AS value, id FROM %s WHERE %s %s"
+                               (column-transform column) (name table) column (jdbc/in-clause values)))]
+    (into {}
+          (for [{:keys [value id]}
+                (if postgres?
+                  (query-to-vec query-string)
+                  (apply query-to-vec query-string values))]
+            [value id]))))
 
 (defn realize-records!
   "Inserts the records (maps) into the named database and returns them
@@ -915,7 +947,9 @@
   paths to ids."
   [pathstrs]
   (if-let [pathstrs (seq pathstrs)]
-    (let [existing-path-ids (existing-row-ids :fact_paths "path" pathstrs identity)
+    (let [existing-path-ids (existing-row-ids :fact_paths
+                                              "path"
+                                              pathstrs identity {"value" "text"})
           missing-db-paths (set/difference (set pathstrs)
                                            (set (keys existing-path-ids)))]
       (merge existing-path-ids
@@ -933,7 +967,11 @@
   [valuemaps]
   (if-let [valuemaps (seq valuemaps)]
     (let [vhashes (map :value_hash valuemaps)
-          existing-vhash-ids (existing-row-ids :fact_values "value_hash" (map sutils/munge-hash-for-storage vhashes) sutils/sql-hash-as-str)
+          existing-vhash-ids (existing-row-ids :fact_values
+                                               "value_hash"
+                                               (map sutils/munge-hash-for-storage vhashes)
+                                               sutils/sql-hash-as-str
+                                               {"value" "bytea"})
           missing-vhashes (set/difference (set vhashes)
                                           (set (keys existing-vhash-ids)))]
       (merge existing-vhash-ids
@@ -1011,10 +1049,18 @@
      ;; Paths are unique per factset so we can delete solely based on pid.
      (when rm-pairs
        (let [rm-pids (set (map first rm-pairs))]
-         (sql/do-prepared
-          (format "DELETE FROM facts WHERE factset_id = ? AND fact_path_id %s"
-                  (jdbc/in-clause rm-pids))
-          (cons factset-id rm-pids))))
+         (if (sutils/postgres?)
+           (let [temp-table (sutils/create-temp-table rm-pids {"id" "bigint"})]
+             (sql/do-prepared
+               (format "DELETE FROM facts WHERE factset_id = ?
+                        AND fact_path_id IN (SELECT id FROM %s)"
+                       temp-table)
+               [factset-id]))
+
+           (sql/do-prepared
+             (format "DELETE FROM facts WHERE factset_id = ? AND fact_path_id %s"
+                     (jdbc/in-clause rm-pids))
+             (cons factset-id rm-pids)))))
 
      (insert-facts-pv-pairs! factset-id new-pairs)
 
