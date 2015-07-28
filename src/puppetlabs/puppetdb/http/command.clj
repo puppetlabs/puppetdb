@@ -38,9 +38,9 @@
 
 (defn enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
-  [connection endpoint]
+  [enqueue-fn connection endpoint]
   (fn [{:keys [body-string] :as request}]
-    (let [uuid (command/enqueue-raw-command! connection endpoint body-string)]
+    (let [uuid (enqueue-fn connection endpoint body-string)]
       (http/json-response {:uuid uuid}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -50,10 +50,11 @@
 ;; return functions that accept a ring request map
 
 (defn command-app
-  [{:keys [command-mq authorizer] :as globals}]
+  [{:keys [command-mq authorizer] :as globals} enqueue-fn]
   (let [{:keys [connection endpoint]} command-mq
         app (moustache/app
-             ["v1" &] {:any (enqueue-command-handler connection endpoint)})]
+             ["v1" &] {:any (enqueue-command-handler enqueue-fn
+                                                     connection endpoint)})]
     (-> app
         validate-command-version
         mid/verify-accepts-json
@@ -71,17 +72,19 @@
 (defservice puppetdb-command-service
   PuppetDBCommand
   [[:PuppetDBServer shared-globals]
-   [:WebroutingService add-ring-handler get-route]]
+   [:WebroutingService add-ring-handler get-route]
+   [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command]]
 
   (start [this context]
          (let [globals (shared-globals)
                url-prefix (get-route this)]
            (log/info "Starting command service")
-           (->> (command-app globals)
+           (->> (command-app globals enqueue-raw-command)
                 (compojure/context url-prefix [])
                 (add-ring-handler this))
            context))
 
   (submit-command [this command version payload]
-                  (let [{{:keys [connection endpoint]} :command-mq} (shared-globals)]
-                    (command/enqueue-command! connection endpoint (command-names command) version payload))))
+    (let [{{:keys [connection endpoint]} :command-mq} (shared-globals)]
+      (enqueue-command connection endpoint
+                       (command-names command) version payload))))
