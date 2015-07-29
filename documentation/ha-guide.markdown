@@ -7,6 +7,7 @@ canonical: "/puppetdb/latest/ha-guide.html
 [configure]: ./configure.html
 [pe-configure]: ./pe-configure.html
 [logging]: ./logging.html
+[metrics]: ./api/metrics/v1/index.html
 
 Configuring PuppetDB for High Availability
 -----
@@ -184,7 +185,7 @@ If you have configured structured logging as described in the
 facts, or reports.
 
 * `entity`: The entity being processed. One of `"catalogs"`, `"facts"`, `"reports"`, or
-  `"nodes"`. (nodes is used only to sync node deactivation status)
+  `"nodes"`; nodes is used only to sync node deactivation status.
 
 * remote: As above
 
@@ -216,3 +217,47 @@ a problem.
 command for a particular node.
 
 * certname: The certname of the node being deactivated
+
+## Metrics
+
+Some additional metrics are provided to help monitor the state of your HA setup.
+For basic information on metrics in PuppetDB, see
+[metrics][the main metrics documentation].
+
+These metrics are all available via the metrics http endpoint; for example, you
+can fetch the data using cURL like this:
+
+```sh
+curl http://localhost:8080/metrics/v1/mbeans/puppetlabs.pe-puppetdb-extensions.sync:type\=default,name\=sync-has-worked-once
+```
+
+The following metrics are all located in the
+`puppetlabs.pe-puppetdb-extensions.sync` namespace.
+
+* `last-sync-succeeded`: Did the last sync succeed? (boolean)
+* `sync-has-worked-once`: Has the sync worked at all since starting this processes?
+* `sync-has-failed-after-working`: Has the sync stopped working after working
+  once? This may be useful for ignoring errors that occur when many machines in
+  the same cluster are starting at the same time.
+* `last-successful-sync-time`: The wall-clock time, on the PuppetDB server, of
+  when the last successful sync finished.
+* `last-failed-sync-time`: The wall-clock time, on the PuppetDB server, of
+  when the last failed sync finished.
+* `seconds-since-last-successful-sync`: The amount of time that elapsed since
+  the last time a sync succeeded.
+* `seconds-since-last-failed-sync`: The amount of time that elapsed since
+  the last time a sync failed.
+* `failed-request-counter`: The number of sync-related http requests that have
+  failed. Even if syncs are not failing, this may increase when individual
+  requests fail and are retried. Unexpected increases in this counter should be
+  investigated.
+
+The following metrics expose timing statistics for various phases of the sync;
+see the Structured Logging section for a detailed explanation of each phase.
+
+* `sync-duration`
+* `catalogs-sync-duration`
+* `reports-sync-duration`
+* `factsets-sync-duration`
+* `nodes-sync-duration`
+* `record-transfer-duration`

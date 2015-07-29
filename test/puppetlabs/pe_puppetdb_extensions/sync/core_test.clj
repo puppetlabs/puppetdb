@@ -32,7 +32,9 @@
             [clojure.core.match :refer [match]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.time :refer [parse-period]])
+            [puppetlabs.puppetdb.time :refer [parse-period]]
+            [puppetlabs.pe-puppetdb-extensions.sync.events :as events]
+            [puppetlabs.pe-puppetdb-extensions.sync.test-protocols :as sync-test-protos :refer [called?]])
   (:import
    [org.apache.activemq.command ActiveMQDestination]
    [org.slf4j Logger]))
@@ -201,13 +203,13 @@
 (defn get-first-report [pdb-url certname]
   (first (get-json pdb-url (str "/reports/?query=" (json/generate-string [:= :certname certname])))))
 
+
 (deftest pull-reports-test
   (let [report-1 (-> reports :basic tur/munge-example-report-for-storage)
         report-2 (assoc report-1 :certname "bar.local")
         pdb-x-queries (atom [])
         stub-data-atom (atom [])
         stub-handler (logging-query-handler "/pdb-x/v4/reports" pdb-x-queries stub-data-atom :hash)]
-
     (with-puppetdb-instance (utils/sync-config stub-handler)
       ;; store two reports in PDB Y
       (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-1)
@@ -773,3 +775,53 @@
               #(verify-entity-sync "finished" "factsets" 0 1 %)
               #(verify-sync "finished" %)]
              events))))))
+
+;;; Events tests
+
+(defn mock-fn
+  "Create a mock version of a 0-arity function that can tell you if it has been
+  called."
+  ([] (mock-fn nil))
+  ([f] (let [was-called (atom false)]
+        (reify
+          clojure.lang.IFn
+          (invoke [_]
+            (let [result (if f (f))]
+              (reset! was-called true)
+              result))
+          sync-test-protos/IMockFn
+          (called? [_] @was-called)))))
+
+(defn run-test-for-var
+  "Depending on how you're running your tests, it can be tricky to invoke
+  another test (lein can yank them out from under you). This should do it more
+  reliably."
+  [test-var]
+  (let [m (meta test-var)
+        f (or (:test m) (:leiningen/skipped-test m))]
+     (if f
+       (f)
+       (throw (Exception. (str "Couldn't find a test fn attached to var " (:name meta)))))))
+
+(deftest successful-sync-event-test
+  (with-redefs [events/successful-sync! (mock-fn)
+                events/failed-sync! (mock-fn)
+                events/failed-request! (mock-fn)]
+    (run-test-for-var #'pull-reports-test)
+    (is (= true (called? events/successful-sync!)))
+    (is (= false (called? events/failed-sync!)))
+    (is (= false (called? events/failed-request!)))))
+
+(deftest failed-sync-event-test
+  ;; this is a very noisy test...
+  (binding [clojure.tools.logging/*logger-factory*
+            clojure.tools.logging.impl/disabled-logger-factory]
+   (with-redefs [events/successful-sync! (mock-fn)
+                 events/failed-sync! (mock-fn)
+                 events/failed-request! (mock-fn)]
+     (try
+       (sync-from-remote! #() #() "http://localhost:1234/bogus" 42)
+       (catch Exception _))
+     (is (= false (called? events/successful-sync!)))
+     (is (= true (called? events/failed-sync!)))
+     (is (= true (called? events/failed-request!))))))

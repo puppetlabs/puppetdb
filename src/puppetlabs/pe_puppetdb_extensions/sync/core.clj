@@ -11,7 +11,7 @@
             [clojure.tools.logging :as log]
             [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.pe-puppetdb-extensions.semlog :refer [maplog]]
-            [puppetlabs.pe-puppetdb-extensions.sync.events :refer [with-sync-events]]
+            [puppetlabs.pe-puppetdb-extensions.sync.events :as events :refer [with-sync-events]]
             [puppetlabs.puppetdb.time :refer [parse-period]]))
 
 
@@ -135,9 +135,13 @@
    (log/debugf "HTTP GET %s %s" url opts)
    (client/get url
                (merge {:throw-exceptions true :throw-entire-message true} opts))
-   (catch :status  {:keys [body status] :as response}
+   (catch :status {:keys [body status] :as response}
+     (events/failed-request!)
      (throw+ {:type ::remote-host-error :error-response response}
-             (error-message-fn status body)))))
+             (error-message-fn status body)))
+   (catch Exception e
+     (events/failed-request!)
+     (throw e))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Data format transformations
@@ -349,6 +353,7 @@
                                  :remote remote-url
                                  :transferred #(:transferred @stats)
                                  :failed #(:failed @stats)}
+                       :timer-key (juxt :phase :entity)
                        :start [:info "  syncing {entity} from {remote}"]
                        :finished [:info "  --> transferred {entity} ({transferred}) from {remote} in {elapsed} ms"]
                        :error [:warn (str "  *** transferred {entity} ({transferred}) from {remote};"
@@ -394,19 +399,24 @@
   `query-fn` to query PuppetDB in process and `submit-command-fn` when
   new data is found."
   [query-fn submit-command-fn remote-url node-ttl]
-  (let [submit-command-fn (wrap-with-logging submit-command-fn
-                                             :debug "Submitting command")
-        now (t/now)]
-    (with-sync-events {:context {:phase "sync"
-                                 :remote remote-url}
-                       :start [:info "syncing with {remote}"]
-                       :finished [:info "--> synced with {remote}"]
-                       :error [:warn "*** trouble syncing with {remote}"]}
+  (try
+    (let [submit-command-fn (wrap-with-logging submit-command-fn
+                                               :debug "Submitting command")
+          now (t/now)]
+      (with-sync-events {:context {:phase "sync"
+                                   :remote remote-url}
+                         :start [:info "syncing with {remote}"]
+                         :finished [:info "--> synced with {remote}"]
+                         :error [:warn "*** trouble syncing with {remote}"]}
 
-      (doseq [sync-config sync-configs]
-        (pull-records-from-remote! query-fn
-                                   submit-command-fn
-                                   remote-url
-                                   sync-config
-                                   now
-                                   node-ttl)))))
+        (doseq [sync-config sync-configs]
+          (pull-records-from-remote! query-fn
+                                     submit-command-fn
+                                     remote-url
+                                     sync-config
+                                     now
+                                     node-ttl))))
+    (events/successful-sync!)
+    (catch Exception e
+      (events/failed-sync!)
+      (throw e))))
