@@ -130,7 +130,7 @@
     version
     query
     [summarize_by {:keys [counts_filter count_by] :as query-options} paging-options]]
-     {:pre  [(sequential? query)
+     {:pre  [((some-fn nil? sequential?) query)
              (string? summarize_by)
              ((some-fn nil? sequential?) counts_filter)
              ((some-fn nil? string?) count_by)]

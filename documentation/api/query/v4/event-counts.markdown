@@ -35,7 +35,7 @@ See the [`events`][events] endpoint for additional documentation as this endpoin
 
 ### URL Parameters
 
-* `query`: Required. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
+* `query`: Optional. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
 This query is forwarded to the [`events`][events] endpoint - see there for additional documentation. For general info about queries, see [the page on query structure.][query]
 
 * `summarize_by`: Required. A string specifying which type of object you'd like to see counts for.

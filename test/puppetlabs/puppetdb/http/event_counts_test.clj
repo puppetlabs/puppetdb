@@ -126,6 +126,26 @@
             :noops 0
             :skips 1}}
 
+         nil
+         #{{:subject_type "resource"
+            :subject {:type "Notify" :title "notify, yo"}
+            :failures 0
+            :successes 1
+            :noops 0
+            :skips 0}
+           {:subject_type "resource"
+            :subject {:type "Notify" :title "notify, yar"}
+            :failures 1
+            :successes 0
+            :noops 0
+            :skips 0}
+           {:subject_type "resource"
+            :subject {:type "Notify" :title "hi"}
+            :failures 0
+            :successes 0
+            :noops 0
+            :skips 1}}
+
          ["~" "certname" ".*"]
          #{{:subject_type "resource"
             :subject {:type "Notify" :title "notify, yo"}
@@ -231,11 +251,47 @@
                            :environment "PROD") (now))
   (are [result query] (response-equal? (get-response endpoint
                                                      query
-                                                     "resource"
-                                                     {"distinct_resources" false
-                                                      "distinct_start_time" 0
-                                                      "distinct_end_time" (now)})
+                                                     "resource")
                                        result)
+       #{{:subject_type "resource"
+          :subject {:type "Notify" :title "notify, yo"}
+          :failures 0
+          :successes 1
+          :noops 0
+          :skips 0}
+         {:subject_type "resource"
+          :subject {:type "Notify" :title "notify, yar"}
+          :failures 0
+          :successes 1
+          :noops 0
+          :skips 0}
+         {:subject_type "resource"
+          :subject {:type "Notify" :title "hi"}
+          :failures 0
+          :successes 0
+          :noops 0
+          :skips 1}
+         {:subject_type "resource",
+          :noops 0,
+          :skips 0,
+          :successes 1,
+          :failures 0,
+          :subject {:type "File", :title "tmp-directory"}}
+         {:subject_type "resource",
+          :noops 0,
+          :skips 0,
+          :successes 1,
+          :failures 0,
+          :subject {:type "File", :title "puppet-managed-file"}}
+         {:subject_type "resource",
+          :noops 0,
+          :skips 0,
+          :successes 1,
+          :failures 0,
+          :subject
+          {:type "Notify", :title "Creating tmp directory at /Users/foo/tmp"}}}
+       nil
+
        #{{:subject_type "resource"
           :subject {:type "Notify" :title "notify, yo"}
           :failures 0

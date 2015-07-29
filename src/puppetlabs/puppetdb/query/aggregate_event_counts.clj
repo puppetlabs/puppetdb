@@ -23,7 +23,7 @@
   "Convert an aggregate-event-counts `query` and a value to `summarize_by`
    into a SQL string."
   [version query summarize_by query-options]
-  {:pre  [(sequential? query)
+  {:pre  [((some-fn nil? sequential?) query)
           (string? summarize_by)
           ((some-fn map? nil?) query-options)]}
   (let [query-options (if (nil? query-options) {} query-options)
@@ -39,14 +39,14 @@
    into a SQL string. Since all inputs are forwarded to
    `event-counts/query->sql`, look there for proper documentation."
   [version query [summarize_by {:keys [distinct_resources?] :as query-options}]]
-  {:pre  [(sequential? query)
+  {:pre  [((some-fn nil? sequential?) query)
           ((some-fn map? nil?) query-options)]
    :post [(jdbc/valid-jdbc-query? (:results-query %))]}
   (let [summary-vec (str/split summarize_by #",")
         nsummarized (count summary-vec)
         aggregate-fn #(assemble-aggregate-sql version query % query-options)
         aggregated-sql-and-params (map aggregate-fn summary-vec)
-        common-params (second (first aggregated-sql-and-params))
+        common-params (or (second (first aggregated-sql-and-params)) [])
         params (if distinct_resources?
                  ;; when distinct resources is used, the first two parameters
                  ;; are the distinct start/end times.

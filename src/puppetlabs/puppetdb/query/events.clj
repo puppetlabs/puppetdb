@@ -31,7 +31,7 @@
   is a list of parameters for the SQL query."
   [select-fields where params]
   {:pre [(string? select-fields)
-         (string? where)
+         ((some-fn string? nil?) where)
          ((some-fn nil? sequential?) params)]
    :post [(vector? %)
           (= 2 (count %))
@@ -50,49 +50,75 @@
 (defn with-latest-events
   "CTE to wrap unioned queries when distinct_resources is used"
   [query]
-  (format
-    "WITH latest_events AS
-           (SELECT certnames.certname,
-                   resource_events.resource_type,
-                   resource_events.resource_title,
-                   resource_events.property,
-                   MAX(resource_events.timestamp) AS timestamp
-                   FROM resource_events
-                   JOIN certnames ON resource_events.certname_id = certnames.id
-                   WHERE resource_events.timestamp >= ?
-                   AND resource_events.timestamp <= ?
-                   GROUP BY certname, resource_type, resource_title, property)
-           %s" query))
+  (let [collate (if (sutils/postgres?) "COLLATE \"C\"" "")]
+    (format
+      "WITH latest_events AS
+       (SELECT certname,
+               configuration_version,
+               start_time as run_start_time,
+               end_time as run_end_time,
+               receive_time as report_receive_time,
+               hash,
+               status,
+               distinct_events.latest_timestamp AS timestamp,
+               distinct_events.resource_type AS resource_type,
+               distinct_events.resource_title AS resource_title,
+               distinct_events.property as property,
+               new_value,
+               old_value,
+               message,
+               file,
+               line,
+               containment_path,
+               containing_class,
+               name
+       FROM
+       (SELECT certname_id,
+               resource_type %s AS resource_type,
+               resource_title %s AS resource_title,
+               property %s AS property,
+               MAX(resource_events.timestamp) AS latest_timestamp
+       FROM resource_events
+       WHERE resource_events.timestamp >= ?
+             AND resource_events.timestamp <= ?
+       GROUP BY certname_id,
+                resource_type %s,
+                resource_title %s,
+                property %s) distinct_events
+       INNER JOIN resource_events
+       ON resource_events.resource_type = distinct_events.resource_type
+          AND resource_events.resource_title = distinct_events.resource_title
+          AND ((resource_events.property = distinct_events.property) OR
+               (resource_events.property IS NULL
+                AND distinct_events.property IS NULL))
+       AND resource_events.timestamp = distinct_events.latest_timestamp
+       AND resource_events.certname_id = distinct_events.certname_id
+       INNER JOIN reports ON resource_events.report_id = reports.id
+       LEFT OUTER JOIN environments ON reports.environment_id = environments.id)
+
+       %s" collate collate collate collate collate collate query)))
 
 (defn distinct-select
   "Build the SELECT statement that we use in the `distinct-resources` case (where
-  we are filtering out multiple events on the same resource on the same node).
-  Returns a two-item vector whose first value is the SQL string and whose second value
-  is a list of parameters for the SQL query."
+   we are filtering out multiple events on the same resource on the same node).
+   Returns a two-item vector whose first value is the SQL string and whose second value
+   is a list of parameters for the SQL query."
   [select-fields where params distinct-start-time distinct-end-time]
   {:pre [(string? select-fields)
-         (string? where)
+         ( (some-fn nil? string?) where)
          ((some-fn nil? sequential?) params)]
    :post [(vector? %)
           (= 2 (count %))
           (string? (first %))
           ((some-fn nil? sequential?) (second %))]}
-  [(format
-    "SELECT %s
-         FROM resource_events
-         JOIN reports ON resource_events.report_id = reports.id
-         LEFT OUTER JOIN environments ON reports.environment_id = environments.id
-         JOIN latest_events
-              ON reports.certname = latest_events.certname
-               AND resource_events.resource_type = latest_events.resource_type
-               AND resource_events.resource_title = latest_events.resource_title
-               AND ((resource_events.property = latest_events.property) OR
-                    (resource_events.property IS NULL AND latest_events.property IS NULL))
-               AND resource_events.timestamp = latest_events.timestamp
-         WHERE %s"
-    select-fields
-    where)
-   (concat [distinct-start-time distinct-end-time] params)])
+  (let [where-clause (if where (format "WHERE %s" where) "")]
+    [(format
+       "SELECT %s
+        FROM latest_events
+        %s"
+       select-fields
+       where-clause)
+     (concat [distinct-start-time distinct-end-time] params)]))
 
 (defn legacy-query->sql
   "Compile a resource event `query` into an SQL expression."
@@ -114,7 +140,7 @@
                                                        (sutils/sql-hash-as-str (str table "." column))
                                                        (str table "." column))
                                                      (if alias (format " AS %s" alias) "")))
-                                              query/event-columns))
+                                              query/resource-event-columns))
         [sql params]            (if (:distinct_resources? query-options)
                                   (distinct-select select-fields where params
                                                    (:distinct_start_time query-options)
@@ -145,7 +171,7 @@
            (or
              (not (:count? paging-options))
              (jdbc/valid-jdbc-query? (:count-query %)))]}
-   (paging/validate-order-by! (map keyword (keys query/event-columns)) paging-options)
+   (paging/validate-order-by! (map keyword (keys query/resource-event-columns)) paging-options)
    (if (:distinct_resources? query-options)
      ;; The new query engine does not support distinct-resources yet, so we
      ;; fall back to the old
