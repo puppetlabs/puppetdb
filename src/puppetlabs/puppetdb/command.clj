@@ -74,7 +74,8 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [clj-time.core :refer [now]]
-            [clojure.set :as set]))
+            [clojure.set :as set]
+            [clojure.core.async :as async]))
 
 ;; ## Command parsing
 
@@ -129,12 +130,12 @@
   its id."
   [mq-connection :- mq/connection-schema
    mq-endpoint :- s/Str
-   raw-command :- s/Str]
-  (let [id (kitchensink/uuid)]
-    (mq/send-message! mq-connection mq-endpoint
-                      raw-command
-                      {"received" (kitchensink/timestamp) "id" id})
-    id))
+   raw-command :- s/Str
+   uuid :- s/Str]
+  (mq/send-message! mq-connection mq-endpoint
+                    raw-command
+                    {"received" (kitchensink/timestamp) "id" uuid})
+  uuid)
 
 (defn-validated ^:private do-enqueue-command :- s/Str
   "Submits command to the mq-endpoint of mq-connection and returns
@@ -304,7 +305,7 @@
   (enqueue-command [this connection endpoint command version payload]
     "Annotates the command via annotate-command, submits it to the
     endpoint of the connection, and then returns its unique id.")
-  (enqueue-raw-command [this connection endpoint raw-command]
+  (enqueue-raw-command [this connection endpoint raw-command uuid]
     "Submits the raw-command to the endpoint of the connection and
     returns the command's unique id.")
   (stats [this]
@@ -312,26 +313,41 @@
     containing :received-commands (a count of the commands received so
     far by the current service instance), and :executed-commands (a
     count of the commands that the current instance has processed
-    without triggering an exception)."))
+    without triggering an exception).")
+
+  (response-pub [this]
+    "Returns a core.async publisher to which commands are written after they
+     have been processed. The topic for each message is its uuid." ))
 
 (defservice command-service
   PuppetDBCommandDispatcher
   [[:PuppetDBServer shared-globals]
    [:MessageListenerService register-listener]]
   (init [this context]
-    (assoc context :stats (atom {:received-commands 0
-                                 :executed-commands 0})))
+    (let [response-pub-chan (async/chan)]
+      (assoc context
+             :stats (atom {:received-commands 0
+                           :executed-commands 0})
+             :response-pub-chan response-pub-chan
+             :response-pub (async/pub response-pub-chan #(-> % :annotations :id str)))))
+
   (start [this context]
     (let [{:keys [scf-write-db catalog-hash-debug-dir]} (shared-globals)
           config {:db scf-write-db
-                  :catalog-hash-debug-dir catalog-hash-debug-dir}]
+                  :catalog-hash-debug-dir catalog-hash-debug-dir}
+          {:keys [response-pub-chan response-pub]} context]
       (register-listener
        supported-command?
        (fn [cmd]
          (let [result (process-command! cmd config)]
            (swap! (:stats context) update :executed-commands inc)
+           (async/>!! response-pub-chan cmd)
            result)))
       context))
+
+  (stop [this {:keys [response-pub-chan] :as context}]
+    (async/close! response-pub-chan)
+    (dissoc context :response-pub :response-pub-chan))
 
   (stats [this]
     @(:stats (service-context this)))
@@ -343,8 +359,11 @@
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
 
-  (enqueue-raw-command [this connection endpoint raw-command]
-    (let [result (do-enqueue-raw-command connection endpoint raw-command)]
+  (enqueue-raw-command [this connection endpoint raw-command uuid]
+    (let [result (do-enqueue-raw-command connection endpoint raw-command uuid)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
-      result)))
+      result))
+
+  (response-pub [this]
+    (-> this service-context :response-pub)))

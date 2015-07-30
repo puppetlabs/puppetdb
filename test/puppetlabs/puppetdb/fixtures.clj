@@ -68,7 +68,8 @@
   ([f]
    (binding [*command-app* (command/command-app
                             {:command-mq *mq*}
-                            #'dispatch/do-enqueue-raw-command)]
+                            #'dispatch/do-enqueue-raw-command
+                            nil)]
      (f))))
 
 (defn with-http-app
