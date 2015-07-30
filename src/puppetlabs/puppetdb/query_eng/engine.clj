@@ -35,6 +35,7 @@
 (defrecord NotExpression [clause])
 
 (def json-agg-row (comp h/json-agg h/row-to-json))
+(def supported-fns #{"sum" "avg" "min" "max" "count"})
 
 (defn hsql-hash-as-str
   [column-keyword]
@@ -1085,6 +1086,10 @@
     [(into [] (rest (first functions)))
      nonfunctions]))
 
+(defn replace-numeric-args
+  [fargs]
+  (mapv #(string/replace % #"value" "COALESCE(value_integer,value_float)") fargs))
+
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
@@ -1177,7 +1182,7 @@
 
             [["extract" [["function" & fargs]] expr]]
             (-> query-rec
-                (assoc :call fargs)
+                (assoc :call (replace-numeric-args fargs))
                 (create-extract-node [] expr))
 
             [["extract" column expr]]
@@ -1186,7 +1191,7 @@
             [["extract" columns expr ["group_by" & clauses]]]
             (let [[fargs cols] (strip-function-calls columns)]
               (-> query-rec
-                  (assoc :call fargs)
+                  (assoc :call (replace-numeric-args fargs))
                   (assoc :group-by clauses)
                   (create-extract-node cols expr)))
 
@@ -1209,8 +1214,7 @@
 
 (defn unsupported-fields
   [field allowed-fields]
-  (let [supported-fns ["count"]
-        supported-calls (set (map #(vector "function" %) supported-fns))]
+  (let [supported-calls (set (map #(vector "function" %) supported-fns))]
     (remove #(or (contains? (set allowed-fields) %) (contains? supported-calls (take 2 %)))
             (ks/as-collection field))))
 
