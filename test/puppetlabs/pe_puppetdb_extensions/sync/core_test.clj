@@ -7,14 +7,18 @@
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [clj-http.client :as http]
+            [puppetlabs.pe-puppetdb-extensions.semlog :as semlog]
+            [puppetlabs.pe-puppetdb-extensions.sync.services :as services]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.testutils :refer [=-after? without-jmx
                                                    block-until-results]]
+            [schema.core :as s]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.pe-puppetdb-extensions.sync.core :refer :all :as syncc]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
-             :refer [with-puppetdb-instance index-by json-request json-response get-json blocking-command-post]]
+             :refer [with-puppetdb-instance index-by json-request
+                     json-response get-json blocking-command-post]]
             [puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
@@ -200,9 +204,21 @@
 (defn perform-sync [source-pdb-url dest-sync-url]
   (svcs/until-consumed #(trigger-sync source-pdb-url dest-sync-url)))
 
+(defn perform-overlapping-sync [source-pdb-url dest-sync-url]
+  (let [stop-here (promise)]
+    (with-redefs
+      [syncc/sync-from-remote! (fn [& args] @stop-here)]
+      ;; the atom in sync-with! will cause the first of these calls to block,
+      ;; and the second call to release the block.
+      (let [block-first #(let [res (trigger-sync source-pdb-url dest-sync-url)]
+                           (deliver stop-here nil)
+                           res)
+            a (future (block-first))
+            b (future (block-first))]
+        [@a @b]))))
+
 (defn get-first-report [pdb-url certname]
   (first (get-json pdb-url (str "/reports/?query=" (json/generate-string [:= :certname certname])))))
-
 
 (deftest pull-reports-test
   (let [report-1 (-> reports :basic tur/munge-example-report-for-storage)
@@ -368,6 +384,21 @@
         (is (= #{"DEV" "A" "E" "F"} environments))
         (is (= 4 (count @pdb-x-queries)))))))
 
+(deftest overlapping-sync
+  (let [pdb-x-queries (atom [])
+        stub-data-atom (atom [])
+        stub-handler (logging-query-handler
+                       "/pdb-x/v4/catalogs" pdb-x-queries stub-data-atom :certname)]
+
+    (testing "overlapping sync"
+      (with-puppetdb-instance (utils/sync-config stub-handler)
+        (let [remote-url (utils/stub-url-str "/pdb-x/v4")]
+          (is (contains?
+                (set (map :body (perform-overlapping-sync
+                                  remote-url
+                                  (utils/trigger-sync-url-str))))
+                (format "Refusing to sync from %s. Sync already in progress."
+                        remote-url))))))))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; End to end test utils
 
