@@ -1,7 +1,7 @@
-(ns puppetlabs.puppetdb.testutils.services-test
+(ns puppetlabs.puppetdb.testutils.log-test
   (:require [clojure.test :refer :all]
             [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.testutils.services :as tgt])
+            [puppetlabs.puppetdb.testutils.log :as tgt])
   (:import [org.slf4j Logger LoggerFactory]))
 
 (defn- event->map [event]
