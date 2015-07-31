@@ -18,7 +18,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; How to sync each entity
 
-(def report-key (juxt :certname :hash))
+(def report-key (juxt :certname :producer_timestamp))
 
 (defn clean-up-resource-event
   "The resource events we get back from a query have a lot of derived fields;
@@ -57,10 +57,10 @@
     ;; information about the identity of each record and a
     ;; hash of its content.
     :record-hashes-query {:version :v4
-                          :query ["extract" ["hash" "certname" "start_time"]
+                          :query ["extract" ["hash" "certname" "producer_timestamp"]
                                   ["and" ["null?" "start_time" false]
                                          include-inactive-nodes-criteria]]
-                          :order {:order_by [[:certname :ascending] [:hash :ascending]]}}
+                          :order {:order_by [[:certname :ascending] [:producer_timestamp :ascending]]}}
 
     ;; The above query is done on each side of the sync; the
     ;; two are joined on the result of this function

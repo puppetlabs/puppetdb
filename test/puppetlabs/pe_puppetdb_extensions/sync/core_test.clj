@@ -46,12 +46,12 @@
   (records-to-fetch report-key (constantly 0) local remote (t/now) (parse-period "0s")))
 
 (deftest records-to-fetch-test
-  (let [a1 {:certname "a" :hash "hash1" :receive_time 1}
-        a2 {:certname "a" :hash "hash2" :receive_time 2}
-        b1 {:certname "b" :hash "hash3" :receive_time 1}
-        b2 {:certname "b" :hash "hash4" :receive_time 1}
-        c1 {:certname "c" :hash "hash5" :receive_time 1}
-        c2 {:certname "c" :hash "hash6" :receive_time 2}]
+  (let [a1 {:certname "a" :hash "hash1" :producer_timestamp 1}
+        a2 {:certname "a" :hash "hash2" :producer_timestamp 2}
+        b1 {:certname "b" :hash "hash3" :producer_timestamp 1}
+        b2 {:certname "b" :hash "hash4" :producer_timestamp 1}
+        c1 {:certname "c" :hash "hash5" :producer_timestamp 1}
+        c2 {:certname "c" :hash "hash6" :producer_timestamp 2}]
     (are [local remote result] (= result
                                   (set (map :hash (records-to-fetch' local remote))))
 
@@ -222,9 +222,8 @@
 
         ;; Set up pdb-x as a stub where 1 report has a different hash
         (reset! stub-data-atom [(assoc report-2
-                                       :certname "bar.local"
                                        :hash "something totally different"
-                                       :start_time "2011-01-03T15:00:00Z"
+                                       :producer_timestamp "2011-01-01T12:11:00-03:30"
                                        :puppet_version "4.0.0")
                                 (assoc report-1
                                        :certname "foo.local"
