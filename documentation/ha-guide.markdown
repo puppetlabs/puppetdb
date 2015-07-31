@@ -52,10 +52,9 @@ Network Topologies
 - When deploying to AWS or a similar cloud environment, each PuppetDB-PostgreSQL
   node pair should be deployed in a separate availability zone.
 
-    - If you are using Amazon RDS, be aware that each region hosts RDS servers
-      in only a single availability zone. You can deploy PuppetDB on an EC2
-      instance within that region, but you'll have to run your own PostgreSQL
-      instance along with a replica PuppetDB in a different AZ.
+    - If you are using Amazon RDS, you will need two databases, each in a
+      different AZ. Be sure to place your PuppetDB nodes in the same AZ as the
+      RDS database it uses.
 
     - The RDS 'Multi-AZ' feature is not suitable for PuppetDB HA. It is built
       using database-level replication; PuppetDB requires the databases to be
