@@ -54,7 +54,7 @@
   (let [timestamp (to-timestamp (now))]
     (sql/insert-records
      :environments
-     {:name "production"})
+     {:environment "production"})
 
     (doseq [name names]
       (scf-store/add-certname! name))

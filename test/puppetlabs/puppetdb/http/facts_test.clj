@@ -1371,7 +1371,11 @@
      ["extract" [["function" "count"] "value"] ["=" "name" "uptime_seconds"]
       ["group_by" "value"]]
      [{:value 4000 :count 1}
-      {:value 6000 :count 1}]}
+      {:value 6000 :count 1}]
+
+     ["extract" [["function" "max" "name"] "environment"] ["~" "certname" ".*"]
+      ["group_by" "environment"]]
+     [{:environment "DEV" :max "uptime_seconds"}]}
 
     [:v4 "/v4/facts"]
     {["=" "certname" "foo1"]
@@ -1404,7 +1408,12 @@
      [{:value 4000
        :count 1}
       {:value 6000
-       :count 1}]}
+       :count 1}]
+
+     ["extract" [["function" "max" "name"] "environment"] ["~" "certname" ".*"]
+      ["group_by" "environment"]]
+     [{:environment "DEV" :max "uptime_seconds"}
+      {:environment "PROD" :max "operatingsystem"}]}
 
     {["=" "certname" "foo1"]
      [{:value "testing.com" :name "domain" :certname "foo1"}
@@ -1435,7 +1444,11 @@
 
      ["extract" [["function" "count"] "value"] ["=" "name" "uptime_seconds"]
       ["group_by" "value"]]
-     []}))
+     []
+
+     ["extract" [["function" "max" "name"] "environment"] ["~" "certname" ".*"]
+      ["group_by" "environment"]]
+     [{:environment "DEV" :max "uptime_seconds"}]}))
 
 (deftestseq structured-fact-queries
   [[version endpoint] facts-endpoints]
@@ -1516,7 +1529,9 @@
                      ["extract" [["function" "max" "value"]] ["=" "name" "uptime_seconds"]]
                      ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
                      ["extract" [["function" "count"] "value"] ["=" "name" "uptime_seconds"]
-                      ["group_by" "value"]]]
+                      ["group_by" "value"]]
+                     ["extract" [["function" "max" "name"] "environment"] ["~" "certname" ".*"]
+                      ["group_by" "environment"]]]
             responses (map (comp parse-result
                                  :body
                                  (partial get-response endpoint)) queries)]

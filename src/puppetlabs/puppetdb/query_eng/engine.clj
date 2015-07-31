@@ -75,7 +75,7 @@
                                         :field :certnames.expired}
                              "facts_environment" {:type :string
                                                   :queryable? true
-                                                  :field :facts_environment.name}
+                                                  :field :facts_environment.environment}
                              "catalog_timestamp" {:type :timestamp
                                                   :queryable? true
                                                   :field :catalogs.timestamp}
@@ -87,10 +87,10 @@
                                                  :field :reports.end_time}
                              "catalog_environment" {:type :string
                                                     :queryable? true
-                                                    :field :catalog_environment.name}
+                                                    :field :catalog_environment.environment}
                              "report_environment" {:type :string
                                                    :queryable? true
-                                                   :field :reports_environment.name}}
+                                                   :field :reports_environment.environment}}
 
                :selection {:from [:certnames]
                            :left-join [:catalogs
@@ -181,7 +181,7 @@
                                          :field :fs.certname}
                              "environment" {:type :string
                                             :queryable? true
-                                            :field :env.name}
+                                            :field :env.environment}
                              "value_integer" {:type :number
                                               :query-only? true
                                               :queryable? false
@@ -236,7 +236,7 @@
                                      :field :fp.name}
                              "environment" {:type :string
                                             :queryable? true
-                                            :field :env.name}
+                                            :field :env.environment}
                              "value_integer" {:type :number
                                               :queryable? false
                                               :field :fv.value_integer
@@ -356,7 +356,7 @@
                          :field :reports.noop}
       "environment"     {:type :string
                          :queryable? true
-                         :field :environments.name}
+                         :field :environments.environment}
       "status"          {:type :string
                          :queryable? true
                          :field :report_statuses.status}
@@ -408,7 +408,7 @@
                           :field (hsql-uuid-as-str :c.transaction_uuid)}
       "environment" {:type :string
                      :queryable? true
-                     :field :e.name}
+                     :field :e.environment}
       "producer_timestamp" {:type :timestamp
                             :queryable? true
                             :field :c.producer_timestamp}
@@ -506,7 +506,7 @@
                                          :field :c.certname}
                              "environment" {:type :string
                                             :queryable? true
-                                            :field :e.name}
+                                            :field :e.environment}
                              "resource" {:type :string
                                          :queryable? true
                                          :field (hsql-hash-as-str :resources.resource)}
@@ -607,7 +607,7 @@
                                                  :field :containing_class}
                              "environment" {:type :string
                                             :queryable? true
-                                            :field :environments.name}
+                                            :field :environments.environment}
                              "latest_report?" {:type :boolean
                                                :queryable? true
                                                :query-only? true}}
@@ -641,7 +641,7 @@
   []
   (map->Query {:projections {"name" {:type :string
                                      :queryable? true
-                                     :field :name}}
+                                     :field :environment}}
                :selection {:from [:environments]}
 
                :alias "environments"
@@ -681,7 +681,7 @@
                             :field :factsets.producer_timestamp}
       "environment" {:type :string
                      :queryable? true
-                     :field :environments.name}}
+                     :field :environments.environment}}
 
      :selection {:from [:factsets]
                  :left-join [:environments
@@ -1137,7 +1137,6 @@
                   (IllegalArgumentException.
                     (format "Argument \"%s\" and operator \"%s\" have incompatible types."
                             value op)))))
-
 
             [["null?" column value]]
             (let [{:keys [field]} (get-in query-rec [:projections column])]

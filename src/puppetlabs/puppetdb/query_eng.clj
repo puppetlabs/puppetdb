@@ -127,7 +127,7 @@
                                   LIMIT 1")
                     :environment "SELECT 1
                                   FROM environments
-                                  WHERE name=?"
+                                  WHERE environment=?"
                     :factset "SELECT 1
                               FROM certnames
                               INNER JOIN factsets

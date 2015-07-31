@@ -253,7 +253,7 @@
    "line"                   ["resource_events"]
    "containment_path"       ["resource_events"]
    "containing_class"       ["resource_events"]
-   "name"                   ["environments" "environment"]})
+   "environment"            ["environments"]})
 
 (def resource-event-columns
   {"certname"               ["latest_events"]
@@ -274,7 +274,7 @@
    "line"                   ["latest_events"]
    "containment_path"       ["latest_events"]
    "containing_class"       ["latest_events"]
-   "name"                   ["latest_events" "environment"]})
+   "environment"            ["latest_events" "environment"]})
 
 (def report-columns
   "Return the queryable set of fields and corresponding table names where they reside"
@@ -383,7 +383,7 @@
   {:post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s
-                       FROM (SELECT %s as catalog, e.name as environment, catalog_id, resource,
+                       FROM (SELECT %s as catalog, e.environment, catalog_id, resource,
                                     type, title, tags, exported, file, line
                              FROM catalog_resources cr, catalogs c LEFT OUTER JOIN environments e
                                   on c.environment_id = e.id
@@ -405,7 +405,7 @@
                       SELECT fs.certname,
                              fp.name as name,
                              fv.value,
-                             env.name as environment
+                             env.environment
                       FROM factsets fs
                         INNER JOIN facts as f on fs.id = f.factset_id
                         INNER JOIN fact_values as fv on f.fact_value_id = fv.id
@@ -627,7 +627,7 @@
                              (if value "IN" "NOT IN"))}
 
              ["environment"]
-             {:where "latest_events.name = ?"
+             {:where "latest_events.environment = ?"
               :params [value]}
 
              [(field :guard #{"report" "resource_type" "resource_title" "status"})]
@@ -670,7 +670,7 @@
               :params [pattern]}
 
              ["environment"]
-             {:where (legacy-sql-regexp-match "latest_events.name")
+             {:where (legacy-sql-regexp-match "latest_events.environment")
               :params [pattern]}
 
              [(field :guard #{"report" "resource_type" "resource_title" "status"})]
