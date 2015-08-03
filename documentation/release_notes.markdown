@@ -501,6 +501,38 @@ stable release of PuppetDB, which included an experimental v4 API.
 * Include the navigation sidebar inside the `puppetdb` repo ([PDB-1319](https://tickets.puppetlabs.com/browse/PDB-1319))
 
 
+2.3.7
+-----
+
+PuppetDB 2.3.7 is a backwards-compatible bugfix release to resolve
+an issue with ActiveMQ configuration.
+
+### Upgrading
+
+* For the best-possible performance and scaling capacity, we recommend
+  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
+  extension enabled, as explained [here][configure_postgres]. We have
+  officially deprecated versions prior to 9.4.  HSQLDB is
+  only recommended for local development because it has a number of
+  scaling and operational issues.
+
+* Make sure that all of your PuppetDB instances are shut down, and
+  only upgrade one at a time.
+
+* Make sure to upgrade your puppetdb-terminus package (on the host
+  where your Puppet master lives), and restart your master service.
+
+### Contributors
+
+Andrew Roetker, Russell Mull
+
+### Bug Fixes and Maintenance
+
+* The max-frame-size setting is now applied to the ActiveMQ consumer thread. It
+  was previously set to the default, which could case errors when extremely
+  large commands were submitted.
+  ([PDB-700](https://tickets.puppetlabs.com/browse/PDB-700))
+
 2.3.6
 -----
 
