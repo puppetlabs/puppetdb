@@ -378,7 +378,7 @@ The maximum time to wait (in milliseconds) to acquire a connection from the pool
 
 This setting defines how many prepared statements are cached automatically. For a large amount of dynamic queries this number could be increased to increase performance, at the cost of memory consumption and database resources.
 
-If not supplied, we default to 0.
+If not supplied, we default to 1000.
 
 `[read-database]` Settings
 -----
