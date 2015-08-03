@@ -63,7 +63,7 @@
      :partition-count (pls/defaulted-maybe s/Int 1)
      :stats (pls/defaulted-maybe String "true")
      :log-statements (pls/defaulted-maybe String "true")
-     :statements-cache-size (pls/defaulted-maybe s/Int 1000)
+     :statements-cache-size (pls/defaulted-maybe s/Int 0)
      :connection-timeout (pls/defaulted-maybe s/Int 500)}))
 
 (def write-database-config-in
