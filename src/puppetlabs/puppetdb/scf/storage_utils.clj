@@ -11,6 +11,10 @@
 
 ;; SCHEMA
 
+(defn array-to-param
+  [col-type java-type values]
+  (.createArrayOf (sql/connection) col-type (into-array java-type values)))
+
 (def pg-extension-map
   "Maps to the table definition in postgres, but only includes some of the
    columns:

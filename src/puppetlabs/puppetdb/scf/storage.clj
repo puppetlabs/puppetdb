@@ -43,7 +43,8 @@
             [metrics.timers :refer [timer time!]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [honeysql.core :as hcore]))
+            [honeysql.core :as hcore])
+  (:import [org.postgresql.util PGobject]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -784,20 +785,32 @@
 
 (defn-validated delete-pending-path-id-orphans!
   "Delete paths in dropped-pids that are no longer mentioned
-  in other factsets."
+   in other factsets."
   [factset-id dropped-pids]
   (when-let [dropped-pids (seq dropped-pids)]
-    (let [in-pids (jdbc/in-clause dropped-pids)]
-      (sql/do-prepared
-       (format
-        "DELETE FROM fact_paths fp
-           WHERE fp.id %s
+    (if (sutils/postgres?)
+      (let [candidate-paths (sutils/array-to-param "bigint" Long dropped-pids)]
+        (sql/do-prepared
+          "DELETE FROM fact_paths fp
+             WHERE fp.id = ANY (?)
              AND NOT EXISTS (SELECT 1 FROM facts f
-                               WHERE f.fact_path_id %s
-                                 AND f.fact_path_id = fp.id
-                                 AND f.factset_id <> ?)"
-        in-pids in-pids)
-       (concat dropped-pids dropped-pids [factset-id])))))
+                             WHERE f.fact_path_id = ANY (?)
+                             AND f.fact_path_id = fp.id
+                             AND f.factset_id <> ?)"
+          (concat [candidate-paths]
+                  [candidate-paths]
+                  [factset-id])))
+      (let [in-pids (jdbc/in-clause dropped-pids)]
+        (sql/do-prepared
+          (format
+            "DELETE FROM fact_paths fp
+               WHERE fp.id %s
+               AND NOT EXISTS (SELECT 1 FROM facts f
+                 WHERE f.fact_path_id %s
+                 AND f.fact_path_id = fp.id
+                 AND f.factset_id <> ?)"
+            in-pids in-pids)
+          (concat dropped-pids dropped-pids [factset-id]))))))
 
 (defn-validated delete-pending-value-id-orphans!
   "Delete values in removed-pid-vid-pairs that are no longer mentioned
@@ -891,16 +904,24 @@
 
 (defn existing-row-ids
   "Returns a map from value to id for each value that's already in the
-  named database column.
+   named database column.
    `column-transform` is used to modify the sql for the values"
-  [table column values column-transform]
+  [table column values column-transform java-type sql-type]
   (into {}
-   (for [{:keys [value id]}
-         (apply query-to-vec
-                (format "SELECT %s AS value, id FROM %s WHERE %s %s"
-                        (column-transform column) (name table) column (jdbc/in-clause values))
-                values)]
-     [value id])))
+        (for [{:keys [value id]}
+              (if (sutils/postgres?)
+                (query-to-vec
+                  (format
+                    "WITH values AS (SELECT unnest(?) as vals)
+                     SELECT %s AS value, id FROM %s
+                     INNER JOIN values ON values.vals = %s.%s"
+                    (column-transform column) (name table) (name table) column)
+                  (sutils/array-to-param sql-type java-type values))
+                (apply query-to-vec
+                       (format "SELECT %s AS value, id FROM %s WHERE %s %s"
+                               (column-transform column) (name table) column (jdbc/in-clause values))
+                       values))]
+          [value id])))
 
 (defn realize-records!
   "Inserts the records (maps) into the named database and returns them
@@ -915,7 +936,8 @@
   paths to ids."
   [pathstrs]
   (if-let [pathstrs (seq pathstrs)]
-    (let [existing-path-ids (existing-row-ids :fact_paths "path" pathstrs identity)
+    (let [existing-path-ids (existing-row-ids :fact_paths "path" pathstrs identity
+                                              String "text")
           missing-db-paths (set/difference (set pathstrs)
                                            (set (keys existing-path-ids)))]
       (merge existing-path-ids
@@ -933,7 +955,10 @@
   [valuemaps]
   (if-let [valuemaps (seq valuemaps)]
     (let [vhashes (map :value_hash valuemaps)
-          existing-vhash-ids (existing-row-ids :fact_values "value_hash" (map sutils/munge-hash-for-storage vhashes) sutils/sql-hash-as-str)
+          existing-vhash-ids (existing-row-ids :fact_values "value_hash"
+                                               (map sutils/munge-hash-for-storage vhashes)
+                                               sutils/sql-hash-as-str
+                                               PGobject "bytea")
           missing-vhashes (set/difference (set vhashes)
                                           (set (keys existing-vhash-ids)))]
       (merge existing-vhash-ids
