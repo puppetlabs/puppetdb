@@ -10,7 +10,7 @@ echo "**********************************************"
 
 # Setup RVM and gemset
 [[ -s "/usr/local/rvm/scripts/rvm" ]] && source /usr/local/rvm/scripts/rvm
-rvm use ruby-1.9.3-p484
+rvm use ruby-2.0.0-p481
 
 set -e # Fail if we receive non-zero exit code
 set -x # Start tracing
