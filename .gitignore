@@ -22,3 +22,5 @@ version
 junit
 tmp
 vendor
+ext/packaging
+

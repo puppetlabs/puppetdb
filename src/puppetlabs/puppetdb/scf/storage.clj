@@ -1126,7 +1126,8 @@
                        status noop metrics logs] :as report} (normalize-report orig-report)
                 report-hash (shash/report-identity-hash report)]
            (sql/transaction
-             (let [{:keys [id]} (sql/insert-record :reports
+             (let [certname-id (certname-id certname)
+                   {:keys [id]} (sql/insert-record :reports
                                  (maybe-environment
                                    {:hash                   (sutils/munge-hash-for-storage report-hash)
                                     :transaction_uuid       (sutils/munge-uuid-for-storage transaction_uuid)
@@ -1145,7 +1146,7 @@
                                     :status_id              (ensure-status status)}))
                    assoc-ids #(assoc %
                                      :report_id id
-                                     :certname_id (certname-id certname))]
+                                     :certname_id certname-id)]
                (->> resource_events
                     (map (comp convert-containment-path assoc-ids))
                     (apply sql/insert-records :resource_events))

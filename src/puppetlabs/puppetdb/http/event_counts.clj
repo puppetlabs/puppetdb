@@ -33,8 +33,9 @@
   [version]
   (-> (routes version)
       verify-accepts-json
-      (validate-query-params {:required ["query" "summarize_by"]
-                              :optional (concat ["counts_filter" "count_by"
+      (validate-query-params {:required ["summarize_by"]
+                              :optional (concat ["query"
+                                                 "counts_filter" "count_by"
                                                  "distinct_resources" "distinct_start_time"
                                                  "distinct_end_time"]
                                                 paging/query-params) })

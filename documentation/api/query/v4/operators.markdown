@@ -96,11 +96,11 @@ If you want to match any index for an array path element, you can use regular ex
 
 The following example would return events that do not have an associated line number:
 
-    ["null?" "line" true]
+    ["null?", "line", true]
 
 Similarly, the below query would return events that do have a specified line number:
 
-    ["null?" "line" false]
+    ["null?", "line", false]
 
 ## Boolean Operators
 
@@ -143,7 +143,7 @@ Extract can also be used with a standalone function application:
 
     ["extract", [["function", "count"]], ["~", "certname", ".\*.com"]]
 
-At this time extract must always have an expression to extract from, like `["=" "certname" "foo.com"]`
+At this time extract must always have an expression to extract from, like `["=", "certname", "foo.com"]`
 in the example above.
 
 ### `function`

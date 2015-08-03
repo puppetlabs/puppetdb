@@ -110,7 +110,7 @@ which returns:
     }, {
       "certname" : "node-0",
       "path" : [ "foo", "bar", 1, "foobar" ],
-      "name" "foo",
+      "name" : "foo",
       "value" : 5,
       "environment" : "foo"
     } ]
