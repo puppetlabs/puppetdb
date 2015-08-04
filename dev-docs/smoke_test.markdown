@@ -146,7 +146,7 @@ PuppetDB manual smoke testing guide
         echo "---"                         > /etc/puppetlabs/puppet/routes.yaml
         echo "master:"                    >> /etc/puppetlabs/puppet/routes.yaml
         echo "    facts:"                 >> /etc/puppetlabs/puppet/routes.yaml
-        echo "        terminus: puppetdb" >> /etc/puppetlabs/puppet/routes.yaml
+        echo "       terminus: puppetdb"  >> /etc/puppetlabs/puppet/routes.yaml
         echo "       cache: yaml"         >> /etc/puppetlabs/puppet/routes.yaml
 
         puppet config set storeconfigs true --section master
