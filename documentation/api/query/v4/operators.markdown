@@ -149,8 +149,10 @@ in the example above.
 ### `function`
 
 The **function** operator is used to call a function on the result of a
-subquery. Currently the only supported function is `count`. The function operator
-is applied within the first argument of an extract, as in the examples above.
+subquery. Supported functions are `count`, `avg`, `sum`, `min`, and `max`. The
+function operator is applied within the first argument of an extract, as in
+the examples above. The `avg`, `sum`, `min`, and `max` functions will ignore
+non-numeric fact values.
 
 ### `group_by`
 
@@ -161,6 +163,10 @@ with:
 
     ["extract", [["function", "count"], "status", "certname"],
       ["=", ["node", "active"], true], ["group_by", "status", "certname"]]
+
+To get the average uptime for your nodes,
+
+    ["extract", [["function", "avg", "value"]], ["=", "name", "uptime_seconds"]]
 
 ## Subquery Operators
 

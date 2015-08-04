@@ -725,7 +725,7 @@
                                    cast(fv.value_float as text),
                                    '') as value,
                           fs.certname,
-                          e.name as environment,
+                          e.environment,
                           fs.producer_timestamp
                    FROM factsets fs
                      INNER JOIN facts as f on fs.id = f.factset_id
@@ -761,7 +761,7 @@
                                    cast(fv.value_float as text),
                                    '') as value,
                           fs.certname,
-                          e.name as environment
+                          e.environment
                    FROM factsets fs
                      INNER JOIN facts as f on fs.id = f.factset_id
                      INNER JOIN fact_values as fv on f.fact_value_id = fv.id

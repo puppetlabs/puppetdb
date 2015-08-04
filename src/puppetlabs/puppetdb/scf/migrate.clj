@@ -1418,6 +1418,13 @@
     "CREATE INDEX resource_events_timestamp_idx ON resource_events(timestamp)"
     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
 
+(defn rename-environments-name-to-environment
+  []
+  (sql/do-commands
+    (if (sutils/postgres?)
+      "ALTER TABLE environments RENAME COLUMN name TO environment"
+      "ALTER TABLE environments ALTER COLUMN name RENAME TO environment")))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1457,7 +1464,8 @@
    ;; This dummy migration ensures that even databases that were up to
    ;; date when the "vacuum analyze" code was added to migrate! will
    ;; still analyze their existing databases.
-   35 (fn [] true)})
+   35 (fn [] true)
+   36 rename-environments-name-to-environment})
 
 (def desired-schema-version (apply max (keys migrations)))
 

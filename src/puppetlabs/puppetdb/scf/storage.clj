@@ -85,7 +85,7 @@
 
 (def environments-schema
   {:id s/Int
-   :name s/Str})
+   :environment s/Str})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas - Internal
@@ -296,7 +296,7 @@
 (pls/defn-validated environment-id :- (s/maybe s/Int)
   "Returns the id (primary key) from the environments table for the given `env-name`"
   [env-name :- s/Str]
-  (query-id :environments {:name env-name}))
+  (query-id :environments {:environment env-name}))
 
 (pls/defn-validated certname-id :- (s/maybe s/Int)
   [certname :- s/Str]
@@ -307,7 +307,7 @@
    the id of the `env-name` (whether created or existing)"
   [env-name :- (s/maybe s/Str)]
   (when env-name
-    (ensure-row :environments {:name env-name})))
+    (ensure-row :environments {:environment env-name})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Status querying/updating

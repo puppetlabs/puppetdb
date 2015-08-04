@@ -1360,7 +1360,22 @@
       {:value 6000 :name "uptime_seconds" :environment "DEV" :certname "foo2"}]
      ["=" "name" "my_structured_fact"]
      [{:value  {:b 3.14 :a 1 :e "1" :d  {:n ""} :c  ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo1"}
-      {:value  {:d  {:n ""} :b 3.14 :a 1 :e "1" :c  ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo2"}]}
+      {:value  {:d  {:n ""} :b 3.14 :a 1 :e "1" :c  ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo2"}]
+
+     ["extract" [["function" "max" "value"]] ["=" "name" "uptime_seconds"]]
+     [{:max 6000.0}]
+
+     ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
+     [{:avg 5000.0}]
+
+     ["extract" [["function" "count"] "value"] ["=" "name" "uptime_seconds"]
+      ["group_by" "value"]]
+     [{:value 4000 :count 1}
+      {:value 6000 :count 1}]
+
+     ["extract" [["function" "max" "name"] "environment"] ["~" "certname" ".*"]
+      ["group_by" "environment"]]
+     [{:environment "DEV" :max "uptime_seconds"}]}
 
     [:v4 "/v4/facts"]
     {["=" "certname" "foo1"]
@@ -1380,7 +1395,25 @@
      ["=" "name" "my_structured_fact"]
      [{:value {:b 3.14 :a 1 :e "1" :d {:n ""} :c ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo1"}
       {:value {:d {:n ""} :b 3.14 :a 1 :e "1" :c ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo2"}
-      {:value {:b 3.14 :a 1 :d {:n ""} :c ["a" "b" "c"] :e "1"} :name "my_structured_fact" :environment "PROD" :certname "foo3"}]}
+      {:value {:b 3.14 :a 1 :d {:n ""} :c ["a" "b" "c"] :e "1"} :name "my_structured_fact" :environment "PROD" :certname "foo3"}]
+
+     ["extract" [["function" "max" "value"]] ["=" "name" "uptime_seconds"]]
+     [{:max 6000.0}]
+
+     ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
+     [{:avg 5000.0}]
+
+     ["extract" [["function" "count"] "value"] ["=" "name" "uptime_seconds"]
+      ["group_by" "value"]]
+     [{:value 4000
+       :count 1}
+      {:value 6000
+       :count 1}]
+
+     ["extract" [["function" "max" "name"] "environment"] ["~" "certname" ".*"]
+      ["group_by" "environment"]]
+     [{:environment "DEV" :max "uptime_seconds"}
+      {:environment "PROD" :max "operatingsystem"}]}
 
     {["=" "certname" "foo1"]
      [{:value "testing.com" :name "domain" :certname "foo1"}
@@ -1401,44 +1434,58 @@
        :name "my_structured_fact"
        :certname "foo1"}
       {:value "{\"d\":{\"n\":\"\"},\"b\":3.14,\"a\":1,\"e\":\"1\",\"c\":[\"a\",\"b\",\"c\"]}" :name "my_structured_fact" :certname "foo2"}
-      {:value "{\"b\":3.14,\"a\":1,\"d\":{\"n\":\"\"},\"c\":[\"a\",\"b\",\"c\"],\"e\":\"1\"}" :name "my_structured_fact" :certname "foo3"}]}))
+      {:value "{\"b\":3.14,\"a\":1,\"d\":{\"n\":\"\"},\"c\":[\"a\",\"b\",\"c\"],\"e\":\"1\"}" :name "my_structured_fact" :certname "foo3"}]
+
+     ["extract" [["function" "max" "value"]] ["=" "name" "uptime_seconds"]]
+     [{:max 6000.0}]
+
+     ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
+     [{:avg 5000.0}]
+
+     ["extract" [["function" "count"] "value"] ["=" "name" "uptime_seconds"]
+      ["group_by" "value"]]
+     []
+
+     ["extract" [["function" "max" "name"] "environment"] ["~" "certname" ".*"]
+      ["group_by" "environment"]]
+     [{:environment "DEV" :max "uptime_seconds"}]}))
 
 (deftestseq structured-fact-queries
   [[version endpoint] facts-endpoints]
-  ( let [facts1 {"my_structured_fact" {"a" 1
-                                       "b" 3.14
-                                       "c" ["a" "b" "c"]
-                                       "d" {"n" ""}
-                                       "e" "1"
-                                       }
-                 "domain" "testing.com"
-                 "uptime_seconds" 4000
-                 "test#~delimiter" "foo"}
-         facts2 {"my_structured_fact" {"a" 1
-                                       "b" 3.14
-                                       "c" ["a" "b" "c"]
-                                       "d" {"n" ""}
-                                       "e" "1"
-                                       }
-                 "domain" "testing.com"
-                 "uptime_seconds" 6000}
-         facts3 {"my_structured_fact" {"a" 1
-                                       "b" 3.14
-                                       "c" ["a" "b" "c"]
-                                       "d" {"n" ""}
-                                       "e" "1"
-                                       }
-                 "domain" "testing.com"
-                 "operatingsystem" "Darwin"}
-         facts4 {"my_structured_fact" {"a" 1
-                                       "b" 2.71
-                                       "c" ["a" "b" "c"]
-                                       "d" {"n" ""}
-                                       "e" "1"
-                                       }
-                 "domain" "testing.com"
-                 "hostname" "foo4"
-                 "uptime_seconds" 6000}]
+  (let [facts1 {"my_structured_fact" {"a" 1
+                                      "b" 3.14
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"
+                                      }
+                "domain" "testing.com"
+                "uptime_seconds" 4000
+                "test#~delimiter" "foo"}
+        facts2 {"my_structured_fact" {"a" 1
+                                      "b" 3.14
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"
+                                      }
+                "domain" "testing.com"
+                "uptime_seconds" 6000}
+        facts3 {"my_structured_fact" {"a" 1
+                                      "b" 3.14
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"
+                                      }
+                "domain" "testing.com"
+                "operatingsystem" "Darwin"}
+        facts4 {"my_structured_fact" {"a" 1
+                                      "b" 2.71
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"
+                                      }
+                "domain" "testing.com"
+                "hostname" "foo4"
+                "uptime_seconds" 6000}]
     (with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
@@ -1478,16 +1525,21 @@
                      [">=" "value" 10]
                      ["<" "value" 10]
                      [">" "value" 10]
-                     ["=" "name" "my_structured_fact"]]
+                     ["=" "name" "my_structured_fact"]
+                     ["extract" [["function" "max" "value"]] ["=" "name" "uptime_seconds"]]
+                     ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
+                     ["extract" [["function" "count"] "value"] ["=" "name" "uptime_seconds"]
+                      ["group_by" "value"]]
+                     ["extract" [["function" "max" "name"] "environment"] ["~" "certname" ".*"]
+                      ["group_by" "environment"]]]
             responses (map (comp parse-result
                                  :body
                                  (partial get-response endpoint)) queries)]
 
         (doseq [[response query] (map vector responses queries)]
-          (compare-structured-response
-           (sort-by (juxt :certname :name) response)
-           (sort-by (juxt :certname :name) (get (structured-fact-results version endpoint) query))
-           version))))))
+          (is (= (set response)
+                 (set (get (structured-fact-results version endpoint)
+                           query)))))))))
 
 ;; FACT-CONTENTS TESTS
 

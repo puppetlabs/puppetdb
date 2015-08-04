@@ -71,7 +71,7 @@
                line,
                containment_path,
                containing_class,
-               name
+               environment
        FROM
        (SELECT certname_id,
                resource_type %s AS resource_type,

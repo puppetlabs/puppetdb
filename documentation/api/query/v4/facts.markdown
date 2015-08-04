@@ -100,10 +100,10 @@ Subquery against `/fact-contents` to get all remotely-authenticated trusted fact
 Use `count` and `group_by` to get tallies of each operating system in your
 infrastructure:
 
-    curl -X GET http://localhost:8080/pdb/query/v4/facts --data-urlencode \
-      'query=["extract",[["function","count"],"value"],
-               ["=","name","operatingsystem"],
-               ["group_by", "value"]]'
+    curl -X GET http://localhost:8080/pdb/query/v4/facts \
+      --data-urlencode 'query=["extract", [["function","count"],"value"],
+                                ["=","name","operatingsystem"],
+                                ["group_by", "value"]]'
 
     [ {
         "value" : "Debian",
@@ -111,6 +111,22 @@ infrastructure:
     }, {
         "value" : "CentOS",
         "count" : 33
+    } ]
+
+Use the `avg` function and the `group_by` operator to get the average uptime
+for your nodes by environment:
+
+    curl -X GET http://localhost:8080/pdb/query/v4/facts \
+      --data-urlencode 'query=["extract", ["environment",["function","avg","value"]],
+                                ["=","name","uptime_hours"],
+                                ["group_by", "environment"]]'
+
+    [ {
+        "environment" : "production",
+        "avg" : 116.92774910678841
+    }, {
+        "environment" : "dev",
+        "avg" : 271.18281821459045
     } ]
 
 ## `GET /pdb/query/v4/facts/<FACT NAME>`

@@ -17,17 +17,17 @@
 
 (def row-schema
   "Resource query row schema."
-  {(s/optional-key :certname) s/Str
-   (s/optional-key :environment) (s/maybe s/Str)
-   (s/optional-key :exported) s/Bool
-   (s/optional-key :file) (s/maybe s/Str)
-   (s/optional-key :line) (s/maybe s/Int)
-   (s/optional-key :parameters) (s/maybe s/Str)
-   (s/optional-key :resource) s/Str
-   (s/optional-key :count) s/Int
-   (s/optional-key :tags) [(s/maybe s/Str)]
-   (s/optional-key :title) s/Str
-   (s/optional-key :type) s/Str})
+  (query/wrap-with-supported-fns
+    {(s/optional-key :certname) s/Str
+     (s/optional-key :environment) (s/maybe s/Str)
+     (s/optional-key :exported) s/Bool
+     (s/optional-key :file) (s/maybe s/Str)
+     (s/optional-key :line) (s/maybe s/Int)
+     (s/optional-key :parameters) (s/maybe s/Str)
+     (s/optional-key :resource) s/Str
+     (s/optional-key :tags) [(s/maybe s/Str)]
+     (s/optional-key :title) s/Str
+     (s/optional-key :type) s/Str}))
 
 (def resource-parameters-schema
   "Schema for resource parameters."
@@ -35,17 +35,17 @@
 
 (def resource-schema
   "Schema for validating a single resource."
-  {(s/optional-key :certname) s/Str
-   (s/optional-key :environment) (s/maybe s/Str)
-   (s/optional-key :exported) s/Bool
-   (s/optional-key :file) (s/maybe s/Str)
-   (s/optional-key :line) (s/maybe s/Int)
-   (s/optional-key :parameters) resource-parameters-schema
-   (s/optional-key :resource) s/Str
-   (s/optional-key :count) s/Int
-   (s/optional-key :tags) [(s/maybe s/Str)]
-   (s/optional-key :title) s/Str
-   (s/optional-key :type) s/Str})
+  (query/wrap-with-supported-fns
+    {(s/optional-key :certname) s/Str
+     (s/optional-key :environment) (s/maybe s/Str)
+     (s/optional-key :exported) s/Bool
+     (s/optional-key :file) (s/maybe s/Str)
+     (s/optional-key :line) (s/maybe s/Int)
+     (s/optional-key :parameters) resource-parameters-schema
+     (s/optional-key :resource) s/Str
+     (s/optional-key :tags) [(s/maybe s/Str)]
+     (s/optional-key :title) s/Str
+     (s/optional-key :type) s/Str}))
 
 ;; MUNGE
 

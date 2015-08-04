@@ -35,6 +35,7 @@
 (defrecord NotExpression [clause])
 
 (def json-agg-row (comp h/json-agg h/row-to-json))
+(def supported-fns #{"sum" "avg" "min" "max" "count"})
 
 (defn hsql-hash-as-str
   [column-keyword]
@@ -74,7 +75,7 @@
                                         :field :certnames.expired}
                              "facts_environment" {:type :string
                                                   :queryable? true
-                                                  :field :facts_environment.name}
+                                                  :field :facts_environment.environment}
                              "catalog_timestamp" {:type :timestamp
                                                   :queryable? true
                                                   :field :catalogs.timestamp}
@@ -86,10 +87,10 @@
                                                  :field :reports.end_time}
                              "catalog_environment" {:type :string
                                                     :queryable? true
-                                                    :field :catalog_environment.name}
+                                                    :field :catalog_environment.environment}
                              "report_environment" {:type :string
                                                    :queryable? true
-                                                   :field :reports_environment.name}}
+                                                   :field :reports_environment.environment}}
 
                :selection {:from [:certnames]
                            :left-join [:catalogs
@@ -180,7 +181,7 @@
                                          :field :fs.certname}
                              "environment" {:type :string
                                             :queryable? true
-                                            :field :env.name}
+                                            :field :env.environment}
                              "value_integer" {:type :number
                                               :query-only? true
                                               :queryable? false
@@ -235,7 +236,7 @@
                                      :field :fp.name}
                              "environment" {:type :string
                                             :queryable? true
-                                            :field :env.name}
+                                            :field :env.environment}
                              "value_integer" {:type :number
                                               :queryable? false
                                               :field :fv.value_integer
@@ -355,7 +356,7 @@
                          :field :reports.noop}
       "environment"     {:type :string
                          :queryable? true
-                         :field :environments.name}
+                         :field :environments.environment}
       "status"          {:type :string
                          :queryable? true
                          :field :report_statuses.status}
@@ -407,7 +408,7 @@
                           :field (hsql-uuid-as-str :c.transaction_uuid)}
       "environment" {:type :string
                      :queryable? true
-                     :field :e.name}
+                     :field :e.environment}
       "producer_timestamp" {:type :timestamp
                             :queryable? true
                             :field :c.producer_timestamp}
@@ -505,7 +506,7 @@
                                          :field :c.certname}
                              "environment" {:type :string
                                             :queryable? true
-                                            :field :e.name}
+                                            :field :e.environment}
                              "resource" {:type :string
                                          :queryable? true
                                          :field (hsql-hash-as-str :resources.resource)}
@@ -606,7 +607,7 @@
                                                  :field :containing_class}
                              "environment" {:type :string
                                             :queryable? true
-                                            :field :environments.name}
+                                            :field :environments.environment}
                              "latest_report?" {:type :boolean
                                                :queryable? true
                                                :query-only? true}}
@@ -640,7 +641,7 @@
   []
   (map->Query {:projections {"name" {:type :string
                                      :queryable? true
-                                     :field :name}}
+                                     :field :environment}}
                :selection {:from [:environments]}
 
                :alias "environments"
@@ -680,7 +681,7 @@
                             :field :factsets.producer_timestamp}
       "environment" {:type :string
                      :queryable? true
-                     :field :environments.name}}
+                     :field :environments.environment}}
 
      :selection {:from [:factsets]
                  :left-join [:environments
@@ -1085,6 +1086,10 @@
     [(into [] (rest (first functions)))
      nonfunctions]))
 
+(defn replace-numeric-args
+  [fargs]
+  (mapv #(string/replace % #"value" "COALESCE(value_integer,value_float)") fargs))
+
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
@@ -1133,7 +1138,6 @@
                     (format "Argument \"%s\" and operator \"%s\" have incompatible types."
                             value op)))))
 
-
             [["null?" column value]]
             (let [{:keys [field]} (get-in query-rec [:projections column])]
               (map->NullExpression {:column field
@@ -1177,7 +1181,7 @@
 
             [["extract" [["function" & fargs]] expr]]
             (-> query-rec
-                (assoc :call fargs)
+                (assoc :call (replace-numeric-args fargs))
                 (create-extract-node [] expr))
 
             [["extract" column expr]]
@@ -1186,7 +1190,7 @@
             [["extract" columns expr ["group_by" & clauses]]]
             (let [[fargs cols] (strip-function-calls columns)]
               (-> query-rec
-                  (assoc :call fargs)
+                  (assoc :call (replace-numeric-args fargs))
                   (assoc :group-by clauses)
                   (create-extract-node cols expr)))
 
@@ -1209,8 +1213,7 @@
 
 (defn unsupported-fields
   [field allowed-fields]
-  (let [supported-fns ["count"]
-        supported-calls (set (map #(vector "function" %) supported-fns))]
+  (let [supported-calls (set (map #(vector "function" %) supported-fns))]
     (remove #(or (contains? (set allowed-fields) %) (contains? supported-calls (take 2 %)))
             (ks/as-collection field))))
 
