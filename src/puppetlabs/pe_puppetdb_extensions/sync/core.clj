@@ -4,6 +4,7 @@
             [puppetlabs.puppetdb.utils :as utils]
             [clj-http.util :refer [url-encode]]
             [clj-http.client :as client]
+            [puppetlabs.http.client.sync :as http]
             [puppetlabs.puppetdb.cheshire :as json]
             [cheshire.core :as cheshire]
             [clj-time.core :as t]
@@ -129,19 +130,24 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utils
 
+(defn is-error-status? [status-code]
+  (>= status-code 400))
+
 (defn http-get
-  "A wrapper around clj-http.client/get which takes a custom error formatter,
-  `(fn [status body] ...)`, to provide a message which is written to the log on
-  failure status codes. '"
+  "A wrapper around puppetlabs.http.client.sync/get which:
+
+   - throws slingshot exceptions like clj-http does on error responses
+
+   - takes a custom error formatter, `(fn [status body] ...)`, to provide a
+     message which is written to the log on failure status codes "
   [url opts error-message-fn]
-  (try+
+  (try
    (log/debugf "HTTP GET %s %s" url opts)
-   (client/get url
-               (merge {:throw-exceptions true :throw-entire-message true} opts))
-   (catch :status {:keys [body status] :as response}
-     (events/failed-request!)
-     (throw+ {:type ::remote-host-error :error-response response}
-             (error-message-fn status body)))
+   (let [response (http/get url (merge {:as :text} opts))]
+     (if (is-error-status? (:status response))
+       (throw+ {:type ::remote-host-error :error-response response}
+               (error-message-fn (:status response) (:boduy response)))
+       response))
    (catch Exception e
      (events/failed-request!)
      (throw e))))
@@ -348,8 +354,8 @@
                            (format "Error querying %s for record summaries (%s). Received HTTP status code %s with the error message '%s'"
                                    remote-url (name entity) status body))]
         (-> url
-            (http-get {:query-params {:query (json/generate-string query)
-                                      :order_by (json/generate-string (order-by-clause-to-wire-format order))}
+            (http-get {:query-params {"query" (json/generate-string query)
+                                      "order_by" (json/generate-string (order-by-clause-to-wire-format order))}
                        :as :stream
                        :throw-entire-message true}
                       error-message-fn)
