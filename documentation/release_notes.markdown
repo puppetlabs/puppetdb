@@ -10,6 +10,44 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrading]: ./api/query/v4/upgrading-from-v3.html
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 
+3.0.2
+-----
+
+PuppetDB 3.0.2 is a bugfix release to address performance issues with the
+aggregate-event-count and fact-paths endpoints as well as memory starvation
+involving structured-facts.
+
+### Bug Fixes and Maintenance
+
+* Previously PuppetDB cached prepared statements for SQL queries. This caused
+  memory starvation involving structured-facts where large structured-facts
+  would create a new prepared statement object for each update. The large
+  objects would accumulate in the cache due to the non-zero cache size. This
+  release addresses this issue in two ways, by disabling the cache and changing
+  the structured-facts update queries to be more efficient.
+  ([PDB-1721](https://tickets.puppetlabs.com/browse/PDB-1721))
+
+* Given a large number of nodes and reports, consumers of the
+  aggregate-event-counts endpoint were experiencing slow response times. These
+  performance issues have have been addressed in this release. One notable
+  outcome from these fixes is that the endpoint no longer requires a query
+  parameter.
+  ([PDB-1809](https://tickets.puppetlabs.com/browse/PDB-1809))
+
+* Some PuppetDB tables were never analyzed by the autovacuum analyzer which led
+  to performance issues with the fact-paths endpoint. This release adds code to
+  perform the analyze whenever PuppetDB schema are updated.
+  ([PDB-1812](https://tickets.puppetlabs.com/browse/PDB-1812))
+
+* This release fixes an issue where the `max-frame-size` parameter was being
+  ignored by consumers of the command queue, causing large commands to produce
+  stacktraces in the PuppetDB log.
+  ([PDB-1812](https://tickets.puppetlabs.com/browse/PDB-1812))
+
+### Contributors
+Andrew Roetker, Jorie Tappa, Ken Barber, Melissa Stone, Nick Fagerlund, Rob
+Browning, Russell Mull, Wyatt Alt
+
 3.0.1
 -----
 
