@@ -21,7 +21,8 @@
             [me.raynes.fs :as fs]
             [slingshot.slingshot :refer [throw+]]
             [clojure.tools.logging :as log]
-            [clojure.data.xml :as xml])
+            [clojure.data.xml :as xml]
+            [puppetlabs.puppetdb.dashboard :refer [dashboard-service dashboard-redirect-service]])
   (:import [ch.qos.logback.core Appender spi.LifeCycle]
            [ch.qos.logback.classic Level Logger]
            [org.slf4j LoggerFactory]))
@@ -173,7 +174,9 @@
                   metrics/metrics-service
                   admin/admin-service
                   puppetdb-command-service
-                  metadata-service]
+                  metadata-service
+                  dashboard-service
+                  dashboard-redirect-service]
                  services)
          config
          (binding [*server* server
