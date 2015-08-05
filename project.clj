@@ -102,7 +102,8 @@
   :lein-ezbake {:vars {:user "puppetdb"
                        :group "puppetdb"
                        :build-type "foss"
-                       :main-namespace "puppetlabs.puppetdb.main"}
+                       :main-namespace "puppetlabs.puppetdb.main"
+                       :repo-target "PC1"}
                 :config-dir "ext/config/foss"
                 }
 
