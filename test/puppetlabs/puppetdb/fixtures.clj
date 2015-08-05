@@ -5,7 +5,9 @@
             [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.http.command :as command]
             [puppetlabs.puppetdb.jdbc :as pjdbc]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.config :as cfg]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-test-logging]]
             [clojure.tools.macro :as tmacro]
@@ -29,14 +31,36 @@
          (migrate! *db*)))
       (pjdbc/pooled-datasource (assoc db :read-only? read-only?)))))
 
+(defn with-drivers-deregistered
+  "A fixture to deregister unused drivers, then reregister them after test
+   execution."
+  [f]
+  (binding [*db* (test-db)]
+    (let [initial-drivers (sutils/get-registered-drivers)]
+      (sutils/deregister-unused-drivers! *db*)
+      (sql/with-connection *db*
+        (f))
+      (sutils/register-drivers! initial-drivers))))
+
 (defn with-test-db
   "A fixture to start and migrate a test db before running tests."
   [f]
   (binding [*db* (test-db)]
-    (sql/with-connection *db*
-      (clear-db-for-testing!)
-      (migrate! *db*)
-      (f))))
+    (let [initial-drivers (sutils/get-registered-drivers)
+          puppetdb-instance' svc-utils/puppetdb-instance]
+      (sutils/deregister-unused-drivers! *db*) 
+      ;; if with-puppetdb-instance is called within with-test-db, the hsqldb
+      ;; driver must be available.
+      (with-redefs [svc-utils/puppetdb-instance
+                    (fn [& args]
+                      (sutils/register-drivers! initial-drivers)
+                      (apply puppetdb-instance' args)
+                      (sutils/deregister-unused-drivers! *db*))]
+        (sql/with-connection *db*
+          (clear-db-for-testing!)
+          (migrate! *db*)
+          (f))
+        (sutils/register-drivers! initial-drivers)))))
 
 (defn without-db-var
   "Binds the java.jdbc dtabase connection to nil. When running a unit
@@ -100,15 +124,6 @@
    read database format"
   [db-config]
   (pls/transform-data cfg/database-config-in cfg/database-config-out db-config))
-
-(defn create-db-map
-  "Returns a database connection map with a reference to a new in memory HyperSQL database"
-  []
-  {:classname   "org.hsqldb.jdbcDriver"
-   :subprotocol "hsqldb"
-   :subname     (str "mem:"
-                     (java.util.UUID/randomUUID)
-                     ";hsqldb.tx=mvcc;sql.syntax_pgs=true")})
 
 (defn with-test-logging-silenced
   "A fixture to temporarily redirect all logging output to an atom, rather than
