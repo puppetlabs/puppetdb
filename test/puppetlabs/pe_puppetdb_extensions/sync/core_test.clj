@@ -6,7 +6,6 @@
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [clj-http.client :as http]
             [puppetlabs.pe-puppetdb-extensions.semlog :as semlog]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as services]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -40,7 +39,8 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.time :refer [parse-period]]
             [puppetlabs.pe-puppetdb-extensions.sync.events :as events]
-            [puppetlabs.pe-puppetdb-extensions.sync.test-protocols :as sync-test-protos :refer [called?]])
+            [puppetlabs.pe-puppetdb-extensions.sync.test-protocols :as sync-test-protos :refer [called?]]
+            [puppetlabs.http.client.sync :as http])
   (:import
    [org.apache.activemq.command ActiveMQDestination]
    [org.slf4j Logger]))
