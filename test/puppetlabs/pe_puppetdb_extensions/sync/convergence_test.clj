@@ -180,7 +180,7 @@
         cmd-service (get-service server :PuppetDBCommand)]
     (sync-from-remote! (partial cli-svcs/query pdb-service)
                        (partial command/submit-command cmd-service)
-                       remote-url
+                       {:url remote-url}
                        Period/ZERO)))
 
 (defn- count-possible-deactivation-races

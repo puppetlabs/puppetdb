@@ -848,7 +848,7 @@
                  events/failed-sync! (mock-fn)
                  events/failed-request! (mock-fn)]
      (try
-       (sync-from-remote! #() #() "http://localhost:1234/bogus" 42)
+       (sync-from-remote! #() #() {:url "http://localhost:1234/bogus"} (parse-period "42s"))
        (catch Exception _))
      (is (= false (called? events/successful-sync!)))
      (is (= true (called? events/failed-sync!)))

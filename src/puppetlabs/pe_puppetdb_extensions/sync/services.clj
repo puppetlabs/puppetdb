@@ -26,23 +26,27 @@
     (str (.resolve top-uri "/pdb/query/v4"))))
 
 (defn- sync-with! [server-url query-fn submit-command-fn node-ttl]
-  (if (compare-and-set! currently-syncing false true)
-    (try (sync-from-remote! query-fn submit-command-fn server-url node-ttl)
-         {:status 200 :body "success"}
-         (catch Exception ex
-           (let [err "Remote sync from %s failed"]
-             (semlog/maplog [:sync :error]
-                            {:remote server-url :response ex :phase "sync"}
-                            (format err server-url))
-             (log/error ex err server-url)
-             {:status 200 :body (format err server-url)}))
-         (finally (swap! currently-syncing (constantly false))))
-    (let [err "Refusing to sync from %s. Sync already in progress."]
-      (semlog/maplog [:sync :info]
-                     {:remote server-url :phase "sync"}
-                     (format err server-url))
-      (log/infof err server-url)
-      {:status 200 :body (format err server-url)})))
+  (let [remote-server {:url (query-endpoint server-url)}]
+    (println "**********remote-server" remote-server)
+    (if (compare-and-set! currently-syncing false true)
+      (try (sync-from-remote! query-fn submit-command-fn remote-server node-ttl)
+           {:status 200 :body "success"}
+           (catch Exception ex
+             (let [err "Remote sync from %s failed"]
+               (semlog/maplog [:sync :error]
+                              {:remote server-url :response ex :phase "sync"}
+                              (format err server-url))
+               (log/error ex err server-url)
+               {:status 200 :body (format err server-url)}))
+           (finally (swap! currently-syncing (constantly false))))
+      (let [err "Refusing to sync from %s. Sync already in progress."]
+        (semlog/maplog [:sync :info]
+                       {:remote server-url :phase "sync"}
+                       (format err server-url))
+        (log/infof err server-url)
+        {:status 200 :body (format err server-url)}))))
+
+(def sync-request-schema {:remote_host_path s/Str})
 
 (defn sync-app
   "Top level route for PuppetDB sync"
