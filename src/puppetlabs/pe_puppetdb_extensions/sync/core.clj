@@ -271,9 +271,7 @@
 (defn- set-local-deactivation-status!
   "Returns a truthy value indicating whether a local deactivation was
   required."
-  [remote-url
-   entity
-   {:keys [certname deactivated] :as remote-record}
+  [{:keys [certname deactivated] :as remote-record}
    submit-command-fn]
   ;; deactivated never goes false (null) by itself; one of the other entities
   ;; will change, reactivating it as a side effect
@@ -394,8 +392,7 @@
               {:keys [version query order]} record-hashes-query
               incoming-records #(records-to-fetch record-id-fn record-ordering-fn
                                                   % remote-sync-data now node-ttl)
-              maybe-deactivate! #(set-local-deactivation-status!
-                                  remote-url entity % submit-command-fn)
+              maybe-deactivate! #(set-local-deactivation-status! % submit-command-fn)
               query-and-transfer! #(query-record-and-transfer!
                                     remote-url % submit-command-fn sync-config)]
           (query-fn entity version query order
