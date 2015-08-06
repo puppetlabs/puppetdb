@@ -19,7 +19,7 @@ Puppet::Reports.register_report(:puppetdb) do
   # @return [void]
   def process
     profile("report#process", [:puppetdb, :report, :process]) do
-      submit_command(self.host, report_to_hash, CommandStoreReport, 5)
+      submit_command(self.host, report_to_hash, CommandStoreReport, 6)
     end
 
     nil
@@ -37,8 +37,8 @@ Puppet::Reports.register_report(:puppetdb) do
         raise Puppet::Error, "Environment is nil, unable to submit report. This may be due a bug with Puppet. Ensure you are running the latest revision, see PUP-2508 for more details."
       end
 
-      resource_events = build_events_list
-      is_noop = resource_events.any? {|rs| rs["status"] == 'noop'} && resource_events.none? {|rs| rs["status"] == 'failed'}
+      resources = build_resources_list
+      is_noop = resources.any? { |rs| has_noop_event?(rs) } and resources.none? { |rs| has_failed_event?(rs) }
 
       {
         "certname"                => host,
@@ -48,31 +48,41 @@ Puppet::Reports.register_report(:puppetdb) do
         "producer_timestamp"      => Puppet::Util::Puppetdb.to_wire_time(Time.now),
         "start_time"              => Puppet::Util::Puppetdb.to_wire_time(time),
         "end_time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
-        "resource_events"         => resource_events,
         "environment"             => environment,
         "transaction_uuid"        => transaction_uuid,
         "status"                  => status,
         "noop"                    => is_noop,
         "logs"                    => build_logs_list,
         "metrics"                 => build_metrics_list,
+        "resources"               => resources,
       }
     end
   end
 
+  # @return TrueClass
+  # @api private
+  def has_noop_event?(resource)
+    resource["events"].any? { |event| event["status"] == 'noop' }
+  end
+
+  # @return TrueClass
+  # @api private
+  def has_failed_event?(resource)
+    resource["events"].any? { |event| event["status"] == 'failed' }
+  end
+
   # @return Array[Hash]
   # @api private
-  def build_events_list
-    profile("Build events list (count: #{resource_statuses.count})",
-            [:puppetdb, :events_list, :build]) do
-      filter_events(resource_statuses.inject([]) do |events, status_entry|
-        _, status = *status_entry
-        if ! (status.events.empty?)
-          events.concat(status.events.map { |event| event_to_hash(status, event) })
-        elsif status.skipped
-          events.concat([fabricate_event(status, "skipped")])
-        end
-        events
-      end)
+  def build_resources_list
+    profile("Build resources list (count: #{resource_statuses.count})",
+            [:puppetdb, :resources_list, :build]) do
+      include_unchanged_resources = false
+      resources = resource_statuses.values.map { |resource| resource_status_to_hash(resource) }
+      if ! include_unchanged_resources
+        resources.select{ |resource| (! resource["events"].empty?) or resource["skipped"] }
+      else
+        resources
+      end
     end
   end
 
@@ -134,55 +144,40 @@ Puppet::Reports.register_report(:puppetdb) do
   #
   # @return Hash[<String, Object>]
   # @api private
-  def event_to_hash(resource_status, event)
+  def event_to_hash(event)
     {
       "status"            => event.status,
       "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
-      "resource_type"     => resource_status.resource_type,
-      "resource_title"    => resource_status.title.to_s,
       "property"          => event.property,
       "new_value"         => event.desired_value,
       "old_value"         => event.previous_value,
       "message"           => event.message,
-      "file"              => resource_status.file,
-      "line"              => resource_status.line,
-      "containment_path"  => resource_status.containment_path,
     }
   end
 
-  # Given an instance of `Puppet::Resource::Status` and a status
-  # string, this method fabricates a PuppetDB event object with the
-  # provided `"status"`.
-  #
-  # @api private
-  def fabricate_event(resource_status, event_status)
-    {
-      "status"            => event_status,
-      "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
-      "resource_type"     => resource_status.resource_type,
-      "resource_title"    => resource_status.title.to_s,
-      "property"          => nil,
-      "new_value"         => nil,
-      "old_value"         => nil,
-      "message"           => nil,
-      "file"              => resource_status.file,
-      "line"              => resource_status.line,
-      "containment_path" => resource_status.containment_path,
-    }
-  end
-
-  # Filter out blacklisted events, if we're configured to do so
-  #
-  # @api private
-  def filter_events(events)
-    if config.ignore_blacklisted_events?
-      profile("Filter blacklisted events",
-              [:puppetdb, :events, :filter_blacklisted]) do
-        events.select { |e| ! config.is_event_blacklisted?(e) }
-      end
-    else
-      events
+  def build_events_list(events)
+    profile("Build events list (count: #{events.count})",
+            [:puppetdb, :events_list, :build]) do
+      events.map { |event| event_to_hash(event) }
     end
+  end
+
+  # Convert an instance of `Puppet::Resource::Status` to a hash
+  # suitable for sending over the wire to PuppetDB
+  #
+  # @return Hash[<String, Object>]
+  # @api private
+  def resource_status_to_hash(resource_status)
+    {
+      "skipped"          => resource_status.skipped,
+      "timestamp"        => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
+      "resource_type"    => resource_status.resource_type,
+      "resource_title"   => resource_status.title.to_s,
+      "file"             => resource_status.file,
+      "line"             => resource_status.line,
+      "containment_path" => resource_status.containment_path,
+      "events"           => build_events_list(resource_status.events),
+    }
   end
 
   # Helper method for accessing the puppetdb configuration

@@ -283,6 +283,28 @@
                id (command-names :store-report)
                puppet_version certname)))
 
+(defn- resource->skipped-resource-events
+  "Fabricate a skipped resource-event"
+  [resource]
+  (-> resource
+      ;; We also need to grab the timestamp when the resource is `skipped'
+      (select-keys [:resource_type :resource_title :file :line :containment_path :timestamp])
+      (merge {:status "skipped" :property nil :old_value nil :new_value nil :message nil})
+      vector))
+
+(defn- resource->resource-events
+  [{:keys [skipped] :as resource}]
+  (if (= skipped true)
+    (resource->skipped-resource-events resource)
+    (let [resource-metadata (select-keys resource [:resource_type :resource_title :file :line :containment_path])]
+      (map (partial merge resource-metadata) (:events resource)))))
+
+(defn- resources->resource-events
+  [report]
+  (-> report
+      (update :resources (partial mapcat resource->resource-events))
+      (clojure.set/rename-keys {:resources :resource_events})))
+
 (defmethod process-command! [(command-names :store-report) 3]
   [{:keys [version] :as command} {:keys [db]}]
   (store-report* 5 db (-> command
@@ -296,6 +318,10 @@
 (defmethod process-command! [(command-names :store-report) 5]
   [{:keys [version] :as command} {:keys [db]}]
   (store-report* 5 db command))
+
+(defmethod process-command! [(command-names :store-report) 6]
+  [{:keys [version] :as command} {:keys [db]}]
+  (store-report* 6 db (update command :payload resources->resource-events)))
 
 (def supported-command?
   (comp (kitchensink/valset command-names) :command))

@@ -7,6 +7,7 @@ canonical: "/puppetdb/latest/api/command/v1/commands.html"
 [factsv4]: ../../wire_format/facts_format_v4.html
 [catalogv6]: ../../wire_format/catalog_format_v6.html
 [reportv5]: ../../wire_format/report_format_v5.html
+[reportv6]: ../../wire_format/report_format_v6.html
 [deactivatev3]: ../../wire_format/deactivate_node_format_v3.html
 
 Commands are used to change PuppetDB's
@@ -98,15 +99,30 @@ payload of this command.
 See [deactivate node wire format v3][deactivatev3] for more information on the
 payload of this command.
 
+### "store report", version 6
+
+The version 6 store report command differs from previous versions by changing
+from a `resource_events` property to a `resources` property. The
+`resource_events` property was a merged version of `resources` and their
+associated events `events`. This new version moves the command to use a similar
+format to a raw Puppet report, with a list of `resources` each with an `events`
+property containing a list of the resource's events.
+
+The payload is expected to be a report, containing events that occurred on
+Puppet resources. It is structured as a JSON object, conforming to the
+[report wire format v6][reportv6].
+
+## Deprecated Commands
+
 ### "store report", version 5
 
-The version 5 store report command differs from version four in the addition of
-a "noop" flag, which is a boolean indicating whether the report was produced by
-a puppet run with --noop, as well as in the conversion of dash-separated fields to
+The version 5 store report command differs from version 4 in the addition of a
+"noop" flag, which is a boolean indicating whether the report was produced by a
+puppet run with --noop, as well as in the conversion of dash-separated fields to
 underscored.
 
-The payload is expected to be a report, containing events that occurred on Puppet
-resources.  It is structured as a JSON object, conforming to the
+The payload is expected to be a report, containing events that occurred on
+Puppet resources. It is structured as a JSON object, conforming to the
 [report wire format v5][reportv5].
 
 ## Examples using curl

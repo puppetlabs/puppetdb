@@ -36,7 +36,7 @@ describe processor do
 
       expected_body = {
         :command => Puppet::Util::Puppetdb::CommandNames::CommandStoreReport,
-        :version => 5,
+        :version => 6,
         :payload => subject.send(:report_to_hash)
       }.to_json
 
@@ -110,31 +110,37 @@ describe processor do
           result["puppet_version"].should == subject.puppet_version
           result["report_format"].should == subject.report_format
           result["configuration_version"].should == subject.configuration_version.to_s
-          result["resource_events"].should == []
+          result["resources"].should == []
           result["noop"].should == false
         end
       end
 
       context "resource with events" do
         it "should include the resource" do
+
           event = Puppet::Transaction::Event.new()
           event.property = "fooprop"
           event.desired_value = "fooval"
           event.previous_value = "oldfooval"
           event.message = "foomessage"
           status.add_event(event)
+
           result = subject.send(:report_to_hash)
-          result["resource_events"].length.should == 1
-          res_event = result["resource_events"][0]
-          res_event["resource_type"].should == "Foo"
-          res_event["resource_title"].should == "foo"
+
+          result["resources"].length.should == 1
+          res = result["resources"][0]
+          res["resource_type"].should == "Foo"
+          res["resource_title"].should == "foo"
+          res["file"].should == "foo"
+          res["line"].should == 1
+          res["containment_path"].should == ["foo", "bar", "baz"]
+          res["events"].length.should == 1
+
+          res_event = res["events"][0]
           res_event["property"].should == "fooprop"
           res_event["new_value"].should == "fooval"
           res_event["old_value"].should == "oldfooval"
           res_event["message"].should == "foomessage"
-          res_event["file"].should == "foo"
-          res_event["line"].should == 1
-          res_event["containment_path"].should == ["foo", "bar", "baz"]
         end
       end
 
@@ -142,16 +148,13 @@ describe processor do
         it "should include the resource" do
           status.skipped = true
           result = subject.send(:report_to_hash)
-          result["resource_events"].length.should == 1
-          event = result["resource_events"][0]
-          event["resource_type"].should == "Foo"
-          event["resource_title"].should == "foo"
-          event["status"].should == "skipped"
-          event["property"].should be_nil
-          event["new_val"].should be_nil
-          event["old_val"].should be_nil
-          event["message"].should be_nil
-          event["containment_path"].should == ["foo", "bar", "baz"]
+
+          result["resources"].length.should == 1
+          resource = result["resources"][0]
+          resource["resource_type"].should == "Foo"
+          resource["resource_title"].should == "foo"
+          resource["containment_path"].should == ["foo", "bar", "baz"]
+          resource["events"].length.should == 0
         end
       end
 
@@ -163,7 +166,7 @@ describe processor do
         context "with no events" do
           it "should have no events" do
             result = subject.send(:report_to_hash)
-            result["resource_events"].length.should == 0
+            result["resources"].length.should == 0
           end
         end
 
@@ -177,145 +180,21 @@ describe processor do
             status.add_event(event)
 
             result = subject.send(:report_to_hash)
-            result["resource_events"].length.should == 1
-            res_event = result["resource_events"][0]
-            res_event["resource_type"].should == "Foo"
-            res_event["resource_title"].should == "foo"
+            result["resources"].length.should == 1
+            resource = result["resources"][0]
+            resource["resource_type"].should == "Foo"
+            resource["resource_title"].should == "foo"
+            resource["file"].should == "foo"
+            resource["line"].should == 1
+            resource["containment_path"].should == ["foo", "bar", "baz"]
+            resource["events"].length.should == 1
+
+            res_event = resource["events"][0]
             res_event["property"].should == "barprop"
             res_event["new_value"].should == "barval"
             res_event["old_value"].should == "oldbarval"
             res_event["message"].should == "barmessage"
-            res_event["file"].should == "foo"
-            res_event["line"].should == 1
-            res_event["containment_path"].should == ["foo", "bar", "baz"]
           end
-        end
-      end
-
-      context "blacklisted events" do
-        BlacklistedEvent = Puppet::Util::Puppetdb::Blacklist::BlacklistedEvent
-
-        let (:config) {
-          Puppet::Util::Puppetdb.config
-        }
-
-        before :each do
-          config.send(:initialize_blacklisted_events, [
-            BlacklistedEvent.new("Schedule", "weekly", "skipped", nil),
-            BlacklistedEvent.new("Notify", "Hello there", "success", "message"),
-          ])
-
-          event = Puppet::Transaction::Event.new()
-          event.property = "fooprop"
-          event.desired_value = "fooval"
-          event.previous_value = "oldfooval"
-          event.message = "foomessage"
-          status.add_event(event)
-
-          schedule_resource =
-              stub("schedule_resource",
-                   { :pathbuilder => ["foo", "bar", "baz"],
-                     :path => "foo",
-                     :file => "foo",
-                     :line => "foo",
-                     :tags => [],
-                     :type => "Schedule",
-                     :title => "weekly" })
-          schedule_resource_status = Puppet::Resource::Status.new(schedule_resource)
-          schedule_resource_status.skipped = true
-          subject.add_resource_status(schedule_resource_status)
-
-          notify_resource =
-              stub("notify_resource",
-                   { :pathbuilder => ["foo", "bar", "baz"],
-                     :path => "foo",
-                     :file => "foo",
-                     :line => "foo",
-                     :tags => [],
-                     :type => "Notify",
-                     :title => "Hello there" })
-          notify_status = Puppet::Resource::Status.new(notify_resource)
-          notify_status.changed = true
-          notify_event = Puppet::Transaction::Event.new()
-          notify_event.status = "success"
-          notify_event.property = "message"
-          notify_status.add_event(notify_event)
-          subject.add_resource_status(notify_status)
-        end
-
-        after :each do
-          config.send(:initialize_blacklisted_events)
-        end
-
-        context "when blacklisted events are configured to be filtered" do
-          it "should filter blacklisted events, but not other events" do
-            result = subject.send(:report_to_hash)
-            result["resource_events"].length.should == 1
-            res_event = result["resource_events"][0]
-            res_event["resource_type"].should == "Foo"
-            res_event["resource_title"].should == "foo"
-            res_event["property"].should == "fooprop"
-            res_event["new_value"].should == "fooval"
-            res_event["old_value"].should == "oldfooval"
-            res_event["message"].should == "foomessage"
-            res_event["containment_path"].should == ["foo", "bar", "baz"]
-          end
-        end
-
-        context "when blacklisted events are configured not to be filtered" do
-          it "should not filter anything" do
-            config.stubs(:ignore_blacklisted_events?).returns(false)
-            result = subject.send(:report_to_hash)
-            result["resource_events"].length.should == 3
-            [["Foo", "foo"],
-             ["Schedule", "weekly"],
-             ["Notify", "Hello there"]].each do |type, title|
-              matches = result["resource_events"].select do |e|
-                  e["resource_type"] == type and e["resource_title"] == title
-              end
-              matches.length.should be(1), "Expected to find an event with type '#{type}' and title '#{title}'"
-            end
-          end
-        end
-      end
-
-      context "default blacklist" do
-        def add_skipped_schedule_event(title)
-          resource = stub("#{title}_resource",
-                   { :pathbuilder => ["foo", "bar", "baz"],
-                     :path => "foo",
-                     :file => "foo",
-                     :line => "foo",
-                     :tags => [],
-                     :type => "Schedule",
-                     :title => title })
-          status = Puppet::Resource::Status.new(resource)
-          status.skipped = true
-          subject.add_resource_status(status)
-        end
-
-        before :each do
-          event = Puppet::Transaction::Event.new()
-          event.property = "fooprop"
-          event.desired_value = "fooval"
-          event.previous_value = "oldfooval"
-          event.message = "foomessage"
-          status.add_event(event)
-        end
-
-        it "should filter all of the blacklisted skipped schedule events" do
-          add_skipped_schedule_event("never")
-          add_skipped_schedule_event("puppet")
-          add_skipped_schedule_event("hourly")
-          add_skipped_schedule_event("daily")
-          add_skipped_schedule_event("weekly")
-          add_skipped_schedule_event("monthly")
-
-          result = subject.send(:report_to_hash)
-          result["resource_events"].length.should == 1
-          res_event = result["resource_events"][0]
-          res_event["resource_type"].should == "Foo"
-          res_event["resource_title"].should == "foo"
         end
       end
     end
