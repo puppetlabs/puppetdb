@@ -9,9 +9,9 @@
             [clj-http.client :as http]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
-            [puppetlabs.puppetdb.testutils :refer [=-after? without-jmx]]
+            [puppetlabs.puppetdb.testutils :refer [=-after? without-jmx
+                                                   block-until-results]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
-            [puppetlabs.puppetdb.cli.import-export-roundtrip-test :as rt]
             [puppetlabs.pe-puppetdb-extensions.sync.core :refer :all :as syncc]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [with-puppetdb-instance index-by json-request json-response get-json blocking-command-post]]
@@ -129,12 +129,12 @@
           (let [report (tur/munge-example-report-for-storage (:basic reports))
                 query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))]
             (pdb-client/submit-command-via-http! (utils/pdb-cmd-url) "store report" 5 report)
-            @(rt/block-until-results 100 (export/reports-for-node query-fn (:certname report)))
+            @(block-until-results 100 (export/reports-for-node query-fn (:certname report)))
 
             (with-alt-mq "puppetlabs.puppetdb.commands-2"
               (with-puppetdb-instance config-2
                 (pdb-client/submit-command-via-http! (utils/pdb-cmd-url) "store report" 5 report)
-                @(rt/block-until-results 100 (export/reports-for-node query-fn (:certname report))))))))))))
+                @(block-until-results 100 (export/reports-for-node query-fn (:certname report))))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Test data
@@ -232,7 +232,7 @@
 
         ;; Pull data from pdb-x to pdb-y
         (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str))
-        @(rt/block-until-results 100 (export/reports-for-node query-fn (:certname report)))
+        @(block-until-results 100 (export/reports-for-node query-fn (:certname report)))
 
         ;; We should see that the sync happened, and that only one report was pulled from PDB X
         (let [puppet-versions (map (comp :puppet_version #(json/parse-string % true) :contents)
@@ -388,21 +388,21 @@
 
 (defn- submit-catalog [endpoint catalog]
   (pdb-client/submit-command-via-http! (:command-url endpoint) "replace catalog" 6 catalog)
-  @(rt/block-until-results 100 (get-catalog (:query-url endpoint) (:certname catalog))))
+  @(block-until-results 100 (get-catalog (:query-url endpoint) (:certname catalog))))
 
 (defn- submit-factset [endpoint facts]
   (pdb-client/submit-command-via-http! (:command-url endpoint) "replace facts" 4 facts)
-  @(rt/block-until-results 101 (get-factset (:query-url endpoint) (:certname facts))))
+  @(block-until-results 101 (get-factset (:query-url endpoint) (:certname facts))))
 
 (defn- submit-report [endpoint report]
   (pdb-client/submit-command-via-http! (:command-url endpoint) "store report" 5 report)
-  @(rt/block-until-results 102 (get-reports (:query-url endpoint) (:certname report))))
+  @(block-until-results 102 (get-reports (:query-url endpoint) (:certname report))))
 
 (defn- deactivate-node [endpoint certname]
   (pdb-client/submit-command-via-http! (:command-url endpoint) "deactivate node" 3
                                        {:certname certname
                                         :producer_timestamp (t/plus (t/now) (t/years 10))})
-  @(rt/block-until-results 103 (:deactivated (get-node (:query-url endpoint) certname))))
+  @(block-until-results 103 (:deactivated (get-node (:query-url endpoint) certname))))
 
 (defn- sync [& {:keys [from to check-with check-for]}]
   ;; pdb2 pulls data from pdb1
@@ -410,7 +410,7 @@
                 (str (base-url->str (:sync-url to)) "/trigger-sync"))
 
   ;; let pdb2 chew on its queue
-  @(rt/block-until-results 200 (check-with (:query-url to) check-for)))
+  @(block-until-results 200 (check-with (:query-url to) check-for)))
 
 (defn- without-timestamp [record]
   (dissoc record :timestamp))
@@ -549,8 +549,8 @@
             (is (nil? (facts-from mirror)))
             (pdb-client/submit-command-via-http! (:command-url master)
                                                  "replace facts" 4 facts)
-            @(rt/block-until-results 100 (facts-from master)))
-          @(rt/block-until-results 100 (facts-from mirror))
+            @(block-until-results 100 (facts-from master)))
+          @(block-until-results 100 (facts-from mirror))
           (is (=-after? without-timestamp
                         (facts-from mirror)
                         (facts-from master))))))))
