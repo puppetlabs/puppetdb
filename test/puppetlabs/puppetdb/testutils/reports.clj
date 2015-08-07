@@ -4,6 +4,7 @@
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query-eng :as eng]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clj-time.coerce :as time-coerce]
             [puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage]]
@@ -123,3 +124,12 @@
   (into (omap/ordered-map)
         (for [ev (:resource_events example-report)]
           [(:test_id ev) ev])))
+
+(defn munge-report
+  "Munges a catalog of list of reports for comparision.
+  Returns a list of reports."
+  [report-or-reports]
+  (->> report-or-reports
+       utils/vector-maybe
+       (map (comp munge-report-for-comparison
+                  munge-example-report-for-storage))))

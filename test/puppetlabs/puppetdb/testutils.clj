@@ -17,6 +17,12 @@
 
 (def c-t "application/json")
 
+(defn command-base-url
+  [base-url]
+  (assoc base-url
+         :prefix "/pdb/cmd"
+         :version :v1))
+
 (defn test-db-config
   "This is a placeholder function; it is supposed to return a map containing
   the database configuration settings to use during testing.  We expect for
@@ -420,3 +426,37 @@
   "Like kitchensink.core/select-values but will preserve the order of the map
   if an orderd/sorted map is passed in"
   (comp vals select-keys'))
+
+(defn block-until-results-fn
+  "Executes `f`, if results are found, return them, otherwise
+  wait and try again. Will throw an exception if results aren't found
+  after 100 tries"
+  [n f]
+  (loop [count 0
+         results (f)]
+    (cond
+     (seq results)
+     results
+
+     (< n count)
+     (throw+ (format "Results not found after %d iterations, giving up" n))
+
+     :else
+     (do
+       (Thread/sleep 100)
+       (recur (inc count) (f))))))
+
+(defmacro block-until-results
+  "Body is some expression that will be executed in a future. All
+  errors from the body of the macro are ignored. Will block until
+  results are returned from the body of the macro"
+  [n & body]
+  `(future
+     (block-until-results-fn
+      ~n
+      (fn []
+        (try
+          (do ~@body)
+          (catch Exception e#
+            ;; Ignore
+            ))))))

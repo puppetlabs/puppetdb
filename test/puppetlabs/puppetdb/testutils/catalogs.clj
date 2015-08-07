@@ -7,6 +7,7 @@
             [clj-time.coerce :refer [to-string]]
             [schema.core :as s]
             [puppetlabs.puppetdb.fixtures :refer [*db*]]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.catalogs :refer [catalog-version]]))
 
@@ -110,3 +111,12 @@
                   :received (now)}
     :version     catalog-version}
    {:db          *db*}))
+
+(defn munge-catalog
+  "Munges a catalog or list of catalogs for comparison.
+   Returns a list of catalogs."
+  [catalog-or-catalogs]
+  (->> catalog-or-catalogs
+       utils/vector-maybe
+       (map (comp (partial munge-catalog-for-comparison :v6)
+                  #(dissoc % :hash)))))

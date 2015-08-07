@@ -59,3 +59,10 @@
                         (json/parse-string (archive/read-entry-content tar))))
             {} (archive/all-entries tar))))
 
+(defn parse-tar-entry-contents
+  "Parses the first of a list of tar-entries :contents"
+  [tar-entries]
+  (-> tar-entries
+      first
+      :contents
+      (json/parse-string true)))
