@@ -11,7 +11,7 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*base-url*]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
-            [puppetlabs.puppetdb.cli.import-export-roundtrip-test :refer [block-until-results]]
+            [puppetlabs.puppetdb.testutils :refer [block-until-results]]
             [clj-time.coerce :refer [to-string]]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.cli.export :as export]))
