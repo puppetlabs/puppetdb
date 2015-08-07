@@ -335,13 +335,8 @@
 
 (defn add-web-routing-service-config
   [config-data]
-  (let [default-web-router-service
-        {:puppetlabs.puppetdb.cli.services/puppetdb-service "/pdb/query"
-         :puppetlabs.puppetdb.http.command/puppetdb-command-service "/pdb/cmd"
-         :puppetlabs.puppetdb.meta/metadata-service "/pdb/meta"
-         :puppetlabs.puppetdb.admin/admin-service "/pdb/admin"
-         :puppetlabs.puppetdb.dashboard/dashboard-service "/pdb"
-         :puppetlabs.puppetdb.metrics/metrics-service "/metrics"}
+  (let [default-web-router-service {:puppetlabs.puppetdb.metrics/metrics-service "/metrics"
+                                    :puppetlabs.puppetdb.pdb-routing/pdb-routing-service "/pdb"}
         bootstrap-cfg (-> (find-bootstrap-config config-data)
                           slurp
                           str/split-lines)

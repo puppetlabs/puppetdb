@@ -248,10 +248,9 @@
       (initialize-schema db-pool-map product-name))))
 
 (defn start-puppetdb
-  [context config service add-ring-handler get-route]
+  [context config service get-route]
   {:pre [(map? context)
-         (map? config)
-         (ifn? add-ring-handler)]
+         (map? config)]
    :post [(map? %)
           (every? (partial contains? %) [:broker])]}
   (let [{:keys [global   jetty
@@ -265,7 +264,7 @@
                  max-frame-size threads]} command-processing
         {:keys [certificate-whitelist
                 disable-update-checking]} puppetdb
-        url-prefix (get-route service)
+        url-prefix "/pdb";;(get-route service)
         write-db (pl-jdbc/pooled-datasource database)
         read-db (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
         mq-dir (str (io/file vardir "mq"))
@@ -316,10 +315,7 @@
       (when-not disable-update-checking
         (maybe-check-for-updates product-name update-server read-db))
 
-      (let [app (->> (server/build-app globals)
-                     (compojure/context url-prefix []))]
-        (log/info "Starting query server")
-        (add-ring-handler service app))
+      (log/info "Starting query server")
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)
@@ -360,7 +356,7 @@
    [:WebroutingService add-ring-handler get-route]]
 
   (start [this context]
-         (start-puppetdb context (get-config) this add-ring-handler get-route))
+         (start-puppetdb context (get-config) this get-route))
 
   (stop [this context]
         (stop-puppetdb context))

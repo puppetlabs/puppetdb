@@ -133,18 +133,10 @@
 (defservice puppetdb-command-service
   PuppetDBCommand
   [[:PuppetDBServer shared-globals]
-   [:WebroutingService add-ring-handler get-route]
-   [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub]]
-
+   [:PuppetDBCommandDispatcher enqueue-command]]
   (start [this context]
-         (let [globals (shared-globals)
-               url-prefix (get-route this)]
-           (log/info "Starting command service")
-           (->> (command-app globals enqueue-raw-command (response-pub))
-                (compojure/context url-prefix [])
-                (add-ring-handler this))
-           context))
-
+         (log/info "Starting command service")
+         context)
   (submit-command [this command version payload]
     (let [{{:keys [connection endpoint]} :command-mq} (shared-globals)]
       (enqueue-command connection endpoint

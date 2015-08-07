@@ -70,14 +70,3 @@
       verify-accepts-json
       validate-no-query-params
       (wrap-with-puppetdb-middleware authorizer)))
-
-(defservice metadata-service
-  [[:PuppetDBServer shared-globals]
-   [:WebroutingService add-ring-handler get-route]]
-
-  (start [this context]
-         (log/info "Starting metadata service")
-         (->> (build-app (shared-globals))
-              (compojure/context (get-route this) [])
-              (add-ring-handler this))
-         context))

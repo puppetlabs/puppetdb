@@ -45,14 +45,3 @@
                                                   (format "puppetdb-export-%s.tgz" (now))))
        (route/not-found "Not Found"))
       (mid/wrap-with-puppetdb-middleware authorizer)))
-
-(trapperkeeper/defservice admin-service
-  [[:PuppetDBServer shared-globals query]
-   [:PuppetDBCommand submit-command]
-   [:WebroutingService add-ring-handler get-route]]
-
-  (start [this context]
-         (->> (build-app submit-command query (shared-globals))
-              (compojure/context (get-route this) [])
-              (add-ring-handler this))
-         context))

@@ -18,7 +18,6 @@
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service] :as dispatch]
             [puppetlabs.puppetdb.http.command :refer [puppetdb-command-service]]
-            [puppetlabs.puppetdb.meta :refer [metadata-service]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
             [clj-http.util :refer [url-encode]]
@@ -28,8 +27,8 @@
             [slingshot.slingshot :refer [throw+]]
             [clojure.tools.logging :as log]
             [clojure.data.xml :as xml]
-            [puppetlabs.puppetdb.dashboard
-             :refer [dashboard-service dashboard-redirect-service]]))
+            [puppetlabs.puppetdb.dashboard :refer [dashboard-redirect-service]]
+            [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service]]))
 
 ;; See utils.clj for more information about base-urls.
 (def ^:dynamic *base-url* nil) ; Will not have a :version.
@@ -93,11 +92,9 @@
                   message-listener-service
                   command-service
                   metrics/metrics-service
-                  admin/admin-service
                   puppetdb-command-service
-                  metadata-service
-                  dashboard-service
-                  dashboard-redirect-service]
+                  dashboard-redirect-service
+                  pdb-routing-service]
                  services)
          config
          (binding [*server* server
