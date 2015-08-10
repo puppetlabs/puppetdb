@@ -135,22 +135,28 @@
 (defn is-error-status? [status-code]
   (>= status-code 400))
 
-(defn without-trailing-slash [url]
+(defn without-trailing-slash [^String url]
   (if (.endsWith url "/")
-    (.substring url 0 (dec (count url)))
+    (subs url 0 (dec (count url)))
     url))
 
-(defn with-trailing-slash [url]
+(defn with-trailing-slash [^String url]
   (if-not (.endsWith url "/")
     (str url "/")
     url))
 
+(defn uri-with-trailing-slash [url-str]
+  (java.net.URI. (with-trailing-slash url-str)))
+
 (defn query-string [url]
-  (let [uri (java.net.URI. (with-trailing-slash url))]
+  (let [^java.net.URI uri (uri-with-trailing-slash url)]
     (.getQuery uri)))
 
 (def remote-server-schema
-  {:url s/Str})
+  {:url s/Str
+   (s/optional-key :ssl-cert) s/Str
+   (s/optional-key :ssl-key) s/Str
+   (s/optional-key :ssl-ca-cert) s/Str})
 
 (defn-validated url-on-remote-server :- s/Str
   [{:keys [url]} :- remote-server-schema
@@ -161,7 +167,7 @@
                   (empty? path))
               "If url has a query string, path must be null or empty")
       url)
-    (let [uri (java.net.URI. (with-trailing-slash url))]
+    (let [^java.net.URI uri (uri-with-trailing-slash url)]
       (without-trailing-slash (str (.resolve uri path))))))
 
 (defn-validated http-get
@@ -176,12 +182,15 @@
    opts :- {s/Any s/Any}
    error-message-fn]
   (try
-    (log/debugf "HTTP GET %s %s" (url-on-remote-server remote-server path) opts)
     (let [full-url (url-on-remote-server remote-server path)
-          response (http/get full-url (merge {:as :text} opts))]
+          full-opts (merge {:as :text}
+                           (select-keys remote-server [:ssl-cert :ssl-key :ssl-ca-cert])
+                           opts)
+          _ (log/debugf "HTTP GET %s %s" (url-on-remote-server remote-server path) full-opts)
+          response (http/get full-url full-opts)]
       (if (is-error-status? (:status response))
         (throw+ {:type ::remote-host-error :error-response response}
-                (error-message-fn (:status response) (:boduy response)))
+                (error-message-fn (:status response) (:body response)))
         response))
     (catch Exception e
       (events/failed-request!)
@@ -357,12 +366,13 @@
   "Perform the summary query at `remote-server`, as specified in
   `sync-config`. Returns a stream which must be closed."
   [remote-server sync-config]
-  (let [{:keys [entity record-hashes-query ]} sync-config
+  (let [{:keys [entity record-hashes-query]} sync-config
         {:keys [version query order]} record-hashes-query
+        entity-name (name entity)
         error-message-fn (fn [status body]
                            (format "Error querying %s for record summaries (%s). Received HTTP status code %s with the error message '%s'"
-                                   remote-server (name entity) status body))]
-    (-> (http-get remote-server (name entity)
+                                   remote-server entity-name status body))]
+    (-> (http-get remote-server entity-name
                   {:query-params {"query" (json/generate-string query)
                                   "order_by" (json/generate-string (order-by-clause-to-wire-format order))}
                    :as :stream

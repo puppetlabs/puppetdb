@@ -190,7 +190,7 @@
  (http/post dest-sync-url
             {:headers {"content-type" "application/json"}
              :body (json/generate-string {:remote_host_path source-pdb-url})
-             :throw-entire-message true}))
+             :as :text}))
 
 (defn perform-sync [source-pdb-url dest-sync-url]
   (svcs/until-consumed #(trigger-sync source-pdb-url dest-sync-url)))
@@ -853,3 +853,37 @@
      (is (= false (called? events/successful-sync!)))
      (is (= true (called? events/failed-sync!)))
      (is (= true (called? events/failed-request!))))))
+
+;;; HTTPS
+(deftest pull-with-https
+  (let [seen-http-get-opts (atom [])
+        remote-host-url "https://some-host"]
+    ;; Stub http/get to always return empty content, but to remember the options
+    ;; passed to it.
+   (with-redefs [http/get (fn [url opts]
+                            (when (.startsWith url remote-host-url)
+                              (swap! seen-http-get-opts conj opts))
+                            {:status 200
+                             :body (java.io.StringReader. "[]")})]
+     ;; Run a pdb with https
+     (with-puppetdb-instance (assoc (utils/sync-config)
+                                    :jetty {:ssl-port 0
+                                            :ssl-host "0.0.0.0"
+                                            :ssl-cert "test-resources/localhost.pem"
+                                            :ssl-key "test-resources/localhost.key"
+                                            :ssl-ca-cert "test-resources/ca.pem"
+                                            :ssl-protocols "TLSv1,TLSv1.1"})
+       ;; Trigger a sync; the url doesn't matter, as the stubbed http/get will be used
+       (http/post (utils/trigger-sync-url-str)
+                  {:headers {"content-type" "application/json"}
+                   :body (json/generate-string {:remote_host_path remote-host-url})
+                   :ssl-cert "test-resources/localhost.pem"
+                   :ssl-key "test-resources/localhost.key"
+                   :ssl-ca-cert "test-resources/ca.pem"})
+       ;; Check that the ssl was configured when making sync requests
+       (is (pos? (count @seen-http-get-opts)))
+       (doseq [opts @seen-http-get-opts]
+         (is opts)
+         (is (contains? opts :ssl-cert))
+         (is (contains? opts :ssl-key))
+         (is (contains? opts :ssl-ca-cert)))))))
