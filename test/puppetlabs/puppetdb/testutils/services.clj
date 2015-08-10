@@ -136,7 +136,10 @@
 (defn assoc-open-port
   "Updates `config` to include a (currently open) port number"
   [config]
-  (assoc-in config [:jetty :port] (open-port-num)))
+  (let [port-key (if (-> config :jetty :ssl-port)
+                   :ssl-port
+                   :port)]
+    (assoc-in config [:jetty port-key] (open-port-num))))
 
 (def ^:dynamic *server*)
 
@@ -158,8 +161,10 @@
                                conf/adjust-and-validate-tk-config
                                assoc-open-port
                                assoc-logging-config)
-         port (get-in config [:jetty :port])
-         base-url {:protocol "http"
+         port (or (get-in config [:jetty :port])
+                  (get-in config [:jetty :ssl-port]))
+         is-ssl (boolean (get-in config [:jetty :ssl-port]))
+         base-url {:protocol (if is-ssl "https" "http")
                    :host "localhost"
                    :port port
                    :prefix "/pdb/query"
