@@ -32,7 +32,6 @@
                  [org.clojure/math.combinatorics "0.0.4"]
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/tools.logging "0.3.1"]
-                 [org.clojure/tools.nrepl "0.2.10"]
                  [puppetlabs/tools.namespace "0.2.4.1"]
                  [clj-stacktrace "0.2.8"]
                  [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
