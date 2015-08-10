@@ -50,7 +50,7 @@ When you remove a node from your Puppet deployment, it should be marked as **dea
 
 Although deactivated and expired nodes will be excluded from storeconfigs queries, their data is still preserved.
 
-> **Note:** Deactivating a node does not remove (e.g. `ensure => absent`) exported resources from other systems; it only stops _managing_ those resources. If you want to actively destroy resources from deactivated nodes, you will probably need to purge that resource type using the [`resources` metatype][resources_type]. Note that some types cannot be purged (e.g. ssh authorized keys), and several others usually **should not** be purged (e.g. users).
+> **Note:** Deactivating a node does not remove (e.g. `ensure => absent`) exported resources from other systems; it only stops _managing_ those resources. If you want to actively destroy resources from deactivated nodes, you will probably need to purge that resource type using the [`resources` metatype][resources_type]. Note that some types can't be purged, and several others usually _shouldn't_ be purged (e.g. users).
 
 ## Clean Up Old Reports
 
