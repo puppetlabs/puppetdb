@@ -1,6 +1,7 @@
 (ns puppetlabs.pe-puppetdb-extensions.sync.core
   (:import [org.joda.time Period])
-  (:require [puppetlabs.puppetdb.utils :as utils]
+  (:require [clojure.java.jdbc :as sql]
+            [puppetlabs.puppetdb.utils :as utils]
             [clj-http.util :refer [url-encode]]
             [clj-http.client :as client]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -11,9 +12,11 @@
             [clojure.tools.logging :as log]
             [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.pe-puppetdb-extensions.semlog :refer [maplog]]
-            [puppetlabs.pe-puppetdb-extensions.sync.events :as events :refer [with-sync-events]]
+            [puppetlabs.pe-puppetdb-extensions.sync.events :as events
+             :refer [with-sync-events]]
+            [puppetlabs.puppetdb.scf.storage
+             :refer [node-deactivated-time have-newer-record-for-certname?]]
             [puppetlabs.puppetdb.time :refer [parse-period]]))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; How to sync each entity
@@ -67,7 +70,7 @@
     :record-id-fn report-key
 
     ;; When pulling a record from a remote machine, use the value at this key to
-    ;; identify it; This shoud be part of the result you get with
+    ;; identify it; This should be part of the result you get with
     ;; `record-hashes-query` above.
     :record-fetch-key :hash
 
@@ -248,21 +251,35 @@
           clean-up-record-fn
           store-record-locally-fn))))
 
-(defn set-local-deactivation-status!
+(defn- need-local-deactivation?
+  "Returns a truthy value indicating whether a local deactivation is
+  required."
+  [certname new-deactivation-time]
+  (when new-deactivation-time
+    (let [local-deactivated (node-deactivated-time certname)]
+      (and (not (have-newer-record-for-certname? certname new-deactivation-time))
+           (or (not local-deactivated)
+               (t/before? (from-sql-date local-deactivated)
+                          (from-sql-date new-deactivation-time)))))))
+
+(defn- set-local-deactivation-status!
+  "Returns a truthy value indicating whether a local deactivation was
+  required."
   [remote-url
    entity
    {:keys [certname deactivated] :as remote-record}
    submit-command-fn]
   ;; deactivated never goes false (null) by itself; one of the other entities
   ;; will change, reactivating it as a side effect
-  (when deactivated
+  (when (need-local-deactivation? certname deactivated)
     (with-sync-events {:context {:phase "deactivate"
                                  :certname certname
                                  :producer_timestamp deactivated}
                        :start [:debug "    deactivating {certname} as of {producer_timestamp}"]
                        :finished [:debug "    deactivated {certname}"]}
       (submit-command-fn :deactivate-node 3
-                         {:certname certname :producer_timestamp deactivated}))))
+                         {:certname certname :producer_timestamp deactivated})
+      true)))
 
 (defn outer-join-unique-sorted-seqs
   "Outer join two seqs, `xs` and `ys`, that are sorted and unique under
@@ -317,13 +334,14 @@
   [record]
   (-> record
       (utils/update-when [:start_time] to-timestamp)
-      (utils/update-when [:producer_timestamp] to-timestamp)))
+      (utils/update-when [:producer_timestamp] to-timestamp)
+      (utils/update-when [:deactivated] to-timestamp)))
 
 (defn streamed-summary-query
   "Perform the summary query at `remote-url`, as specified in
   `sync-config`. Returns a stream which must be closed."
   [remote-url sync-config]
-  (let [{:keys [entity record-hashes-query ]} sync-config
+  (let [{:keys [entity record-hashes-query]} sync-config
         {:keys [version query order]} record-hashes-query
         url (str remote-url "/" (name entity))
         error-message-fn (fn [status body]
@@ -370,8 +388,8 @@
               {:keys [version query order]} record-hashes-query
               incoming-records #(records-to-fetch record-id-fn record-ordering-fn
                                                   % remote-sync-data now node-ttl)
-              deactivate! #(set-local-deactivation-status! remote-url entity %
-                                                           submit-command-fn)
+              maybe-deactivate! #(set-local-deactivation-status!
+                                  remote-url entity % submit-command-fn)
               query-and-transfer! #(query-record-and-transfer!
                                     remote-url % submit-command-fn sync-config)]
           (query-fn entity version query order
@@ -379,12 +397,14 @@
                       (doseq [record (incoming-records local-sync-data)]
                         (try+
                           (if (= entity :nodes)
-                            (deactivate! record)
-                            (query-and-transfer! record))
-                          (swap! stats update-in [:transferred] inc)
+                            (when (maybe-deactivate! record)
+                              (swap! stats update-in [:transferred] inc))
+                            (do
+                              (query-and-transfer! record)
+                              (swap! stats update-in [:transferred] inc)))
                           (catch (remote-host-404? %) _
                             (swap! stats update-in [:failed] inc))))))
-          (zero? (:failed @stats)))))))
+          @stats)))))
 
 (defmacro wrap-with-logging [f level message]
   `(fn [& args#]
@@ -408,15 +428,16 @@
                          :start [:info "syncing with {remote}"]
                          :finished [:info "--> synced with {remote}"]
                          :error [:warn "*** trouble syncing with {remote}"]}
-
-        (doseq [sync-config sync-configs]
-          (pull-records-from-remote! query-fn
-                                     submit-command-fn
-                                     remote-url
-                                     sync-config
-                                     now
-                                     node-ttl))))
-    (events/successful-sync!)
+        (let [result (apply merge-with +
+                            (for [sync-config sync-configs]
+                              (pull-records-from-remote! query-fn
+                                                         submit-command-fn
+                                                         remote-url
+                                                         sync-config
+                                                         now
+                                                         node-ttl)))]
+          (events/successful-sync!)
+          result)))
     (catch Exception e
       (events/failed-sync!)
       (throw e))))

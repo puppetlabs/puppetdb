@@ -33,7 +33,6 @@
             [puppetlabs.kitchensink.core :as ks]
             [slingshot.slingshot :refer [try+ throw+]]
             [slingshot.test]
-            [clojure.core.match :refer [match]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.time :refer [parse-period]]
@@ -435,18 +434,20 @@
                                         :producer_timestamp (t/plus (t/now) (t/years 10))})
   @(block-until-results 103 (:deactivated (get-node (:query-url endpoint) certname))))
 
-(defn- sync [& {:keys [from to check-with check-for]}]
-  ;; pdb2 pulls data from pdb1
+(defn start-sync [& {:keys [from to]}]
+  ;; Initiate pull
   (trigger-sync (base-url->str (:query-url from))
-                (str (base-url->str (:sync-url to)) "/trigger-sync"))
+                (str (base-url->str (:sync-url to)) "/trigger-sync")))
 
-  ;; let pdb2 chew on its queue
+(defn- sync [& {:keys [from to check-with check-for] :as args}]
+  (start-sync :from from :to to)
+  ;; Wait for the receiver to chew on its queue
   @(block-until-results 200 (check-with (:query-url to) check-for)))
 
 (defn- without-timestamp [record]
   (dissoc record :timestamp))
 
-(defn- with-pdbs
+(defn with-pdbs
   "Repeatedly call (gen-config [previously-started-instance-info...])
   and start a pdb instance for each returned config.  When gen-config
   returns false, call (f instance-1-info instance-2-info...)."
@@ -477,7 +478,7 @@
      (without-jmx
       (spawn-pdbs [])))))
 
-(defn- default-pdb-configs [n]
+(defn default-pdb-configs [n]
   #(when (< (count %) n) (utils/sync-config)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -722,7 +723,7 @@
         (is (= "DEBUG" (:level item#)))
         (is (= ~event (:event m#)))
         (is (string? (:certname m#)))
-        (is (string? (:producer_timestamp m#)))
+        (is (instance? java.util.Date (:producer_timestamp m#)))
         (ok-correct? m#)
         (elapsed-correct? m#)))))
 
