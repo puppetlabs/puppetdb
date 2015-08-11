@@ -56,7 +56,7 @@
     (is (true? @after-slurp?))))
 
 (deftest query-via-puppdbserver-service
-  (svc-utils/with-single-quiet-pdb-instance
+  (svc-utils/with-puppetdb-instance
     (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)
           query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
       (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"

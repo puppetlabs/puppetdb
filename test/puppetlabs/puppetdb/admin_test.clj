@@ -36,7 +36,7 @@
         report (-> (:basic example-reports/reports)
                    (assoc :certname certname))]
 
-    (svc-utils/call-with-single-quiet-pdb-instance
+    (svc-utils/puppetdb-instance
      (fn []
        (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))
              submit-command-fn (partial submit-command (tk-app/get-service svc-utils/*server* :PuppetDBCommand))]
@@ -71,7 +71,7 @@
 
          (admin/export-app export-out-file query-fn))))
 
-    (svc-utils/call-with-single-quiet-pdb-instance
+    (svc-utils/puppetdb-instance
      (fn []
        (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))
              submit-command-fn (partial submit-command (tk-app/get-service svc-utils/*server* :PuppetDBCommand))]

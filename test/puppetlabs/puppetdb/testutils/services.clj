@@ -3,8 +3,6 @@
             [clj-time.coerce :as time-coerce]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :refer [temp-dir temp-file]]
-            [puppetlabs.puppetdb.testutils.log
-             :refer [notable-pdb-event? with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
@@ -27,11 +25,91 @@
             [slingshot.slingshot :refer [throw+]]
             [clojure.tools.logging :as log]
             [clojure.data.xml :as xml]
-            [puppetlabs.puppetdb.dashboard
-             :refer [dashboard-service dashboard-redirect-service]]))
+            [puppetlabs.puppetdb.dashboard :refer [dashboard-service dashboard-redirect-service]])
+  (:import [ch.qos.logback.core Appender spi.LifeCycle]
+           [ch.qos.logback.classic Level Logger]
+           [org.slf4j LoggerFactory]))
 
 ;; See utils.clj for more information about base-urls.
 (def ^:dynamic *base-url* nil) ; Will not have a :version.
+
+;; Some useful knobs to control logging in your tests
+(def ^:dynamic *log-level* "ERROR")
+(def ^:dynamic *pdb-log-level* "ERROR")
+(def ^:dynamic *log-levels* {}) ; a map like {"puppetlabs.puppetdb.command" "ERROR"}
+(def ^:dynamic *extra-log-config* nil)
+(def ^:dynamic *extra-appender-config* nil)
+
+(defmacro with-log-level
+  "Sets the (logback) log level for the logger specified by logger-id
+  during the execution of body.  If logger-id is not a class, it is
+  converted via str, and the level must be a clojure.tools.logging
+  key, i.e. :info, :error, etc."
+  [logger-id level & body]
+  ;; Assumes use of logback (i.e. logger supports Levels).
+  `(let [logger-id# ~logger-id
+         logger-id# (if (class? logger-id#) logger-id# (str logger-id#))
+         logger# (.getLogger (LoggerFactory/getILoggerFactory) logger-id#)
+         original-level# (.getLevel logger#)]
+     (.setLevel logger# (case ~level
+                          :trace Level/TRACE
+                          :debug Level/DEBUG
+                          :info Level/INFO
+                          :warn Level/WARN
+                          :error Level/ERROR
+                          :fatal Level/ERROR))
+     (try
+       (do ~@body)
+       (finally (.setLevel logger# original-level#)))))
+
+(defn create-log-appender-to-atom
+  [destination-atom]
+  ;; No clue yet if we're supposed to start with a default name.
+  (let [name (atom (str "log-appender-to-atom-" (kitchensink/uuid)))]
+    (reify
+      Appender
+      (doAppend [this event] (swap! destination-atom conj event))
+      (getName [this] @name)
+      (setName [this x] (reset! name x))
+      LifeCycle
+      (start [this] true)
+      (stop [this] true))))
+
+(defmacro with-logging-to-atom
+  "Conjoins all logger-id events produced during the execution of the
+  body to the destination atom, which must contain a collection.  If
+  logger-id is not a class, it is converted via str."
+  [logger-id destination & body]
+  ;; Specify the root logger via org.slf4j.Logger/ROOT_LOGGER_NAME.
+  `(let [logger-id# ~logger-id
+         logger-id# (if (class? logger-id#) logger-id# (str logger-id#))
+         logger# (.getLogger (LoggerFactory/getILoggerFactory) logger-id#)
+         appender# (doto (create-log-appender-to-atom ~destination) .start)]
+     (.addAppender logger# appender#)
+     (try
+       (do ~@body)
+       (finally (.detachAppender logger# appender#)))))
+
+(defn log-config
+  "Returns a logback.xml string with the specified `log-file` `log-level`."
+  [log-file]
+  (-> [:configuration
+       [:appender {:name "FILE" :class "ch.qos.logback.core.FileAppender"}
+        [:file log-file]
+        [:append true]
+        [:encoder
+         [:pattern "%-4relative [%thread] %-5level %logger{35} - %msg%n"]]
+        *extra-appender-config*]
+
+       (map (fn [[k v]] [:logger {:name k :level (name v)}])
+            *log-levels*)
+       [:logger {:name "puppetlabs.puppetdb" :level *pdb-log-level*}]
+       *extra-log-config*
+
+       [:root {:level *log-level*}
+        [:appender-ref {:ref "FILE"}]]]
+      xml/sexp-as-element
+      xml/emit-str))
 
 (defn create-config
   "Creates a default config, populated with a temporary vardir and
@@ -42,6 +120,15 @@
    :jetty {:port 0}
    :database (fixt/create-db-map)
    :command-processing {}})
+
+(defn assoc-logging-config
+  "Adds a dynamically created logback.xml with a test log. The
+  generated log file name is returned for printing to the console."
+  [config]
+  (let [logback-file (fs/absolute-path (temp-file "logback" ".xml"))
+        log-file (fs/absolute-path (temp-file "jett-test" ".log"))]
+    (spit logback-file (log-config log-file))
+    [log-file (assoc-in config [:global :logging-config] logback-file)]))
 
 (defn open-port-num
   "Returns a currently open port number"
@@ -59,23 +146,24 @@
 
 (def ^:dynamic *server*)
 
-(defn call-with-puppetdb-instance
+(defn puppetdb-instance
   "Stands up a puppetdb instance with `config`, tears down once `f` returns.
   `services` is a seq of additional services that should be started in
   addition to the core PuppetDB services. Binds *server* and
   *base-url* to refer to the instance. `attempts` indicates how many
   failed attempts should be made to bind to an HTTP port before giving
-  up, defaults to 10."
-  ([f] (call-with-puppetdb-instance (create-config) f))
-  ([config f] (call-with-puppetdb-instance config [] f))
+  up, defaults to 10"
+  ([f] (puppetdb-instance (create-config) f))
+  ([config f] (puppetdb-instance config [] f))
   ([config services f]
-   (call-with-puppetdb-instance config services 10 f))
+   (puppetdb-instance config services 10 f))
   ([config services attempts f]
    (when (zero? attempts)
      (throw (RuntimeException. "Repeated attempts to bind port failed, giving up")))
-   (let [config (-> config
-                    conf/adjust-and-validate-tk-config
-                    assoc-open-port)
+   (let [[log-file config] (-> config
+                               conf/adjust-and-validate-tk-config
+                               assoc-open-port
+                               assoc-logging-config)
          port (or (get-in config [:jetty :port])
                   (get-in config [:jetty :ssl-port]))
          is-ssl (boolean (get-in config [:jetty :ssl-port]))
@@ -104,29 +192,21 @@
            (f)))
        (catch java.net.BindException e
          (log/errorf e "Error occured when Jetty tried to bind to port %s, attempt #%s" port attempts)
-         (call-with-puppetdb-instance config services (dec attempts) f))))))
+         (puppetdb-instance config services (dec attempts) f))
+       (finally
+         (let [log-contents (slurp log-file)]
+           (when-not (str/blank? log-contents)
+             (utils/println-err
+               "-------Begin PuppetDB Instance Log--------------------\n"
+               log-contents
+               "\n-------End PuppetDB Instance Log----------------------"))))))))
 
 (defmacro with-puppetdb-instance
   "Convenience macro to launch a puppetdb instance"
   [& body]
-  `(call-with-puppetdb-instance
+  `(puppetdb-instance
     (fn []
       ~@body)))
-
-(defn call-with-single-quiet-pdb-instance
-  "Calls the call-with-puppetdb-instance with args after suppressing
-  all log events.  If there's an error or worse, prints the log to
-  *err*.  Should not be nested, nor nested with calls to
-  with-log-suppressed-unless-notable."
-  [& args]
-  (with-log-suppressed-unless-notable notable-pdb-event?
-    (apply call-with-puppetdb-instance args)))
-
-(defmacro with-single-quiet-pdb-instance
-  "Convenience macro for call-with-single-quiet-pdb-instance."
-  [& body]
-  `(call-with-single-quiet-pdb-instance
-    (fn [] ~@body)))
 
 (def max-attempts 50)
 
@@ -177,8 +257,8 @@
             (recur (inc attempts)))))))
 
 (defn queue-metadata
-  "Return command queue metadata from the current PuppetDB instance as
-  a map:
+  "Return command queue metadata (from the `puppetdb-instance` launched PuppetDB)
+   as a map:
 
   EnqueueCount - total number of messages sent to the queue since startup
   DequeueCount - total number of messages dequeued (ack'd by consumer) since startup
@@ -188,23 +268,23 @@
 
   http://activemq.apache.org/how-do-i-find-the-size-of-a-queue.html"
   []
-  ;; When starting up an instance via call-with-puppetdb-instance
-  ;; there seems to be a brief period of time that the server is up,
-  ;; the broker has been started, but the JMX beans have not been
-  ;; initialized, so querying for queue metrics fails.  This check
-  ;; ensures it has started.
+  ;; When starting up a `puppetdb-instance` there seems to be a brief
+  ;; period of time that the server is up, the broker has been
+  ;; started, but the JMX beans have not been initialized, so querying
+  ;; for queue metrics fails, this check ensures it's started
   (-> (mbeans-url-str *base-url* (command-mbean-name (:host *base-url*)))
       (client/get {:as :json})
       :body))
 
 (defn current-queue-depth
-  "Returns current PuppetDB instance's queue depth."
+  "Return the queue depth currently running PuppetDB instance
+   (see `puppetdb-instance` for launching PuppetDB)"
   []
   (:QueueSize (queue-metadata)))
 
 (defn discard-count
-  "Returns the number of messages discarded from the command queue by
-  the current PuppetDB instance."
+  "Return the number of discarded messages from the command queue for the current
+   running `puppetdb-instance`"
   []
   (-> (mbeans-url-str *base-url* "puppetlabs.puppetdb.command:type=global,name=discarded")
       (client/get {:as :json})
@@ -266,7 +346,8 @@
         result)))))
 
 (defn dispatch-count
-  "Returns the dispatch count for the currently running PuppetDB instance."
+  "Return the queue depth currently running PuppetDB instance
+   (see `puppetdb-instance` for launching PuppetDB)"
   [dest-name]
   (-> (mbeans-url-str *base-url* (command-mbean-name (:host *base-url*)))
       (client/get {:as :json})
