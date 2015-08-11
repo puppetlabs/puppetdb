@@ -3,6 +3,7 @@
   (:require [clj-time.core :as time]
             [clojure.tools.logging :as log]
             [overtone.at-at :as atat]
+            [puppetlabs.pe-puppetdb-extensions.semlog :as semlog]
             [puppetlabs.puppetdb.time :refer [to-millis periods-equal? parse-period period?]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote!]]
@@ -16,29 +17,42 @@
             [clojure.core.match :as m]
             [com.rpl.specter :as sp]))
 
+(def currently-syncing (atom false))
 
-(defn- query-endpoint [server-url]
+(def sync-request-schema {:remote_host_path s/Str})
+
+(defn query-endpoint [server-url]
   (let [top-uri (java.net.URI. server-url)]
     (str (.resolve top-uri "/pdb/query/v4"))))
 
 (defn- sync-with! [server-url query-fn submit-command-fn node-ttl]
-  (let [endpoint (query-endpoint server-url)]
-   (try
-     (sync-from-remote! query-fn submit-command-fn endpoint node-ttl)
-     (catch Exception ex
-       (log/errorf ex "Remote sync from %s failed" endpoint)))))
-
-(def sync-request-schema {:remote_host_path s/Str})
+  (if (compare-and-set! currently-syncing false true)
+    (try (sync-from-remote! query-fn submit-command-fn server-url node-ttl)
+         {:status 200 :body "success"}
+         (catch Exception ex
+           (let [err "Remote sync from %s failed"]
+             (semlog/maplog [:sync :error]
+                            {:remote server-url :response ex :phase "sync"}
+                            (format err server-url))
+             (log/error ex err server-url)
+             {:status 200 :body (format err server-url)}))
+         (finally (swap! currently-syncing (constantly false))))
+    (let [err "Refusing to sync from %s. Sync already in progress."]
+      (semlog/maplog [:sync :info]
+                     {:remote server-url :phase "sync"}
+                     (format err server-url))
+      (log/infof err server-url)
+      {:status 200 :body (format err server-url)})))
 
 (defn sync-app
   "Top level route for PuppetDB sync"
   [query-fn submit-command-fn node-ttl]
   (routes
-   (POST "/v1/trigger-sync" {:keys [body]}
-         (let [sync-request (json/parse-string (slurp body) true)]
-           (s/validate sync-request-schema sync-request)
-           (sync-from-remote! query-fn submit-command-fn (:remote_host_path sync-request) node-ttl)
-           {:status 200 :body "success"}))))
+    (POST "/v1/trigger-sync" {:keys [body]}
+          (let [sync-request (json/parse-string (slurp body) true)
+                remote-url (:remote_host_path sync-request)]
+            (s/validate sync-request-schema sync-request)
+            (sync-with! remote-url query-fn submit-command-fn node-ttl)))))
 
 (defn enable-periodic-sync? [remotes]
   (cond
@@ -178,7 +192,8 @@
                (assoc context
                       :scheduled-sync
                       (atat/interspaced (to-millis interval)
-                                        #(sync-with! server_url query submit-command node-ttl)
+                                        #(sync-with! (query-endpoint server_url) query
+                                                     submit-command node-ttl)
                                         (atat/mk-pool))))
              context)))
 
