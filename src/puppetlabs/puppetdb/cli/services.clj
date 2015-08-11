@@ -248,7 +248,7 @@
       (initialize-schema db-pool-map product-name))))
 
 (defn start-puppetdb
-  [context config service get-route]
+  [context config service get-registered-endpoints]
   {:pre [(map? context)
          (map? config)]
    :post [(map? %)
@@ -264,7 +264,18 @@
                  max-frame-size threads]} command-processing
         {:keys [certificate-whitelist
                 disable-update-checking]} puppetdb
-        url-prefix "/pdb";;(get-route service)
+
+        ;;This is a hack to get around startup order, this service no
+        ;;longer manages the root context of PuppetDB, pdb-routing
+        ;;does. Since this feeds off of shared globals (which comes
+        ;;from this service) this URL prefix is needed here. When we
+        ;;refactor away from shared globals, this will go away and
+        ;;will be handed to the query routes by pdb-routing. Note this
+        ;;is also sensitive to startup order. get-registered-endpoints
+        ;;only has one item in the map at that point (metrics gets
+        ;;added later
+        url-prefix (ffirst (get-registered-endpoints))
+
         write-db (pl-jdbc/pooled-datasource database)
         read-db (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
         mq-dir (str (io/file vardir "mq"))
@@ -353,10 +364,10 @@
   that trapperkeeper will call on exit."
   PuppetDBServer
   [[:ConfigService get-config]
-   [:WebroutingService add-ring-handler get-route]]
+   [:WebroutingService add-ring-handler get-registered-endpoints]]
 
   (start [this context]
-         (start-puppetdb context (get-config) this get-route))
+         (start-puppetdb context (get-config) this get-registered-endpoints))
 
   (stop [this context]
         (stop-puppetdb context))

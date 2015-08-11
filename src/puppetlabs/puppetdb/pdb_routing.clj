@@ -56,6 +56,6 @@
                                                          query
                                                          enqueue-raw-command
                                                          response-pub)))
-        (assoc context ::pdb-routing (atom {})))
+        context)
   (start [this context]
          context))
