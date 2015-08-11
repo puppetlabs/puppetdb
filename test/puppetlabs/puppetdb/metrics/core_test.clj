@@ -36,7 +36,7 @@
 (deftestseq metrics-set-handler
   [version api-versions]
 
-  (let [app (server/build-app {})
+  (let [app (server/build-app nil)
         mbeans-endpoint (str version "/mbeans")]
     (testing "Remote metrics endpoint"
       (testing "should return a http/status-not-found for an unknown metric"

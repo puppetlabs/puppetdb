@@ -31,7 +31,7 @@
                        (mapcat (partial export/get-node-data query-fn)))))
 
 (defn build-app
-  [submit-command-fn query-fn {:keys [authorizer]}]
+  [get-authorizer submit-command-fn query-fn]
   (-> (compojure/routes
        (mp/wrap-multipart-params
         (compojure/POST "/v1/archive" request
@@ -44,4 +44,4 @@
                       (http/streamed-tar-response #(export-app % query-fn)
                                                   (format "puppetdb-export-%s.tgz" (now))))
        (route/not-found "Not Found"))
-      (mid/wrap-with-puppetdb-middleware authorizer)))
+      (mid/wrap-with-puppetdb-middleware get-authorizer)))

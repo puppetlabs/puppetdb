@@ -31,23 +31,21 @@
 (defn wrap-with-authorization
   "Ring middleware that will only pass through a request if the
   supplied authorization function allows it. Otherwise an HTTP 403 is
-  returned to the client.
-
-  `authorizer` is expected to take a single argument, the current
-  request. The request is allowed only if the return value of
-  `authorizor` is :authorized; otherwise, its value is taken to be a
-  message describing the reason that access is not allowed."
-  [app authorizer]
-  (let [authorizer (if-not (nil? authorizer)
-                     authorizer
-                     (constantly :authorized))]
-    (fn [req]
-      (let [auth-result (authorizer req)]
-        (if (= :authorized auth-result)
-          (app req)
-          (-> (str "Permission denied: " auth-result)
-              (rr/response)
-              (rr/status http/status-forbidden)))))))
+  returned to the client.  If get-authorizer is nil or false, all
+  requests will be accepted.  Otherwise it must accept no arguments
+  and return an authorize function that accepts a request.  The
+  request will be allowed only if authorize returns :authorized.
+  Otherwise, the return value should be a message describing the
+  reason that access was denied."
+  [app get-authorizer]
+  (fn [req]
+    (let [authorize (and get-authorizer (get-authorizer))
+          auth-result (if authorize (authorize req) :authorized)]
+      (if (= :authorized auth-result)
+        (app req)
+        (-> (str "Permission denied: " auth-result)
+            (rr/response)
+            (rr/status http/status-forbidden))))))
 
 (defn wrap-with-certificate-cn
   "Ring middleware that will annotate the request with an
@@ -72,11 +70,11 @@
         (assoc response :body (http/default-body req response))))))
 
 (defn wrap-with-globals
-  "Ring middleware that will add to each request a :globals attribute:
-  a map containing various global settings"
-  [app globals]
+  "Ring middleware that adds a :globals attribute to each request that
+  contains a map of the current shared-global settings."
+  [app get-shared-globals]
   (fn [req]
-    (let [new-req (assoc req :globals globals)]
+    (let [new-req (assoc req :globals (get-shared-globals))]
       (app new-req))))
 
 (defn wrap-with-paging-options
@@ -281,10 +279,10 @@
 
 (defn wrap-with-puppetdb-middleware
   "Default middleware for puppetdb webservers."
-  [app authorizer]
+  [app get-authorizer]
   (-> app
       wrap-params
-      (wrap-with-authorization authorizer)
+      (wrap-with-authorization get-authorizer)
       wrap-with-certificate-cn
       wrap-with-default-body
       wrap-with-debug-logging))

@@ -38,16 +38,14 @@
    ["v3" &] {:any (refuse-retired-api "v3")}))
 
 (defn build-app
-  "Generate a Ring application that handles PuppetDB requests
-
-  `globals` is a map containing global state useful
-   to request handlers which may contain the following:
-
-  * `authorizer` - a function that takes a request and returns a
-    :authorized if the request is authorized, or a user-visible reason if not.
-    If not supplied, we default to authorizing all requests."
-  [{:keys [authorizer] :as globals}]
+  "Generates a Ring application that handles PuppetDB requests.
+  If get-authorizer is nil or false, all requests will be accepted.
+  Otherwise it must accept no arguments and return an authorize
+  function that accepts a request.  The request will be allowed only
+  if authorize returns :authorized.  Otherwise, the return value
+  should be a message describing the reason that access was denied."
+  [get-authorizer get-shared-globals]
   (-> routes
-      (wrap-with-puppetdb-middleware authorizer)
+      (wrap-with-puppetdb-middleware get-authorizer)
       (wrap-with-metrics (atom {}) http/leading-uris)
-      (wrap-with-globals globals)))
+      (wrap-with-globals get-shared-globals)))
