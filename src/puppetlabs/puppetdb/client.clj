@@ -22,15 +22,31 @@
     command :- s/Str
     version :- s/Int
     payload]
-     (->> payload
-          (command/assemble-command command version)
-          (submit-command-via-http! base-url)))
+   (submit-command-via-http! base-url
+                             (command/assemble-command command version payload)
+                             nil))
+
+  ([base-url
+    command :- s/Str
+    version :- s/Int
+    payload
+    timeout]
+   (submit-command-via-http! base-url
+                             (command/assemble-command command version payload)
+                             timeout))
+
   ([base-url :- utils/base-url-schema
     command-map :- {s/Any s/Any}]
+   (submit-command-via-http! base-url command-map nil))
+
+  ([base-url :- utils/base-url-schema
+    command-map :- {s/Any s/Any}
+    timeout]
      (let [message (json/generate-string command-map)
            checksum (kitchensink/utf8-string->sha1 message)
            url (str (utils/base-url->str base-url)
-                    (format "?checksum=%s" checksum))]
+                    (format "?checksum=%s" checksum)
+                    (when timeout (format "&secondsToWaitForCompletion=%s" timeout)))]
        (http-client/post url {:body               message
                               :throw-exceptions   false
                               :content-type       :json

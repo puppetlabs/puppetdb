@@ -52,6 +52,26 @@ receive the following:
 
 The PuppetDB termini for puppet masters use this command API to update facts, catalogs, and reports for nodes.
 
+### Blocking command submission (EXPERIMENTAL)
+
+When submitting a command, you may specify the "secondsToWaitForCompletion"
+query parameter. If you do, PuppetDB will block the request until the command
+has been processed, or until the specified timeout has passed, whichever comes
+first. The response will indicate which happened:
+
+* When a command has timed out, the response code will be 503 and the response
+  body JSON will contain a "processed" key with the value false. This does not
+  mean that the command succeeded or failed; it simply means that the specified
+  timeout passed.
+
+* When a command completes within the timeout, the response code with be 200 and
+  "processed" will be true. It does not indicate success or failure, just that
+  it has been processed.
+
+Note: This is an /EXPERIMENTAL/ feature, and it may be changed or removed at any
+time. Although convenient, it should be used with caution. Always prefer
+non-blocking command submission.
+
 ## Command Semantics
 
 Commands are processed _asynchronously_. If PuppetDB returns a 200

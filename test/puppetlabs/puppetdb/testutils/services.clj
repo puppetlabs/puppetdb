@@ -357,9 +357,8 @@
   "Syncronously post a command to PDB by blocking until the message is consumed
    off the queue."
   [base-url cmd version payload]
-  (until-consumed
-   (fn []
-     (pdb-client/submit-command-via-http! base-url cmd version payload))))
+  (let [timeout-seconds 10]
+    (pdb-client/submit-command-via-http! base-url cmd version payload timeout-seconds)))
 
 (defn wait-for-server-processing
   "Returns a truthy value indicating whether the wait was
