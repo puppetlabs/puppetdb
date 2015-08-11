@@ -9,7 +9,10 @@
             [clj-time.coerce :refer [to-string]]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils.dashboard :as dtu]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.cli.services :as clisvc]
+            [puppetlabs.puppetdb.pdb-routing :refer :all]
+            [puppetlabs.trapperkeeper.app :as tk-app]))
 
 (defn command-base-url
   [base-url]
@@ -19,7 +22,8 @@
 
 (defn pdb-get [base-url url-suffix]
   (let [resp (client/get (str (utils/base-url->str base-url)
-                              url-suffix))]
+                              url-suffix)
+                         {:throw-exceptions false})]
     (if (tu/json-content-type? resp)
       (update resp :body #(json/parse-string % true))
       resp)))
@@ -50,17 +54,18 @@
              :version :v1)
            "/server-time"))
 
+(def test-facts {:certname "foo.com"
+                 :environment "DEV"
+                 :producer_timestamp (to-string (now))
+                 :values {:foo 1
+                          :bar "2"
+                          :baz 3}})
+
 (deftest top-level-routes
   (svc-utils/call-with-puppetdb-instance
    (fn []
      (let [pdb-resp (client/get (dtu/dashboard-base-url->str (assoc svc-utils/*base-url*
-                                                               :prefix "/pdb")))
-           test-facts {:certname "foo.com"
-                       :environment "DEV"
-                       :producer_timestamp (to-string (now))
-                       :values {:foo 1
-                                :bar "2"
-                                :baz 3}}]
+                                                               :prefix "/pdb")))]
        (tu/assert-success! pdb-resp)
        (is (dtu/dashboard-page? pdb-resp))
 
@@ -68,14 +73,28 @@
                (get-in [:body :server_time])
                time/from-string))
 
-       (is (= 200 (:status (submit-facts svc-utils/*base-url* test-facts))))
 
-       (is (= #{"foo" "bar" "baz"}
-              (-> (query-fact-names svc-utils/*base-url*)
-                  :body
-                  set)))
 
        (let [resp (export svc-utils/*base-url*)]
          (tu/assert-success! resp)
          (is (.contains (get-in resp [:headers "Content-Disposition"]) "puppetdb-export"))
          (is (:body resp)))))))
+
+(deftest maintenance-mode
+  (svc-utils/call-with-puppetdb-instance
+   (fn []
+     (let [maint-mode-service (tk-app/get-service svc-utils/*server* :MaintenanceMode)]
+       (is (= 200 (:status (submit-facts svc-utils/*base-url* test-facts))))
+       (is (= #{"foo" "bar" "baz"}
+              (-> (query-fact-names svc-utils/*base-url*)
+                  :body
+                  set)))
+       (enable-maint-mode maint-mode-service)
+       (is (= (:status (query-fact-names svc-utils/*base-url*))
+              503))
+
+       (disable-maint-mode maint-mode-service)
+       (is (= #{"foo" "bar" "baz"}
+              (-> (query-fact-names svc-utils/*base-url*)
+                  :body
+                  set)))))))
