@@ -1,9 +1,11 @@
 (ns puppetlabs.puppetdb.cheshire-test
-  (:import (java.io StringWriter StringReader))
   (:require [clj-time.core :as clj-time]
             [puppetlabs.puppetdb.testutils :as tu]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.cheshire :refer :all]))
+            [puppetlabs.puppetdb.cheshire :refer :all])
+  (:import [java.io StringWriter StringReader]
+           [java.sql Timestamp]
+           [org.joda.time DateTime]))
 
 (deftest test-generate-string
   (testing "should generate a json string"
@@ -34,6 +36,17 @@
       (generate-pretty-stream (sorted-map :a 1 :b 2) sw)
       (is (= (.toString sw)
              "{\n  \"a\" : 1,\n  \"b\" : 2\n}")))))
+
+(deftest test-date-generation
+  (let [t (java.util.Date. 5928174905781)]
+    (is (= "\"2157-11-09T03:15:05.781Z\""
+           (generate-string t))))
+  (let [t (DateTime. 5928174905781)]
+    (is (= "\"2157-11-09T03:15:05.781Z\""
+           (generate-string t))))
+  (let [t (Timestamp. 5928174905781)]
+    (is (= "\"2157-11-09T03:15:05.781Z\""
+           (generate-string t)))))
 
 (deftest test-parse-string
   (testing "should return a map from parsing a json string"

@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.command-test
   (:require [me.raynes.fs :as fs]
+            [clj-http.client :as client]
             [clojure.java.jdbc.deprecated :as sql]
             [cheshire.core :as json]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -13,7 +14,7 @@
             [puppetlabs.puppetdb.command :refer :all]
             [puppetlabs.puppetdb.testutils :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]
-            [puppetlabs.puppetdb.jdbc :refer [query-to-vec]]
+            [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.reports :refer [munge-example-report-for-storage]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
@@ -27,7 +28,8 @@
             [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :as pt]
-            [puppetlabs.trapperkeeper.app :refer [get-service]]))
+            [puppetlabs.trapperkeeper.app :refer [get-service]])
+  (:import [org.joda.time DateTime DateTimeZone]))
 
 (use-fixtures :each with-test-db)
 
@@ -1297,6 +1299,45 @@
           (while (not= 1 (:executed-commands (stats)))
             (Thread/sleep 100))
           (is (= {:received-commands 1 :executed-commands 1} (stats))))))))
+
+(deftest date-round-trip
+  (svc-utils/with-puppetdb-instance
+    (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
+          dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
+          shared-globals (partial cli-svc/shared-globals pdb)
+          enqueue-command (partial enqueue-command dispatcher)
+          globals (shared-globals)
+          {{:keys [connection endpoint]} :command-mq} globals
+          deactivate-ms 14250331086887
+          ;; The problem only occurred if you passed a Date to
+          ;; enqueue, a DateTime wasn't a problem.
+          input-stamp (java.util.Date. deactivate-ms)
+          expected-stamp (DateTime. deactivate-ms DateTimeZone/UTC)]
+      (enqueue-command connection endpoint
+                       (command-names :deactivate-node) 3
+                       {:certname "foo.local" :producer_timestamp input-stamp})
+      (is (svc-utils/wait-for-server-processing svc-utils/*server* 5000))
+      ;; While we're here, check the value in the database too...
+      (is (= expected-stamp
+             (jdbc/with-transacted-connection
+               (:scf-read-db globals)
+               :repeatable-read
+               (from-sql-date (scf-store/node-deactivated-time "foo.local")))))
+      (is (= expected-stamp
+             (-> (client/get (str (utils/base-url->str svc-utils/*base-url*)
+                                  "/nodes")
+                             {:accept :json
+                              :throw-exceptions true
+                              :throw-entire-message true
+                              :query-params {"query"
+                                             (json/generate-string
+                                              ["or" ["=" ["node" "active"] true]
+                                               ["=" ["node" "active"] false]])}})
+                 :body
+                 json/parse-string
+                 first
+                 (get "deactivated")
+                 (pt/from-string)))))))
 
 ;; Local Variables:
 ;; mode: clojure
