@@ -38,19 +38,32 @@
 
 (add-common-json-encoders!)
 
-(def default-pretty-opts {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" :pretty true})
+(def default-opts {:date-format "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"})
+(def default-pretty-opts (assoc default-opts :pretty true))
 
-(def generate-string core/generate-string)
-
-(def generate-stream core/generate-stream)
+(defn generate-string
+  "Thinly wraps cheshire.core/generate-string, adding the PuppetDB
+  default date format."
+  ([obj]
+   (core/generate-string obj default-opts))
+  ([obj opts]
+   (core/generate-string obj (merge default-opts opts))))
 
 (defn generate-pretty-string
-  "Thinly wraps cheshire.core/generate-string, adding the PuppetDB default date format
-   and pretty printing from `default-pretty-opts`"
+  "Thinly wraps cheshire.core/generate-string, adding the PuppetDB
+  default date format and pretty printing from `default-pretty-opts`"
   ([obj]
-     (generate-pretty-string obj default-pretty-opts))
+   (core/generate-string obj default-pretty-opts))
   ([obj opts]
-     (generate-string obj (merge default-pretty-opts opts))))
+   (core/generate-string obj (merge default-pretty-opts opts))))
+
+(defn generate-stream
+  "Thinly wraps cheshire.core/generate-stream, adding the PuppetDB
+  default date format."
+  ([obj writer]
+   (core/generate-stream obj writer default-opts))
+  ([obj writer opts]
+   (core/generate-stream obj writer (merge default-opts opts))))
 
 (defn generate-pretty-stream
   "Thinly wraps cheshire.core/generate-stream, adding the PuppetDB default date format

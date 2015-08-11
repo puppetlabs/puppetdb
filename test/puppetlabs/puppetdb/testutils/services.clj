@@ -1,7 +1,10 @@
 (ns puppetlabs.puppetdb.testutils.services
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
+  (:require [clj-time.core :as t]
+            [clj-time.coerce :as time-coerce]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :refer [temp-dir temp-file]]
             [puppetlabs.puppetdb.fixtures :as fixt]
+            [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
@@ -10,7 +13,7 @@
             [puppetlabs.puppetdb.metrics :as metrics]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
-            [puppetlabs.puppetdb.command :refer [command-service]]
+            [puppetlabs.puppetdb.command :refer [command-service] :as dispatch]
             [puppetlabs.puppetdb.http.command :refer [puppetdb-command-service]]
             [puppetlabs.puppetdb.meta :refer [metadata-service]]
             [puppetlabs.puppetdb.utils :as utils]
@@ -357,3 +360,25 @@
   (until-consumed
    (fn []
      (pdb-client/submit-command-via-http! base-url cmd version payload))))
+
+(defn wait-for-server-processing
+  "Returns a truthy value indicating whether the wait was
+  successful (i.e. didn't time out).  The current timeout granularity
+  may be as bad as 10ms."
+  [server timeout-ms]
+  (let [now-ms #(time-coerce/to-long (t/now))
+        deadline (+ (now-ms) timeout-ms)]
+    (loop []
+      (cond
+        (> (now-ms) deadline)
+        false
+
+        (let [srv (get-service server :PuppetDBCommandDispatcher)
+              stats (dispatch/stats srv)]
+          (= (:executed-commands stats) (:received-commands stats)))
+        true
+
+        :else ;; In theory, polling might be avoided via watcher.
+        (do
+          (Thread/sleep 10)
+          (recur))))))
