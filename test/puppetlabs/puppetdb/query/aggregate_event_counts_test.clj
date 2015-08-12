@@ -10,12 +10,13 @@
 
 (defn- aggregate-counts-query-result
   "Utility function that executes an aggregate-event-counts query
-  and returns a set of results for use in test comparison."
+   and returns a set of results for use in test comparison."
   ([version query summarize_by]
-     (aggregate-counts-query-result version query summarize_by {}))
+   (aggregate-counts-query-result version query summarize_by {}))
   ([version query summarize_by extra-query-params]
-     (-> (aggregate-event-counts/query->sql version query [summarize_by extra-query-params])
-         (aggregate-event-counts/query-aggregate-event-counts))))
+   (let [augmented-params (assoc extra-query-params :summarize_by summarize_by)]
+     (-> (aggregate-event-counts/query->sql version query augmented-params)
+         (aggregate-event-counts/query-aggregate-event-counts)))))
 
 (deftest ^{:hsqldb false} aggregate-event-count-queries
   (store-example-report! (:basic reports) (now))

@@ -2,11 +2,13 @@
   (:require [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.reports :as report]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query-eng :as eng]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clj-time.coerce :as time-coerce]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage]]
             [flatland.ordered.map :as omap]))
 
@@ -133,3 +135,19 @@
        utils/vector-maybe
        (map (comp munge-report-for-comparison
                   munge-example-report-for-storage))))
+
+(defn is-latest-report?
+  "Given a node and a report hash, return `true` if the report is the most recent one for the node,
+  and `false` otherwise."
+  [node report-hash]
+  {:pre  [(string? node)
+          (string? report-hash)]
+   :post [(kitchensink/boolean? %)]}
+  (= 1 (count (jdbc/query-to-vec
+                [(format "SELECT %s as latest_report_hash
+                          FROM certnames
+                          INNER JOIN reports ON reports.id = certnames.latest_report_id
+                          WHERE certnames.certname = ? AND %s = ?"
+                         (sutils/sql-hash-as-str "reports.hash")
+                         (sutils/sql-hash-as-str "reports.hash"))
+                node report-hash]))))

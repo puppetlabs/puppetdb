@@ -18,7 +18,6 @@
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.reports :refer :all]
             [puppetlabs.puppetdb.testutils.events :refer :all]
-            [puppetlabs.puppetdb.query.reports :refer [is-latest-report?]]
             [puppetlabs.puppetdb.scf.storage :refer :all]
             [clojure.test :refer :all]
             [clojure.math.combinatorics :refer [combinations subsets]]
@@ -1394,7 +1393,7 @@
             certname      (:certname report1)
             _             (delete-reports-older-than! (-> 3 days ago))
             expected      #{}
-            actual (set (query-resource-events :latest ["=" "report" report1-hash]))]
+            actual (set (query-resource-events :latest ["=" "report" report1-hash] {}))]
         (is (= expected actual))))))
 
 (defn with-db-version [db version f]

@@ -403,7 +403,7 @@
     (let [version :v4]
       (testing "retrieval of events for distinct resources only"
         (let [expected  (expected-resource-events version events3 basic3)
-              actual (distinct-resource-events version ["=" "certname" "foo.local"] {}
+              actual (distinct-resource-events version ["=" "certname" "foo.local"]
                                                {:distinct_resources? true
                                                 :distinct_start_time (to-timestamp 0)
                                                 :distinct_end_time   (to-timestamp (now))})]
@@ -412,7 +412,7 @@
 
       (testing "events should be contained within distinct resource timestamps"
         (let [expected  (expected-resource-events version events1 basic1)
-              actual (distinct-resource-events version ["=" "certname" "foo.local"] {}
+              actual (distinct-resource-events version ["=" "certname" "foo.local"]
                                                {:distinct_resources? true
                                                 :distinct_start_time (to-timestamp 0)
                                                 :distinct_end_time (to-timestamp "2011-01-02T12:00:01-03:00")})]
@@ -424,9 +424,9 @@
               actual (distinct-resource-events version ["and" ["=" "certname" "foo.local"]
                                                         ["=" "status" "success"]
                                                         ["=" "resource_title" "notify, yar"]]
-                                               {} {:distinct_resources? true
-                                                   :distinct_start_time (to-timestamp 0)
-                                                   :distinct_end_time   (to-timestamp (now))})]
+                                               {:distinct_resources? true
+                                                :distinct_start_time (to-timestamp 0)
+                                                :distinct_end_time   (to-timestamp (now))})]
           (is (= (count expected) (count actual)))
           (is (= actual expected)))))))
 
@@ -447,7 +447,8 @@
         (testing "rejects invalid fields"
           (is (thrown-with-msg?
                IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
-               (query-resource-events version [">" "timestamp" 0] {:order_by [[:invalid-field :ascending]]}))))
+               (query-resource-events version [">" "timestamp" 0]
+                                      {:order_by [[:invalid-field :ascending]]}))))
 
         (testing "numerical fields"
           (doseq [[order expected-events] [[:ascending  [10 11 12]]
@@ -455,7 +456,8 @@
             (testing order
               (let [expected (raw-expected-resource-events
                                version (select-values expected-events) basic4)
-                    actual (query-resource-events version [">" "timestamp" 0] {:order_by [[:line order]]})]
+                    actual (query-resource-events version [">" "timestamp" 0]
+                                                  {:order_by [[:line order]]})]
                 (is (= actual expected))))))
 
         (testing "alphabetical fields"
@@ -464,7 +466,8 @@
             (testing order
               (let [expected (raw-expected-resource-events
                                version (select-values expected-events) basic4)
-                    actual (query-resource-events version [">" "timestamp" 0] {:order_by [[:file order]]})]
+                    actual (query-resource-events version [">" "timestamp" 0]
+                                                  {:order_by [[:file order]]})]
                 (is (= actual expected))))))
 
         (testing "timestamp fields"

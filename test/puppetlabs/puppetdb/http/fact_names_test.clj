@@ -36,7 +36,7 @@
     (testing "should return an empty list if there are no facts"
       (let [request (get-request endpoint)
             {:keys [status body]} (fixt/*app* request)
-            result (json/parse-string body)]
+            result (parse-result body)]
         (is (= status http/status-ok))
         (is (empty? result))))
 
@@ -61,12 +61,45 @@
                              :environment "DEV"
                              :producer_timestamp (now)}))
 
-    (testing "should retrieve all fact names, order alphabetically, including deactivated nodes"
-      (let [request (get-request endpoint)
-            {:keys [status body]} (fixt/*app* request)
-            result (json/parse-string body)]
-        (is (= status http/status-ok))
-        (is (= result ["domain" "hostname" "kernel" "memorysize" "operatingsystem" "uptime_seconds"]))))))
+    (let [expected-result ["domain" "hostname" "kernel" "memorysize" "operatingsystem" "uptime_seconds"]]
+      (testing "should retrieve all fact names, order alphabetically, including deactivated nodes"
+        (let [request (get-request endpoint)
+              {:keys [status body]} (fixt/*app* request)
+              result (vec (parse-result body))]
+          (is (= status http/status-ok))
+          (is (= result expected-result))))
+
+      (testing "should retrieve all fact names, ordered reverse-alphabetically,
+                including deactivated nodes"
+        (let [request (get-request endpoint nil
+                                   {:order_by (json/generate-string [{:field "name" :order "desc"}])})
+              {:keys [status body]} (fixt/*app* request)
+              result (vec (parse-result body))]
+          (is (= status http/status-ok))
+          (is (= result (reverse expected-result)))))
+
+      (testing "order by rejects invalid fields"
+        (let [request (get-request endpoint nil
+                                   {:order_by (json/generate-string [{:field "invalid"
+                                                                      :order "desc"}])})
+              {:keys [status body]} (fixt/*app* request)
+              result (parse-result body)]
+          (is (= result
+                "Unrecognized column 'invalid' specified in :order_by; Supported columns are 'name'"))))
+
+      (testing "offset works"
+        (let [request (get-request endpoint nil
+                                   {:offset 1})
+              {:keys [status body]} (fixt/*app* request)
+              result (parse-result body)]
+          (is (= result (rest expected-result)))))
+
+      (testing "limit works"
+        (let [request (get-request endpoint nil
+                                   {:limit 1})
+              {:keys [status body]} (fixt/*app* request)
+              result (parse-result body)]
+          (is (= result [(first expected-result)])))))))
 
 (deftestseq fact-paths-endpoint-tests
   [[version endpoint] fact-path-endpoints]

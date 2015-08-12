@@ -74,10 +74,12 @@
   (set (raw-expected-resource-events version example-resource-events report)))
 
 (defn query-resource-events
-  [version query & [paging-options query-options]]
-  (eng/stream-query-result :events
-                           version
-                           query
-                           [(or query-options {}) (or paging-options {})]
-                           fixt/*db*
-                           ""))
+  ([version query]
+   (query-resource-events version query {}))
+  ([version query query-options]
+   (eng/stream-query-result :events
+                            version
+                            query
+                            query-options
+                            fixt/*db*
+                            "")))

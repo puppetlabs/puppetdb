@@ -10,11 +10,11 @@
 (use-fixtures :each with-test-db)
 
 (defn- query-event-counts
-  [version query summarize_by & [query-options paging-options]]
+  [version query query-options]
   (eng/stream-query-result :event-counts
                            version
                            query
-                           [summarize_by (or query-options {}) (or paging-options {})]
+                           query-options
                            *db*
                            ""))
 
@@ -29,7 +29,9 @@
 
       (testing "limit results"
         (doseq [[limit expected] [[1 1] [2 2] [100 3]]]
-          (let [results (distinct-event-counts version ["=" "certname" "foo.local"] "resource" {} {:limit limit})
+          (let [results (distinct-event-counts version ["=" "certname" "foo.local"]
+                                               {:summarize_by "resource"
+                                                :limit limit})
                 actual (count results)]
             (is (= actual expected)))))
 
@@ -40,9 +42,7 @@
                (query-event-counts
                 version
                 ["=" "certname" "foo.local"]
-                "resource"
-                {}
-                {:order_by [[:invalid-field :ascending]]}))))
+                {:summarize_by "resource" :order_by [[:invalid-field :ascending]]}))))
 
         (testing "numerical fields"
           (doseq [[order expected] [[:ascending  [count2 count1]]
@@ -51,9 +51,7 @@
               (let [actual (query-event-counts
                             version
                             ["=" "certname" "foo.local"]
-                            "containing_class"
-                            {}
-                            {:order_by [[:successes order]]})]
+                            {:summarize_by "containing_class" :order_by [[:successes order]]})]
                 (is (= actual expected)))))))
 
       (testing "offset"
@@ -68,9 +66,8 @@
               (let [actual (query-event-counts
                             version
                             ["=" "certname" "foo.local"]
-                            "containing_class"
-                            {}
-                            {:order_by [[:successes order]] :offset offset})]
+                            {:summarize_by "containing_class"
+                             :order_by [[:successes order]] :offset offset})]
                 (is (= actual expected))))))))))
 
 (deftest resource-event-count-queries
@@ -82,7 +79,8 @@
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
              IllegalArgumentException #"Unsupported value for 'summarize_by': 'illegal-summarize-by'"
-             (query-event-counts version ["these" "are" "unused"] "illegal-summarize-by"))))
+             (query-event-counts version ["these" "are" "unused"]
+                                 {:summarize_by "illegal-summarize-by"}))))
 
       (testing "containing_class"
         (let [expected #{{:subject_type "containing_class"
@@ -97,7 +95,8 @@
                           :successes 0
                           :noops 0
                           :skips 1}}
-              actual (distinct-event-counts version ["=" "certname" "foo.local"] "containing_class")]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"]
+                                            {:summarize_by "containing_class"})]
           (is (= actual expected))))
 
       (testing "certname"
@@ -107,7 +106,8 @@
                            :successes 2
                            :noops 0
                            :skips 1}}
-              actual (distinct-event-counts version ["=" "certname" "foo.local"] "certname")]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"]
+                                            {:summarize_by "certname"})]
           (is (= actual expected))))
 
       (testing "resource"
@@ -129,7 +129,8 @@
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual (distinct-event-counts version ["=" "certname" "foo.local"] "resource")]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"]
+                                            {:summarize_by "resource"})]
           (is (= actual expected)))))
 
     (testing "counts_filter"
@@ -140,7 +141,9 @@
                            :successes 2
                            :noops 0
                            :skips 0}}
-              actual (distinct-event-counts version ["=" "certname" "foo.local"] "containing_class" {:counts_filter ["=" "successes" 2]})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"]
+                                            {:summarize_by "containing_class"
+                                             :counts_filter ["=" "successes" 2]})]
           (is (= actual expected))))
 
       (testing "> operator"
@@ -156,7 +159,9 @@
                            :successes 1
                            :noops 0
                            :skips 0}}
-              actual (distinct-event-counts version ["=" "certname" "foo.local"] "resource" {:counts_filter [">" "successes" 0]})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"]
+                                            {:summarize_by "resource"
+                                             :counts_filter [">" "successes" 0]})]
           (is (= actual expected))))
 
       (testing ">= operator"
@@ -178,7 +183,9 @@
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual (distinct-event-counts version ["=" "certname" "foo.local"] "resource" {:counts_filter [">=" "successes" 0]})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"]
+                                            {:summarize_by "resource"
+                                             :counts_filter [">=" "successes" 0]})]
           (is (= actual expected))))
 
       (testing "< operator"
@@ -194,7 +201,9 @@
                            :successes 1
                            :noops 0
                            :skips 0}}
-              actual (distinct-event-counts version ["=" "certname" "foo.local"] "resource" {:counts_filter ["<" "skips" 1]})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"]
+                                            {:summarize_by "resource"
+                                             :counts_filter ["<" "skips" 1]})]
           (is (= actual expected))))
 
       (testing "<= operator"
@@ -216,14 +225,17 @@
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual (distinct-event-counts version ["=" "certname" "foo.local"] "resource" {:counts_filter ["<=" "skips" 1]})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"]
+                                            {:summarize_by "resource"
+                                             :counts_filter ["<=" "skips" 1]})]
           (is (= actual expected)))))
 
     (testing "count_by"
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
              IllegalArgumentException #"Unsupported value for 'count_by': 'illegal-count-by'"
-             (query-event-counts version ["=" "certname" "foo.local"] "certname" {:count_by "illegal-count-by"}))))
+             (query-event-counts version ["=" "certname" "foo.local"]
+                                 {:summarize_by "certname" :count_by "illegal-count-by"}))))
 
       (testing "resource"
         (let [expected  #{{:subject_type "containing_class"
@@ -238,7 +250,9 @@
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual (distinct-event-counts version ["=" "certname" "foo.local"] "containing_class" {:count_by "resource"})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"]
+                                            {:summarize_by "containing_class"
+                                             :count_by "resource"})]
           (is (= actual expected))))
 
       (testing "certname"
@@ -248,5 +262,6 @@
                            :successes 1
                            :noops 0
                            :skips 1}}
-              actual (distinct-event-counts version ["=" "certname" "foo.local"] "certname" {:count_by "certname"})]
+              actual (distinct-event-counts version ["=" "certname" "foo.local"]
+                                            {:summarize_by "certname" :count_by "certname"})]
           (is (= actual expected)))))))

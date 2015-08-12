@@ -1,11 +1,6 @@
 (ns puppetlabs.puppetdb.query.edges
   "Fact query generation"
-  (:require [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.facts :as facts]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]
-            [puppetlabs.puppetdb.schema :as pls]
+  (:require [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]))
 
 ;; SCHEMA
@@ -25,26 +20,3 @@
   [_ _]
   (fn [rows]
     (map #(s/validate edge-schema %) rows)))
-
-;; QUERY
-
-(def edge-columns
-  [:certname
-   :relationship
-   :source_title
-   :source_type
-   :target_title
-   :target_type])
-
-(defn query->sql
-  "Compile a query into a SQL expression."
-  ([version query]
-     (query->sql version query {}))
-  ([version query paging-options]
-     {:pre [((some-fn nil? sequential?) query) ]
-      :post [(map? %)
-             (string? (first (:results-query %)))
-             (every? (complement coll?) (rest (:results-query %)))]}
-     (paging/validate-order-by! edge-columns paging-options)
-     (qe/compile-user-query->sql
-      qe/edges-query query paging-options)))

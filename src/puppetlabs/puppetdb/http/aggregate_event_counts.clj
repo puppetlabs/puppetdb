@@ -24,7 +24,8 @@
                     distinct-options (validate-distinct-options! params)
                     counts_filter' (json/parse-string counts_filter true)
                     query-options (-> {:counts_filter counts_filter'
-                                       :count_by count_by}
+                                       :count_by count_by
+                                       :summarize_by summarize_by}
                                       (merge distinct-options))]
                 (log/warn
                   (str "The aggregate-event-counts endpoint is experimental"
@@ -33,7 +34,7 @@
                   :aggregate-event-counts
                   version
                   query
-                  [summarize_by query-options]
+                  query-options
                   (:scf-read-db globals)
                   (:url-prefix globals)))))}))
 
