@@ -6,7 +6,7 @@
             [puppetlabs.pe-puppetdb-extensions.semlog :as semlog]
             [puppetlabs.puppetdb.time :refer [to-millis periods-equal? parse-period period?]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote!]]
+            [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote! with-trailing-slash]]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [get-service]]
             [puppetlabs.puppetdb.utils :as utils :refer [throw+-cli-error!]]
@@ -21,38 +21,52 @@
 
 (def sync-request-schema {:remote_host_path s/Str})
 
-(defn query-endpoint [server-url]
-  (let [top-uri (java.net.URI. server-url)]
-    (str (.resolve top-uri "/pdb/query/v4"))))
+(defn- query-endpoint
+  "Given a base server-url, but the query endpoint onto the end of it. Don't do
+  this if it looks like one is already there. "
+  [^String server-url]
+  (if (.contains server-url "/v4")
+    server-url
+    (str (with-trailing-slash server-url) "pdb/query/v4")))
 
-(defn- sync-with! [server-url query-fn submit-command-fn node-ttl]
+(defn make-remote-server
+  "Create a remote-server structure out the given url, pulling ssl options from
+  jetty-config."
+  [server-url jetty-config]
+  (-> (select-keys jetty-config [:ssl-cert :ssl-key :ssl-ca-cert])
+      (assoc :url (query-endpoint server-url))))
+
+(defn- sync-with! [remote-server query-fn submit-command-fn node-ttl]
   (if (compare-and-set! currently-syncing false true)
-    (try (sync-from-remote! query-fn submit-command-fn server-url node-ttl)
+    (try (sync-from-remote! query-fn submit-command-fn remote-server node-ttl)
          {:status 200 :body "success"}
          (catch Exception ex
-           (let [err "Remote sync from %s failed"]
+           (let [err "Remote sync from %s failed"
+                 url (:url remote-server)]
              (semlog/maplog [:sync :error]
-                            {:remote server-url :response ex :phase "sync"}
-                            (format err server-url))
-             (log/error ex err server-url)
-             {:status 200 :body (format err server-url)}))
+                            {:remote url :response ex :phase "sync"}
+                            (format err url))
+             (log/error ex err url)
+             {:status 200 :body (format err url)}))
          (finally (swap! currently-syncing (constantly false))))
-    (let [err "Refusing to sync from %s. Sync already in progress."]
+    (let [err "Refusing to sync from %s. Sync already in progress."
+          url (:url remote-server)]
       (semlog/maplog [:sync :info]
-                     {:remote server-url :phase "sync"}
-                     (format err server-url))
-      (log/infof err server-url)
-      {:status 200 :body (format err server-url)})))
+                     {:remote url :phase "sync"}
+                     (format err url))
+      (log/infof err url)
+      {:status 200 :body (format err url)})))
 
 (defn sync-app
   "Top level route for PuppetDB sync"
-  [query-fn submit-command-fn node-ttl]
+  [query-fn submit-command-fn node-ttl jetty-config]
   (routes
     (POST "/v1/trigger-sync" {:keys [body]}
           (let [sync-request (json/parse-string (slurp body) true)
                 remote-url (:remote_host_path sync-request)]
             (s/validate sync-request-schema sync-request)
-            (sync-with! remote-url query-fn submit-command-fn node-ttl)))))
+            (sync-with! (make-remote-server remote-url jetty-config)
+                        query-fn submit-command-fn node-ttl)))))
 
 (defn enable-periodic-sync? [remotes]
   (cond
@@ -180,20 +194,19 @@
    [:PuppetDBServer query shared-globals]]
 
   (start [this context]
-         (let [{node-ttl :node-ttl, sync-config :sync} (get-config)
+         (let [{node-ttl :node-ttl, sync-config :sync, jetty-config :jetty} (get-config)
                node-ttl (or (some-> node-ttl parse-period)
                             Period/ZERO)
-               remotes-config (extract-and-check-remotes-config sync-config)
-               app (->> (sync-app query submit-command node-ttl)
-                        (compojure/context (get-route this) []))]
-           (add-ring-handler this app)
+               remotes-config (extract-and-check-remotes-config sync-config)]
+           (add-ring-handler this (->> (sync-app query submit-command node-ttl jetty-config)
+                                       (compojure/context (get-route this) [])))
            (if (enable-periodic-sync? remotes-config)
-             (let [{:keys [interval server_url]} (first remotes-config)]
+             (let [{:keys [interval server_url]} (first remotes-config)
+                   remote-server (make-remote-server server_url jetty-config)]
                (assoc context
                       :scheduled-sync
                       (atat/interspaced (to-millis interval)
-                                        #(sync-with! (query-endpoint server_url) query
-                                                     submit-command node-ttl)
+                                        #(sync-with! remote-server query submit-command node-ttl)
                                         (atat/mk-pool))))
              context)))
 

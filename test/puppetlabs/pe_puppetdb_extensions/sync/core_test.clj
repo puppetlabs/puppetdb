@@ -6,7 +6,6 @@
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [clj-http.client :as http]
             [puppetlabs.pe-puppetdb-extensions.semlog :as semlog]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as services]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -40,7 +39,8 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.time :refer [parse-period]]
             [puppetlabs.pe-puppetdb-extensions.sync.events :as events]
-            [puppetlabs.pe-puppetdb-extensions.sync.test-protocols :as sync-test-protos :refer [called?]])
+            [puppetlabs.pe-puppetdb-extensions.sync.test-protocols :as sync-test-protos :refer [called?]]
+            [puppetlabs.http.client.sync :as http])
   (:import
    [org.apache.activemq.command ActiveMQDestination]
    [org.slf4j Logger]))
@@ -190,7 +190,7 @@
  (http/post dest-sync-url
             {:headers {"content-type" "application/json"}
              :body (json/generate-string {:remote_host_path source-pdb-url})
-             :throw-entire-message true}))
+             :as :text}))
 
 (defn perform-sync [source-pdb-url dest-sync-url]
   (svcs/until-consumed #(trigger-sync source-pdb-url dest-sync-url)))
@@ -848,8 +848,42 @@
                  events/failed-sync! (mock-fn)
                  events/failed-request! (mock-fn)]
      (try
-       (sync-from-remote! #() #() "http://localhost:1234/bogus" 42)
+       (sync-from-remote! #() #() {:url "http://localhost:1234/bogus"} (parse-period "42s"))
        (catch Exception _))
      (is (= false (called? events/successful-sync!)))
      (is (= true (called? events/failed-sync!)))
      (is (= true (called? events/failed-request!))))))
+
+;;; HTTPS
+(deftest pull-with-https
+  (let [seen-http-get-opts (atom [])
+        remote-host-url "https://some-host"]
+    ;; Stub http/get to always return empty content, but to remember the options
+    ;; passed to it.
+   (with-redefs [http/get (fn [url opts]
+                            (when (.startsWith url remote-host-url)
+                              (swap! seen-http-get-opts conj opts))
+                            {:status 200
+                             :body (java.io.StringReader. "[]")})]
+     ;; Run a pdb with https
+     (with-puppetdb-instance (assoc (utils/sync-config)
+                                    :jetty {:ssl-port 0
+                                            :ssl-host "0.0.0.0"
+                                            :ssl-cert "test-resources/localhost.pem"
+                                            :ssl-key "test-resources/localhost.key"
+                                            :ssl-ca-cert "test-resources/ca.pem"
+                                            :ssl-protocols "TLSv1,TLSv1.1"})
+       ;; Trigger a sync; the url doesn't matter, as the stubbed http/get will be used
+       (http/post (utils/trigger-sync-url-str)
+                  {:headers {"content-type" "application/json"}
+                   :body (json/generate-string {:remote_host_path remote-host-url})
+                   :ssl-cert "test-resources/localhost.pem"
+                   :ssl-key "test-resources/localhost.key"
+                   :ssl-ca-cert "test-resources/ca.pem"})
+       ;; Check that the ssl was configured when making sync requests
+       (is (pos? (count @seen-http-get-opts)))
+       (doseq [opts @seen-http-get-opts]
+         (is opts)
+         (is (contains? opts :ssl-cert))
+         (is (contains? opts :ssl-key))
+         (is (contains? opts :ssl-ca-cert)))))))
