@@ -3,7 +3,6 @@
             [clj-time.coerce :as time-coerce]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :refer [temp-dir temp-file]]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
@@ -18,6 +17,7 @@
             [puppetlabs.puppetdb.meta :refer [metadata-service]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [clj-http.util :refer [url-encode]]
             [clj-http.client :as client]
             [clojure.string :as str]
@@ -111,6 +111,15 @@
       xml/sexp-as-element
       xml/emit-str))
 
+(defn create-db-map
+  "Returns a database connection map with a reference to a new in memory HyperSQL database"
+  []
+  {:classname   "org.hsqldb.jdbcDriver"
+   :subprotocol "hsqldb"
+   :subname     (str "mem:"
+                     (java.util.UUID/randomUUID)
+                     ";hsqldb.tx=mvcc;sql.syntax_pgs=true")})
+
 (defn create-config
   "Creates a default config, populated with a temporary vardir and
   a fresh hypersql instance"
@@ -118,7 +127,7 @@
   {:nrepl {}
    :global {:vardir (temp-dir)}
    :jetty {:port 0}
-   :database (fixt/create-db-map)
+   :database (create-db-map)
    :command-processing {}})
 
 (defn assoc-logging-config
@@ -171,7 +180,8 @@
                    :host "localhost"
                    :port port
                    :prefix "/pdb/query"
-                   :version :v4}]
+                   :version :v4}
+         initial-drivers (sutils/get-registered-drivers)]
      (try
        (tkbs/with-app-with-config server
          (concat [jetty9-service
@@ -194,6 +204,7 @@
          (log/errorf e "Error occured when Jetty tried to bind to port %s, attempt #%s" port attempts)
          (puppetdb-instance config services (dec attempts) f))
        (finally
+         (sutils/register-drivers! initial-drivers)
          (let [log-contents (slurp log-file)]
            (when-not (str/blank? log-contents)
              (utils/println-err

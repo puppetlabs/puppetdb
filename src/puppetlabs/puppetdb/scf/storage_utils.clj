@@ -35,6 +35,39 @@
 
 ;; FUNCTIONS
 
+(defn get-registered-drivers
+  []
+  (enumeration-seq (java.sql.DriverManager/getDrivers)))
+
+(defn driver-in-use
+  [db-config]
+  (java.sql.DriverManager/getDriver
+    (if-let [datasource (:datasource db-config)]
+      (.getJdbcUrl datasource)
+      (format "jdbc:%s:%s"
+              (:subprotocol db-config)
+              (:subname db-config)))))
+
+(defn deregister-unused-drivers!
+  "Given a database config or connection pool, deregister the driver
+   (hsql or postgres) that isn't being used."
+  [db-config]
+  (let [configured-driver (driver-in-use db-config)
+        initial-drivers (get-registered-drivers)]
+    (doseq [driver initial-drivers
+            :when (not= (class driver) (class configured-driver))]
+      (java.sql.DriverManager/deregisterDriver driver))))
+
+(defn register-drivers!
+  "Given a list of database drivers, register those not already registered."
+  [drivers]
+  (let [registered-classes (->> (get-registered-drivers)
+                                (map class)
+                                set)]
+    (doseq [driver drivers
+            :when (not (contains? registered-classes (class driver)))]
+      (java.sql.DriverManager/registerDriver driver))))
+
 (defn sql-current-connection-database-name
   "Return the database product name currently in use."
   []
@@ -54,7 +87,13 @@
 (pls/defn-validated postgres? :- s/Bool
   "Returns true if currently connected to a Postgres DB instance"
   []
-  (= (sql-current-connection-database-name) "PostgreSQL"))
+  (every? #(instance? org.postgresql.Driver %)
+          (get-registered-drivers)))
+
+(pls/defn-validated hypersql? []
+  "Returns true if currently connected to a HSQLDB instance."
+  (every? #(instance? org.hsqldb.jdbc.JDBCDriver %)
+          (get-registered-drivers)))
 
 (pls/defn-validated db-version? :- s/Bool
   "Returns true if the version list you pass matches the version of the current

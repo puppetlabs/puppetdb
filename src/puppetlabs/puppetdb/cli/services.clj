@@ -58,6 +58,7 @@
             [puppetlabs.puppetdb.meta.version :as version]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.query-eng :as qeng]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -243,6 +244,7 @@
                                                            ;; Only allocate connections when needed
                                                            :pool-availability-threshold 0))]
     (let [db-pool-map {:datasource init-db-pool}]
+      (sutils/deregister-unused-drivers! db-pool-map)
       (initialize-schema db-pool-map product-name))))
 
 (defn start-puppetdb

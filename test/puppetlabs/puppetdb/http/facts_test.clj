@@ -19,6 +19,7 @@
                                                    paged-results*
                                                    deftestseq
                                                    parse-result]]
+            [puppetlabs.puppetdb.testutils.services :refer [create-db-map]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as ks]))
 

@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.repl
   (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.fixtures :as fixt]
+            [puppetlabs.puppetdb.testutils.services :refer [create-db-map]]
             [puppetlabs.puppetdb.testutils :as testutils]
             [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.cli.services :as svcs]
@@ -40,7 +40,7 @@
       :or {config "config.sample.ini"}}]
   (launch-puppetdb :config-overrides (merge-with merge
                                                  {:global {:vardir (testutils/temp-dir)}
-                                                  :database (fixt/create-db-map)}
+                                                  :database (create-db-map)}
                                                  config-overrides)))
 
 #_(def mem-puppetdb

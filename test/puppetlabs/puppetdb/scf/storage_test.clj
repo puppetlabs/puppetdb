@@ -1398,7 +1398,7 @@
         (is (= expected actual))))))
 
 (defn with-db-version [db version f]
-  (with-redefs-fn {#'sutils/sql-current-connection-database-name (constantly db)
+  (with-redefs-fn {#'sutils/postgres? (constantly (= db "PostgreSQL"))
                    #'sutils/sql-current-connection-database-version (constantly version)}
     f))
 
