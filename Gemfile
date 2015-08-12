@@ -1,5 +1,5 @@
 source ENV['GEM_SOURCE'] || "https://rubygems.org"
-puppet_branch = ENV['puppet_branch'] || "latest"
+puppet_branch = ENV['PUPPET_VERSION'] || "latest"
 oldest_supported_puppet = "3.5.1"
 beaker_version = ENV['BEAKER_VERSION']
 

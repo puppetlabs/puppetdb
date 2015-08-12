@@ -25,9 +25,9 @@ module PuppetDBExtensions
       [:git, :package, :pe], "install type", "PUPPETDB_INSTALL_TYPE", :git)
 
     install_mode =
-        get_option_value(options[:puppetdb_install_mode],
+        get_option_value(options[:install_mode],
                          [:install, :upgrade], "install mode",
-                         "PUPPETDB_INSTALL_MODE", :install)
+                         "INSTALL_MODE", :install)
 
     database =
         get_option_value(options[:puppetdb_database],
