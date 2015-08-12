@@ -7,6 +7,7 @@
             [puppetlabs.puppetdb.cli.services :refer :all]
             [puppetlabs.puppetdb.http.command :refer :all]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.meta.version :as version]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*base-url*]]

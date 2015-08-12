@@ -7,6 +7,7 @@
             [puppetlabs.puppetdb.jdbc :as pjdbc]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.config :as cfg]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-test-logging]]
             [clojure.tools.macro :as tmacro]
             [clojure.test :refer [join-fixtures use-fixtures]]
@@ -29,14 +30,23 @@
          (migrate! *db*)))
       (pjdbc/pooled-datasource (assoc db :read-only? read-only?)))))
 
+(defn with-db-metadata
+  "A fixture to collect DB type and version information before a test."
+  [f]
+  (binding [*db* (test-db)]
+    (sql/with-connection *db*
+      (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
+        (f)))))
+
 (defn with-test-db
   "A fixture to start and migrate a test db before running tests."
   [f]
   (binding [*db* (test-db)]
     (sql/with-connection *db*
-      (clear-db-for-testing!)
-      (migrate! *db*)
-      (f))))
+      (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
+        (clear-db-for-testing!)
+        (migrate! *db*)
+        (f)))))
 
 (defn without-db-var
   "Binds the java.jdbc dtabase connection to nil. When running a unit

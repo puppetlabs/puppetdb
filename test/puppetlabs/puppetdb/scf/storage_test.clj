@@ -1398,8 +1398,8 @@
         (is (= expected actual))))))
 
 (defn with-db-version [db version f]
-  (with-redefs-fn {#'sutils/sql-current-connection-database-name (constantly db)
-                   #'sutils/sql-current-connection-database-version (constantly version)}
+  (with-redefs [sutils/db-metadata (delay {:database db
+                                           :version version})]
     f))
 
 (deftest test-db-unsupported-msg
