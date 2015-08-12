@@ -67,11 +67,24 @@
   (with-chan [response-chan (async/chan)]
     (with-sub {:from response-pub :topic (str uuid) :chan response-chan}
       (let [timeout-chan (async/timeout completion-timeout-ms)
-            _ (do-submit-fn)
-            timed-out (async/alt!! timeout-chan true
-                                   response-chan false)]
-        (http/json-response {:uuid uuid, :processed (not timed-out)}
-                            (if timed-out 503 200))))))
+            _ (do-submit-fn)]
+        (async/alt!!
+          timeout-chan (http/json-response {:uuid uuid
+                                            :processed false
+                                            :timed_out true}
+                                           503)
+          response-chan ([{:keys [command exception]}]
+                         (let [base-response {:uuid uuid
+                                              :processed true}]
+                           (if exception
+                             (http/json-response (assoc base-response
+                                                        :timed_out false
+                                                        :error (str exception)
+                                                        :stack_trace (map str (.getStackTrace exception)))
+                                                 503)
+                             (http/json-response (assoc base-response
+                                                        :timed_out false)
+                                                 200)))))))))
 
 (defn enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
