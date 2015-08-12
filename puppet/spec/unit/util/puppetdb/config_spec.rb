@@ -30,7 +30,6 @@ describe Puppet::Util::Puppetdb::Config do
       it "should use the default settings" do
         config = described_class.load
         config.server_urls.should == [URI("https://puppetdb:8081")]
-        config.ignore_blacklisted_events?.should == true
       end
 
     end
@@ -59,12 +58,10 @@ CONF
 [main]
 server = main-server
 port = 1234
-ignore_blacklisted_events = false
 soft_write_failure = true
 CONF
         config = described_class.load
         config.server_urls.should == [URI("https://main-server:1234")]
-        config.ignore_blacklisted_events?.should == false
         config.soft_write_failure.should be_true
       end
 
@@ -73,7 +70,6 @@ CONF
 
         config = described_class.load
         config.server_urls.should == [URI("https://puppetdb:8081")]
-        config.ignore_blacklisted_events?.should == true
         config.soft_write_failure.should be_false
       end
 

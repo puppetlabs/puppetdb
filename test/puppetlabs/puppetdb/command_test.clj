@@ -1202,6 +1202,33 @@
   "Report versions supported. Version 1 is not currently being tested."
   [:v5])
 
+(defn- resource-event->resource
+  [resource-event]
+  (-> resource-event
+      (select-keys [:file :line :timestamp :resource_type :resource_title :containment_path])
+      (assoc :skipped (= "skipped" (:status resource-event)))))
+
+(defn- resource-events->resources
+  [resource-events]
+  (for [[resource events] (group-by resource-event->resource resource-events)]
+    (assoc resource :events (map #(dissoc % :file :line :resource_type :resource_title :containment_path) events))))
+
+(let [report (-> (:basic report-examples/reports)
+                 (assoc :environment "DEV")
+                 munge-example-report-for-storage
+                 (update :resource_events resource-events->resources)
+                 (clojure.set/rename-keys {:resource_events :resources}))
+      v6-command {:command (command-names :store-report)
+                  :version 6
+                  :payload report}]
+  (deftest store-v6-report
+    (testing "should store the report"
+      (test-msg-handler v6-command publish discard-dir
+        (is (= [(with-env (select-keys report [:certname :configuration_version]))]
+               (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))))))
+
 (let [report (-> (:basic report-examples/reports)
                  (assoc :environment "DEV")
                  munge-example-report-for-storage)
