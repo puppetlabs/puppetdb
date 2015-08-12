@@ -21,10 +21,10 @@
          tk-context))
 
 (defmacro with-puppetdb-instance
-  "Same as the core puppetdb-instance call but adds in the sync
-  service and the request-catcher/canned-response service"
+  "Same as the core call-with-puppetdb-instance call but adds in the
+  sync service and the request-catcher/canned-response service"
   [config & body]
-  `(svcs/puppetdb-instance
+  `(svcs/call-with-puppetdb-instance
     ~config
     [puppetdb-sync-service pe-puppetdb-service stub-server-service]
     (fn [] ~@body)))

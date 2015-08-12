@@ -14,6 +14,9 @@
             [puppetlabs.puppetdb.testutils :refer [=-after? without-jmx
                                                    block-until-results]]
             [schema.core :as s]
+            [puppetlabs.puppetdb.testutils.log
+             :refer [with-log-level with-logging-to-atom
+                     with-log-suppressed-unless-notable notable-pdb-event?]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.pe-puppetdb-extensions.sync.core :refer :all :as syncc]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
@@ -111,23 +114,12 @@
   `(with-redefs [puppetlabs.puppetdb.cli.services/mq-endpoint ~mq-name]
      (do ~@body)))
 
-(defmacro muting-amq-shutdown-log-noise [& body]
-  `(binding [svcs/*extra-appender-config* [:filter {:class "ch.qos.logback.core.filter.EvaluatorFilter"}
-                                          [:evaluator
-                                           [:expression (str "String m = throwable.getMessage(); "
-                                                             "return javax.jms.JMSException.class.isInstance(throwable) && "
-                                                             "  m.contains(\"peer\") && "
-                                                             "  m.contains(\"stopped\"); ")]]
-                                          [:OnMatch "DENY"]
-                                          [:OnMismatch "NEUTRAL"]]]
-     ~@body))
-
 (deftest two-instance-test
-  (muting-amq-shutdown-log-noise
-   (without-jmx
-    (with-alt-mq "puppetlabs.puppetdb.commands-1"
-      (let [config-1 (utils/sync-config)
-            config-2 (utils/sync-config)]
+  (without-jmx
+   (with-alt-mq "puppetlabs.puppetdb.commands-1"
+     (let [config-1 (utils/sync-config)
+           config-2 (utils/sync-config)]
+       (with-log-suppressed-unless-notable notable-pdb-event?
         (with-puppetdb-instance config-1
           (let [report (tur/munge-example-report-for-storage (:basic reports))
                 query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))]
@@ -225,93 +217,95 @@
         pdb-x-queries (atom [])
         stub-data-atom (atom [])
         stub-handler (logging-query-handler "/pdb-x/v4/reports" pdb-x-queries stub-data-atom :hash)]
-    (with-puppetdb-instance (utils/sync-config stub-handler)
-      ;; store two reports in PDB Y
-      (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-1)
-      (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-2)
+    (with-log-suppressed-unless-notable notable-pdb-event?
+      (with-puppetdb-instance (utils/sync-config stub-handler)
+        ;; store two reports in PDB Y
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-1)
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-2)
 
-      (let [query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))
-            created-report-1 (get-first-report (utils/pdb-query-url) (:certname report-1))
-            created-report-2 (get-first-report (utils/pdb-query-url) (:certname report-2))]
-        (is (= "3.0.1" (:puppet_version created-report-2)))
+        (let [query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))
+              created-report-1 (get-first-report (utils/pdb-query-url) (:certname report-1))
+              created-report-2 (get-first-report (utils/pdb-query-url) (:certname report-2))]
+          (is (= "3.0.1" (:puppet_version created-report-2)))
 
-        ;; Set up pdb-x as a stub where 1 report has a different hash
-        (reset! stub-data-atom [(assoc report-2
-                                       :hash "something totally different"
-                                       :producer_timestamp "2011-01-01T12:11:00-03:30"
-                                       :puppet_version "4.0.0")
-                                (assoc report-1
-                                       :certname "foo.local"
-                                       :hash (:hash created-report-1)
-                                       :start_time "2011-01-01T15:00:00Z")])
+          ;; Set up pdb-x as a stub where 1 report has a different hash
+          (reset! stub-data-atom [(assoc report-2
+                                         :hash "something totally different"
+                                         :producer_timestamp "2011-01-01T12:11:00-03:30"
+                                         :puppet_version "4.0.0")
+                                  (assoc report-1
+                                         :certname "foo.local"
+                                         :hash (:hash created-report-1)
+                                         :start_time "2011-01-01T15:00:00Z")])
 
-        ;; Pull data from pdb-x to pdb-y
-        (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str))
-        @(block-until-results 100 (export/reports-for-node query-fn (:certname report)))
+          ;; Pull data from pdb-x to pdb-y
+          (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str))
+          @(block-until-results 100 (export/reports-for-node query-fn (:certname report)))
 
-        ;; We should see that the sync happened, and that only one report was pulled from PDB X
-        (let [puppet-versions (map (comp :puppet_version #(json/parse-string % true) :contents)
-                                   (export/reports-for-node query-fn (:certname report-2)))]
-          (is (= #{"4.0.0" "3.0.1"} (set puppet-versions)))
-          (is (= 2 (count @pdb-x-queries))))))))
+          ;; We should see that the sync happened, and that only one report was pulled from PDB X
+          (let [puppet-versions (map (comp :puppet_version #(json/parse-string % true) :contents)
+                                     (export/reports-for-node query-fn (:certname report-2)))]
+            (is (= #{"4.0.0" "3.0.1"} (set puppet-versions)))
+            (is (= 2 (count @pdb-x-queries)))))))))
 
 (deftest pull-factsets-test
   (let [pdb-x-queries (atom [])
         stub-data-atom (atom [])
         stub-handler (logging-query-handler "/pdb-x/v4/factsets" pdb-x-queries stub-data-atom :certname)]
-    (with-puppetdb-instance (utils/sync-config stub-handler)
-      ;; store factsets in PDB Y
-      (doseq [c (map char (range (int \a) (int \g)))]
-        (blocking-command-post (utils/pdb-cmd-url) "replace facts" 4
-                               (assoc facts :certname (str c ".local"))))
+    (with-log-suppressed-unless-notable notable-pdb-event?
+     (with-puppetdb-instance (utils/sync-config stub-handler)
+       ;; store factsets in PDB Y
+       (doseq [c (map char (range (int \a) (int \g)))]
+         (blocking-command-post (utils/pdb-cmd-url) "replace facts" 4
+                                (assoc facts :certname (str c ".local"))))
 
-      (let [local-factsets (index-by :certname (get-json (utils/pdb-query-url) "/factsets"))
-            timestamps (ks/mapvals (comp to-date-time :producer_timestamp) local-factsets)]
-        (is (= 6 (count local-factsets)))
+       (let [local-factsets (index-by :certname (get-json (utils/pdb-query-url) "/factsets"))
+             timestamps (ks/mapvals (comp to-date-time :producer_timestamp) local-factsets)]
+         (is (= 6 (count local-factsets)))
 
-        (reset! stub-data-atom
-                [;; time is newer than local, hash is different -> should pull
-                 (assoc facts
-                        :certname "a.local"
-                        :hash "a_different"
-                        :producer_timestamp (t/plus (timestamps "a.local") (t/days 1))
-                        :environment "A")
-                 ;; time is older than local, hash is different -> no pull
-                 (assoc facts
-                        :certname "b.local"
-                        :hash "b_different"
-                        :producer_timestamp (t/minus (timestamps "b.local") (t/days 1)))
-                 ;; time is the same, hash is the same -> no pull
-                 (assoc facts
-                        :certname "c.local"
-                        :hash (-> local-factsets (get "c.local") :hash)
-                        :producer_timestamp (timestamps "c.local"))
-                 ;; time is the same, hash is lexically less -> no pull
-                 (assoc facts
-                        :certname "d.local"
-                        :hash "0000000000000000000000000000000000000000"
-                        :producer_timestamp (timestamps "d.local"))
-                 ;; time is the same, hash is lexically greater -> should pull
-                 (assoc facts
-                        :certname "e.local"
-                        :hash "ffffffffffffffffffffffffffffffffffffffff"
-                        :producer_timestamp (timestamps "e.local")
-                        :environment "E")
-                 ;; time is newer than local, hash is the same -> should pull
-                 (assoc facts
-                        :certname "f.local"
-                        :hash (-> local-factsets (get "f.local") :hash)
-                        :producer_timestamp (t/plus (timestamps "f.local") (t/days 1))
-                        :environment "F")])
+         (reset! stub-data-atom
+                 [;; time is newer than local, hash is different -> should pull
+                  (assoc facts
+                         :certname "a.local"
+                         :hash "a_different"
+                         :producer_timestamp (t/plus (timestamps "a.local") (t/days 1))
+                         :environment "A")
+                  ;; time is older than local, hash is different -> no pull
+                  (assoc facts
+                         :certname "b.local"
+                         :hash "b_different"
+                         :producer_timestamp (t/minus (timestamps "b.local") (t/days 1)))
+                  ;; time is the same, hash is the same -> no pull
+                  (assoc facts
+                         :certname "c.local"
+                         :hash (-> local-factsets (get "c.local") :hash)
+                         :producer_timestamp (timestamps "c.local"))
+                  ;; time is the same, hash is lexically less -> no pull
+                  (assoc facts
+                         :certname "d.local"
+                         :hash "0000000000000000000000000000000000000000"
+                         :producer_timestamp (timestamps "d.local"))
+                  ;; time is the same, hash is lexically greater -> should pull
+                  (assoc facts
+                         :certname "e.local"
+                         :hash "ffffffffffffffffffffffffffffffffffffffff"
+                         :producer_timestamp (timestamps "e.local")
+                         :environment "E")
+                  ;; time is newer than local, hash is the same -> should pull
+                  (assoc facts
+                         :certname "f.local"
+                         :hash (-> local-factsets (get "f.local") :hash)
+                         :producer_timestamp (t/plus (timestamps "f.local") (t/days 1))
+                         :environment "F")])
 
-        ;; Send a sync command to PDB Y
-        (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str)))
+         ;; Send a sync command to PDB Y
+         (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str)))
 
-      ;; We should see that the sync happened, and that one summary query and two factset querys where made to PDB X
-      (let [synced-factsets (get-json (utils/pdb-query-url) "/factsets")
-            environments (->> synced-factsets (map :environment) (into #{}))]
-        (is (= #{"DEV" "A" "E" "F"} environments))
-        (is (= 4 (count @pdb-x-queries)))))))
+       ;; We should see that the sync happened, and that one summary query and two factset querys where made to PDB X
+       (let [synced-factsets (get-json (utils/pdb-query-url) "/factsets")
+             environments (->> synced-factsets (map :environment) (into #{}))]
+         (is (= #{"DEV" "A" "E" "F"} environments))
+         (is (= 4 (count @pdb-x-queries))))))))
 
 ;;  the catalogs we get as http responses have flattened edge definitions
 (def catalog-response
@@ -329,59 +323,60 @@
         stub-data-atom (atom [])
         stub-handler (logging-query-handler "/pdb-x/v4/catalogs" pdb-x-queries stub-data-atom :certname)]
 
-    (with-puppetdb-instance (utils/sync-config stub-handler)
-      ;; store catalogs in PDB Y
-      (doseq [c (map char (range (int \a) (int \g)))]
-        (blocking-command-post (utils/pdb-cmd-url) "replace catalog" 6
-                               (assoc catalog :certname (str c ".local"))))
+    (with-log-suppressed-unless-notable notable-pdb-event?
+     (with-puppetdb-instance (utils/sync-config stub-handler)
+       ;; store catalogs in PDB Y
+       (doseq [c (map char (range (int \a) (int \g)))]
+         (blocking-command-post (utils/pdb-cmd-url) "replace catalog" 6
+                                (assoc catalog :certname (str c ".local"))))
 
-      (let [local-catalogs (index-by :certname (get-json (utils/pdb-query-url) "/catalogs"))
-            timestamps (ks/mapvals (comp to-date-time :producer_timestamp) local-catalogs)]
-        (is (= 6 (count local-catalogs)))
+       (let [local-catalogs (index-by :certname (get-json (utils/pdb-query-url) "/catalogs"))
+             timestamps (ks/mapvals (comp to-date-time :producer_timestamp) local-catalogs)]
+         (is (= 6 (count local-catalogs)))
 
-        (reset! stub-data-atom
-                [;; time is newer than local, hash is different -> should pull
-                 (assoc catalog-response
-                        :certname "a.local"
-                        :hash "a_different"
-                        :producer_timestamp (t/plus (timestamps "a.local") (t/days 1))
-                        :environment "A")
-                 ;; time is older than local, hash is different -> no pull
-                 (assoc catalog-response
-                        :certname "b.local"
-                        :hash "b_different"
-                        :producer_timestamp (t/minus (timestamps "b.local") (t/days 1)))
-                 ;; time is the same, hash is the same -> no pull
-                 (assoc catalog-response
-                        :certname "c.local"
-                        :hash (-> local-catalogs (get "c.local") :hash)
-                        :producer_timestamp (timestamps "c.local"))
-                 ;; time is the same, hash is lexically less -> no pull
-                 (assoc catalog-response
-                        :certname "d.local"
-                        :hash "0000000000000000000000000000000000000000"
-                        :producer_timestamp (timestamps "d.local"))
-                 ;; time is the same, hash is lexically greater -> should pull
-                 (assoc catalog-response
-                        :certname "e.local"
-                        :hash "ffffffffffffffffffffffffffffffffffffffff"
-                        :producer_timestamp (timestamps "e.local")
-                        :environment "E")
-                 ;; timer is newer than local, hash is the same -> should pull
-                 (assoc catalog-response
-                        :certname "f.local"
-                        :hash (-> local-catalogs (get "f.local") :hash)
-                        :producer_timestamp (t/plus (timestamps "f.local") (t/days 1))
-                        :environment "F")])
+         (reset! stub-data-atom
+                 [;; time is newer than local, hash is different -> should pull
+                  (assoc catalog-response
+                         :certname "a.local"
+                         :hash "a_different"
+                         :producer_timestamp (t/plus (timestamps "a.local") (t/days 1))
+                         :environment "A")
+                  ;; time is older than local, hash is different -> no pull
+                  (assoc catalog-response
+                         :certname "b.local"
+                         :hash "b_different"
+                         :producer_timestamp (t/minus (timestamps "b.local") (t/days 1)))
+                  ;; time is the same, hash is the same -> no pull
+                  (assoc catalog-response
+                         :certname "c.local"
+                         :hash (-> local-catalogs (get "c.local") :hash)
+                         :producer_timestamp (timestamps "c.local"))
+                  ;; time is the same, hash is lexically less -> no pull
+                  (assoc catalog-response
+                         :certname "d.local"
+                         :hash "0000000000000000000000000000000000000000"
+                         :producer_timestamp (timestamps "d.local"))
+                  ;; time is the same, hash is lexically greater -> should pull
+                  (assoc catalog-response
+                         :certname "e.local"
+                         :hash "ffffffffffffffffffffffffffffffffffffffff"
+                         :producer_timestamp (timestamps "e.local")
+                         :environment "E")
+                  ;; timer is newer than local, hash is the same -> should pull
+                  (assoc catalog-response
+                         :certname "f.local"
+                         :hash (-> local-catalogs (get "f.local") :hash)
+                         :producer_timestamp (t/plus (timestamps "f.local") (t/days 1))
+                         :environment "F")])
 
-        ;; Send a sync command to PDB Y
-        (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str)))
+         ;; Send a sync command to PDB Y
+         (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str)))
 
-      ;; We should see that the sync happened, and that two catalog queries were made to PDB X
-      (let [synced-catalogs (get-json (utils/pdb-query-url) "/catalogs")
-            environments (->> synced-catalogs (map :environment) (into #{}))]
-        (is (= #{"DEV" "A" "E" "F"} environments))
-        (is (= 4 (count @pdb-x-queries)))))))
+       ;; We should see that the sync happened, and that two catalog queries were made to PDB X
+       (let [synced-catalogs (get-json (utils/pdb-query-url) "/catalogs")
+             environments (->> synced-catalogs (map :environment) (into #{}))]
+         (is (= #{"DEV" "A" "E" "F"} environments))
+         (is (= 4 (count @pdb-x-queries))))))))
 
 (deftest overlapping-sync
   (let [pdb-x-queries (atom [])
@@ -390,14 +385,15 @@
                        "/pdb-x/v4/catalogs" pdb-x-queries stub-data-atom :certname)]
 
     (testing "overlapping sync"
-      (with-puppetdb-instance (utils/sync-config stub-handler)
-        (let [remote-url (utils/stub-url-str "/pdb-x/v4")]
-          (is (contains?
-                (set (map :body (perform-overlapping-sync
+      (with-log-suppressed-unless-notable notable-pdb-event?
+        (with-puppetdb-instance (utils/sync-config stub-handler)
+          (let [remote-url (utils/stub-url-str "/pdb-x/v4")]
+            (is (contains?
+                 (set (map :body (perform-overlapping-sync
                                   remote-url
                                   (utils/trigger-sync-url-str))))
-                (format "Refusing to sync from %s. Sync already in progress."
-                        remote-url))))))))
+                 (format "Refusing to sync from %s. Sync already in progress."
+                         remote-url)))))))))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; End to end test utils
 
@@ -450,7 +446,8 @@
 (defn with-pdbs
   "Repeatedly call (gen-config [previously-started-instance-info...])
   and start a pdb instance for each returned config.  When gen-config
-  returns false, call (f instance-1-info instance-2-info...)."
+  returns false, call (f instance-1-info instance-2-info...).
+  Suppress the log unless something \"notable\" happens."
   [gen-config f]
   (letfn [(spawn-pdbs [infos]
             (if-let [config (gen-config infos)]
@@ -474,9 +471,9 @@
                                          :command-url (utils/pdb-cmd-url)
                                          :sync-url (utils/sync-url)}))))))
               (apply f infos)))]
-    (muting-amq-shutdown-log-noise
-     (without-jmx
-      (spawn-pdbs [])))))
+    (with-log-suppressed-unless-notable notable-pdb-event?
+      (without-jmx
+       (spawn-pdbs [])))))
 
 (defn default-pdb-configs [n]
   #(when (< (count %) n) (utils/sync-config)))
@@ -731,8 +728,8 @@
   (with-pdbs (default-pdb-configs 2)
     (fn [pdb1 pdb2]
       (let [events (let [log (atom [])]
-                     (svcs/with-log-level ":sync" :debug
-                       (svcs/with-logging-to-atom ":sync" log
+                     (with-log-level ":sync" :debug
+                       (with-logging-to-atom ":sync" log
                          (let [certname (:certname catalog)]
                            ;; Submit a normal sequence of commands
                            (with-alt-mq (:mq-name pdb1)
@@ -784,8 +781,8 @@
       (let [events
             ;; Force a transfer error while syncing a factset.
             (let [log (atom [])]
-              (svcs/with-log-level ":sync" :debug
-                (svcs/with-logging-to-atom ":sync" log
+              (with-log-level ":sync" :debug
+                (with-logging-to-atom ":sync" log
                   (let [certname (:certname catalog)]
                     (with-alt-mq (:mq-name pdb1)
                       (submit-factset pdb1 facts))
