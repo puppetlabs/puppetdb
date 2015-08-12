@@ -197,6 +197,45 @@ describe processor do
           end
         end
       end
+
+      context "with unchanged resources turned on" do
+        let (:config) {
+          Puppet::Util::Puppetdb.config
+        }
+
+        before :each do
+          config.stubs(:include_unchanged_resources?).returns(true)
+
+          notify_resource =
+            stub("notify_resource",
+                 { :pathbuilder => ["foo", "bar", "baz"],
+                   :path => "foo",
+                   :file => "foo",
+                   :line => "foo",
+                   :tags => [],
+                   :type => "Notify",
+                   :title => "Hello there" })
+          notify_status = Puppet::Resource::Status.new(notify_resource)
+          notify_status.changed = false
+          subject.add_resource_status(notify_status)
+        end
+
+        context "with an unchanged resource" do
+          it "should include the actual event" do
+            result = subject.send(:report_to_hash)
+            result["resources"].length.should == 2
+            resource = result["resources"][1]
+            resource["resource_type"].should == "Notify"
+            resource["resource_title"].should == "Hello there"
+            resource["file"].should == "foo"
+            resource["line"].should == "foo"
+            resource["containment_path"].should == ["foo", "bar", "baz"]
+            resource["events"].length.should == 0
+          end
+        end
+
+      end
+
     end
   end
 end

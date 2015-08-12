@@ -12,7 +12,8 @@ module Puppet::Util::Puppetdb
         :server                    => "puppetdb",
         :port                      => 8081,
         :soft_write_failure        => false,
-        :server_url_timeout        => 30
+        :server_url_timeout        => 30,
+        :include_unchanged_resources => false,
       }
 
       config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
@@ -55,6 +56,7 @@ module Puppet::Util::Puppetdb
         !([:server,
            :port,
            :ignore_blacklisted_events,
+           :include_unchanged_resources,
            :soft_write_failure,
            :server_urls,
            :server_url_timeout].include?(k))
@@ -70,6 +72,7 @@ module Puppet::Util::Puppetdb
       config_hash[:server_urls] = convert_and_validate_urls(config_hash[:server_urls])
 
       config_hash[:server_url_timeout] = config_hash[:server_url_timeout].to_i
+      config_hash[:include_unchanged_resources] = Puppet::Util::Puppetdb.to_bool(config_hash[:include_unchanged_resources])
       config_hash[:soft_write_failure] = Puppet::Util::Puppetdb.to_bool(config_hash[:soft_write_failure])
 
       self.new(config_hash, uses_server_urls)
@@ -104,6 +107,10 @@ module Puppet::Util::Puppetdb
 
     def server_url_timeout
       config[:server_url_timeout]
+    end
+
+    def include_unchanged_resources?
+      config[:include_unchanged_resources]
     end
 
     def soft_write_failure
