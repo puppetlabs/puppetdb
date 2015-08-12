@@ -51,7 +51,7 @@
         report (-> (:basic reports)
                    (assoc :certname certname))]
 
-    (svc-utils/puppetdb-instance
+    (svc-utils/call-with-single-quiet-pdb-instance
      (fn []
        (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))
              submit-command-fn (partial submit-command (tk-app/get-service svc-utils/*server* :PuppetDBCommand))]
@@ -88,7 +88,7 @@
                          "--host" (:host svc-utils/*base-url*)
                          "--port" (str (:port svc-utils/*base-url*))))))
 
-    (svc-utils/puppetdb-instance
+    (svc-utils/call-with-single-quiet-pdb-instance
      (fn []
        (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))
              submit-command-fn (partial submit-command (tk-app/get-service svc-utils/*server* :PuppetDBCommand))]
@@ -128,7 +128,7 @@
   (let [certname "foo.local"
         catalog (-> (get-in wire-catalogs [6 :empty])
                     (assoc :certname certname))]
-    (svc-utils/puppetdb-instance
+    (svc-utils/call-with-single-quiet-pdb-instance
      (assoc-in (svc-utils/create-config) [:command-processing :max-frame-size] "1024")
      (fn []
        (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))]

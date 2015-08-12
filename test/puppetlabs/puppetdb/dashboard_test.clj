@@ -33,7 +33,7 @@
   (.contains body "<title>PuppetDB: Dashboard</title>"))
 
 (deftest dashboard-routing
-  (svc-utils/puppetdb-instance
+  (svc-utils/call-with-single-quiet-pdb-instance
    (fn []
      (let [pdb-resp (client/get (base-url->str' (assoc svc-utils/*base-url*
                                                   :prefix "/pdb")))
