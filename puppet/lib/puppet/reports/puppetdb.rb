@@ -76,9 +76,8 @@ Puppet::Reports.register_report(:puppetdb) do
   def build_resources_list
     profile("Build resources list (count: #{resource_statuses.count})",
             [:puppetdb, :resources_list, :build]) do
-      include_unchanged_resources = false
       resources = resource_statuses.values.map { |resource| resource_status_to_hash(resource) }
-      if ! include_unchanged_resources
+      if ! config.include_unchanged_resources?
         resources.select{ |resource| (! resource["events"].empty?) or resource["skipped"] }
       else
         resources
