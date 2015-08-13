@@ -218,13 +218,21 @@ describe processor do
           notify_status = Puppet::Resource::Status.new(notify_resource)
           notify_status.changed = false
           subject.add_resource_status(notify_status)
+
+          event = Puppet::Transaction::Event.new()
+          event.property = "fooprop"
+          event.desired_value = "fooval"
+          event.previous_value = "oldfooval"
+          event.message = "foomessage"
+          status.add_event(event)
         end
 
         context "with an unchanged resource" do
           it "should include the actual event" do
             result = subject.send(:report_to_hash)
-            result["resources"].length.should == 2
-            resource = result["resources"][1]
+            unchanged_resources = result["resources"].select { |res| res["events"].empty? and ! (res["skipped"])}
+            unchanged_resources.length.should == 1
+            resource = unchanged_resources[0]
             resource["resource_type"].should == "Notify"
             resource["resource_title"].should == "Hello there"
             resource["file"].should == "foo"
