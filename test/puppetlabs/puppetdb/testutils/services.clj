@@ -6,6 +6,7 @@
             [puppetlabs.puppetdb.testutils.log
              :refer [notable-pdb-event? with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.fixtures :as fixt]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
@@ -109,9 +110,11 @@
 (defmacro with-puppetdb-instance
   "Convenience macro to launch a puppetdb instance"
   [& body]
-  `(call-with-puppetdb-instance
-    (fn []
-      ~@body)))
+  `(with-redefs [sutils/db-metadata (delay {:database "HSQL Database Engine"
+                                            :version [2 2]})]
+     (call-with-puppetdb-instance
+       (fn []
+         ~@body))))
 
 (defn call-with-single-quiet-pdb-instance
   "Calls the call-with-puppetdb-instance with args after suppressing

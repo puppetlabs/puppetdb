@@ -34,45 +34,40 @@
   [s/Int])
 
 ;; FUNCTIONS
-
-(defn sql-current-connection-database-name
-  "Return the database product name currently in use."
-  []
-  (.. (sql/find-connection)
-      (getMetaData)
-      (getDatabaseProductName)))
-
-(pls/defn-validated sql-current-connection-database-version :- db-version
-  "Return the version of the database product currently in use."
+(defn db-metadata-fn
   []
   (let [db-metadata (.. (sql/find-connection)
                         (getMetaData))
         major (.getDatabaseMajorVersion db-metadata)
         minor (.getDatabaseMinorVersion db-metadata)]
-    [major minor]))
+    {:database (.getDatabaseProductName db-metadata)
+     :version [major minor]}))
+
+(def db-metadata
+  (delay (db-metadata-fn)))
 
 (pls/defn-validated postgres? :- s/Bool
   "Returns true if currently connected to a Postgres DB instance"
   []
-  (= (sql-current-connection-database-name) "PostgreSQL"))
+  (= (:database @db-metadata) "PostgreSQL"))
 
 (pls/defn-validated db-version? :- s/Bool
   "Returns true if the version list you pass matches the version of the current
    database."
   [version :- db-version]
-  (= (sql-current-connection-database-version) version))
+  (= (:version @db-metadata) version))
 
 (pls/defn-validated db-version-older-than? :- s/Bool
   "Returns true if the current database version is older than the version list
    you pass it."
   [version :- db-version]
-  (neg? (compare (sql-current-connection-database-version) version)))
+  (neg? (compare (:version @db-metadata) version)))
 
 (pls/defn-validated db-version-newer-than? :- s/Bool
   "Returns true if the current database version is newer than the version list
    you pass it."
   [version :- db-version]
-  (pos? (compare (sql-current-connection-database-version) version)))
+  (pos? (compare (:version @db-metadata) version)))
 
 (defn sql-current-connection-table-names
   "Returns the names of all of the tables in the public schema of the
@@ -145,7 +140,7 @@
   of the supplied base database type."
   ;; Dispatch based on database from the metadata of DB connection at the time
   ;; of call; this copes gracefully with multiple connection types.
-  (fn [_] (sql-current-connection-database-name)))
+  (fn [_] (:database @db-metadata)))
 
 (defmulti sql-array-query-string
   "Returns an SQL fragment representing a query for a single value being
@@ -155,11 +150,11 @@ found in an array column in the database.
 
 The returned SQL fragment will contain *one* parameter placeholder, which
 must be supplied as the value to be matched."
-  (fn [column] (sql-current-connection-database-name)))
+  (fn [column] (:database @db-metadata)))
 
 (defmulti legacy-sql-regexp-match
   "Returns db-specific code for performing a regexp match"
-  (fn [_] (sql-current-connection-database-name)))
+  (fn [_] (:database @db-metadata)))
 
 (defmethod legacy-sql-regexp-match "PostgreSQL"
   [column]
@@ -171,18 +166,18 @@ must be supplied as the value to be matched."
 
 (defmulti sql-regexp-match
   "Returns db-specific code for performing a regexp match"
-  (fn [_] (sql-current-connection-database-name)))
+  (fn [_] (:database @db-metadata)))
 
 (defmulti sql-regexp-array-match
   "Returns db-specific code for performing a regexp match against the
   contents of an array. If any of the array's items match the supplied
   regexp, then that satisfies the match."
-  (fn [_ _ _] (sql-current-connection-database-name)))
+  (fn [_ _ _] (:database @db-metadata)))
 
 (defmulti sql-as-numeric
   "Returns appropriate db-specific code for converting the given column to a
   number, or to NULL if it is not numeric."
-  (fn [_] (sql-current-connection-database-name)))
+  (fn [_] (:database @db-metadata)))
 
 (defmethod sql-as-numeric "PostgreSQL"
   [column]

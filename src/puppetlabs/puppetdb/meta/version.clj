@@ -26,8 +26,8 @@
   (sql/with-connection db
     {:product-name {:group-id "puppetlabs"
                     :artifact-id "puppetdb"}
-     :database-name (sutils/sql-current-connection-database-name)
-     :database-version (string/join "." (sutils/sql-current-connection-database-version))}))
+     :database-name (:database @sutils/db-metadata)
+     :database-version (string/join "." (:version @sutils/db-metadata))}))
 
 (def pdb-version-check-values
   (memoize pdb-version-check-values*))

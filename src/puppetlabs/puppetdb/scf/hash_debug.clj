@@ -86,8 +86,8 @@
                     (-> {"new catalog hash" new-hash
                          "old catalog hash" (-> old-catalog json/generate-string kitchensink/utf8-string->sha1)
                          "java version" kitchensink/java-version
-                         "database name" (sutils/sql-current-connection-database-name)
-                         "database version" (sutils/sql-current-connection-database-version)}
+                         "database name" (:database @sutils/db-metadata)
+                         "database version" (:version @sutils/db-metadata)}
                         (output-clj-catalog "old catalog path - edn" (file-path-fn "catalog-old.edn") old-catalog)
                         (output-clj-catalog "new catalog path - edn" (file-path-fn "catalog-new.edn") new-catalog)
                         (output-json-catalog "old catalog path - json" (file-path-fn "catalog-old.json") old-catalog)

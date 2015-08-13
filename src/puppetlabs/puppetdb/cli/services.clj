@@ -56,6 +56,7 @@
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as pl-jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.meta.version :as version]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.population :as pop]
@@ -226,6 +227,7 @@
   [db-conn-pool product-name]
   (sql/with-connection db-conn-pool
     (scf-store/validate-database-version #(System/exit 1))
+    @sutils/db-metadata
     (migrate! db-conn-pool)
     (indexes! product-name)))
 

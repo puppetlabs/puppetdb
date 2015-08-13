@@ -344,12 +344,12 @@
   encountered some version strings that are longer than 40 chars."
   []
   (sql/do-commands
-   (condp = (sutils/sql-current-connection-database-name)
+   (condp = (:database @sutils/db-metadata)
      "PostgreSQL" "ALTER TABLE reports ALTER puppet_version TYPE VARCHAR(255)"
      "HSQL Database Engine" "ALTER TABLE reports ALTER puppet_version VARCHAR(255)"
      (throw (IllegalArgumentException.
              (format "Unsupported database engine '%s'"
-                     (sutils/sql-current-connection-database-name)))))))
+                     (:database @sutils/db-metadata)))))))
 
 (defn burgundy-schema-changes
   "Schema changes for the initial release of Burgundy. These include:
