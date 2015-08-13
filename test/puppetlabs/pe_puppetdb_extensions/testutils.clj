@@ -43,6 +43,7 @@
   ([] (sync-config nil))
   ([stub-handler]
    (-> (svcs/create-config)
+       (assoc-in [:sync :allow-unsafe-sync-triggers] true)
        (assoc :stub-server-service {:handler stub-handler}
               :web-router-service  {:puppetlabs.pe-puppetdb-extensions.server/pe-puppetdb-service pe-pdb-url-prefix
                                     :puppetlabs.pe-puppetdb-extensions.sync.services/puppetdb-sync-service sync-url-prefix

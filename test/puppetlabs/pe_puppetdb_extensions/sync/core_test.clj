@@ -481,6 +481,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; End to end tests
 
+(deftest refuses-to-sync-to-unconfigured-remote
+  (with-pdbs (comp #(ks/dissoc-in % [:sync :allow-unsafe-sync-triggers])
+                  (default-pdb-configs 2))
+    (fn [pdb1 pdb2]
+      (with-alt-mq (:mq-name pdb1)
+        (submit-report pdb1 report))
+
+      (with-alt-mq (:mq-name pdb2)
+        (is (.contains
+             (:body (start-sync :from pdb1 :to pdb2))
+             "Refusing to sync. PuppetDB is not configured to sync with"))))))
+
 (deftest end-to-end-report-replication
   (with-pdbs (default-pdb-configs 2)
     (fn [pdb1 pdb2]
