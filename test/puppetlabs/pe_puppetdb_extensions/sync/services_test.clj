@@ -76,3 +76,10 @@
       {:server_urls "foo,bar", :intervals "1s,2s", :extra "field"}
       {:remotes [{:server_url "http://foo.bar:8080", :interval "120s"}] :extra "field"}
       {:remotes [{:server_url "http://foo.bar:8080", :interval "120s", :extra "field"}]})))
+
+(deftest validate-trigger-sync-test
+  (let [allow-unsafe-sync-triggers false
+        jetty-config {}
+        remotes-config [{:server_url "http://foo.bar:8080", :interval (parse-period "120s")}]]
+    (is (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config {:url "http://foo.bar:8080/pdb/query/v4"}))
+    (is (not (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config {:url "http://baz.buzz:8080/pdb/query/v4"})))))

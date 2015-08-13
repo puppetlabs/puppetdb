@@ -3,6 +3,7 @@
   (:require [clj-time.core :as time]
             [clojure.tools.logging :as log]
             [overtone.at-at :as atat]
+            [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.pe-puppetdb-extensions.semlog :as semlog]
             [puppetlabs.puppetdb.time :refer [to-millis periods-equal? parse-period period?]]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -59,14 +60,16 @@
 
 (defn sync-app
   "Top level route for PuppetDB sync"
-  [query-fn submit-command-fn node-ttl jetty-config]
+  [query-fn submit-command-fn node-ttl jetty-config validate-sync-fn]
   (routes
     (POST "/v1/trigger-sync" {:keys [body]}
           (let [sync-request (json/parse-string (slurp body) true)
                 remote-url (:remote_host_path sync-request)]
             (s/validate sync-request-schema sync-request)
-            (sync-with! (make-remote-server remote-url jetty-config)
-                        query-fn submit-command-fn node-ttl)))))
+            (let [remote-server (make-remote-server remote-url jetty-config)]
+              (if (validate-sync-fn remote-server)
+                (sync-with! remote-server query-fn submit-command-fn node-ttl)
+                {:status 503 :body (format "Refusing to sync. PuppetDB is not configured to sync with %s" remote-url)}))))))
 
 (defn enable-periodic-sync? [remotes]
   (cond
@@ -187,6 +190,23 @@
       set-default-ports
       :remotes))
 
+(defn- scrub-sync-config
+  "A utility function for tests which will dissoc the
+  `:allow-unsafe-sync-triggers' config option and ensure the sync-config map is
+  either non-empty or nil, which is helpful for our uses core.match above"
+  [sync-config]
+  (let [sync-config-scrubbed (-> sync-config
+                                 (dissoc :allow-unsafe-sync-triggers))]
+    (when (seq sync-config-scrubbed)
+      sync-config-scrubbed)))
+
+(defn validate-trigger-sync
+  "Validates `remote-server' as a valid sync target given user config items"
+  [allow-unsafe-sync-triggers remotes-config jetty-config remote-server]
+  (let [valid-remotes (map (comp #(make-remote-server % jetty-config) :server_url) remotes-config)]
+    (or allow-unsafe-sync-triggers
+        (ks/seq-contains? valid-remotes remote-server))))
+
 (defservice puppetdb-sync-service
   [[:ConfigService get-config]
    [:WebroutingService add-ring-handler get-route]
@@ -197,9 +217,14 @@
          (let [{node-ttl :node-ttl, sync-config :sync, jetty-config :jetty} (get-config)
                node-ttl (or (some-> node-ttl parse-period)
                             Period/ZERO)
-               remotes-config (extract-and-check-remotes-config sync-config)]
-           (add-ring-handler this (->> (sync-app query submit-command node-ttl jetty-config)
-                                       (compojure/context (get-route this) [])))
+               allow-unsafe-sync-triggers (:allow-unsafe-sync-triggers sync-config false)
+               remotes-config (-> sync-config
+                                  scrub-sync-config
+                                  extract-and-check-remotes-config)
+               validate-sync-fn (partial validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config)]
+           (->> (sync-app query submit-command node-ttl jetty-config validate-sync-fn)
+                (compojure/context (get-route this) [])
+                (add-ring-handler this))
            (if (enable-periodic-sync? remotes-config)
              (let [{:keys [interval server_url]} (first remotes-config)
                    remote-server (make-remote-server server_url jetty-config)]
