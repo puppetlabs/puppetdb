@@ -345,6 +345,23 @@
     "Returns a core.async publisher to which commands are written after they
      have been processed. The topic for each message is its uuid." ))
 
+(defn make-cmd-processed-message [cmd ex]
+  (merge {:command cmd
+          :id (-> cmd :annotations :id)}
+         (when ex {:exception ex})))
+
+(defn process-command-and-respond! [cmd config response-pub-chan stats-atom]
+  (try
+    (let [result (process-command! cmd config)]
+      (swap! stats-atom update :executed-commands inc)
+      (async/>!! response-pub-chan
+                 (make-cmd-processed-message cmd nil))
+      result)
+    (catch Exception ex
+      (async/>!! response-pub-chan
+                 (make-cmd-processed-message cmd ex))
+      (throw ex))))
+
 (defservice command-service
   PuppetDBCommandDispatcher
   [[:PuppetDBServer shared-globals]
@@ -355,7 +372,7 @@
              :stats (atom {:received-commands 0
                            :executed-commands 0})
              :response-pub-chan response-pub-chan
-             :response-pub (async/pub response-pub-chan #(-> % :annotations :id str)))))
+             :response-pub (async/pub response-pub-chan :id))))
 
   (start [this context]
     (let [{:keys [scf-write-db catalog-hash-debug-dir]} (shared-globals)
@@ -364,11 +381,7 @@
           {:keys [response-pub-chan response-pub]} context]
       (register-listener
        supported-command?
-       (fn [cmd]
-         (let [result (process-command! cmd config)]
-           (swap! (:stats context) update :executed-commands inc)
-           (async/>!! response-pub-chan cmd)
-           result)))
+       #(process-command-and-respond! % config response-pub-chan (:stats context)))
       context))
 
   (stop [this {:keys [response-pub-chan] :as context}]
