@@ -29,6 +29,12 @@ AMI:
       :foss: ami-52ea6262
     :region: us-west-2
 
+  debian-8-amd64-west:
+    :image:
+      :pe: ami-17120727
+      :foss: ami-17120727
+    :region: us-west-2
+
   debian-7-amd64-west:
     :image:
       :pe: ami-99e0ada9
