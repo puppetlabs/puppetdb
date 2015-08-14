@@ -270,8 +270,7 @@
 
 (defn store-report*
   [version db {:keys [payload annotations]}]
-  (let [id (:id annotations)
-        received-timestamp (:received annotations)
+  (let [{id :id received-timestamp :received} annotations
         {:keys [certname puppet_version] :as report}
         (->> payload
              (s/validate report/report-wireformat-schema)

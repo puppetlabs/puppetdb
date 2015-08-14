@@ -1156,8 +1156,8 @@
                                  (maybe-environment
                                    {:hash                   (sutils/munge-hash-for-storage report-hash)
                                     :transaction_uuid       (sutils/munge-uuid-for-storage transaction_uuid)
-                                    :metrics                (sutils/munge-json-for-storage metrics)
-                                    :logs                   (sutils/munge-json-for-storage logs)
+                                    :metrics                (sutils/munge-jsonb-for-storage metrics)
+                                    :logs                   (sutils/munge-jsonb-for-storage logs)
                                     :noop                   noop
                                     :puppet_version         puppet_version
                                     :certname               certname

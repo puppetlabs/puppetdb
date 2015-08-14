@@ -349,6 +349,83 @@
                                 (query-to-vec "select latest_report_id from certnames order by certname"))]
             (is (= [id1 id2] latest-ids))))))))
 
+(deftest migration-37
+  (testing "should contain same reports before and after migration"
+    (sql/with-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 36)
+
+      (let [current-time (to-timestamp (now))]
+        (sql/insert-records
+          :report_statuses
+          {:status "testing1" :id 1})
+        (sql/insert-records
+          :environments
+          {:id 1 :environment "testing1"})
+        (sql/insert-records
+          :certnames
+          {:certname "testing1" :deactivated nil}
+          {:certname "testing2" :deactivated nil})
+
+        (sql/insert-records
+          :reports
+          {:hash (sutils/munge-hash-for-storage "01")
+           :transaction_uuid (sutils/munge-uuid-for-storage "bbbbbbbb-2222-bbbb-bbbb-222222222222")
+           :configuration_version "thisisacoolconfigversion"
+           :certname "testing1"
+           :puppet_version "0.0.0"
+           :report_format 1
+           :start_time current-time
+           :end_time current-time
+           :receive_time current-time
+           :producer_timestamp current-time
+           :environment_id 1
+           :status_id 1
+           :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+           :logs (sutils/munge-json-for-storage [{:bar "baz"}])}
+          {:hash (sutils/munge-hash-for-storage "0000")
+           :transaction_uuid (sutils/munge-uuid-for-storage "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa")
+           :configuration_version "blahblahblah"
+           :certname "testing2"
+           :puppet_version "911"
+           :report_format 1
+           :start_time current-time
+           :end_time current-time
+           :receive_time current-time
+           :producer_timestamp current-time
+           :environment_id 1
+           :status_id 1
+           :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+           :logs (sutils/munge-json-for-storage [{:bar "baz"}])})
+
+        (sql/update-values :certnames ["certname = ?" "testing1"] {:latest_report_id (if (postgres?) 1 0)})
+        (sql/update-values :certnames ["certname = ?" "testing2"] {:latest_report_id (if (postgres?) 2 1)})
+
+        (apply-migration-for-testing! 37)
+
+        (let [response
+              (-> (str "SELECT %s AS hash, r.certname, e.environment, rs.status, %s AS uuid, metrics, logs FROM certnames c"
+                       " INNER JOIN reports r on c.latest_report_id=r.id AND c.certname=r.certname"
+                       " INNER JOIN environments e on r.environment_id=e.id"
+                       " INNER JOIN report_statuses rs on r.status_id=rs.id"
+                       " ORDER BY c.certname")
+                  (format (sutils/sql-hash-as-str "r.hash") (sutils/sql-uuid-as-str "r.transaction_uuid"))
+                  query-to-vec)]
+          ;; every node should with facts should be represented
+          (is (= [{:metrics [{:foo "bar"}] :logs [{:bar "baz"}]
+                   :hash "01" :environment "testing1" :certname "testing1" :status "testing1" :uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"}
+                  {:metrics [{:foo "bar"}] :logs [{:bar "baz"}]
+                   :hash "0000" :environment "testing1" :certname "testing2" :status "testing1" :uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"}]
+                 (map (comp #(update % :metrics sutils/parse-db-json)
+                            #(update % :logs sutils/parse-db-json)) response))))
+
+        (let [[id1 id2] (map :id
+                              (query-to-vec "SELECT id from reports order by certname"))]
+
+          (let [latest-ids (map :latest_report_id
+                                (query-to-vec "select latest_report_id from certnames order by certname"))]
+            (is (= [id1 id2] latest-ids))))))))
+
 (deftest migration-29-producer-timestamp-not-null
   (sql/with-connection *db*
     (clear-db-for-testing!)
