@@ -24,6 +24,9 @@
       {:status 503
        :body "PuppetDB is currently down. Try again later."})))
 
+(defn wrap-with-context [uri route]
+  (compojure/context uri [] route))
+
 (defn pdb-core-routes [get-shared-globals submit-command-fn query-fn enqueue-raw-command-fn response-pub]
   (let [auth #(:authorizer (get-shared-globals))
         cmd-mq #(:command-mq (get-shared-globals))
@@ -31,8 +34,7 @@
                                                      :product-name
                                                      :scf-read-db])
         get-response-pub #(response-pub)]
-    (map (fn [[uri route]]
-           (compojure/context uri [] route))
+    (map #(apply wrap-with-context %)
          (partition
           2
           ;; The remaining get-shared-globals args are for wrap-with-globals.
@@ -58,30 +60,17 @@
   (disable-maint-mode [this])
   (maint-mode? [this]))
 
-(tk/defservice pdb-routing-service
+(tk/defservice maint-mode-service
   MaintenanceMode
-  [[:WebroutingService add-ring-handler get-route]
-   [:PuppetDBServer shared-globals query]
-   [:PuppetDBCommand submit-command]
-   [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub]]
+  []
   (init [this context]
-        (add-ring-handler this (pdb-app (get-route this)
-                                        #(maint-mode? this)
-                                        (pdb-core-routes shared-globals
-                                                         submit-command
-                                                         query
-                                                         enqueue-raw-command
-                                                         response-pub)))
         (assoc context ::maint-mode? (atom true)))
-  (start [this context]
-         (disable-maint-mode this)
-         context)
   (enable-maint-mode [this]
-                     (let [ctx (tksvc/service-context this)]
-                       (update ctx ::maint-mode? reset! true)))
+                     (-> (tksvc/service-context this)
+                         (update ::maint-mode? reset! true)))
   (disable-maint-mode [this]
-                      (let [ctx (tksvc/service-context this)]
-                        (update ctx ::maint-mode? reset! false)))
+                      (-> (tksvc/service-context this)
+                          (update ::maint-mode? reset! false)))
   (maint-mode? [this]
                (let [maint-mode-atom (::maint-mode? (tksvc/service-context this) ::not-found)]
                  ;;There's a small gap in time after the routes have
@@ -91,3 +80,23 @@
                  (if (= ::not-found maint-mode-atom)
                    true
                    @maint-mode-atom))))
+
+(tk/defservice pdb-routing-service
+  [[:WebroutingService add-ring-handler get-route]
+   [:PuppetDBServer shared-globals query]
+   [:PuppetDBCommand submit-command]
+   [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub]
+   [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]]
+  (init [this context]
+        (add-ring-handler this (pdb-app (get-route this)
+                                        maint-mode?
+                                        (pdb-core-routes shared-globals
+                                                         submit-command
+                                                         query
+                                                         enqueue-raw-command
+                                                         response-pub)))
+        (enable-maint-mode)
+        context)
+  (start [this context]
+         (disable-maint-mode)
+         context))

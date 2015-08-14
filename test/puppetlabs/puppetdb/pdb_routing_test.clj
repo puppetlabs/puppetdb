@@ -1,4 +1,4 @@
-(ns puppetlabs.puppetdb.pdb-routing
+(ns puppetlabs.puppetdb.pdb-routing-test
   (:require [clojure.test :refer :all]
             [clj-http.client :as client]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
@@ -14,11 +14,8 @@
             [puppetlabs.puppetdb.pdb-routing :refer :all]
             [puppetlabs.trapperkeeper.app :as tk-app]))
 
-(defn command-base-url
-  [base-url]
-  (assoc base-url
-         :prefix "/pdb/cmd"
-         :version :v1))
+(defn command-base-url [{:keys [host port]}]
+  (utils/pdb-cmd-base-url host port :v1))
 
 (defn pdb-get [base-url url-suffix]
   (let [resp (client/get (str (utils/base-url->str base-url)
@@ -29,29 +26,21 @@
       resp)))
 
 (defn submit-facts [base-url facts]
-  (svc-utils/sync-command-post (assoc base-url
-                                 :prefix "/pdb/cmd"
-                                 :version :v1)
+  (svc-utils/sync-command-post (command-base-url base-url)
                                "replace facts"
                                4
                                facts))
 
-(defn query-fact-names [base-url]
-  (pdb-get (assoc svc-utils/*base-url*
-             :prefix "/pdb/query"
-             :version :v4)
+(defn query-fact-names [{:keys [host port]}]
+  (pdb-get (utils/pdb-query-base-url host port :v4)
            "/fact-names"))
 
-(defn export [base-url]
-  (pdb-get (assoc base-url
-             :prefix "/pdb/admin"
-             :version :v1)
+(defn export [{:keys [host port]}]
+  (pdb-get (utils/pdb-admin-base-url host port :v1)
            "/archive"))
 
-(defn query-server-time [base-url]
-  (pdb-get (assoc svc-utils/*base-url*
-             :prefix "/pdb/meta"
-             :version :v1)
+(defn query-server-time [{:keys [host port]}]
+  (pdb-get (utils/pdb-meta-base-url host port :v1)
            "/server-time"))
 
 (def test-facts {:certname "foo.com"

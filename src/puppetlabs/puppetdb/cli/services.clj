@@ -274,7 +274,7 @@
         ;;is also sensitive to startup order. get-registered-endpoints
         ;;only has one item in the map at that point (metrics gets
         ;;added later
-        url-prefix (ffirst (get-registered-endpoints))
+        url-prefix (str (ffirst (get-registered-endpoints)) "/query")
 
         write-db (pl-jdbc/pooled-datasource database)
         read-db (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))

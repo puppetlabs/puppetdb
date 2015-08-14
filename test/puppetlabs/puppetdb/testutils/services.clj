@@ -28,7 +28,7 @@
             [clojure.tools.logging :as log]
             [clojure.data.xml :as xml]
             [puppetlabs.puppetdb.dashboard :refer [dashboard-redirect-service]]
-            [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service]]))
+            [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service maint-mode-service]]))
 
 ;; See utils.clj for more information about base-urls.
 (def ^:dynamic *base-url* nil) ; Will not have a :version.
@@ -94,7 +94,8 @@
                   metrics/metrics-service
                   puppetdb-command-service
                   dashboard-redirect-service
-                  pdb-routing-service]
+                  pdb-routing-service
+                  maint-mode-service]
                  services)
          config
          (binding [*server* server
