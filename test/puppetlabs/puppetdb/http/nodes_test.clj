@@ -21,6 +21,17 @@
   ([method endpoint query] (query-response method endpoint query {}))
   ([method endpoint query params] (fixt/*app* (query-request method endpoint query {:params params}))))
 
+(defn query-result
+  ([method endpoint]
+   (query-result method endpoint nil))
+  ([method endpoint query]
+   (query-result method endpoint query {}))
+  ([method endpoint query params]
+   (-> (query-response method endpoint query params)
+       :body
+       slurp
+       (json/parse-string true))))
+
 ;; HELPERS
 (defn get-version
   "Lookup version from endpoint uri"
@@ -58,7 +69,8 @@
 
     (doseq [res result]
       (is (= #{:certname :deactivated :expired :catalog_timestamp :facts_timestamp :report_timestamp
-               :catalog_environment :facts_environment :report_environment} (keyset res))
+               :catalog_environment :facts_environment :report_environment
+               :latest_report_status :latest_report_hash} (keyset res))
           (str "Query was: " query))
       (is (= (set expected) (set (mapv :certname result)))
           (str "Query was: " query)))
@@ -95,6 +107,19 @@
       (is-query-result' ["~" (certname version) "web\\d+.example.com"] [web1 web2])
       (is-query-result' ["~" (certname version) "\\w+.example.com"] [db puppet web1 web2])
       (is-query-result' ["~" (certname version) "example.net"] []))
+
+    (testing "querying on latest report hash works"
+      (let [cert-hashes (query-result method endpoint ["extract"
+                                                       ["certname" "latest_report_hash"]
+                                                       ["~" "certname" ".*"]])]
+        (doseq [{:keys [certname latest_report_hash]} cert-hashes]
+          (let [body (query-result method endpoint ["=" "latest_report_hash" latest_report_hash])]
+            (is (= certname (:certname (first body))))))))
+
+    (testing "querying on latest report status works"
+      (is-query-result' ["=" "latest_report_status" "success"] [])
+      (is-query-result' ["=" "latest_report_status" "failure"] [])
+      (is-query-result' ["=" "latest_report_status" "unchanged"] [web1 db puppet]))
 
     (testing "basic equality works for facts, and is based on string equality"
       (is-query-result' ["=" ["fact" "operatingsystem"] "Debian"] [db web1 web2])

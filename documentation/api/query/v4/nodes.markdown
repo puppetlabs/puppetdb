@@ -6,6 +6,7 @@ canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 
 [resource]: ./resources.html
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[statuses]: /puppet/latest/reference/format_report.html#puppettransactionreport
 [paging]: ./paging.html
 [query]: ./query.html
 [8601]: http://en.wikipedia.org/wiki/ISO_8601
@@ -48,6 +49,11 @@ The below fields are allowed as filter criteria and are returned in all response
 
 * `report_timestamp` (timestamp): last time a report run was complete. Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
+* `latest_report_status` (string): status of the latest report. Possible values
+  come from Puppet's report status, which can be found [here][statuses].
+
+* `latest_report_hash` (string): hash of the latest report for the node.
+
 * `["fact", <FACT NAME>]` (string, number, boolean): the value of `<FACT NAME>` for a node. Inequality operators are allowed, and will skip non-numeric values.
 
     Note that nodes which are missing a fact referenced by a `not` query will match
@@ -58,7 +64,8 @@ The below fields are allowed as filter criteria and are returned in all response
 
 The response is a JSON array of hashes, where each hash has the form:
 
-    {"certname": <string>,
+    {
+     "certname": <string>,
      "deactivated": <timestamp or null>,
      "expired": <timestamp or null>,
      "catalog_timestamp": <timestamp or null>,
@@ -66,7 +73,10 @@ The response is a JSON array of hashes, where each hash has the form:
      "report_timestamp": <timestamp or null>,
      "catalog_environment": <string or null>,
      "facts_environment": <string or null>,
-     "report_environment": <string or null>}
+     "report_environment": <string or null>,
+     "latest_report_status": <string>,
+     "latest_report_hash": <string>
+    }
 
 At least one of the `_timestamp` fields will be non-null.
 
@@ -110,7 +120,9 @@ of `["=", "certname", "<NODE>"]`.
         "expired" : null,
         "report_timestamp" : "2015-06-19T23:03:37.709Z",
         "certname" : "mbp.local",
-        "catalog_timestamp" : "2015-06-19T23:03:43.007Z"
+        "catalog_timestamp" : "2015-06-19T23:03:43.007Z",
+        "latest_report_status": "success",
+        "latest_report_hash": "2625d1b601e98ed1e281ccd79ca8d16b9f74fea6"
     }
 
 ### URL Parameters / Query Operators / Query Fields
@@ -123,17 +135,7 @@ this route.
 
 ### Response Format
 
-The response is a single hash, of the same form used for the plain `nodes` endpoint:
-
-    {"certname": <string>,
-     "deactivated": <timestamp|null>,
-     "expired": <timestamp|null>,
-     "catalog_timestamp": <timestamp>,
-     "facts_timestamp": <timestamp>,
-     "report_timestamp": <timestamp>,
-     "catalog_environment": <string>,
-     "facts_environment": <string>,
-     "report_environment": <string>}
+The response is a single hash, of the same form used for the plain `nodes` endpoint shown above.
 
 If a node of that certname doesn't exist, the response will instead be a hash of the form:
 
