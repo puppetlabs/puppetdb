@@ -353,8 +353,7 @@
 
 (defservice message-listener-service
   MessageListenerService
-  [[:PuppetDBServer shared-globals]
-   [:ConfigService get-config]]
+  [[:PuppetDBServer shared-globals]]
 
   (init [this context]
         (assoc context :listeners (atom [])))

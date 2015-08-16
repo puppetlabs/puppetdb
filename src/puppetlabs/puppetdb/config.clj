@@ -16,7 +16,9 @@
             [schema.core :as s]
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
+            [puppetlabs.trapperkeeper.services :refer [service-id service-context]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -375,3 +377,24 @@
       validate-vardir
       convert-config
       configure-catalog-debugging))
+
+
+(defprotocol DefaultedConfig
+  (get-config [this])
+  (get-in-config [this ks] [this ks default]))
+
+(defn create-defaulted-config-service [config-transform-fn]
+  (tk/service
+   DefaultedConfig
+   [[:ConfigService get-config]]
+   (init [this context]
+         (assoc context :config (config-transform-fn (get-config))))
+   (get-config [this]
+               (:config (service-context this)))
+   (get-in-config [this ks]
+                  (get-in (service-context this) ks))
+   (get-in-config [this ks default]
+                  (get-in (service-context this) ks default))))
+
+(def config-service
+  (create-defaulted-config-service process-config!))
