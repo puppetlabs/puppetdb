@@ -83,18 +83,21 @@
 
 (tk/defservice pdb-routing-service
   [[:WebroutingService add-ring-handler get-route]
-   [:PuppetDBServer shared-globals query]
+   [:PuppetDBServer shared-globals query set-url-prefix]
    [:PuppetDBCommand submit-command]
    [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]]
   (init [this context]
-        (add-ring-handler this (pdb-app (get-route this)
-                                        maint-mode?
-                                        (pdb-core-routes shared-globals
-                                                         submit-command
-                                                         query
-                                                         enqueue-raw-command
-                                                         response-pub)))
+        (let [url-prefix (get-route this)
+              shared-with-prefix #(assoc-in (shared-globals) [:globals :url-prefix] url-prefix)]
+          (set-url-prefix url-prefix)
+          (add-ring-handler this (pdb-app url-prefix
+                                          maint-mode?
+                                          (pdb-core-routes shared-with-prefix
+                                                           submit-command
+                                                           query
+                                                           enqueue-raw-command
+                                                           response-pub))))
         (enable-maint-mode)
         context)
   (start [this context]

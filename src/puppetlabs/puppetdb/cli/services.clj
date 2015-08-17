@@ -265,17 +265,6 @@
         {:keys [certificate-whitelist
                 disable-update-checking]} puppetdb
 
-        ;;This is a hack to get around startup order, this service no
-        ;;longer manages the root context of PuppetDB, pdb-routing
-        ;;does. Since this feeds off of shared globals (which comes
-        ;;from this service) this URL prefix is needed here. When we
-        ;;refactor away from shared globals, this will go away and
-        ;;will be handed to the query routes by pdb-routing. Note this
-        ;;is also sensitive to startup order. get-registered-endpoints
-        ;;only has one item in the map at that point (metrics gets
-        ;;added later
-        url-prefix (str (ffirst (get-registered-endpoints)) "/query")
-
         write-db (pl-jdbc/pooled-datasource database)
         read-db (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
         mq-dir (str (io/file vardir "mq"))
@@ -313,7 +302,6 @@
                    :authorizer authorizer
                    :update-server update-server
                    :product-name product-name
-                   :url-prefix url-prefix
                    :discard-dir (.getAbsolutePath discard-dir)
                    :mq-addr mq-addr
                    :mq-dest mq-endpoint
@@ -354,6 +342,7 @@
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
+  (set-url-prefix [this url-prefix])
   (query [this query-obj version query-expr paging-options row-callback-fn]
     "Call `row-callback-fn' for matching rows.  The `paging-options' should
     be a map containing :order_by, :offset, and/or :limit."))
@@ -365,16 +354,22 @@
   PuppetDBServer
   [[:ConfigService get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]]
-
+  (init [this context]
+        (assoc context :url-prefix (atom nil)))
   (start [this context]
          (start-puppetdb context (get-config) this get-registered-endpoints))
 
   (stop [this context]
         (stop-puppetdb context))
+  (set-url-prefix [this url-prefix]
+                  (let [old-url-prefix (:url-prefix (service-context this))]
+                    (when-not (compare-and-set! old-url-prefix nil url-prefix)
+                      (throw (RuntimeException. (format "Attempt to set url-prefix to %s when it's already been set to %s" url-prefix @old-url-prefix))))))
   (shared-globals [this]
                   (:shared-globals (service-context this)))
   (query [this query-obj version query-expr paging-options row-callback-fn]
-         (let [{db :scf-read-db url-prefix :url-prefix} (get (service-context this) :shared-globals)]
+         (let [{db :scf-read-db} (get (service-context this) :shared-globals)
+               url-prefix @(get (service-context this) :url-prefix)]
            (qeng/stream-query-result query-obj version query-expr paging-options db url-prefix row-callback-fn))))
 
 (def ^{:arglists `([& args])
