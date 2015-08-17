@@ -14,7 +14,8 @@
             [puppetlabs.puppetdb.testutils
              :refer [clear-db-for-testing! test-db with-test-broker without-jmx]]
             [puppetlabs.trapperkeeper.logging :refer [reset-logging]]
-            [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]))
+            [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
+            [puppetlabs.puppetdb.middleware :as mid]))
 
 (def ^:dynamic *db* nil)
 (def ^:dynamic *mq* nil)
@@ -76,12 +77,13 @@
   is available. Note this means this fixture should be nested _within_
   `with-test-mq`."
   ([f]
-   (binding [*command-app* (command/command-app
-                            nil
-                            (fn [] *mq*)
-                            (fn [] {})
-                            #'dispatch/do-enqueue-raw-command
-                            (fn [] nil))]
+   (binding [*command-app* (mid/wrap-with-puppetdb-middleware
+                            (command/command-app
+                             (fn [] *mq*)
+                             (fn [] {})
+                             #'dispatch/do-enqueue-raw-command
+                             (fn [] nil))
+                            nil)]
      (f))))
 
 (defn with-http-app
@@ -92,14 +94,16 @@
   ([f]
    (with-http-app {} f))
   ([globals-overrides f]
-   (binding [*app* (server/build-app nil
-                                     #(merge {:scf-read-db *db*
-                                              :scf-write-db *db*
-                                              :command-mq *mq*
-                                              :product-name "puppetdb"
-                                              :url-prefix ""}
-                                             globals-overrides))]
-     (f))))
+   (let [get-shared-globals #(merge {:scf-read-db *db*
+                                     :scf-write-db *db*
+                                     :command-mq *mq*
+                                     :product-name "puppetdb"
+                                     :url-prefix ""}
+                                    globals-overrides)]
+     (binding [*app* (mid/wrap-with-puppetdb-middleware
+                      (server/build-app get-shared-globals)
+                      nil)]
+       (f)))))
 
 (defn defaulted-write-db-config
   "Defaults and converts `db-config` from the write database INI format to the internal

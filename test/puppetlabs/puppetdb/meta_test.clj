@@ -8,7 +8,8 @@
             [puppetlabs.puppetdb.meta :as meta]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.meta.version :as version]
-            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]))
+            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
+            [puppetlabs.puppetdb.middleware :as mid]))
 
 (use-fixtures :each fixt/with-test-db)
 
@@ -21,9 +22,11 @@
 
 (defn with-meta-app
   [request & [overrides]]
-  (let [app (meta/build-app nil #(merge {:product-name "puppetdb"
-                                         :update-server "FOO"}
-                                        overrides))]
+  (let [app (mid/wrap-with-puppetdb-middleware
+             (meta/build-app #(merge {:product-name "puppetdb"
+                                      :update-server "FOO"}
+                                     overrides))
+             nil)]
     (app request)))
 
 (deftestseq test-latest-version

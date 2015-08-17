@@ -20,7 +20,8 @@
                                                    deftestseq
                                                    parse-result]]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.kitchensink.core :as ks]))
+            [puppetlabs.kitchensink.core :as ks]
+            [puppetlabs.puppetdb.middleware :as mid]))
 
 (def v4-facts-endpoint "/v4/facts")
 (def v4-facts-environment "/v4/environments/DEV/facts")
@@ -441,10 +442,12 @@
   ([read-write-db]
    (test-app read-write-db read-write-db))
   ([read-db write-db]
-   (server/build-app nil #(hash-map :scf-read-db read-db
-                                    :scf-write-db write-db
-                                    :command-mq *mq*
-                                    :product-name "puppetdb"))))
+   (mid/wrap-with-puppetdb-middleware
+    (server/build-app #(hash-map :scf-read-db read-db
+                                 :scf-write-db write-db
+                                 :command-mq *mq*
+                                 :product-name "puppetdb"))
+    nil)))
 
 (defn with-shutdown-after [dbs f]
   (f)

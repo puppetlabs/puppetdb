@@ -9,7 +9,8 @@
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.http.command :as cmd]
             [puppetlabs.puppetdb.http.server :as server]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [puppetlabs.puppetdb.middleware :as mid]))
 
 
 (defn resource-request-handler [req]
@@ -26,8 +27,7 @@
   (compojure/context uri [] route))
 
 (defn pdb-core-routes [get-shared-globals submit-command-fn query-fn enqueue-raw-command-fn response-pub]
-  (let [auth #(:authorizer (get-shared-globals))
-        cmd-mq #(:command-mq (get-shared-globals))
+  (let [cmd-mq #(:command-mq (get-shared-globals))
         meta-cfg #(select-keys (get-shared-globals) [:update-server
                                                      :product-name
                                                      :scf-read-db])
@@ -36,22 +36,23 @@
          (partition
           2
           ;; The remaining get-shared-globals args are for wrap-with-globals.
-          ["/meta" (meta/build-app auth meta-cfg)
-           "/cmd" (cmd/command-app auth cmd-mq get-shared-globals
+          ["/meta" (meta/build-app meta-cfg)
+           "/cmd" (cmd/command-app cmd-mq get-shared-globals
                                    enqueue-raw-command-fn get-response-pub)
-           "/query" (server/build-app auth get-shared-globals)
-           "/admin" (admin/build-app auth submit-command-fn query-fn)]))))
+           "/query" (server/build-app get-shared-globals)
+           "/admin" (admin/build-app submit-command-fn query-fn)]))))
 
-(defn pdb-app [root maint-mode-fn app-routes]
-  (compojure/context root []
-                     (maint-mode-handler maint-mode-fn)
-                     resource-request-handler
-                     (compojure/GET "/" req
-                                    (->> req
-                                         rreq/request-url
-                                         (format "%s/dashboard/index.html")
-                                         rr/redirect))
-                     (apply compojure/routes app-routes)))
+(defn pdb-app [root get-shared-globals maint-mode-fn app-routes]
+  (-> (compojure/context root []
+                         resource-request-handler
+                         (maint-mode-handler maint-mode-fn)
+                         (compojure/GET "/" req
+                                        (->> req
+                                             rreq/request-url
+                                             (format "%s/dashboard/index.html")
+                                             rr/redirect))
+                         (apply compojure/routes app-routes))
+      (mid/wrap-with-puppetdb-middleware #(:authorizer (get-shared-globals)))))
 
 (defprotocol MaintenanceMode
   (enable-maint-mode [this])
@@ -92,6 +93,7 @@
           (set-url-prefix query-prefix)
           (log/info "Starting PuppetDB, entering maintenance mode")
           (add-ring-handler this (pdb-app context-root
+                                          shared-with-prefix
                                           maint-mode?
                                           (pdb-core-routes shared-with-prefix
                                                            submit-command
