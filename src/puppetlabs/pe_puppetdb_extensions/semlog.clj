@@ -1,7 +1,6 @@
 (ns puppetlabs.pe-puppetdb-extensions.semlog
   (:require [clojure.tools.logging :as tlog]
             [clojure.tools.logging.impl :as impl]
-            [io.clj.logging :refer [with-logging-context]]
             [clojure.core.match :as cm]
             [puppetlabs.kitchensink.core :refer [mapvals]]
             [puppetlabs.pe-puppetdb-extensions.semlog-protocols :refer :all]
