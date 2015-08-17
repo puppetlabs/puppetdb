@@ -19,7 +19,9 @@
              :refer [node-deactivated-time have-newer-record-for-certname?]]
             [puppetlabs.puppetdb.time :refer [parse-period]]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [puppetlabs.kitchensink.core :as ks]
+            [clojure.core.async :as async]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; How to sync each entity
@@ -430,10 +432,18 @@
                             (swap! stats update-in [:failed] inc))))))
           @stats)))))
 
-(defmacro wrap-with-logging [f level message]
-  `(fn [& args#]
-     (log/logp ~level (str ~message " " args#))
-     (apply ~f args#)))
+
+(defn wrap-submit-command-fn
+  "Wrap the given submit-command-fn to first generate a uuid for the command,
+  write it to 'submitted-command-ids-chan', then finally call the wrapped fn."
+  [submit-command-fn submitted-command-ids-chan]
+  (fn [command version payload]
+    (let [uuid (ks/uuid)]
+      (maplog [:sync :debug] {:command command :version version :uuid uuid}
+              "Submitting {command} command")
+      (when submitted-command-ids-chan
+        (async/>!! submitted-command-ids-chan uuid))
+      (submit-command-fn command version payload uuid))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -442,29 +452,38 @@
   "Entry point for syncing with another PuppetDB instance. Uses
   `query-fn` to query PuppetDB in process and `submit-command-fn` when
   new data is found."
-  [query-fn
-   submit-command-fn
-   remote-server :- remote-server-schema
-   node-ttl :- Period]
-  (try
-    (let [submit-command-fn (wrap-with-logging submit-command-fn
-                                               :debug "Submitting command")
-          now (t/now)]
-      (with-sync-events {:context {:phase "sync"
-                                   :remote (url-on-remote-server remote-server "")}
-                         :start [:info "syncing with {remote}"]
-                         :finished [:info "--> synced with {remote}"]
-                         :error [:warn "*** trouble syncing with {remote}"]}
-        (let [result (apply merge-with +
-                            (for [sync-config sync-configs]
-                              (pull-records-from-remote! query-fn
-                                                         submit-command-fn
-                                                         remote-server
-                                                         sync-config
-                                                         now
-                                                         node-ttl)))]
-          (events/successful-sync!)
-          result)))
-    (catch Exception e
-      (events/failed-sync!)
-      (throw e))))
+  ([query-fn
+    submit-command-fn
+    remote-server :- remote-server-schema
+    node-ttl :- Period]
+   (sync-from-remote! query-fn
+                      submit-command-fn
+                      remote-server
+                      node-ttl
+                      nil))
+  ([query-fn
+    submit-command-fn
+    remote-server :- remote-server-schema
+    node-ttl :- Period
+    submitted-command-ids-chan]
+   (try
+     (let [submit-command-fn (wrap-submit-command-fn submit-command-fn submitted-command-ids-chan)
+           now (t/now)]
+       (with-sync-events {:context {:phase "sync"
+                                    :remote (url-on-remote-server remote-server "")}
+                          :start [:info "syncing with {remote}"]
+                          :finished [:info "--> synced with {remote}"]
+                          :error [:warn "*** trouble syncing with {remote}"]}
+         (let [result (apply merge-with +
+                             (for [sync-config sync-configs]
+                               (pull-records-from-remote! query-fn
+                                                          submit-command-fn
+                                                          remote-server
+                                                          sync-config
+                                                          now
+                                                          node-ttl)))]
+           (events/successful-sync!)
+           result)))
+     (catch Exception e
+       (events/failed-sync!)
+       (throw e)))))
