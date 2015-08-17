@@ -371,7 +371,7 @@
   [[:PuppetDBServer shared-globals]
    [:MessageListenerService register-listener]]
   (init [this context]
-    (let [response-chan (async/chan)
+    (let [response-chan (async/chan 1000)
           response-mult (async/mult response-chan)
           response-chan-for-pub (async/chan)]
       (async/tap response-mult response-chan-for-pub)
