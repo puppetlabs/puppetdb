@@ -37,14 +37,12 @@
                               :name  "failed_to_restart"
                               :value  0}]
     :resource_events
-    ;; NOTE: this is a bit wonky because resource events should *not* contain
-    ;;  a certname or containment-class on input, but they will have one on output
-    ;;  To make it easier to test output, we're included them here.  We also include
-    ;;  a `:test_id` field to make it easier to reference individual events during
-    ;;  testing.  All of these are munged out by the testutils `store-example-report!`
-    ;;  function before the report is submitted to the test database.
-    [{:test_id          1
-      :certname         "foo.local"
+    ;; NOTE: this is a bit wonky because resource events should *not* contain a
+    ;;  certname or containment-class on input, but they will have one on output
+    ;;  To make it easier to test output, we're included them here. All of these
+    ;;  are munged out by the testutils `store-example-report!` function before
+    ;;  the report is submitted to the test database.
+    [{:certname         "foo.local"
       :status           "success"
       :timestamp        "2011-01-01T12:00:01-03:00"
       :resource_type    "Notify"
@@ -58,8 +56,7 @@
       :line             1
       :containment_path nil
       :containing_class nil}
-     {:test_id          2
-      :certname         "foo.local"
+     {:certname         "foo.local"
       :status           "success"
       :timestamp        "2011-01-01T12:00:03-03:00"
       :resource_type    "Notify"
@@ -73,8 +70,7 @@
       :line             nil
       :containment_path []
       :containing_class nil}
-     {:test_id          3
-      :certname         "foo.local"
+     {:certname         "foo.local"
       :status           "skipped"
       :timestamp        "2011-01-01T12:00:02-03:00"
       :environment      "DEV"
@@ -125,14 +121,7 @@
                               :name  "failed_to_restart"
                               :value  0}]
     :resource_events
-    ;; NOTE: this is a bit wonky because resource events should *not* contain
-    ;;  a certname on input, but they will have one on output.  To make it
-    ;;  easier to test output, we're included them here.  We also include a
-    ;;  `:test_id` field to make it easier to reference individual events during
-    ;;  testing.  Both of this are munged out by the testutils `store-example-report!`
-    ;;  function before the report is submitted to the test database.
-    [{:test_id          4
-      :certname         "foo.local"
+    [{:certname         "foo.local"
       :status           "success"
       :timestamp        "2013-08-28T19:36:34.000Z"
       :resource_type    "Notify"
@@ -145,8 +134,7 @@
       :line             8
       :containment_path nil
       :containing_class nil}
-     {:test_id          5
-      :certname         "foo.local"
+     {:certname         "foo.local"
       :status           "success"
       :timestamp        "2013-08-28T17:55:45.000Z"
       :resource_type    "File"
@@ -159,8 +147,7 @@
       :line             17
       :containment_path []
       :containing_class nil}
-     {:test_id          6
-      :certname         "foo.local"
+     {:certname         "foo.local"
       :status           "success"
       :timestamp        "2013-08-28T17:55:45.000Z"
       :resource_type    "File"
@@ -210,14 +197,7 @@
                               :name  "failed_to_restart"
                               :value  0}]
     :resource_events
-    ;; NOTE: this is a bit wonky because resource events should *not* contain
-    ;;  a certname or containment-class on input, but they will have one on output
-    ;;  To make it easier to test output, we're included them here.  We also include
-    ;;  a `:test_id` field to make it easier to reference individual events during
-    ;;  testing.  All of these are munged out by the testutils `store-example-report!`
-    ;;  function before the report is submitted to the test database.
-    [{:test_id          7
-      :certname         "foo.local"
+    [{:certname         "foo.local"
       :status           "success"
       :timestamp        "2011-01-03T12:00:00-03:00"
       :resource_type    "Notify"
@@ -230,8 +210,7 @@
       :line             1
       :containment_path nil
       :containing_class nil}
-     {:test_id          8
-      :certname         "foo.local"
+     {:certname         "foo.local"
       :status           "failure"
       :timestamp        "2011-01-03T12:00:00-03:00"
       :resource_type    "Notify"
@@ -244,8 +223,7 @@
       :line             nil
       :containment_path []
       :containing_class nil}
-     {:test_id          9
-      :certname         "foo.local"
+     {:certname         "foo.local"
       :status           "skipped"
       :timestamp        "2011-01-03T12:00:00-03:00"
       :resource_type    "Notify"
@@ -295,14 +273,7 @@
                               :name  "failed_to_restart"
                               :value  0}]
     :resource_events
-    ;; NOTE: this is a bit wonky because resource events should *not* contain
-    ;;  a certname or containment-class on input, but they will have one on output
-    ;;  To make it easier to test output, we're included them here.  We also include
-    ;;  a `:test_id` field to make it easier to reference individual events during
-    ;;  testing.  All of these are munged out by the testutils `store-example-report!`
-    ;;  function before the report is submitted to the test database.
-    [{:test_id          10
-      :certname         "foo.local"
+    [{:certname         "foo.local"
       :status           "success"
       :timestamp        "2011-01-03T12:00:00-03:00"
       :resource_type    "Notify"
@@ -315,8 +286,7 @@
       :line             1
       :containment_path nil
       :containing_class nil}
-     {:test_id          11
-      :certname         "foo.local"
+     {:certname         "foo.local"
       :status           "success"
       :timestamp        "2012-01-03T12:00:00-03:00"
       :resource_type    "Notify"
@@ -329,8 +299,7 @@
       :line             2
       :containment_path []
       :containing_class nil}
-     {:test_id          12
-      :certname         "foo.local"
+     {:certname         "foo.local"
       :status           "skipped"
       :timestamp        "2013-01-03T12:00:00-03:00"
       :resource_type    "Notify"

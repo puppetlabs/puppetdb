@@ -77,7 +77,9 @@
   ([example-report timestamp]
    (store-example-report! example-report timestamp true))
   ([example-report timestamp update-latest-report?]
-   (let [example-report (munge-example-report-for-storage example-report)
+   (let [example-report (-> example-report
+                            munge-example-report-for-storage
+                            report/wire-v5->wire-v6)
          report-hash (shash/report-identity-hash
                       (scf-store/normalize-report example-report))]
      (scf-store/maybe-activate-node! (:certname example-report) timestamp)
@@ -99,7 +101,7 @@
   (->> xs
        (map #(-> %
                  (update :timestamp time-coerce/to-string)
-                 (dissoc :environment :test_id :containing_class :certname)))
+                 (dissoc :environment :containing_class :certname)))
        set))
 
 (defn expected-reports
@@ -119,11 +121,11 @@
                                 "")
        (map #(dissoc % :receive_time))))
 
-(defn get-events-map
-  [example-report]
-  (into (omap/ordered-map)
-        (for [ev (:resource_events example-report)]
-          [(:test_id ev) ev])))
+(defn enumerated-resource-events-map
+  [resource-events]
+  (->> resource-events
+       kitchensink/enumerate
+       (into (omap/ordered-map))))
 
 (defn munge-report
   "Munges a catalog of list of reports for comparision.

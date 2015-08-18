@@ -12,6 +12,7 @@
             [clj-time.format :as tfmt]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.command :refer :all]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
@@ -746,7 +747,7 @@
 
 (deftest replace-facts-with-v2-wire-format
   (let [certname  "foo.example.com"
-        before-test-starts-time (now)
+        before-test-starts-time (-> 1 seconds ago)
         facts-cmd {:command (command-names :replace-facts)
                    :version 2
                    :payload {:name certname
@@ -775,12 +776,12 @@
               {:certname certname :name "b" :value "2" :environment "DEV"}
               {:certname certname :name "c" :value "3" :environment "DEV"}]))
 
-      (is (= (every? (comp #(t/before? before-test-starts-time %)
-                           to-date-time
-                           :producer_timestamp)
-                     (query-to-vec
-                      "SELECT fs.producer_timestamp
-                         FROM factsets fs"))))
+      (is (every? (comp #(t/before? before-test-starts-time %)
+                        to-date-time
+                        :producer_timestamp)
+                  (query-to-vec
+                   "SELECT fs.producer_timestamp
+                         FROM factsets fs")))
       (is (= 0 (times-called publish)))
       (is (empty? (fs/list-dir discard-dir)))
       (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
@@ -1198,104 +1199,88 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def report-versions
-  "Report versions supported. Version 1 is not currently being tested."
-  [:v5])
+(def v5-report
+  (-> (:basic report-examples/reports)
+      (assoc :environment "DEV")
+      munge-example-report-for-storage))
 
-(defn- resource-event->resource
-  [resource-event]
-  (-> resource-event
-      (select-keys [:file :line :timestamp :resource_type :resource_title :containment_path])
-      (assoc :skipped (= "skipped" (:status resource-event)))))
+(def v4-report
+  (-> v5-report
+      (dissoc :producer_timestamp :metrics :logs :noop)
+      utils/underscore->dash-keys))
 
-(defn- resource-events->resources
-  [resource-events]
-  (for [[resource events] (group-by resource-event->resource resource-events)]
-    (assoc resource :events (map #(dissoc % :file :line :resource_type :resource_title :containment_path) events))))
+(def store-report (command-names :store-report))
 
-(let [report (-> (:basic report-examples/reports)
-                 (assoc :environment "DEV")
-                 munge-example-report-for-storage
-                 (update :resource_events resource-events->resources)
-                 (clojure.set/rename-keys {:resource_events :resources}))
-      v6-command {:command (command-names :store-report)
-                  :version 6
-                  :payload report}]
-  (deftest store-v6-report
-    (testing "should store the report"
-      (test-msg-handler v6-command publish discard-dir
-        (is (= [(with-env (select-keys report [:certname :configuration_version]))]
-               (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")))
-        (is (= 0 (times-called publish)))
-        (is (empty? (fs/list-dir discard-dir)))))))
+(deftest store-v6-report-test
+  (let [v6-report (-> v5-report
+                      (update :resource_events reports/resource-events-v5->resources)
+                      (clojure.set/rename-keys {:resource_events :resources}))
+        command {:command store-report
+                 :version 6
+                 :payload v6-report}]
+    (test-msg-handler command publish discard-dir
+      (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
+             [(with-env (select-keys v6-report [:certname :configuration_version]))]))
+      (is (= 0 (times-called publish)))
+      (is (empty? (fs/list-dir discard-dir))))))
 
-(let [report (-> (:basic report-examples/reports)
-                 (assoc :environment "DEV")
-                 munge-example-report-for-storage)
-      v5-command {:command (command-names :store-report)
-                  :version 5
-                  :payload report}]
-  (deftest store-report
-    (testing "should store the report"
-      (doverseq [version report-versions
-                 :let [command v5-command]]
-        (test-msg-handler command publish discard-dir
-          (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
-                 [(with-env {:certname (:certname report) :configuration_version (:configuration_version report)})]))
-          (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir))))))))
+(deftest store-v5-report-test
+  (let [command {:command store-report
+                 :version 5
+                 :payload v5-report}]
+    (test-msg-handler command publish discard-dir
+      (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
+             [(with-env (select-keys v5-report [:certname :configuration_version]))]))
+      (is (= 0 (times-called publish)))
+      (is (empty? (fs/list-dir discard-dir))))))
 
-(let [old-report (-> (:basic report-examples/reports)
-                     (assoc :environment "DEV")
-                     munge-example-report-for-storage
-                     (dissoc :producer_timestamp :metrics :logs :noop)
-                     utils/underscore->dash-keys)
-      recent-time (-> 1 seconds ago)]
-  (deftest store-v4-report
-    (let [command {:command (command-names :store-report)
-                   :version 4
-                   :payload old-report}]
-      (test-msg-handler command publish discard-dir
-        (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
-               [(with-env {:certname (:certname old-report)
-                           :configuration_version (:configuration-version old-report)})]))
+(deftest store-v4-report-test
+  (let [command {:command store-report
+                 :version 4
+                 :payload v4-report}
+        recent-time (-> 1 seconds ago)]
+    (test-msg-handler command publish discard-dir
+      (is (= [(with-env (utils/dash->underscore-keys
+                         (select-keys v4-report [:certname :configuration-version])))]
+             (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")))
 
-        ;;Status is present in v4+ (but not in v3)
-        (is (= "unchanged" (-> (query-to-vec "SELECT rs.status FROM reports r inner join report_statuses rs on r.status_id = rs.id")
-                               first
-                               :status)))
+      ;;Status is present in v4+ (but not in v3)
+      (is (= "unchanged" (-> (query-to-vec "SELECT rs.status FROM reports r inner join report_statuses rs on r.status_id = rs.id")
+                             first
+                             :status)))
 
-        ;;No producer_timestamp is included in v4, message received time (now) is used intead
-        (is (t/before? recent-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
-                                        first
-                                        :producer_timestamp
-                                        to-date-time)))
-        (is (= 0 (times-called publish)))
-        (is (empty? (fs/list-dir discard-dir))))))
+      ;;No producer_timestamp is included in v4, message received time (now) is used intead
+      (is (t/before? recent-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
+                                     first
+                                     :producer_timestamp
+                                     to-date-time)))
+      (is (= 0 (times-called publish)))
+      (is (empty? (fs/list-dir discard-dir))))))
 
-  (deftest store-v3-report
-    (let [recent-time (-> 1 seconds ago)
-          command {:command (command-names :store-report)
-                   :version 3
-                   :payload (dissoc old-report :status)}]
-      (Thread/sleep 100)
-      (test-msg-handler command publish discard-dir
-        (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
-               [(with-env {:certname (:certname old-report)
-                           :configuration_version (:configuration-version old-report)})]))
+(deftest store-v3-report-test
+  (let [v3-report (dissoc v4-report :status)
+        recent-time (-> 1 seconds ago)
+        command {:command store-report
+                 :version 3
+                 :payload v3-report}]
+    (test-msg-handler command publish discard-dir
+      (is (= [(with-env (utils/dash->underscore-keys
+                         (select-keys v3-report [:certname :configuration-version])))]
+             (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")))
 
-        ;;No producer_timestamp is included in v4, message received time (now) is used intead
-        (is (t/before? recent-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
-                                        first
-                                        :producer_timestamp
-                                        to-date-time)))
+      ;;No producer_timestamp is included in v4, message received time (now) is used intead
+      (is (t/before? recent-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
+                                     first
+                                     :producer_timestamp
+                                     to-date-time)))
 
-        ;;Status is not supported in v3, should be nil
-        (is (nil? (-> (query-to-vec "SELECT status_id FROM reports")
-                      first
-                      :status)))
-        (is (= 0 (times-called publish)))
-        (is (empty? (fs/list-dir discard-dir)))))))
+      ;;Status is not supported in v3, should be nil
+      (is (nil? (-> (query-to-vec "SELECT status_id FROM reports")
+                    first
+                    :status)))
+      (is (= 0 (times-called publish)))
+      (is (empty? (fs/list-dir discard-dir))))))
+
 
 (deftest command-service-stats
   (svc-utils/with-puppetdb-instance

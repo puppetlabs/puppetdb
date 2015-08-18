@@ -18,7 +18,7 @@
   ;; Because we want to compare 'certname' in the output of event queries, the
   ;; example data includes it... but it is not a legal key for an event during
   ;; report submission.
-  (dissoc example-event :certname :test_id :containing_class :environment))
+  (dissoc example-event :certname :containing_class :environment))
 
 (defn environment [resource-event report version]
   (if (= :v4 version)
@@ -40,8 +40,7 @@
       ;; we need to convert the datetime fields from the examples to timestamp objects
       ;; in order to compare them.
       (update :timestamp to-timestamp)
-      (environment report version)
-      (dissoc :test_id)))
+      (environment report version)))
 
 (defn raw-expected-resource-events
   "Given a sequence of resource events from the example data, plus a report,

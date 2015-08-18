@@ -14,7 +14,7 @@
                                                    get-request
                                                    paged-results
                                                    deftestseq]]
-            [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! get-events-map]]
+            [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! enumerated-resource-events-map]]
             [clojure.walk :refer [stringify-keys]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
@@ -78,10 +78,11 @@
 (deftestseq query-by-report
   [[version endpoint] endpoints]
 
-  (let [basic             (store-example-report! (:basic reports) (now))
-        basic-events      (get-in reports [:basic :resource_events])
-        basic-events-map  (get-events-map (:basic reports))
-        report-hash       (:hash basic)]
+  (let [basic-report (:basic reports)
+        basic (store-example-report! basic-report (now))
+        basic-events (:resource_events basic-report)
+        basic-events-map (enumerated-resource-events-map basic-events)
+        report-hash (:hash basic)]
 
     ;; TODO: test invalid requests
 
@@ -100,7 +101,7 @@
           (let [response (get-response endpoint ["<" "timestamp" end_time])
                 expected (http-expected-resource-events
                           version
-                          (kitchensink/select-values basic-events-map [1 3])
+                          (kitchensink/select-values basic-events-map [0 2])
                           basic)]
             (response-equal? response expected munge-event-values)))
 
@@ -109,7 +110,7 @@
                                                  ["<" "timestamp" end_time]])
                 expected (http-expected-resource-events
                           version
-                          (kitchensink/select-values basic-events-map [3])
+                          (kitchensink/select-values basic-events-map [2])
                           basic)]
             (response-equal? response expected munge-event-values)))))
 
@@ -119,20 +120,20 @@
                  ["or"
                   ["=" "resource_title" "hi"]
                   ["=" "resource_title" "notify, yo"]]
-                 ["=" "status" "success"]]                       [1]]
+                 ["=" "status" "success"]]                       [0]]
                [["or"
                  ["and"
                   ["=" "resource_title" "hi"]
                   ["=" "status" "success"]]
                  ["and"
                   ["=" "resource_type" "Notify"]
-                  ["=" "property" "message"]]]                   [1 2]]
+                  ["=" "property" "message"]]]                   [0 1]]
                [["and"
                  ["=" "status" "success"]
-                 ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1]]
+                 ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [0]]
                [["or"
                  ["=" "status" "skipped"]
-                 ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [1 3]]]]
+                 ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [0 2]]]]
         (let [response  (get-response endpoint query)
               expected  (http-expected-resource-events
                          version
@@ -148,7 +149,7 @@
                    ["=" "resource_title" "hi"]
                    ["=" "resource_title" "notify, yo"]]
                   ["=" "status" "success"]]]
-                [1]
+                [0]
                 [:status]]
 
                [["extract" ["status" "line"]
@@ -157,7 +158,7 @@
                    ["=" "resource_title" "hi"]
                    ["=" "resource_title" "notify, yo"]]
                   ["=" "status" "success"]]]
-                [1]
+                [0]
                 [:status :line]]
 
                [["extract" ["status" ["function" "count"]]
@@ -165,7 +166,7 @@
                   ["=" "resource_title" "hi"]
                   ["=" "resource_title" "notify,yo"]]
                  ["group_by" "status"]]
-               [3]
+               [2]
                [:status]]]]
 
         (let [response (get-response endpoint query)
@@ -211,11 +212,9 @@
 
   (let [basic             (store-example-report! (:basic reports) (now))
         basic-events      (get-in reports [:basic :resource_events])
-        basic-events-map  (get-events-map (:basic reports))
 
         basic3            (store-example-report! (:basic3 reports) (now))
-        basic3-events     (get-in reports [:basic3 :resource_events])
-        basic3-events-map (get-events-map (:basic3 reports))]
+        basic3-events     (get-in reports [:basic3 :resource_events])]
 
     (testing "should return an error if the caller passes :distinct_resources without timestamps"
       (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct_resources true})
