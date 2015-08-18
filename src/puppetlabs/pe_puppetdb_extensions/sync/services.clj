@@ -44,8 +44,8 @@
          (catch Exception ex
            (let [err "Remote sync from %s failed"
                  url (:url remote-server)]
-             (semlog/maplog [:sync :error]
-                            {:remote url :response ex :phase "sync"}
+             (semlog/maplog [:sync :error] ex
+                            {:remote url :phase "sync"}
                             (format err url))
              (log/error ex err url)
              {:status 200 :body (format err url)}))
