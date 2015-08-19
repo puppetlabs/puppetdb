@@ -21,7 +21,7 @@
 (def resource-event-schema-str (utils/str-schema reports/resource-event-v5-wireformat-schema))
 (def metric-schema-str (utils/str-schema reports/metric-wireformat-schema))
 (def log-schema-str (utils/str-schema reports/log-wireformat-schema))
-(def report-schema-str (utils/str-schema (assoc reports/report-wireformat-schema
+(def report-schema-str (utils/str-schema (assoc reports/report-v5-wireformat-schema
                                            :resource_events [resource-event-schema-str]
                                            :metrics (s/maybe [metric-schema-str])
                                            :logs (s/maybe [log-schema-str]))))
