@@ -88,10 +88,11 @@
    [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]]
   (init [this context]
-        (let [url-prefix (get-route this)
-              shared-with-prefix #(assoc-in (shared-globals) [:globals :url-prefix] url-prefix)]
-          (set-url-prefix url-prefix)
-          (add-ring-handler this (pdb-app url-prefix
+        (let [context-root (get-route this)
+              query-prefix (str context-root "/query")
+              shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
+          (set-url-prefix query-prefix)
+          (add-ring-handler this (pdb-app context-root
                                           maint-mode?
                                           (pdb-core-routes shared-with-prefix
                                                            submit-command

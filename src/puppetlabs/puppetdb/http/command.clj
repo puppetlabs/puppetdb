@@ -124,16 +124,23 @@
       (mid/wrap-with-globals get-shared-globals)))
 
 (defprotocol PuppetDBCommand
-  (submit-command [this command version payload]))
+  (submit-command
+    [this command version payload]
+    [this command version payload uuid]))
 
 (defservice puppetdb-command-service
   PuppetDBCommand
   [[:PuppetDBServer shared-globals]
    [:PuppetDBCommandDispatcher enqueue-command]]
+
   (start [this context]
          (log/info "Starting command service")
          context)
+
   (submit-command [this command version payload]
+    (submit-command this command version payload nil))
+
+  (submit-command [this command version payload uuid]
     (let [{{:keys [connection endpoint]} :command-mq} (shared-globals)]
       (enqueue-command connection endpoint
-                       (command-names command) version payload))))
+                       (command-names command) version payload uuid))))

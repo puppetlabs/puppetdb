@@ -59,6 +59,18 @@
 
 (def ^:dynamic *server*)
 
+(def default-services
+  [#'jetty9-service
+   #'webrouting-service
+   #'svcs/puppetdb-service
+   #'message-listener-service
+   #'command-service
+   #'metrics/metrics-service
+   #'puppetdb-command-service
+   #'dashboard-redirect-service
+   #'pdb-routing-service
+   #'maint-mode-service])
+
 (defn call-with-puppetdb-instance
   "Stands up a puppetdb instance with `config`, tears down once `f` returns.
   `services` is a seq of additional services that should be started in
@@ -67,7 +79,7 @@
   failed attempts should be made to bind to an HTTP port before giving
   up, defaults to 10."
   ([f] (call-with-puppetdb-instance (create-config) f))
-  ([config f] (call-with-puppetdb-instance config [] f))
+  ([config f] (call-with-puppetdb-instance config default-services f))
   ([config services f]
    (call-with-puppetdb-instance config services 10 f))
   ([config services attempts f]
@@ -86,17 +98,7 @@
                    :version :v4}]
      (try
        (tkbs/with-app-with-config server
-         (concat [jetty9-service
-                  webrouting-service
-                  svcs/puppetdb-service
-                  message-listener-service
-                  command-service
-                  metrics/metrics-service
-                  puppetdb-command-service
-                  dashboard-redirect-service
-                  pdb-routing-service
-                  maint-mode-service]
-                 services)
+         (map var-get services)
          config
          (binding [*server* server
                    *base-url* base-url]

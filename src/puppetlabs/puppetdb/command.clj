@@ -116,12 +116,12 @@
 
 (defn annotate-command
   "Annotate a command-map with a timestamp and UUID"
-  [message]
+  [message uuid]
   {:pre  [(map? message)]
    :post [(map? %)]}
   (-> message
       (assoc-in [:annotations :received] (kitchensink/timestamp))
-      (assoc-in [:annotations :id] (kitchensink/uuid))))
+      (assoc-in [:annotations :id] (or uuid (kitchensink/uuid)))))
 
 ;; ## Command submission
 
@@ -144,8 +144,9 @@
    mq-endpoint :- s/Str
    command :- s/Str
    version :- s/Int
-   payload]
-  (let [command-map (annotate-command (assemble-command command version payload))]
+   payload
+   uuid :- (s/maybe s/Str)]
+  (let [command-map (annotate-command (assemble-command command version payload) uuid)]
     (mq/send-message! mq-connection mq-endpoint
                       (json/generate-string command-map))
     (get-in command-map [:annotations :id])))
@@ -328,12 +329,16 @@
   (comp (kitchensink/valset command-names) :command))
 
 (defprotocol PuppetDBCommandDispatcher
-  (enqueue-command [this connection endpoint command version payload]
+  (enqueue-command
+    [this connection endpoint command version payload]
+    [this connection endpoint command version payload uuid]
     "Annotates the command via annotate-command, submits it to the
     endpoint of the connection, and then returns its unique id.")
+
   (enqueue-raw-command [this connection endpoint raw-command uuid]
     "Submits the raw-command to the endpoint of the connection and
     returns the command's unique id.")
+
   (stats [this]
     "Returns command processing statistics as a map
     containing :received-commands (a count of the commands received so
@@ -404,8 +409,13 @@
     @(:stats (service-context this)))
 
   (enqueue-command [this connection endpoint command version payload]
+    (enqueue-command this connection endpoint command version payload nil))
+
+  (enqueue-command [this connection endpoint command version payload uuid]
     (let [result (do-enqueue-command connection endpoint
-                                     command version payload)]
+                                     command version payload uuid)]
+
+
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
