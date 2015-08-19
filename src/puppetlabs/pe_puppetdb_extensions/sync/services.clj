@@ -14,7 +14,7 @@
             [compojure.core :refer [routes POST] :as compojure]
             [schema.core :as s]
             [clj-time.coerce :refer [to-date-time]]
-            [slingshot.slingshot :refer [throw+]]
+            [slingshot.slingshot :refer [throw+ try+]]
             [clojure.core.match :as m]
             [com.rpl.specter :as sp]
             [clojure.core.async :as async]))
@@ -224,6 +224,35 @@
                  (sync-with! remote-server query-fn submit-command-fn node-ttl)
                  {:status 503 :body (format "Refusing to sync. PuppetDB is not configured to sync with %s" remote-url)})))))))
 
+(defn blocking-sync [submitted-command-ids-chan processed-commands-chan]
+  (async/go-loop [pending-commands #{}
+                  done-submitting-commands false]
+    (if (and done-submitting-commands
+             (empty? pending-commands))
+      :done
+      (let [local-timeout (async/timeout 1000)
+            [message source-channel] (async/alts! (if done-submitting-commands
+                                                    [processed-commands-chan local-timeout]
+                                                    [processed-commands-chan submitted-command-ids-chan local-timeout])
+                                                  :priority true)]
+        (condp = source-channel
+          processed-commands-chan
+          (if message
+            (recur (disj pending-commands (:id message)) done-submitting-commands)
+            :shutting-down)
+
+          submitted-command-ids-chan
+          (if message
+            ;; non-nil: a command was submitted
+            (recur (conj pending-commands (:id message)) done-submitting-commands)
+            ;; the channel was closed, so we're done submitting commands
+            (recur pending-commands true))
+
+          local-timeout
+          (if done-submitting-commands
+            :timed-out
+            (recur pending-commands done-submitting-commands)))))))
+
 (defn perform-initial-sync [remote-server query-fn submit-command-fn node-ttl response-mult]
   (let [remote-url (:url remote-server)
         _ (maplog [:sync :info] {:remote remote-url}
@@ -231,44 +260,23 @@
         submitted-command-ids-chan (async/chan)
         processed-commands-chan (async/chan 10000)
         _ (async/tap response-mult processed-commands-chan)
-        finished-sync (async/go
-                        (loop [pending-commands #{}
-                               done-submitting-commands false]
-                          (if (and done-submitting-commands
-                                   (empty? pending-commands))
-                            :done
-                            (let [local-timeout (async/timeout 15000)
-                                  [message source-channel] (async/alts! (if done-submitting-commands
-                                                                          [processed-commands-chan local-timeout]
-                                                                          [processed-commands-chan submitted-command-ids-chan local-timeout])
-                                                                        :priority true)]
-                              (condp = source-channel
-                                processed-commands-chan
-                                (if (and done-submitting-commands
-                                         (empty? pending-commands))
-                                  :done
-                                  (recur (disj pending-commands (:id message)) done-submitting-commands))
-
-                                submitted-command-ids-chan
-                                (let [id message]
-                                  (cond
-                                    ;; non-nil: a command was submitted
-                                    id (recur (conj pending-commands id) done-submitting-commands)
-                                    ;; the channel was closed, so we're done submitting commands
-                                    :else (recur pending-commands true)))
-
-                                local-timeout
-                                (if done-submitting-commands
-                                  :timed-out
-                                  (recur pending-commands done-submitting-commands)))))))]
+        finished-sync (blocking-sync submitted-command-ids-chan processed-commands-chan)]
     (try
       (sync-from-remote! query-fn submit-command-fn remote-server node-ttl submitted-command-ids-chan)
       (async/close! submitted-command-ids-chan)
       (maplog [:sync :info] {:remote remote-url}
               "Done submitting local commands for initial sync. Waiting for commands to finish processing...")
       (let [result (async/<!! finished-sync)]
-        (maplog [:sync :info] {:remote remote-url :result (name result)}
-                "Finished initial sync, with result {result}"))
+        (case result
+          :done
+          (maplog [:sync :info] {:remote remote-url :result (name result)}
+                  "Successfully finished initial sync")
+          :shutting-down
+          (maplog [:sync :warn] {:remote remote-url :result (name result)}
+                  "Initial sync interrupted by shutdown")
+          :timed-out
+          (throw+ {:type ::initial-sync-timeout}
+                  "The initial sync with the remote system failed due to timeout")))
       (finally
         (async/close! submitted-command-ids-chan)
         (async/untap response-mult processed-commands-chan)))))
@@ -281,7 +289,6 @@
 (defservice puppetdb-sync-service
   PuppetDBSync
   [[:ConfigService get-config]
-   [:WebroutingService add-ring-handler get-route]
    [:PuppetDBCommand submit-command]
    [:PuppetDBServer query shared-globals]
    [:PuppetDBCommandDispatcher response-mult]]
@@ -292,9 +299,11 @@
            (if (enable-periodic-sync? remotes-config)
              (let [{:keys [interval server_url]} (first remotes-config)
                    remote-server (make-remote-server server_url jetty-config)]
-               (try
-                 (perform-initial-sync remote-server query submit-command node-ttl (response-mult))
-                 (catch Exception ex
+               (try+
+                (perform-initial-sync remote-server query submit-command node-ttl (response-mult))
+                (catch [:type ::initial-sync-timeout] _
+                    (throw+))
+                (catch Exception ex
                    (log/warn ex "Could not perform initial sync")))
 
                (assoc context

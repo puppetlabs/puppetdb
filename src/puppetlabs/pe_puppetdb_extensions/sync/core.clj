@@ -442,7 +442,7 @@
       (maplog [:sync :debug] {:command command :version version :uuid uuid}
               "Submitting {command} command")
       (when submitted-command-ids-chan
-        (async/>!! submitted-command-ids-chan uuid))
+        (async/>!! submitted-command-ids-chan {:id uuid}))
       (submit-command-fn command version payload uuid))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

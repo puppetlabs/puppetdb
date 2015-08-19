@@ -28,24 +28,28 @@
 
 (tk/defservice pe-routing-service
   [[:WebroutingService add-ring-handler get-route]
-   [:PuppetDBServer shared-globals query]
+   [:PuppetDBServer shared-globals query set-url-prefix]
    [:ConfigService get-config]
    [:PuppetDBSync]
    [:PuppetDBCommand submit-command]
    [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]]
   (init [this context]
-        (let [{node-ttl :node-ttl, sync-config :sync, jetty-config :jetty} (get-config)
+        (let [context-root (get-route this)
+              query-prefix (str context-root "/query")
+              {node-ttl :node-ttl, sync-config :sync, jetty-config :jetty} (get-config)
               node-ttl (or (some-> node-ttl parse-period)
-                           Period/ZERO)]
-          (add-ring-handler this (pdb-route/pdb-app (get-route this)
+                           Period/ZERO)
+              shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
+          (set-url-prefix query-prefix)
+          (add-ring-handler this (pdb-route/pdb-app context-root
                                                     maint-mode?
-                                                    (concat (pdb-route/pdb-core-routes shared-globals
+                                                    (concat (pdb-route/pdb-core-routes shared-with-prefix
                                                                                        submit-command
                                                                                        query
                                                                                        enqueue-raw-command
                                                                                        response-pub)
-                                                            (pe-routes get-config shared-globals query submit-command)))))
+                                                            (pe-routes get-config shared-with-prefix query submit-command)))))
         (enable-maint-mode)
         context)
   (start [this context]

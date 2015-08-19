@@ -3,6 +3,7 @@
             [puppetlabs.trapperkeeper.services :refer [service-context service-id]]
             [puppetlabs.pe-puppetdb-extensions.sync.services :refer [puppetdb-sync-service]]
             [puppetlabs.pe-puppetdb-extensions.sync.pe-routing :refer [pe-routing-service]]
+            [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [compojure.core :refer [context POST routes ANY]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
@@ -21,13 +22,17 @@
            (add-ring-handler this (wrap-params (context (get-route this) [] handler))))
          tk-context))
 
+(def pe-services
+  (concat [#'puppetdb-sync-service #'stub-server-service #'pe-routing-service]
+          (remove #(= % #'pdb-routing-service) svcs/default-services)))
+
 (defmacro with-puppetdb-instance
   "Same as the core call-with-puppetdb-instance call but adds in the
   sync service and the request-catcher/canned-response service"
   [config & body]
   `(svcs/call-with-puppetdb-instance
     ~config
-    [puppetdb-sync-service stub-server-service pe-routing-service]
+    pe-services
     (fn [] ~@body)))
 
 (def pdb-prefix "/pdb")
@@ -100,7 +105,8 @@
    :body (json/generate-string m)})
 
 (defn get-json [base-url suffix & [opts]]
-  (let [opts (or opts {})]
+  (let [opts (or opts {:throw-exceptions true
+                       :throw-entire-message? true})]
     (-> (str (base-url->str base-url) suffix)
         (http/get opts)
         :body
