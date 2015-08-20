@@ -42,6 +42,7 @@
                            Period/ZERO)
               shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
           (set-url-prefix query-prefix)
+          (log/info "Starting PuppetDB, entering maintenance mode")
           (add-ring-handler this (pdb-route/pdb-app context-root
                                                     maint-mode?
                                                     (concat (pdb-route/pdb-core-routes shared-with-prefix
@@ -53,5 +54,6 @@
         (enable-maint-mode)
         context)
   (start [this context]
+         (log/info "PuppetDB finished starting, disabling maintenance mode")
          (disable-maint-mode)
          context))
