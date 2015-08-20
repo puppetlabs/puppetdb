@@ -86,21 +86,21 @@
     (is (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config {:url "http://foo.bar:8080/pdb/query/v4"}))
     (is (not (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config {:url "http://baz.buzz:8080/pdb/query/v4"})))))
 
-(deftest test-blocking-sync
+(deftest test-wait-for-sync
   (testing "Happy path of processing commands"
     (let [submitted-commands-chan (async/chan)
           processed-commands-chan (async/chan 1)
-          finished-sync (blocking-sync submitted-commands-chan processed-commands-chan)
+          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)
           cmd-1 (ks/uuid)]
       (async/>!! submitted-commands-chan {:id cmd-1})
       (async/close! submitted-commands-chan)
       (async/>!! processed-commands-chan {:id cmd-1})
       (is (= :done (async/<!! finished-sync)))))
 
-  (testing "Recieving a processed command before submitted commands channel is closed"
+  (testing "Receiving a processed command before submitted commands channel is closed"
     (let [submitted-commands-chan (async/chan)
           processed-commands-chan (async/chan 1)
-          finished-sync (blocking-sync submitted-commands-chan processed-commands-chan)
+          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)
           cmd-1 (ks/uuid)]
       (async/>!! submitted-commands-chan {:id cmd-1})
       (async/>!! processed-commands-chan {:id cmd-1})
@@ -110,7 +110,7 @@
   (testing "timeout result when processing of commands is too slow"
     (let [submitted-commands-chan (async/chan)
           processed-commands-chan (async/chan 1)
-          finished-sync (blocking-sync submitted-commands-chan processed-commands-chan)
+          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 500)
           cmd-1 (ks/uuid)]
       (async/>!! submitted-commands-chan {:id cmd-1})
       (async/close! submitted-commands-chan)
@@ -119,7 +119,7 @@
   (testing "system shutting down during initial sync"
     (let [submitted-commands-chan (async/chan)
           processed-commands-chan (async/chan 1)
-          finished-sync (blocking-sync submitted-commands-chan processed-commands-chan)
+          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)
           cmd-1 (ks/uuid)]
       (async/>!! submitted-commands-chan {:id cmd-1})
       (async/close! processed-commands-chan)

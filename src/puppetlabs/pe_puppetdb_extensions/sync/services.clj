@@ -224,46 +224,53 @@
                  (sync-with! remote-server query-fn submit-command-fn node-ttl)
                  {:status 503 :body (format "Refusing to sync. PuppetDB is not configured to sync with %s" remote-url)})))))))
 
-(defn blocking-sync [submitted-command-ids-chan processed-commands-chan]
+(defn wait-for-sync [submitted-commands-chan processed-commands-chan process-command-timeout-ms]
   (async/go-loop [pending-commands #{}
                   done-submitting-commands false]
-    (if (and done-submitting-commands
-             (empty? pending-commands))
+    (cond
+      (not done-submitting-commands)
+      (async/alt! submitted-commands-chan
+                  ([message]
+                   (if message
+                     ;; non-nil: a command was submitted
+                     (recur (conj pending-commands (:id message)) done-submitting-commands)
+                     ;; the channel was closed, so we're done submitting commands
+                     (recur pending-commands true)))
+
+                  processed-commands-chan
+                  ([message]
+                   (if message
+                     (recur (disj pending-commands (:id message)) done-submitting-commands)
+                     :shutting-down))
+
+                  :priority true)
+
+      (empty? pending-commands)
       :done
-      (let [local-timeout (async/timeout 1000)
-            [message source-channel] (async/alts! (if done-submitting-commands
-                                                    [processed-commands-chan local-timeout]
-                                                    [processed-commands-chan submitted-command-ids-chan local-timeout])
-                                                  :priority true)]
-        (condp = source-channel
-          processed-commands-chan
-          (if message
-            (recur (disj pending-commands (:id message)) done-submitting-commands)
-            :shutting-down)
 
-          submitted-command-ids-chan
-          (if message
-            ;; non-nil: a command was submitted
-            (recur (conj pending-commands (:id message)) done-submitting-commands)
-            ;; the channel was closed, so we're done submitting commands
-            (recur pending-commands true))
+      :else
+      (async/alt! processed-commands-chan
+                  ([message]
+                   (if message
+                     (recur (disj pending-commands (:id message)) done-submitting-commands)
+                     :shutting-down))
 
-          local-timeout
-          (if done-submitting-commands
-            :timed-out
-            (recur pending-commands done-submitting-commands)))))))
+                  (async/timeout process-command-timeout-ms)
+                  :timed-out
+
+                  :priority true))))
 
 (defn perform-initial-sync [remote-server query-fn submit-command-fn node-ttl response-mult]
   (let [remote-url (:url remote-server)
         _ (maplog [:sync :info] {:remote remote-url}
                   "Performing initial sync...")
-        submitted-command-ids-chan (async/chan)
+        submitted-commands-chan (async/chan)
         processed-commands-chan (async/chan 10000)
         _ (async/tap response-mult processed-commands-chan)
-        finished-sync (blocking-sync submitted-command-ids-chan processed-commands-chan)]
+        finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)]
     (try
-      (sync-from-remote! query-fn submit-command-fn remote-server node-ttl submitted-command-ids-chan)
-      (async/close! submitted-command-ids-chan)
+      (sync-from-remote! query-fn submit-command-fn remote-server node-ttl submitted-commands-chan)
+      (async/close! submitted-commands-chan)
       (maplog [:sync :info] {:remote remote-url}
               "Done submitting local commands for initial sync. Waiting for commands to finish processing...")
       (let [result (async/<!! finished-sync)]
@@ -278,7 +285,7 @@
           (throw+ {:type ::initial-sync-timeout}
                   "The initial sync with the remote system failed due to timeout")))
       (finally
-        (async/close! submitted-command-ids-chan)
+        (async/close! submitted-commands-chan)
         (async/untap response-mult processed-commands-chan)))))
 
 (defprotocol PuppetDBSync

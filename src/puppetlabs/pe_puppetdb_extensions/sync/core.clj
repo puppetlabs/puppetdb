@@ -435,14 +435,14 @@
 
 (defn wrap-submit-command-fn
   "Wrap the given submit-command-fn to first generate a uuid for the command,
-  write it to 'submitted-command-ids-chan', then finally call the wrapped fn."
-  [submit-command-fn submitted-command-ids-chan]
+  write it to 'submitted-commands-chan', then finally call the wrapped fn."
+  [submit-command-fn submitted-commands-chan]
   (fn [command version payload]
     (let [uuid (ks/uuid)]
       (maplog [:sync :debug] {:command command :version version :uuid uuid}
               "Submitting {command} command")
-      (when submitted-command-ids-chan
-        (async/>!! submitted-command-ids-chan {:id uuid}))
+      (when submitted-commands-chan
+        (async/>!! submitted-commands-chan {:id uuid}))
       (submit-command-fn command version payload uuid))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -465,9 +465,9 @@
     submit-command-fn
     remote-server :- remote-server-schema
     node-ttl :- Period
-    submitted-command-ids-chan]
+    submitted-commands-chan]
    (try
-     (let [submit-command-fn (wrap-submit-command-fn submit-command-fn submitted-command-ids-chan)
+     (let [submit-command-fn (wrap-submit-command-fn submit-command-fn submitted-commands-chan)
            now (t/now)]
        (with-sync-events {:context {:phase "sync"
                                     :remote (url-on-remote-server remote-server "")}
