@@ -12,18 +12,11 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.cli.services :as clisvc]
             [puppetlabs.puppetdb.pdb-routing :refer :all]
-            [puppetlabs.trapperkeeper.app :as tk-app]))
+            [puppetlabs.trapperkeeper.app :as tk-app]
+            [puppetlabs.puppetdb.testutils.http :as tuhttp]))
 
 (defn command-base-url [{:keys [host port]}]
   (utils/pdb-cmd-base-url host port :v1))
-
-(defn pdb-get [base-url url-suffix]
-  (let [resp (client/get (str (utils/base-url->str base-url)
-                              url-suffix)
-                         {:throw-exceptions false})]
-    (if (tu/json-content-type? resp)
-      (update resp :body #(json/parse-string % true))
-      resp)))
 
 (defn submit-facts [base-url facts]
   (svc-utils/sync-command-post (command-base-url base-url)
@@ -32,15 +25,15 @@
                                facts))
 
 (defn query-fact-names [{:keys [host port]}]
-  (pdb-get (utils/pdb-query-base-url host port :v4)
+  (tuhttp/pdb-get (utils/pdb-query-base-url host port :v4)
            "/fact-names"))
 
 (defn export [{:keys [host port]}]
-  (pdb-get (utils/pdb-admin-base-url host port :v1)
+  (tuhttp/pdb-get (utils/pdb-admin-base-url host port :v1)
            "/archive"))
 
 (defn query-server-time [{:keys [host port]}]
-  (pdb-get (utils/pdb-meta-base-url host port :v1)
+  (tuhttp/pdb-get (utils/pdb-meta-base-url host port :v1)
            "/server-time"))
 
 (def test-facts {:certname "foo.com"
@@ -61,8 +54,6 @@
        (is (-> (query-server-time svc-utils/*base-url*)
                (get-in [:body :server_time])
                time/from-string))
-
-
 
        (let [resp (export svc-utils/*base-url*)]
          (tu/assert-success! resp)

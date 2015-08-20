@@ -1,15 +1,13 @@
 (ns puppetlabs.puppetdb.pdb-routing
   (:require [puppetlabs.trapperkeeper.core :as tk]
-            [clout.core :as cc]
             [compojure.core :as compojure]
             [puppetlabs.trapperkeeper.services :as tksvc]
-            [ring.middleware.resource :refer [wrap-resource resource-request]]
+            [ring.middleware.resource :refer [resource-request]]
             [ring.util.request :as rreq]
             [ring.util.response :as rr]
             [puppetlabs.puppetdb.meta :as meta]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.http.command :as cmd]
-            [puppetlabs.puppetdb.cli.services :as query]
             [puppetlabs.puppetdb.http.server :as server]
             [clojure.tools.logging :as log]))
 
@@ -92,6 +90,7 @@
               query-prefix (str context-root "/query")
               shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
           (set-url-prefix query-prefix)
+          (log/info "Starting PuppetDB, entering maintenance mode")
           (add-ring-handler this (pdb-app context-root
                                           maint-mode?
                                           (pdb-core-routes shared-with-prefix
@@ -102,5 +101,6 @@
         (enable-maint-mode)
         context)
   (start [this context]
+         (log/info "PuppetDB finished starting, disabling maintenance mode")
          (disable-maint-mode)
          context))

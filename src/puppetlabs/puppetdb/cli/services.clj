@@ -314,8 +314,6 @@
       (when-not disable-update-checking
         (maybe-check-for-updates product-name update-server read-db))
 
-      (log/info "Starting query server")
-
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)
             gc-interval-millis (to-millis gc-interval)
@@ -364,7 +362,10 @@
   (set-url-prefix [this url-prefix]
                   (let [old-url-prefix (:url-prefix (service-context this))]
                     (when-not (compare-and-set! old-url-prefix nil url-prefix)
-                      (throw (RuntimeException. (format "Attempt to set url-prefix to %s when it's already been set to %s" url-prefix @old-url-prefix))))))
+                      (throw+ {:url-prefix old-url-prefix
+                               :new-url-prefix url-prefix
+                               :type ::url-prefix-already-set}
+                              (format "Attempt to set url-prefix to %s when it's already been set to %s" url-prefix @old-url-prefix)))))
   (shared-globals [this]
                   (:shared-globals (service-context this)))
   (query [this query-obj version query-expr paging-options row-callback-fn]
