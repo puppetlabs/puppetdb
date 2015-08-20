@@ -441,11 +441,10 @@
   ([read-write-db]
    (test-app read-write-db read-write-db))
   ([read-db write-db]
-   (server/build-app
-     {:scf-read-db          read-db
-      :scf-write-db         write-db
-      :command-mq           *mq*
-      :product-name         "puppetdb"})))
+   (server/build-app nil #(hash-map :scf-read-db read-db
+                                    :scf-write-db write-db
+                                    :command-mq *mq*
+                                    :product-name "puppetdb"))))
 
 (defn with-shutdown-after [dbs f]
   (f)

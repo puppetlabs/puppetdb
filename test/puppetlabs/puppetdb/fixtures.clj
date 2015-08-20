@@ -77,9 +77,11 @@
   `with-test-mq`."
   ([f]
    (binding [*command-app* (command/command-app
-                            {:command-mq *mq*}
+                            nil
+                            (fn [] *mq*)
+                            (fn [] {})
                             #'dispatch/do-enqueue-raw-command
-                            nil)]
+                            (fn [] nil))]
      (f))))
 
 (defn with-http-app
@@ -88,17 +90,16 @@
   are available. Note this means this fixture should be nested _within_
   `with-test-db` or `with-test-mq`."
   ([f]
-     (with-http-app {} f))
+   (with-http-app {} f))
   ([globals-overrides f]
-     (binding [*app* (server/build-app
-                       (merge
-                         {:scf-read-db          *db*
-                          :scf-write-db         *db*
-                          :command-mq           *mq*
-                          :product-name         "puppetdb"
-                          :url-prefix           ""}
-                         globals-overrides))]
-       (f))))
+   (binding [*app* (server/build-app nil
+                                     #(merge {:scf-read-db *db*
+                                              :scf-write-db *db*
+                                              :command-mq *mq*
+                                              :product-name "puppetdb"
+                                              :url-prefix ""}
+                                             globals-overrides))]
+     (f))))
 
 (defn defaulted-write-db-config
   "Defaults and converts `db-config` from the write database INI format to the internal

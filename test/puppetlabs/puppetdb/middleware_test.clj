@@ -52,7 +52,7 @@
                                     (rr/status http/status-ok)))
           message     "Only odd numbers are allowed!"
           authorizer  #(if (odd? %) :authorized message)
-          app         (wrap-with-authorization handler authorizer)]
+          app (wrap-with-authorization handler (fn [] authorizer))]
       ;; Even numbers should trigger an unauthorized response
       (is (= http/status-forbidden (:status (app 0))))
       ;; The failure reason should be shown to the user

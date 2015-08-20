@@ -9,7 +9,7 @@
    [:WebroutingService add-ring-handler get-route]]
 
   (start [this context]
-         (let [app (->> (server/build-app (shared-globals))
+         (let [app (->> (server/build-app #(:authorizer (shared-globals)))
                         (compojure/context (get-route this) []))]
            (log/info "Starting metrics server")
            (add-ring-handler this app)

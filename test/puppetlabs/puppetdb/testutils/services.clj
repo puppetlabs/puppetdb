@@ -18,7 +18,6 @@
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service] :as dispatch]
             [puppetlabs.puppetdb.http.command :refer [puppetdb-command-service]]
-            [puppetlabs.puppetdb.meta :refer [metadata-service]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
             [clj-http.util :refer [url-encode]]
@@ -28,8 +27,8 @@
             [slingshot.slingshot :refer [throw+]]
             [clojure.tools.logging :as log]
             [clojure.data.xml :as xml]
-            [puppetlabs.puppetdb.dashboard
-             :refer [dashboard-service dashboard-redirect-service]]))
+            [puppetlabs.puppetdb.dashboard :refer [dashboard-redirect-service]]
+            [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service maint-mode-service]]))
 
 ;; See utils.clj for more information about base-urls.
 (def ^:dynamic *base-url* nil) ; Will not have a :version.
@@ -60,6 +59,18 @@
 
 (def ^:dynamic *server*)
 
+(def default-services
+  [#'jetty9-service
+   #'webrouting-service
+   #'svcs/puppetdb-service
+   #'message-listener-service
+   #'command-service
+   #'metrics/metrics-service
+   #'puppetdb-command-service
+   #'dashboard-redirect-service
+   #'pdb-routing-service
+   #'maint-mode-service])
+
 (defn call-with-puppetdb-instance
   "Stands up a puppetdb instance with `config`, tears down once `f` returns.
   `services` is a seq of additional services that should be started in
@@ -68,7 +79,7 @@
   failed attempts should be made to bind to an HTTP port before giving
   up, defaults to 10."
   ([f] (call-with-puppetdb-instance (create-config) f))
-  ([config f] (call-with-puppetdb-instance config [] f))
+  ([config f] (call-with-puppetdb-instance config default-services f))
   ([config services f]
    (call-with-puppetdb-instance config services 10 f))
   ([config services attempts f]
@@ -87,18 +98,7 @@
                    :version :v4}]
      (try
        (tkbs/with-app-with-config server
-         (concat [jetty9-service
-                  webrouting-service
-                  svcs/puppetdb-service
-                  message-listener-service
-                  command-service
-                  metrics/metrics-service
-                  admin/admin-service
-                  puppetdb-command-service
-                  metadata-service
-                  dashboard-service
-                  dashboard-redirect-service]
-                 services)
+         (map var-get services)
          config
          (binding [*server* server
                    *base-url* base-url]
@@ -280,7 +280,10 @@
    off the queue."
   [base-url cmd version payload]
   (let [timeout-seconds 10]
-    (pdb-client/submit-command-via-http! base-url cmd version payload timeout-seconds)))
+    (let [response (pdb-client/submit-command-via-http! base-url cmd version payload timeout-seconds)]
+      (if (>= (:status response) 400)
+        (throw (ex-info "Command processing failed" {:response response}))
+        response))))
 
 (defn wait-for-server-processing
   "Returns a truthy value indicating whether the wait was

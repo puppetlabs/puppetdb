@@ -161,6 +161,9 @@
   `(let [fixture-fn# (join-fixtures (:clojure.test/each-fixtures (meta ~*ns*)))]
      (fixture-fn# (fn [] ~@body))))
 
+(defn json-content-type? [response]
+  (= http/json-response-content-type (get-in response [:headers "Content-Type"])))
+
 (defn response-equal?
   "Test if the HTTP request is a success, and if the result is equal
   to the result of the form supplied to this method.  Arguments:
@@ -179,7 +182,7 @@
      (response-equal? response expected identity))
   ([response expected body-munge-fn]
      (is (= http/status-ok (:status response)))
-     (is (= http/json-response-content-type (get-in response [:headers "Content-Type"])))
+     (is (json-content-type? response))
      (let [actual (when (:body response)
                     (-> (:body response)
                         (json/parse-string true)

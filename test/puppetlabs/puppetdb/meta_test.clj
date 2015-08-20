@@ -21,10 +21,9 @@
 
 (defn with-meta-app
   [request & [overrides]]
-  (let [app (-> (merge {:product-name "puppetdb"
-                        :update-server "FOO"}
-                       overrides)
-                meta/build-app)]
+  (let [app (meta/build-app nil #(merge {:product-name "puppetdb"
+                                         :update-server "FOO"}
+                                        overrides))]
     (app request)))
 
 (deftestseq test-latest-version

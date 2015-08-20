@@ -88,20 +88,20 @@
 
 (defn enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
-  [enqueue-fn connection endpoint response-pub]
+  [get-command-mq enqueue-fn get-response-pub]
   (fn [{:keys [body-string params] :as request}]
     (let [uuid (kitchensink/uuid)
           completion-timeout-ms (some-> params
                                         (get "secondsToWaitForCompletion")
                                         Double/parseDouble
                                         (* 1000))
+          {:keys [connection endpoint]} (get-command-mq)
           do-submit #(enqueue-fn connection endpoint body-string uuid)]
       (if (some-> completion-timeout-ms pos?)
-        (blocking-submit-command do-submit response-pub uuid completion-timeout-ms)
+        (blocking-submit-command do-submit (get-response-pub) uuid completion-timeout-ms)
         (do
           (do-submit)
           (http/json-response {:uuid uuid}))))))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -110,42 +110,37 @@
 ;; return functions that accept a ring request map
 
 (defn command-app
-  [{:keys [command-mq authorizer] :as globals} enqueue-fn response-pub]
-  (let [{:keys [connection endpoint]} command-mq
-        app (moustache/app
-             ["v1" &] {:any (enqueue-command-handler enqueue-fn
-                                                     connection endpoint
-                                                     response-pub)})]
-    (-> app
-        validate-command-version
-        mid/verify-accepts-json
-        mid/verify-checksum
-        (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"]})
-        mid/payload-to-body-string
-        (mid/verify-content-type ["application/json"])
-        (mid/wrap-with-puppetdb-middleware authorizer)
-        (mid/wrap-with-metrics (atom {}) http/leading-uris)
-        (mid/wrap-with-globals globals))))
+  [get-authorizer get-command-mq get-shared-globals enqueue-fn get-response-pub]
+  (-> (moustache/app
+       ["v1" &] {:any (enqueue-command-handler get-command-mq enqueue-fn get-response-pub)})
+      validate-command-version
+      mid/verify-accepts-json
+      mid/verify-checksum
+      (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"]})
+      mid/payload-to-body-string
+      (mid/verify-content-type ["application/json"])
+      (mid/wrap-with-puppetdb-middleware get-authorizer)
+      (mid/wrap-with-metrics (atom {}) http/leading-uris)
+      (mid/wrap-with-globals get-shared-globals)))
 
 (defprotocol PuppetDBCommand
-  (submit-command [this command version payload]))
+  (submit-command
+    [this command version payload]
+    [this command version payload uuid]))
 
 (defservice puppetdb-command-service
   PuppetDBCommand
   [[:PuppetDBServer shared-globals]
-   [:WebroutingService add-ring-handler get-route]
-   [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub]]
+   [:PuppetDBCommandDispatcher enqueue-command]]
 
   (start [this context]
-         (let [globals (shared-globals)
-               url-prefix (get-route this)]
-           (log/info "Starting command service")
-           (->> (command-app globals enqueue-raw-command (response-pub))
-                (compojure/context url-prefix [])
-                (add-ring-handler this))
-           context))
+         (log/info "Starting command service")
+         context)
 
   (submit-command [this command version payload]
+    (submit-command this command version payload nil))
+
+  (submit-command [this command version payload uuid]
     (let [{{:keys [connection endpoint]} :command-mq} (shared-globals)]
       (enqueue-command connection endpoint
-                       (command-names command) version payload))))
+                       (command-names command) version payload uuid))))

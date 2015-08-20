@@ -116,12 +116,12 @@
 
 (defn annotate-command
   "Annotate a command-map with a timestamp and UUID"
-  [message]
+  [message uuid]
   {:pre  [(map? message)]
    :post [(map? %)]}
   (-> message
       (assoc-in [:annotations :received] (kitchensink/timestamp))
-      (assoc-in [:annotations :id] (kitchensink/uuid))))
+      (assoc-in [:annotations :id] (or uuid (kitchensink/uuid)))))
 
 ;; ## Command submission
 
@@ -144,8 +144,9 @@
    mq-endpoint :- s/Str
    command :- s/Str
    version :- s/Int
-   payload]
-  (let [command-map (annotate-command (assemble-command command version payload))]
+   payload
+   uuid :- (s/maybe s/Str)]
+  (let [command-map (annotate-command (assemble-command command version payload) uuid)]
     (mq/send-message! mq-connection mq-endpoint
                       (json/generate-string command-map))
     (get-in command-map [:annotations :id])))
@@ -328,12 +329,16 @@
   (comp (kitchensink/valset command-names) :command))
 
 (defprotocol PuppetDBCommandDispatcher
-  (enqueue-command [this connection endpoint command version payload]
+  (enqueue-command
+    [this connection endpoint command version payload]
+    [this connection endpoint command version payload uuid]
     "Annotates the command via annotate-command, submits it to the
     endpoint of the connection, and then returns its unique id.")
+
   (enqueue-raw-command [this connection endpoint raw-command uuid]
     "Submits the raw-command to the endpoint of the connection and
     returns the command's unique id.")
+
   (stats [this]
     "Returns command processing statistics as a map
     containing :received-commands (a count of the commands received so
@@ -341,13 +346,17 @@
     count of the commands that the current instance has processed
     without triggering an exception).")
 
+  (response-mult [this]
+    "Returns a core.async mult to which {:id :exception} maps are written after
+     each command has been processed. " )
+
   (response-pub [this]
-    "Returns a core.async publisher to which commands are written after they
-     have been processed. The topic for each message is its uuid." ))
+    "Returns a core.async pub to which {:id :exception} maps are written after
+     each command has been processed. The topic for each message is its
+     id (command uuid)."))
 
 (defn make-cmd-processed-message [cmd ex]
-  (merge {:command cmd
-          :id (-> cmd :annotations :id)}
+  (merge {:id (-> cmd :annotations :id)}
          (when ex {:exception ex})))
 
 (defn process-command-and-respond! [cmd config response-pub-chan stats-atom]
@@ -367,33 +376,46 @@
   [[:PuppetDBServer shared-globals]
    [:MessageListenerService register-listener]]
   (init [this context]
-    (let [response-pub-chan (async/chan)]
+    (let [response-chan (async/chan 1000)
+          response-mult (async/mult response-chan)
+          response-chan-for-pub (async/chan)]
+      (async/tap response-mult response-chan-for-pub)
       (assoc context
              :stats (atom {:received-commands 0
                            :executed-commands 0})
-             :response-pub-chan response-pub-chan
-             :response-pub (async/pub response-pub-chan :id))))
+             :response-chan response-chan
+             :response-mult response-mult
+             :response-chan-for-pub response-chan-for-pub
+             :response-pub (async/pub response-chan-for-pub :id))))
 
   (start [this context]
     (let [{:keys [scf-write-db catalog-hash-debug-dir]} (shared-globals)
           config {:db scf-write-db
                   :catalog-hash-debug-dir catalog-hash-debug-dir}
-          {:keys [response-pub-chan response-pub]} context]
+          {:keys [response-chan response-pub]} context]
       (register-listener
        supported-command?
-       #(process-command-and-respond! % config response-pub-chan (:stats context)))
+       #(process-command-and-respond! % config response-chan (:stats context)))
       context))
 
-  (stop [this {:keys [response-pub-chan] :as context}]
-    (async/close! response-pub-chan)
-    (dissoc context :response-pub :response-pub-chan))
+  (stop [this context]
+    (async/unsub-all (:response-pub context))
+    (async/untap-all (:response-mult context))
+    (async/close! (:response-chan-for-pub context))
+    (async/close! (:response-chan context))
+    (dissoc context :response-pub :response-chan :response-chan-for-pub :response-mult))
 
   (stats [this]
     @(:stats (service-context this)))
 
   (enqueue-command [this connection endpoint command version payload]
+    (enqueue-command this connection endpoint command version payload nil))
+
+  (enqueue-command [this connection endpoint command version payload uuid]
     (let [result (do-enqueue-command connection endpoint
-                                     command version payload)]
+                                     command version payload uuid)]
+
+
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
@@ -405,4 +427,7 @@
       result))
 
   (response-pub [this]
-    (-> this service-context :response-pub)))
+    (-> this service-context :response-pub))
+
+  (response-mult [this]
+    (-> this service-context :response-mult)))
