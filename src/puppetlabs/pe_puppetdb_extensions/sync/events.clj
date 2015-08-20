@@ -95,7 +95,7 @@
                     (assoc :event (name event))
                     (maybe-assoc-ok event))]
     (if-let [ex (:exception context)]
-     (maplog [:sync level] ex context message)
+     (maplog [:sync level] ex (dissoc context :exception) message)
      (maplog [:sync level] context message))))
 
 (defn timer-metric-key [opts]
