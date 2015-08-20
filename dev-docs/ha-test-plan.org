@@ -1,0 +1,167 @@
+#+TITLE: Manual HA Tests 
+* Setup
+1. Check out the three source repositories in sibling directories. You should
+   end up with a structure that looks like this:
+   - =$SRC=
+     - =puppetdb= (=git clone git@github.com:puppetlabs/puppetdb.git=)
+     - =pe-puppetdb-extensions= (=git clone git@github.com:puppetlabs/pe-puppetdb-extensions.git=)
+     - =puppetdb-dev-tools= (=git clone git@github.com:puppetlabs/puppetdb-dev-tools.git=) 
+ 
+2. Install VirtualBox
+   https://www.virtualbox.org/wiki/Downloads
+
+3. Install Vagrant
+   https://www.vagrantup.com
+   IMPORTANT: even if you already have vagrant installed, make sure you have the latest version!
+
+4. Install vagrant plugins
+   #+BEGIN_SRC sh
+     vagrant plugin install vagrant-r10k
+     vagrant plugin install vagrant-hostmanager
+   #+END_SRC
+
+5. Check out something you expect to work (master, or stable perhaps) in the
+   puppetdb and pe-puppetdb-extensions working directories.
+
+6. Bring up vagrant and run a standalone PuppetDB
+   #+BEGIN_SRC
+     cd $SRC/puppetdb-dev-tools/vagrant
+     vagrant up
+     bin/puppetdb
+     bin/master # in another terminal
+     bin/agent # in a third terminal, once puppetdb is up
+   #+END_SRC
+
+7. /Verify/
+   - [ ] The agent run succeeded
+   - [ ] Three commands were submitted to PuppetDB
+
+* Simple HA sanity check
+See below for instructions on each step.
+
+1. Start the HA stack
+2. Clear PostgreSQL and AMQ
+3. Start the services
+4. Do a puppet run
+5. /Verify/
+   - [ ] The agent run succeeded
+   - [ ] Three commands were submitted to puppetdb.dev
+   - [ ] Three commands were submitted (synced) to replica.dev
+ 
+* Tests
+Before each test:
+1. Start the HA stack
+2. Clear PostgreSQL and AMQ
+3. Start the services
+4. Do a puppet run
+5. /Verify/
+   - [ ] The agent run succeeded
+   - [ ] Three commands were submitted to puppetdb.dev
+   - [ ] Three commands were submitted (synced) to replica.dev
+
+** Main PuppetDB cannot be reached
+1. Cut the connection between master.dev and puppetdb.dev
+2. Cut the connection between replica.dev and puppetdb.dev
+3. Do a puppet run
+4. /Verify/
+   - [ ] The agent run succeeded
+   - [ ] *No* commands were submitted to puppetdb.dev
+   - [ ] Three commands were submitted to replica.dev
+5. Restore all connections
+6. /Verify/
+   - [ ] Three commands are submitted (synced) to puppetdb.dev
+
+** Divergent states converge
+1. Cut the connection between puppetdb.dev and replica.dev
+2. Do a puppet run
+3. /Verify/
+   - [ ] The agent run succeeded
+   - [ ] Three commands were submitted to puppetdb.dev
+   - [ ] *No* commands were submitted to replica.dev
+4. Cut the connection between master.dev and puppetdb.dev
+5. Do a puppet run
+6. /Verify/
+   - [ ] The agent run succeeded
+   - [ ] *No* commands were submitted to puppetdb.dev
+   - [ ] Three commands are submitted (synced) to replica.dev
+7. Restore all connections
+8. /Verify/
+   - [ ] Three commands were submitted (synced) to puppetdb.dev
+   - [ ] One command (Store Report) was submitted to replica.dev
+
+** Rebuild main PuppetDB
+1. Kill the main PuppetDB process
+2. Clear its database and message queue with `bin/clear-postgres`
+3. Do *two* puppet runs
+3. /Verify/
+   - [ ] The agent run succeeded
+   - [ ] Six commands were submitted to replica.dev
+4. Start the main PuppetDB again
+5. /Verify/
+   - [ ] Four commands were submitted to puppetdb.dev (one 'replace facts', one
+     'replace catalog', and two 'store report')
+
+** Main PuppetDB doesn't respond while rebuilding
+1. Kill the main PuppetDB process
+2. Clear its database and message queue with `bin/clear-postgres`
+5. Start the query poller, pointed at puppetdb.dev
+   #+BEGIN_SRC 
+     bin/poll-for-nodes
+   #+END_SRC
+7. Start the main PuppetDB again
+8. /Verify/
+   - [ ] Three commands were submitted to puppetdb.dev 
+   - The poller script terminates, printing a *non-empty* json array.
+* Common procedures
+These are some common procedures which are referenced in the tests above. They
+aren't tests themselves!
+** Start the HA stack
+1. Start the base VMs
+   #+BEGIN_SRC
+     cd $SRC/puppetdb-dev-tools/vagrant
+     vagrant up
+   #+END_SRC
+
+2. Start the replica and logging VMs
+   #+BEGIN_SRC sh
+     vagrant up replica.dev logging.dev
+   #+END_SRC
+
+3. Restore all network connections
+   #+BEGIN_SRC 
+     bin/netmunge restore
+   #+END_SRC
+
+** Clear PostgreSQL and AMQ
+#+BEGIN_SRC sh
+  bin/clear-postgres
+  bin/clear-postgres-replica
+#+END_SRC
+
+** Start the services
+#+BEGIN_SRC sh
+  bin/pe-puppetdb
+  bin/pe-puppetdb-replica # in another terminal
+  bin/master # in a third terminal
+#+END_SRC
+
+** Do a puppet run
+#+BEGIN_SRC 
+  bin/agent
+#+END_SRC
+
+** Isolate a node
+#+BEGIN_SRC 
+  bin/netmunge isolate <hostname>
+#+END_SRC
+
+** Cut the connection between two nodes
+#+BEGIN_SRC 
+  bin/netmunge cut <hostname-1> <hostname-2>
+#+END_SRC
+
+** Restore all connections
+#+BEGIN_SRC
+  bin/netmunge restore
+#+END_SRC
+
