@@ -11,7 +11,7 @@ echo "**********************************************"
 
 set -e
 
-DBNAME=$(echo "pdb_${PUPPETDB_BRANCH}_${BUILD_ID}_${BUILD_NUMBER}_${PUPPETDB_DBTYPE}_${java}" | tr - _)
+DBNAME=$(echo "p-p-e_${PUPPETDB_BRANCH}_${BUILD_ID}_${BUILD_NUMBER}_${PUPPETDB_DBTYPE}_${JDK}" | tr - _)
 DBUSER="puppetdb"
 DBHOST="fixture-pg94.delivery.puppetlabs.net"
 DBPORT="5432"
