@@ -2,6 +2,7 @@
   (:import [java.security KeyStore])
   (:require [me.raynes.fs :as fs]
             [clj-http.client :as client]
+            [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :refer :all]
@@ -12,7 +13,7 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*base-url*]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
-            [puppetlabs.puppetdb.testutils :refer [block-until-results]]
+            [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
             [clj-time.coerce :refer [to-string]]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.cli.export :as export]))
@@ -26,17 +27,6 @@
     (with-log-output log-output
       (maybe-check-for-updates "pe-puppetdb" "update-server!" {})
       (is (= 1 (count (logs-matching #"Skipping update check on Puppet Enterprise" @log-output)))))))
-
-(deftest whitelisting
-  (testing "should log on reject"
-    (let [wl (fs/temp-file "whitelist-log-reject")]
-      (.deleteOnExit wl)
-      (spit wl "foobar")
-      (let [f (build-whitelist-authorizer (fs/absolute-path wl))]
-        (is (= :authorized (f {:ssl-client-cn "foobar"})))
-        (with-log-output logz
-          (is (string? (f {:ssl-client-cn "badguy"})))
-          (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
 
 (defn- check-service-query
   [endpoint version q pagination check-result]
@@ -133,3 +123,45 @@
         (testing (format "%s requests are refused" (name v)))
         (is (retirement-response? v (ping v)))))))
 
+(deftest whitelist-middleware
+  (testing "should log on reject"
+    (let [wl (temp-file "whitelist-log-reject")]
+      (spit wl "foobar")
+      (let [authorizer-fn (build-whitelist-authorizer (fs/absolute-path wl))]
+        (is (= :authorized (authorizer-fn {:ssl-client-cn "foobar"})))
+        (with-log-output logz
+          (is (string? (authorizer-fn {:ssl-client-cn "badguy"})))
+          (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
+
+(defn make-https-request-with-whitelisted-host [whitelisted-host]
+  (let [whitelist-file (temp-file "whitelist-log-reject")
+        cert-config {:ssl-cert "test-resources/localhost.pem"
+                     :ssl-key "test-resources/localhost.key"
+                     :ssl-ca-cert "test-resources/ca.pem"}
+        config (-> (svc-utils/create-config)
+                   (assoc :jetty (merge cert-config
+                                        {:ssl-port 0
+                                         :ssl-host "0.0.0.0"
+                                         :ssl-protocols "TLSv1,TLSv1.1"}))
+                   (assoc-in [:puppetdb :certificate-whitelist] (str whitelist-file)))]
+    (spit whitelist-file whitelisted-host)
+
+    (svc-utils/call-with-puppetdb-instance
+     config
+     (fn []
+       (pl-http/get (str (utils/base-url->str (assoc *base-url* :version :v4))
+                         "/facts")
+                    (merge cert-config
+                           {:headers {"accept" "application/json"}
+                            :as :text}))))))
+
+(deftest cert-whitelists
+  (testing "hosts not in whitelist should be forbidden"
+    (let [response (make-https-request-with-whitelisted-host "bogus")]
+      (is (= 403 (:status response)))
+      (is (re-find #"Permission denied" (:body response)))))
+
+  (testing "host in the cert whitelist is allowed"
+    (let [response (make-https-request-with-whitelisted-host "localhost")]
+      (is (= 200 (:status response)))
+      (is (not (re-find #"Permission denied" (:body response)))))))
