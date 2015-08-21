@@ -64,8 +64,7 @@
                  ["v1" "server-time" &] {:any server-time-routes}))
 
 (defn build-app
-  [get-authorizer get-shared-globals]
+  [get-shared-globals]
   (-> (routes get-shared-globals)
       verify-accepts-json
-      validate-no-query-params
-      (wrap-with-puppetdb-middleware get-authorizer)))
+      validate-no-query-params))

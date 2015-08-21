@@ -44,8 +44,7 @@
   function that accepts a request.  The request will be allowed only
   if authorize returns :authorized.  Otherwise, the return value
   should be a message describing the reason that access was denied."
-  [get-authorizer get-shared-globals]
+  [get-shared-globals]
   (-> routes
-      (wrap-with-puppetdb-middleware get-authorizer)
       (wrap-with-metrics (atom {}) http/leading-uris)
       (wrap-with-globals get-shared-globals)))
