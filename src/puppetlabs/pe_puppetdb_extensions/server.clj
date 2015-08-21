@@ -20,18 +20,7 @@
   * `authorizer` - a function that takes a request and returns a
     :authorized if the request is authorized, or a user-visible reason if not.
     If not supplied, we default to authorizing all requests."
-  [query-fn {:keys [authorizer]}]
+  [query-fn get-authorizer]
   (-> (routes (compojure/context "/v1" [] (v1-app query-fn))
               (route/not-found "Not Found"))
-      (wrap-with-puppetdb-middleware authorizer)))
-
-(defservice pe-puppetdb-service
-  [[:PuppetDBServer shared-globals query]
-   [:WebroutingService add-ring-handler get-route]]
-
-  (start [this context]
-         (let [app (->> (build-app query (shared-globals))
-                        (compojure/context (get-route this) []))]
-           (log/info "Starting pe-puppetdb server")
-           (add-ring-handler this app)
-           context)))
+      (wrap-with-puppetdb-middleware get-authorizer)))
