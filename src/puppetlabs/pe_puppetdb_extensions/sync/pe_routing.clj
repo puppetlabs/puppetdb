@@ -18,11 +18,10 @@
             [puppetlabs.pe-puppetdb-extensions.sync.services :as sync-svcs]
             [puppetlabs.puppetdb.time :refer [parse-period]]))
 
-
 (defn pe-routes [get-config get-shared-globals query submit-command]
   (map #(apply pdb-route/wrap-with-context %)
        (partition 2
-                  ["/sync" (sync-svcs/sync-app get-config query submit-command)
+                  ["/sync" (sync-svcs/sync-app get-config query submit-command response-mult)
                    "/ext" (pe-server/build-app query)])))
 
 (tk/defservice pe-routing-service
@@ -31,7 +30,7 @@
    [:ConfigService get-config]
    [:PuppetDBSync]
    [:PuppetDBCommand submit-command]
-   [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub]
+   [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub response-mult]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]]
   (init [this context]
         (let [context-root (get-route this)
@@ -50,7 +49,7 @@
                                                                                        query
                                                                                        enqueue-raw-command
                                                                                        response-pub)
-                                                            (pe-routes get-config shared-with-prefix query submit-command)))))
+                                                            (pe-routes get-config shared-with-prefix query submit-command (response-mult))))))
         (enable-maint-mode)
         context)
   (start [this context]

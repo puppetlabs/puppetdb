@@ -123,13 +123,14 @@
         (with-puppetdb-instance config-1
           (let [report (tur/munge-example-report-for-storage (:basic reports))
                 query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))]
-            (pdb-client/submit-command-via-http! (utils/pdb-cmd-url) "store report" 5 report)
-            @(block-until-results 100 (export/reports-for-node query-fn (:certname report)))
+            (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report)
+            (is (not (empty? (export/reports-for-node query-fn (:certname report)))))
 
             (with-alt-mq "puppetlabs.puppetdb.commands-2"
               (with-puppetdb-instance config-2
-                (pdb-client/submit-command-via-http! (utils/pdb-cmd-url) "store report" 5 report)
-                @(block-until-results 100 (export/reports-for-node query-fn (:certname report))))))))))))
+                (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report)
+                (is (not (empty? (export/reports-for-node query-fn (:certname report))))))))))))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Test data
@@ -193,7 +194,11 @@
              :as :text}))
 
 (defn perform-sync [source-pdb-url dest-sync-url]
-  (svcs/until-consumed #(trigger-sync source-pdb-url dest-sync-url)))
+  (http/post dest-sync-url
+             {:headers {"content-type" "application/json"}
+              :body (json/generate-string {:remote_host_path source-pdb-url})
+              :query-params {"secondstoWaitForCompletion" "15"}
+              :as :text}))
 
 (defn perform-overlapping-sync [source-pdb-url dest-sync-url]
   (let [stop-here (promise)]
@@ -240,7 +245,6 @@
 
           ;; Pull data from pdb-x to pdb-y
           (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str))
-          @(block-until-results 100 (export/reports-for-node query-fn (:certname report)))
 
           ;; We should see that the sync happened, and that only one report was pulled from PDB X
           (let [puppet-versions (map (comp :puppet_version #(json/parse-string % true) :contents)
@@ -413,22 +417,18 @@
   (get-json base-url (str "/nodes/" certname)))
 
 (defn- submit-catalog [endpoint catalog]
-  (pdb-client/submit-command-via-http! (:command-url endpoint) "replace catalog" 6 catalog)
-  @(block-until-results 100 (get-catalog (:query-url endpoint) (:certname catalog))))
+  (blocking-command-post (:command-url endpoint) "replace catalog" 6 catalog))
 
 (defn- submit-factset [endpoint facts]
-  (pdb-client/submit-command-via-http! (:command-url endpoint) "replace facts" 4 facts)
-  @(block-until-results 101 (get-factset (:query-url endpoint) (:certname facts))))
+  (blocking-command-post (:command-url endpoint) "replace facts" 4 facts))
 
 (defn- submit-report [endpoint report]
-  (pdb-client/submit-command-via-http! (:command-url endpoint) "store report" 5 report)
-  @(block-until-results 102 (get-reports (:query-url endpoint) (:certname report))))
+  (blocking-command-post (:command-url endpoint) "store report" 5 report))
 
 (defn- deactivate-node [endpoint certname]
-  (pdb-client/submit-command-via-http! (:command-url endpoint) "deactivate node" 3
-                                       {:certname certname
-                                        :producer_timestamp (t/plus (t/now) (t/years 10))})
-  @(block-until-results 103 (:deactivated (get-node (:query-url endpoint) certname))))
+  (blocking-command-post (:command-url endpoint) "deactivate node" 3
+                         {:certname certname
+                          :producer_timestamp (t/plus (t/now) (t/years 10))}))
 
 (defn start-sync [& {:keys [from to]}]
   ;; Initiate pull
@@ -436,9 +436,8 @@
                 (str (base-url->str (:sync-url to)) "/trigger-sync")))
 
 (defn- sync [& {:keys [from to check-with check-for] :as args}]
-  (start-sync :from from :to to)
-  ;; Wait for the receiver to chew on its queue
-  @(block-until-results 200 (check-with (:query-url to) check-for)))
+  (perform-sync (base-url->str (:query-url from))
+                (str (base-url->str (:sync-url to)) "/trigger-sync")))
 
 (defn- without-timestamp [record]
   (dissoc record :timestamp))
@@ -588,8 +587,7 @@
         (fn [master mirror]
           (with-alt-mq (:mq-name master)
             (is (nil? (facts-from mirror)))
-            (pdb-client/submit-command-via-http! (:command-url master)
-                                                 "replace facts" 4 facts)
+            (blocking-command-post (:command-url master) "replace facts" 4 facts)
             @(block-until-results 100 (facts-from master)))
           @(block-until-results 100 (facts-from mirror))
           (is (=-after? without-timestamp
