@@ -20,11 +20,10 @@
 
 
 (defn pe-routes [get-config get-shared-globals query submit-command]
-  (let [auth #(:authorizer (get-shared-globals))]
-    (map #(apply pdb-route/wrap-with-context %)
-         (partition 2
-                    ["/sync" (sync-svcs/sync-app get-config query submit-command)
-                     "/ext" (pe-server/build-app query auth)]))))
+  (map #(apply pdb-route/wrap-with-context %)
+       (partition 2
+                  ["/sync" (sync-svcs/sync-app get-config query submit-command)
+                   "/ext" (pe-server/build-app query)])))
 
 (tk/defservice pe-routing-service
   [[:WebroutingService add-ring-handler get-route]
@@ -44,6 +43,7 @@
           (set-url-prefix query-prefix)
           (log/info "Starting PuppetDB, entering maintenance mode")
           (add-ring-handler this (pdb-route/pdb-app context-root
+                                                    shared-globals
                                                     maint-mode?
                                                     (concat (pdb-route/pdb-core-routes shared-with-prefix
                                                                                        submit-command
