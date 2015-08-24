@@ -1,17 +1,19 @@
 ---
-title: "PuppetDB 3.0 » API » v4 » Upgrading to PuppetDB 3.0"
+title: "PuppetDB 3.1 » API » v4 » Upgrading to PuppetDB 3.0"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/upgrading-from-v3.html"
 ---
 
 This document describes changes that users will need to be aware of
 to make their code compliant with the changes in PuppetDB 3.0. Most of these
-changes are observable in released versions of the v4 query API, which has been marked 'experimental' since
-2.0.0 but will be the only API available in 3.0. Note that this document
-focuses on API changes only. For a more complete description of the changes see
-the [release notes](https://docs.puppetlabs.com/puppetdb/latest/release_notes.html).
+changes are observable in released versions of the v4 query API, which has been
+marked 'experimental' since 2.0.0 but is the only API available in 3.0.
+Note that this document focuses on API changes only, and only includes changes
+leading up to the release of 3.0. For a more complete description
+of the changes listed and changes in versions subsequent to 3.0, see the
+[release notes](https://docs.puppetlabs.com/puppetdb/latest/release_notes.html).
 
-Each change below is marked with the corresponding release version. Changes marked (3.0) are only visible in our [nightly snapshots](http://nightlies.puppetlabs.com/puppetdb/) (not currently fit for production).
+Each change below is marked with the corresponding release version.
 
 ### Backwards-incompatible changes
 

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.0 » API » Overview"
+title: "PuppetDB 3.1 » API » Overview"
 layout: default
 canonical: "/puppetdb/latest/api/index.html"
 ---

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.0 » Troubleshooting » KahaDB Corruption"
+title: "PuppetDB 3.1 » Troubleshooting » KahaDB Corruption"
 layout: default
 canonical: "/puppetdb/latest/trouble_kahadb_corruption.html"
 ---

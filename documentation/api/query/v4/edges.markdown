@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.0 » API » v4 » Querying Catalog Edgs"
+title: "PuppetDB 3.1 » API » v4 » Querying Catalog Edgs"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/edges.html"
 ---
