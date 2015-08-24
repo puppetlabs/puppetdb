@@ -10,10 +10,12 @@
   (:require [clj-http.client :as http-client]
             [clj-http.util :refer [url-encode]]
             [clj-time.core :refer [now]]
+            [clj-time.coerce :refer [to-string]]
             [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [puppetlabs.puppetdb.cli.anonymize :as cli-anon]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.catalogs :as catalogs]
@@ -40,7 +42,7 @@
 
 (defn query-child-href-internally
   [query-fn child-href]
-  (let [[parent-str identifier child-str] (take-last 3 (clojure.string/split child-href #"/"))
+  (let [[parent-str identifier child-str] (take-last 3 (str/split child-href #"/"))
         entity (case child-str
                  "metrics" :report-metrics
                  "logs" :report-logs
@@ -82,80 +84,52 @@
   (map #(kitchensink/mapvals (partial maybe-expand-href query-fn) fields %)
        values))
 
+(pls/defn-validated data->tar :- utils/tar-item
+  [entity {:keys [certname] :as data}]
+  (let [json-data (json/generate-pretty-string data)
+        filename (case entity
+                   "facts" certname
+                   "catalogs" certname
+                   "reports" (format "%s-%s" certname (kitchensink/utf8-string->sha1 json-data)))]
+    {:file-suffix [entity (str filename ".json")]
+     :contents json-data}))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Exporting
 
-(pls/defn-validated catalog->tar :- utils/tar-item
-  "Create a tar-item map for the `catalog`"
-  [{:keys [certname] :as catalog} :- {s/Keyword s/Any}]
-  {:file-suffix ["catalogs" (format "%s.json" certname)]
-   :contents (json/generate-pretty-string catalog)})
-
-(pls/defn-validated catalogs-for-node :- (s/maybe (s/pred seq? 'seq?))
+(defn catalogs-for-query
   "Given a node name, retrieve the catalogs for the node and convert
   it to the commands wire format."
-  [query-fn
-   node :- s/Str]
-  (->> (query-fn :catalogs query-api-version ["=" "certname" node] nil doall)
+  [query-fn query]
+  (->> (query-fn :catalogs query-api-version query nil doall)
        (complete-unexpanded-fields query-fn [:edges :resources])
-       catalogs/catalogs-query->wire-v6
-       (map catalog->tar)))
+       catalogs/catalogs-query->wire-v6))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Fact Exporting
 
-(pls/defn-validated facts->tar :- utils/tar-item
-  "Creates a tar-item map for the collection of facts"
-  [{:keys [certname] :as facts} :- {s/Keyword s/Any}]
-  {:file-suffix ["facts" (format "%s.json" certname)]
-   :contents (json/generate-pretty-string facts)})
-
-(pls/defn-validated facts-for-node :- (s/maybe (s/pred seq? 'seq?))
+(defn facts-for-query
   "Retrieves the factset for a given certname, returning a compatible
   wire format."
-  [query-fn
-   node :- s/Str]
-  (->> (query-fn :factsets query-api-version ["=" "certname" node] nil doall)
+  [query-fn query]
+  (->> (query-fn :factsets query-api-version query nil doall)
        (complete-unexpanded-fields query-fn [:facts])
-       factsets/factsets-query->wire-v4
-       (map facts->tar)))
+       factsets/factsets-query->wire-v4))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Report Exporting
 
-(pls/defn-validated report->tar :- utils/tar-item
-  "Create a tar-item map for the `report`"
-  [{:keys [certname configuration_version start_time] :as report}]
-  (let [unique-seed (str (json/parse-string
-                          (json/generate-pretty-string start_time)) configuration_version)
-        hash (kitchensink/utf8-string->sha1 unique-seed)]
-    {:file-suffix ["reports" (format "%s-%s.json" certname hash)]
-     :contents (json/generate-pretty-string (dissoc report :hash))}))
+(def munge-reports-exports
+  (comp (partial map #(dissoc % :hash))
+        reports/reports-query->wire-v5))
 
-(pls/defn-validated reports-for-node :- (s/maybe (s/pred seq? 'seq?))
+(defn reports-for-query
   "Given a node name, retrieves the reports for the node and converts it
   to the wire format."
-  [query-fn
-   node :- s/Str]
-  (->> (query-fn :reports query-api-version ["=" "certname" node] nil doall)
+  [query-fn query]
+  (->> (query-fn :reports query-api-version query nil doall)
        (complete-unexpanded-fields query-fn [:resource_events :metrics :logs])
-       reports/reports-query->wire-v5
-       (map report->tar)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Node Exporting
-
-(pls/defn-validated get-node-data :- [utils/tar-item]
-  "Returns tar-item maps for the reports, facts and catalog of the given
-   node, ready for being written to the filesystem"
-  [query-fn
-   {:keys [certname
-           facts_timestamp
-           report_timestamp
-           catalog_timestamp]} :- node-map]
-  (concat (when-not (str/blank? facts_timestamp) (facts-for-node query-fn certname))
-          (when-not (str/blank? report_timestamp) (reports-for-node query-fn certname))
-          (when-not (str/blank? catalog_timestamp) (catalogs-for-node query-fn certname))))
+       munge-reports-exports))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Metadata Exporting
@@ -169,7 +143,9 @@
 
 (defn- validate-cli!
   [args]
-  (let [specs [["-o" "--outfile OUTFILE" "Path to backup file (required)"]
+  (let [profiles (str/join ", " (keys cli-anon/anon-profiles))
+        specs [["-o" "--outfile OUTFILE" "Path to backup file (required)"]
+               ["-a" "--anonymization ANONYMIZATION" (str "Choice of anonymization profile: " profiles " (optional)")]
                ["-H" "--host HOST" "Hostname of PuppetDB server"
                 :default "127.0.0.1"]
                ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)"
@@ -189,26 +165,26 @@
            utils/validate-cli-base-url!)))))
 
 (defn export!
-  [outfile nodes-data]
+  [outfile tar-items]
   (log/info "Export triggered for PuppetDB")
   (with-open [tar-writer (archive/tarball-writer outfile)]
-    (let [metadata (export-metadata (now))]
-      (utils/add-tar-entry tar-writer metadata))
-    (doseq [tar-item nodes-data]
-      (utils/add-tar-entry tar-writer tar-item))
-    (log/infof "Finished exporting %s items" (count nodes-data))))
+    (doseq [tar-item tar-items] (utils/add-tar-entry tar-writer tar-item)))
+  (log/infof "Finished exporting for PuppetDB"))
 
 (pls/defn-validated trigger-export-via-http!
   [base-url :- utils/base-url-schema
-   filename :- s/Str]
-  (-> (str (utils/base-url->str base-url) "/archive")
-      (http-client/get {:accept :octet-stream :as :stream})
-      :body
-      (io/copy (io/file filename))))
+   filename :- s/Str
+   anonymization]
+  (let [query-params (when anonymization
+                       {:query-params {"anonymization_profile" anonymization}})]
+    (-> (str (utils/base-url->str base-url) "/archive")
+        (http-client/get (merge {:accept :octet-stream :as :stream} query-params))
+        :body
+        (io/copy (io/file filename)))))
 
 (defn -main
   [& args]
-  (let [{:keys [outfile base-url]} (validate-cli! args)]
-    (println (str "Triggering export to " outfile " at " (now) "..."))
-    (trigger-export-via-http! base-url outfile)
-    (println (str "Finished export to " outfile " at " (now) "."))))
+  (let [{:keys [outfile base-url anonymization]} (validate-cli! args)]
+    (println (str "Triggering export to " outfile " at " (to-string (now)) "..."))
+    (trigger-export-via-http! base-url outfile anonymization)
+    (println (str "Finished export to " outfile " at " (to-string (now)) "."))))
