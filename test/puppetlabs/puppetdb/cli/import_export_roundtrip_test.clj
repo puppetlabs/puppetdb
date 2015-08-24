@@ -34,9 +34,10 @@
     (when (< 0 depth)
       (Thread/sleep 10)
       (recur (svc-utils/current-queue-depth)))))
-
 (deftest test-basic-roundtrip
-  (let [certname "foo.local"
+  (let [export-out-dir (tu/temp-dir "export-test")
+        export-out-file-path (str (.getPath export-out-dir) "/outfile.tar.gz")
+        certname "foo.local"
         facts {:certname certname
                :environment "DEV"
                :values {:foo "the foo"
@@ -44,8 +45,6 @@
                         :baz "the baz"
                         :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
                :producer_timestamp (to-string (now))}
-        export-out-dir (tu/temp-dir "export-test")
-        export-out-file-path (str (.getPath export-out-dir) "/outfile.tar.gz")
         catalog (-> (get-in wire-catalogs [6 :empty])
                     (assoc :certname certname
                            :producer_timestamp (now)))
@@ -105,6 +104,56 @@
 
          (is (= (tur/munge-report report)
                 (tur/munge-report (vec (export/reports-for-query query-fn certname-query))))))))))
+
+(deftest test-facts-only-roundtrip
+  (let [export-out-dir (tu/temp-dir "export-test")
+        export-out-file-path (str (.getPath export-out-dir) "/outfile.tar.gz")
+        certname "foo.local"
+        facts {:certname certname
+               :environment "DEV"
+               :values {:foo "the foo"
+                        :bar "the bar"
+                        :baz "the baz"
+                        :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
+               :producer_timestamp (to-string (now))}
+        certname-query ["=" "certname" certname]]
+
+    (svc-utils/call-with-single-quiet-pdb-instance
+     (fn []
+       (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))
+             submit-command-fn (partial submit-command (tk-app/get-service svc-utils/*server* :PuppetDBCommand))
+             command-base-url (tu/command-base-url svc-utils/*base-url*)]
+         (is (empty? (query-fn :nodes admin/query-api-version nil nil doall)))
+
+         (svc-utils/sync-command-post command-base-url "replace facts" 4 facts)
+
+         (is (= (tuf/munge-facts facts)
+                (tuf/munge-facts (vec (export/facts-for-query query-fn certname-query)))))
+
+         (is (empty? (export/reports-for-query query-fn certname-query)))
+         (is (empty? (export/catalogs-for-query query-fn certname-query)))
+
+         (#'export/-main "--outfile" export-out-file-path
+                         "--host" (:host svc-utils/*base-url*)
+                         "--port" (str (:port svc-utils/*base-url*))))))
+
+    (svc-utils/call-with-single-quiet-pdb-instance
+     (fn []
+       (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))
+             submit-command-fn (partial submit-command (tk-app/get-service svc-utils/*server* :PuppetDBCommand))]
+         (is (empty? (query-fn :nodes admin/query-api-version nil nil doall)))
+
+         (#'import/-main "--infile" export-out-file-path
+                         "--host" (:host svc-utils/*base-url*)
+                         "--port" (str (:port svc-utils/*base-url*)))
+
+         @(tu/block-until-results 100 (seq (export/facts-for-query query-fn nil)))
+
+         (is (= (tuf/munge-facts facts)
+                (tuf/munge-facts (vec (export/facts-for-query query-fn certname-query)))))
+
+         (is (empty? (export/reports-for-query query-fn certname-query)))
+         (is (empty? (export/catalogs-for-query query-fn certname-query))))))))
 
 (deftest test-max-frame-size
   (let [certname "foo.local"
