@@ -16,7 +16,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 PuppetDB 3.1.0 is a backward-compatible feature release primarily
 focused on laying a foundation for an upcoming High Availability (HA)
 version of PuppetDB.  This will be a Puppet Enterprise only feature
-that is currently in a invitation-only beta status. Although laying a
+that is currently in an invitation-only beta status. Although laying a
 foundation for HA is the primary focus of the release, there are
 several other enhancements listed below.
 
@@ -65,9 +65,9 @@ several other enhancements listed below.
    ([PDB-1737](https://tickets.puppetlabs.com/browse/PDB-1737))
 
 
-    ### Contributors
+### Contributors
 
-    Andrew Roetker, Ken Barber, Rob Browning, Russell Mull, Ryan Senior, Wyatt Alt
+  Andrew Roetker, Ken Barber, Rob Browning, Russell Mull, Ryan Senior, Wyatt Alt
 
 3.0.2
 -----
