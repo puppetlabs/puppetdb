@@ -119,11 +119,11 @@
         import-archive (fs/normalized-path infile)
         command-versions (:command_versions (parse-metadata import-archive))]
     (try
-      (println " Importing " infile " to PuppetDB...")
+      (println "Importing " infile " to PuppetDB...")
       (http-client/post (str (utils/base-url->str base-url) "/archive")
                         {:multipart [{:name "Content/type" :content "application/octet-stream"}
                                      {:name "archive" :content import-archive}
                                      {:name "command_versions" :content (json/generate-pretty-string command-versions)}]})
-      (println " Finished importing " infile " to PuppetDB.")
+      (println "Finished importing " infile " to PuppetDB.")
       (catch Throwable e
         (println e "Error importing " infile)))))

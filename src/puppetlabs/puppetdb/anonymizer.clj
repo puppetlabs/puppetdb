@@ -425,11 +425,10 @@
 
 (pls/defn-validated anonymize-report :- report-schema-str
   "Anonymize a report"
-  [config version
-   report :- report-schema-str]
+  [config report :- report-schema-str]
   (let [context {"node" (get report "certname")}]
     (-> report
-        (update-in ["certname"]         anonymize-leaf :node context config)
+        (update-in ["certname"] anonymize-leaf :node context config)
         (update-in ["resource_events"]  anonymize-resource-events context config)
         (update-in ["metrics"] anonymize-metrics context config)
         (update-in ["logs"] anonymize-logs context config)

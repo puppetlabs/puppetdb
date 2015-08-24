@@ -2,7 +2,6 @@
   (:import [java.security KeyStore])
   (:require [me.raynes.fs :as fs]
             [clj-http.client :as client]
-            [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :refer :all]
             [puppetlabs.puppetdb.http.command :refer :all]
@@ -67,7 +66,7 @@
                                                                  :baz "the baz"}
                                                         :producer_timestamp (to-string (now))})
 
-      @(block-until-results 100 (export/facts-for-node query-fn "foo.local"))
+      @(block-until-results 100 (seq (export/facts-for-query query-fn ["=" "certname" "foo.local"])))
 
       (check-service-query
        :facts :v4 ["=" "certname" "foo.local"]
@@ -96,7 +95,7 @@
                                                     :values {:a "a" :b "b" :c "c"}
                                                     :producer_timestamp (to-string (now))})
 
-      @(block-until-results 100 (export/facts-for-node query-fn "foo.local"))
+      @(block-until-results 100 (seq (export/facts-for-query query-fn ["=" "certname" "foo.local"])))
       (let [exp ["a" "b" "c"]
             rexp (reverse exp)]
         (doseq [order [:ascending :descending]

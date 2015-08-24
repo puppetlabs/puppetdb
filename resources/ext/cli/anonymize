@@ -1,3 +1,0 @@
-#!/bin/bash
-
-${JAVA_BIN} ${JAVA_ARGS} -cp ${INSTALL_DIR}/puppetdb.jar clojure.main -m puppetlabs.puppetdb.core anonymize "$@"

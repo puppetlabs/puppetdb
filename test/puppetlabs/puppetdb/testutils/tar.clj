@@ -1,68 +1,49 @@
 (ns puppetlabs.puppetdb.testutils.tar
-  (:require [puppetlabs.puppetdb.archive :as archive]
-            [clojure.string :as str]
-            [clj-time.core :as time]
+  (:import  [puppetlabs.puppetdb.archive TarGzReader]
+            [org.apache.commons.compress.archivers.tar TarArchiveEntry])
+  (:require [me.raynes.fs :as fs]
+            [puppetlabs.puppetdb.client :as client]
+            [clj-http.client :as http-client]
+            [clojure.tools.logging :as log]
+            [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.cheshire :as json]
-            [me.raynes.fs :as fs]
-            [puppetlabs.puppetdb.utils :refer [export-root-dir]]))
+            [clojure.java.io :as io]
+            [slingshot.slingshot :refer [try+]]
+            [puppetlabs.puppetdb.schema :refer [defn-validated]]
+            [puppetlabs.puppetdb.utils :as utils
+             :refer [base-url-schema export-root-dir]]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.cli.export :as export]
+            [puppetlabs.puppetdb.cli.import :as import]
+            [clj-time.core :refer [now]]
+            [schema.core :as s]
+            [slingshot.slingshot :refer [try+ throw+]]))
 
-(defn path
-  "Creates a platform independent relative path built
-   from `path-segments`"
-  [& path-segments]
-  (str/join java.io.File/separator path-segments))
+(defn-validated process-tar-entry
+  [tar-reader :- TarGzReader
+   acc
+   tar-entry :- TarArchiveEntry]
+  (let [path (.getName tar-entry)]
+    (condp re-find path
+      (import/file-pattern "catalogs")
+      (let [catalogs (-> (archive/read-entry-content tar-reader)
+                         (json/parse-string true))]
+        (update-in acc [:catalogs (:certname catalogs)] conj catalogs))
+      (import/file-pattern "reports")
+      (let [reports (-> (archive/read-entry-content tar-reader)
+                        (json/parse-string true))]
+        (update-in acc [:reports (:certname reports)] conj reports))
+      (import/file-pattern "facts")
+      (let [facts (-> (archive/read-entry-content tar-reader)
+                      (json/parse-string true))]
+        (update-in acc [:facts (:certname facts)] conj facts))
+      (import/file-pattern "export-metadata")
+      (let [metadata (-> (archive/read-entry-content tar-reader)
+                         (json/parse-string true))]
+        (assoc acc :metadata metadata))
+      acc)))
 
-(defn assoc-metadata
-  "Creates an export/import metadata map with the current
-   time."
-  [tar-map]
-  (assoc tar-map
-    (path "puppetdb-bak" "export-metadata.json")
-    {"timestamp" (time/now)
-     "command_versions" {"replace_facts" 4
-                         "replace_catalog" 6
-                         "store_report" 5}}))
-
-(defn collapse-tar-map
-  "Collapses the nested map structured created by mapify into
-   relative paths, expected by add-entry. Also adds the puppetdb-bak
-   root directory and extensions to all paths"
-  [m]
-  (reduce-kv (fn [top-level dir file-map]
-               (merge top-level
-                      (reduce-kv (fn [acc filename contents]
-                                   (assoc acc (path export-root-dir dir (str filename ".json")) contents))
-                                 {} file-map)))
-             {} m))
-
-(defn spit-tar
-  "Given a `tar-map` created by something like mapify, create a new
-   tarball representing that tar-map `f`"
-  [f tar-map]
-  (let [collapsed-map (assoc-metadata (collapse-tar-map tar-map))]
-    (with-open [tar-writer (archive/tarball-writer f)]
-      (doseq [[path clj-contents] collapsed-map]
-        (archive/add-entry tar-writer "UTF-8" path (json/generate-pretty-string clj-contents))))))
-
-(defn mapify
-  "Convert elements in an import/export tarball to a hashmap.
-   Nested directories convert to nested maps with the files
-   converted from JSON to clojure data structures"
+(defn archive->map
   [file]
-  (with-open [tar (archive/tarball-reader file)]
-    (reduce (fn [acc tar-entry]
-              (assoc-in acc
-                        (-> (.getName tar-entry)
-                            fs/split
-                            rest
-                            vec)
-                        (json/parse-string (archive/read-entry-content tar))))
-            {} (archive/all-entries tar))))
-
-(defn parse-tar-entry-contents
-  "Parses the first of a list of tar-entries :contents"
-  [tar-entries]
-  (-> tar-entries
-      first
-      :contents
-      (json/parse-string true)))
+  (with-open [tar-reader (archive/tarball-reader file)]
+    (reduce (partial process-tar-entry tar-reader) {} (archive/all-entries tar-reader))))

@@ -1,102 +1,76 @@
 (ns puppetlabs.puppetdb.cli.anonymize-test
-  (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.cli.anonymize :refer :all]
-            [puppetlabs.puppetdb.testutils :as tu]
-            [clojure.string :as str]
+  (:require [puppetlabs.puppetdb.cli.export :as export]
+            [puppetlabs.puppetdb.cli.import :as import]
+            [puppetlabs.puppetdb.cli.anonymize :as anonymize]
             [puppetlabs.puppetdb.testutils.tar :as tar]
-            [puppetlabs.puppetdb.testutils.facts :refer [spit-facts-tarball create-host-facts]]))
+            [puppetlabs.puppetdb.testutils.facts :as tuf]
+            [puppetlabs.puppetdb.cli.services :refer :all]
+            [puppetlabs.puppetdb.http.command :refer :all]
+            [clojure.test :refer :all]
+            [puppetlabs.puppetdb.testutils :as tu]
+            [puppetlabs.trapperkeeper.app :as tk-app]
+            [puppetlabs.puppetdb.fixtures :as fixt]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.archive :as archive]
+            [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
+            [puppetlabs.puppetdb.testutils.catalogs :as tuc]
+            [puppetlabs.puppetdb.examples.reports :refer [reports]]
+            [puppetlabs.puppetdb.testutils.reports :as tur]
+            [clj-time.core :refer [now]]
+            [clj-time.coerce :refer [to-string]]
+            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.client :as pdb-client]
+            [puppetlabs.puppetdb.admin :as admin]
+            [puppetlabs.puppetdb.testutils.services :as svc-utils]))
 
-(deftest test-anonymize-facts
-  (testing "with profile none"
-    (let [in-path (.getPath (tu/temp-file "input-facts" ".tar.gz"))
-          _ (spit-facts-tarball in-path (create-host-facts "foo.com" {"password" "bar"}))
-          anon-output (tu/temp-file "anon-facts" ".tar.gz")
-          _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "none")
-          orig-data (tar/mapify in-path)
-          anon-data (tar/mapify anon-output)]
-      (is (= (get orig-data "facts")
-             (get anon-data "facts")))))
+(deftest test-basic-roundtrip
+  (let [certname "foo.local"
+        facts {:certname certname
+               :environment "DEV"
+               :values {:foo "the foo"
+                        :bar "the bar"
+                        :baz "the baz"
+                        :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
+               :producer_timestamp (to-string (now))}
+        export-out-dir (tu/temp-dir "export-test")
+        export-out-file-path (str (.getPath export-out-dir) "/outfile.tar.gz")
+        catalog (-> (get-in wire-catalogs [6 :empty])
+                    (assoc :certname certname
+                           :producer_timestamp (now)))
+        report (-> (:basic reports)
+                   (assoc :certname certname)
+                   tur/munge-example-report-for-storage)
+        certname-query ["=" "certname" certname]]
 
-  (testing "with profile low"
-    (let [in-path (.getPath (tu/temp-file "input-facts" ".tar.gz"))
-          _ (spit-facts-tarball in-path (create-host-facts "foo.com" {"password" "foo"
-                                                                      "reallysecret" "bar"
-                                                                      "totallyprivate" "baz"}))
-          anon-output (tu/temp-file "anon-facts" ".tar.gz")
-          _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "low")
-          orig-data (tar/mapify in-path)
-          orig-facts (get-in orig-data ["facts" "foo.com.json"])
-          {host "certname" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
+    (svc-utils/call-with-single-quiet-pdb-instance
+     (fn []
+       (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))
+             submit-command-fn (partial submit-command (tk-app/get-service svc-utils/*server* :PuppetDBCommand))
+             command-base-url (tu/command-base-url svc-utils/*base-url*)]
+         (is (empty? (query-fn :nodes admin/query-api-version nil nil doall)))
 
-      (are [k v] (= v (get-in orig-data ["facts" "foo.com.json" "values" k]))
-           "password" "foo"
-           "reallysecret" "bar"
-           "totallyprivate" "baz")
+         (svc-utils/sync-command-post command-base-url "replace catalog" 6 catalog)
+         (svc-utils/sync-command-post command-base-url "store report" 5 report)
+         (svc-utils/sync-command-post command-base-url "replace facts" 4 facts)
 
-      (is (not (str/blank? host)))
-      (is (not= host "foo.com"))
-      (is (contains? anon-facts "password"))
-      (is (contains? anon-facts "reallysecret"))
-      (is (contains? anon-facts "totallyprivate"))
+         (is (= (tuc/munge-catalog catalog)
+                (tuc/munge-catalog (vec (export/catalogs-for-query query-fn certname-query)))))
 
-      (are [k] (not= (get orig-facts ["values" k]) (get anon-facts k))
-           "password"
-           "reallysecret"
-           "totallyprivate")
+         (is (= (tuf/munge-facts facts)
+                (tuf/munge-facts (vec (export/facts-for-query query-fn certname-query)))))
 
-      (is (= (get orig-facts "environment")
-             anon-env))))
+         (is (= (tur/munge-report report)
+                (tur/munge-report (vec (export/reports-for-query query-fn certname-query)))))
 
-  (testing "with profile moderate"
-    (let [in-path (.getPath (tu/temp-file "input-facts" ".tar.gz"))
-          _ (spit-facts-tarball in-path (create-host-facts "foo.com" {"password" "foo"}))
-          anon-output (tu/temp-file "anon-facts" ".tar.gz")
-          _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "moderate")
-          orig-data (tar/mapify in-path)
-          orig-facts (get-in orig-data ["facts" "foo.com.json"])
-          {host "certname" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
+         (#'export/-main "--outfile" export-out-file-path
+                         "--host" (:host svc-utils/*base-url*)
+                         "--port" (str (:port svc-utils/*base-url*)))
 
-      (are [k v] (= v (get-in orig-data ["facts" "foo.com.json" "values" k]))
-           "password" "foo"
-           "id" "foo"
-           "ipaddress_lo0" "127.0.0.1"
-           "operatingsystem" "Debian")
-
-      (is (not (str/blank? host)))
-      (is (not= host "foo.com"))
-      (is (not (contains? anon-facts "password")))
-      (is (contains? anon-facts "id"))
-      (is (contains? anon-facts "operatingsystem"))
-
-      (are [op k] (op (get-in orig-facts ["values" k]) (get anon-facts k))
-           = "id"
-           not= "ipaddress_lo0"
-           = "operatingsystem")
-
-      (is (= (count (get orig-facts "values"))
-             (count anon-facts)))
-
-      (is (not= (get orig-data "environment")
-                anon-env))))
-
-
-  (testing "with profile full"
-    (let [in-path (.getPath (tu/temp-file "input-facts" ".tar.gz"))
-          _ (spit-facts-tarball in-path (create-host-facts "foo.com" {"password" "foo"}))
-          anon-output (tu/temp-file "anon-facts" ".tar.gz")
-          _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "full")
-          orig-data (tar/mapify in-path)
-          orig-facts (get-in orig-data ["facts" "foo.com.json"])
-          {host "certname" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
-
-      (are [k v] (= v (get-in orig-facts ["values" k]))
-           "password" "foo"
-           "id" "foo"
-           "ipaddress_lo0" "127.0.0.1"
-           "operatingsystem" "Debian")
-
-      (is (not-any? anon-facts (keys (get orig-facts "values"))))
-      (is (not-any? (set (vals anon-facts))
-                    (vals (get orig-data "values"))))
-      (is (not= (get orig-data "environment")
-                anon-env)))))
+         (doseq [profile ["full" "moderate" "none"]]
+           (let [anon-out-file-path (str (.getPath export-out-dir) "/anon-" profile "-file.tar.gz")]
+             (#'export/-main "--outfile" anon-out-file-path
+                             "--anonymization" "full"
+                             "--host" (:host svc-utils/*base-url*)
+                             "--port" (str (:port svc-utils/*base-url*)))
+             (is (not= (tar/archive->map export-out-file-path)
+                       (tar/archive->map anon-out-file-path))))))))))
