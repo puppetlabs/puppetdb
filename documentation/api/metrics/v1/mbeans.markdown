@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.0 » Metrics API » v1 » Querying Mbeans"
+title: "PuppetDB 3.1 » Metrics API » v1 » Querying Mbeans"
 layout: default
 canonical: "/puppetdb/latest/api/metrics/v1/index.html"
 ---

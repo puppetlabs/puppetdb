@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.0 » Admin API » v1 » Importing and Exporting PuppetDB Archives"
+title: "PuppetDB 3.1 » Admin API » v1 » Importing and Exporting PuppetDB Archives"
 layout: default
 canonical: "/puppetdb/latest/api/admin/v1/archive.html"
 ---

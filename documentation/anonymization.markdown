@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.0 » Data Anonymization"
+title: "PuppetDB 3.1 » Data Anonymization"
 layout: default
 canonical: "/puppetdb/latest/anonymization.html"
 ---
