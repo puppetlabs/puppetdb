@@ -18,7 +18,7 @@
             [puppetlabs.pe-puppetdb-extensions.sync.services :as sync-svcs]
             [puppetlabs.puppetdb.time :refer [parse-period]]))
 
-(defn pe-routes [get-config get-shared-globals query submit-command]
+(defn pe-routes [get-config get-shared-globals query submit-command response-mult]
   (map #(apply pdb-route/wrap-with-context %)
        (partition 2
                   ["/sync" (sync-svcs/sync-app get-config query submit-command response-mult)

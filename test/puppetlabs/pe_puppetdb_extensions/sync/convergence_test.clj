@@ -3,14 +3,11 @@
             [clojure.core.match :as ccm]
             [clojure.test :refer :all]
             [clojure.test.check.clojure-test :refer [defspec]]
-            [clojure.test.check :as check]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.pe-puppetdb-extensions.sync.core
-             :refer [sync-from-remote!]]
-            [puppetlabs.pe-puppetdb-extensions.sync.core-test
-             :refer [default-pdb-configs with-alt-mq with-pdbs start-sync]]
+            [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote!]]
+            [puppetlabs.pe-puppetdb-extensions.sync.sync-test-utils :refer [default-pdb-configs with-pdbs start-sync]]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.client :refer [submit-command-via-http!]]
             [puppetlabs.puppetdb.examples :as examples]
@@ -19,12 +16,8 @@
             [puppetlabs.puppetdb.http.command :as command]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.puppetdb.testutils.reports :as tur]
-            [puppetlabs.puppetdb.testutils.services :as svcs]
-            [puppetlabs.puppetdb.time :refer [to-millis]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
-            [puppetlabs.pe-puppetdb-extensions.semlog :as semlog]
-            [puppetlabs.trapperkeeper.app :refer [get-service]]
-            [puppetlabs.trapperkeeper.services :refer [service-context]])
+            [puppetlabs.trapperkeeper.app :refer [get-service]])
   (:import
    [org.joda.time Period DateTime]))
 
