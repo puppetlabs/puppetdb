@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.0 » API » v4 » Querying Nodes"
+title: "PuppetDB 3.1 » API » v4 » Querying Nodes"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 ---
