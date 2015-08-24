@@ -18,6 +18,8 @@ Once you've run this command and generated an export tarball, you should follow 
 Exporting data from an existing PuppetDB database
 ------
 
+**NOTE** The import/export tools are only intended to migrate data between PuppetDB instances of the same version. Cross-version migrations may succeed, but are not supported.
+
 If you've been trying out PuppetDB using the embedded database and are ready to move to a production environment backed by PostgreSQL, or if you'd simply like to move your data from one PostgreSQL database to another one, you can use the `puppetdb export` command (which is available in your `/usr/sbin` directory for versions of PuppetDB >= 1.2).  All you'll need to do is run a command like this:
 
     $ sudo puppetdb export --outfile ./my-puppetdb-export.tar.gz
@@ -26,14 +28,9 @@ This command is intended to be run on the PuppetDB server, and assumes that Pupp
 
     $ sudo puppetdb export --help
 
-While its not required it is recommended you run this tooling while there is no activity on your existing PuppetDB to ensure your data snapshot is consistent. Also the tool can put load on your production system, so you should plan for this before running it.
+While it's not required it is recommended you run this tooling while there is no activity on your existing PuppetDB to ensure your data snapshot is consistent. Also the tool can put load on your production system, so you should plan for this before running it.
 
-The generated tarball will contain a backup of all of your current catalog data (including exported resources) and all you report data. At this time fact data exporting is not supported.
-
-Exporting data from a version of PuppetDB prior to 1.2
-------
-
-The `puppetdb export` and `puppetdb import` tools were added to PuppetDB in version 1.2.  If you need to export data from an older version of PuppetDB, the easiest way to do so is to upgrade your existing PuppetDB to at least version 1.2 and then use the `puppetdb export` tool.
+The generated tarball will contain a backup of all of your current catalogs (including exported resources), reports, and facts.
 
 Importing data to a new PuppetDB database
 ------
