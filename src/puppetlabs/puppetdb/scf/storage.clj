@@ -1154,27 +1154,28 @@
                 report-hash (shash/report-identity-hash report)]
            (sql/transaction
              (let [certname-id (certname-id certname)
-                   {:keys [id]} (sql/insert-record :reports
-                                 (maybe-environment
-                                  (maybe-resources
-                                   {:hash                   (sutils/munge-hash-for-storage report-hash)
-                                     :transaction_uuid       (sutils/munge-uuid-for-storage transaction_uuid)
-                                     :metrics (sutils/munge-jsonb-for-storage metrics)
-                                     :logs (sutils/munge-jsonb-for-storage logs)
-                                     :resources (sutils/munge-jsonb-for-storage resources)
-                                     :noop                   noop
-                                     :puppet_version         puppet_version
-                                     :certname               certname
-                                     :report_format          report_format
-                                     :configuration_version  configuration_version
-                                     :producer_timestamp     producer_timestamp
-                                     :start_time             start_time
-                                     :end_time               end_time
-                                     :receive_time           (to-timestamp received-timestamp)
-                                     :environment_id         (ensure-environment environment)
-                                     :status_id              (ensure-status status)})))
+                   row-map {:hash (sutils/munge-hash-for-storage report-hash)
+                            :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
+                            :metrics (sutils/munge-jsonb-for-storage metrics)
+                            :logs (sutils/munge-jsonb-for-storage logs)
+                            :resources (sutils/munge-jsonb-for-storage resources)
+                            :noop noop
+                            :puppet_version puppet_version
+                            :certname certname
+                            :report_format report_format
+                            :configuration_version configuration_version
+                            :producer_timestamp producer_timestamp
+                            :start_time start_time
+                            :end_time end_time
+                            :receive_time (to-timestamp received-timestamp)
+                            :environment_id (ensure-environment environment)
+                            :status_id (ensure-status status)}
+                   {report-id :id} (->> row-map
+                                        maybe-environment
+                                        maybe-resources
+                                        (sql/insert-record :reports))
                    assoc-ids #(assoc %
-                                     :report_id id
+                                     :report_id report-id
                                      :certname_id certname-id)]
                (->> resource_events
                     (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
