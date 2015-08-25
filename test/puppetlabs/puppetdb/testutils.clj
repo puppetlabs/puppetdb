@@ -463,3 +463,21 @@
           (catch Exception e#
             ;; Ignore
             ))))))
+
+(defmacro with-coordinated-fn
+  "Redefines `function-to-coordinate` to block until `execute-it-sym`
+  is invoked. One `execute-it-sym` is invoked, the original version of
+  `function-to-coordinate` is invoked and execution of the code
+  proceeds"
+  [execute-it-sym function-to-coordinate & body]
+  `(let [orig-fn# ~function-to-coordinate
+         before# (promise)
+         after# (promise)
+         ~execute-it-sym (fn []
+                           (deliver before# true)
+                           @after#)]
+     (with-redefs [~function-to-coordinate (fn [& args#]
+                                             @before#
+                                             (apply orig-fn# args#)
+                                             (deliver after# true))]
+       ~@body)))
