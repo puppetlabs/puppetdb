@@ -4,6 +4,7 @@
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.zip :as zip]
             [puppetlabs.puppetdb.testutils.reports :as tur]
+            [puppetlabs.puppetdb.reports :as report]
             [clj-time.core :refer [now plus seconds]]))
 
 (defn change-certname
@@ -21,7 +22,8 @@
   (-> (:basic reports)
       (change-certname node-name)
       tur/munge-example-report-for-storage
-      (assoc :end_time (now))))
+      (assoc :end_time (now))
+      report/wire-v5->wire-v6))
 
 (defn store-example-nodes
   []

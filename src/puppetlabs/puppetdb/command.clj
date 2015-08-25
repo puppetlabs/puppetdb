@@ -271,8 +271,7 @@
 
 (defn store-report*
   [version db {:keys [payload annotations]}]
-  (let [id (:id annotations)
-        received-timestamp (:received annotations)
+  (let [{id :id received-timestamp :received} annotations
         {:keys [certname puppet_version] :as report}
         (->> payload
              (s/validate report/report-wireformat-schema)
@@ -285,45 +284,26 @@
                id (command-names :store-report)
                puppet_version certname)))
 
-(defn- resource->skipped-resource-events
-  "Fabricate a skipped resource-event"
-  [resource]
-  (-> resource
-      ;; We also need to grab the timestamp when the resource is `skipped'
-      (select-keys [:resource_type :resource_title :file :line :containment_path :timestamp])
-      (merge {:status "skipped" :property nil :old_value nil :new_value nil :message nil})
-      vector))
-
-(defn- resource->resource-events
-  [{:keys [skipped] :as resource}]
-  (if (= skipped true)
-    (resource->skipped-resource-events resource)
-    (let [resource-metadata (select-keys resource [:resource_type :resource_title :file :line :containment_path])]
-      (map (partial merge resource-metadata) (:events resource)))))
-
-(defn- resources->resource-events
-  [report]
-  (-> report
-      (update :resources (partial mapcat resource->resource-events))
-      (clojure.set/rename-keys {:resources :resource_events})))
-
 (defmethod process-command! [(command-names :store-report) 3]
-  [{:keys [version] :as command} {:keys [db]}]
-  (store-report* 5 db (-> command
-                          (update :payload report/wire-v3->wire-v5 (get-in command [:annotations :received])))))
+  [command {:keys [db]}]
+  (store-report* 6 db
+                 (let [received-time (get-in command [:annotations :received])]
+                   (update command :payload report/wire-v3->wire-v6 received-time))))
 
 (defmethod process-command! [(command-names :store-report) 4]
-  [{:keys [version] :as command} {:keys [db]}]
-  (store-report* 5 db (-> command
-                          (update :payload report/wire-v4->wire-v5 (get-in command [:annotations :received])))))
+  [command {:keys [db]}]
+  (store-report* 6 db
+                 (let [received-time (get-in command [:annotations :received])]
+                   (update command :payload report/wire-v4->wire-v6 received-time))))
 
 (defmethod process-command! [(command-names :store-report) 5]
-  [{:keys [version] :as command} {:keys [db]}]
-  (store-report* 5 db command))
+  [command {:keys [db]}]
+  (store-report* 6 db
+                 (update command :payload report/wire-v5->wire-v6)))
 
 (defmethod process-command! [(command-names :store-report) 6]
-  [{:keys [version] :as command} {:keys [db]}]
-  (store-report* 6 db (update command :payload resources->resource-events)))
+  [command {:keys [db]}]
+  (store-report* 6 db command))
 
 (def supported-command?
   (comp (kitchensink/valset command-names) :command))

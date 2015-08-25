@@ -9,7 +9,9 @@
             [clj-time.core :refer [now]]
             [schema.core :as s]))
 
-(let [report (munge-example-report-for-storage (:basic reports))]
+(let [report (-> (:basic reports)
+                 munge-example-report-for-storage
+                 wire-v5->wire-v6)]
 
   (deftest test-validate
 
@@ -24,9 +26,9 @@
     (testing "should fail when a resource event has the wrong data type for a key"
       (is (thrown-with-msg?
            RuntimeException #":timestamp \(not \(datetime\? \"foo\"\)\)"
-           (s/validate report-wireformat-schema (assoc-in report [:resource_events 0 :timestamp] "foo")))))))
+           (s/validate report-wireformat-schema (assoc-in report [:resources 0 :timestamp] "foo")))))))
 
-(deftest test-sanitize-events
+(deftest test-sanitize-v5-resource-events
   (testing "ensure extraneous keys are removed"
     (let [test-data {:containment_path
                      ["Stage[main]"
@@ -45,7 +47,7 @@
                      :resource_title  "create extension pg_stat_statements on puppetdb"
                      :file  "/etc/puppet/modules/my_pg/manifests/extension.pp"
                      :extradata  "foo"}
-          santized (sanitize-events [test-data])
+          santized (sanitize-v5-resource-events [test-data])
           expected [(dissoc test-data "extradata")]]
       (= santized expected))))
 
@@ -68,18 +70,25 @@
       (dissoc :logs :metrics :noop :producer-timestamp)))
 
 (deftest test-v5-conversion
-  (let [current-time (now)
-        v5-report (wire-v4->wire-v5 v4-example-report current-time)]
+  (let [v5-report (-> reports :basic munge-example-report-for-storage)
+        v6-report (wire-v5->wire-v6 v5-report)]
 
-    (is (s/validate report-v4-wireformat-schema v4-example-report))
-    (is (s/validate report-wireformat-schema v5-report))
-    (is (= current-time (:producer_timestamp v5-report)))))
+    (is (s/validate report-v5-wireformat-schema v5-report))
+    (is (s/validate report-wireformat-schema v6-report))))
 
 (deftest test-v4-conversion
   (let [current-time (now)
+        v6-report (wire-v4->wire-v6 v4-example-report current-time)]
+
+    (is (s/validate report-v4-wireformat-schema v4-example-report))
+    (is (s/validate report-wireformat-schema v6-report))
+    (is (= current-time (:producer_timestamp v6-report)))))
+
+(deftest test-v3-conversion
+  (let [current-time (now)
         v3-report (dissoc v4-example-report :status)
-        v5-report (wire-v3->wire-v5 v3-report current-time)]
+        v6-report (wire-v3->wire-v6 v3-report current-time)]
     (is (s/validate report-v3-wireformat-schema v3-report))
-    (is (s/validate report-wireformat-schema (wire-v3->wire-v5 v3-report current-time)))
-    (is (= current-time (:producer_timestamp v5-report)))
-    (is (nil? (:status v5-report)))))
+    (is (s/validate report-wireformat-schema (wire-v3->wire-v6 v3-report current-time)))
+    (is (= current-time (:producer_timestamp v6-report)))
+    (is (nil? (:status v6-report)))))

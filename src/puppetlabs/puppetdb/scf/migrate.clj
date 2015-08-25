@@ -1425,6 +1425,75 @@
       "ALTER TABLE environments RENAME COLUMN name TO environment"
       "ALTER TABLE environments ALTER COLUMN name RENAME TO environment")))
 
+(defn move-to-jsonb-for-metrics-logs-resources
+  []
+  (let [hash-type (if (sutils/postgres?) "bytea" "varchar(40)")
+        uuid-type (if (sutils/postgres?) "uuid" "varchar(255)")
+        jsonb-type (if (sutils/postgres?) "jsonb" "text")]
+    (sql/create-table :reports_transform
+                      ["id"                    "bigint NOT NULL DEFAULT nextval('reports_id_seq')"]
+                      ["hash"                  hash-type "NOT NULL"]
+                      ["transaction_uuid"      uuid-type]
+                      ["certname"              "text NOT NULL"]
+                      ["puppet_version"        "varchar(255) NOT NULL"]
+                      ["report_format"         "smallint NOT NULL"]
+                      ["configuration_version" "varchar(255) NOT NULL"]
+                      ["start_time"            "timestamp with time zone NOT NULL"]
+                      ["end_time"              "timestamp with time zone NOT NULL"]
+                      ["receive_time"          "timestamp with time zone NOT NULL"]
+                      ["producer_timestamp"    "timestamp with time zone NOT NULL"]
+                      ["noop"                  "boolean"]
+                      ["environment_id"        "bigint"]
+                      ["status_id"             "bigint"]
+                      ;; Add a `resources' column and change from "json" to
+                      ;; "jsonb" for the `logs' and `metrics' columns.
+                      ["resources" jsonb-type]
+                      ["metrics" jsonb-type]
+                      ["logs" jsonb-type])
+
+    (sql/do-commands
+     (let [cast-to-jsonb (if (= jsonb-type "text") "" "::jsonb")]
+       (format
+        "INSERT INTO reports_transform (id, hash, certname, puppet_version,
+        report_format, configuration_version, start_time, end_time,
+        receive_time, producer_timestamp, transaction_uuid, environment_id,
+        status_id, metrics, logs)
+       SELECT id, hash, certname, puppet_version, report_format,
+        configuration_version, start_time, end_time, receive_time,
+        producer_timestamp, transaction_uuid, environment_id, status_id,
+        metrics%s, logs%s
+       FROM reports"
+        cast-to-jsonb cast-to-jsonb)))
+
+    (when (sutils/postgres?)
+      (sql/do-commands
+       "ALTER TABLE certnames DROP CONSTRAINT certnames_reports_id_fkey"))
+    (sql/do-commands
+     "ALTER TABLE resource_events DROP CONSTRAINT resource_events_report_id_fkey"
+     "DROP TABLE reports")
+
+    (sql/do-commands "ALTER TABLE reports_transform RENAME to reports")
+
+    (sql/do-commands
+     "ALTER TABLE reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id)"
+     "CREATE INDEX reports_certname_idx ON reports(certname)"
+     "CREATE INDEX reports_end_time_idx ON reports(end_time)"
+     "CREATE INDEX reports_environment_id_idx ON reports(environment_id)"
+     "CREATE INDEX reports_status_id_idx ON reports(status_id)"
+     "CREATE INDEX reports_transaction_uuid_idx ON reports(transaction_uuid)"
+     ;; Foreign contraints from reports
+     "ALTER TABLE reports ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"
+     "ALTER TABLE reports ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE"
+     "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"
+     "ALTER TABLE reports ADD CONSTRAINT reports_hash_key UNIQUE (hash)"
+     ;; Foreign constraints into reports
+     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"
+     ))
+
+    (when (sutils/postgres?)
+      (sql/do-commands
+       "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL")))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1465,7 +1534,9 @@
    ;; date when the "vacuum analyze" code was added to migrate! will
    ;; still analyze their existing databases.
    35 (fn [] true)
-   36 rename-environments-name-to-environment})
+   36 rename-environments-name-to-environment
+   37 move-to-jsonb-for-metrics-logs-resources
+   })
 
 (def desired-schema-version (apply max (keys migrations)))
 

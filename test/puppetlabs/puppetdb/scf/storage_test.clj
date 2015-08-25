@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.scf.storage-test
   (:require [clojure.java.jdbc.deprecated :as sql]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.facts :as facts
              :refer [path->pathmap string-to-factpath value->valuemap]]
@@ -1295,25 +1296,30 @@
              (fn [events]
                (map #(assoc % :timestamp new-timestamp) events))))
 
-(let [timestamp     (now)
-      report        (:basic reports)
-      report-hash   (shash/report-identity-hash (normalize-report report))
-      certname      (:certname report)]
+(let [timestamp (now)
+      {:keys [certname] :as report} (:basic reports)
+      report-hash (-> report
+                      report/wire-v5->wire-v6
+                      normalize-report
+                      shash/report-identity-hash)]
 
   (deftest report-storage
     (testing "should store reports"
       (store-example-report! report timestamp)
 
-      (is (= (query-to-vec ["SELECT certname FROM reports"])
-             [{:certname (:certname report)}]))
+      (is (= [{:certname certname}]
+             (query-to-vec ["SELECT certname FROM reports"])))
 
-      (is (= (query-to-vec [(format "SELECT %s AS hash FROM reports" (sutils/sql-hash-as-str "hash"))])
-             [{:hash report-hash}])))
+      (is (= [{:hash report-hash}]
+             (query-to-vec [(format "SELECT %s AS hash FROM reports" (sutils/sql-hash-as-str "hash"))])))
+
+      (testing "foss doesn't store in the resources column"
+        (is (nil? (:resources (first (query-to-vec ["SELECT resources FROM reports"])))))))
 
     (testing "should store report with long puppet version string"
       (store-example-report!
        (assoc report
-         :puppet_version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
+              :puppet_version "3.2.1 (Puppet Enterprise 3.0.0-preview0-168-g32c839e)") timestamp)))
 
   (deftest report-with-event-timestamp
     (let [z-report (update-event-timestamps report "2011-01-01T12:00:01Z")

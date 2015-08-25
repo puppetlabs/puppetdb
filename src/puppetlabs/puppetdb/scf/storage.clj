@@ -25,6 +25,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
+            [com.rpl.specter :as sp]
             [clojure.java.jdbc.deprecated :as sql]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -1101,6 +1102,13 @@
       #(not (or (empty? %) (kitchensink/string-contains? "[" %)))
       (reverse containment-path)))))
 
+(def store-resources-column? (atom false))
+(defn maybe-resources
+  [row-map]
+  (if @store-resources-column?
+    row-map
+    (dissoc row-map :resources)))
+
 (defn maybe-environment
   "This fn is most to help in testing, instead of persisting a value of
   nil, just omit it from the row map. For tests that are running older versions
@@ -1114,28 +1122,21 @@
   "Prep `event` for comparison/computation of a hash"
   [event]
   (-> event
-      (utils/update-when [:timestamp] to-timestamp)
-      (utils/update-when [:old_value] sutils/db-serialize)
-      (utils/update-when [:new_value] sutils/db-serialize)
+      (update :timestamp to-timestamp)
+      (update :old_value sutils/db-serialize)
+      (update :new_value sutils/db-serialize)
       (assoc :containing_class (find-containing-class (:containment_path event)))))
 
 (defn normalize-report
   "Prep the report for comparison/computation of a hash"
-  [report]
+  [{:keys [resources] :as report}]
   (-> report
-      (update-in [:start_time] to-timestamp)
-      (update-in [:end_time] to-timestamp)
-      (update-in [:producer_timestamp] to-timestamp)
-      (update-in [:resource_events] #(map normalize-resource-event %))))
-
-(defn convert-containment-path
-  "Convert the contain path from a collection to the jdbc array type"
-  [event]
-  (utils/update-when event
-                     [:containment_path]
-                     (fn [cp]
-                       (when cp
-                         (sutils/to-jdbc-varchar-array cp)))))
+      (update :start_time to-timestamp)
+      (update :end_time to-timestamp)
+      (update :producer_timestamp to-timestamp)
+      (assoc :resource_events (->> resources
+                                   reports/resources->resource-events
+                                   (map normalize-resource-event)))))
 
 (pls/defn-validated add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
@@ -1147,33 +1148,38 @@
    update-latest-report? :- s/Bool]
   (time! (:store-report performance-metrics)
          (let [{:keys [puppet_version certname report_format configuration_version
-                       producer_timestamp start_time end_time resource_events transaction_uuid environment
-                       status noop metrics logs] :as report} (normalize-report orig-report)
+                       producer_timestamp start_time end_time transaction_uuid environment
+                       status noop metrics logs resources resource_events]
+                :as report} (normalize-report orig-report)
                 report-hash (shash/report-identity-hash report)]
            (sql/transaction
              (let [certname-id (certname-id certname)
-                   {:keys [id]} (sql/insert-record :reports
-                                 (maybe-environment
-                                   {:hash                   (sutils/munge-hash-for-storage report-hash)
-                                    :transaction_uuid       (sutils/munge-uuid-for-storage transaction_uuid)
-                                    :metrics                (sutils/munge-json-for-storage metrics)
-                                    :logs                   (sutils/munge-json-for-storage logs)
-                                    :noop                   noop
-                                    :puppet_version         puppet_version
-                                    :certname               certname
-                                    :report_format          report_format
-                                    :configuration_version  configuration_version
-                                    :producer_timestamp     producer_timestamp
-                                    :start_time             start_time
-                                    :end_time               end_time
-                                    :receive_time           (to-timestamp received-timestamp)
-                                    :environment_id         (ensure-environment environment)
-                                    :status_id              (ensure-status status)}))
+                   row-map {:hash (sutils/munge-hash-for-storage report-hash)
+                            :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
+                            :metrics (sutils/munge-jsonb-for-storage metrics)
+                            :logs (sutils/munge-jsonb-for-storage logs)
+                            :resources (sutils/munge-jsonb-for-storage resources)
+                            :noop noop
+                            :puppet_version puppet_version
+                            :certname certname
+                            :report_format report_format
+                            :configuration_version configuration_version
+                            :producer_timestamp producer_timestamp
+                            :start_time start_time
+                            :end_time end_time
+                            :receive_time (to-timestamp received-timestamp)
+                            :environment_id (ensure-environment environment)
+                            :status_id (ensure-status status)}
+                   {report-id :id} (->> row-map
+                                        maybe-environment
+                                        maybe-resources
+                                        (sql/insert-record :reports))
                    assoc-ids #(assoc %
-                                     :report_id id
+                                     :report_id report-id
                                      :certname_id certname-id)]
                (->> resource_events
-                    (map (comp convert-containment-path assoc-ids))
+                    (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
+                    (map assoc-ids)
                     (apply sql/insert-records :resource_events))
                (when update-latest-report?
                  (update-latest-report! certname)))))))

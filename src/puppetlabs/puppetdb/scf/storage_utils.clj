@@ -335,3 +335,11 @@ must be supplied as the value to be matched."
       (str->pgobject "json" json-str)
       json-str)))
 
+(defn munge-jsonb-for-storage
+  "Prepare a clojure object for storage depending on db type."
+  [value]
+  (let [json-str (json/generate-string value)]
+    (if (postgres?)
+      (str->pgobject "jsonb" json-str)
+      json-str)))
+
