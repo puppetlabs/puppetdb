@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.query.report-data
-  (:require [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+  (:require [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]))
 
@@ -14,19 +12,3 @@
      (if-let [maybe-json (-> rows first data)]
        (sutils/parse-db-json maybe-json)
        []))))
-
-(pls/defn-validated logs-query->sql :- jdbc/valid-results-query-schema
-  "Converts a vector-structured `query` to a corresponding SQL query which will
-  return nodes matching the `query`."
-  [_
-   query :- (s/maybe [s/Any])
-   & _]
-  (qe/compile-user-query->sql qe/report-logs-query query {}))
-
-(pls/defn-validated metrics-query->sql :- jdbc/valid-results-query-schema
-  "Converts a vector-structured `query` to a corresponding SQL query which will
-  return nodes matching the `query`."
-  [_
-   query :- (s/maybe [s/Any])
-   & _]
-  (qe/compile-user-query->sql qe/report-metrics-query query {}))

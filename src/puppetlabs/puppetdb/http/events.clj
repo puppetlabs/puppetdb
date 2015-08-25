@@ -47,19 +47,20 @@
 (defn routes
   [version]
   (app
-   [""]
-   {:get (fn [{:keys [params globals paging-options]}]
-           (try
-             (let [query-options (validate-distinct-options! params)]
-               (produce-streaming-body
-                :events
-                version
-                (params "query")
-                [query-options paging-options]
-                (:scf-read-db globals)
-                (:url-prefix globals)))
-             (catch IllegalArgumentException e
-               (http/error-response e))))}))
+    [""]
+    {:get (fn [{:keys [params globals paging-options]}]
+            (try
+              (let [query-options (merge paging-options
+                                         (validate-distinct-options! params))]
+                (produce-streaming-body
+                  :events
+                  version
+                  (params "query")
+                  query-options
+                  (:scf-read-db globals)
+                  (:url-prefix globals)))
+              (catch IllegalArgumentException e
+                (http/error-response e))))}))
 
 (defn events-app
   "Ring app for querying events"

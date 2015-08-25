@@ -46,11 +46,11 @@
 
 (defn get-entity
   "An unfortunate copy of `query_eng.clj`'s `stream-query-result` without the `with-transacted-connection`
-  because we use the old version of jdbc which means that we don't pass the db-spec down through
-  this codepath and need to rely on the dynamic db connection."
+   because we use the old version of jdbc which means that we don't pass the db-spec down through
+   this codepath and need to rely on the dynamic db connection."
   [entity version query]
-  (let [[query->sql munge-fn] (eng/entity->sql-fns entity version {} "")
-        {:keys [results-query]} (query->sql query)]
+  (let [munge-fn ((get-in @eng/entity-fn-idx [entity :munge]) version "")
+        {:keys [results-query]} (eng/query->sql query entity version {})]
     (jdbc/with-query-results-cursor results-query (comp doall munge-fn))))
 
 (defn maybe-expand

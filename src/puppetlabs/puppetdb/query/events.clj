@@ -122,7 +122,7 @@
 
 (defn legacy-query->sql
   "Compile a resource event `query` into an SQL expression."
-  [will-union? version query-options query paging-options]
+  [will-union? version query query-options]
   {:pre  [(or (sequential? query) (nil? query))
           (let [distinct-options [:distinct_resources? :distinct_start_time :distinct_end_time]]
             (or (not-any? #(contains? query-options %) distinct-options)
@@ -130,7 +130,7 @@
    :post [(map? %)
           (jdbc/valid-jdbc-query? (:results-query %))
           (or
-           (not (:count? paging-options))
+           (not (:count? query-options))
            (jdbc/valid-jdbc-query? (:count-query %)))]}
   (let [{:keys [where params]}  (query/compile-term (query/resource-event-ops version) query)
         select-fields           (string/join ", "
@@ -146,22 +146,22 @@
                                                    (:distinct_start_time query-options)
                                                    (:distinct_end_time query-options))
                                   (default-select select-fields where params))
-        paged-select (cond-> (jdbc/paged-sql sql paging-options)
+        paged-select (cond-> (jdbc/paged-sql sql query-options)
                        ;; if the caller is aggregate-event-counts, this is one
                        ;; of potentially three unioned queries, and
                        ;; with-latest-events must be applied higher up
                        (not will-union?) with-latest-events)
         result {:results-query (apply vector paged-select params)}]
-    (if (:count? paging-options)
+    (if (:count? query-options)
       (let [count-sql (jdbc/count-sql (with-latest-events sql))]
         (assoc result :count-query (apply vector count-sql params)))
       result)))
 
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
-  ([version query [query-options paging-options]]
-   (query->sql false version query [query-options paging-options]))
-  ([will-union? version query [query-options paging-options]]
+  ([version query query-options]
+   (query->sql false version query query-options))
+  ([will-union? version query query-options]
    {:pre  [(or (sequential? query) (nil? query))
            (let [distinct-options [:distinct_resources? :distinct_start_time :distinct_end_time]]
              (or (not-any? #(contains? query-options %) distinct-options)
@@ -169,11 +169,11 @@
     :post [(map? %)
            (jdbc/valid-jdbc-query? (:results-query %))
            (or
-             (not (:count? paging-options))
+             (not (:count? query-options))
              (jdbc/valid-jdbc-query? (:count-query %)))]}
-   (paging/validate-order-by! (map keyword (keys query/resource-event-columns)) paging-options)
+   (paging/validate-order-by! (map keyword (keys query/resource-event-columns)) query-options)
    (if (:distinct_resources? query-options)
      ;; The new query engine does not support distinct-resources yet, so we
      ;; fall back to the old
-     (legacy-query->sql will-union? version query-options query paging-options)
-     (qe/compile-user-query->sql qe/report-events-query query paging-options))))
+     (legacy-query->sql will-union? version query query-options)
+     (qe/compile-user-query->sql qe/report-events-query query query-options))))

@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.query.environments-test
-  (:require [puppetlabs.puppetdb.query.environments :refer :all]
-            [puppetlabs.puppetdb.query-eng :as eng]
+  (:require [puppetlabs.puppetdb.query-eng :as eng]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage :as storage]
             [puppetlabs.puppetdb.fixtures :as fixt]

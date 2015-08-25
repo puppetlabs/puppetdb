@@ -171,6 +171,17 @@
                :alias "fact_paths"
                :subquery? false}))
 
+(defn fact-names-query
+  []
+  (map->Query {:projections {"name" {:type :string
+                                     :queryable? true
+                                     :field :name}}
+               :selection {:from [[:fact_paths :fp]]
+                           :modifiers [:distinct]}
+               :source-table "fact_paths"
+               :alias "fact_names"
+               :subquery? false}))
+
 (defn facts-query
   "Query structured facts."
   []
