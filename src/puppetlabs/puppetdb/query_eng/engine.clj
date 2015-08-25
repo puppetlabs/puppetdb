@@ -85,6 +85,13 @@
                              "report_timestamp" {:type :timestamp
                                                  :queryable? true
                                                  :field :reports.end_time}
+                             "latest_report_hash" {:type :string
+                                                   :queryable? true
+                                                   :field (hsql-hash-as-str
+                                                            :reports.hash)}
+                             "latest_report_status" {:type :string
+                                                     :queryable? true
+                                                     :field :report_statuses.status}
                              "catalog_environment" {:type :string
                                                     :queryable? true
                                                     :field :catalog_environment.environment}
@@ -107,6 +114,9 @@
 
                                        [:environments :catalog_environment]
                                        [:= :catalog_environment.id :catalogs.environment_id]
+
+                                       :report_statuses
+                                       [:= :reports.status_id :report_statuses.id]
 
                                        [:environments :facts_environment]
                                        [:= :facts_environment.id :fs.environment_id]
