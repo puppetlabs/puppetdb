@@ -1102,6 +1102,13 @@
       #(not (or (empty? %) (kitchensink/string-contains? "[" %)))
       (reverse containment-path)))))
 
+(def store-resources-column? (atom false))
+(defn maybe-resources
+  [row-map]
+  (if @store-resources-column?
+    row-map
+    (dissoc row-map :resources)))
+
 (defn maybe-environment
   "This fn is most to help in testing, instead of persisting a value of
   nil, just omit it from the row map. For tests that are running older versions
@@ -1149,22 +1156,23 @@
              (let [certname-id (certname-id certname)
                    {:keys [id]} (sql/insert-record :reports
                                  (maybe-environment
+                                  (maybe-resources
                                    {:hash                   (sutils/munge-hash-for-storage report-hash)
-                                    :transaction_uuid       (sutils/munge-uuid-for-storage transaction_uuid)
-                                    :metrics (sutils/munge-jsonb-for-storage metrics)
-                                    :logs (sutils/munge-jsonb-for-storage logs)
-                                    :resources (sutils/munge-jsonb-for-storage resources)
-                                    :noop                   noop
-                                    :puppet_version         puppet_version
-                                    :certname               certname
-                                    :report_format          report_format
-                                    :configuration_version  configuration_version
-                                    :producer_timestamp     producer_timestamp
-                                    :start_time             start_time
-                                    :end_time               end_time
-                                    :receive_time           (to-timestamp received-timestamp)
-                                    :environment_id         (ensure-environment environment)
-                                    :status_id              (ensure-status status)}))
+                                     :transaction_uuid       (sutils/munge-uuid-for-storage transaction_uuid)
+                                     :metrics (sutils/munge-jsonb-for-storage metrics)
+                                     :logs (sutils/munge-jsonb-for-storage logs)
+                                     :resources (sutils/munge-jsonb-for-storage resources)
+                                     :noop                   noop
+                                     :puppet_version         puppet_version
+                                     :certname               certname
+                                     :report_format          report_format
+                                     :configuration_version  configuration_version
+                                     :producer_timestamp     producer_timestamp
+                                     :start_time             start_time
+                                     :end_time               end_time
+                                     :receive_time           (to-timestamp received-timestamp)
+                                     :environment_id         (ensure-environment environment)
+                                     :status_id              (ensure-status status)})))
                    assoc-ids #(assoc %
                                      :report_id id
                                      :certname_id certname-id)]

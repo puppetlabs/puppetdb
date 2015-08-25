@@ -1311,7 +1311,10 @@
              (query-to-vec ["SELECT certname FROM reports"])))
 
       (is (= [{:hash report-hash}]
-             (query-to-vec [(format "SELECT %s AS hash FROM reports" (sutils/sql-hash-as-str "hash"))]))))
+             (query-to-vec [(format "SELECT %s AS hash FROM reports" (sutils/sql-hash-as-str "hash"))])))
+
+      (testing "foss doesn't store in the resources column"
+        (is (nil? (:resources (first (query-to-vec ["SELECT resources FROM reports"])))))))
 
     (testing "should store report with long puppet version string"
       (store-example-report!
