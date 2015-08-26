@@ -6,6 +6,7 @@
              :refer [get-json with-puppetdb-instance blocking-command-post]]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.reports :as tur]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils.log
              :refer [with-log-suppressed-unless-notable notable-pdb-event?]]))
 

@@ -6,7 +6,6 @@
             [puppetlabs.pe-puppetdb-extensions.sync.core :as sync-core]
             [puppetlabs.pe-puppetdb-extensions.sync.sync-test-utils :refer :all]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils :refer [blocking-command-post]]
-            [puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
@@ -35,10 +34,11 @@
         (submit-report pdb1 report))
 
       (with-alt-mq (:mq-name pdb2)
-        (sync :from pdb1 :to pdb2 :check-with get-reports :check-for (:certname report)))
+        (sync :from pdb1 :to pdb2))
 
-      (is (= (export/reports-for-node (:query-fn pdb1) (:certname report))
-             (export/reports-for-node (:query-fn pdb2) (:certname report)))))))
+      (is (=-after? #(dissoc % :receive_time)
+                    (get-reports (:query-url pdb1) (:certname report))
+                    (get-reports (:query-url pdb2) (:certname report)))))))
 
 (deftest end-to-end-factset-replication
   (with-pdbs (default-pdb-configs 2)
