@@ -28,7 +28,9 @@
             [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :as pt]
-            [puppetlabs.trapperkeeper.app :refer [get-service]])
+            [puppetlabs.trapperkeeper.app :refer [get-service]]
+            [clojure.core.async :as async]
+            [puppetlabs.kitchensink.core :as ks])
   (:import [org.joda.time DateTime DateTimeZone]))
 
 (use-fixtures :each with-test-db)
@@ -1365,6 +1367,24 @@
                  first
                  (get "deactivated")
                  (pt/from-string)))))))
+
+(deftest command-response-channel
+  (svc-utils/with-puppetdb-instance
+    (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
+          {:keys [connection endpoint]} (:command-mq (cli-svc/shared-globals pdb))
+          dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
+          enqueue-command (partial enqueue-command dispatcher)
+          response-mult (response-mult dispatcher)
+          response-chan (async/chan)
+          command-uuid (ks/uuid)]
+      (async/tap response-mult response-chan)
+      (enqueue-command connection endpoint
+                       (command-names :deactivate-node) 3
+                       {:certname "foo.local" :producer_timestamp (java.util.Date.)}
+                       command-uuid)
+      (let [received-uuid (async/alt!! response-chan ([msg] (:id msg))
+                                       (async/timeout 2000) ::timeout)]
+       (is (= command-uuid received-uuid))))))
 
 ;; Local Variables:
 ;; mode: clojure
