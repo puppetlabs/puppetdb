@@ -106,12 +106,13 @@
              :as :text}))
 
 (defn perform-sync [source-pdb-url dest-sync-url]
-  (http/post dest-sync-url
-             {:headers {"content-type" "application/json"}
-              :body (json/generate-string {:remote_host_path source-pdb-url})
-              :query-params {"secondstoWaitForCompletion" "15"}
-              :as :text}))
-
+  (let [response (http/post dest-sync-url
+                             {:headers {"content-type" "application/json"}
+                              :body (json/generate-string {:remote_host_path source-pdb-url})
+                              :query-params {"secondsToWaitForCompletion" "5"}
+                              :as :text})]
+    (if (>= (:status response) 400)
+      (throw (ex-info "Failed to perform blocking sync" {:response response})))))
 
 
 ;;; End to end test utils
