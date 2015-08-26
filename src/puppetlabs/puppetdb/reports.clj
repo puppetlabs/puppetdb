@@ -123,6 +123,10 @@
   {:href s/Str
    (s/optional-key :data) [metric-wireformat-schema]})
 
+(def resources-expanded-query-schema
+  {:href s/Str
+   (s/optional-key :data) [resource-wireformat-schema]})
+
 (def logs-expanded-query-schema
   {:href s/Str
    (s/optional-key :data) [log-wireformat-schema]})
@@ -139,6 +143,7 @@
    (s/optional-key :noop) (s/maybe s/Bool)
    (s/optional-key :report_format) s/Int
    (s/optional-key :configuration_version) s/Str
+   (s/optional-key :resources) resources-expanded-query-schema
    (s/optional-key :metrics) metrics-expanded-query-schema
    (s/optional-key :logs) logs-expanded-query-schema
    (s/optional-key :resource_events) resource-events-expanded-query-schema
@@ -168,7 +173,7 @@
 (pls/defn-validated report-query->wire-v5 :- report-v5-wireformat-schema
   [report :- report-query-schema]
   (-> report
-      (dissoc :hash :receive_time)
+      (dissoc :hash :receive_time :resources)
       (update :resource_events resource-events-query->wire-v5)
       (update :metrics metrics-query->wire-v5)
       (update :logs logs-query->wire-v5)))
