@@ -1,6 +1,6 @@
 ---
 layout: default
-title: "PuppetDB 3.0 » Installing PuppetDB Via Module"
+title: "PuppetDB 3.1 » Installing PuppetDB Via Module"
 canonical: "/puppetdb/latest/install_via_module.html"
 ---
 
