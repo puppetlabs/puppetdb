@@ -149,5 +149,5 @@
     "memorysize" : "1.96 GB",
     "processorcount" : "2"
   },
-  "environment" : "production"
+  "environment" : "dev"
 }

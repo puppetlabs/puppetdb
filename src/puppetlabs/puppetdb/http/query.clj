@@ -20,7 +20,7 @@
   parameters. In a GET request this is contained in various query
   parameters, for POST requests this should be contained in the body
   of the request"
-  {:query (s/maybe [s/Any])
+  {(s/optional-key :query) (s/maybe [s/Any])
    :count? s/Bool
    (s/optional-key :order_by) (s/maybe [[(s/one s/Keyword "field")
                                          (s/one (s/enum :ascending :descending) "order")]])
@@ -166,15 +166,14 @@
   (restrict-query ["=" "environment" environment]
                   req))
 
-(defn restrict-environment-query-to-environment
-  "Restricts queries to the providied environment. This differs from
-  restrict-query-to-environment in that it is only used on the environments
-  end-point."
+(defn restrict-query-to-environment'
+  "Restrict the query parameter of the supplied request so that it
+   only returns results for the supplied environment"
   [environment req]
   {:pre  [(string? environment)]
-   :post [(are-queries-different? req %)]}
-  (restrict-query ["=" "name" environment]
-                  req))
+   :post [(are-queries-different?' req %)]}
+  (restrict-query' ["=" "environment" environment]
+                   req))
 
 (defn restrict-fact-query-to-name
   "Restrict the query parameter of the supplied request so that it
@@ -185,6 +184,15 @@
   (restrict-query ["=" "name" fact]
                   req))
 
+(defn restrict-fact-query-to-name'
+  "Restrict the query parameter of the supplied request so that it
+   only returns facts with the given name"
+  [fact req]
+  {:pre  [(string? fact)]
+   :post [(are-queries-different?' req %)]}
+  (restrict-query' ["=" "name" fact]
+                   req))
+
 (defn restrict-fact-query-to-value
   "Restrict the query parameter of the supplied request so that it
   only returns facts with the given name"
@@ -192,6 +200,15 @@
   {:pre  [(string? value)]
    :post [(are-queries-different? req %)]}
   (restrict-query ["=" "value" value]
+                  req))
+
+(defn restrict-fact-query-to-value'
+  "Restrict the query parameter of the supplied request so that it
+  only returns facts with the given name"
+  [value req]
+  {:pre  [(string? value)]
+   :post [(are-queries-different?' req %)]}
+  (restrict-query' ["=" "value" value]
                   req))
 
 (defn restrict-resource-query-to-type
@@ -286,7 +303,7 @@
   (app
    extract-query
    (apply comp
-          (fn [{:keys [params globals puppetdb-query] :as foo}]
+          (fn [{:keys [params globals puppetdb-query]}]
             (produce-streaming-body'
              entity
              version

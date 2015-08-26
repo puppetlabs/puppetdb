@@ -159,8 +159,9 @@
                      (munge-expected-reports expected)))))))
 
       (testing "multiple fields"
-        (doseq [[[puppet-version-order conf-version-order] expected] [[[:ascending :descending] [report1 report2 report4 report3]]
-                                                                      [[:descending :ascending] [report3 report4 report2 report1]]]]
+        (doseq [[[puppet-version-order conf-version-order] expected]
+                [[[:ascending :descending] [report1 report2 report4 report3]]
+                 [[:descending :ascending] [report3 report4 report2 report1]]]]
           (testing (format "puppet-version %s configuration-version %s" puppet-version-order conf-version-order)
             (let [actual (reports-query-result :v4
                                                ["=" "certname" "foo.local"]

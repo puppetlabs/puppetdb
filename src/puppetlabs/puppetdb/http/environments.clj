@@ -23,7 +23,7 @@
                                          {}
                                          db
                                          ""))]
-    (if status 
+    (if status
       (http/json-response status)
       (http/status-not-found-response "environment" environment))))
 
@@ -31,17 +31,7 @@
   [version]
   (app
    []
-   {:get
-    (-> (fn [{:keys [params globals paging-options]}]
-          (produce-streaming-body
-           :environments
-           version
-           (params "query")
-           paging-options
-           (:scf-read-db globals)
-           (:url-prefix globals)))
-        (validate-query-params
-         {:optional (cons "query" paging/query-params)}))}
+    (http-q/query-route :environments version identity)
 
    [environment]
    {:get
@@ -52,7 +42,7 @@
         (validate-query-params {}))}
 
    [environment "facts" &]
-   (-> (comp (f/facts-app version) (partial http-q/restrict-query-to-environment environment))
+   (-> (comp (f/facts-app version true (partial http-q/restrict-query-to-environment' environment)))
        (wrap-with-parent-check version :environment environment))
 
    [environment "resources" &]
