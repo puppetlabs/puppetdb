@@ -12,6 +12,7 @@
             [ring.mock.request :as mock]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset mapvals]]
+            [environ.core :refer [env]]
             [clojure.test :refer :all]
             [clojure.set :refer [difference]]))
 
@@ -23,32 +24,30 @@
          :prefix "/pdb/cmd"
          :version :v1))
 
-(defn test-db*
+(defn create-hsqldb-map
+  "Returns a database connection map with a reference to a new in memory HyperSQL database"
   []
-  (let [dbtype (System/getenv "PUPPETDB_DBTYPE")
-        dbsubname (System/getenv "PUPPETDB_DBSUBNAME")
-        dbuser (System/getenv "PUPPETDB_DBUSER")
-        dbpassword (System/getenv "PUPPETDB_DBPASSWORD")]
-    (if (= dbtype "postgres")
-      (if (some nil? [dbsubname dbuser dbpassword])
-        (do
-          (println "Ensure environment variables PUPPETDB_DBSUBNAME, PUPPETDB_DBUSER and PUPPETDB_DBPASSWORD are set")
-          (System/exit 1))
-        {:classname   "org.postgresql.Driver"
-         :subprotocol "postgresql"
-         :subname     dbsubname
-         :user        dbuser
-         :password    dbpassword})
-      {:classname   "org.hsqldb.jdbcDriver"
-       :subprotocol "hsqldb"
-       :subname     (str "mem:"
-                         (java.util.UUID/randomUUID)
-                         ";shutdown=true;hsqldb.tx=mvcc;sql.syntax_pgs=true")})))
+  {:classname "org.hsqldb.jdbcDriver"
+   :subprotocol "hsqldb"
+   :subname (str "mem:"
+                 (java.util.UUID/randomUUID)
+                 ";hsqldb.tx=mvcc;sql.syntax_pgs=true")})
 
-;; Memoize the loading of the test config file so that we don't have to
-;; keep going back to disk for it.
-(def test-db
-  (memoize test-db*))
+(def postgres-map
+  {:classname "org.postgresql.Driver"
+   :subprotocol "postgresql"
+   :subname (env :puppetdb-dbsubname "//127.0.0.1:5432/puppetdb_test")
+   :user (env :puppetdb-dbuser "puppetdb")
+   :password (env :puppetdb-dbpassword "puppetdb")})
+(def hsqldb-map (create-hsqldb-map))
+
+(def testing-db-type (env :puppetdb-dbtype "postgres"))
+
+(defn test-db
+  []
+  (if (= testing-db-type "postgres")
+    postgres-map
+    hsqldb-map))
 
 (defn drop-table!
   "Drops a table from the database.  Expects to be called from within a db binding.
@@ -74,6 +73,12 @@
     (drop-table! table-name))
   (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
     (drop-sequence! sequence-name)))
+
+(defn clean-db-map
+  ([] (clean-db-map (test-db)))
+  ([db-config]
+   (sql/with-connection db-config (clear-db-for-testing!))
+   db-config))
 
 (defmacro without-jmx
   "Disable ActiveMQ's usage of JMX. If you start two AMQ brokers in

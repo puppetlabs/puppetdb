@@ -2,7 +2,7 @@
   (:require [clj-time.core :as t]
             [clj-time.coerce :as time-coerce]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.testutils :refer [temp-dir temp-file]]
+            [puppetlabs.puppetdb.testutils :as testutils]
             [puppetlabs.puppetdb.testutils.log
              :refer [notable-pdb-event? with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.fixtures :as fixt]
@@ -38,9 +38,9 @@
   a fresh hypersql instance"
   []
   {:nrepl {}
-   :global {:vardir (temp-dir)}
+   :global {:vardir (testutils/temp-dir)}
    :jetty {:port 0}
-   :database (fixt/create-db-map)
+   :database (testutils/clean-db-map)
    :command-processing {}})
 
 (defn open-port-num
@@ -110,11 +110,10 @@
 (defmacro with-puppetdb-instance
   "Convenience macro to launch a puppetdb instance"
   [& body]
-  `(with-redefs [sutils/db-metadata (delay {:database "HSQL Database Engine"
-                                            :version [2 2]})]
+  `(with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
      (call-with-puppetdb-instance
-       (fn []
-         ~@body))))
+      (fn []
+        ~@body))))
 
 (defn call-with-single-quiet-pdb-instance
   "Calls the call-with-puppetdb-instance with args after suppressing

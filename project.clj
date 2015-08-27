@@ -88,8 +88,8 @@
   ;;(deftest ^{:postgres false} my-test-name...)
 
   :test-selectors {:default (fn [test-var-meta]
-                              (let [dbtype (keyword (or (System/getenv "PUPPETDB_DBTYPE")
-                                                        "hsqldb"))]
+                              (let [dbtype (or (keyword (System/getenv "PUPPETDB_DBTYPE"))
+                                               :postgres)]
                                 (get test-var-meta dbtype true)))}
 
   :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
@@ -123,7 +123,8 @@
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version :classifier "test"]
                                   [org.flatland/ordered "1.5.2"]
-                                  [org.clojure/test.check "0.5.9"]]}
+                                  [org.clojure/test.check "0.5.9"]
+                                  [environ "1.0.0"]]}
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"

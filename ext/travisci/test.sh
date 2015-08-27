@@ -22,10 +22,10 @@ else
     jdk_switcher use $T_VERSION
     java -version
     if [ $T_DB == "postgres" ]; then
-      psql -c 'create database puppetdbtest;' -U postgres
+      psql -c 'create database puppetdb_test;' -U postgres
       PUPPETDB_DBTYPE=$T_DB \
       PUPPETDB_DBUSER=postgres \
-      PUPPETDB_DBSUBNAME=//127.0.0.1:5432/puppetdbtest \
+      PUPPETDB_DBSUBNAME=//127.0.0.1:5432/puppetdb_test \
       PUPPETDB_DBPASSWORD= \
       lein2 test
     else
