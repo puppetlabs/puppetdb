@@ -481,6 +481,10 @@
   ([f] (let [was-called (atom false)]
          (reify
            clojure.lang.IFn
+           (invoke [_]
+             (let [result (when f (f))]
+               (reset! was-called true)
+               result))
            (invoke [_ & args]
              (let [result (when f (apply f args))]
                (reset! was-called true)

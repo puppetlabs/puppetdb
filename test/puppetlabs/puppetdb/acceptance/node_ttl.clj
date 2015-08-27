@@ -6,7 +6,8 @@
             [puppetlabs.puppetdb.testutils.http :as tuhttp]
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.testutils :as tu]))
+            [puppetlabs.puppetdb.testutils :as tu]
+            [puppetlabs.puppetdb.test-protocols :refer [called?]]))
 
 (deftest test-node-ttl
   (tu/with-coordinated-fn run-purge-nodes puppetlabs.puppetdb.cli.services/purge-nodes!
@@ -49,3 +50,15 @@
                   (:body (tuhttp/pdb-get
                           (utils/pdb-query-base-url (:host *base-url*) (:port *base-url*))
                           "/nodes/foo.com"))))))))))
+
+(deftest test-zero-gc-interval
+  (with-redefs [puppetlabs.puppetdb.cli.services/purge-nodes! (tu/mock-fn)]
+    (svc-utils/call-with-puppetdb-instance
+     (-> (svc-utils/create-config)
+         (assoc-in [:database :node-ttl] "0s")
+         (assoc-in [:database :report-ttl] "0s")
+         (assoc-in [:database :node-purge-ttl] "1s")
+         (assoc-in [:database :gc-interval] 0))
+     (fn []
+       (Thread/sleep 1500)
+       (is (not (called? puppetlabs.puppetdb.cli.services/purge-nodes!)))))))

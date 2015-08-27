@@ -303,10 +303,11 @@
                                      ;; anything referencing an env or resource
                                      ;; param is purged first
                                      (garbage-collect! write-db)))]
-        ;; Run database maintenance tasks seqentially to avoid
-        ;; competition. Each task must handle its own errors.
-        (gc-task db-maintenance-tasks)
-        (gc-task #(compress-dlo! dlo-compression-threshold discard-dir)))
+        (when (pos? gc-interval-millis)
+          ;; Run database maintenance tasks seqentially to avoid
+          ;; competition. Each task must handle its own errors.
+          (gc-task db-maintenance-tasks)
+          (gc-task #(compress-dlo! dlo-compression-threshold discard-dir))))
       (assoc context
              :broker broker
              :mq-factory mq-factory

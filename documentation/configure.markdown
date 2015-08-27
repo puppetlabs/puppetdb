@@ -274,6 +274,8 @@ Do not use the `username` or `password` settings.
 
 This controls how often, in minutes, to compact the database. The compaction process reclaims space and deletes unnecessary rows. If not supplied, the default is every 60 minutes.
 
+If `gc-interval` is set to 0, all GC processes will be disabled. This may be useful, for example, for a read-only PuppetDB instance using a replicated database. It should not be used for a PuppetDB instance that will receive any commands. 
+
 
 ### `node-ttl`
 
