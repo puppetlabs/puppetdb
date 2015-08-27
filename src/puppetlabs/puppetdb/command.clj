@@ -114,14 +114,6 @@
    :version version
    :payload payload})
 
-(defn annotate-command
-  "Annotate a command-map with a timestamp and UUID"
-  [message uuid]
-  {:pre  [(map? message)]
-   :post [(map? %)]}
-  (-> message
-      (assoc-in [:annotations :received] (kitchensink/timestamp))
-      (assoc-in [:annotations :id] (or uuid (kitchensink/uuid)))))
 
 ;; ## Command submission
 
@@ -131,11 +123,12 @@
   [mq-connection :- mq/connection-schema
    mq-endpoint :- s/Str
    raw-command :- s/Str
-   uuid :- s/Str]
-  (mq/send-message! mq-connection mq-endpoint
-                    raw-command
-                    {"received" (kitchensink/timestamp) "id" uuid})
-  uuid)
+   uuid :- (s/maybe s/Str)]
+  (let [uuid (or uuid (kitchensink/uuid))]
+    (mq/send-message! mq-connection mq-endpoint
+                      raw-command
+                      {"received" (kitchensink/timestamp) "id" uuid})
+    uuid))
 
 (defn-validated ^:private do-enqueue-command :- s/Str
   "Submits command to the mq-endpoint of mq-connection and returns
@@ -146,10 +139,8 @@
    version :- s/Int
    payload
    uuid :- (s/maybe s/Str)]
-  (let [command-map (annotate-command (assemble-command command version payload) uuid)]
-    (mq/send-message! mq-connection mq-endpoint
-                      (json/generate-string command-map))
-    (get-in command-map [:annotations :id])))
+  (let [command-map (assemble-command command version payload)]
+    (do-enqueue-raw-command mq-connection mq-endpoint (json/generate-string command-map) uuid)))
 
 ;; ## Command processing exception classes
 
