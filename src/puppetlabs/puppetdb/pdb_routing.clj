@@ -10,7 +10,8 @@
             [puppetlabs.puppetdb.http.command :as cmd]
             [puppetlabs.puppetdb.http.server :as server]
             [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.middleware :as mid]))
+            [puppetlabs.puppetdb.middleware :as mid]
+            [puppetlabs.kitchensink.core :as ks]))
 
 
 (defn resource-request-handler [req]
@@ -26,11 +27,13 @@
 (defn wrap-with-context [uri route]
   (compojure/context uri [] route))
 
-(defn pdb-core-routes [get-shared-globals submit-command-fn query-fn enqueue-raw-command-fn response-pub]
+(defn pdb-core-routes [defaulted-config get-shared-globals submit-command-fn query-fn enqueue-raw-command-fn response-pub]
   (let [cmd-mq #(:command-mq (get-shared-globals))
-        meta-cfg #(select-keys (get-shared-globals) [:update-server
-                                                     :product-name
-                                                     :scf-read-db])
+        meta-cfg #(merge
+                   (select-keys (:globals defaulted-config)
+                                [:update-server :product-name])
+                   (select-keys (get-shared-globals)
+                                [:scf-read-db]))
         get-response-pub #(response-pub)]
     (map #(apply wrap-with-context %)
          (partition
@@ -42,7 +45,7 @@
            "/query" (server/build-app get-shared-globals)
            "/admin" (admin/build-app submit-command-fn query-fn)]))))
 
-(defn pdb-app [root get-shared-globals maint-mode-fn app-routes]
+(defn pdb-app [root defaulted-config maint-mode-fn app-routes]
   (-> (compojure/context root []
                          resource-request-handler
                          (maint-mode-handler maint-mode-fn)
@@ -52,7 +55,7 @@
                                              (format "%s/dashboard/index.html")
                                              rr/redirect))
                          (apply compojure/routes app-routes))
-      (mid/wrap-with-puppetdb-middleware #(:authorizer (get-shared-globals)))))
+      (mid/wrap-with-puppetdb-middleware (get-in defaulted-config [:puppetdb :certificate-whitelist]))))
 
 (defprotocol MaintenanceMode
   (enable-maint-mode [this])
@@ -85,17 +88,20 @@
    [:PuppetDBServer shared-globals query set-url-prefix]
    [:PuppetDBCommand submit-command]
    [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub]
-   [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]]
+   [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]
+   [:DefaultedConfig get-config]]
   (init [this context]
         (let [context-root (get-route this)
               query-prefix (str context-root "/query")
+              config (get-config)
               shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
           (set-url-prefix query-prefix)
           (log/info "Starting PuppetDB, entering maintenance mode")
           (add-ring-handler this (pdb-app context-root
-                                          shared-with-prefix
+                                          config
                                           maint-mode?
-                                          (pdb-core-routes shared-with-prefix
+                                          (pdb-core-routes config
+                                                           shared-with-prefix
                                                            submit-command
                                                            query
                                                            enqueue-raw-command

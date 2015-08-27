@@ -123,16 +123,6 @@
         (testing (format "%s requests are refused" (name v)))
         (is (retirement-response? v (ping v)))))))
 
-(deftest whitelist-middleware
-  (testing "should log on reject"
-    (let [wl (temp-file "whitelist-log-reject")]
-      (spit wl "foobar")
-      (let [authorizer-fn (build-whitelist-authorizer (fs/absolute-path wl))]
-        (is (= :authorized (authorizer-fn {:ssl-client-cn "foobar"})))
-        (with-log-output logz
-          (is (string? (authorizer-fn {:ssl-client-cn "badguy"})))
-          (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
-
 (defn make-https-request-with-whitelisted-host [whitelisted-host]
   (let [whitelist-file (temp-file "whitelist-log-reject")
         cert-config {:ssl-cert "test-resources/localhost.pem"

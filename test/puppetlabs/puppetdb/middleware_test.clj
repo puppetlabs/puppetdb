@@ -6,7 +6,10 @@
             [cheshire.core :as json]
             [puppetlabs.puppetdb.middleware :refer :all]
             [puppetlabs.kitchensink.core :refer [keyset]]
-            [clojure.test :refer :all]))
+            [clojure.test :refer :all]
+            [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
+            [me.raynes.fs :as fs]
+            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]))
 
 (deftest wrapping-metrics
   (testing "Should create per-status metrics"
@@ -45,20 +48,26 @@
       (is (= #{"oof/" "rab/" "zab/"} (keyset (@storage :timers))))
       (is (= #{"oof/" "rab/" "zab/"} (keyset (@storage :meters)))))))
 
+(defn create-authorizing-request [hostname]
+  {:scheme :https
+   :ssl-client-cn hostname})
+
 (deftest wrapping-authorization
   (testing "Should only allow authorized requests"
     ;; Setup an app that only lets through odd numbers
-    (let [handler     (fn [req] (-> (rr/response nil)
+    (let [wl (.getAbsolutePath (temp-file "whitelist-log-reject"))
+          _ (spit wl "foobar")
+          handler     (fn [req] (-> (rr/response nil)
                                     (rr/status http/status-ok)))
-          message     "Only odd numbers are allowed!"
-          authorizer  #(if (odd? %) :authorized message)
-          app (wrap-with-authorization handler (fn [] authorizer))]
+
+          message     "The client certificate name"
+          app (wrap-with-authorization handler wl)]
       ;; Even numbers should trigger an unauthorized response
-      (is (= http/status-forbidden (:status (app 0))))
+      (is (= http/status-forbidden (:status (app (create-authorizing-request "baz")))))
       ;; The failure reason should be shown to the user
-      (is (.contains (:body (app 0)) message))
+      (is (.contains (:body (app (create-authorizing-request "baz"))) message))
       ;; Odd numbers should get through fine
-      (is (= http/status-ok (:status (app 1)))))))
+      (is (= http/status-ok (:status (app (create-authorizing-request "foobar"))))))))
 
 (deftest wrapping-cert-cn-extraction
   (with-redefs [kitchensink/cn-for-cert :cn]
@@ -258,3 +267,13 @@
       (testing "should succeed with matching content type"
         (let [wrapped-fn   (verify-content-type identity ["application/json"])]
           (is (= (wrapped-fn test-req) test-req)))))))
+
+(deftest whitelist-middleware
+  (testing "should log on reject"
+    (let [wl (temp-file "whitelist-log-reject")]
+      (spit wl "foobar")
+      (let [authorizer-fn (build-whitelist-authorizer (fs/absolute-path wl))]
+        (is (= :authorized (authorizer-fn {:ssl-client-cn "foobar"})))
+        (with-log-output logz
+          (is (string? (authorizer-fn {:ssl-client-cn "badguy"})))
+          (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))

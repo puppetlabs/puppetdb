@@ -156,26 +156,6 @@
     (version/check-for-updates! update-server read-db)
     (log/debug "Skipping update check on Puppet Enterprise")))
 
-(defn build-whitelist-authorizer
-  "Build a function that will authorize requests based on the supplied
-  certificate whitelist (see `cn-whitelist->authorizer` for more
-  details). Returns :authorized if the request is allowed, otherwise a
-  string describing the reason not."
-  [whitelist]
-  {:pre  [(string? whitelist)]
-   :post [(fn? %)]}
-  (let [allowed? (kitchensink/cn-whitelist->authorizer whitelist)]
-    (fn [{:keys [ssl-client-cn] :as req}]
-      (if (allowed? req)
-        :authorized
-        (do
-          (log/warnf "%s rejected by certificate whitelist %s" ssl-client-cn whitelist)
-          (format (str "The client certificate name (%s) doesn't "
-                       "appear in the certificate whitelist. Is your "
-                       "master's (or other PuppetDB client's) certname "
-                       "listed in PuppetDB's certificate-whitelist file?")
-                  ssl-client-cn))))))
-
 (defn shutdown-mq
   "Explicitly shut down the queue `broker`"
   [{:keys [broker mq-factory mq-connection]}]
@@ -255,23 +235,20 @@
           (every? (partial contains? %) [:broker])]}
   (let [{:keys [global   jetty
                 database read-database
-                puppetdb command-processing]} (conf/process-config! config)
+                puppetdb command-processing]} config
         {:keys [product-name update-server
                 vardir catalog-hash-debug-dir]} global
         {:keys [gc-interval    node-ttl
                 node-purge-ttl report-ttl]} database
         {:keys [dlo-compression-threshold
                  max-frame-size threads]} command-processing
-        {:keys [certificate-whitelist
-                disable-update-checking]} puppetdb
+        {:keys [disable-update-checking]} puppetdb
 
         write-db (pl-jdbc/pooled-datasource database)
         read-db (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
         mq-dir (str (io/file vardir "mq"))
         discard-dir (io/file mq-dir "discarded")
-        mq-connection-str (add-max-framesize max-frame-size mq-addr)
-        authorizer (when certificate-whitelist
-                     (build-whitelist-authorizer certificate-whitelist))]
+        mq-connection-str (add-max-framesize max-frame-size mq-addr)]
 
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
@@ -299,9 +276,6 @@
                           .start)
           globals {:scf-read-db read-db
                    :scf-write-db write-db
-                   :authorizer authorizer
-                   :update-server update-server
-                   :product-name product-name
                    :discard-dir (.getAbsolutePath discard-dir)
                    :mq-addr mq-addr
                    :mq-dest mq-endpoint
@@ -350,7 +324,7 @@
   for initializing all of the PuppetDB subsystems and registering shutdown hooks
   that trapperkeeper will call on exit."
   PuppetDBServer
-  [[:ConfigService get-config]
+  [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]]
   (init [this context]
         (assoc context :url-prefix (atom nil)))

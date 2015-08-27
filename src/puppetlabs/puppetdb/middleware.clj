@@ -28,6 +28,26 @@
     (log/debug (str "Processing HTTP request to URI: '" (:uri req) "'"))
     (app req)))
 
+(defn build-whitelist-authorizer
+  "Build a function that will authorize requests based on the supplied
+  certificate whitelist (see `cn-whitelist->authorizer` for more
+  details). Returns :authorized if the request is allowed, otherwise a
+  string describing the reason not."
+  [whitelist]
+  {:pre  [(string? whitelist)]
+   :post [(fn? %)]}
+  (let [allowed? (kitchensink/cn-whitelist->authorizer whitelist)]
+    (fn [{:keys [ssl-client-cn] :as req}]
+      (if (allowed? req)
+        :authorized
+        (do
+          (log/warnf "%s rejected by certificate whitelist %s" ssl-client-cn whitelist)
+          (format (str "The client certificate name (%s) doesn't "
+                       "appear in the certificate whitelist. Is your "
+                       "master's (or other PuppetDB client's) certname "
+                       "listed in PuppetDB's certificate-whitelist file?")
+                  ssl-client-cn))))))
+
 (defn wrap-with-authorization
   "Ring middleware that will only pass through a request if the
   supplied authorization function allows it. Otherwise an HTTP 403 is
@@ -37,15 +57,17 @@
   request will be allowed only if authorize returns :authorized.
   Otherwise, the return value should be a message describing the
   reason that access was denied."
-  [app get-authorizer]
-  (fn [req]
-    (let [authorize (and get-authorizer (get-authorizer))
-          auth-result (if authorize (authorize req) :authorized)]
-      (if (= :authorized auth-result)
-        (app req)
-        (-> (str "Permission denied: " auth-result)
-            (rr/response)
-            (rr/status http/status-forbidden))))))
+  [app cert-whitelist]
+  (let [authorize (and cert-whitelist (build-whitelist-authorizer cert-whitelist))]
+    (if-not authorize
+      app
+      (fn [req]
+        (let [auth-result (authorize req)]
+          (if (= :authorized auth-result)
+            (app req)
+            (-> (str "Permission denied: " auth-result)
+                (rr/response)
+                (rr/status http/status-forbidden))))))))
 
 (defn wrap-with-certificate-cn
   "Ring middleware that will annotate the request with an
@@ -279,10 +301,10 @@
 
 (defn wrap-with-puppetdb-middleware
   "Default middleware for puppetdb webservers."
-  [app get-authorizer]
+  [app cert-whitelist]
   (-> app
       wrap-params
-      (wrap-with-authorization get-authorizer)
+      (wrap-with-authorization cert-whitelist)
       wrap-with-certificate-cn
       wrap-with-default-body
       wrap-with-debug-logging))

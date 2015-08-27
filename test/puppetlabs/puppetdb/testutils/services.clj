@@ -70,7 +70,8 @@
    #'puppetdb-command-service
    #'dashboard-redirect-service
    #'pdb-routing-service
-   #'maint-mode-service])
+   #'maint-mode-service
+   #'config-service])
 
 (defn call-with-puppetdb-instance
   "Stands up a puppetdb instance with `config`, tears down once `f` returns.
