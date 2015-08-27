@@ -28,24 +28,13 @@
       (http/json-response (s/validate catalogs/catalog-query-schema catalog))
       (http/status-not-found-response "catalog" node))))
 
-(defn build-catalog-app
-  [version entity]
-  (comp (fn [{:keys [params globals paging-options]}]
-          (produce-streaming-body
-           entity
-           version
-           (params "query")
-           paging-options
-           (:scf-read-db globals)
-           (:url-prefix globals)))
-        http-q/restrict-query-to-active-nodes))
-
 (defn routes
-  [version]
-
+  [version optional-handlers]
+  (let [handlers (or optional-handlers [identity])
+        query-route #(apply (partial http-q/query-route :catalogs version) %)]
   (app
-    [""]
-    {:get (build-catalog-app version :catalogs)}
+    []
+    (query-route handlers)
 
     [node]
     (fn [{:keys [globals]}]
@@ -53,17 +42,17 @@
                       (str (:url-prefix globals))))
 
     [node "edges" &]
-    (-> (comp (edges/edges-app version false) (partial http-q/restrict-query-to-node node))
+    (-> (edges/edges-app version false (partial http-q/restrict-query-to-node node))
         (wrap-with-parent-check version :catalog node))
 
     [node "resources" &]
-    (-> (comp (resources/resources-app version false) (partial http-q/restrict-query-to-node node))
-        (wrap-with-parent-check version :catalog node))))
+    (-> (resources/resources-app version false (partial http-q/restrict-query-to-node node))
+        (wrap-with-parent-check version :catalog node)))))
 
 (defn catalog-app
-  [version]
-  (-> (routes version)
+  [version & optional-handlers]
+  (-> (routes version optional-handlers)
       verify-accepts-json
       (validate-query-params
-       {:optional (cons "query" paging/query-params)})
+        {:optional (cons "query" paging/query-params)})
       wrap-with-paging-options))

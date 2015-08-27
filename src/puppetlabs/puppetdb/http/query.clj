@@ -220,6 +220,15 @@
   (restrict-query ["=" "type" type]
                   req))
 
+(defn restrict-resource-query-to-type'
+  "Restrict the query parameter of the supplied request so that it
+  only returns resources with the given type"
+  [type req]
+  {:pre  [(string? type)]
+   :post [(are-queries-different?' req %)]}
+  (restrict-query' ["=" "type" type]
+                  req))
+
 (defn restrict-resource-query-to-title
   "Restrict the query parameter of the supplied request so that it
   only returns resources with the given title"
@@ -228,6 +237,15 @@
    :post [(are-queries-different? req %)]}
   (restrict-query ["=" "title" title]
                   req))
+
+(defn restrict-resource-query-to-title'
+  "Restrict the query parameter of the supplied request so that it
+   only returns resources with the given title"
+  [title req]
+  {:pre  [(string? title)]
+   :post [(are-queries-different?' req %)]}
+  (restrict-query' ["=" "title" title]
+                   req))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion/validation of query parameters

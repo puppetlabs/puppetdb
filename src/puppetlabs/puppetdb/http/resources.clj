@@ -6,43 +6,32 @@
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
                                                     wrap-with-paging-options]]))
 
-(defn query-app
-  ([version] (query-app version true))
-  ([version restrict-to-active-nodes]
-   (app
-    [&]
-    {:get (comp (fn [{:keys [params globals paging-options]}]
-                  (produce-streaming-body
-                   :resources
-                   version
-                   (params "query")
-                   paging-options
-                   (:scf-read-db globals)
-                   (:url-prefix globals)))
-                (if restrict-to-active-nodes
-                  http-q/restrict-query-to-active-nodes
-                  identity))})))
+(defn routes
+  [version restrict-to-active-nodes optional-handlers]
+  (let [handler (if restrict-to-active-nodes
+                  http-q/restrict-query-to-active-nodes'
+                  identity)
+        handlers (if optional-handlers
+                   (cons handler optional-handlers)
+                   [handler])
+        query-route #(apply (partial http-q/query-route :resources version) %)]
+    (app
+      []
+      (query-route handlers)
 
-(defn build-resources-app
-  [query-app]
-  (app
-   []
-   (verify-accepts-json query-app)
+      [type title &]
+      (query-route (concat handlers
+                           [(partial http-q/restrict-resource-query-to-type' type)
+                            (partial http-q/restrict-resource-query-to-title' title)]))
 
-   [type title &]
-   (comp query-app
-         (partial http-q/restrict-resource-query-to-type type)
-         (partial http-q/restrict-resource-query-to-title title))
-
-   [type &]
-   (comp query-app
-         (partial http-q/restrict-resource-query-to-type type))))
+      [type &]
+      (query-route (concat handlers
+                           [(partial http-q/restrict-resource-query-to-type' type)])))))
 
 (defn resources-app
   ([version] (resources-app version true))
-  ([version restrict-to-active-nodes]
-     (build-resources-app
-      (-> (query-app version restrict-to-active-nodes)
-          (validate-query-params
-           {:optional (cons "query" paging/query-params)})
-          wrap-with-paging-options))))
+  ([version restrict-to-active-nodes & optional-handlers]
+   (-> (routes version restrict-to-active-nodes optional-handlers)
+       (validate-query-params
+         {:optional (cons "query" paging/query-params)})
+       wrap-with-paging-options)))

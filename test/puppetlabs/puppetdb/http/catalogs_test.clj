@@ -8,6 +8,7 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq strip-hash]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response order-param]]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]))
 
 (def endpoints [[:v4 "/v4/catalogs"]])
@@ -61,19 +62,19 @@
    [catalog1 catalog2]})
 
 (def paging-options
-  {{:order_by (json/generate-string [{:field "environment"}])}
+  {[{:field "environment"}]
    [catalog1 catalog2]
 
-   {:order_by (json/generate-string [{:field "producer_timestamp"}])}
+   [{:field "producer_timestamp"}]
    [catalog2 catalog1]
 
-   {:order_by (json/generate-string [{:field "certname"}])}
+   [{:field "certname"}]
    [catalog2 catalog1]
 
-   {:order_by (json/generate-string [{:field "transaction_uuid"}])}
+   [{:field "transaction_uuid"}]
    [catalog2 catalog1]
 
-   {:order_by (json/generate-string [{:field "certname" :order "desc"}])}
+   [{:field "certname" :order "desc"}]
    [catalog1 catalog2]})
 
 ;; HELPERS
@@ -85,13 +86,14 @@
 ;; TESTS
 
 (deftestseq catalog-queries
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
   (testcat/replace-catalog (json/generate-string catalog1))
   (testcat/replace-catalog (json/generate-string catalog2))
   (testing "catalog endpoint is queryable"
     (doseq [q (keys queries)]
-      (let [{:keys [status body] :as response} (get-response endpoint nil q)
-            response-body (strip-hash (json/parse-stream (reader body) true))
+      (let [{:keys [status body]} (query-response method endpoint q)
+            response-body (strip-hash (json/parse-string (slurp body) true))
             expected (get queries q)]
         (is (= (count expected) (count response-body)))
         (is (= (sort (map :certname expected)) (sort (map :certname response-body))))
@@ -101,7 +103,7 @@
 
   (testing "projection queries"
     (are [query expected]
-         (is (= (-> (reader (:body (get-response endpoint nil query)))
+         (is (= (-> (reader (:body (query-response method endpoint query)))
                     (json/parse-stream true)
                     strip-hash
                     set)
@@ -130,7 +132,7 @@
 
   (testing "top-level extract works with catalogs"
     (let [query ["extract" ["certname"] ["~" "certname" ""]]
-          {:keys [body]} (get-response endpoint nil query)
+          {:keys [body]} (query-response method endpoint query)
           response-body (strip-hash (json/parse-stream (reader body) true))
           expected [{:certname "myhost.localdomain"}
                     {:certname "host2.localdomain"}]]
@@ -139,13 +141,14 @@
   (testing "paging options"
     (doseq [p (keys paging-options)]
       (testing (format "checking ordering %s" p)
-      (let [{:keys [status body] :as response} (get-response endpoint nil nil p)
+      (let [{:keys [status body] :as response} (query-response method endpoint nil {:order_by
+                                                                                    (order-param method p)})
             response-body (strip-hash (json/parse-stream (reader body) true))
             expected (get paging-options p)]
         (is (= (map :certname expected) (map :certname response-body)))))))
 
   (testing "endpoint is still responsive to old-style node queries"
-    (let [{:keys [body]} (get-response endpoint "myhost.localdomain")
+    (let [{:keys [body]} (query-response method (str endpoint "/myhost.localdomain"))
           response-body  (json/parse-string body true)]
       (is (= "myhost.localdomain" (:certname response-body))))))
 
@@ -153,8 +156,9 @@
                           [:v4 "/v4/catalogs/foo/resources"]])
 
 (deftestseq unknown-parent-handling
-  [[version endpoint] no-parent-endpoints]
+  [[version endpoint] no-parent-endpoints
+   method [:get :post]]
 
-  (let [{:keys [status body]} (get-response endpoint)]
+  (let [{:keys [status body]} (query-response method endpoint)]
     (is (= status http/status-not-found))
     (is (= {:error "No information is known about catalog foo"} (json/parse-string body true)))))
