@@ -62,3 +62,26 @@
      (fn []
        (Thread/sleep 1500)
        (is (not (called? puppetlabs.puppetdb.cli.services/purge-nodes!)))))))
+
+(deftest test-dlo-compression-interval
+  (testing "disable database gc but leave dlo compression enabled"
+    (with-redefs [puppetlabs.puppetdb.cli.services/purge-nodes! (tu/mock-fn)
+                  puppetlabs.puppetdb.cli.services/compress-dlo! (tu/mock-fn)]
+      (svc-utils/call-with-puppetdb-instance
+       (-> (svc-utils/create-config)
+           (assoc-in [:database :gc-interval] 0)
+           (assoc-in [:database :dlo-compression-interval] 1))
+       (fn []
+         (Thread/sleep 500)
+         (is (not (called? puppetlabs.puppetdb.cli.services/purge-nodes!)))
+         (is (called? puppetlabs.puppetdb.cli.services/compress-dlo!))))))
+  (testing "disable both database gc and dlo compression"
+    (with-redefs [puppetlabs.puppetdb.cli.services/purge-nodes! (tu/mock-fn)
+                  puppetlabs.puppetdb.cli.services/compress-dlo! (tu/mock-fn)]
+      (svc-utils/call-with-puppetdb-instance
+       (-> (svc-utils/create-config)
+           (assoc-in [:database :gc-interval] 0))
+       (fn []
+         (Thread/sleep 500)
+         (is (not (called? puppetlabs.puppetdb.cli.services/purge-nodes!)))
+         (is (not (called? puppetlabs.puppetdb.cli.services/compress-dlo!))))))))

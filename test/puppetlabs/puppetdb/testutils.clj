@@ -477,17 +477,19 @@
 
 (defn mock-fn
   "Create a mock version of a function that can tell you if it has been called."
-  ([] (mock-fn nil))
-  ([f] (let [was-called (atom false)]
-         (reify
-           clojure.lang.IFn
-           (invoke [_]
-             (let [result (when f (f))]
-               (reset! was-called true)
-               result))
-           (invoke [_ & args]
-             (let [result (when f (apply f args))]
-               (reset! was-called true)
-               result))
-           test-protos/IMockFn
-           (called? [_] @was-called)))))
+  []
+  (let [was-called (atom false)]
+    (reify
+      clojure.lang.IFn
+      (invoke [_] (reset! was-called true))
+      (invoke [_ _] (reset! was-called true))
+      (invoke [_ _ _] (reset! was-called true))
+      (invoke [_ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _ _ _ _ _] (reset! was-called true))
+
+      test-protos/IMockFn
+      (called? [_] @was-called))))

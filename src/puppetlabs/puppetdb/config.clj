@@ -73,6 +73,7 @@
   (merge database-config-in
          (all-optional
            {:gc-interval (pls/defaulted-maybe s/Int 60)
+            :dlo-compression-interval s/Int
             :report-ttl (pls/defaulted-maybe String "14d")
             :node-purge-ttl (pls/defaulted-maybe String "0s")
             :node-ttl (pls/defaulted-maybe String "0s")
@@ -104,6 +105,7 @@
   "Schema for parsed/processed database config that includes write database params"
   (merge database-config-out
          {:gc-interval Minutes
+          (s/optional-key :dlo-compression-interval) Minutes
           :report-ttl Period
           :node-purge-ttl Period
           :node-ttl Period}))
@@ -225,6 +227,7 @@
   [config]
   (-> config
       (configure-section :database write-database-config-in write-database-config-out)
+      (update :database #(utils/assoc-when % :dlo-compression-interval (:gc-interval %)))
       configure-read-db
       (configure-section :command-processing command-processing-in command-processing-out)
       configure-puppetdb))
