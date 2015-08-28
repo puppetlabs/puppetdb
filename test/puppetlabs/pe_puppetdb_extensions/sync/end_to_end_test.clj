@@ -93,7 +93,7 @@
           (submit-report pdb1 report))
 
         (with-alt-mq (:mq-name pdb2)
-          (sync :from pdb1 :to pdb2 :check-with get-node :check-for certname)
+          (sync :from pdb1 :to pdb2)
           (let [node (get-node (:query-url pdb2) certname)]
             (is (nil? (:deactivated node)))))
 
@@ -102,7 +102,7 @@
           (deactivate-node pdb1 certname))
 
         (with-alt-mq (:mq-name pdb2)
-          (sync :from pdb1 :to pdb2 :check-with get-node :check-for certname)
+          (sync :from pdb1 :to pdb2)
           (let [node (get-node (:query-url pdb2) certname)]
             (is (:deactivated node))))))))
 
@@ -112,9 +112,9 @@
           (fn [infos]
             (case (count infos)
               ;; infos length tells us which server we're handling.
-              0 (utils/sync-config)
+              0 (utils/pdb1-sync-config)
               1 (let [url (base-url->str (:server-url (infos 0)))]
-                  (assoc (utils/sync-config)
+                  (assoc (utils/pdb2-sync-config)
                          :sync {:remotes [{:server_url url
                                            :interval sync-interval}]}))
               nil))
@@ -154,8 +154,8 @@
         pdb-configs (fn [infos]
                       (case (count infos)
                         ;; infos length tells us which server we're handling.
-                        0 (utils/sync-config)
-                        1 (assoc (utils/sync-config)
+                        0 (utils/pdb1-sync-config)
+                        1 (assoc (utils/pdb2-sync-config)
                                  :node-ttl "1d")
                         nil))]
     (with-pdbs pdb-configs

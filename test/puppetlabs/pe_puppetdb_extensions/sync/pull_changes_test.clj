@@ -40,7 +40,7 @@
         stub-data-atom (atom [])
         stub-handler (logging-query-handler "/pdb-x/v4/reports" pdb-x-queries stub-data-atom :hash)]
     (with-log-suppressed-unless-notable notable-pdb-event?
-      (with-puppetdb-instance (utils/sync-config stub-handler)
+      (with-puppetdb-instance (utils/pdb1-sync-config stub-handler)
         ;; store two reports in PDB Y
         (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-1)
         (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-2)
@@ -74,7 +74,7 @@
         stub-data-atom (atom [])
         stub-handler (logging-query-handler "/pdb-x/v4/factsets" pdb-x-queries stub-data-atom :certname)]
     (with-log-suppressed-unless-notable notable-pdb-event?
-     (with-puppetdb-instance (utils/sync-config stub-handler)
+      (with-puppetdb-instance (utils/pdb1-sync-config stub-handler)
        ;; store factsets in PDB Y
        (doseq [c (map char (range (int \a) (int \g)))]
          (blocking-command-post (utils/pdb-cmd-url) "replace facts" 4
@@ -144,7 +144,7 @@
         stub-handler (logging-query-handler "/pdb-x/v4/catalogs" pdb-x-queries stub-data-atom :certname)]
 
     (with-log-suppressed-unless-notable notable-pdb-event?
-     (with-puppetdb-instance (utils/sync-config stub-handler)
+      (with-puppetdb-instance (utils/pdb1-sync-config stub-handler)
        ;; store catalogs in PDB Y
        (doseq [c (map char (range (int \a) (int \g)))]
          (blocking-command-post (utils/pdb-cmd-url) "replace catalog" 6
@@ -209,7 +209,7 @@
                             {:status 200
                              :body (java.io.StringReader. "[]")})]
      ;; Run a pdb with https
-     (with-puppetdb-instance (assoc (utils/sync-config)
+     (with-puppetdb-instance (assoc (utils/pdb1-sync-config)
                                     :jetty {:ssl-port 0
                                             :ssl-host "0.0.0.0"
                                             :ssl-cert "test-resources/localhost.pem"
@@ -252,7 +252,7 @@
 
     (testing "overlapping sync"
       (with-log-suppressed-unless-notable notable-pdb-event?
-        (with-puppetdb-instance (utils/sync-config stub-handler)
+        (with-puppetdb-instance (utils/pdb1-sync-config stub-handler)
           (let [remote-url (utils/stub-url-str "/pdb-x/v4")]
             (is (contains?
                  (set (map :body (perform-overlapping-sync

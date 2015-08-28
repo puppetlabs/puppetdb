@@ -190,5 +190,10 @@
       (without-jmx
        (spawn-pdbs [])))))
 
-(defn default-pdb-configs [n]
-  #(when (< (count %) n) (utils/sync-config)))
+(defn default-pdb-configs [_]
+  (fn [infos]
+    (let [num-configs-so-far (count infos)]
+      (case num-configs-so-far
+        0 (utils/pdb1-sync-config)
+        1 (utils/pdb2-sync-config)
+        nil))))
