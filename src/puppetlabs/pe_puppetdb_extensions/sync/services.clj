@@ -313,7 +313,7 @@
 
 (defservice puppetdb-sync-service
   PuppetDBSync
-  [[:ConfigService get-config]
+  [[:DefaultedConfig get-config]
    [:PuppetDBCommand submit-command]
    [:PuppetDBServer query shared-globals]
    [:PuppetDBCommandDispatcher response-mult]]
