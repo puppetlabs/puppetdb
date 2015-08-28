@@ -26,10 +26,6 @@ export PUPPETDB_PACKAGE_REPO_URL="http://puppetdb-prerelease.s3.amazonaws.com/pu
 export PUPPETDB_PACKAGE_BUILD_VERSION=$PACKAGE_BUILD_VERSION
 export BEAKER_CONFIG=$LAYOUT
 
+set -x
 # Now run our tests
 bundle exec rake beaker:acceptance
-exit_code=$?
-
-$WORKSPACE/ext/jenkins/cleanup-s3.sh
-
-exit $exit_code
