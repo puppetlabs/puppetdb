@@ -1,12 +1,12 @@
 ---
-title: "PE PuppetDB 3.0 » API » v1 » Querying State Overview"
+title: "PE PuppetDB 3.2 » API » v1 » Querying State Overview"
 layout: default
-canonical: "/puppetdb/latest/api/pe/v1/state-overview.html"
+canonical: "/pe-puppetdb/latest/api/pe/v1/state-overview.html"
 ---
 
 [reports]: ../../query/v4/reports.html
-[reports]: ../../query/v4/nodes.html
-[curl]: ../../query/curl.html
+[nodes]: /puppetdb/latest/api/query/v4/nodes.html
+[curl]: /puppetdb/latest/api/query/curl.html
 
 ## `GET /v1/state-overview`
 

@@ -17,8 +17,7 @@
             [puppetlabs.pe-puppetdb-extensions.server :as pe-server]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as sync-svcs]
             [puppetlabs.puppetdb.time :refer [parse-period]]
-            [puppetlabs.pe-puppetdb-extensions.reports :as ext-reports]
-            ))
+            [puppetlabs.pe-puppetdb-extensions.reports :as ext-reports]))
 
 (defn pe-routes [get-config get-shared-globals query submit-command response-mult]
   (map #(apply pdb-route/wrap-with-context %)

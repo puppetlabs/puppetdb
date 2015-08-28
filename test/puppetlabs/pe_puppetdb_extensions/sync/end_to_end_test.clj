@@ -36,7 +36,7 @@
       (with-alt-mq (:mq-name pdb2)
         (sync :from pdb1 :to pdb2))
 
-      (is (=-after? #(dissoc % :receive_time)
+      (is (=-after? #(dissoc % :receive_time :producer_timestamp :resources :resource_events)
                     (get-reports (:query-url pdb1) (:certname report))
                     (get-reports (:query-url pdb2) (:certname report)))))))
 

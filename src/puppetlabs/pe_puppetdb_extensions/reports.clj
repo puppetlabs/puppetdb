@@ -41,6 +41,26 @@
                :entity :reports
                :source-table "reports"}))
 
+(defn munge-result-rows
+  [version url-prefix]
+  (let [base-url (str url-prefix "/" (name version))]
+    (fn [rows]
+      (map (comp (query-reports/row->report base-url)
+                 #(utils/update-when % [:resources] utils/child->expansion :reports :resources base-url))
+           rows))))
+
+(defn reports-with-resources-query []
+  (-> (query-eng-engine/reports-query)
+      (assoc-in [:projections "resources"]
+                {:type :json
+                 :queryable? false
+                 :expandable? true
+                 :field
+                 {:select [(honeysql/row-to-json :t)]
+                  :from [[{:select
+                           [[:resources :data]
+                            [(query-eng-engine/hsql-hash-as-str :hash) :href]]} :t]]}})))
+
 (defn turn-on-unchanged-resources!
   []
   (reset! scf-storage/store-resources-column? true)
@@ -48,20 +68,5 @@
          {:report-resources
           {:munge (report-data/munge-result-rows :resources)
            :rec report-resources-query}
-          :reports {:munge
-                    (fn [version url-prefix]
-                      (let [base-url (str url-prefix "/" (name version))]
-                        (fn [rows]
-                          (map (comp (query-reports/row->report base-url)
-                                     #(utils/update-when % [:resources] utils/child->expansion :reports :resources base-url))
-                               rows))))
-                    :rec #(-> (query-eng-engine/reports-query)
-                              (assoc-in [:projections "resources"]
-                                        {:type :json
-                                         :queryable? false
-                                         :expandable? true
-                                         :field
-                                         {:select [(honeysql/row-to-json :t)]
-                                          :from [[{:select
-                                                   [[:resources :data]
-                                                    [(query-eng-engine/hsql-hash-as-str :hash) :href]]} :t]]}}))}}))
+          :reports {:munge munge-result-rows
+                    :rec reports-with-resources-query}}))

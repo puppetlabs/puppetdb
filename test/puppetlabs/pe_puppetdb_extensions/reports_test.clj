@@ -16,18 +16,9 @@
 
 (deftest query-resources-on-reports
   (with-log-suppressed-unless-notable notable-pdb-event?
-    (with-puppetdb-instance (utils/sync-config)
+    (with-puppetdb-instance (utils/pdb1-sync-config)
       (let [report (get-munged-report :basic)]
         (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report)
-        (let [expected (->> [report]
-                            (map reports/wire-v5->wire-v6)
-                            (map :resources)
-                            (map clojure.walk/keywordize-keys))
-              resources (->> (get-json (utils/pdb-query-url) "/reports")
-                             (map :resources))
-              expansion-fn (if (sutils/postgres?)
-                             :data
-                             #(get-json (utils/pdb-query-url) (subs (:href %) 13)))
-              actual (->> resources
-                          (map expansion-fn))]
+        (let [expected (->> report reports/wire-v5->wire-v6 :resources clojure.walk/keywordize-keys)
+              actual (->> (get-json (utils/pdb-query-url) "/reports") first :resources :data)]
           (is (= expected actual)))))))
