@@ -2,7 +2,8 @@
   (:import (java.sql Timestamp))
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
+            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body
+                                                   produce-streaming-body']]
             [puppetlabs.puppetdb.middleware :as middleware]
             [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.http :as http]
@@ -48,19 +49,18 @@
   [version]
   (app
     [""]
-    {:get (fn [{:keys [params globals paging-options]}]
-            (try
-              (let [query-options (merge paging-options
-                                         (validate-distinct-options! params))]
-                (produce-streaming-body
-                  :events
-                  version
-                  (params "query")
-                  query-options
-                  (:scf-read-db globals)
-                  (:url-prefix globals)))
-              (catch IllegalArgumentException e
-                (http/error-response e))))}))
+    (fn [{:keys [params globals paging-options]}]
+      (try
+        (let [query-options (merge paging-options
+                                   (validate-distinct-options! params))]
+          (produce-streaming-body'
+            :events
+            version
+            (assoc query-options :query (params "query"))
+            (:scf-read-db globals)
+            (:url-prefix globals)))
+        (catch IllegalArgumentException e
+          (http/error-response e))))))
 
 (defn events-app
   "Ring app for querying events"

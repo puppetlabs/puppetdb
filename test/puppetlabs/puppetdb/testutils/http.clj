@@ -28,3 +28,17 @@
   (if (= :get method)
     (json/generate-string order-by)
     order-by))
+
+(defn query-result
+  ([method endpoint] (query-result method endpoint nil))
+  ([method endpoint query] (query-result method endpoint query {}))
+  ([method endpoint query params & optional-handlers]
+   (let [handlers (or optional-handlers [identity])
+         handle-fn (apply comp (vec handlers))]
+     (-> (query-response method endpoint query params)
+         :body
+         slurp
+         (json/parse-string true)
+         handle-fn
+         set))))
+

@@ -235,7 +235,6 @@ to the result of the form supplied to this method."
    method [:get :post]]
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
     (testing "querying by equality and regexp should be allowed"
-      (println "ENDPOINT IS" endpoint "METHOD IS" method)
       (are [query] (is (= (query-result (query-response method endpoint query)) #{foo1 foo2}))
            ["=" "environment" "DEV"]
            ["~" "environment" ".*V"]

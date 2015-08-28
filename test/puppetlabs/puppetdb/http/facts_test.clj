@@ -938,7 +938,6 @@
                                                  [["ASC" "ASC"]  [f1 f4 f2 f3 f5]]]]
 
         (testing (format "environment %s name %s" env-order name-order)
-          (println "ENDPOINT IS" endpoint)
           (let [actual (query-response method
                                        endpoint
                                        nil
