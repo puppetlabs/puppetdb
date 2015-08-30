@@ -207,7 +207,6 @@
    method [:get :post]]
 
   (let [response (query-response method endpoint ["<" "environment" 0])]
-    (println "METHOD IS" method "RESPONSE IS" response)
     (is (re-matches #".*Query operators .*<.* not allowed .* environment"
                     (:body response)))
     (is (= 400 (:status response))))

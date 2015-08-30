@@ -7,10 +7,14 @@
             [clojure.walk :refer [keywordize-keys]]
             [clojure.core.match :as cm]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body produce-streaming-body']]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [net.cgrand.moustache :refer [app]]
             [schema.core :as s]
+            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.query.paging :refer [parse-limit' parse-offset' parse-order-by']]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]
+            [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.utils :as utils]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -29,10 +33,16 @@
    (s/optional-key :distinct_start_time) s/Any
    (s/optional-key :distinct_end_time) s/Any
    (s/optional-key :limit) (s/maybe s/Int)
+   (s/optional-key :counts_filter) s/Any
+   (s/optional-key :count_by) s/Any
+   (s/optional-key :summarize_by) s/Any
    (s/optional-key :offset) (s/maybe s/Int)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Query munging functions
+
+(def experimental-entities
+  #{:event-counts :aggregate-event-counts})
 
 (defn- are-queries-different?
   "DEPRECATED - only works on GET requests, will be replaced by are-queries-different?'"
@@ -263,7 +273,7 @@
 
 (pls/defn-validated convert-query-params :- puppetdb-query-schema
   "This will update a query map to contain the parsed and validated query parameters"
-  [{:keys [order_by limit offset] :as full-query}]
+  [full-query]
   (-> full-query
       (update :order_by parse-order-by')
       (update :limit parse-limit')
@@ -275,8 +285,10 @@
   [{:keys [params] :as req}]
   (conj {:query (json/parse-strict-string (get params "query") true)
          :order_by (json/parse-strict-string (get params "order_by") true)
+         :counts_filter (get params "counts_filter")
          :limit (get params "limit")
-         :offset (get params "offset")}
+         :offset (get params "offset")
+         :summarize_by (get params "summarize_by")}
         (let [include-total? (get params "include_total" ::not-found)]
           (when (not= include-total? ::not-found)
             [:include_total include-total?]))))
@@ -305,20 +317,19 @@
   (fn [{:keys [request-method body params puppetdb-query] :as req}]
     (handler (assoc req :puppetdb-query (create-query-map req)))))
 
-(defn-validated validate-distinct-options!
+(defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a
   map containing the validated `distinct_resources` options, parsed to the correct
   data types.  Throws `IllegalArgumentException` if any arguments are missing
   or invalid."
-  [params :- {s/Any s/Any}]
+  [params]
   (let [distinct-params-names #{"distinct_resources" "distinct_start_time" "distinct_end_time"}
-        {:strs [distinct_start_time distinct_end_time] :as distinct-params}
+        {:keys [distinct_start_time distinct_end_time] :as distinct-params}
         (select-keys params distinct-params-names)]
+    (println "PARAMS ARE" params)
     (condp = (kitchensink/keyset distinct-params)
      #{}
-     {:distinct_resources false
-      :distinct_start_time nil
-      :distinct_end_time   nil}
+      params
 
      distinct-param-names
      (let [start (to-timestamp distinct_start_time)
@@ -338,20 +349,29 @@
      (throw (IllegalArgumentException.
              "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
 
+(defn warn-experimental
+  [entity {:keys [product-name]}]
+  (when (and (= "puppetdb" product-name)
+             (contains? experimental-entities entity))
+    (log/warn (format
+                "The %s endpoint is experimental and may be altered or removed in the future."
+                (name entity)))))
+
 (defn query-route
   "Returns a route for querying PuppetDB that supports the standard
-  paging parameters. Also accepts GETs and POSTs. Composes
-  `optional-handlers` with the middleware function that executes the
-  query."
-  [entity version & optional-handlers]
+   paging parameters. Also accepts GETs and POSTs. Composes
+   `optional-handlers` with the middleware function that executes the
+   query."
+  [entity version param-spec & optional-handlers]
   (app
-   extract-query
-   (apply comp
-          (fn [{:keys [params globals puppetdb-query]}]
-            (produce-streaming-body'
-             entity
-             version
-             (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-             (:scf-read-db globals)
-             (:url-prefix globals)))
-          optional-handlers)))
+    (extract-query param-spec)
+    (apply comp
+           (fn [{:keys [params globals puppetdb-query]}]
+             (warn-experimental entity globals)
+             (produce-streaming-body
+               entity
+               version
+               (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+               (:scf-read-db globals)
+               (:url-prefix globals)))
+           optional-handlers)))
