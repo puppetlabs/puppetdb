@@ -89,6 +89,7 @@
           (jdbc/valid-jdbc-query? (:results-query %))
           (or (not (:count? paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
+
   (cond
     (= :aggregate-event-counts entity)
     (aggregate-event-counts/query->sql version query paging-options)

@@ -3,6 +3,9 @@
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.http :as http]
+            [clojure.test :refer :all]
+
             [puppetlabs.puppetdb.cheshire :as json]))
 
 (defn pdb-get
@@ -34,8 +37,10 @@
   ([method endpoint query] (query-result method endpoint query {}))
   ([method endpoint query params & optional-handlers]
    (let [handlers (or optional-handlers [identity])
-         handle-fn (apply comp (vec handlers))]
-     (-> (query-response method endpoint query params)
+         handle-fn (apply comp (vec handlers))
+         response (query-response method endpoint query params)]
+     (is (= http/status-ok (:status response)))
+     (-> response
          :body
          slurp
          (json/parse-string true)
