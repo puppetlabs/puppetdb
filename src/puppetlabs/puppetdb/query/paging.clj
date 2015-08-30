@@ -176,8 +176,7 @@
   [paging-options]
   (let [count? (http/parse-boolean-query-param paging-options :include_total)]
     (-> paging-options
-        (dissoc :include_total)
-        (assoc :count? count?))))
+        (assoc :include_total count?))))
 
 (defn coerce-to-int
   "Parses the int unless it's already an int"
@@ -263,12 +262,12 @@
 (defn requires-paging?
   "Given a paging-options map, return true if the query requires paging
   and false if it does not."
-  [{:keys [limit offset order_by count?] :as paging-options}]
+  [{:keys [limit offset order_by include_total] :as paging-options}]
   (not
    (and
     (every? nil? [limit offset])
     ((some-fn nil? (every-pred coll? empty?)) order_by)
-    (not count?))))
+    (not include_total))))
 
 (defn dealias-order-by
   [{:keys [projections] :as query-rec} paging-options]

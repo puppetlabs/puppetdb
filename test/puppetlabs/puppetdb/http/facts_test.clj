@@ -663,14 +663,14 @@
                          (sort-by :name (json/parse-stream (io/reader body) true))))))))))))
 
 (defn test-paged-results
-  [endpoint query limit total count?]
+  [endpoint query limit total include_total]
   (paged-results
    {:app-fn  *app*
     :path    endpoint
     :query   query
     :limit   limit
     :total   total
-    :include_total  count?}))
+    :include_total include_total}))
 
 (deftestseq fact-query-paging
   [[version endpoint] facts-endpoints

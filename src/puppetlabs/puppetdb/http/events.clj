@@ -11,7 +11,7 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]))
 
-(defn-validated validate-distinct-options! :- {:distinct_resources? s/Bool
+(defn-validated validate-distinct-options! :- {:distinct_resources s/Bool
                                                :distinct_start_time (s/maybe pls/Timestamp)
                                                :distinct_end_time (s/maybe pls/Timestamp)}
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a
@@ -24,7 +24,7 @@
         (select-keys params distinct-params-names)]
     (condp = (kitchensink/keyset distinct-params)
      #{}
-     {:distinct_resources? false
+     {:distinct_resources false
       :distinct_start_time nil
       :distinct_end_time   nil}
 
@@ -35,7 +35,7 @@
          (throw (IllegalArgumentException.
                  (str "query parameters 'distinct_start_time' and 'distinct_end_time' must be valid datetime strings: "
                       distinct_start_time " " distinct_end_time))))
-       {:distinct_resources? (http/parse-boolean-query-param distinct-params "distinct_resources")
+       {:distinct_resources (http/parse-boolean-query-param distinct-params "distinct_resources")
         :distinct_start_time start
         :distinct_end_time   end})
 

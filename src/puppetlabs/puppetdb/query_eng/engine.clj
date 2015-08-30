@@ -1381,7 +1381,7 @@
   "Given a user provided query and a Query instance, convert the
    user provided query to SQL and extract the parameters, to be used
    in a prepared statement"
-  [query-rec user-query & [{:keys [count?] :as paging-options}]]
+  [query-rec user-query & [{:keys [include_total] :as paging-options}]]
   ;; Call the query-rec so we can evaluate query-rec functions
   ;; which depend on the db connection type
   (let [query-rec (query-rec)
@@ -1397,4 +1397,4 @@
         sql (plan->sql plan)
         paged-sql (jdbc/paged-sql sql paging-options)]
     (cond-> {:results-query (apply vector paged-sql params)}
-      count? (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))
+      include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))

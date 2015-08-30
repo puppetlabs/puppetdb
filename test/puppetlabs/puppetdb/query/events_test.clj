@@ -404,7 +404,7 @@
       (testing "retrieval of events for distinct resources only"
         (let [expected  (expected-resource-events version events3 basic3)
               actual (distinct-resource-events version ["=" "certname" "foo.local"]
-                                               {:distinct_resources? true
+                                               {:distinct_resources true
                                                 :distinct_start_time (to-timestamp 0)
                                                 :distinct_end_time   (to-timestamp (now))})]
           (is (= (count events3) (count actual)))
@@ -413,7 +413,7 @@
       (testing "events should be contained within distinct resource timestamps"
         (let [expected  (expected-resource-events version events1 basic1)
               actual (distinct-resource-events version ["=" "certname" "foo.local"]
-                                               {:distinct_resources? true
+                                               {:distinct_resources true
                                                 :distinct_start_time (to-timestamp 0)
                                                 :distinct_end_time (to-timestamp "2011-01-02T12:00:01-03:00")})]
           (is (= (count events1) (count actual)))
@@ -424,7 +424,7 @@
               actual (distinct-resource-events version ["and" ["=" "certname" "foo.local"]
                                                         ["=" "status" "success"]
                                                         ["=" "resource_title" "notify, yar"]]
-                                               {:distinct_resources? true
+                                               {:distinct_resources true
                                                 :distinct_start_time (to-timestamp 0)
                                                 :distinct_end_time   (to-timestamp (now))})]
           (is (= (count expected) (count actual)))

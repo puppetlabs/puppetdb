@@ -124,13 +124,13 @@
   "Compile a resource event `query` into an SQL expression."
   [will-union? version query query-options]
   {:pre  [(or (sequential? query) (nil? query))
-          (let [distinct-options [:distinct_resources? :distinct_start_time :distinct_end_time]]
+          (let [distinct-options [:distinct_resources :distinct_start_time :distinct_end_time]]
             (or (not-any? #(contains? query-options %) distinct-options)
                 (every? #(contains? query-options %) distinct-options)))]
    :post [(map? %)
           (jdbc/valid-jdbc-query? (:results-query %))
           (or
-           (not (:count? query-options))
+           (not (:include_total query-options))
            (jdbc/valid-jdbc-query? (:count-query %)))]}
   (let [{:keys [where params]}  (query/compile-term (query/resource-event-ops version) query)
         select-fields           (string/join ", "
@@ -141,7 +141,7 @@
                                                        (str table "." column))
                                                      (if alias (format " AS %s" alias) "")))
                                               query/resource-event-columns))
-        [sql params]            (if (:distinct_resources? query-options)
+        [sql params]            (if (:distinct_resources query-options)
                                   (distinct-select select-fields where params
                                                    (:distinct_start_time query-options)
                                                    (:distinct_end_time query-options))
@@ -152,7 +152,7 @@
                        ;; with-latest-events must be applied higher up
                        (not will-union?) with-latest-events)
         result {:results-query (apply vector paged-select params)}]
-    (if (:count? query-options)
+    (if (:include_total query-options)
       (let [count-sql (jdbc/count-sql (with-latest-events sql))]
         (assoc result :count-query (apply vector count-sql params)))
       result)))
@@ -163,16 +163,15 @@
    (query->sql false version query query-options))
   ([will-union? version query query-options]
    {:pre  [(or (sequential? query) (nil? query))
-           (let [distinct-options [:distinct_resources? :distinct_start_time :distinct_end_time]]
+           (let [distinct-options [:distinct_resources :distinct_start_time :distinct_end_time]]
              (or (not-any? #(contains? query-options %) distinct-options)
                  (every? #(contains? query-options %) distinct-options)))]
     :post [(map? %)
            (jdbc/valid-jdbc-query? (:results-query %))
            (or
-             (not (:count? query-options))
+             (not (:include_total query-options))
              (jdbc/valid-jdbc-query? (:count-query %)))]}
    (paging/validate-order-by! (map keyword (keys query/resource-event-columns)) query-options)
-   (println "QUERY OPTIONS ARE" query-options)
    (if (:distinct_resources query-options)
      ;; The new query engine does not support distinct-resources yet, so we
      ;; fall back to the old

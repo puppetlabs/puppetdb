@@ -39,7 +39,7 @@
   "Convert an aggregate-event-counts `query` and a value(s) to `summarize_by`
    into a SQL string. Since all inputs are forwarded to
    `event-counts/query->sql`, look there for proper documentation."
-  [version query {:keys [distinct_resources? summarize_by] :as query-options}]
+  [version query {:keys [distinct_resources summarize_by] :as query-options}]
   {:pre  [((some-fn nil? sequential?) query)
           ((some-fn map? nil?) query-options)]
    :post [(jdbc/valid-jdbc-query? (:results-query %))]}
@@ -49,7 +49,7 @@
                         version query (assoc query-options :summarize_by %))
         aggregated-sql-and-params (map aggregate-fn summary-vec)
         common-params (or (second (first aggregated-sql-and-params)) [])
-        params (if distinct_resources?
+        params (if distinct_resources
                  ;; when distinct resources is used, the first two parameters
                  ;; are the distinct start/end times.
                  ;; extract the distinct start/end times and duplicate the rest
@@ -59,7 +59,7 @@
                  ;; repeat all params as many times as there are summarize_by's
                  (flatten (repeat nsummarized common-params)))
         unioned-sql (cond-> (str/join " UNION ALL " (map first aggregated-sql-and-params))
-                      distinct_resources?  events/with-latest-events)]
+                      distinct_resources  events/with-latest-events)]
     {:results-query (apply vector unioned-sql params)}))
 
 (defn- perform-query

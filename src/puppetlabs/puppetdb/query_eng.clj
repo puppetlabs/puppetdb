@@ -87,7 +87,7 @@
   {:pre  [((some-fn nil? sequential?) query)]
    :post [(map? %)
           (jdbc/valid-jdbc-query? (:results-query %))
-          (or (not (:count? paging-options))
+          (or (not (:include_total paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
 
   (cond
@@ -97,7 +97,7 @@
     (= :event-counts entity)
     (event-counts/query->sql version query paging-options)
 
-    (and (= :events entity) (:distinct_resources? paging-options))
+    (and (= :events entity) (:distinct_resources paging-options))
     (events/legacy-query->sql false version query paging-options)
 
     :else
