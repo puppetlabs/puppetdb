@@ -80,6 +80,12 @@
                      (.getPath (apply io/file export-root-dir file-suffix))
                      contents))
 
+(defn tar-items->archive
+  [archive-path tar-items]
+  (with-open [tar-writer (archive/tarball-writer archive-path)]
+    (doseq [tar-item tar-items]
+      (add-tar-entry tar-writer tar-item))))
+
 (defmacro assoc-when
   "Assocs the provided values with the corresponding keys if and only
   if the key is not already present in map."
