@@ -8,7 +8,7 @@
             [puppetlabs.puppetdb.testutils :refer [get-request paged-results
                                                    deftestseq]]
             [puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response order-param]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response vector-param]]
             [flatland.ordered.map :as omap]))
 
 (def v4-endpoint "/v4/resources")
@@ -223,7 +223,7 @@ to the result of the form supplied to this method."
    method [:get :post]]
   (let [{:keys [foo1 foo2 bar1 bar2] :as expected} (store-example-resources)]
     (testing "ordering results with order_by"
-      (let [order_by {:order_by (order-param method [{"field" "certname" "order" "DESC"}
+      (let [order_by {:order_by (vector-param method [{"field" "certname" "order" "DESC"}
                                                      {"field" "resource" "order" "DESC"}])}
             response (query-response method endpoint nil order_by)
             actual   (json/parse-string (slurp (get response :body "null")) true)]

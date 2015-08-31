@@ -22,7 +22,7 @@
                                                    create-hsqldb-map
                                                    parse-result]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
-                                                        order-param]]
+                                                        vector-param]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.kitchensink.core :as ks]
@@ -42,11 +42,6 @@
 
 (def c-t http/json-response-content-type)
 (def reference-time "2014-10-28T20:26:21.727Z")
-
-(defn get-response
-  ([endpoint]      (get-response endpoint nil))
-  ([endpoint query] (*app* (get-request endpoint query)))
-  ([endpoint query params] (*app* (get-request endpoint query params))))
 
 (defn is-query-result
   [endpoint query expected-results]
@@ -811,14 +806,14 @@
       (testing "rejects invalid fields"
         (is (re-matches #"Unrecognized column 'invalid-field' specified in :order_by.*"
                         (:body (query-response method endpoint nil
-                                               {:order_by (order-param method
+                                               {:order_by (vector-param method
                                                                        [{"field" "invalid-field"
                                                                          "order" "ASC"}])})))))
       (testing "alphabetical fields"
         (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
                                   ["DESC" [f5 f4 f3 f2 f1]]]]
           (testing order
-            (let [actual (->> {:order_by (order-param method [{"field" "certname" "order" order}])}
+            (let [actual (->> {:order_by (vector-param method [{"field" "certname" "order" order}])}
                               (query-response method endpoint nil)
                               :body
                               slurp)
@@ -831,7 +826,7 @@
         (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
                                   ["DESC" [f5 f4 f3 f2 f1]]]]
           (testing order
-            (let [actual (->> {:order_by (order-param method [{"field" "certname" "order" order}])}
+            (let [actual (->> {:order_by (vector-param method [{"field" "certname" "order" order}])}
                               (query-response method endpoint ["extract" "environment" ["~" "certname" ".*"]])
                               :body
                               slurp)
@@ -847,7 +842,7 @@
                                                         [["ASC" "DESC"]  [f3 f1 f5 f4 f2]]
                                                         [["ASC" "ASC"]   [f1 f3 f5 f2 f4]]]]
           (testing (format "name %s certname %s" name-order certname-order)
-            (let [actual (->> {:order_by (order-param method [{"field" "name" "order" name-order}
+            (let [actual (->> {:order_by (vector-param method [{"field" "name" "order" name-order}
                                                               {"field" "certname" "order" certname-order}])}
                               (query-response method endpoint nil)
                               :body
@@ -873,7 +868,7 @@
 
         (testing order
           (doseq [[offset expected] expected-sequences]
-            (let [actual (->> {:order_by (order-param method [{"field" "certname" "order" order}]) :offset offset}
+            (let [actual (->> {:order_by (vector-param method [{"field" "certname" "order" order}]) :offset offset}
                               (query-response method endpoint nil)
                               :body
                               slurp)
@@ -885,7 +880,7 @@
           (is (re-matches #"Unrecognized column 'value' specified in :order_by.*"
                           (:body (query-response method endpoint nil
                                                  {:order_by
-                                                  (order-param method
+                                                  (vector-param method
                                                                [{"field" "value" "order" "ASC"}])})))))))))
 
 (deftestseq facts-environment-paging
@@ -942,7 +937,7 @@
                                        endpoint
                                        nil
                                        {:order_by
-                                                 (order-param method [{"field" "environment" "order" env-order}
+                                                 (vector-param method [{"field" "environment" "order" env-order}
                                                                       {"field" "name" "order" name-order}])})]
             (compare-structured-response (map unkeywordize-values (json/parse-string (slurp (:body actual)) true))
                                          expected
@@ -1169,14 +1164,14 @@
         (is (re-matches #"Unrecognized column 'invalid-field' specified in :order_by.*"
                         (:body (query-response
                                  method endpoint nil
-                                 {:order_by (order-param method
+                                 {:order_by (vector-param method
                                                          [{"field" "invalid-field"
                                                            "order" "ASC"}])})))))
       (testing "alphabetical fields"
         (doseq [[order expected] [["ASC" (sort-by #(get % "certname") (factset-results version))]
                                   ["DESC" (reverse (sort-by #(get % "certname") (factset-results version)))]]]
           (testing order
-            (let [ordering {:order_by (order-param method [{"field" "certname" "order" order}])}
+            (let [ordering {:order_by (vector-param method [{"field" "certname" "order" order}])}
                   actual (json/parse-string (slurp (:body (query-response
                                                             method endpoint nil ordering))))]
               (is (= (munge-factsets-response actual) expected))))))
@@ -1185,7 +1180,7 @@
         (doseq [[order expected] [["ASC" (sort-by #(get % "hash") (factset-results version))]
                                   ["DESC" (reverse (sort-by #(get % "hash") (factset-results version)))]]]
           (testing order
-            (let [ordering {:order_by (order-param method [{"field" "hash" "order" order}])}
+            (let [ordering {:order_by (vector-param method [{"field" "hash" "order" order}])}
                   actual (json/parse-string (slurp (:body (query-response
                                                             method endpoint nil ordering))))]
               (is (= (munge-factsets-response actual) expected))))))
@@ -1198,7 +1193,7 @@
                                                        (factset-results version)))]]]
           (testing order
             (let [ordering {:order_by
-                            (order-param method [{"field" "hash" "order" order}])}
+                            (vector-param method [{"field" "hash" "order" order}])}
                   query ["extract" "certname" ["~" "certname" ".*"]]
                   actual (json/parse-string
                            (slurp (:body (query-response
@@ -1213,7 +1208,7 @@
                                                              [["ASC" "ASC"]   [0 1 2]]]]
           (testing (format "environment %s certname %s" env-order certname-order)
             (let [params {:order_by
-                          (order-param method [{"field" "environment" "order" env-order}
+                          (vector-param method [{"field" "environment" "order" env-order}
                                                  {"field" "certname" "order" certname-order}])}
                   actual (json/parse-string (slurp (:body (query-response
                                                            method endpoint nil params))))]
@@ -1224,7 +1219,7 @@
                                                             [["ASC" "ASC"]   [1 0 2]]]]
           (testing (format "producer_timestamp %s certname %s" pt-order certname-order)
             (let [params {:order_by
-                          (order-param method [{"field" "producer_timestamp" "order" pt-order}
+                          (vector-param method [{"field" "producer_timestamp" "order" pt-order}
                                                  {"field" "certname" "order" certname-order}])}
                   actual (json/parse-string (slurp (:body (query-response
                                                            method endpoint nil params))))]
@@ -1240,7 +1235,7 @@
                                                    [2 [0]]
                                                    [3 [ ]]]]]]
         (doseq [[offset expected-order] expected-sequences]
-          (let [params {:order_by (order-param method [{"field" "certname" "order" order}]) :offset offset}
+          (let [params {:order_by (vector-param method [{"field" "certname" "order" order}]) :offset offset}
                 actual (json/parse-string (slurp (:body (query-response
                                                          method endpoint nil params))))]
             (is (= (munge-factsets-response actual) (map #(nth (factset-results version) %) expected-order)))))))))
@@ -1625,7 +1620,7 @@
       (is (not (contains? (into [] (map #(get % "certname") responses)) "foo4")))))
 
   (testing "fact nodes queries should return appropriate results"
-    (let [response (fact-content-response method endpoint {:order_by (order-param method [{:field "path"} {:field "certname"}])})]
+    (let [response (fact-content-response method endpoint {:order_by (vector-param method [{:field "path"} {:field "certname"}])})]
       (is (= (into {} (first (response ["=" "certname" "foo1"])))
              {"certname" "foo1", "name" "domain" "path" ["domain"], "value" "testing.com", "environment" "DEV"}))
       (is (= (into [] (response ["=" "environment" "DEV"]))

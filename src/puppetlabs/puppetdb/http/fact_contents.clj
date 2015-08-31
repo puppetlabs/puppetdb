@@ -2,8 +2,7 @@
   (:require [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.query.paging :as paging]
             [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
+            [puppetlabs.puppetdb.middleware :refer [validate-query-params
                                                     wrap-with-paging-options]]))
 
 (defn routes
@@ -15,6 +14,5 @@
 (defn fact-contents-app
   [version]
   (-> (routes version)
-      (validate-query-params
-        {:optional (cons "query" paging/query-params)})
+      (validate-query-params {:optional (cons "query" paging/query-params)})
       wrap-with-paging-options))

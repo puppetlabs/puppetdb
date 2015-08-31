@@ -9,15 +9,13 @@
             [clj-time.core :refer [ago now seconds]]
             [clojure.set :as clj-set]
             [clj-time.coerce :refer [to-string to-long to-timestamp]]
-            [puppetlabs.puppetdb.testutils :refer [response-equal?
-                                                   assert-success!
-                                                   get-request
+            [puppetlabs.puppetdb.testutils :refer [get-request
                                                    paged-results
                                                    deftestseq]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            enumerated-resource-events-map]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
-                                                        order-param
+                                                        vector-param
                                                         query-result]]
             [clojure.walk :refer [stringify-keys]]
             [clojure.test :refer :all]
@@ -30,18 +28,6 @@
 (def content-type-json http/json-response-content-type)
 
 (use-fixtures :each with-test-db with-http-app)
-
-(defn get-response
-  ([endpoint query]
-   (get-response endpoint query {}))
-  ([endpoint query extra-query-params]
-   (let [resp (*app* (get-request endpoint query extra-query-params))]
-     (update-in resp
-                [:body]
-                (fn [body]
-                  (if (string? body)
-                    body
-                    (slurp body)))))))
 
 (defn parse-result
   "Stringify (if needed) then parse the response"
@@ -142,8 +128,8 @@
                [["or"
                  ["=" "status" "skipped"]
                  ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [0 2]]]]
-        (let [response  (query-result method endpoint query {} munge-event-values)
-              expected  (http-expected-resource-events
+        (let [response (query-result method endpoint query {} munge-event-values)
+              expected (http-expected-resource-events
                          version
                          (kitchensink/select-values basic-events-map matches)
                          basic)]
@@ -204,19 +190,18 @@
 
     (testing "order_by field names"
       (testing "should accept underscores"
-        (let [expected  (http-expected-resource-events version basic-events basic)
-              {:keys [status body]}  (query-response method endpoint [">" "timestamp" 0]
-                                                     {:order_by
-                                                      (order-param method
-                                                                   [{:field "resource_title"}])})]
+        (let [expected (http-expected-resource-events version basic-events basic)
+              {:keys [status body]} (query-response
+                                      method endpoint [">" "timestamp" 0]
+                                      {:order_by (vector-param method [{:field "resource_title"}])})]
           (is (= status http/status-ok))
           (is (= (set (munge-event-values (json/parse-string (slurp body) true))) expected))))
 
       (testing "should reject dashes"
-        (let [response  (query-response method endpoint [">" "timestamp" 0]
-                                        {:order_by (order-param method
+        (let [response (query-response method endpoint [">" "timestamp" 0]
+                                        {:order_by (vector-param method
                                                                 [{:field "resource-title"}])})
-              body      (get response :body "null")]
+              body (get response :body "null")]
           (is (= (:status response) http/status-bad-request))
           (is (re-find #"Unrecognized column 'resource-title' specified in :order_by" body)))))))
 
@@ -231,9 +216,9 @@
         basic3-events     (get-in reports [:basic3 :resource_events])]
 
     (testing "should return an error if the caller passes :distinct_resources without timestamps"
-      (let [response  (query-response method endpoint ["=" "certname" "foo.local"]
+      (let [response (query-response method endpoint ["=" "certname" "foo.local"]
                                       {:distinct_resources true})
-            body      (get response :body "null")]
+            body (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"

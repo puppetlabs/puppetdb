@@ -14,13 +14,11 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.testutils :refer [response-equal?
-                                                   assert-success!
+            [puppetlabs.puppetdb.testutils :refer [assert-success!
                                                    get-request
                                                    paged-results
                                                    deftestseq]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
-                                                        order-param
                                                         query-result]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            munge-resource-events]]))
@@ -28,17 +26,6 @@
 (def endpoints [[:v4 "/v4/reports"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
-
-;; RETRIEVAL
-
-(defn get-response
-  ([endpoint]
-   (get-response endpoint nil))
-  ([endpoint query]
-   (let [resp (fixt/*app* (get-request endpoint query))]
-     (if (string? (:body resp))
-       resp
-       (update-in resp [:body] slurp)))))
 
 ;; TRANSFORMATIONS
 

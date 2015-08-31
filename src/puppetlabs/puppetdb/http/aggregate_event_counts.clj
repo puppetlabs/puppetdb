@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.http.aggregate-event-counts
   (:require [puppetlabs.puppetdb.http.query :as http-q]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params]]
+            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
+                                                    validate-query-params]]
             [net.cgrand.moustache :refer [app]]))
 
 (defn routes

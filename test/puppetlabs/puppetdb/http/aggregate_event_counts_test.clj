@@ -7,8 +7,9 @@
             [clj-time.core :refer [now]]
             [clj-time.coerce :as coerce]
             [puppetlabs.puppetdb.testutils :refer [assert-success! deftestseq]]
-            [puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response query-result order-param]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response
+                                                        query-result
+                                                        vector-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]))
 
 (def endpoints [[:v4 "/v4/aggregate-event-counts"]])
@@ -37,36 +38,35 @@
       (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'" body))))
 
   (testing "summarize_by accepts multiple parameters"
-    (let [expected [{:successes 1
-                     :failures 0
-                     :noops 0
-                     :skips 1
-                     :total 1
-                     :summarize_by "certname"}
-                    {:successes 2
-                     :skips 1
-                     :failures 0
-                     :noops 0
-                     :total 3
-                     :summarize_by "resource"}]
+    (let [expected #{{:successes 1
+                      :failures 0
+                      :noops 0
+                      :skips 1
+                      :total 1
+                      :summarize_by "certname"}
+                     {:successes 2
+                      :skips 1
+                      :failures 0
+                      :noops 0
+                      :total 3
+                      :summarize_by "resource"}}
           result (query-result method endpoint
                                ["=" "certname" "foo.local"]
                                {:summarize_by "certname,resource"})]
-      (is (= (sort-by :summarize_by result)
-             (sort-by :summarize_by expected)))))
+      (is (= result expected))))
 
   (testing "nontrivial query using all the optional parameters"
-    (let [expected  {:successes 0
-                     :failures 0
-                     :noops 0
-                     :skips 1
-                     :total 1
-                     :summarize_by "containing_class"}
-          response  (query-result method endpoint
-                                  ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
-                                  {:summarize_by "containing_class"
-                                   :count_by      "certname"
-                                   :counts_filter ["<" "successes" 1]})]
+    (let [expected {:successes 0
+                    :failures 0
+                    :noops 0
+                    :skips 1
+                    :total 1
+                    :summarize_by "containing_class"}
+          response (query-result method endpoint
+                                 ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
+                                 {:summarize_by "containing_class"
+                                  :count_by      "certname"
+                                  :counts_filter (vector-param method ["<" "successes" 1])})]
       (is (= (first response) expected)))))
 
 (deftestseq ^{:hsqldb false} query-distinct-event-counts
@@ -75,12 +75,12 @@
 
   (let [current-time (now)
         current-time-str (coerce/to-string current-time)
-        expected  #{{:successes 1
-                     :skips 1
-                     :failures 1
-                     :noops 0
-                     :total 3
-                     :summarize_by "resource"}}]
+        expected #{{:successes 1
+                    :skips 1
+                    :failures 1
+                    :noops 0
+                    :total 3
+                    :summarize_by "resource"}}]
     (store-example-report! (:basic reports) current-time)
     (store-example-report! (:basic3 reports) current-time)
     (are [query] (= expected

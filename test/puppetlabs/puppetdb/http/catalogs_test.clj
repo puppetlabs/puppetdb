@@ -8,7 +8,7 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq strip-hash]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response order-param]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response vector-param]]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]))
 
 (def endpoints [[:v4 "/v4/catalogs"]])
@@ -16,18 +16,6 @@
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
 (def c-t "application/json")
-
-;; RETRIEVAL
-
-(defn get-response
-  ([endpoint]
-     (get-response endpoint nil))
-  ([endpoint node]
-     (fixt/*app* (get-request (str endpoint "/" node))))
-  ([endpoint node query]
-   (fixt/*app* (get-request (str endpoint "/" node) query)))
-  ([endpoint node query params]
-   (fixt/*app* (get-request (str endpoint "/" node) query params))))
 
 ;; TEST DATA
 
@@ -141,8 +129,9 @@
   (testing "paging options"
     (doseq [p (keys paging-options)]
       (testing (format "checking ordering %s" p)
-      (let [{:keys [status body] :as response} (query-response method endpoint nil {:order_by
-                                                                                    (order-param method p)})
+        (let [{:keys [status body]} (query-response
+                                      method endpoint nil
+                                      {:order_by (vector-param method p)})
             response-body (strip-hash (json/parse-stream (reader body) true))
             expected (get paging-options p)]
         (is (= (map :certname expected) (map :certname response-body)))))))

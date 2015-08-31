@@ -81,3 +81,14 @@ If you do this with an endpoint that accepts `GET` requests, **you must also use
 
     curl -G http://localhost:8080/pdb/query/v4/nodes \
       --data-urlencode 'query=["=", ["node", "active"], true]'
+
+## Querying PuppetDB with POST
+
+PuppetDB supports querying by POST, which is useful for particularly large
+queries (exact limits depend on the client and webserver used.)
+
+POST queries use the following syntax:
+
+    curl -X POST http://localhost:8080/pdb/query/v4/nodes \
+    -H 'Content-Type:application/json' \
+    -d '{"query":["~","certname",".*.com"],"order_by":[{"field":"certname"}],"limit":1}'

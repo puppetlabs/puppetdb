@@ -59,7 +59,7 @@
                  ;; repeat all params as many times as there are summarize_by's
                  (flatten (repeat nsummarized common-params)))
         unioned-sql (cond-> (str/join " UNION ALL " (map first aggregated-sql-and-params))
-                      distinct_resources  events/with-latest-events)]
+                      distinct_resources events/with-latest-events)]
     {:results-query (apply vector unioned-sql params)}))
 
 (defn- perform-query

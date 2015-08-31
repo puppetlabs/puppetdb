@@ -1,18 +1,13 @@
 (ns puppetlabs.puppetdb.http.fact-names
-  (:require [puppetlabs.puppetdb.query.facts :as f]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
-            [puppetlabs.puppetdb.query.paging :as paging]
+  (:require [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.http.query :as http-q]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
-            [puppetlabs.puppetdb.utils :refer [assoc-when]]
             [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body']]
+            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
                                                     validate-query-params
-                                                    wrap-with-paging-options]]
-            [puppetlabs.puppetdb.http :refer [query-result-response]]))
+                                                    wrap-with-paging-options]]))
 
 (defn query-route
   "Returns a route for querying PuppetDB that supports the standard
@@ -27,7 +22,7 @@
              (let [puppetdb-query (if (nil? (:order_by puppetdb-query))
                                     (assoc puppetdb-query :order_by [[:name :ascending]])
                                     puppetdb-query)]
-               (produce-streaming-body'
+               (produce-streaming-body
                  entity
                  version
                  (http-q/validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))

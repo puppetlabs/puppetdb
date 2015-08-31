@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.http.event-counts
   (:require [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.http.query :as http-q]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
+            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
+                                                    validate-query-params
                                                     wrap-with-paging-options]]
             [net.cgrand.moustache :refer [app]]))
 

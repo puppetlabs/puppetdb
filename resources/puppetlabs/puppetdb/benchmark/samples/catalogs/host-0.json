@@ -7942,6 +7942,6 @@
   "transaction_uuid" : "12a45144-d01a-4f6a-854d-51bff759ce84",
   "certname" : "host-0",
   "hash" : "d3299d0dfa96afc41ae74c430ab1f42df75ebd07",
-  "environment" : "deb",
+  "environment" : "production",
   "version" : "1425333104"
 }

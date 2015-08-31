@@ -1,9 +1,7 @@
 (ns puppetlabs.puppetdb.http.catalogs
-  (:require [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.catalogs :as catalogs]
+  (:require [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.query-eng :as eng :refer [produce-streaming-body]]
-            [puppetlabs.puppetdb.middleware :as middleware]
+            [puppetlabs.puppetdb.query-eng :as eng]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.http.edges :as edges]
             [puppetlabs.puppetdb.http.resources :as resources]
@@ -11,7 +9,6 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
                                                     wrap-with-paging-options wrap-with-parent-check]]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [net.cgrand.moustache :refer [app]]))
 
 (defn catalog-status

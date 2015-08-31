@@ -7,7 +7,8 @@
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils :refer [paged-results deftestseq
                                                    parse-result]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response order-param]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response
+                                                        vector-param]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]))
 
 (def fact-name-endpoints [[:v4 "/v4/fact-names"]])
@@ -73,7 +74,7 @@
                 including deactivated nodes"
         (let [{:keys [status body]} (query-response
                                       method endpoint nil
-                                      {:order_by (order-param
+                                      {:order_by (vector-param
                                                    method
                                                    [{:field "name" :order "desc"}])})
               result (vec (parse-result body))]
@@ -83,7 +84,7 @@
       (testing "order by rejects invalid fields"
         (let [{:keys [status body]} (query-response
                                       method endpoint nil
-                                      {:order_by (order-param
+                                      {:order_by (vector-param
                                                    method [{:field "invalid"
                                                             :order "desc"}])})
               result (parse-result body)]
@@ -163,7 +164,7 @@
       (let [{:keys [status body]} (query-response
                                     method
                                     endpoint nil
-                                    {:order_by (order-param
+                                    {:order_by (vector-param
                                                  method
                                                  [{:field "path" :order "asc"}])})
             result (parse-result body)]
@@ -175,7 +176,7 @@
                                     method
                                     endpoint
                                     ["~" "path" "my"]
-                                    {:order_by (order-param
+                                    {:order_by (vector-param
                                                  method
                                                  [{:field "path"}])})
             result (parse-result body)]
@@ -187,7 +188,7 @@
     (testing "paging for fact-paths"
       (let [{:keys [status body]} (query-response
                                     method endpoint nil
-                                    {:order_by (order-param
+                                    {:order_by (vector-param
                                                  method
                                                  [{:field "path" :order "desc"}])
                                      :offset 2})
