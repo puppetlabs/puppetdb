@@ -2,6 +2,7 @@
   (:require [puppetlabs.puppetdb.query-eng :as eng]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.facts :as f]
+            [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.http.resources :as r]
             [puppetlabs.puppetdb.http.events :as ev]

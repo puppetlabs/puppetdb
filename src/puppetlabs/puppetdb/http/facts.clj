@@ -3,7 +3,6 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
-                                                    validate-query-params
                                                     wrap-with-paging-options]]))
 
 (defn routes
@@ -32,6 +31,4 @@
    (facts-app version true))
   ([version restrict-to-active-nodes & optional-handlers]
    (-> (routes version restrict-to-active-nodes optional-handlers)
-       (validate-query-params
-         {:optional (cons "query" paging/query-params)})
        wrap-with-paging-options)))

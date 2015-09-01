@@ -7,8 +7,9 @@
             [puppetlabs.puppetdb.http.resources :as resources]
             [schema.core :as s]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
-                                                    wrap-with-paging-options wrap-with-parent-check]]
+            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
+                                                    wrap-with-paging-options
+                                                    wrap-with-parent-check]]
             [net.cgrand.moustache :refer [app]]))
 
 (defn catalog-status
@@ -28,7 +29,8 @@
 (defn routes
   [version optional-handlers]
   (let [handlers (or optional-handlers [identity])
-        query-route #(apply (partial http-q/query-route :catalogs version) %)]
+        param-spec {:optional (cons "query" paging/query-params)}
+        query-route #(apply (partial http-q/query-route :catalogs version param-spec) %)]
   (app
     []
     (query-route handlers)
@@ -50,6 +52,4 @@
   [version & optional-handlers]
   (-> (routes version optional-handlers)
       verify-accepts-json
-      (validate-query-params
-        {:optional (cons "query" paging/query-params)})
       wrap-with-paging-options))

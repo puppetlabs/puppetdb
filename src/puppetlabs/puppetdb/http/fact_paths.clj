@@ -8,13 +8,13 @@
 
 (defn routes
   [version]
-  (app
-    []
-    (http-q/query-route :fact-paths version identity)))
+  (let [param-spec {:optional (cons "query" paging/query-params)}]
+    (app
+      []
+      (http-q/query-route :fact-paths version param-spec))))
 
 (defn fact-paths-app
   [version]
   (-> (routes version)
       verify-accepts-json
-      (validate-query-params {:optional (cons "query" paging/query-params)})
       wrap-with-paging-options))

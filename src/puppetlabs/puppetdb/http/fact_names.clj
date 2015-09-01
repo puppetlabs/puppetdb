@@ -14,9 +14,9 @@
    paging parameters. Also accepts GETs and POSTs. Composes
    `optional-handlers` with the middleware function that executes the
    query."
-  [entity version & optional-handlers]
+  [entity version param-spec & optional-handlers]
   (app
-    http-q/extract-query
+    (http-q/extract-query param-spec)
     (apply comp
            (fn [{:keys [params globals puppetdb-query]}]
              (let [puppetdb-query (if (nil? (:order_by puppetdb-query))
@@ -32,13 +32,13 @@
 
 (defn routes
   [version]
-  (app
-    []
-    (query-route :fact-names version identity)))
+  (let [param-spec {:optional (cons "query" paging/query-params)}]
+    (app
+      []
+      (query-route :fact-names version param-spec identity))))
 
 (defn fact-names-app
   [version]
   (-> (routes version)
       verify-accepts-json
-      (validate-query-params {:optional (cons "query" paging/query-params)})
       wrap-with-paging-options))

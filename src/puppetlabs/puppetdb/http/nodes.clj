@@ -27,32 +27,31 @@
 
 (defn routes
   [version]
-  (app
-    []
-    (http-q/query-route :nodes version http-q/restrict-query-to-active-nodes')
+  (let [param-spec {:optional (cons "query" paging/query-params)}]
+    (app
+      []
+      (http-q/query-route :nodes version param-spec http-q/restrict-query-to-active-nodes')
 
-    [node]
-    (-> (fn [{:keys [globals]}]
-          (node-status version
-                       node
-                       (:scf-read-db globals)
-                       (:url-prefix globals)))
-        ;; Being a singular item, querying and pagination don't really make
-        ;; sense here
-        (validate-query-params {}))
+      [node]
+      (-> (fn [{:keys [globals]}]
+            (node-status version
+                         node
+                         (:scf-read-db globals)
+                         (:url-prefix globals)))
+          ;; Being a singular item, querying and pagination don't really make
+          ;; sense here
+          (validate-query-params {}))
 
-    [node "facts" &]
-    (-> (f/facts-app version true (partial http-q/restrict-query-to-node node))
-        (wrap-with-parent-check version :node node))
+      [node "facts" &]
+      (-> (f/facts-app version true (partial http-q/restrict-query-to-node node))
+          (wrap-with-parent-check version :node node))
 
-    [node "resources" &]
-    (-> (r/resources-app version true (partial http-q/restrict-query-to-node node))
-        (wrap-with-parent-check version :node node))))
+      [node "resources" &]
+      (-> (r/resources-app version true (partial http-q/restrict-query-to-node node))
+          (wrap-with-parent-check version :node node)))))
 
 (defn node-app
   [version]
   (-> (routes version)
     verify-accepts-json
-    (validate-query-params
-     {:optional (cons "query" paging/query-params)})
     wrap-with-paging-options))

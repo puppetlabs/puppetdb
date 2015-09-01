@@ -4,9 +4,10 @@
    Functions that aid in the parsing, serialization, and manipulation
    of PuppetDB queries embedded in HTTP parameters."
   (:require [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.walk :refer [keywordize-keys]]
+            [clojure.walk :refer [keywordize-keys stringify-keys]]
             [clojure.core.match :as cm]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
+            [clojure.set :as set]
             [puppetlabs.kitchensink.core :as kitchensink]
             [net.cgrand.moustache :refer [app]]
             [schema.core :as s]
@@ -15,7 +16,7 @@
             [puppetlabs.puppetdb.query.paging :refer [parse-limit' parse-offset' parse-order-by']]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.utils :refer [update-when]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -181,27 +182,47 @@
     b
     (Boolean/parseBoolean b)))
 
+(defn validate-query-params
+  "Given a set of params and a param spec, throw and error if required params
+   are missing or unsupported params are present, otherwise return the params."
+  [params param-spec]
+  (let [params (stringify-keys params)]
+    (kitchensink/cond-let
+      [p]
+      (kitchensink/excludes-some params (:required param-spec))
+      (throw (IllegalArgumentException.
+               (str "Missing required query parameter '" p "'")))
+
+      (let [diff (set/difference (kitchensink/keyset params)
+                                 (set (:required param-spec))
+                                 (set (:optional param-spec)))]
+        (seq diff))
+      (throw (IllegalArgumentException.
+               (str "Unsupported query parameter '" (first p) "'")))
+
+      :else
+      params)))
+
 (pls/defn-validated convert-query-params :- puppetdb-query-schema
   "This will update a query map to contain the parsed and validated query parameters"
-  [full-query]
-  (-> full-query
-      (update :order_by parse-order-by')
-      (update :limit parse-limit')
-      (update :offset parse-offset')
-      (utils/update-when [:include_total] coerce-to-boolean)))
+  [full-query param-spec]
+  (-> (or full-query {})
+      (validate-query-params param-spec)
+      keywordize-keys
+      (update-when [:order_by] parse-order-by')
+      (update-when [:limit] parse-limit')
+      (update-when [:offset] parse-offset')
+      (update-when [:include_total] coerce-to-boolean)
+      (update-when [:distinct_resources] coerce-to-boolean)))
 
 (defn get-req->query
   "Converts parameters of a GET request to a pdb query map"
   [{:keys [params] :as req}]
-  (conj {:query (json/parse-strict-string (get params "query") true)
-         :order_by (json/parse-strict-string (get params "order_by") true)
-         :counts_filter (get params "counts_filter")
-         :limit (get params "limit")
-         :offset (get params "offset")
-         :summarize_by (get params "summarize_by")}
-        (let [include-total? (get params "include_total" ::not-found)]
-          (when (not= include-total? ::not-found)
-            [:include_total include-total?]))))
+  (-> params
+      (update-when ["query"] json/parse-strict-string true)
+      (update-when ["order_by"] json/parse-strict-string true)
+      (update-when ["counts_filter"] json/parse-strict-string true)
+      keywordize-keys))
 
 (defn post-req->query
   "Takes a POST body and parses the JSON to create a pdb query map"
@@ -213,35 +234,35 @@
   "Takes a ring request map and extracts the puppetdb query from the
   request. GET and POST are accepted, all other requests throw an
   exception"
-  [req]
+  [req param-spec]
   (convert-query-params
    (case (:request-method req)
      :get (get-req->query req)
      :post (post-req->query req)
-     (throw (IllegalArgumentException. "PuppetDB queries must be made via GET/POST")))))
+     (throw (IllegalArgumentException. "PuppetDB queries must be made via GET/POST")))
+    param-spec))
 
 (defn extract-query
   "Query handler that converts the incoming request (GET or POST)
   parameters/body to a pdb query map"
-  [handler]
+  [handler param-spec]
   (fn [{:keys [request-method body params puppetdb-query] :as req}]
-    (handler (assoc req :puppetdb-query (create-query-map req)))))
+    (handler (assoc req :puppetdb-query (create-query-map req param-spec)))))
 
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a
   map containing the validated `distinct_resources` options, parsed to the correct
   data types.  Throws `IllegalArgumentException` if any arguments are missing
   or invalid."
-  [params]
-  (let [distinct-params-names #{"distinct_resources" "distinct_start_time" "distinct_end_time"}
-        {:keys [distinct_start_time distinct_end_time] :as distinct-params}
-        (select-keys params distinct-params-names)]
-    (println "PARAMS ARE" params)
-    (condp = (kitchensink/keyset distinct-params)
+  [{:keys [distinct_start_time distinct_end_time distinct_resources] :as params}]
+  (let [distinct-params #{:distinct_resources :distinct_start_time
+                          :distinct_end_time}
+        params-present (filter distinct-params (kitchensink/keyset params))]
+    (condp = (set params-present)
      #{}
       params
 
-     distinct-param-names
+     distinct-params
      (let [start (to-timestamp distinct_start_time)
            end   (to-timestamp distinct_end_time)]
        (when (some nil? [start end])
