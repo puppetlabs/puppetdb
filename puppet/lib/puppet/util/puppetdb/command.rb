@@ -42,7 +42,7 @@ class Puppet::Util::Puppetdb::Command
       #
       # This is roughly inline with how Puppet serializes for catalogs as of
       # Puppet 4.1.0. We need a better answer to non-utf8 data end-to-end.
-      }.to_pson)
+      }.to_pson, "Error encoding a '#{command}' command for host '#{certname}'")
     end
   end
 
