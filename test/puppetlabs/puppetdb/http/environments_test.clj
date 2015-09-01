@@ -5,30 +5,23 @@
             [puppetlabs.puppetdb.scf.storage :as storage]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response
+                                                        query-result
+                                                        order-param]]
             [puppetlabs.puppetdb.testutils.nodes :as tu-nodes]))
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
 (def endpoints [[:v4 "/v4/environments"]])
 
-;; RETRIEVAL
-
-(defn get-response
-  ([endpoint]
-   (get-response endpoint nil))
-  ([endpoint query]
-   (let [resp (fixt/*app* (get-request endpoint query))]
-     (if (string? (:body resp))
-       resp
-       (update-in resp [:body] slurp)))))
-
 ;; TESTS
 
 (deftestseq test-all-environments
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
 
   (testing "without environments"
-    (is (empty? (json/parse-string (:body (get-response endpoint))))))
+    (is (empty? (query-result method endpoint))))
 
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
@@ -39,24 +32,27 @@
        (is (= #{{:name "foo"}
                 {:name "bar"}
                 {:name "baz"}}
-              (set (json/parse-string (:body (get-response endpoint))
-                                      true))))))
+              (query-result method endpoint)))))
+
     (fixt/without-db-var
      (fn []
-       (let [res (get-response endpoint)]
+       (let [res (query-response method endpoint)]
          (is (= #{{:name "foo"}
                   {:name "bar"}
                   {:name "baz"}}
-                (set @(future (json/parse-string (:body res)
-                                                 true))))))))))
+                (set @(future (-> (query-response method endpoint)
+                                  :body
+                                  slurp
+                                  (json/parse-string true)))))))))))
 
 (deftestseq test-query-environment
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
 
   (testing "without environments"
     (fixt/without-db-var
      (fn []
-       (is (= 404 (:status (get-response (str endpoint "/foo"))))))))
+       (is (= 404 (:status (query-response method (str endpoint "/foo"))))))))
 
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
@@ -64,18 +60,22 @@
     (fixt/without-db-var
      (fn []
        (is (= {:name "foo"}
-              (json/parse-string (:body (get-response (str endpoint "/foo")))
-                                 true)))))))
+              (-> (query-response method (str endpoint "/foo"))
+                  :body
+                  (json/parse-string true))))))))
 
 (deftestseq environment-subqueries
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
 
   (let [{:keys [web1 web2 db puppet]} (tu-nodes/store-example-nodes)]
     (doseq [env ["foo" "bar" "baz"]]
       (storage/ensure-environment env))
 
     (are [query expected] (= expected
-                             (-> (:body (get-response endpoint query))
+                             (-> (query-response method endpoint query)
+                                 :body
+                                 slurp
                                  (json/parse-string true)))
 
          ["in" "name"
@@ -115,8 +115,9 @@
                           [:v4 "/v4/environments/foo/resources"]])
 
 (deftestseq unknown-parent-handling
-  [[version endpoint] no-parent-endpoints]
+  [[version endpoint] no-parent-endpoints
+   method [:get :post]]
 
-  (let [{:keys [status body]} (get-response endpoint)]
+  (let [{:keys [status body]} (query-response method endpoint)]
     (is (= status http/status-not-found))
     (is (= {:error "No information is known about environment foo"} (json/parse-string body true)))))
