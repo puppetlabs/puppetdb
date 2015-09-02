@@ -19,6 +19,7 @@
                                                    paged-results
                                                    paged-results*
                                                    deftestseq
+                                                   create-hsqldb-map
                                                    parse-result]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
@@ -590,8 +591,8 @@
 (deftestseq ^{:postgres false} two-database-fact-query-config
   [[version endpoint] facts-endpoints]
 
-  (let [read-db-config (create-db-map)
-        write-db-config (create-db-map)
+  (let [read-db-config (create-hsqldb-map)
+        write-db-config (create-hsqldb-map)
         config (-> (svc-utils/create-config)
                    (assoc :read-database read-db-config)
                    (assoc :database write-db-config))

@@ -12,6 +12,7 @@
             [ring.mock.request :as mock]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset mapvals]]
+            [environ.core :refer [env]]
             [clojure.test :refer :all]
             [clojure.set :refer [difference]]))
 
@@ -23,45 +24,30 @@
          :prefix "/pdb/cmd"
          :version :v1))
 
-(defn test-db-config
-  "This is a placeholder function; it is supposed to return a map containing
-  the database configuration settings to use during testing.  We expect for
-  it to be overridden by another definition from the test config file, so
-  this implementation simply throws an exception that would indicate that our
-  config file was invalid or not read properly."
+(defn create-hsqldb-map
+  "Returns a database connection map with a reference to a new in memory HyperSQL database"
   []
-  (throw (IllegalStateException.
-          (str "No test database configuration found!  Please make sure that "
-               "your test config file defines a no-arg function named "
-               "'test-db-config'."))))
+  {:classname "org.hsqldb.jdbcDriver"
+   :subprotocol "hsqldb"
+   :subname (str "mem:"
+                 (java.util.UUID/randomUUID)
+                 ";hsqldb.tx=mvcc;sql.syntax_pgs=true")})
 
-(defn load-test-config
-  "Loads the test configuration file from the classpath.  First looks for
-  `config/local.clj`, and if that is not found, falls back to
-  `config/default.clj`.
+(def postgres-map
+  {:classname "org.postgresql.Driver"
+   :subprotocol "postgresql"
+   :subname (env :puppetdb-dbsubname "//127.0.0.1:5432/puppetdb_test")
+   :user (env :puppetdb-dbuser "puppetdb")
+   :password (env :puppetdb-dbpassword "puppetdb")})
+(def hsqldb-map (create-hsqldb-map))
 
-  Returns a map containing the test configuration.  Current keys include:
-
-    :testdb-config-fn : a no-arg function that returns a hash of database
-        settings, suitable for passing to the various `clojure.java.jdbc`
-        functions."
-  []
-  (binding [*ns* (create-ns 'puppetlabs.puppetdb.testutils)]
-    (try
-      (load "/config/local")
-      (catch java.io.FileNotFoundException ex
-        (load "/config/default")))
-    {:testdb-config-fn test-db-config}))
-
-;; Memoize the loading of the test config file so that we don't have to
-;; keep going back to disk for it.
-(def test-config
-  (memoize load-test-config))
+(def testing-db-type (env :puppetdb-dbtype "postgres"))
 
 (defn test-db
-  "Return a map of connection attrs for the test database"
   []
-  ((:testdb-config-fn (test-config))))
+  (if (= testing-db-type "postgres")
+    postgres-map
+    hsqldb-map))
 
 (defn drop-table!
   "Drops a table from the database.  Expects to be called from within a db binding.
@@ -87,6 +73,12 @@
     (drop-table! table-name))
   (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
     (drop-sequence! sequence-name)))
+
+(defn clean-db-map
+  ([] (clean-db-map (test-db)))
+  ([db-config]
+   (sql/with-connection db-config (clear-db-for-testing!))
+   db-config))
 
 (defmacro without-jmx
   "Disable ActiveMQ's usage of JMX. If you start two AMQ brokers in

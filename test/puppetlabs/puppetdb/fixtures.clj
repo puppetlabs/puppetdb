@@ -12,7 +12,7 @@
             [clojure.tools.macro :as tmacro]
             [clojure.test :refer [join-fixtures use-fixtures]]
             [puppetlabs.puppetdb.testutils
-             :refer [clear-db-for-testing! test-db with-test-broker without-jmx]]
+             :refer [clean-db-map with-test-broker without-jmx]]
             [puppetlabs.trapperkeeper.logging :refer [reset-logging]]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
             [puppetlabs.puppetdb.middleware :as mid]))
@@ -23,18 +23,13 @@
 (def ^:dynamic *command-app* nil)
 
 (defn init-db [db read-only?]
-  (binding [*db* db]
-    (do
-      (sql/with-connection *db*
-        (sql/transaction
-         (clear-db-for-testing!)
-         (migrate! *db*)))
-      (pjdbc/pooled-datasource (assoc db :read-only? read-only?)))))
+  (sql/with-connection db (migrate! db))
+  (pjdbc/pooled-datasource (assoc db :read-only? read-only?)))
 
 (defn with-db-metadata
   "A fixture to collect DB type and version information before a test."
   [f]
-  (binding [*db* (test-db)]
+  (binding [*db* (clean-db-map)]
     (sql/with-connection *db*
       (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
         (f)))))
@@ -42,10 +37,9 @@
 (defn with-test-db
   "A fixture to start and migrate a test db before running tests."
   [f]
-  (binding [*db* (test-db)]
+  (binding [*db* (clean-db-map)]
     (sql/with-connection *db*
       (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
-        (clear-db-for-testing!)
         (migrate! *db*)
         (f)))))
 
@@ -116,15 +110,6 @@
    read database format"
   [db-config]
   (pls/transform-data cfg/database-config-in cfg/database-config-out db-config))
-
-(defn create-db-map
-  "Returns a database connection map with a reference to a new in memory HyperSQL database"
-  []
-  {:classname   "org.hsqldb.jdbcDriver"
-   :subprotocol "hsqldb"
-   :subname     (str "mem:"
-                     (java.util.UUID/randomUUID)
-                     ";hsqldb.tx=mvcc;sql.syntax_pgs=true")})
 
 (defn with-test-logging-silenced
   "A fixture to temporarily redirect all logging output to an atom, rather than

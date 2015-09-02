@@ -40,7 +40,7 @@
       :or {config "config.sample.ini"}}]
   (launch-puppetdb :config-overrides (merge-with merge
                                                  {:global {:vardir (testutils/temp-dir)}
-                                                  :database (fixt/create-db-map)}
+                                                  :database (testutils/create-hsqldb-map)}
                                                  config-overrides)))
 
 #_(def mem-puppetdb
