@@ -90,12 +90,12 @@
     (catch com.fasterxml.jackson.core.JsonParseException e
       (log/errorf e (str "Error executing query '%s' for entity '%s' "
                          "with paging-options '%s'. Returning a 400 error code.")
-                  (name entity) query paging-options)
+                  query (name entity) paging-options)
       (http/error-response e))
     (catch IllegalArgumentException e
       (log/errorf e (str "Error executing query '%s' for entity '%s' "
                          "with paging-options '%s'. Returning a 400 error code.")
-                  (name entity) query paging-options)
+                  query (name entity) paging-options)
       (http/error-response e))
     (catch org.postgresql.util.PSQLException e
       (if (= (.getSQLState e) "2201B")
