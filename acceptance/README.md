@@ -76,7 +76,7 @@ in your hash; the environment variable names are the same but uppercased
 * `:puppetdb_install_type` (`PUPPETDB_INSTALL_TYPE`) : Can be one of `:git`,
   `:pe` or `:package`. This dictates how the software gets installed.
 
-* `:puppetdb_install_mode` (`PUPPETDB_INSTALL_MODE`) : This setting is only
+* `:install_mode` (`INSTALL_MODE`) : This setting is only
   relevant when our `install_type` is set to `:package` (meaning that we are
   running the tests against OS packages rather than against source code pulled
   from git).  Legal values are `:install` and `:upgrade`; if set to `:install`,
