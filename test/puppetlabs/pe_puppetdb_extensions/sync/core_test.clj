@@ -84,8 +84,8 @@
 (deftest two-instance-test
   (without-jmx
    (with-alt-mq "puppetlabs.puppetdb.commands-1"
-     (let [config-1 (utils/sync-config)
-           config-2 (utils/sync-config)]
+     (let [config-1 (utils/pdb1-sync-config)
+           config-2 (utils/pdb2-sync-config)]
        (with-log-suppressed-unless-notable notable-pdb-event?
         (with-puppetdb-instance config-1
           (let [report (tur/munge-example-report-for-storage (:basic reports))

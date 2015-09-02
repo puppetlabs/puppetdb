@@ -14,7 +14,7 @@
 
 (deftest query-state-overview
   (with-log-suppressed-unless-notable notable-pdb-event?
-    (with-puppetdb-instance (utils/sync-config)
+    (with-puppetdb-instance (utils/pdb1-sync-config)
       (let [report (get-munged-report :basic)
             report2 (-> (get-munged-report :basic2)
                         (merge {:certname "bar.local" :end_time (now)}))]
