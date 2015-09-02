@@ -56,4 +56,5 @@ group :acceptance do
     # use the pinned version
     gem 'beaker', '~> 3.4'
   end
+  gem 'beaker-hostgenerator', '0.8.2'
 end
