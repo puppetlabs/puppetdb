@@ -24,19 +24,8 @@ export BEAKER_PRESERVE_HOSTS=onfail
 export PUPPETDB_PACKAGE_REPO_HOST="puppetdb-prerelease.s3.amazonaws.com"
 export PUPPETDB_PACKAGE_REPO_URL="http://puppetdb-prerelease.s3.amazonaws.com/puppetdb/${PACKAGE_BUILD_VERSION}"
 export PUPPETDB_PACKAGE_BUILD_VERSION=$PACKAGE_BUILD_VERSION
+export BEAKER_CONFIG=$LAYOUT
 
-# Setup RVM and gemset
-[[ -s "/usr/local/rvm/scripts/rvm" ]] && source /usr/local/rvm/scripts/rvm
-rvm use ruby-2.0.0-p481
-
-# Remove old vendor directory to ensure we have a clean slate
-if [ -d "vendor" ];
-then
-  rm -rf vendor
-fi
-mkdir vendor
-
-bundle install --path=vendor/bundle --without=test --retry=10
-
+set -x
 # Now run our tests
 bundle exec rake beaker:acceptance
