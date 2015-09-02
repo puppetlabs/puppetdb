@@ -3,6 +3,7 @@
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as storage]
+            [puppetlabs.puppetdb.query-eng :as eng]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
@@ -63,7 +64,7 @@
                   :body
                   (json/parse-string true))))))))
 
-(deftestseq environment-subqueries
+(deftestseq environment-queries
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -72,10 +73,18 @@
       (storage/ensure-environment env))
 
     (are [query expected] (= expected
-                             (-> (query-response method endpoint query)
-                                 :body
-                                 slurp
-                                 (json/parse-string true)))
+                             (query-result method endpoint query))
+
+         ["=" "name" "foo"]
+         #{{:name "foo"}}
+
+         ["~" "name" "f.*"]
+         #{{:name "foo"}}
+
+         ["not" ["=" "name" "foo"]]
+         #{{:name "DEV"}
+           {:name "bar"}
+           {:name "baz"}}
 
          ["in" "name"
           ["extract" "environment"
@@ -83,7 +92,7 @@
             ["and"
              ["=" "name" "operatingsystem"]
              ["=" "value" "Debian"]]]]]
-         [{:name "DEV"}]
+         #{{:name "DEV"}}
 
          ["not"
           ["in" "name"
@@ -92,9 +101,9 @@
              ["and"
               ["=" "name" "operatingsystem"]
               ["=" "value" "Debian"]]]]]]
-         [{:name "foo"}
-          {:name "bar"}
-          {:name "baz"}]
+         #{{:name "foo"}
+           {:name "bar"}
+           {:name "baz"}}
 
          ["in" "name"
           ["extract" "environment"
@@ -106,7 +115,18 @@
                ["select_resources"
                 ["and"
                  ["=" "type" "Class"]]]]]]]]]
-         [{:name "DEV"}])))
+         #{{:name "DEV"}}))
+
+  (testing "failed comparison"
+    (are [query]
+         (let [{:keys [status body]} (query-response method endpoint query)]
+           (re-find
+             #"Query operators >,>=,<,<= are not allowed on field name" body))
+
+         ["<=" "name" "foo"]
+         [">=" "name" "foo"]
+         ["<" "name" "foo"]
+         [">" "name" "foo"])))
 
 (def no-parent-endpoints [[:v4 "/v4/environments/foo/events"]
                           [:v4 "/v4/environments/foo/facts"]
@@ -117,6 +137,15 @@
   [[version endpoint] no-parent-endpoints
    method [:get :post]]
 
+  (testing "environment-exists? function"
+    (doseq [env ["bobby" "dave" "charlie"]]
+      (storage/ensure-environment env))
+    (is (= true (eng/object-exists? :environment "bobby")))
+    (is (= true (eng/object-exists? :environment "dave")))
+    (is (= true (eng/object-exists? :environment "charlie")))
+    (is (= false (eng/object-exists? :environment "ussr"))))
+
   (let [{:keys [status body]} (query-response method endpoint)]
     (is (= status http/status-not-found))
-    (is (= {:error "No information is known about environment foo"} (json/parse-string body true)))))
+    (is (= {:error "No information is known about environment foo"}
+           (json/parse-string body true)))))
