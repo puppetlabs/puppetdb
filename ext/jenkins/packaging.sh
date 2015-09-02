@@ -28,20 +28,9 @@ pushd "target/staging"
 PACKAGE_BUILD_VERSION=$(rake pl:print_build_param[ref] | tail -n 1)
 
 cat > "${WORKSPACE}/puppetdb.packaging.props" <<PROPS
-PACKAGE_BUILD_VERSION=${PACKAGE_BUILD_VERSION}
+PUPPETDB_PACKAGE_BUILD_VERSION=${PACKAGE_BUILD_VERSION}
 PROPS
 popd
-
-echo "**********************************************"
-echo "NOW DO S3 MAGIC"
-echo "**********************************************"
-
-REPO_DIR=/opt/jenkins-builds/puppetdb/$PACKAGE_BUILD_VERSION/repos
-REPO_CONFIGS=/opt/jenkins-builds/puppetdb/$PACKAGE_BUILD_VERSION/repo_configs
-NAME=puppetdb
-BUCKET_NAME=${NAME}-prerelease
-
-S3_BRANCH_PATH=s3://${BUCKET_NAME}/${NAME}/${PACKAGE_BUILD_VERSION}
 
 set -x
 
@@ -49,21 +38,8 @@ set -x
 REPO_HOST=neptune.puppetlabs.lan
 export REPO_DIR REPO_HOST
 
-
 # Now rebuild the metadata
 ssh $REPO_HOST <<PUBLISH_PACKAGES
 
 set -e
 set -x
-
-echo "BUCKET_NAME IS: ${BUCKET_NAME}"
-
-time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_CONFIGS}/*  ${S3_BRANCH_PATH}/repo_configs/
-
-time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_DIR}/apt/{lucid,precise,squeeze,wheezy,stable,testing}  ${S3_BRANCH_PATH}/repos/apt/
-
-time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_DIR}/el/{5,6,7}  ${S3_BRANCH_PATH}/repos/el/
-
-time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_DIR}/fedora/f*  ${S3_BRANCH_PATH}/repos/fedora/
-
-PUBLISH_PACKAGES

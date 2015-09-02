@@ -60,6 +60,9 @@ group :acceptance do
     # use the pinned version
     gem 'beaker', '~>2.11'
   end
+  if ENV['GEM_SOURCE'] =~ /rubygems\.delivery\.puppetlabs\.net/
+    gem 'sqa-utils', '~> 0.11'
+  end
   # This forces google-api-client to not download retirable 2.0.0 which lacks
   # ruby 1.9.x support.
   gem 'retriable', '~> 1.4'

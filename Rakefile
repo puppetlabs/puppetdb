@@ -3,24 +3,25 @@ require 'rake'
 RAKE_ROOT = File.dirname(__FILE__)
 
 def run_beaker(test_files)
-  config = ENV["BEAKER_CONFIG"] || "ec2-west-dev"
-  options = ENV["BEAKER_OPTIONS"] || "postgres"
+  config = ENV["BEAKER_CONFIG"] || "acceptance/config/ec2-west-dev.cfg"
+  options = ENV["BEAKER_OPTIONS"] || "acceptance/options/postgres.rb"
   preserve_hosts = ENV["BEAKER_PRESERVE_HOSTS"] || "never"
   no_provision = ENV["BEAKER_NO_PROVISION"] == "true" ? true : false
   color = ENV["BEAKER_COLOR"] == "false" ? false : true
   xml = ENV["BEAKER_XML"] == "true" ? true : false
-  type = ENV["BEAKER_TYPE"] || "git"
+  type = ENV["BEAKER_TYPE"] || "aio"
   keyfile = ENV["BEAKER_KEYFILE"] || nil
 
   beaker = "bundle exec beaker " +
-     "-c '#{RAKE_ROOT}/acceptance/config/#{config}.cfg' " +
+     "-c '#{config}' " +
      "--type #{type} " +
      "--debug " +
      "--tests " + test_files + " " +
-     "--options-file 'acceptance/options/#{options}.rb' " +
+     "--options-file '#{options}' " +
      "--root-keys " +
      "--preserve-hosts #{preserve_hosts}"
 
+  beaker += " --keyfile #{keyfile}" if keyfile
   beaker += " --no-color" unless color
   beaker += " --xml" if xml
   beaker += " --no-provision" if no_provision
