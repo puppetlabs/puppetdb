@@ -1,8 +1,9 @@
 (ns puppetlabs.puppetdb.http.reports-test
   (:require [clj-time.coerce :refer [to-date-time to-string] :as tcoerce]
-            [clj-time.core :refer [now]]
+            [clj-time.core :refer [now ago days]]
             [clj-time.format :as tfmt]
             [clojure.string :as str]
+            [puppetlabs.puppetdb.query-eng :as qe]
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [flatland.ordered.map :as omap]
@@ -19,7 +20,9 @@
                                                    paged-results
                                                    deftestseq]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
-                                                        query-result]]
+                                                        query-result
+                                                        ordered-query-result
+                                                        vector-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            munge-resource-events]]))
 
@@ -35,6 +38,42 @@
   (if (sutils/postgres?)
     report
     (dissoc report :resource_events :metrics :logs)))
+
+(defn normalize-time
+  "Normalize start_time end_time, by coercing it, it forces the timezone to
+  become consistent during comparison."
+  [record]
+  (kitchensink/mapvals
+   to-string
+   [:start_time :end_time :producer_timestamp]
+   record))
+
+(defn munge-actual-report
+  [report]
+  (-> report
+      (update-in [:resource_events] (comp keywordize-keys munge-resource-events))
+      normalize-time
+      strip-expanded))
+
+(defn munge-expected-report
+  [report]
+  (-> report
+      (update-in [:resource_events] (comp keywordize-keys munge-resource-events))
+      normalize-time
+      strip-expanded))
+
+(defn munge-actual-reports
+  "Convert actual reports to a format ready for comparison"
+  [reports]
+  (map (comp munge-actual-report
+             reports/report-query->wire-v5
+             #(update-in % [:logs :data] keywordize-keys)
+             #(update-in % [:metrics :data] keywordize-keys))
+       reports))
+
+(defn munge-expected-reports
+  [reports]
+  (map munge-expected-report reports))
 
 (defn report-response
   [report]
@@ -189,19 +228,143 @@
                                    [basic1 basic2])
                  (set (munge-reports-for-comparison results)))))))))
 
+(def my-reports
+  (-> reports
+      (assoc-in [:basic  :report_format] 3)
+      (assoc-in [:basic2 :report_format] 4)
+      (assoc-in [:basic3 :report_format] 6)
+      (assoc-in [:basic4 :report_format] 5)
+      (assoc-in [:basic  :transaction_uuid] "aaaaaaaa-1111-1111-aaaa-111111111111")
+      (assoc-in [:basic2 :transaction_uuid] "bbbbbbbb-2222-2222-bbbb-222222222222")
+      (assoc-in [:basic3 :transaction_uuid] "cccccccc-3333-3333-cccc-333333333333")
+      (assoc-in [:basic4 :transaction_uuid] "dddddddd-4444-4444-dddd-444444444444")
+      (assoc-in [:basic  :start_time] (-> 1 days ago))
+      (assoc-in [:basic2 :start_time] (-> 4 days ago))
+      (assoc-in [:basic3 :start_time] (-> 3 days ago))
+      (assoc-in [:basic4 :start_time] (-> 2 days ago))
+      (assoc-in [:basic  :puppet_version] "3.0.1")
+      (assoc-in [:basic2 :puppet_version] "3.0.1")
+      (assoc-in [:basic3 :puppet_version] "4.1.0")
+      (assoc-in [:basic4 :puppet_version] "4.1.0")
+      (assoc-in [:basic  :configuration_version] "bbb")
+      (assoc-in [:basic2 :configuration_version] "aaa")
+      (assoc-in [:basic3 :configuration_version] "xxx")
+      (assoc-in [:basic4 :configuration_version] "yyy")))
+
+(deftestseq paging-results
+  [[version endpoint] endpoints
+   method [:get :post]]
+
+  (let [{report1 :basic
+         report2 :basic2
+         report3 :basic3
+         report4 :basic4} my-reports
+        report-count 4]
+
+    (store-example-report! report1 (now))
+    (store-example-report! report2 (now))
+    (store-example-report! report3 (now))
+    (store-example-report! report4 (now))
+
+    (testing "limit results"
+      (doseq [[limit expected] [[1 1] [2 2] [100 report-count]]]
+        (let [results (query-result method endpoint
+                                    ["=" "certname" "foo.local"]
+                                    {:limit limit})
+              actual  (count results)]
+          (is (= actual expected)))))
+
+      (testing "numerical fields"
+        (doseq [[order expected] [["asc" [report1 report2 report4 report3]]
+                                  ["desc" [report3 report4 report2 report1]]]]
+          (testing order
+            (let [actual (ordered-query-result method endpoint
+                                               ["=" "certname" "foo.local"]
+                                               {:order_by
+                                                (vector-param
+                                                  method
+                                                  [{"field" "report_format"
+                                                    "order" order}])}
+                                               munge-actual-reports)]
+              (is (= actual (munge-expected-reports expected)))))))
+
+      (testing "alphabetical fields"
+        (doseq [[order expected] [["asc"  [report1 report2 report3 report4]]
+                                  ["desc" [report4 report3 report2 report1]]]]
+          (testing order
+            (let [actual (ordered-query-result method endpoint
+                                               ["=" "certname" "foo.local"]
+                                               {:order_by (vector-param
+                                                            method
+                                                            [{"field" "transaction_uuid"
+                                                              "order" order}])}
+                                               munge-actual-reports)]
+              (is (= (map :transaction_uuid actual)
+                     (map :transaction_uuid (munge-expected-reports expected))))))))
+
+    (testing "timestamp fields"
+      (doseq [[order expected] [["asc"  [report2 report3 report4 report1]]
+                                ["desc" [report1 report4 report3 report2]]]]
+        (testing order
+          (let [actual (ordered-query-result method endpoint
+                                             ["=" "certname" "foo.local"]
+                                             {:order_by (vector-param method [{"field" "start_time"
+                                                                               "order" order}])}
+                                             munge-actual-reports)]
+            (is (= actual
+                   (munge-expected-reports expected)))))))
+
+    (testing "multiple fields"
+      (doseq [[[puppet-version-order conf-version-order] expected]
+              [[["asc" "desc"] [report1 report2 report4 report3]]
+               [["desc" "asc"] [report3 report4 report2 report1]]]]
+        (testing (format "puppet-version %s configuration-version %s" puppet-version-order conf-version-order)
+          (let [actual (ordered-query-result method endpoint
+                                             ["=" "certname" "foo.local"]
+                                             {:order_by
+                                              (vector-param method [{"field" "puppet_version"
+                                                                     "order" puppet-version-order}
+                                                                    {"field" "configuration_version"
+                                                                     "order" conf-version-order}])}
+                                             munge-actual-reports)]
+            (is (= actual
+                   (munge-expected-reports expected)))))))
+
+    (testing "offset"
+      (doseq [[order offset expected] [["asc" 0 [report1 report2 report4 report3]]
+                                       ["asc" 1 [report2 report4 report3]]
+                                       ["asc" 2 [report4 report3]]
+                                       ["asc" 3 [report3]]
+                                       ["asc" 4 []]
+                                       ["desc" 0 [report3 report4 report2 report1]]
+                                       ["desc" 1 [report4 report2 report1]]
+                                       ["desc" 2 [report2 report1]]
+                                       ["desc" 3 [report1]]
+                                       ["desc" 4 []]]]
+        (testing order
+          (let [actual (ordered-query-result method endpoint
+                                             ["=" "certname" "foo.local"]
+                                             {:order_by (vector-param
+                                                          method [{"field" "report_format"
+                                                                   "order" order}])
+                                              :offset offset}
+                                             munge-actual-reports)]
+            (is (= actual
+                   (munge-expected-reports expected)))))))))
+
 (deftestseq invalid-queries
   [[version endpoint] endpoints
    method [:get :post]]
 
-  (let [response (query-response method endpoint ["<" "environment" 0])]
+  (let [{:keys [status body]} (query-response method endpoint ["<" "environment" 0])]
     (is (re-matches #".*Query operators .*<.* not allowed .* environment"
-                    (:body response)))
-    (is (= 400 (:status response))))
+                    body))
+    (is (= 400 status)))
 
-  (let [response (query-response method endpoint ["=" "timestamp" 0])]
+  (let [{:keys [status body]} (query-response method endpoint ["=" "timestamp" 0])]
     (is (re-find #"'timestamp' is not a queryable object for reports"
-                 (:body response)))
-    (is (= 400 (:status response)))))
+                 body))
+    (is (= 400 status))))
 
 (deftestseq query-by-status
   [[version endpoint] endpoints
@@ -501,3 +664,10 @@
   (let [{:keys [status body]} (query-response method endpoint)]
     (is (= status http/status-not-found))
     (is (= {:error "No information is known about report foo"} (json/parse-string body true)))))
+
+(deftest reports-retrieval
+  (let [basic (:basic my-reports)
+        report-hash (:hash (store-example-report! basic (now)))]
+    (testing "report-exists? function"
+      (is (= true (qe/object-exists? :report report-hash)))
+      (is (= false (qe/object-exists? :report "chrissyamphlett"))))))
