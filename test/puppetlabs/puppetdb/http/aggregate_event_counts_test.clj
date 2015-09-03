@@ -162,4 +162,12 @@
          :summarize_by "resource"}}
        ["OR"
         ["=" "environment" "DEV"]
-        ["=" "environment" "PROD"]]))
+        ["=" "environment" "PROD"]]
+
+       #{{:successes 0
+          :skips 0
+          :failures 0
+          :noops 0
+          :total 0
+          :summarize_by "resource"}}
+       ["<" "timestamp" 0]))
