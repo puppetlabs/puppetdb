@@ -30,6 +30,10 @@
    method [:get :post]]
 
   (store-example-report! (:basic reports) (now))
+  (let [count1 {:subject_type "containing_class" :subject {:title nil}
+                :failures 0 :successes 2 :noops 0 :skips 0}
+        count2 {:subject_type "containing_class" :subject {:title "Foo"}
+                :failures 0 :successes 0 :noops 0 :skips 1}]
 
   (testing "summarize_by rejects unsupported values"
     (let [{:keys [body status]} (query-response method endpoint
@@ -39,15 +43,86 @@
       (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'"
                    body))))
 
-  (testing "count_by rejects unsupported values"
-    (let [{:keys [status body]}  (query-response
-                                   method endpoint
-                                   ["=" "certname" "foo.local"]
-                                   {:summarize_by "certname"
-                                    :count_by "illegal-count-by"})]
-      (is (= status http/status-bad-request))
-      (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'"
-                   body))))
+  (testing "paging"
+    (testing "limit works"
+      (doseq [[limit expected] [[1 1] [2 2] [3 3] [100 3]]]
+        (let [result (query-result method endpoint nil {:limit limit :summarize_by "resource"})]
+          (is (= expected (count result))))))
+
+    (testing "offset works"
+      (doseq [[offset expected] [[0 3] [1 2] [2 1] [3 0]]]
+        (let [result (query-result method endpoint nil {:offset offset
+                                                        :summarize_by "resource"})]
+          (is (= expected (count result))))))
+
+    (testing "order_by rejects invalid fields"
+      (let [{:keys [status body]} (query-response
+                                    method endpoint
+                                    nil
+                                    {:summarize_by "certname"
+                                     :order_by "invalid"})]
+        (is (= status http/status-bad-request))
+        (is (re-find #"Illegal value 'invalid' for :order_by" body))))
+
+    (testing "numerical fields"
+      (doseq [[order expected] [["asc"  [count2 count1]]
+                                ["desc" [count1 count2]]]]
+        (testing order
+          (let [actual (ordered-query-result
+                         method endpoint
+                         ["=" "certname" "foo.local"]
+                         {:summarize_by "containing_class"
+                          :order_by (vector-param
+                                      method [{"field" "successes"
+                                               "order" order}])})]
+            (is (= actual expected)))))))
+
+  (testing "count_by"
+    (testing "count_by rejects unsupported values"
+      (let [{:keys [status body]}  (query-response
+                                     method endpoint
+                                     ["=" "certname" "foo.local"]
+                                     {:summarize_by "certname"
+                                      :count_by "illegal-count-by"})]
+        (is (= status http/status-bad-request))
+        (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'"
+                     body))))
+
+    (testing "resource"
+      (let [expected #{{:failures 0
+                        :successes 0
+                        :noops 0
+                        :skips 1
+                        :subject_type "containing_class"
+                        :subject {:title "Foo"}}
+                       {:failures 0
+                        :successes 2
+                        :noops 0
+                        :skips 0
+                        :subject_type "containing_class"
+                        :subject {:title nil}}}
+            actual (query-result method endpoint ["=" "certname" "foo.local"]
+                                 {:summarize_by "containing_class"
+                                  :count_by "resource"})]
+        (is (= actual expected))))
+
+    (testing "certname"
+      (let [expected #{{:failures 0
+                        :successes 0
+                        :noops 0
+                        :skips 1
+                        :subject_type "containing_class"
+                        :subject {:title "Foo"}}
+                       {:failures 0
+                        :successes 1
+                        :noops 0
+                        :skips 0
+                        :subject_type "containing_class"
+                        :subject {:title nil}}}
+            actual (query-result method endpoint ["~" "certname" ".*"]
+                                 {:summarize_by "containing_class"
+                                  :count_by "certname"})]
+        (is (= actual expected)))))
 
   (testing "nontrivial query using all the optional parameters"
     (let [expected  #{{:subject_type "containing_class"
@@ -62,7 +137,92 @@
                       {:summarize_by "containing_class"
                        :count_by      "certname"
                        :counts_filter (vector-param method ["<" "successes" 1])})]
-      (is (= response expected))))
+      (is (= response expected)))))
+
+  (testing "counts_filter"
+    (testing "= operator"
+      (let [expected #{{:failures 0
+                        :successes 1
+                        :noops 0
+                        :skips 0
+                        :subject_type "resource"
+                        :subject  {:type "Notify" :title "notify, yo"}}
+                       {:failures 0
+                        :successes 1
+                        :noops 0
+                        :skips 0
+                        :subject_type "resource"
+                        :subject  {:type "Notify" :title "notify, yar"}}}
+            actual (query-result method endpoint
+                                 ["~" "certname" ".*"]
+                                 {:summarize_by "resource"
+                                  :counts_filter (vector-param method ["=" "successes" 1])})]
+        (is (= actual expected))))
+
+    (testing "> operator"
+      (let [expected #{{:failures 0
+                        :successes 2
+                        :noops 0
+                        :skips 0
+                        :subject_type "containing_class"
+                        :subject  {:title nil}}}
+            actual (query-result method endpoint
+                                 ["~" "certname" ".*"]
+                                 {:summarize_by "containing_class"
+                                  :counts_filter (vector-param method [">" "successes" 1])})]
+        (is (= actual expected))))
+
+    (testing ">= operator"
+      (let [expected #{{:failures 0
+                        :successes 2
+                        :noops 0
+                        :skips 1
+                        :subject_type "certname"
+                        :subject {:title "foo.local"}}}
+            actual (query-result method endpoint
+                                 ["~" "certname" ".*"]
+                                 {:summarize_by "certname"
+                                  :counts_filter (vector-param method [">=" "successes" 1])})]
+        (is (= actual expected))))
+
+    (testing "< operator"
+      (let [expected #{{:failures 0
+                        :successes 0
+                        :noops 0
+                        :skips 1
+                        :subject_type "resource"
+                        :subject {:type "Notify"
+                                  :title "hi"}}}
+            actual (query-result method endpoint
+                                 ["~" "certname" ".*"]
+                                 {:summarize_by "resource"
+                                  :counts_filter (vector-param method ["<" "successes" 1])})]
+        (is (= actual expected))))
+
+    (testing "<= operator"
+      (let [expected #{{:failures 0
+                        :successes 1
+                        :noops 0
+                        :skips 0
+                        :subject_type "resource"
+                        :subject {:type "Notify" :title "notify, yo"}}
+                       {:failures 0
+                        :successes 1
+                        :noops 0
+                        :skips 0
+                        :subject_type "resource"
+                        :subject {:type "Notify" :title "notify, yar"}}
+                       {:failures 0
+                        :successes 0
+                        :noops 0
+                        :skips 1
+                        :subject_type "resource"
+                        :subject {:type "Notify" :title "hi"}}}
+            actual (query-result method endpoint
+                                 ["~" "certname" ".*"]
+                                 {:summarize_by "resource"
+                                  :counts_filter (vector-param method ["<=" "successes" 1])})]
+        (is (= actual expected)))))
 
   (doseq [[label count?] [["without" false]
                           ["with" true]]]
