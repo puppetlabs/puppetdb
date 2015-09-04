@@ -10,8 +10,8 @@
 
 (def routes
   (app
-   [""]
-   {:get server-time-response}))
+    [""]
+    server-time-response))
 
 (def server-time-app
   (-> routes

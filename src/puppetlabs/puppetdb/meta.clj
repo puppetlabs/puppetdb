@@ -53,11 +53,11 @@
 
 (defn version-routes
   [get-shared-globals config]
-  (moustache/app [""] {:get (current-version-fn (v/version))}
-                 ["latest"] {:get (latest-version-fn get-shared-globals config)}))
+  (moustache/app [""] (current-version-fn (v/version))
+                 ["latest"] (latest-version-fn get-shared-globals config)))
 
 (def server-time-routes
-  (moustache/app [""] {:get (fn [_] (http/json-response {:server_time (now)}))}))
+  (moustache/app [""] (fn [_] (http/json-response {:server_time (now)}))))
 
 (defn routes
   [get-shared-globals config]
