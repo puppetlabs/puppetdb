@@ -4,8 +4,7 @@
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
             [puppetlabs.kitchensink.core :refer [keyset]]
-            [puppetlabs.puppetdb.testutils :refer [get-request
-                                                   paged-results
+            [puppetlabs.puppetdb.testutils :refer [paged-results
                                                    deftestseq]]
             [puppetlabs.puppetdb.testutils.http :refer [ordered-query-result
                                                         query-result
@@ -198,8 +197,7 @@
 
                          (re-pattern (format "'sourcefile' is not a queryable object.*" (last (name version))))}]
       (testing (str endpoint " query: " query " should fail with msg: " msg)
-        (let [request (get-request endpoint (json/generate-string query))
-              {:keys [status body] :as result} (fixt/*app* request)]
+        (let [{:keys [status body]} (query-response method endpoint query)]
           (is (= status http/status-bad-request))
           (is (re-find msg body)))))))
 

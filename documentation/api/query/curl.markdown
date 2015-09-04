@@ -90,5 +90,5 @@ queries (exact limits depend on the client and webserver used.)
 POST queries use the following syntax:
 
     curl -X POST http://localhost:8080/pdb/query/v4/nodes \
-    -H 'Content-Type:application/json' \
-    -d '{"query":["~","certname",".*.com"],"order_by":[{"field":"certname"}],"limit":1}'
+      -H 'Content-Type:application/json' \
+      -d '{"query":["~","certname",".*.com"],"order_by":[{"field":"certname"}],"limit":1}'
