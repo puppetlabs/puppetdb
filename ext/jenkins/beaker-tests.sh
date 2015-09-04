@@ -11,6 +11,8 @@ echo "REPO_URL: ${REPO_URL}"
 echo "PACKAGE_BUILD_VERSION: ${PACKAGE_BUILD_VERSION}"
 echo "**********************************************"
 
+set -x
+
 # Beaker params
 export BEAKER_COLOR=false
 export BEAKER_XML=true
@@ -39,8 +41,5 @@ export BEAKER_PRESERVE_HOSTS=onfail
 export BEAKER_OPTIONS=acceptance/options/${DB_TYPE}.rb
 export BEAKER_CONFIG=acceptance/hosts.cfg
 bundle exec genconfig2 $LAYOUT > $BEAKER_CONFIG
-
-set -x
-set -e
 
 bundle exec rake beaker:acceptance
