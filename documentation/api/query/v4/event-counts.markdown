@@ -24,7 +24,7 @@ Once this information is stored in PuppetDB, it can be queried in various ways.
 * You can query **data about individual events** by making an HTTP request to the [`/events`][events] endpoint.
 * You can query **summaries of event data** by making an HTTP request to the `/event-counts` or [`aggregate-event-counts`](./aggregate-event-counts.html) endpoints.
 
-## `GET /pdb/query/v4/event-counts`
+## `/pdb/query/v4/event-counts`
 
 This will return count information about all of the resource events matching the given query.
 For a given object type (resource, containing_class, or node), you can retrieve counts of the

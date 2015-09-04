@@ -8,15 +8,14 @@ canonical: "/puppetdb/latest/api/meta/v1/version.html"
 
 The `/version` endpoint can be used to retrieve version information from the PuppetDB server.
 
-
-## `GET /pdb/meta/v1/version`
+## `/pdb/meta/v1/version`
 
 This query endpoint will return version information about the running PuppetDB
 server.
 
 This endpoint does not use any URL parameters or query strings.
 
-## `GET /pdb/meta/v1/version/latest`
+## `/pdb/meta/v1/version/latest`
 
 This query will display a message describing the latest version of PuppetDB.
 

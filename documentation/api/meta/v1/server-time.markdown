@@ -9,7 +9,7 @@ canonical: "/puppetdb/latest/api/meta/v1/server-time.html"
 The `/server-time` endpoint can be used to retrieve the server time from the PuppetDB server.
 
 
-## `GET /pdb/meta/v1/server-time`
+## `/pdb/meta/v1/server-time`
 
 This metadata endpoint will return the current time of the clock on the PuppetDB
 server.  This can be useful as input to other time-based queries against PuppetDB,

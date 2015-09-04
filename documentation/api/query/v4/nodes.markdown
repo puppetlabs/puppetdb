@@ -14,7 +14,7 @@ canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 Nodes can be queried by making an HTTP request to the `/nodes` endpoint.
 
 
-## `GET /pdb/query/v4/nodes`
+## `/pdb/query/v4/nodes`
 
 This will return all nodes matching the given query. Deactivated and expired
 nodes aren't included in the response.
@@ -104,7 +104,7 @@ active nodes:
       ["null?", "deactivated", true],
       ["group_by", "facts_environment"]]
 
-## `GET /pdb/query/v4/nodes/<NODE>`
+## `/pdb/query/v4/nodes/<NODE>`
 
 This will return status information for the given node, active or
 not. It behaves exactly like a call to `/pdb/query/v4/nodes` with a query string
@@ -141,7 +141,7 @@ If a node of that certname doesn't exist, the response will instead be a hash of
 
     {"error": "No information is known about <NODE>"}
 
-## `GET /pdb/query/v4/nodes/<NODE>/facts`
+## `/pdb/query/v4/nodes/<NODE>/facts`
 
 [facts]: ./facts.html
 
@@ -161,7 +161,7 @@ used to return a subset of the information normally returned by
 this route.
 
 
-## `GET /pdb/query/v4/nodes/<NODE>/facts/<NAME>`
+## `/pdb/query/v4/nodes/<NODE>/facts/<NAME>`
 
 This will return facts with the given name for the given node. Facts from
 deactivated and expired nodes aren't included in the response.
@@ -182,7 +182,7 @@ If you provide a `query` parameter, it will specify additional criteria, which w
 used to return a subset of the information normally returned by
 this route.
 
-## `GET /pdb/query/v4/nodes/<NODE>/facts/<NAME>/<VALUE>`
+## `/pdb/query/v4/nodes/<NODE>/facts/<NAME>/<VALUE>`
 
 This will return facts with the given name and value for the given node. Facts
 from deactivated and expired nodes aren't included in the response.
@@ -207,7 +207,7 @@ this route.
 (However, for this particular route, there aren't any practical criteria left.)
 
 
-## `GET /pdb/query/v4/nodes/<NODE>/resources`
+## `/pdb/query/v4/nodes/<NODE>/resources`
 
 This will return the resources for the given node. Resources from deactivated
 and expired nodes aren't included in the response.
@@ -225,7 +225,7 @@ If you provide a `query` parameter, it will specify additional criteria, which w
 used to return a subset of the information normally returned by
 this route.
 
-## `GET /pdb/query/v4/nodes/<NODE>/resources/<TYPE>`
+## `/pdb/query/v4/nodes/<NODE>/resources/<TYPE>`
 
 This will return the resources of the indicated type for the given
 node. Resources from deactivated and expired nodes aren't included in the
@@ -247,7 +247,7 @@ If you provide a `query` parameter, it will specify additional criteria, which w
 used to return a subset of the information normally returned by
 this route.
 
-## `GET /pdb/query/v4/nodes/<NODE>/resources/<TYPE>/<TITLE>`
+## `/pdb/query/v4/nodes/<NODE>/resources/<TYPE>/<TITLE>`
 
 This will return the resource of the indicated type and title for the given
 node. Resources from deactivated and expired nodes aren't included in the
