@@ -25,7 +25,7 @@
 
 (defn routes
   [version]
-  (let [param-spec {:optional (cons "query" paging/query-params)}]
+  (let [param-spec {:optional paging/query-params}]
     (app
       []
       (http-q/query-route :factsets version param-spec http-q/restrict-query-to-active-nodes')

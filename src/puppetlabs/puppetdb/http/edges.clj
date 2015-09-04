@@ -12,7 +12,7 @@
                    http-q/restrict-query-to-active-nodes'
                    identity)
          handlers (cons handler optional-handlers)
-         param-spec {:optional (cons "query" paging/query-params)}
+         param-spec {:optional paging/query-params}
          query-route #(apply (partial http-q/query-route :edges version param-spec) %)]
      (app
        [""]

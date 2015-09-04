@@ -12,7 +12,7 @@
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]))
 
-(def query-params ["limit" "offset" "order_by" "include_total"])
+(def query-params ["query" "limit" "offset" "order_by" "include_total"])
 (def count-header "X-Records")
 
 (defn valid-order-str?

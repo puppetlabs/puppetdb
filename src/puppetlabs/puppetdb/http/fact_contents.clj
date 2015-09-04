@@ -6,7 +6,7 @@
 
 (defn routes
   [version]
-  (let [param-spec {:optional (cons "query" paging/query-params)}]
+  (let [param-spec {:optional paging/query-params}]
     (app
       []
       (http-q/query-route :fact-contents version param-spec
