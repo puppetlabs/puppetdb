@@ -38,7 +38,7 @@ export BEAKER_PRESERVE_HOSTS=onfail
 [ "$LAYOUT" = "ec2-west-debian7-64mda-fallback" ] \
     && LAYOUT=debian7-64mda-64d
 
-export BEAKER_OPTIONS=acceptance/options/${DB_TYPE}.rb
+export BEAKER_OPTIONS=acceptance/options/${PUPPETDB_DATABASE}.rb
 export BEAKER_CONFIG=acceptance/hosts.cfg
 bundle exec genconfig2 $LAYOUT > $BEAKER_CONFIG
 
