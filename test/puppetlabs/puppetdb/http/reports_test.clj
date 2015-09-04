@@ -311,8 +311,7 @@
                                              {:order_by (vector-param method [{"field" "start_time"
                                                                                "order" order}])}
                                              munge-actual-reports)]
-            (is (= actual
-                   (munge-expected-reports expected)))))))
+            (is (= actual (munge-expected-reports expected)))))))
 
     (testing "multiple fields"
       (doseq [[[puppet-version-order conf-version-order] expected]
@@ -327,8 +326,7 @@
                                                                     {"field" "configuration_version"
                                                                      "order" conf-version-order}])}
                                              munge-actual-reports)]
-            (is (= actual
-                   (munge-expected-reports expected)))))))
+            (is (= actual (munge-expected-reports expected)))))))
 
     (testing "offset"
       (doseq [[order offset expected] [["asc" 0 [report1 report2 report4 report3]]
@@ -349,8 +347,7 @@
                                                                    "order" order}])
                                               :offset offset}
                                              munge-actual-reports)]
-            (is (= actual
-                   (munge-expected-reports expected)))))))))
+            (is (= actual (munge-expected-reports expected)))))))))
 
 (deftestseq invalid-queries
   [[version endpoint] endpoints

@@ -268,7 +268,6 @@ to the result of the form supplied to this method."
            #{{:type "File" :count 1}
              {:type "Notify" :count 1}}))))
 
-#_ (paging-results)
 (deftestseq paging-results
   [[version endpoint] endpoints
    method [:get :post]]
@@ -282,8 +281,7 @@ to the result of the form supplied to this method."
           (is (= expected (count results))))))
 
     (testing "offset results"
-      (doseq [[order offset expected] [
-                                       ["asc" 0 [foo1 bar1 foo2 bar2]]
+      (doseq [[order offset expected] [["asc" 0 [foo1 bar1 foo2 bar2]]
                                        ["asc" 1 [bar1 foo2 bar2]]
                                        ["asc" 2 [foo2 bar2]]
                                        ["asc" 3 [bar2]]
@@ -292,9 +290,7 @@ to the result of the form supplied to this method."
                                        ["desc" 1 [foo2 bar1 foo1]]
                                        ["desc" 2 [bar1 foo1]]
                                        ["desc" 3 [foo1]]
-                                       ["desc" 4 []]
-
-                                       ]]
+                                       ["desc" 4 []]]]
         (testing order
           (let [actual (ordered-query-result method endpoint
                                              nil
@@ -302,10 +298,9 @@ to the result of the form supplied to this method."
                                                                       [{"field" "title"
                                                                         "order" order}
                                                                        {"field" "certname"
-                                                                       "order" order}])
+                                                                        "order" order}])
                                               :offset offset})]
-            (is (= actual
-                   expected))))))))
+            (is (= actual expected))))))))
 
 (deftestseq query-null-environments
   [[version endpoint] endpoints
