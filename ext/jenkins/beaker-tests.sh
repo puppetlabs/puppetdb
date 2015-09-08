@@ -23,8 +23,9 @@ export BEAKER_department=eso-dept
 export BEAKER_PRESERVE_HOSTS=onfail
 
 # Transform LAYOUT from old static host config style to genconfig2 style
-# Once the necessary PRs for both this repo and ci-job-configs have been merged,
-# this logic can be removed.
+# Once the necessary PRs (puppetlabs/puppetdb#1636 and
+# puppetlabs/ci-job-configs#529) for both this repo and ci-job-configs have been
+# merged, this logic can be removed.
 [ "$LAYOUT" = "ec2-west-el7-64mda-el7-64a" ] \
     && LAYOUT=centos7-64mda-64a
 [ "$LAYOUT" = "ec2-west-el6-64mda-el6-64a" ] \

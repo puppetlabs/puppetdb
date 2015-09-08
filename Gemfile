@@ -61,6 +61,10 @@ group :acceptance do
     gem 'beaker', '~>2.11'
   end
   if ENV['GEM_SOURCE'] =~ /rubygems\.delivery\.puppetlabs\.net/
+    # sqa-utils contains the `genconfig2` command that allows Beaker host
+    # configs to be generated using arbitrary SUT layouts. It is an
+    # internal-only gem so we only mark it to be installed if we are pointing to
+    # the appropriate GEM_SOURCE.
     gem 'sqa-utils', '~> 0.11'
   end
   # This forces google-api-client to not download retirable 2.0.0 which lacks
