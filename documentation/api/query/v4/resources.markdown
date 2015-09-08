@@ -79,7 +79,7 @@ for "example.local," the JSON query structure would be:
     ["and", ["not", ["=", "certname", "example.local"]],
             ["=", "type", "File"],
             ["=", "tag", "magical"],
-            ["=", ["parameter", "ensure"], "enabled"]
+            ["=", ["parameter", "ensure"], "enabled"]]
 
 
 ## `GET /pdb/query/v4/resources/<TYPE>`
