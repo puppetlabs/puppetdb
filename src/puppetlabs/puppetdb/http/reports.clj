@@ -23,12 +23,11 @@
 
 (defn routes
   [version optional-handlers]
-  (let [handlers (or optional-handlers [identity])
-        param-spec {:optional paging/query-params}
+  (let [param-spec {:optional paging/query-params}
         query-route #(apply (partial http-q/query-route :reports version param-spec) %)]
     (app
       []
-      (query-route handlers)
+      (query-route optional-handlers)
 
       [hash "events" &]
       (-> (e/events-app version (partial http-q/restrict-query-to-report hash))

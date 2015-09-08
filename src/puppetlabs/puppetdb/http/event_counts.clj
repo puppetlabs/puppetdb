@@ -7,8 +7,7 @@
 
 (defn routes
   [version optional-handlers]
-  (let [handlers (or optional-handlers [identity])
-        param-spec {:required ["summarize_by"]
+  (let [param-spec {:required ["summarize_by"]
                     :optional (concat ["counts_filter" "count_by"
                                        "distinct_resources" "distinct_start_time"
                                        "distinct_end_time"]
@@ -16,7 +15,7 @@
         query-route #(apply (partial http-q/query-route :event-counts version param-spec) %)]
     (app
       []
-      (query-route handlers))))
+      (query-route optional-handlers))))
 
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."

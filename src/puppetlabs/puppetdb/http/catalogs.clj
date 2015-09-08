@@ -28,12 +28,11 @@
 
 (defn routes
   [version optional-handlers]
-  (let [handlers (or optional-handlers [identity])
-        param-spec {:optional paging/query-params}
+  (let [param-spec {:optional paging/query-params}
         query-route #(apply (partial http-q/query-route :catalogs version param-spec) %)]
   (app
     []
-    (query-route handlers)
+    (query-route optional-handlers)
 
     [node]
     (fn [{:keys [globals]}]

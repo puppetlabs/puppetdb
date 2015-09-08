@@ -6,8 +6,7 @@
 
 (defn routes
   [version optional-handlers]
-  (let [handlers (or optional-handlers [identity])
-        param-spec {:optional (concat
+  (let [param-spec {:optional (concat
                                 ["query"
                                  "distinct_resources"
                                  "distinct_start_time"
@@ -16,7 +15,7 @@
         query-route #(apply (partial http-q/query-route :events version param-spec) %)]
     (app
       []
-      (query-route handlers))))
+      (query-route optional-handlers))))
 
 (defn events-app
   "Ring app for querying events"

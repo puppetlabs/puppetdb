@@ -301,15 +301,16 @@
    `optional-handlers` with the middleware function that executes the
    query."
   [entity version param-spec & optional-handlers]
-  (app
-    (extract-query param-spec)
-    (apply comp
-           (fn [{:keys [params globals puppetdb-query]}]
-             (warn-experimental entity (:warn-experimental globals))
-             (produce-streaming-body
-               entity
-               version
-               (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-               (:scf-read-db globals)
-               (:url-prefix globals)))
-           optional-handlers)))
+  (let [handlers (or optional-handlers [identity])]
+    (app
+      (extract-query param-spec)
+      (apply comp
+             (fn [{:keys [params globals puppetdb-query]}]
+               (warn-experimental entity (:warn-experimental globals))
+               (produce-streaming-body
+                 entity
+                 version
+                 (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                 (:scf-read-db globals)
+                 (:url-prefix globals)))
+             optional-handlers))))
