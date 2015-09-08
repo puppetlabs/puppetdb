@@ -16,7 +16,8 @@
             [puppetlabs.puppetdb.pdb-routing :as pdb-route]
             [puppetlabs.pe-puppetdb-extensions.server :as pe-server]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as sync-svcs]
-            [puppetlabs.puppetdb.time :refer [parse-period]]))
+            [puppetlabs.puppetdb.time :refer [parse-period]]
+            [puppetlabs.pe-puppetdb-extensions.reports :as ext-reports]))
 
 (defn pe-routes [get-config get-shared-globals query submit-command response-mult]
   (map #(apply pdb-route/wrap-with-context %)
@@ -41,10 +42,12 @@
               shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
           (set-url-prefix query-prefix)
           (log/info "Starting PuppetDB, entering maintenance mode")
+          (ext-reports/turn-on-unchanged-resources!)
           (add-ring-handler this (pdb-route/pdb-app context-root
                                                     shared-globals
                                                     maint-mode?
-                                                    (concat (pdb-route/pdb-core-routes shared-with-prefix
+                                                    (concat (ext-reports/reports-resources-routes shared-with-prefix)
+                                                            (pdb-route/pdb-core-routes shared-with-prefix
                                                                                        submit-command
                                                                                        query
                                                                                        enqueue-raw-command
