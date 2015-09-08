@@ -10,7 +10,7 @@
     (app
       []
       (http-q/query-route :fact-contents version param-spec
-                          http-q/restrict-query-to-active-nodes'))))
+                          http-q/restrict-query-to-active-nodes))))
 
 (defn fact-contents-app
   [version]

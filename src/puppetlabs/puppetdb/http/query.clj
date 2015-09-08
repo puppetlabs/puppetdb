@@ -42,6 +42,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Query munging functions
 
+(def param-spec-schema
+  {(s/optional-key :optional) [s/Str]
+   (s/optional-key :required) [s/Str]})
+
 (def experimental-entities
   #{:event-counts :aggregate-event-counts})
 
@@ -97,7 +101,7 @@
    :post [(are-queries-different? req %)]}
   (update-in req [:puppetdb-query :query] #(add-criteria restriction %)))
 
-(defn restrict-query-to-active-nodes'
+(defn restrict-query-to-active-nodes
   "Restrict the query parameter of the supplied request so that it only returns
   results for the supplied node, unless a node-active criteria is already
   explicitly specified."
@@ -182,10 +186,11 @@
     b
     (Boolean/parseBoolean b)))
 
-(defn validate-query-params
-  "Given a set of params and a param spec, throw and error if required params
+(pls/defn-validated validate-query-params
+  "Given a set of params and a param spec, throw an error if required params
    are missing or unsupported params are present, otherwise return the params."
-  [params param-spec]
+  [params
+   param-spec :- param-spec-schema]
   (let [params (stringify-keys params)]
     (kitchensink/cond-let
       [p]
@@ -283,7 +288,7 @@
          "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
 
 (defn warn-experimental
-  [entity {:keys [product-name]}]
+  [entity product-name]
   (when (and (= "puppetdb" product-name)
              (contains? experimental-entities entity))
     (log/warn (format
@@ -300,7 +305,7 @@
     (extract-query param-spec)
     (apply comp
            (fn [{:keys [params globals puppetdb-query]}]
-             (warn-experimental entity globals)
+             (warn-experimental entity (:product-name globals))
              (produce-streaming-body
                entity
                version

@@ -19,9 +19,7 @@
     (http-q/extract-query param-spec)
     (apply comp
            (fn [{:keys [params globals puppetdb-query]}]
-             (let [puppetdb-query (if (nil? (:order_by puppetdb-query))
-                                    (assoc puppetdb-query :order_by [[:name :ascending]])
-                                    puppetdb-query)]
+             (let [puppetdb-query (assoc-when puppetdb-query :order_by [[:name :ascending]])]
                (produce-streaming-body
                  entity
                  version

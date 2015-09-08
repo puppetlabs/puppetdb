@@ -9,8 +9,7 @@
   [version optional-handlers]
   (let [handlers (or optional-handlers [identity])
         param-spec {:required ["summarize_by"]
-                    :optional (concat ["query"
-                                       "counts_filter" "count_by"
+                    :optional (concat ["counts_filter" "count_by"
                                        "distinct_resources" "distinct_start_time"
                                        "distinct_end_time"]
                                       paging/query-params)}

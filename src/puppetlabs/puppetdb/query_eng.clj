@@ -130,10 +130,8 @@
 
 (defn produce-streaming-body
   "Given a query, and database connection, return a Ring response with
-   the query results. `query` is either a string (if it's coming from a
-   GET request) or an already parsed clojure data structure (if it's
-   from a POST request).
-
+   the query results. query-map is a clojure map of the form
+   {:query ['=','certname','foo'] :order_by [{'field':'foo'}]...}
    If the query can't be parsed, a 400 is returned."
   [entity version query-map db url-prefix]
   (let [query (:query query-map)

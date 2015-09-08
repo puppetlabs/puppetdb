@@ -30,7 +30,7 @@
   (let [param-spec {:optional paging/query-params}]
     (app
       []
-      (http-q/query-route :nodes version param-spec http-q/restrict-query-to-active-nodes')
+      (http-q/query-route :nodes version param-spec http-q/restrict-query-to-active-nodes)
 
       [node]
       (-> (fn [{:keys [globals]}]

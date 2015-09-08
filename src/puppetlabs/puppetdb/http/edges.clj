@@ -9,7 +9,7 @@
   ([version] (routes version true))
   ([version restrict-to-active-nodes optional-handlers]
    (let [handler (if restrict-to-active-nodes
-                   http-q/restrict-query-to-active-nodes'
+                   http-q/restrict-query-to-active-nodes
                    identity)
          handlers (cons handler optional-handlers)
          param-spec {:optional paging/query-params}
