@@ -28,7 +28,7 @@
 (tk/defservice pe-routing-service
   [[:WebroutingService add-ring-handler get-route]
    [:PuppetDBServer shared-globals query set-url-prefix]
-   [:ConfigService get-config]
+   [:DefaultedConfig get-config]
    [:PuppetDBSync]
    [:PuppetDBCommand submit-command]
    [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub response-mult]
@@ -36,7 +36,7 @@
   (init [this context]
         (let [context-root (get-route this)
               query-prefix (str context-root "/query")
-              {node-ttl :node-ttl, sync-config :sync, jetty-config :jetty} (get-config)
+              {node-ttl :node-ttl, sync-config :sync, jetty-config :jetty :as config} (get-config)
               node-ttl (or (some-> node-ttl parse-period)
                            Period/ZERO)
               shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
@@ -44,10 +44,12 @@
           (log/info "Starting PuppetDB, entering maintenance mode")
           (ext-reports/turn-on-unchanged-resources!)
           (add-ring-handler this (pdb-route/pdb-app context-root
-                                                    shared-globals
+                                                    config
                                                     maint-mode?
+
                                                     (concat (ext-reports/reports-resources-routes shared-with-prefix)
-                                                            (pdb-route/pdb-core-routes shared-with-prefix
+                                                            (pdb-route/pdb-core-routes config
+                                                                                       shared-with-prefix
                                                                                        submit-command
                                                                                        query
                                                                                        enqueue-raw-command
