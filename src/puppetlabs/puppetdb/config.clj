@@ -378,6 +378,15 @@
       convert-config
       configure-catalog-debugging))
 
+(defn foss? [config]
+  (= "puppetdb" (get-in config [:global :product-name])))
+
+(defn pe? [config]
+  (= "pe-puppetdb" (get-in config [:global :product-name])))
+
+(defn update-server [config]
+  (get-in config [:global :update-server]))
+
 (defprotocol DefaultedConfig
   (get-config [this])
   (get-in-config [this ks]))

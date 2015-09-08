@@ -6,14 +6,15 @@
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
                                                     wrap-with-paging-options]]
             [clojure.tools.logging :as log]
-            [net.cgrand.moustache :refer [app]]))
+            [net.cgrand.moustache :refer [app]]
+            [puppetlabs.puppetdb.config :as conf]))
 
 (defn routes
-  [version]
+  [version config]
   (app
    [""]
    {:get (fn [{:keys [params globals paging-options]}]
-           (when (= "puppetdb" (:product-name globals))
+           (when (conf/foss? config)
              (log/warn "The event-counts endpoint is experimental"
                        " and may be altered or removed in the future."))
            (let [{:strs [query summarize_by counts_filter count_by] :as query-params} params
@@ -32,8 +33,8 @@
 
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."
-  [version]
-  (-> (routes version)
+  [version config]
+  (-> (routes version config)
       verify-accepts-json
       (validate-query-params {:required ["summarize_by"]
                               :optional (concat ["query"

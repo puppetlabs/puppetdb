@@ -30,9 +30,9 @@
     (format "The %s API has been retired; please use v4" version)
     404)))
 
-(def routes
+(defn routes [config]
   (app
-   ["v4" &] {:any v4-app}
+   ["v4" &] {:any (v4-app config)}
    ["v1" &] {:any (refuse-retired-api "v1")}
    ["v2" &] {:any (refuse-retired-api "v2")}
    ["v3" &] {:any (refuse-retired-api "v3")}))
@@ -44,7 +44,7 @@
   function that accepts a request.  The request will be allowed only
   if authorize returns :authorized.  Otherwise, the return value
   should be a message describing the reason that access was denied."
-  [get-shared-globals]
-  (-> routes
+  [get-shared-globals config]
+  (-> (routes config)
       (wrap-with-metrics (atom {}) http/leading-uris)
       (wrap-with-globals get-shared-globals)))

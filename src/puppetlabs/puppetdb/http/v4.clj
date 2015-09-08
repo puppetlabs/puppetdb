@@ -17,7 +17,7 @@
 
 (def version :v4)
 
-(def v4-app
+(defn v4-app [config]
   (moustache/app
    ["facts" &]
    {:any (facts/facts-app version)}
@@ -53,10 +53,10 @@
    {:any (events/events-app version)}
 
    ["event-counts" &]
-   {:any (ec/event-counts-app version)}
+   {:any (ec/event-counts-app version config)}
 
    ["aggregate-event-counts" &]
-   {:any (aec/aggregate-event-counts-app version)}
+   {:any (aec/aggregate-event-counts-app version config)}
 
    ["reports" &]
    {:any (reports/reports-app version)}))

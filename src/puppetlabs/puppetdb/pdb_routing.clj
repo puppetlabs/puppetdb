@@ -29,20 +29,16 @@
 
 (defn pdb-core-routes [defaulted-config get-shared-globals submit-command-fn query-fn enqueue-raw-command-fn response-pub]
   (let [cmd-mq #(:command-mq (get-shared-globals))
-        meta-cfg #(merge
-                   (select-keys (:globals defaulted-config)
-                                [:update-server :product-name])
-                   (select-keys (get-shared-globals)
-                                [:scf-read-db]))
+        meta-cfg #(select-keys (get-shared-globals) [:scf-read-db])
         get-response-pub #(response-pub)]
     (map #(apply wrap-with-context %)
          (partition
           2
           ;; The remaining get-shared-globals args are for wrap-with-globals.
-          ["/meta" (meta/build-app meta-cfg)
+          ["/meta" (meta/build-app meta-cfg defaulted-config)
            "/cmd" (cmd/command-app cmd-mq get-shared-globals
                                    enqueue-raw-command-fn get-response-pub)
-           "/query" (server/build-app get-shared-globals)
+           "/query" (server/build-app get-shared-globals defaulted-config)
            "/admin" (admin/build-app submit-command-fn query-fn)]))))
 
 (defn pdb-app [root defaulted-config maint-mode-fn app-routes]

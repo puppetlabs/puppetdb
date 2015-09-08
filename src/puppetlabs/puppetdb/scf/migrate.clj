@@ -57,7 +57,8 @@
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]))
+            [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
+            [puppetlabs.puppetdb.config :as conf]))
 
 (defn- drop-constraints
   "Drop all constraints of given `constraint-type` on `table`."
@@ -1635,7 +1636,7 @@
 
 (defn indexes!
   "Create missing indexes for applicable database platforms."
-  [product-name]
+  [config]
   (if (and (sutils/postgres?)
            (sutils/db-version-newer-than? [9 2]))
     (sql/transaction
@@ -1649,7 +1650,7 @@
          "    CREATE EXTENSION pg_trgm;\n\n"
          "as the database super user on the PuppetDB database to correct\n"
          "this, then restart PuppetDB.\n"))))
-    (when (= product-name "puppetdb")
+    (when (conf/foss? config)
       (log/warn
        (str
         "Unable to install optimal indexing\n\n"

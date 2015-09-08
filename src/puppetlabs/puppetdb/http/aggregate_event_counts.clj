@@ -6,14 +6,15 @@
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params]]
             [clojure.tools.logging :as log]
-            [net.cgrand.moustache :refer [app]]))
+            [net.cgrand.moustache :refer [app]]
+            [puppetlabs.puppetdb.config :as conf]))
 
 (defn routes
-  [version]
+  [version config]
   (app
     [""]
     {:get (fn [{:keys [params globals]}]
-            (when (= "puppetdb" (:product-name globals))
+            (when (conf/foss? config)
               (log/warn "The aggregate-event-counts endpoint is experimental"
                         " and may be altered or removed in the future."))
             (if (utils/hsql? (:scf-read-db globals))
@@ -40,8 +41,8 @@
 
 (defn aggregate-event-counts-app
   "Ring app for querying for aggregated summary information about resource events."
-  [version]
-  (-> (routes version)
+  [version config]
+  (-> (routes version config)
       verify-accepts-json
       (validate-query-params {:required ["summarize_by"]
                               :optional ["query"

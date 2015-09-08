@@ -151,9 +151,11 @@
       (log/error e "Error during garbage collection"))))
 
 (defn maybe-check-for-updates
-  [product-name update-server read-db]
-  (if (= product-name "puppetdb")
-    (version/check-for-updates! update-server read-db)
+  [config read-db]
+  (if (conf/foss? config)
+    (-> config
+        conf/update-server
+        (version/check-for-updates! read-db))
     (log/debug "Skipping update check on Puppet Enterprise")))
 
 (defn shutdown-mq
@@ -204,12 +206,12 @@
   single connection because HSQLDB seems to get confused if the
   database doesn't exist but we open and close a connection without
   creating anything."
-  [db-conn-pool product-name]
+  [db-conn-pool config]
   (sql/with-connection db-conn-pool
     (scf-store/validate-database-version #(System/exit 1))
     @sutils/db-metadata
     (migrate! db-conn-pool)
-    (indexes! product-name)))
+    (indexes! config)))
 
 (defn init-with-db
   "All initialization operations needing a database connection should
@@ -218,14 +220,14 @@
   connection to the database. This covers the case of the database not
   being fully started when PuppetDB starts. This connection pool will
   be opened and closed within the body of this function."
-  [write-db-config product-name]
+  [write-db-config config]
   (with-open [init-db-pool (pl-jdbc/make-connection-pool (assoc write-db-config
                                                            ;; Block waiting to grab a connection
                                                            :connection-timeout 0
                                                            ;; Only allocate connections when needed
                                                            :pool-availability-threshold 0))]
     (let [db-pool-map {:datasource init-db-pool}]
-      (initialize-schema db-pool-map product-name))))
+      (initialize-schema db-pool-map config))))
 
 (defn start-puppetdb
   [context config service get-registered-endpoints]
@@ -236,8 +238,7 @@
   (let [{:keys [global   jetty
                 database read-database
                 puppetdb command-processing]} config
-        {:keys [product-name update-server
-                vardir catalog-hash-debug-dir]} global
+        {:keys [vardir catalog-hash-debug-dir]} global
         {:keys [gc-interval    node-ttl
                 node-purge-ttl report-ttl]} database
         {:keys [dlo-compression-threshold
@@ -253,7 +254,7 @@
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
 
-    (init-with-db database product-name)
+    (init-with-db database config)
     (pop/initialize-metrics write-db)
 
     (when (.exists discard-dir)
@@ -286,7 +287,7 @@
       (transfer-old-messages! mq-connection)
 
       (when-not disable-update-checking
-        (maybe-check-for-updates product-name update-server read-db))
+        (maybe-check-for-updates config read-db))
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)
