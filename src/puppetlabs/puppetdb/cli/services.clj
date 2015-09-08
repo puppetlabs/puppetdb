@@ -151,30 +151,12 @@
       (log/error e "Error during garbage collection"))))
 
 (defn maybe-check-for-updates
-  [product-name update-server read-db]
-  (if (= product-name "puppetdb")
-    (version/check-for-updates! update-server read-db)
+  [config read-db]
+  (if (conf/foss? config)
+    (-> config
+        conf/update-server
+        (version/check-for-updates! read-db))
     (log/debug "Skipping update check on Puppet Enterprise")))
-
-(defn build-whitelist-authorizer
-  "Build a function that will authorize requests based on the supplied
-  certificate whitelist (see `cn-whitelist->authorizer` for more
-  details). Returns :authorized if the request is allowed, otherwise a
-  string describing the reason not."
-  [whitelist]
-  {:pre  [(string? whitelist)]
-   :post [(fn? %)]}
-  (let [allowed? (kitchensink/cn-whitelist->authorizer whitelist)]
-    (fn [{:keys [ssl-client-cn] :as req}]
-      (if (allowed? req)
-        :authorized
-        (do
-          (log/warnf "%s rejected by certificate whitelist %s" ssl-client-cn whitelist)
-          (format (str "The client certificate name (%s) doesn't "
-                       "appear in the certificate whitelist. Is your "
-                       "master's (or other PuppetDB client's) certname "
-                       "listed in PuppetDB's certificate-whitelist file?")
-                  ssl-client-cn))))))
 
 (defn shutdown-mq
   "Explicitly shut down the queue `broker`"
@@ -224,12 +206,12 @@
   single connection because HSQLDB seems to get confused if the
   database doesn't exist but we open and close a connection without
   creating anything."
-  [db-conn-pool product-name]
+  [db-conn-pool config]
   (sql/with-connection db-conn-pool
     (scf-store/validate-database-version #(System/exit 1))
     @sutils/db-metadata
     (migrate! db-conn-pool)
-    (indexes! product-name)))
+    (indexes! config)))
 
 (defn init-with-db
   "All initialization operations needing a database connection should
@@ -238,14 +220,14 @@
   connection to the database. This covers the case of the database not
   being fully started when PuppetDB starts. This connection pool will
   be opened and closed within the body of this function."
-  [write-db-config product-name]
+  [write-db-config config]
   (with-open [init-db-pool (pl-jdbc/make-connection-pool (assoc write-db-config
                                                            ;; Block waiting to grab a connection
                                                            :connection-timeout 0
                                                            ;; Only allocate connections when needed
                                                            :pool-availability-threshold 0))]
     (let [db-pool-map {:datasource init-db-pool}]
-      (initialize-schema db-pool-map product-name))))
+      (initialize-schema db-pool-map config))))
 
 (defn start-puppetdb
   [context config service get-registered-endpoints]
@@ -255,28 +237,24 @@
           (every? (partial contains? %) [:broker])]}
   (let [{:keys [global   jetty
                 database read-database
-                puppetdb command-processing]} (conf/process-config! config)
-        {:keys [product-name update-server
-                vardir catalog-hash-debug-dir]} global
+                puppetdb command-processing]} config
+        {:keys [vardir catalog-hash-debug-dir]} global
         {:keys [gc-interval    node-ttl
                 node-purge-ttl report-ttl]} database
         {:keys [dlo-compression-threshold
                  max-frame-size threads]} command-processing
-        {:keys [certificate-whitelist
-                disable-update-checking]} puppetdb
+        {:keys [disable-update-checking]} puppetdb
 
         write-db (pl-jdbc/pooled-datasource database)
         read-db (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
         mq-dir (str (io/file vardir "mq"))
         discard-dir (io/file mq-dir "discarded")
-        mq-connection-str (add-max-framesize max-frame-size mq-addr)
-        authorizer (when certificate-whitelist
-                     (build-whitelist-authorizer certificate-whitelist))]
+        mq-connection-str (add-max-framesize max-frame-size mq-addr)]
 
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
 
-    (init-with-db database product-name)
+    (init-with-db database config)
     (pop/initialize-metrics write-db)
 
     (when (.exists discard-dir)
@@ -299,9 +277,6 @@
                           .start)
           globals {:scf-read-db read-db
                    :scf-write-db write-db
-                   :authorizer authorizer
-                   :update-server update-server
-                   :product-name product-name
                    :discard-dir (.getAbsolutePath discard-dir)
                    :mq-addr mq-addr
                    :mq-dest mq-endpoint
@@ -312,7 +287,7 @@
       (transfer-old-messages! mq-connection)
 
       (when-not disable-update-checking
-        (maybe-check-for-updates product-name update-server read-db))
+        (maybe-check-for-updates config read-db))
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)
@@ -350,7 +325,7 @@
   for initializing all of the PuppetDB subsystems and registering shutdown hooks
   that trapperkeeper will call on exit."
   PuppetDBServer
-  [[:ConfigService get-config]
+  [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]]
   (init [this context]
         (assoc context :url-prefix (atom nil)))

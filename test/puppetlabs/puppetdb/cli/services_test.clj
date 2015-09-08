@@ -19,14 +19,17 @@
             [puppetlabs.puppetdb.cli.export :as export]))
 
 (deftest update-checking
-  (testing "should check for updates if running as puppetdb"
-    (with-redefs [version/check-for-updates! (constantly "Checked for updates!")]
-      (is (= (maybe-check-for-updates "puppetdb" "update-server!" {}) "Checked for updates!"))))
+  (let [config-map {:global {:product-name "puppetdb"
+                              :update-server "update-server!"}}]
 
-  (testing "should skip the update check if running as pe-puppetdb"
-    (with-log-output log-output
-      (maybe-check-for-updates "pe-puppetdb" "update-server!" {})
-      (is (= 1 (count (logs-matching #"Skipping update check on Puppet Enterprise" @log-output)))))))
+    (testing "should check for updates if running as puppetdb"
+      (with-redefs [version/check-for-updates! (constantly "Checked for updates!")]
+        (is (= (maybe-check-for-updates config-map {}) "Checked for updates!"))))
+
+    (testing "should skip the update check if running as pe-puppetdb"
+      (with-log-output log-output
+        (maybe-check-for-updates (assoc-in config-map [:global :product-name] "pe-puppetdb") {})
+        (is (= 1 (count (logs-matching #"Skipping update check on Puppet Enterprise" @log-output))))))))
 
 (defn- check-service-query
   [endpoint version q pagination check-result]
@@ -122,16 +125,6 @@
       (doseq [v [:v1 :v2 :v3]]
         (testing (format "%s requests are refused" (name v)))
         (is (retirement-response? v (ping v)))))))
-
-(deftest whitelist-middleware
-  (testing "should log on reject"
-    (let [wl (temp-file "whitelist-log-reject")]
-      (spit wl "foobar")
-      (let [authorizer-fn (build-whitelist-authorizer (fs/absolute-path wl))]
-        (is (= :authorized (authorizer-fn {:ssl-client-cn "foobar"})))
-        (with-log-output logz
-          (is (string? (authorizer-fn {:ssl-client-cn "badguy"})))
-          (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
 
 (defn make-https-request-with-whitelisted-host [whitelisted-host]
   (let [whitelist-file (temp-file "whitelist-log-reject")

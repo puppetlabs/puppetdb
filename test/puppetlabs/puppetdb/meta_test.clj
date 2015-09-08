@@ -21,13 +21,18 @@
   (comp #(json/parse-string % true) :body))
 
 (defn with-meta-app
-  [request & [overrides]]
-  (let [app (mid/wrap-with-puppetdb-middleware
-             (meta/build-app #(merge {:product-name "puppetdb"
-                                      :update-server "FOO"}
-                                     overrides))
-             nil)]
-    (app request)))
+  ([request]
+   (with-meta-app request {} {}))
+  ([request config-overrides]
+   (with-meta-app request config-overrides {}))
+  ([request config-overrides shared-globals-overrides]
+   (let [app (mid/wrap-with-puppetdb-middleware
+              (meta/build-app (fn [] shared-globals-overrides)
+                              {:globals (merge {:product-name "puppetdb"
+                                                :update-server "FOO"}
+                                               config-overrides)})
+              nil)]
+     (app request))))
 
 (deftestseq test-latest-version
   [[version endpoint] endpoints]
@@ -77,8 +82,9 @@
   (testing "shouldn't log HTTP errors hitting update server at INFO"
     (with-log-output logz
       (let [response (-> (get-request (str endpoint "/version/latest"))
-                         (with-meta-app {:update-server "http://known.invalid.domain"
-                                         :scf-read-db fixt/*db*}))
+                         (with-meta-app
+                           {:update-server "http://known.invalid.domain"}
+                           {:scf-read-db fixt/*db*}))
             log-levels-emitted (set (map second @logz))]
         (is (nil? (log-levels-emitted :info)))))))
 

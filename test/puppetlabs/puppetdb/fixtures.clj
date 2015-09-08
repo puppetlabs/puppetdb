@@ -91,11 +91,10 @@
    (let [get-shared-globals #(merge {:scf-read-db *db*
                                      :scf-write-db *db*
                                      :command-mq *mq*
-                                     :product-name "puppetdb"
                                      :url-prefix ""}
                                     globals-overrides)]
      (binding [*app* (mid/wrap-with-puppetdb-middleware
-                      (server/build-app get-shared-globals)
+                      (server/build-app get-shared-globals {:global {:product-name "puppetdb"}})
                       nil)]
        (f)))))
 

@@ -10,7 +10,8 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [slingshot.slingshot :refer [try+]]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.meta.version :as v]))
+            [puppetlabs.puppetdb.meta.version :as v]
+            [puppetlabs.puppetdb.config :as conf]))
 
 (defn current-version-fn
   "Returns a function that always returns a JSON object with the running
@@ -26,15 +27,15 @@
    object containing a `version` key with the version, as well as a `newer` key
    which is a boolean specifying whether the latest version is newer
    than the current version."
-  [get-shared-globals]
+  [get-shared-globals config]
   (fn [_]
-    (let [{:keys [update-server product-name scf-read-db]}
-          (get-shared-globals)]
+    (let [{:keys [scf-read-db]} (get-shared-globals)
+          update-server (conf/update-server config)]
       (try
         ;; If we get one of these requests from pe-puppetdb, we always want to
         ;; return 'newer->false' so that the dashboard will never try
         ;; to display info about a newer version being available.
-        (if (= product-name "pe-puppetdb")
+        (if (conf/pe? config)
           (http/json-response {:newer false
                                :version (v/version)
                                :link nil})
@@ -51,20 +52,20 @@
            (format "Error when checking for latest version: %s" e)))))))
 
 (defn version-routes
-  [get-shared-globals]
+  [get-shared-globals config]
   (moustache/app [""] {:get (current-version-fn (v/version))}
-                 ["latest"] {:get (latest-version-fn get-shared-globals)}))
+                 ["latest"] {:get (latest-version-fn get-shared-globals config)}))
 
 (def server-time-routes
   (moustache/app [""] {:get (fn [_] (http/json-response {:server_time (now)}))}))
 
 (defn routes
-  [get-shared-globals]
-  (moustache/app ["v1" "version" &] {:any (version-routes get-shared-globals)}
+  [get-shared-globals config]
+  (moustache/app ["v1" "version" &] {:any (version-routes get-shared-globals config)}
                  ["v1" "server-time" &] {:any server-time-routes}))
 
 (defn build-app
-  [get-shared-globals]
-  (-> (routes get-shared-globals)
+  [get-shared-globals config]
+  (-> (routes get-shared-globals config)
       verify-accepts-json
       validate-no-query-params))
