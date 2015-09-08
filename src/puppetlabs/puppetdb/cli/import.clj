@@ -7,7 +7,6 @@
             [org.apache.commons.compress.archivers.tar TarArchiveEntry])
   (:require [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.client :as client]
-            [puppetlabs.puppetdb.cli.export :as cli-export]
             [clj-http.client :as http-client]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.archive :as archive]
@@ -18,7 +17,7 @@
             [puppetlabs.puppetdb.utils :as utils
              :refer [base-url-schema export-root-dir]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.export :as export]
+            [puppetlabs.puppetdb.cli.export :as export]
             [clj-time.core :refer [now]]
             [schema.core :as s]
             [slingshot.slingshot :refer [try+ throw+]]))
@@ -97,7 +96,7 @@
                              options)
         construct-base-url (fn [{:keys [host port] :as options}]
                              (-> options
-                                 (assoc :base-url (utils/pdb-admin-base-url host port cli-export/admin-api-version))
+                                 (assoc :base-url (utils/pdb-admin-base-url host port export/admin-api-version))
                                  (dissoc :host :port)))]
     (utils/try+-process-cli!
      (fn []

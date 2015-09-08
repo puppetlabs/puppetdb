@@ -6,7 +6,7 @@
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.export :as export]
+            [puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.puppetdb.cli.import :as import]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
@@ -227,7 +227,7 @@
             (->> (next-json-tar-entry tar-reader)
                  (anon/anonymize-report config cmd-version))]
         (add-anonymized-entity tar-writer path "reports" (->> (str start_time configuration_version)
-                                                              kitchensink/utf8-string->sha1
+                                                              kitchensink/utf8-string->sha1 
                                                               (format "%s-%s.json" certname)) new-report))
 
       ;; Process facts

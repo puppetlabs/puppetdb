@@ -16,7 +16,7 @@
             [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
             [clj-time.coerce :refer [to-string]]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.export :as export]))
+            [puppetlabs.puppetdb.cli.export :as export]))
 
 (deftest update-checking
   (testing "should check for updates if running as puppetdb"
@@ -57,8 +57,7 @@
                                                                  :baz "the baz"}
                                                         :producer_timestamp (to-string (now))})
 
-      @(block-until-results
-        100 (first (export/get-wireformatted-entity query-fn :factsets ["=" "certname" "foo.local"])))
+      @(block-until-results 100 (export/facts-for-node query-fn "foo.local"))
 
       (check-service-query
        :facts :v4 ["=" "certname" "foo.local"]
@@ -87,8 +86,7 @@
                                                     :values {:a "a" :b "b" :c "c"}
                                                     :producer_timestamp (to-string (now))})
 
-      @(block-until-results
-       100 (first (export/get-wireformatted-entity query-fn :factsets ["=" "certname" "foo.local"])))
+      @(block-until-results 100 (export/facts-for-node query-fn "foo.local"))
       (let [exp ["a" "b" "c"]
             rexp (reverse exp)]
         (doseq [order [:ascending :descending]

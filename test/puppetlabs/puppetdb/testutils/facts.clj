@@ -25,10 +25,3 @@
   "Merges fact-maps, then spits the file to disk at `f`"
   [f & fact-maps]
   (tar/spit-tar f (apply merge-with merge fact-maps)))
-
-(defn munge-facts
-  "Munge facts appropriately for comparison"
-  [facts]
-  (-> facts
-      clojure.walk/stringify-keys
-      (dissoc "producer_timestamp")))
