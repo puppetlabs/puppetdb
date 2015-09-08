@@ -272,8 +272,20 @@ Do not use the `username` or `password` settings.
 
 ### `gc-interval`
 
-This controls how often, in minutes, to compact the database. The compaction process reclaims space and deletes unnecessary rows. If not supplied, the default is every 60 minutes.
+This controls how often, in minutes, to compact the database. The compaction
+process reclaims space and deletes unnecessary rows. If not supplied, the
+default is every 60 minutes.
 
+If `gc-interval` is set to 0, all database GC processes will be disabled. When
+using this value, you should explicitly set a `dlo-compression-interval` if your
+system will receive any commands.
+
+### `dlo-compression-interval`
+
+Any PuppetDB instance which receives commands must perform periodic maintenance
+on the message queue. This setting controls the interval at which that process
+is performed. By default, it is equal to `gc-interval` (60 minutes if not specified).
+You may wish to set this explicitly if you are using a zero `gc-interval`. 
 
 ### `node-ttl`
 

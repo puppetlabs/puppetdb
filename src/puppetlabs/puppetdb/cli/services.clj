@@ -239,10 +239,10 @@
                 database read-database
                 puppetdb command-processing]} config
         {:keys [vardir catalog-hash-debug-dir]} global
-        {:keys [gc-interval    node-ttl
+        {:keys [gc-interval dlo-compression-interval node-ttl
                 node-purge-ttl report-ttl]} database
         {:keys [dlo-compression-threshold
-                 max-frame-size threads]} command-processing
+                max-frame-size threads]} command-processing
         {:keys [disable-update-checking]} puppetdb
 
         write-db (pl-jdbc/pooled-datasource database)
@@ -292,7 +292,7 @@
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)
             gc-interval-millis (to-millis gc-interval)
-            gc-task #(interspaced gc-interval-millis % job-pool)
+            dlo-compression-interval-millis (to-millis dlo-compression-interval)
             seconds-pos? (comp pos? to-seconds)
             db-maintenance-tasks (fn []
                                    (do
@@ -303,10 +303,14 @@
                                      ;; anything referencing an env or resource
                                      ;; param is purged first
                                      (garbage-collect! write-db)))]
-        ;; Run database maintenance tasks seqentially to avoid
-        ;; competition. Each task must handle its own errors.
-        (gc-task db-maintenance-tasks)
-        (gc-task #(compress-dlo! dlo-compression-threshold discard-dir)))
+        (when (pos? gc-interval-millis)
+          ;; Run database maintenance tasks seqentially to avoid
+          ;; competition. Each task must handle its own errors.
+          (interspaced gc-interval-millis db-maintenance-tasks job-pool))
+        (when (pos? dlo-compression-interval-millis)
+          (interspaced dlo-compression-interval-millis
+                       #(compress-dlo! dlo-compression-threshold discard-dir)
+                       job-pool)))
       (assoc context
              :broker broker
              :mq-factory mq-factory

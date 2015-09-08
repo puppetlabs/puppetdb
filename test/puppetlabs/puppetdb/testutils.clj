@@ -14,7 +14,8 @@
             [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset mapvals]]
             [environ.core :refer [env]]
             [clojure.test :refer :all]
-            [clojure.set :refer [difference]]))
+            [clojure.set :refer [difference]]
+            [puppetlabs.puppetdb.test-protocols :as test-protos]))
 
 (def c-t "application/json")
 
@@ -473,3 +474,22 @@
                                              (apply orig-fn# args#)
                                              (deliver after# true))]
        ~@body)))
+
+(defn mock-fn
+  "Create a mock version of a function that can tell you if it has been called."
+  []
+  (let [was-called (atom false)]
+    (reify
+      clojure.lang.IFn
+      (invoke [_] (reset! was-called true))
+      (invoke [_ _] (reset! was-called true))
+      (invoke [_ _ _] (reset! was-called true))
+      (invoke [_ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _ _ _ _ _] (reset! was-called true))
+
+      test-protos/IMockFn
+      (called? [_] @was-called))))
