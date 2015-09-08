@@ -190,7 +190,6 @@
                                      :queryable? false
                                      :query-only? true
                                      :field :fp.path}
-
                              "value" {:type :multi
                                       :queryable? true
                                       :field :fv.value}
@@ -901,11 +900,18 @@
 ;;;              language
 
 (def user-name->query-rec-name
-  {"select_facts" facts-query
+  {"select_catalogs" catalog-query
+   "select_edges" edges-query
+   "select_environments" environments-query
+   "select_events" report-events-query
+   "select_facts" facts-query
+   "select_factsets" factsets-query
    "select_fact_contents" fact-contents-query
+   "select_fact_paths" fact-paths-query
    "select_nodes" nodes-query
    "select_latest_report" latest-report-query
    "select_params" resource-params-query
+   "select_reports" reports-query
    "select_resources" resources-query})
 
 (defn user-query->logical-obj

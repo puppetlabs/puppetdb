@@ -86,6 +86,7 @@
            {:name "bar"}
            {:name "baz"}}
 
+         ;; Facts
          ["in" "name"
           ["extract" "environment"
            ["select_facts"
@@ -105,6 +106,7 @@
            {:name "bar"}
            {:name "baz"}}
 
+         ;; Facts with resources
          ["in" "name"
           ["extract" "environment"
            ["select_facts"
@@ -113,20 +115,19 @@
              ["in" "value"
               ["extract" "title"
                ["select_resources"
-                ["and"
-                 ["=" "type" "Class"]]]]]]]]]
+                ["=" "type" "Class"]]]]]]]]
          #{{:name "DEV"}}))
 
   (testing "failed comparison"
     (are [query]
-         (let [{:keys [status body]} (query-response method endpoint query)]
-           (re-find
+          (let [{:keys [status body]} (query-response method endpoint query)]
+            (re-find
              #"Query operators >,>=,<,<= are not allowed on field name" body))
 
-         ["<=" "name" "foo"]
-         [">=" "name" "foo"]
-         ["<" "name" "foo"]
-         [">" "name" "foo"])))
+      ["<=" "name" "foo"]
+      [">=" "name" "foo"]
+      ["<" "name" "foo"]
+      [">" "name" "foo"])))
 
 (def no-parent-endpoints [[:v4 "/v4/environments/foo/events"]
                           [:v4 "/v4/environments/foo/facts"]
