@@ -162,6 +162,7 @@
     ;; Resources
     ;;;;;;;;;;
 
+    ;; In syntax
     ["extract" "certname"
      ["in" "certname"
       ["extract" "certname"
@@ -170,12 +171,30 @@
     #{{:certname "myhost.localdomain"}
       {:certname "host2.localdomain"}}
 
-    ;; Edges
+    ;; Implicit subquery syntax
+    ["extract" "certname"
+     ["subquery" "resources"
+      ["=" "type" "Apt::Pin"]]]
+    #{{:certname "myhost.localdomain"}
+      {:certname "host2.localdomain"}}
+
+    ;;;;;;;;;
+    ;; Edges subqueries
+    ;;;;;;;;;
+
+    ;; In operator
     ["extract" "certname"
      ["in" "certname"
       ["extract" "certname"
        ["select_edges"
         ["=" "target_type" "File"]]]]]
+    #{{:certname "host2.localdomain"}
+      {:certname "myhost.localdomain"}}
+
+    ;; Implicit query
+    ["extract" "certname"
+     ["subquery" "edges"
+      ["=" "target_type" "File"]]]
     #{{:certname "host2.localdomain"}
       {:certname "myhost.localdomain"}}))
 

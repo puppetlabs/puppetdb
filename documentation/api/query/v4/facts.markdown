@@ -7,11 +7,15 @@ canonical: "/puppetdb/latest/api/query/v4/facts.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
+[subqueries]: ./operators.html#subquery-operators
+[environments]: ./environments.html
+[factsets]: ./factsets.html
+[fact-contents]: ./fact_contents.html
+[nodes]: ./nodes.html
 
 You can query facts by making an HTTP request to the `/facts` endpoint.
 
 In Puppet's world, you only interact with facts from one node at a time, so any given fact consists of only a **fact name** and a **value.** But since PuppetDB interacts with a whole population of nodes, each PuppetDB fact also includes a **certname** and an **environment.**
-
 
 ## `/pdb/query/v4/facts`
 
@@ -34,6 +38,16 @@ See [the Operators page.](./operators.html)
 * `value` (string, numeric, boolean): the value of the fact
 * `certname` (string): the node associated with the fact
 * `environment` (string): the environment associated with the fact
+
+### Subquery Relationships
+
+Here is a list of relationships that can be queried using implicit subqueries. For
+more information consult the documentation for [subqueries].
+
+* [`environments`][environments]: The environment where this fact occurs.
+* [`factsets`][factsets]: The factset where this fact appears.
+* [`fact_contents`][fact-contents]: Expanded fact paths and values for this fact.
+* [`nodes`][nodes]: The node where this fact occurs.
 
 ### Response Format
 

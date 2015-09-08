@@ -100,6 +100,18 @@
                                                    :queryable? true
                                                    :field :reports_environment.environment}}
 
+               :relationships {;; Children - direct
+                               "factsets" {:columns ["certname"]}
+                               "reports" {:columns ["certname"]}
+                               "catalogs" {:columns ["certname"]}
+
+                               ;; Children - transitive
+                               "facts" {:columns ["certname"]}
+                               "fact_contents" {:columns ["certname"]}
+                               "events" {:columns ["certname"]}
+                               "edges" {:columns ["certname"]}
+                               "resources" {:columns ["certname"]}}
+
                :selection {:from [:certnames]
                            :left-join [:catalogs
                                        [:= :certnames.certname :catalogs.certname]
@@ -168,6 +180,10 @@
                            :modifiers [:distinct]
                            :where [:!= :fv.value_type_id 5]}
 
+               :relationships {;; Children - direct
+                               "facts" {:columns ["name"]}
+                               "fact_contents" {:columns ["path"]}}
+
                :source-table "fact_paths"
                :alias "fact_paths"
                :subquery? false}))
@@ -235,6 +251,17 @@
                                        [:= :fs.environment_id :env.id]]
                            :where [:= :fp.depth 0]}
 
+               :relationships {;; Parents - direct
+                               "factsets" {:columns ["certname"]}
+
+                               ;; Parents - transitive
+                               "nodes" {:columns ["certname"]}
+                               "environments" {:local-columns ["environment"]
+                                               :foreign-columns ["name"]}
+
+                               ;; Children - direct
+                               "fact_contents" {:columns ["certname" "name"]}}
+
                :alias "facts"
                :source-table "facts"
                :entity :facts
@@ -286,6 +313,15 @@
                            :left-join [[:environments :env]
                                        [:= :fs.environment_id :env.id]]
                            :where [:!= :fv.value_type_id 5]}
+
+               :relationships {;; Parents - direct
+                               "facts" {:columns ["certname" "name"]}
+                               "factsets" {:columns ["certname"]}
+
+                               ;; Parents - transitive
+                               "nodes" {:columns ["certname"]}
+                               "environments" {:local-columns ["environment"]
+                                               :foreign-columns ["name"]}}
 
                :alias "fact_nodes"
                :source-table "facts"
@@ -415,6 +451,15 @@
                              :report_statuses
                              [:= :reports.status_id :report_statuses.id]]}
 
+     :relationships {;; Parents - direct
+                     "nodes" {:columns ["certname"]}
+                     "environments" {:local-columns ["environment"]
+                                     :foreign-columns ["name"]}
+
+                     ;; Children - direct
+                     "events" {:local-columns ["hash"]
+                               :foreign-columns ["report"]}}
+
      :alias "reports"
      :subquery? false
      :entity :reports
@@ -488,6 +533,15 @@
                  :left-join [[:environments :e]
                              [:= :c.environment_id :e.id]]}
 
+     :relationships {;; Parents - direct
+                     "node" {:columns ["certname"]}
+                     "environments" {:local-columns ["environment"]
+                                     :foreign-columns ["name"]}
+
+                     ;; Children - direct
+                     "edges" {:columns ["certname"]}
+                     "resources" {:columns ["certname"]}}
+
      :alias "catalogs"
      :entity :catalogs
      :subquery? false
@@ -527,6 +581,12 @@
                                   [:and
                                    [:= :edges.target :targets.resource]
                                    [:= :catalogs.id :targets.catalog_id]]]}
+
+               :relationships {;; Parents - direct
+                               "catalogs" {:columns ["certname"]}
+
+                               ;; Parents - transitive
+                               "nodes" {:columns ["certname"]}}
 
                :alias "edges"
                :subquery? false
@@ -577,6 +637,14 @@
 
                                        [:resource_params_cache :rpc]
                                        [:= :rpc.resource :resources.resource]]}
+
+               :relationships {;; Parents - direct
+                               "catalogs" {:columns ["certname"]}
+
+                               ;; Parents - transitive
+                               "nodes" {:columns ["certname"]}
+                               "environments" {:local-columns ["environment"]
+                                               :foreign-columns ["name"]}}
 
                :alias "resources"
                :subquery? false
@@ -651,6 +719,15 @@
                            :left-join [:environments
                                        [:= :reports.environment_id :environments.id]]}
 
+               :relationships {;; Parents - direct
+                               "reports" {:local-columns ["report"]
+                                          :foreign-columns ["hash"]}
+
+                               ;; Parents - transitive
+                               "nodes" {:columns ["certname"]}
+                               "environments" {:local-columns ["environment"]
+                                               :foreign-columns ["name"]}}
+
                :alias "events"
                :subquery? false
                :entity :events
@@ -677,6 +754,24 @@
                                      :queryable? true
                                      :field :environment}}
                :selection {:from [:environments]}
+
+               :relationships {;; Children - direct
+                               "factsets" {:local-columns ["name"]
+                                           :foreign-columns ["environment"]}
+                               "catalogs" {:local-columns ["name"]
+                                           :foreign-columns ["environment"]}
+                               "reports" {:local-columns ["name"]
+                                          :foreign-columns ["environment"]}
+
+                               ;; Children - transitive
+                               "facts" {:local-columns ["name"]
+                                        :foreign-columns ["environment"]}
+                               "fact_contents" {:local-columns ["name"]
+                                                :foreign-columns ["environment"]}
+                               "events" {:local-columns ["name"]
+                                         :foreign-columns ["environment"]}
+                               "resources" {:local-columns ["name"]
+                                            :foreign-columns ["environment"]}}
 
                :alias "environments"
                :subquery? false
@@ -720,6 +815,15 @@
      :selection {:from [:factsets]
                  :left-join [:environments
                              [:= :factsets.environment_id :environments.id]]}
+
+     :relationships {;; Parents - direct
+                     "nodes" {:columns ["certname"]}
+                     "environments" {:local-columns ["environment"]
+                                     :foreign-columns ["name"]}
+
+                     ;; Children - direct
+                     "facts" {:columns ["certname"]}
+                     "fact_contents" {:columns ["certname"]}}
 
      :alias "factsets"
      :entity :factsets
@@ -977,6 +1081,19 @@
                   ["or"
                    [op "value_float" fact-value]
                    [op "value_integer" fact-value]]]]]])
+
+            [["subquery" sub-entity expr]]
+            (let [relationships (get-in (meta node) [:query-context :relationships sub-entity])]
+              (if relationships
+                (let [{:keys [columns local-columns foreign-columns]} relationships]
+                  (when-not (or columns (and local-columns foreign-columns))
+                    (throw (IllegalArgumentException. (format "Column definition for entity relationship '%s' not valid" sub-entity))))
+                  (do
+                    (log/warn "The `subquery` operator is experimental and may change in the future.")
+                    ["in" (or local-columns columns)
+                     ["extract" (or foreign-columns columns)
+                      [(str "select_" sub-entity) expr]]]))
+                (throw (IllegalArgumentException. (format "No implicit relationship for entity '%s'" sub-entity)))))
 
             [["=" "latest_report?" value]]
             (let [entity (get-in (meta node) [:query-context :entity])
@@ -1316,6 +1433,19 @@
                    ;;problems with the validation below when it was
                    ;;included in the validate-query-fields function
                    :state (cond-> state column-validation-message (conj column-validation-message))
+                   :cut true})
+
+                [["subquery" relationship expr]]
+                (let [subquery-expr (push-down-context
+                                     (user-query->logical-obj (str "select_" relationship))
+                                     expr)
+                      nested-qc (:query-context (meta subquery-expr))]
+
+                  {:node (vary-meta ["subquery" relationship
+                                     (vary-meta expr
+                                                assoc :query-context nested-qc)]
+                                    assoc :query-context context)
+                   :state state
                    :cut true})
 
                 :else

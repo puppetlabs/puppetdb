@@ -180,8 +180,72 @@ Subqueries allow you to correlate data from multiple sources or multiple
 rows. For instance, a query such as "fetch the IP addresses of all nodes with
 `Class[Apache]`" would have to use both facts and resources to return a list of facts.
 
-Subqueries are unlike the other operators listed above. They always appear together
-in the following form:
+There are two forms of subqueries, implicit and explicit, and both forms work the
+same under the hood. The implicit form however, only requires you to specify the
+related entity, while the explicit form requires you to be specify exactly how
+data should be joined during the subquery.
+
+### `subquery` (Implicit Subqueries)
+
+*Note:* Implicit subqueries are a new experimental feature, be warned the functionality
+may change as we provide improvements.
+
+Implicit queries work like most operators, and simply require you to specify the
+related entity and the query to use:
+
+    ["subquery", "<ENTITY>", <SUBQUERY STATEMENT>]
+
+The entity is a mapping to the particular endpoint or data type you desire, however not
+all entities are supported from all endpoints, as not every relationship makes sense.
+Consult the endpoint document for details on what implicit relationships are supported:
+
+* [`catalogs`][catalogs]
+* [`edges`][edges]
+* [`environments`][environments]
+* [`events`][events]
+* [`facts`][facts]
+* [`fact_contents`][fact-contents]
+* [`fact_paths`][fact-paths]
+* [`nodes`][nodes]
+* [`reports`][reports]
+* [`resources`][resources]
+
+Internal to PuppetDB, we keep a mapping of how different entities relate to each
+other, and so no other data beyond the entity is needed in this case. This is
+different to explicit subqueries, for those you must specify yourself how
+two entities are related, although functionally they can produce the same results.
+
+#### Implicit Subquery Examples
+
+A query string like the following on the [nodes][`nodes`] endpoint will return the list
+of all nodes with the `Package[Tomcat]` resource in their catalog, and a certname starting
+with `web1`:
+
+    ["and",
+      ["~", "certname", "^web1"],
+      ["subquery", "resources",
+        ["and",
+          ["=", "type", "Package"],
+          ["=", "title", "Tomcat"]]]]
+
+If you wanted to display the entire `networking` fact, if the hosts interfaces uses a certain mac address
+you can do the following on the [facts][`facts`] endpoint:
+
+    ["and",
+      ["=", "name", "networking"],
+      ["subquery", "fact_contents",
+        ["and",
+          ["~>", "path", ["networking", ".*", "macaddresses", ".*"]],
+          ["=", "value", "aa:bb:cc:dd:ee:00"]]]]
+
+### Explicit Subqueries
+
+While implicit subqueries can make your syntax succinct, not all relationships are
+mapped internally. For these more advanced subqueries, you need to specify exactly the fields that
+a subquery should join on. This is where an explicit subquery can be useful.
+
+Explicit subqueries are unlike the other operators listed above. They always appear
+together in the following form:
 
     ["in", ["<FIELDS>"], ["extract", ["<FIELDS>"], <SUBQUERY STATEMENT>] ]
 
@@ -203,7 +267,7 @@ Every resource whose type is "Class" and title is "Apache." (Note that all resou
 
 The complete `in` statement described in the table above would match any object that shares a `certname` with a node that has `Class[Apache]`. This could be combined with a boolean operator to get a specific fact from every node that matches the `in` statement.
 
-### `in`
+#### `in`
 
 An `in` statement constitutes a full query string, which can be used alone or as an argument for a [boolean operator](#boolean-operators).
 
@@ -214,7 +278,7 @@ An `in` statement constitutes a full query string, which can be used alone or as
 
 **Matches if:** the field values are included in the list of values created by the `extract` statement.
 
-### `extract`
+#### `extract`
 
 "Extract" statements are **non-transitive** and take two arguments:
 
@@ -223,7 +287,7 @@ An `in` statement constitutes a full query string, which can be used alone or as
 
 As the second argument of an `in` statement, an `extract` statement acts as a list of possible values. This list is compiled by extracting the value of the requested field from every result of the subquery.
 
-### Subquery Statements
+#### Subquery Statements
 
 A subquery statement **does not** constitute a full query string. It may only be used as the second argument of an `extract` statement.
 
@@ -234,7 +298,7 @@ Subquery statements are **non-transitive** and take two arguments:
 
 As the second argument of an `extract` statement, a subquery statement acts as a collection of PuppetDB objects. Each of the objects returned by the subquery has many fields; the `extract` statement takes the value of one field from each of those objects, and passes that list of values to the `in` statement that contains it.
 
-### Available Subqueries
+#### Available Subqueries
 
 Each subquery acts as a normal query to one of the PuppetDB endpoints. For info on constructing useful queries, see the docs page for the endpoint matching the subquery:
 
@@ -249,7 +313,7 @@ Each subquery acts as a normal query to one of the PuppetDB endpoints. For info 
 * [`select_reports`][reports]
 * [`select_resources`][resources]
 
-### Subquery Examples
+#### Explicit Subquery Examples
 
 This query string queries the `/facts` endpoint for the IP address of
 all nodes with `Class[Apache]`:

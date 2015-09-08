@@ -10,6 +10,15 @@ canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 [paging]: ./paging.html
 [query]: ./query.html
 [8601]: http://en.wikipedia.org/wiki/ISO_8601
+[subqueries]: ./operators.html#subquery-operators
+[factsets]: ./factsets.html
+[reports]: ./reports.html
+[catalogs]: ./catalogs.html
+[facts]: ./facts.html
+[fact-contents]: ./fact_contents.html
+[events]: ./events.html
+[edges]: ./edges.html
+[resources]: ./resources.html
 
 Nodes can be queried by making an HTTP request to the `/nodes` endpoint.
 
@@ -59,6 +68,19 @@ The below fields are allowed as filter criteria and are returned in all response
     Note that nodes which are missing a fact referenced by a `not` query will match
     the query.
 
+### Subquery Relationships
+
+Here is a list of relationships that can be queried using implicit subqueries. For
+more information consult the documentation for [subqueries].
+
+* [`factsets`][factsets]: Factsets received from this node.
+* [`reports`][reports]: Reports received from this node.
+* [`catalogs`][catalogs]: Catalogs received for this node.
+* [`facts`][facts]: Fact names and values received from this node.
+* [`fact_contents`][fact-contents]: Factset paths and values received from this node.
+* [`events`][events]: Report events triggered from this node.
+* [`edges`][edges]: Catalog edges received for this node.
+* [`resources`][resources]: Catalog resources received for this node.
 
 ### Response format
 

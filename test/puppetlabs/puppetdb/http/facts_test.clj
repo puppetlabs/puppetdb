@@ -184,13 +184,25 @@
 
    #{{:certname "foo" :name "ipaddress" :value "192.168.1.100" :environment "DEV"}}
 
-   ;; Fact contents
+   ;;;;;;;;;
+   ;; Fact-contents subqueries
+   ;;;;;;;;;
+
+   ;; In syntax
    ["in" ["certname" "name"]
     ["extract" ["certname" "name"]
      ["select_fact_contents"
       ["and"
        ["=" "path" ["osfamily"]]
        ["=" "value" "Debian"]]]]]
+   #{{:certname "bar" :environment "DEV" :name "osfamily" :value "Debian"}
+     {:certname "foo" :environment "DEV" :name "osfamily" :value "Debian"}}
+
+   ;; Implicit subquery
+   ["subquery" "fact_contents"
+    ["and"
+     ["=" "path" ["osfamily"]]
+     ["=" "value" "Debian"]]]
    #{{:certname "bar" :environment "DEV" :name "osfamily" :value "Debian"}
      {:certname "foo" :environment "DEV" :name "osfamily" :value "Debian"}}))
 
@@ -1401,7 +1413,11 @@
       (is (= expected
              (query-result method endpoint query)))
 
-    ;; Facts
+    ;;;;;;;;;;;;;;
+    ;; Facts subqueries
+    ;;;;;;;;;;;;;;
+
+    ;; In format
     ["extract" "certname"
      ["in" "certname"
       ["extract" "certname"
@@ -1411,7 +1427,19 @@
          ["=" "value" "4000"]]]]]]
     #{{:certname "foo1"}}
 
-    ;; Fact contents
+    ;; Implicit subquery
+    ["extract" "certname"
+     ["subquery" "facts"
+      ["and"
+       ["=" "name" "uptime_seconds"]
+       ["=" "value" "4000"]]]]
+    #{{:certname "foo1"}}
+
+    ;;;;;;;;;;;;;
+    ;; Fact content subqueries
+    ;;;;;;;;;;;;;
+
+    ;; In format
     ["extract" "certname"
      ["in" "certname"
       ["extract" "certname"
@@ -1419,6 +1447,14 @@
         ["and"
          ["=" "name" "uptime_seconds"]
          ["=" "value" "4000"]]]]]]
+    #{{:certname "foo1"}}
+
+    ;; Implicit subqueries
+    ["extract" "certname"
+     ["subquery" "fact_contents"
+      ["and"
+       ["=" "name" "uptime_seconds"]
+       ["=" "value" "4000"]]]]
     #{{:certname "foo1"}}))
 
 (deftestseq factset-single-response

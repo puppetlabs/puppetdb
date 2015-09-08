@@ -590,12 +590,22 @@
       (is (= expected
              (query-result method endpoint query)))
 
-    ;; Events
+    ;;;;;;;;;;;;;;;
+    ;; Event subqueries
+    ;;;;;;;;;;;;;;;
+
+    ;; In format
     ["extract" "certname"
      ["in" "hash"
       ["extract" "report"
        ["select_events"
         ["=" "file" "bar"]]]]]
+    #{{:certname "foo.local"}}
+
+    ;; Implicit subqueries
+    ["extract" "certname"
+     ["subquery" "events"
+      ["=" "file" "bar"]]]
     #{{:certname "foo.local"}}))
 
 (def invalid-projection-queries
