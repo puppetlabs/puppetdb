@@ -100,6 +100,17 @@
                                                    :queryable? true
                                                    :field :reports_environment.environment}}
 
+               :relationships {"factsets" {:columns ["certname"]}
+                               "reports" {:columns ["certname"]}
+                               "catalogs" {:columns ["certname"]}
+
+                               ;; Transitive relationships
+                               "facts" {:columns ["certname"]}
+                               "fact_contents" {:columns ["certname"]}
+                               "events" {:columns ["certname"]}
+                               "edges" {:columns ["certname"]}
+                               "resources" {:columns ["certname"]}}
+
                :selection {:from [:certnames]
                            :left-join [:catalogs
                                        [:= :certnames.certname :catalogs.certname]
@@ -168,6 +179,9 @@
                            :modifiers [:distinct]
                            :where [:!= :fv.value_type_id 5]}
 
+               :relationships {"facts" {:columns ["name"]}
+                               "fact_contents" {:columns ["path"]}}
+
                :source-table "fact_paths"
                :alias "fact_paths"
                :subquery? false}))
@@ -190,7 +204,6 @@
                                      :queryable? false
                                      :query-only? true
                                      :field :fp.path}
-
                              "value" {:type :multi
                                       :queryable? true
                                       :field :fv.value}
@@ -235,6 +248,8 @@
                            :left-join [[:environments :env]
                                        [:= :fs.environment_id :env.id]]
                            :where [:= :fp.depth 0]}
+
+               :relationships {"fact_contents" {:columns ["certname" "name"]}}
 
                :alias "facts"
                :source-table "facts"
@@ -416,6 +431,9 @@
                              :report_statuses
                              [:= :reports.status_id :report_statuses.id]]}
 
+     :relationships {"events" {:local-columns ["hash"]
+                               :foreign-columns ["report"]}}
+
      :alias "reports"
      :subquery? false
      :entity :reports
@@ -485,6 +503,9 @@
      :selection {:from [[:catalogs :c]]
                  :left-join [[:environments :e]
                              [:= :c.environment_id :e.id]]}
+
+     :relationships {"edges" {:columns ["certname"]}
+                     "resources" {:columns ["certname"]}}
 
      :alias "catalogs"
      :entity :catalogs
@@ -676,6 +697,23 @@
                                      :field :environment}}
                :selection {:from [:environments]}
 
+               :relationships {"factsets" {:local-columns ["name"]
+                                           :foreign-columns ["environment"]}
+                               "catalogs" {:local-columns ["name"]
+                                           :foreign-columns ["environment"]}
+                               "reports" {:local-columns ["name"]
+                                          :foreign-columns ["environment"]}
+
+                               ;; Transitive relationships
+                               "facts" {:local-columns ["name"]
+                                        :foreign-columns ["environment"]}
+                               "fact_contents" {:local-columns ["name"]
+                                                :foreign-columns ["environment"]}
+                               "events" {:local-columns ["name"]
+                                         :foreign-columns ["environment"]}
+                               "resources" {:local-columns ["name"]
+                                            :foreign-columns ["environment"]}}
+
                :alias "environments"
                :subquery? false
                :source-table "environments"}))
@@ -718,6 +756,9 @@
      :selection {:from [:factsets]
                  :left-join [:environments
                              [:= :factsets.environment_id :environments.id]]}
+
+     :relationships {"facts" {:columns ["certname"]}
+                     "fact_contents" {:columns ["certname"]}}
 
      :alias "factsets"
      :entity :factsets
@@ -901,11 +942,18 @@
 ;;;              language
 
 (def user-name->query-rec-name
-  {"select_facts" facts-query
+  {"select_catalogs" catalog-query
+   "select_edges" edges-query
+   "select_environments" environments-query
+   "select_events" report-events-query
+   "select_facts" facts-query
+   "select_factsets" factsets-query
    "select_fact_contents" fact-contents-query
+   "select_fact_paths" fact-paths-query
    "select_nodes" nodes-query
    "select_latest_report" latest-report-query
    "select_params" resource-params-query
+   "select_reports" reports-query
    "select_resources" resources-query})
 
 (defn user-query->logical-obj
@@ -968,6 +1016,17 @@
                   ["or"
                    [op "value_float" fact-value]
                    [op "value_integer" fact-value]]]]]])
+
+            [["subquery" sub-entity expr]]
+            (let [relationships (get-in (meta node) [:query-context :relationships sub-entity])]
+              (if relationships
+                (let [{:keys [columns local-columns foreign-columns]} relationships]
+                  (when-not (or columns (and local-columns foreign-columns))
+                    (throw (IllegalArgumentException. (format "Column definition for entity relationship '%s' not valid" sub-entity))))
+                  ["in" (or local-columns columns)
+                   ["extract" (or foreign-columns columns)
+                    [(str "select_" sub-entity) expr]]])
+                (throw (IllegalArgumentException. (format "No implicit relationship for entity '%s'" sub-entity)))))
 
             [["=" "latest_report?" value]]
             (let [entity (get-in (meta node) [:query-context :entity])
@@ -1293,6 +1352,19 @@
                    ;;problems with the validation below when it was
                    ;;included in the validate-query-fields function
                    :state (cond-> state column-validation-message (conj column-validation-message))
+                   :cut true})
+
+                [["subquery" relationship expr]]
+                (let [subquery-expr (push-down-context
+                                     (user-query->logical-obj (str "select_" relationship))
+                                     expr)
+                      nested-qc (:query-context (meta subquery-expr))]
+
+                  {:node (vary-meta ["subquery" relationship
+                                     (vary-meta expr
+                                                assoc :query-context nested-qc)]
+                                    assoc :query-context context)
+                   :state state
                    :cut true})
 
                 :else

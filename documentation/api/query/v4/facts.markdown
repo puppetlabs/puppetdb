@@ -7,6 +7,8 @@ canonical: "/puppetdb/latest/api/query/v4/facts.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
+[subqueries]: ./operators.html#subquery-operators
+[fact-contents]: ./fact_contents.html
 
 You can query facts by making an HTTP request to the `/facts` endpoint.
 
@@ -34,6 +36,15 @@ See [the Operators page.](./operators.html)
 * `value` (string, numeric, boolean): the value of the fact
 * `certname` (string): the node associated with the fact
 * `environment` (string): the environment associated with the fact
+
+### Subquery Relationships
+
+Here is a list of relationships that can be queried using implicit subqueries. For
+more information consult the documentation for [subqueries].
+
+Direct relationships:
+
+* [`fact-contents`][fact-contents]: Expanded fact paths and values for this fact.
 
 ### Response Format
 

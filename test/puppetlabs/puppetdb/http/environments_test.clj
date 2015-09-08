@@ -94,6 +94,12 @@
              ["=" "value" "Debian"]]]]]
          #{{:name "DEV"}}
 
+         ["subquery" "facts"
+          ["and"
+           ["=" "name" "operatingsystem"]
+           ["=" "value" "Debian"]]]
+         #{{:name "DEV"}}
+
          ["not"
           ["in" "name"
            ["extract" "environment"
@@ -104,6 +110,15 @@
          #{{:name "foo"}
            {:name "bar"}
            {:name "baz"}}
+
+         ["not"
+          ["subquery" "facts"
+          ["and"
+           ["=" "name" "operatingsystem"]
+           ["=" "value" "Debian"]]]]
+         #{{:name "foo"}
+          {:name "bar"}
+          {:name "baz"}}
 
          ["in" "name"
           ["extract" "environment"
@@ -119,14 +134,14 @@
 
   (testing "failed comparison"
     (are [query]
-         (let [{:keys [status body]} (query-response method endpoint query)]
-           (re-find
+          (let [{:keys [status body]} (query-response method endpoint query)]
+            (re-find
              #"Query operators >,>=,<,<= are not allowed on field name" body))
 
-         ["<=" "name" "foo"]
-         [">=" "name" "foo"]
-         ["<" "name" "foo"]
-         [">" "name" "foo"])))
+      ["<=" "name" "foo"]
+      [">=" "name" "foo"]
+      ["<" "name" "foo"]
+      [">" "name" "foo"])))
 
 (def no-parent-endpoints [[:v4 "/v4/environments/foo/events"]
                           [:v4 "/v4/environments/foo/facts"]

@@ -131,58 +131,136 @@
     (is (= 400 status))
     (is (re-find #"not allowed on value '12000'" body))))
 
-(defn v4-node-field [version]
-  "certname")
-
-(deftestseq basic-node-subqueries
-  [[version endpoint] endpoints
-   method [:get :post]]
-  (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
-    (doseq [[query expected] {
-                              ;; Basic sub-query for fact operatingsystem
-                              ["in" "certname"
-                               ["extract" "certname"
-                                ["select_facts"
-                                 ["and"
-                                  ["=" "name" "operatingsystem"]
-                                  ["=" "value" "Debian"]]]]]
-
-                              [db web1 web2]
-
-                              ;; Nodes with a class matching their hostname
-                              ["in" "certname"
-                               ["extract" "certname"
-                                ["select_facts"
-                                 ["and"
-                                  ["=" "name" "hostname"]
-                                  ["in" "value"
-                                   ["extract" "title"
-                                    ["select_resources"
-                                     ["and"
-                                      ["=" "type" "Class"]]]]]]]]]
-
-                              [web1]}]
-      (testing (str "query: " query " is supported")
-        (is-query-result method endpoint query expected)))))
-
 (deftestseq node-subqueries
   [[version endpoint] endpoints
    method [:get :post]]
 
-  (testing "subqueries: valid"
-    (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
-      (doseq [[query expected] {
-                                ;; Nodes with matching select-resources for file/line
-                                ["in" "certname"
-                                 ["extract" "certname"
-                                  ["select_resources"
-                                   ["and"
-                                    ["=" "file" "/etc/puppet/modules/settings/manifests/init.pp"]
-                                    ["=" "line" 1]]]]]
+  (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
+    (are [query expected]
+        (is-query-result method endpoint query expected)
 
-                                ["db.example.com" "puppet.example.com" "web1.example.com"]}]
-        (testing (str "query: " query " is supported")
-          (is-query-result method endpoint query expected)))))
+      ;; Basic sub-query for fact operatingsystem
+      ["in" "certname"
+       ["extract" "certname"
+        ["select_facts"
+         ["and"
+          ["=" "name" "operatingsystem"]
+          ["=" "value" "Debian"]]]]]
+      [db web1 web2]
+
+      ["subquery" "facts"
+       ["and"
+        ["=" "name" "operatingsystem"]
+        ["=" "value" "Debian"]]]
+      [db web1 web2]
+
+      ;; Fact_contents subquery
+      ["in" "certname"
+       ["extract" "certname"
+        ["select_fact_contents"
+         ["and"
+          ["=" "name" "operatingsystem"]
+          ["=" "value" "Debian"]]]]]
+      [db web1 web2]
+
+      ["subquery" "fact_contents"
+       ["and"
+        ["=" "name" "operatingsystem"]
+        ["=" "value" "Debian"]]]
+      [db web1 web2]
+
+      ;; Nodes with a class matching their hostname
+      ["in" "certname"
+       ["extract" "certname"
+        ["select_facts"
+         ["and"
+          ["=" "name" "hostname"]
+          ["in" "value"
+           ["extract" "title"
+            ["select_resources"
+             ["and"
+              ["=" "type" "Class"]]]]]]]]]
+      [web1]
+
+      ["subquery" "facts"
+       ["and"
+        ["=" "name" "hostname"]
+        ["in" "value"
+         ["extract" "title"
+          ["select_resources"
+           ["and"
+            ["=" "type" "Class"]]]]]]]
+      [web1]
+
+      ;; Nodes with matching select-resources for file/line
+      ["in" "certname"
+       ["extract" "certname"
+        ["select_resources"
+         ["and"
+          ["=" "file" "/etc/puppet/modules/settings/manifests/init.pp"]
+          ["=" "line" 1]]]]]
+      [db puppet web1]
+
+      ["subquery" "resources"
+       ["and"
+        ["=" "file" "/etc/puppet/modules/settings/manifests/init.pp"]
+        ["=" "line" 1]]]
+      [db puppet web1]
+
+      ;; Reports subquery
+      ["in" "certname"
+       ["extract" "certname"
+        ["select_reports"
+         ["=" "certname" db]]]]
+      [db]
+
+      ["subquery" "reports"
+       ["=" "certname" db]]
+      [db]
+
+      ;; Catalogs subquery
+      ["in" "certname"
+       ["extract" "certname"
+        ["select_catalogs"
+         ["=" "certname" web1]]]]
+      [web1]
+
+      ["subquery" "catalogs"
+       ["=" "certname" web1]]
+      [web1]
+
+      ;; Factsets subquery
+      ["in" "certname"
+       ["extract" "certname"
+        ["select_factsets"
+         ["=" "certname" web2]]]]
+      [web2]
+
+      ["subquery" "factsets"
+       ["=" "certname" web2]]
+      [web2]
+
+      ;; Events subquery
+      ["in" "certname"
+       ["extract" "certname"
+        ["select_events"
+         ["=" "certname" db]]]]
+      [db]
+
+      ["subquery" "events"
+       ["=" "certname" db]]
+      [db]
+
+      ;; Resource subquery
+      ["in" "certname"
+       ["extract" "certname"
+        ["select_resources"
+         ["=" "certname" web1]]]]
+      [web1]
+
+      ["subquery" "resources"
+       ["=" "certname" web1]]
+      [web1]))
 
   (testing "subqueries: invalid"
     (doseq [[query msg] {

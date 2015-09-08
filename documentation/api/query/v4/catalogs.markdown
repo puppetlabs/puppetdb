@@ -9,7 +9,10 @@ canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 [edges]: ./edges.html
 [paging]: ./paging.html
 [query]: ./query.html
+[subqueries]: ./operators.html#subquery-operators
+[edges]: ./edges.html
 [resources]: ./resources.html
+
 
 You can query catalogs by making an HTTP request to the
 `/catalogs` endpoint.
@@ -37,6 +40,16 @@ See [the Operators page.](./operators.html)
   recent catalog
 * `producer_timestamp` (string): a string representing the time at which the
   `replace_catalog` command for a given catalog was submitted from the master.
+
+### Subquery Relationships
+
+Here is a list of relationships that can be queried using implicit subqueries. For
+more information consult the documentation for [subqueries].
+
+Direct relationships:
+
+* [`edges`][edges]: Resource edges received with this catalog.
+* [`resources`][resources]: Resources received with this catalog.
 
 ### Response Format
 
