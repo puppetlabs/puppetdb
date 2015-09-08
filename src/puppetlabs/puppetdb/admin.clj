@@ -6,7 +6,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.cli.export :as export]
+            [puppetlabs.puppetdb.export :as export]
             [puppetlabs.puppetdb.cli.import :as import]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.middleware :as mid]
@@ -14,21 +14,6 @@
             [ring.middleware.multipart-params :as mp]
             [clj-time.core :refer [now]]
             [ring.util.io :as rio]))
-
-(def query-api-version :v4)
-
-(defn munge-nodes-data
-  [nodes]
-  (as-> nodes $
-    (select-keys $ [:certname :facts_timestamp :catalog_timestamp :report_timestamp])
-    (kitchensink/mapvals str $)))
-
-(defn export-app
-  [buffer query-fn]
-  (export/export! buffer
-                  (->> (query-fn :nodes query-api-version nil nil doall)
-                       (map munge-nodes-data)
-                       (mapcat (partial export/get-node-data query-fn)))))
 
 (defn build-app
   [submit-command-fn query-fn]
@@ -41,6 +26,6 @@
                                           submit-command-fn)
                             (http/json-response {:ok true}))))
        (compojure/GET "/v1/archive" []
-                      (http/streamed-tar-response #(export-app % query-fn)
+                      (http/streamed-tar-response #(export/export! % query-fn)
                                                   (format "puppetdb-export-%s.tgz" (now))))
        (route/not-found "Not Found"))))
