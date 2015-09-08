@@ -30,21 +30,21 @@
     (format "The %s API has been retired; please use v4" version)
     404)))
 
-(defn routes [config]
+(def routes
   (app
-   ["v4" &] {:any (v4-app config)}
-   ["v1" &] {:any (refuse-retired-api "v1")}
-   ["v2" &] {:any (refuse-retired-api "v2")}
-   ["v3" &] {:any (refuse-retired-api "v3")}))
+    ["v4" &] {:any v4-app}
+    ["v1" &] {:any (refuse-retired-api "v1")}
+    ["v2" &] {:any (refuse-retired-api "v2")}
+    ["v3" &] {:any (refuse-retired-api "v3")}))
 
 (defn build-app
   "Generates a Ring application that handles PuppetDB requests.
-  If get-authorizer is nil or false, all requests will be accepted.
-  Otherwise it must accept no arguments and return an authorize
-  function that accepts a request.  The request will be allowed only
-  if authorize returns :authorized.  Otherwise, the return value
-  should be a message describing the reason that access was denied."
-  [get-shared-globals config]
-  (-> (routes config)
+   If get-authorizer is nil or false, all requests will be accepted.
+   Otherwise it must accept no arguments and return an authorize
+   function that accepts a request.  The request will be allowed only
+   if authorize returns :authorized.  Otherwise, the return value
+   should be a message describing the reason that access was denied."
+  [get-shared-globals]
+  (-> routes
       (wrap-with-metrics (atom {}) http/leading-uris)
       (wrap-with-globals get-shared-globals)))

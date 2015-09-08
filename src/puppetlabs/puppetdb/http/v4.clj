@@ -17,7 +17,7 @@
 
 (def version :v4)
 
-(defn v4-app [config]
+(def v4-app
   (moustache/app
    ["facts" &]
    {:any (facts/facts-app version)}

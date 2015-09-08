@@ -288,8 +288,8 @@
          "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
 
 (defn warn-experimental
-  [entity product-name]
-  (when (and (= "puppetdb" product-name)
+  [entity warn-experimental]
+  (when (and warn-experimental
              (contains? experimental-entities entity))
     (log/warn (format
                 "The %s endpoint is experimental and may be altered or removed in the future."
@@ -305,7 +305,7 @@
     (extract-query param-spec)
     (apply comp
            (fn [{:keys [params globals puppetdb-query]}]
-             (warn-experimental entity (:product-name globals))
+             (warn-experimental entity (:warn-experimental globals))
              (produce-streaming-body
                entity
                version

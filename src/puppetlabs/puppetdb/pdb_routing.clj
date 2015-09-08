@@ -27,7 +27,8 @@
 (defn wrap-with-context [uri route]
   (compojure/context uri [] route))
 
-(defn pdb-core-routes [defaulted-config get-shared-globals submit-command-fn query-fn enqueue-raw-command-fn response-pub]
+(defn pdb-core-routes [defaulted-config get-shared-globals submit-command-fn
+                       query-fn enqueue-raw-command-fn response-pub]
   (let [cmd-mq #(:command-mq (get-shared-globals))
         meta-cfg #(select-keys (get-shared-globals) [:scf-read-db])
         get-response-pub #(response-pub)]
@@ -38,7 +39,7 @@
           ["/meta" (meta/build-app meta-cfg defaulted-config)
            "/cmd" (cmd/command-app cmd-mq get-shared-globals
                                    enqueue-raw-command-fn get-response-pub)
-           "/query" (server/build-app get-shared-globals defaulted-config)
+           "/query" (server/build-app get-shared-globals)
            "/admin" (admin/build-app submit-command-fn query-fn)]))))
 
 (defn pdb-app [root defaulted-config maint-mode-fn app-routes]
@@ -90,14 +91,16 @@
         (let [context-root (get-route this)
               query-prefix (str context-root "/query")
               config (get-config)
-              shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
+              augmented-globals #(-> (shared-globals)
+                                     (assoc :url-prefix query-prefix)
+                                     (assoc :warn-experimental true))]
           (set-url-prefix query-prefix)
           (log/info "Starting PuppetDB, entering maintenance mode")
           (add-ring-handler this (pdb-app context-root
                                           config
                                           maint-mode?
                                           (pdb-core-routes config
-                                                           shared-with-prefix
+                                                           augmented-globals
                                                            submit-command
                                                            query
                                                            enqueue-raw-command
