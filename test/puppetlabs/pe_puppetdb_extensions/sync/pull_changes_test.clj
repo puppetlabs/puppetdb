@@ -6,10 +6,9 @@
             [puppetlabs.http.client.sync :as http]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.pe-puppetdb-extensions.sync.core :as sync-core]
-            [puppetlabs.pe-puppetdb-extensions.sync.test-protocols :refer [called?]]
             [puppetlabs.pe-puppetdb-extensions.sync.events :as events]
             [puppetlabs.pe-puppetdb-extensions.sync.sync-test-utils
-             :refer [logging-query-handler mock-fn run-test-for-var
+             :refer [logging-query-handler run-test-for-var
                      perform-sync trigger-sync
                      facts catalog]]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
@@ -18,6 +17,8 @@
             [puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
+            [puppetlabs.puppetdb.test-protocols :refer [called?]]
+            [puppetlabs.puppetdb.testutils :refer [mock-fn]]
             [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.services :as svcs]

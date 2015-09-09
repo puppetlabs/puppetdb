@@ -4,7 +4,6 @@
             [compojure.core :refer [routes GET context]]
             [puppetlabs.http.client.sync :as http]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as services]
-            [puppetlabs.pe-puppetdb-extensions.sync.test-protocols :as sync-test-protos :refer [called?]]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils :refer [with-puppetdb-instance index-by json-response
                                                                            get-json blocking-command-post]]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -35,20 +34,6 @@
 
 
 ;;; General test utils
-
-(defn mock-fn
-  "Create a mock version of a 0-arity function that can tell you if it has been
-  called."
-  ([] (mock-fn nil))
-  ([f] (let [was-called (atom false)]
-         (reify
-           clojure.lang.IFn
-           (invoke [_]
-             (let [result (if f (f))]
-               (reset! was-called true)
-               result))
-           sync-test-protos/IMockFn
-           (called? [_] @was-called)))))
 
 (defn run-test-for-var
   "Depending on how you're running your tests, it can be tricky to invoke
