@@ -22,6 +22,7 @@
                                                    create-hsqldb-map
                                                    parse-result]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
+                                                        query-result
                                                         vector-param]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
@@ -748,6 +749,26 @@
    (:results (raw-query-endpoint endpoint nil paging-options)))
   ([endpoint query paging-options]
    (:results (raw-query-endpoint endpoint query paging-options))))
+
+(deftestseq large-integer-storage
+  [[version endpoint] facts-endpoints
+   method [:get :post]]
+
+  (let [f {:certname "a.local" :name "large-int" :environment "DEV"
+           :value 3546565741691827463891754698375639827814623789421387401348}]
+
+    (scf-store/add-certname! "a.local")
+    (scf-store/add-facts! {:certname "a.local"
+                           :values {"large-int" (:value f)}
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer_timestamp (now)})
+
+    (testing "retreival of large value works"
+      (let [actual (query-result
+                     method endpoint
+                     [">" "value" 129847130945730945709234875093428750934750])]
+        (is (= actual #{f}))))))
 
 (deftestseq paging-results
   [[version endpoint] facts-endpoints

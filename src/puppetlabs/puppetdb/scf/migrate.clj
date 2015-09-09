@@ -1495,6 +1495,45 @@
       (sql/do-commands
        "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL")))
 
+
+(defn change-value-integer-to-numeric
+  []
+  (let [hash-type (if (sutils/postgres?) "bytea" "varchar(40)")
+        munge-hash (if (sutils/postgres?)
+                     (fn [column] (format "('\\x' || %s)::bytea" column)) identity)]
+    (sql/create-table :fact_values_transform
+                      [ "id" "bigint NOT NULL DEFAULT nextval('fact_values_id_seq')"]
+                      ["value_hash" hash-type "NOT NULL"]
+                      ["value_type_id" "bigint NOT NULL"]
+                      ["value_integer numeric(1000,0)"]
+                      ["value_float" "double precision"]
+                      ["value_string" "text"]
+                      ["value_boolean" "boolean"]
+                      ["value" "text"])
+    (sql/do-commands
+      (str "INSERT INTO fact_values_transform
+            (id, value_hash, value_type_id, value_integer, value_float,
+            value_string, value_boolean, value)
+            SELECT id, " (munge-hash "value_hash") ", value_type_id, value_integer, value_float, value_string, value_boolean, value FROM fact_values"))
+
+    (sql/do-commands
+      "ALTER TABLE facts DROP CONSTRAINT fact_value_id_fk"
+      "ALTER TABLE fact_values DROP CONSTRAINT fact_values_pkey"
+      "ALTER TABLE fact_values DROP CONSTRAINT fact_values_value_hash_key"
+      "DROP INDEX fact_values_value_float_idx"
+      "DROP INDEX fact_values_value_integer_idx"
+      "ALTER TABLE fact_values DROP CONSTRAINT fact_values_value_type_id_fk"
+      "DROP TABLE fact_values")
+
+    (sql/do-commands
+      "ALTER TABLE fact_values_transform RENAME TO fact_values"
+      "CREATE INDEX fact_values_value_float_idx ON fact_values(value_float)"
+      "CREATE INDEX fact_values_value_integer_idx ON fact_values(value_integer)"
+      "ALTER TABLE fact_values ADD CONSTRAINT fact_values_value_hash_key UNIQUE (value_hash)"
+      "ALTER TABLE fact_values ADD CONSTRAINT fact_values_pkey PRIMARY KEY (id)"
+      "ALTER TABLE fact_values ADD CONSTRAINT fact_values_value_type_id_fk FOREIGN KEY (value_type_id) REFERENCES value_types(id) ON UPDATE RESTRICT ON DELETE RESTRICT"
+      "ALTER TABLE facts ADD CONSTRAINT fact_value_id_fk FOREIGN KEY (fact_value_id) REFERENCES fact_values(id) ON UPDATE RESTRICT ON DELETE RESTRICT")))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1537,6 +1576,7 @@
    35 (fn [] true)
    36 rename-environments-name-to-environment
    37 move-to-jsonb-for-metrics-logs-resources
+   38 change-value-integer-to-numeric
    })
 
 (def desired-schema-version (apply max (keys migrations)))
