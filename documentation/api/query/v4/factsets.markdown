@@ -13,7 +13,7 @@ You can query factsets by making an HTTP request to the `/factsets` endpoint.
 
 A factset is the set of all facts for a single certname.
 
-## `GET /pdb/query/v4/factsets`
+## `/pdb/query/v4/factsets`
 
 This will return all factsets matching the given query.
 
@@ -137,7 +137,7 @@ which returns
       "hash" : "d118d161990f202e911b6fda09f79d24f3a5d4f4"
     } ]
 
-## `GET /pdb/query/v4/factsets/<NODE>`
+## `/pdb/query/v4/factsets/<NODE>`
 
 This will return the most recent factset for the given node. Supplying a node
 this way will restrict any given query to only apply to that node, but in
@@ -167,7 +167,7 @@ a JSON error message if the factset is not found:
     }
 
 
-## `GET /pdb/query/v4/factsets/<NODE>/facts`
+## `/pdb/query/v4/factsets/<NODE>/facts`
 
 This will return all facts for a particular factset, designated by a node certname.
 

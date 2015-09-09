@@ -15,7 +15,7 @@ endpoint, providing increased granularity around structured facts. The endpoint
 may be useful for building autocompletion in GUIs or for other applications
 that require a basic top-level view of fact paths.
 
-## `GET /pdb/query/v4/fact-paths`
+## `/pdb/query/v4/fact-paths`
 
 This will return all fact paths matching the given query.
 

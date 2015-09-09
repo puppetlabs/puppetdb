@@ -1,45 +1,25 @@
 (ns puppetlabs.puppetdb.http.event-counts
-  (:require [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.http.events :as events-http]
-            [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
+  (:require [puppetlabs.puppetdb.query.paging :as paging]
+            [puppetlabs.puppetdb.http.query :as http-q]
+            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
                                                     wrap-with-paging-options]]
-            [clojure.tools.logging :as log]
-            [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.config :as conf]))
+            [net.cgrand.moustache :refer [app]]))
 
 (defn routes
-  [version config]
-  (app
-   [""]
-   {:get (fn [{:keys [params globals paging-options]}]
-           (when (conf/foss? config)
-             (log/warn "The event-counts endpoint is experimental"
-                       " and may be altered or removed in the future."))
-           (let [{:strs [query summarize_by counts_filter count_by] :as query-params} params
-                 query-options (merge {:counts_filter (if counts_filter (json/parse-strict-string counts_filter true))
-                                       :count_by count_by
-                                       :summarize_by summarize_by}
-                                      (events-http/validate-distinct-options! query-params)
-                                      paging-options)]
-             (produce-streaming-body
-              :event-counts
-              version
-              query
-              query-options
-              (:scf-read-db globals)
-              (:url-prefix globals))))}))
+  [version optional-handlers]
+  (let [param-spec {:required ["summarize_by"]
+                    :optional (concat ["counts_filter" "count_by"
+                                       "distinct_resources" "distinct_start_time"
+                                       "distinct_end_time"]
+                                      paging/query-params)}
+        query-route #(apply (partial http-q/query-route :event-counts version param-spec) %)]
+    (app
+      []
+      (query-route optional-handlers))))
 
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."
-  [version config]
-  (-> (routes version config)
+  [version & optional-handlers]
+  (-> (routes version optional-handlers)
       verify-accepts-json
-      (validate-query-params {:required ["summarize_by"]
-                              :optional (concat ["query"
-                                                 "counts_filter" "count_by"
-                                                 "distinct_resources" "distinct_start_time"
-                                                 "distinct_end_time"]
-                                                paging/query-params)})
       wrap-with-paging-options))

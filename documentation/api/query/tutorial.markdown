@@ -9,9 +9,10 @@ queries. It uses the **version 4 API** in all of its examples.
 
 ## How to Query
 
-Queries are performed by performing an HTTP GET request to an endpoint URL and supplying a URL parameter called `query`,
-which contains the query to execute. Results are always returned in
-`application/json` form.
+Queries are performed by issuing an HTTP GET or POST request to an endpoint URL
+and specifying a `query` url parameter (in the GET case) or a json-valued
+payload in the POST case, which contains the query to execute. Results are
+always returned in `application/json` form.
 
 Queries are usually issued from code, but you can easily issue them from the command line using curl.
 
@@ -23,6 +24,10 @@ Queries are usually issued from code, but you can easily issue them from the com
 
     curl -X GET http://puppetdb.example.com:8080/pdb/query/v4/resources \
       --data-urlencode query@<filename>
+
+    curl -X POST http://puppetdb.example.com:8080/pdb/query/v4/resources \
+      -H 'Content-Type:application/json'
+      -d '{"query":["=","certname","foo.com"]}'
 
 This requires that PuppetDB be [configured to accept non-SSL connections][config_jetty]. By default, it will only accept unencrypted traffic from `localhost`.
 

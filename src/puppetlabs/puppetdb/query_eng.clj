@@ -87,8 +87,9 @@
   {:pre  [((some-fn nil? sequential?) query)]
    :post [(map? %)
           (jdbc/valid-jdbc-query? (:results-query %))
-          (or (not (:count? paging-options))
+          (or (not (:include_total paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
+
   (cond
     (= :aggregate-event-counts entity)
     (aggregate-event-counts/query->sql version query paging-options)
@@ -96,7 +97,7 @@
     (= :event-counts entity)
     (event-counts/query->sql version query paging-options)
 
-    (and (= :events entity) (:distinct_resources? paging-options))
+    (and (= :events entity) (:distinct_resources paging-options))
     (events/legacy-query->sql false version query paging-options)
 
     :else
@@ -128,57 +129,48 @@
          (jdbc/with-query-results-cursor results-query (comp row-fn munge-fn)))))))
 
 (defn produce-streaming-body
-  "DEPRECATED - this function will be replaced by produce-streaming-body'
-                which accepts a query map
-
-  Given a query, and database connection, return a Ring response with
-  the query results. `query` is either a string (if it's coming from a
-  GET request) or an already parsed clojure data structure (if it's
-  from a POST request).
-
+  "Given a query, and database connection, return a Ring response with
+   the query results. query-map is a clojure map of the form
+   {:query ['=','certname','foo'] :order_by [{'field':'foo'}]...}
    If the query can't be parsed, a 400 is returned."
-  {:deprecated "3.0.0"}
-  [entity version query paging-options db url-prefix]
-  (try
-    (jdbc/with-transacted-connection db
-      (let [munge-fn (get-munge-fn entity version paging-options url-prefix)
-            {:keys [results-query count-query]} (-> query
-                                                    json/coerce-from-json
-                                                    (query->sql entity version paging-options))
-            query-error (promise)
-            resp (http/streamed-response
-                   buffer
-                   (try (jdbc/with-transacted-connection db
-                          (jdbc/with-query-results-cursor
-                            results-query (comp #(http/stream-json % buffer)
-                                                #(do (first %) (deliver query-error nil) %)
-                                                munge-fn)))
-                        (catch java.sql.SQLException e
-                          (deliver query-error e))))]
-        (if @query-error
-          (throw @query-error)
-          (cond-> (http/json-response* resp)
-            count-query (http/add-headers {:count (jdbc/get-result-count count-query)})))))
-    (catch com.fasterxml.jackson.core.JsonParseException e
-      (log/errorf e (str "Error executing query '%s' for entity '%s' "
-                         "with paging-options '%s'. Returning a 400 error code.")
-                  query (name entity) paging-options)
-      (http/error-response e))
-    (catch IllegalArgumentException e
-      (log/errorf e (str "Error executing query '%s' for entity '%s' "
-                         "with paging-options '%s'. Returning a 400 error code.")
-                  query (name entity) paging-options)
-      (http/error-response e))
-    (catch org.postgresql.util.PSQLException e
-      (if (= (.getSQLState e) "2201B")
-        (do (log/debug e "Caught PSQL processing exception")
-            (http/error-response (.getMessage e)))
-        (throw e)))))
-
-(defn produce-streaming-body'
-  "Same as `produce-streaming-body` but accepts a query map instead. These two functions will eventually merge"
   [entity version query-map db url-prefix]
-  (produce-streaming-body entity version (:query query-map) (dissoc query-map :query) db url-prefix))
+  (let [query (:query query-map)
+        query-options (dissoc query-map :query)]
+    (try
+      (jdbc/with-transacted-connection db
+        (let [munge-fn (get-munge-fn entity version query-options url-prefix)
+              {:keys [results-query count-query]} (-> query
+                                                      json/coerce-from-json
+                                                      (query->sql entity version query-options))
+              query-error (promise)
+              resp (http/streamed-response
+                     buffer
+                     (try (jdbc/with-transacted-connection db
+                            (jdbc/with-query-results-cursor
+                              results-query (comp #(http/stream-json % buffer)
+                                                  #(do (first %) (deliver query-error nil) %)
+                                                  munge-fn)))
+                          (catch java.sql.SQLException e
+                            (deliver query-error e))))]
+          (if @query-error
+            (throw @query-error)
+            (cond-> (http/json-response* resp)
+              count-query (http/add-headers {:count (jdbc/get-result-count count-query)})))))
+      (catch com.fasterxml.jackson.core.JsonParseException e
+        (log/errorf e (str "Error executing query '%s' for entity '%s' "
+                           "with query-options '%s'. Returning a 400 error code.")
+                    (name entity) query query-options)
+        (http/error-response e))
+      (catch IllegalArgumentException e
+        (log/errorf e (str "Error executing query '%s' for entity '%s' "
+                           "with query-options '%s'. Returning a 400 error code.")
+                    (name entity) query query-options)
+        (http/error-response e))
+      (catch org.postgresql.util.PSQLException e
+        (if (= (.getSQLState e) "2201B")
+          (do (log/debug e "Caught PSQL processing exception")
+              (http/error-response (.getMessage e)))
+          (throw e))))))
 
 (pls/defn-validated object-exists? :- s/Bool
   "Returns true if an object exists."

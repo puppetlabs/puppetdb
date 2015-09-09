@@ -24,7 +24,7 @@ Once this information is stored in PuppetDB, it can be queried in various ways.
 * You can query **data about individual events** by making an HTTP request to the [`/events`][events] endpoint.
 * You can query **summaries of event data** by making an HTTP request to the [`/event-counts`](./event-counts.html) or [`aggregate-event-counts`](./aggregate-event-counts.html) endpoints.
 
-## `GET /pdb/query/v4/reports`
+## `/pdb/query/v4/reports`
 
 ### URL Parameters
 
@@ -268,18 +268,18 @@ Query for all reports:
       "count" : 20
     } ]
 
-## `GET /pdb/query/v4/reports/<HASH>/events`
+## `/pdb/query/v4/reports/<HASH>/events`
 
 This will return all events for a particular report, designated by its unique hash.
 
 This is a shortcut to the [`/events`][events] endpoint. It behaves the same as a call to [`/events`][events] with a query string of `["=", "report", "<HASH>"]`.
 
-## `GET /pdb/query/v4/reports/<HASH>/metrics`
+## `/pdb/query/v4/reports/<HASH>/metrics`
 
 This will return all metrics for a particular report, designated by its unique hash.
 This endpoint does not currently support querying or paging.
 
-## `GET /pdb/query/v4/reports/<HASH>/logs`
+## `/pdb/query/v4/reports/<HASH>/logs`
 
 This will return all logs for a particular report, designated by its unique hash.
 This endpoint does not currently support querying or paging.

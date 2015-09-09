@@ -136,7 +136,7 @@
       :post [(map? %)
              (jdbc/valid-jdbc-query? (:results-query %))
              (or
-              (not (:count? query-options))
+              (not (:include_total query-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
      (let [count_by                        (or count_by "resource")
            group-by                        (get-group-by summarize_by)
@@ -146,11 +146,11 @@
            {counts-filter-where  :where
             counts-filter-params :params}  (get-counts-filter-where-clause counts_filter)
            distinct-opts                   (select-keys query-options
-                                                        [:distinct_resources?
+                                                        [:distinct_resources
                                                          :distinct_start_time
                                                          :distinct_end_time])
            [event-sql & event-params]      (:results-query
-                                            (if (:distinct_resources? query-options)
+                                            (if (:distinct_resources query-options)
                                               ;;The query engine does not support distinct-resources!
                                               (events/query->sql will-union? version query distinct-opts)
                                               (qe/compile-user-query->sql qe/report-events-query query)))
@@ -160,5 +160,5 @@
            params                          (concat event-params counts-filter-params)
            paged-select                    (jdbc/paged-sql sql query-options)]
        (conj {:results-query (apply vector paged-select params)}
-             (when (:count? query-options)
+             (when (:include_total query-options)
                [:count-query (apply vector (jdbc/count-sql sql) params)])))))

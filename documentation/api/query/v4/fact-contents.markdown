@@ -30,7 +30,7 @@ With the fact-contents endpoint you can query data at a specific location in
 the tree using the `path` field, and then either analyze or filter on the
 `value` of that node.
 
-### `GET /pdb/query/v4/fact-contents`
+### `/pdb/query/v4/fact-contents`
 
 This will return all fact contents that match the given query.
 

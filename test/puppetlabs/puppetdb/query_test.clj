@@ -87,11 +87,11 @@
           (is (= limit (count (:result results))))
           (is (excludes? results :count))))
       (testing "count should not be returned if the option is false"
-        (let [results (paged-query-fn {:limit limit :count? false})]
+        (let [results (paged-query-fn {:limit limit :include_total false})]
           (is (= limit (count (:result results))))
           (is (excludes? results :count))))
       (testing "count should be returned if the option is true"
-        (let [results (paged-query-fn {:limit limit :count? true})]
+        (let [results (paged-query-fn {:limit limit :include_total true})]
           (is (= limit (count (:result results))))
           (is (contains? results :count))
           (is (= orig-count (:count results))))))))

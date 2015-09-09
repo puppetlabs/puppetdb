@@ -184,8 +184,8 @@
         (is (re-find #"^Illegal value '\{.*\}' in :order_by; unknown key 'bar'."
                      body))))
 
-    (testing "`count?` should default to `false`"
-      (is (= false (:count? (wrapped-fn {:params {}})))))
+    (testing "`:include_total` should default to `false`"
+      (is (= false (:include_total (wrapped-fn {:params {}})))))
 
     (testing "should make paging options available on the request"
       (is (= (wrapped-fn
@@ -199,7 +199,7 @@
              {:limit     10
               :offset    10
               :order_by  [[:foo :descending]]
-              :count?    true })))))
+              :include_total    true })))))
 
 (deftest payload-to-body-string-test
   (let [test-content "test content"

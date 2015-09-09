@@ -16,7 +16,7 @@ Environments are semi-isolated groups of nodes managed by Puppet. Nodes are assi
 
 When PuppetDB collects info about a node, it keeps track of the environment the node is assigned to. PuppetDB also keeps a list of environments it has seen. You can query this list by making an HTTP request to the `/environments` endpoint.
 
-## `GET /pdb/query/v4/environments`
+## `/pdb/query/v4/environments`
 
 This will return all environments known to PuppetDB.
 
@@ -49,7 +49,7 @@ The array is unsorted.
 
     curl 'http://localhost:8080/pdb/query/v4/environments'
 
-## `GET /pdb/query/v4/environments/<ENVIRONMENT>`
+## `/pdb/query/v4/environments/<ENVIRONMENT>`
 
 This will return the name of the environment if it currently exists in PuppetDB.
 
@@ -74,7 +74,7 @@ The response is a JSON hash of the form:
       "name" : "production"
     }
 
-## `GET /pdb/query/v4/environments/<ENVIRONMENT>/[events|facts|reports|resources]`
+## `/pdb/query/v4/environments/<ENVIRONMENT>/[events|facts|reports|resources]`
 
 These routes are identical to issuing a request to
 `/pdb/query/v4/[events|facts|reports|resources]`, with a query

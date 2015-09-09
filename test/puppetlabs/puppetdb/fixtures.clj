@@ -94,7 +94,7 @@
                                      :url-prefix ""}
                                     globals-overrides)]
      (binding [*app* (mid/wrap-with-puppetdb-middleware
-                      (server/build-app get-shared-globals {:global {:product-name "puppetdb"}})
+                      (server/build-app get-shared-globals)
                       nil)]
        (f)))))
 
