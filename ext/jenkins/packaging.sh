@@ -25,7 +25,7 @@ pushd "target/staging"
 rake package:bootstrap
 rake pl:jenkins:uber_build[5] PE_VER=2015.2
 
-cat > "${WORKSPACE}/puppetdb.packaging.props" <<PROPS
+cat > "${WORKSPACE}/pe-puppetdb-extensions.packaging.props" <<PROPS
 PUPPETDB_PACKAGE_BUILD_VERSION=$(rake pl:print_build_param[ref] | tail -n 1)
 PROPS
 popd

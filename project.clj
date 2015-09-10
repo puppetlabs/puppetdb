@@ -6,7 +6,7 @@
    :sign-releases false})
 
 (def pdb-version "3.1.0.1")
-(def pe-pdb-version "3.1.0.2")
+(def pe-pdb-version "3.1.0.3")
 
 (def tk-version "1.1.1")
 (def ks-version "1.0.0")
