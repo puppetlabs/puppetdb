@@ -172,6 +172,9 @@ and override this setting to point to your proxy server.
 
 ### `catalog-hash-conflict-debugging`
 
+**NOTE** This setting is deprecated and will be retired in the next major
+release.
+
 When this is set to true, debugging information will be written to `<vardir>/debug/catalog-hashes` every time a catalog is received with a hash that is different than the previously received catalog for that host. Note that this should only be enabled when troubleshooting performance related issues with PuppetDB and the database server. This will output many files and could potentially slow down a production PuppetDB instance. See the [Troubleshooting Low Catalog Duplication guide][low_catalog_dupe] for more information on the outputted files and debugging this problem.
 
 `[puppetdb]` Settings
