@@ -3,7 +3,7 @@
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
-             :refer [get-json with-puppetdb-instance blocking-command-post]]
+             :refer [with-puppetdb-instance blocking-command-post]]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.log
@@ -21,7 +21,7 @@
         (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report)
         (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report2)
         (testing "query with no parameters returns correct counts"
-          (let [actual (get-json (utils/pe-pdb-url) "/state-overview")
+          (let [actual (svcs/get-json (utils/pe-pdb-url) "/state-overview")
                 expected {:unchanged 0
                           :failed 0
                           :noop 1
@@ -33,7 +33,7 @@
           (do
             ;; Wait a little while so we can test unresponsive threshold
             (Thread/sleep 1000)
-            (let [actual (get-json (utils/pe-pdb-url) (format "/state-overview?unresponsive_threshold=1" ))
+            (let [actual (svcs/get-json (utils/pe-pdb-url) (format "/state-overview?unresponsive_threshold=1" ))
                   ;; Wait a little while so we can test unresponsive threshold
                   expected {:unchanged 0
                             :failed 0
@@ -54,7 +54,7 @@
             (blocking-command-post (utils/pdb-cmd-url) "deactivate node" 3 {"certname" "bar.local"})
             ;; Sleep to allow status to change to unresponsive with threshold=1
             (Thread/sleep 1000)
-            (let [actual (get-json (utils/pe-pdb-url) (format "/state-overview?unresponsive_threshold=1"))
+            (let [actual (svcs/get-json (utils/pe-pdb-url) (format "/state-overview?unresponsive_threshold=1"))
                   expected {:unchanged 0
                             :failed 0
                             :noop 0

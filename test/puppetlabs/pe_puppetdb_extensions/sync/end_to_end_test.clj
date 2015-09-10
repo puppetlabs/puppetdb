@@ -9,6 +9,7 @@
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
+            [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.testutils.log :refer [with-log-level with-logging-to-atom]]
             [puppetlabs.puppetdb.testutils :refer [=-after? block-until-results]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
@@ -37,8 +38,8 @@
         (sync :from pdb1 :to pdb2))
 
       (is (=-after? #(dissoc % :receive_time :producer_timestamp :resources :resource_events)
-                    (get-reports (:query-url pdb1) (:certname report))
-                    (get-reports (:query-url pdb2) (:certname report)))))))
+                    (first (svcs/get-reports (:query-url pdb1) (:certname report)))
+                    (first (svcs/get-reports (:query-url pdb2) (:certname report))))))))
 
 (deftest end-to-end-factset-replication
   (with-pdbs (default-pdb-configs 2)
@@ -47,11 +48,11 @@
         (submit-factset pdb1 facts))
 
       (with-alt-mq (:mq-name pdb2)
-        (sync :from pdb1 :to pdb2 :check-with get-factset :check-for (:certname facts)))
+        (sync :from pdb1 :to pdb2))
 
       (is (=-after? without-timestamp
-                    (get-factset (:query-url pdb1) (:certname facts))
-                    (get-factset (:query-url pdb2) (:certname facts)))))))
+                    (first (svcs/get-factsets (:query-url pdb1) (:certname facts)))
+                    (first (svcs/get-factsets (:query-url pdb2) (:certname facts))))))))
 
 (deftest end-to-end-catalog-replication
   (with-pdbs (default-pdb-configs 2)
@@ -60,11 +61,11 @@
         (submit-catalog pdb1 catalog))
 
       (with-alt-mq (:mq-name pdb2)
-        (sync :from pdb1 :to pdb2 :check-with get-catalog :check-for (:certname catalog)))
+        (sync :from pdb1 :to pdb2))
 
       (is (=-after? without-timestamp
-                    (get-catalog (:query-url pdb1) (:certname catalog))
-                    (get-catalog (:query-url pdb2) (:certname catalog)))))))
+                    (first (svcs/get-catalogs (:query-url pdb1) (:certname catalog)))
+                    (first (svcs/get-catalogs (:query-url pdb2) (:certname catalog))))))))
 
 (deftest deactivate-then-sync
   (let [certname (:certname catalog)]
@@ -78,7 +79,7 @@
           (deactivate-node pdb1 certname))
 
         (with-alt-mq (:mq-name pdb2)
-          (sync :from pdb1 :to pdb2 :check-with get-node :check-for certname)
+          (sync :from pdb1 :to pdb2)
           (let [node (get-node (:query-url pdb2) certname)]
             (is (:deactivated node))))))))
 
@@ -118,7 +119,7 @@
                          :sync {:remotes [{:server_url url
                                            :interval sync-interval}]}))
               nil))
-          facts-from #(get-factset (:query-url %) (:certname facts))]
+          facts-from #(-> % :query-url (svcs/get-factsets (:certname facts)) first)]
       (with-pdbs periodic-sync-configs
         (fn [master mirror]
           (with-alt-mq (:mq-name master)
@@ -143,7 +144,7 @@
           (scf-store/expire-node! certname))
 
         (with-alt-mq (:mq-name pdb2)
-          (sync :from pdb1 :to pdb2 :check-with get-node :check-for certname)
+          (sync :from pdb1 :to pdb2)
           ;; the node shouldn't be expired from pdb2's perspective, so it
           ;; should be pulled.
           (let [node (get-node (:query-url pdb2) certname)]

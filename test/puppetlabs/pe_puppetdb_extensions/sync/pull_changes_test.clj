@@ -12,9 +12,8 @@
                      perform-sync trigger-sync
                      facts catalog]]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
-             :refer [with-puppetdb-instance index-by get-json blocking-command-post]]
+             :refer [with-puppetdb-instance index-by blocking-command-post]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.test-protocols :refer [called?]]
@@ -31,9 +30,6 @@
 ;;; check the right ones were made. Finally, we check that PDB-Y has the right data
 ;;; after sync.
 
-(defn get-first-report [pdb-url certname]
-  (first (get-json pdb-url (str "/reports/?query=" (json/generate-string [:= :certname certname])))))
-
 (deftest pull-reports-test
   (let [report-1 (-> reports :basic tur/munge-example-report-for-storage)
         report-2 (assoc report-1 :certname "bar.local")
@@ -47,8 +43,8 @@
         (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-2)
 
         (let [query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))
-              created-report-1 (get-first-report (utils/pdb-query-url) (:certname report-1))
-              created-report-2 (get-first-report (utils/pdb-query-url) (:certname report-2))]
+              created-report-1 (first (svcs/get-reports (utils/pdb-query-url) (:certname report-1)))
+              created-report-2 (first (svcs/get-reports (utils/pdb-query-url) (:certname report-2)))]
           (is (= "3.0.1" (:puppet_version created-report-2)))
 
           ;; Set up pdb-x as a stub where 1 report has a different hash
@@ -65,9 +61,10 @@
           (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str))
 
           ;; We should see that the sync happened, and that only one report was pulled from PDB X
-          (let [puppet-versions (map (comp :puppet_version #(json/parse-string % true) :contents)
-                                     (export/reports-for-node query-fn (:certname report-2)))]
-            (is (= #{"4.0.0" "3.0.1"} (set puppet-versions)))
+          (let [puppet-versions (->> (svcs/get-reports (utils/pdb-query-url) (:certname report-2))
+                                     (map :puppet_version)
+                                     set)]
+            (is (= #{"4.0.0" "3.0.1"} puppet-versions))
             (is (= 2 (count @pdb-x-queries)))))))))
 
 (deftest pull-factsets-test
@@ -81,7 +78,7 @@
          (blocking-command-post (utils/pdb-cmd-url) "replace facts" 4
                                 (assoc facts :certname (str c ".local"))))
 
-       (let [local-factsets (index-by :certname (get-json (utils/pdb-query-url) "/factsets"))
+       (let [local-factsets (index-by :certname (svcs/get-json (utils/pdb-query-url) "/factsets"))
              timestamps (ks/mapvals (comp to-date-time :producer_timestamp) local-factsets)]
          (is (= 6 (count local-factsets)))
 
@@ -124,7 +121,7 @@
          (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str)))
 
        ;; We should see that the sync happened, and that one summary query and two factset querys where made to PDB X
-       (let [synced-factsets (get-json (utils/pdb-query-url) "/factsets")
+       (let [synced-factsets (svcs/get-json (utils/pdb-query-url) "/factsets")
              environments (->> synced-factsets (map :environment) (into #{}))]
          (is (= #{"DEV" "A" "E" "F"} environments))
          (is (= 4 (count @pdb-x-queries))))))))
@@ -151,7 +148,7 @@
          (blocking-command-post (utils/pdb-cmd-url) "replace catalog" 6
                                 (assoc catalog :certname (str c ".local"))))
 
-       (let [local-catalogs (index-by :certname (get-json (utils/pdb-query-url) "/catalogs"))
+       (let [local-catalogs (index-by :certname (svcs/get-json (utils/pdb-query-url) "/catalogs"))
              timestamps (ks/mapvals (comp to-date-time :producer_timestamp) local-catalogs)]
          (is (= 6 (count local-catalogs)))
 
@@ -194,7 +191,7 @@
          (perform-sync (utils/stub-url-str "/pdb-x/v4") (utils/trigger-sync-url-str)))
 
        ;; We should see that the sync happened, and that two catalog queries were made to PDB X
-       (let [synced-catalogs (get-json (utils/pdb-query-url) "/catalogs")
+       (let [synced-catalogs (svcs/get-json (utils/pdb-query-url) "/catalogs")
              environments (->> synced-catalogs (map :environment) (into #{}))]
          (is (= #{"DEV" "A" "E" "F"} environments))
          (is (= 4 (count @pdb-x-queries))))))))

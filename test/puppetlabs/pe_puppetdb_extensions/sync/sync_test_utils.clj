@@ -4,8 +4,8 @@
             [compojure.core :refer [routes GET context]]
             [puppetlabs.http.client.sync :as http]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as services]
-            [puppetlabs.pe-puppetdb-extensions.testutils :as utils :refer [with-puppetdb-instance index-by json-response
-                                                                           get-json blocking-command-post]]
+            [puppetlabs.pe-puppetdb-extensions.testutils :as utils
+             :refer [with-puppetdb-instance index-by json-response blocking-command-post]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
@@ -102,20 +102,8 @@
 
 ;;; End to end test utils
 
-(defn get-reports [base-url certname]
-  (first (get-json base-url "/reports"
-                   {:query-params {:query (json/generate-string [:= :certname certname])}})))
-
-(defn get-factset [base-url certname]
-  (first (get-json base-url "/factsets"
-                   {:query-params {:query (json/generate-string [:= :certname certname])}})))
-
-(defn get-catalog [base-url certname]
-  (first (get-json base-url "/catalogs"
-                   {:query-params {:query (json/generate-string [:= :certname certname])}})))
-
 (defn get-node [base-url certname]
-  (get-json base-url (str "/nodes/" certname)))
+  (svcs/get-json base-url (str "/nodes/" certname)))
 
 (defn submit-catalog [endpoint catalog]
   (blocking-command-post (:command-url endpoint) "replace catalog" 6 catalog))

@@ -5,7 +5,6 @@
             [puppetlabs.pe-puppetdb-extensions.sync.core :as sync-core]
             [puppetlabs.pe-puppetdb-extensions.sync.sync-test-utils :refer [with-alt-mq]]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils :refer [with-puppetdb-instance blocking-command-post]]
-            [puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.random :refer [random-string]]
@@ -91,9 +90,9 @@
           (let [report (tur/munge-example-report-for-storage (:basic reports))
                 query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))]
             (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report)
-            (is (not (empty? (export/reports-for-node query-fn (:certname report)))))
+            (is (not (empty? (svcs/get-reports (utils/pdb-query-url) (:certname report)))))
 
             (with-alt-mq "puppetlabs.puppetdb.commands-2"
               (with-puppetdb-instance config-2
                 (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report)
-                (is (not (empty? (export/reports-for-node query-fn (:certname report))))))))))))))
+                (is (not (empty? (svcs/get-reports (utils/pdb-query-url) (:certname report))))))))))))))
