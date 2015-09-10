@@ -13,6 +13,11 @@
 (def tk-jetty9-version "1.3.1")
 (def ks-version "1.1.0")
 
+(def pdb-jvm-opts
+  (case (System/getProperty "java.specification.version")
+    "1.7" ["-XX:MaxPermSize=200M"]
+    []))
+
 (defproject puppetlabs/puppetdb pdb-version
   :description "Puppet-integrated catalog and fact storage"
 
@@ -79,7 +84,7 @@
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [puppetlabs/http-client "0.4.4"]]
 
-  :jvm-opts ["-XX:MaxPermSize=128M"]
+  :jvm-opts ~pdb-jvm-opts
 
   ;;The below test-selectors is basically using the PUPPETDB_DBTYPE
   ;;environment variable to be the test selector.  The selector below
