@@ -13,8 +13,6 @@ echo "**********************************************"
 set -x
 set -e
 
-export COW="base-precise-amd64.cow base-trusty-amd64.cow base-wheezy-amd64.cow"
-export MOCK="pl-el-6-x86_64 pl-el-7-x86_64"
 tmp_m2=$(pwd)/$(mktemp -d m2-local.XXXX)
 
 lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- install
