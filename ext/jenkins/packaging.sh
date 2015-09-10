@@ -19,6 +19,7 @@ tmp_m2=$(pwd)/$(mktemp -d m2-local.XXXX)
 set -e
 lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- install
 lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- deps
+lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- deploy
 lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- with-profile ezbake ezbake build
 set +e
 
