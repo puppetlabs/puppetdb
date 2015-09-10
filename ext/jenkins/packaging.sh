@@ -25,7 +25,7 @@ lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- with-profile ezbake ezbake
 
 pushd "target/staging"
 rake package:bootstrap
-rake pl:jenkins:uber_build PE_VER=2015.2
+rake pl:jenkins:uber_build[5] PE_VER=2015.2
 
 cat > "${WORKSPACE}/puppetdb.packaging.props" <<PROPS
 PUPPETDB_PACKAGE_BUILD_VERSION=$(rake pl:print_build_param[ref] | tail -n 1)
