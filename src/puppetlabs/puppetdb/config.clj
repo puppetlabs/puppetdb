@@ -300,6 +300,8 @@
                      "This is intended to troubleshoot catalog duplication issues and "
                      "not for enabling in production long term.  See the PuppetDB docs "
                      "for more information on this setting."))
+      (log/warn (str "The config item 'catalog-hash-conflict-debugging' is "
+                     "deprecated and will be retired in a future release."))
       (assoc-in config [:global :catalog-hash-debug-dir] debug-dir))
     config))
 
