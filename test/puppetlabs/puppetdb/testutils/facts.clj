@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.facts
-  (:require [puppetlabs.puppetdb.testutils.tar :as tar]))
+  (:require [puppetlabs.puppetdb.testutils.tar :as tar]
+            [puppetlabs.puppetdb.utils :as utils]))
 
 (def base-facts
   "A minimal set of facts useful for testing"
@@ -25,3 +26,9 @@
   "Merges fact-maps, then spits the file to disk at `f`"
   [f & fact-maps]
   (tar/spit-tar f (apply merge-with merge fact-maps)))
+
+(defn munge-facts
+  [facts]
+  (->> facts
+       utils/vector-maybe
+       (map #(dissoc % :producer_timestamp :hash))))

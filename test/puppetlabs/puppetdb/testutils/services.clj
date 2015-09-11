@@ -20,6 +20,8 @@
             [puppetlabs.puppetdb.http.command :refer [puppetdb-command-service]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.utils :refer [base-url->str]]
             [clj-http.util :refer [url-encode]]
             [clj-http.client :as client]
             [clojure.string :as str]
@@ -109,6 +111,32 @@
          (log/errorf e "Error occured when Jetty tried to bind to port %s, attempt #%s" port attempts)
          (call-with-puppetdb-instance config services (dec attempts) f))))))
 
+(defn pdb-query-url []
+  (assoc *base-url* :prefix "/pdb/query" :version :v4))
+
+(defn pdb-cmd-url []
+  (assoc *base-url* :prefix "/pdb/cmd" :version :v1))
+
+(defn get-json [base-url suffix & [opts]]
+  (let [opts (or opts {:throw-exceptions true
+                       :throw-entire-message? true})]
+    (-> (str (base-url->str base-url) suffix)
+        (client/get opts)
+        :body
+        (json/parse-string true))))
+
+(defn get-reports [base-url certname]
+  (get-json base-url "/reports"
+            {:query-params {:query (json/generate-string [:= :certname certname])}}))
+
+(defn get-factsets [base-url certname]
+  (get-json base-url "/factsets"
+            {:query-params {:query (json/generate-string [:= :certname certname])}}))
+
+(defn get-catalogs [base-url certname]
+  (get-json base-url "/catalogs"
+            {:query-params {:query (json/generate-string [:= :certname certname])}}))
+
 (defmacro with-puppetdb-instance
   "Convenience macro to launch a puppetdb instance"
   [& body]
@@ -166,7 +194,7 @@
   roughly 5 seconds."
   []
   (loop [attempts 0]
-    (let [{:keys [status body]:as response}
+    (let [{:keys [status body] :as response}
           (client/get (mbeans-url-str *base-url*) {:as :json :throw-exceptions false})]
       (cond
         (and (= 200 status)
