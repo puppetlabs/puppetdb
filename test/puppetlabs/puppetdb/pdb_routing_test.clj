@@ -15,14 +15,8 @@
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.puppetdb.testutils.http :as tuhttp]))
 
-(defn command-base-url [{:keys [host port]}]
-  (utils/pdb-cmd-base-url host port :v1))
-
 (defn submit-facts [base-url facts]
-  (svc-utils/sync-command-post (command-base-url base-url)
-                               "replace facts"
-                               4
-                               facts))
+  (svc-utils/sync-command-post base-url "replace facts" 4 facts))
 
 (defn query-fact-names [{:keys [host port]}]
   (tuhttp/pdb-get (utils/pdb-query-base-url host port :v4)
@@ -47,7 +41,7 @@
   (svc-utils/call-with-puppetdb-instance
    (fn []
      (let [pdb-resp (client/get (dtu/dashboard-base-url->str (assoc svc-utils/*base-url*
-                                                               :prefix "/pdb")))]
+                                                                    :prefix "/pdb")))]
        (tu/assert-success! pdb-resp)
        (is (dtu/dashboard-page? pdb-resp))
 
@@ -64,7 +58,7 @@
   (svc-utils/call-with-puppetdb-instance
    (fn []
      (let [maint-mode-service (tk-app/get-service svc-utils/*server* :MaintenanceMode)]
-       (is (= 200 (:status (submit-facts svc-utils/*base-url* test-facts))))
+       (is (= 200 (:status (submit-facts (svc-utils/pdb-cmd-url) test-facts))))
        (is (= #{"foo" "bar" "baz"}
               (-> (query-fact-names svc-utils/*base-url*)
                   :body
