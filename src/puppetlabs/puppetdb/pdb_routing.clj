@@ -10,6 +10,7 @@
             [puppetlabs.puppetdb.http.command :as cmd]
             [puppetlabs.puppetdb.http.server :as server]
             [clojure.tools.logging :as log]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.kitchensink.core :as ks]))
 
@@ -29,7 +30,7 @@
 
 (defn pdb-core-routes [defaulted-config get-shared-globals submit-command-fn
                        query-fn enqueue-raw-command-fn response-pub]
-  (let [cmd-mq #(:command-mq (get-shared-globals))
+  (let [get-mq-connection #(get-in (get-shared-globals) [:command-mq :connection])
         meta-cfg #(select-keys (get-shared-globals) [:scf-read-db])
         get-response-pub #(response-pub)]
     (map #(apply wrap-with-context %)
@@ -37,7 +38,9 @@
           2
           ;; The remaining get-shared-globals args are for wrap-with-globals.
           ["/meta" (meta/build-app meta-cfg defaulted-config)
-           "/cmd" (cmd/command-app cmd-mq get-shared-globals
+           "/cmd" (cmd/command-app get-mq-connection
+                                   (conf/mq-endpoint defaulted-config)
+                                   get-shared-globals
                                    enqueue-raw-command-fn get-response-pub)
            "/query" (server/build-app get-shared-globals)
            "/admin" (admin/build-app submit-command-fn query-fn)]))))

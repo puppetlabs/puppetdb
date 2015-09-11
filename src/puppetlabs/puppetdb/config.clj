@@ -20,6 +20,8 @@
             [puppetlabs.trapperkeeper.core :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]))
 
+(def default-mq-endpoint "puppetlabs.puppetdb.commands")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
 
@@ -360,9 +362,11 @@
 
 (defn- add-mq-defaults
   [config-data]
-  (update-in config-data
-             [:command-processing :mq :address]
-             #(or % "vm://localhost?jms.prefetchPolicy.all=1&create=false")))
+  (-> config-data
+      (update-in [:command-processing :mq :address]
+                 #(or % "vm://localhost?jms.prefetchPolicy.all=1&create=false"))
+      (update-in [:command-processing :mq :endpoint]
+                 #(or % default-mq-endpoint))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -398,6 +402,9 @@
 
 (defn update-server [config]
   (get-in config [:global :update-server]))
+
+(defn mq-endpoint [config]
+  (get-in config [:command-processing :mq :endpoint]))
 
 (defn mq-broker-url
   "Returns an appropriate ActiveMQ broker URL."

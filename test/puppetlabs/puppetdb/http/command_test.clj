@@ -9,6 +9,7 @@
                                                    content-type uuid-in-response?
                                                    assert-success! deftestseq]]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.mq :as mq]
             [clj-time.format :as time]))
@@ -129,7 +130,7 @@
 
     (let [[good-msg] (mq/bounded-drain-into-vec!
                        (:connection fixt/*mq*)
-                       "puppetlabs.puppetdb.commands"
+                       conf/default-mq-endpoint
                        1)
           good-command (json/parse-string (:body good-msg) true)]
       (testing "should be timestamped when parseable"

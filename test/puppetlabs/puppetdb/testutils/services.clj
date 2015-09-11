@@ -167,7 +167,7 @@
   [host]
   (str "org.apache.activemq:type=Broker,brokerName=" (url-encode host)
        ",destinationType=Queue"
-       ",destinationName=" svcs/mq-endpoint))
+       ",destinationName=" conf/default-mq-endpoint))
 
 (defn mq-mbeans-found?
   "Returns true if the ActiveMQ mbeans and the discarded command

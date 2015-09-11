@@ -77,12 +77,10 @@
 ;; The following functions setup interaction between the main
 ;; PuppetDB components.
 
-(def mq-endpoint "puppetlabs.puppetdb.commands")
-
 (defn auto-expire-nodes!
   "Expire nodes which haven't had any activity (catalog/fact submission)
   for more than `node-ttl`."
-  [node-ttl db mq-connection]
+  [node-ttl db]
   {:pre [(map? db)
          (period? node-ttl)]}
   (try
@@ -178,7 +176,7 @@
     (.close ds))
   context)
 
-(defn- transfer-old-messages! [connection]
+(defn- transfer-old-messages! [connection mq-endpoint]
   (let [[pending exists?]
         (try+
          [(mq/queue-size "localhost" "com.puppetlabs.puppetdb.commands") true]
@@ -271,12 +269,10 @@
           globals {:scf-read-db read-db
                    :scf-write-db write-db
                    :discard-dir (.getAbsolutePath discard-dir)
-                   :mq-dest mq-endpoint
                    :mq-threads threads
                    :catalog-hash-debug-dir catalog-hash-debug-dir
-                   :command-mq {:connection mq-connection
-                                :endpoint mq-endpoint}}]
-      (transfer-old-messages! mq-connection)
+                   :command-mq {:connection mq-connection}}]
+      (transfer-old-messages! mq-connection (conf/mq-endpoint config))
 
       (when-not disable-update-checking
         (maybe-check-for-updates config read-db))
@@ -288,7 +284,7 @@
             seconds-pos? (comp pos? to-seconds)
             db-maintenance-tasks (fn []
                                    (do
-                                     (when (seconds-pos? node-ttl) (auto-expire-nodes! node-ttl write-db mq-connection))
+                                     (when (seconds-pos? node-ttl) (auto-expire-nodes! node-ttl write-db))
                                      (when (seconds-pos? node-purge-ttl) (purge-nodes! node-purge-ttl write-db))
                                      (when (seconds-pos? report-ttl) (sweep-reports! report-ttl write-db))
                                      ;; Order is important here to ensure

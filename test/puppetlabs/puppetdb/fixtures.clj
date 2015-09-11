@@ -6,7 +6,7 @@
             [puppetlabs.puppetdb.http.command :as command]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.config :as cfg]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-test-logging]]
             [clojure.tools.macro :as tmacro]
@@ -61,8 +61,7 @@
   [f]
   (without-jmx
    (with-test-broker "test" connection
-     (binding [*mq* {:connection connection
-                     :endpoint "puppetlabs.puppetdb.commands"}]
+     (binding [*mq* {:connection connection}]
        (f)))))
 
 (defn with-command-app
@@ -73,7 +72,8 @@
   ([f]
    (binding [*command-app* (mid/wrap-with-puppetdb-middleware
                             (command/command-app
-                             (fn [] *mq*)
+                             (fn [] (:connection *mq*))
+                             conf/default-mq-endpoint
                              (fn [] {})
                              #'dispatch/do-enqueue-raw-command
                              (fn [] nil))
@@ -99,16 +99,18 @@
        (f)))))
 
 (defn defaulted-write-db-config
-  "Defaults and converts `db-config` from the write database INI format to the internal
-   write database format"
+  "Defaults and converts `db-config` from the write database INI
+  format to the internal write database format"
   [db-config]
-  (pls/transform-data cfg/write-database-config-in cfg/write-database-config-out db-config))
+  (pls/transform-data conf/write-database-config-in
+                      conf/write-database-config-out db-config))
 
 (defn defaulted-read-db-config
-  "Defaults and converts `db-config` from the read-database INI format to the internal
-   read database format"
+  "Defaults and converts `db-config` from the read-database INI format
+  to the internal read database format"
   [db-config]
-  (pls/transform-data cfg/database-config-in cfg/database-config-out db-config))
+  (pls/transform-data conf/database-config-in
+                      conf/database-config-out db-config))
 
 (defn with-test-logging-silenced
   "A fixture to temporarily redirect all logging output to an atom, rather than

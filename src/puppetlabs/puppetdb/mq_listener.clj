@@ -361,14 +361,15 @@
         (assoc context :listeners (atom [])))
 
   (start [this context]
-    (let [{:keys [mq-dest discard-dir mq-threads]} (shared-globals)
+    (let [{:keys [discard-dir mq-threads]} (shared-globals)
           factory (mq/activemq-connection-factory
                    (conf/mq-broker-url (get-config)))
+          mq-endpoint (conf/mq-endpoint (get-config))
           connection (.createConnection factory)
           process-msg #(process-message this %)
           receivers (doall (repeatedly mq-threads
                                        #(start-receiver connection
-                                                        mq-dest
+                                                        mq-endpoint
                                                         discard-dir
                                                         process-msg)))]
       (.setExceptionListener
