@@ -358,6 +358,12 @@
             (when dashboard-redirect?
               {:puppetlabs.puppetdb.dashboard/dashboard-redirect-service "/"}))))
 
+(defn- add-mq-defaults
+  [config-data]
+  (update-in config-data
+             [:command-processing :mq :address]
+             #(or % "vm://localhost?jms.prefetchPolicy.all=1&create=false")))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -381,7 +387,8 @@
       configure-globals
       validate-vardir
       convert-config
-      configure-catalog-debugging))
+      configure-catalog-debugging
+      add-mq-defaults))
 
 (defn foss? [config]
   (= "puppetdb" (get-in config [:global :product-name])))
@@ -391,6 +398,13 @@
 
 (defn update-server [config]
   (get-in config [:global :update-server]))
+
+(defn mq-broker-url
+  "Returns an appropriate ActiveMQ broker URL."
+  [config]
+  (format "%s&wireFormat.maxFrameSize=%s&marshal=true"
+          (get-in config [:command-processing :mq :address])
+          (get-in config [:command-processing :max-frame-size])))
 
 (defprotocol DefaultedConfig
   (get-config [this])

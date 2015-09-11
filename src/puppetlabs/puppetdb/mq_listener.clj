@@ -12,6 +12,7 @@
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.trapperkeeper.services :refer [defservice service-context service-id]]
             [schema.core :as s]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.schema :as pls]))
 
 ;; ## Performance counters
@@ -353,14 +354,16 @@
 
 (defservice message-listener-service
   MessageListenerService
-  [[:PuppetDBServer shared-globals]]
+  [[:DefaultedConfig get-config]
+   [:PuppetDBServer shared-globals]]
 
   (init [this context]
         (assoc context :listeners (atom [])))
 
   (start [this context]
-    (let [{:keys [mq-addr mq-dest discard-dir mq-threads]} (shared-globals)
-          factory (mq/activemq-connection-factory mq-addr)
+    (let [{:keys [mq-dest discard-dir mq-threads]} (shared-globals)
+          factory (mq/activemq-connection-factory
+                   (conf/mq-broker-url (get-config)))
           connection (.createConnection factory)
           process-msg #(process-message this %)
           receivers (doall (repeatedly mq-threads

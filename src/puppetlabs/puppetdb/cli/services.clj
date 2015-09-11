@@ -77,7 +77,6 @@
 ;; The following functions setup interaction between the main
 ;; PuppetDB components.
 
-(def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "puppetlabs.puppetdb.commands")
 
 (defn auto-expire-nodes!
@@ -179,11 +178,6 @@
     (.close ds))
   context)
 
-(defn add-max-framesize
-  "Add a maxFrameSize to broker url for activemq."
-  [max-frame-size url]
-  (format "%s&wireFormat.maxFrameSize=%s&marshal=true" url max-frame-size))
-
 (defn- transfer-old-messages! [connection]
   (let [[pending exists?]
         (try+
@@ -241,15 +235,13 @@
         {:keys [vardir catalog-hash-debug-dir]} global
         {:keys [gc-interval dlo-compression-interval node-ttl
                 node-purge-ttl report-ttl]} database
-        {:keys [dlo-compression-threshold
-                max-frame-size threads]} command-processing
+        {:keys [dlo-compression-threshold threads]} command-processing
         {:keys [disable-update-checking]} puppetdb
 
         write-db (jdbc/pooled-datasource database)
         read-db (jdbc/pooled-datasource (assoc read-database :read-only? true))
         mq-dir (str (io/file vardir "mq"))
-        discard-dir (io/file mq-dir "discarded")
-        mq-connection-str (add-max-framesize max-frame-size mq-addr)]
+        discard-dir (io/file mq-dir "discarded")]
 
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
@@ -268,7 +260,8 @@
                       "might be due to KahaDB corruption. Consult the "
                       "PuppetDB troubleshooting guide.")
                      (throw e)))
-          mq-factory (mq/activemq-connection-factory mq-connection-str)
+          mq-factory (mq/activemq-connection-factory
+                      (conf/mq-broker-url config))
           mq-connection (doto (.createConnection mq-factory)
                           (.setExceptionListener
                            (reify ExceptionListener
@@ -278,7 +271,6 @@
           globals {:scf-read-db read-db
                    :scf-write-db write-db
                    :discard-dir (.getAbsolutePath discard-dir)
-                   :mq-addr mq-addr
                    :mq-dest mq-endpoint
                    :mq-threads threads
                    :catalog-hash-debug-dir catalog-hash-debug-dir
