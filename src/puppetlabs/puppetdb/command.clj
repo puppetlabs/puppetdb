@@ -369,20 +369,28 @@
 
   (start [this context]
     (let [{:keys [scf-write-db catalog-hash-debug-dir]} (shared-globals)
-          config {:db scf-write-db
+          db-cfg {:db scf-write-db
                   :catalog-hash-debug-dir catalog-hash-debug-dir}
-          {:keys [response-chan response-pub]} context]
+          {:keys [response-chan response-pub]} context
+          factory (-> (conf/mq-broker-url (get-config))
+                      (mq/activemq-connection-factory))
+          connection (.createConnection factory)]
       (register-listener
        supported-command?
-       #(process-command-and-respond! % config response-chan (:stats context)))
-      context))
+       #(process-command-and-respond! % db-cfg response-chan (:stats context)))
+      (assoc context
+             :factory factory
+             :connection connection)))
 
   (stop [this context]
     (async/unsub-all (:response-pub context))
     (async/untap-all (:response-mult context))
     (async/close! (:response-chan-for-pub context))
     (async/close! (:response-chan context))
-    (dissoc context :response-pub :response-chan :response-chan-for-pub :response-mult))
+    (dissoc context :response-pub :response-chan :response-chan-for-pub :response-mult)
+    (.close (:connection context))
+    (.close (:factory context))
+    context)
 
   (stats [this]
     @(:stats (service-context this)))
@@ -416,7 +424,7 @@
 
   (submit-command [this command version payload uuid]
     (enqueue-command this
-                     (get-in (shared-globals) [:command-mq :connection])
+                     (:connection (service-context this))
                      (conf/mq-endpoint (get-config))
                      (command-names command) version payload uuid))
 
