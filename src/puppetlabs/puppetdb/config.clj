@@ -418,6 +418,12 @@
   [config]
   (get-in config [:command-processing :threads]))
 
+(defn mq-dir [config]
+  (str (io/file (get-in config [:global :vardir]) "mq")))
+
+(defn mq-discard-dir [config]
+  (str (io/file (mq-dir config) "discard")))
+
 (defprotocol DefaultedConfig
   (get-config [this])
   (get-in-config [this ks]))

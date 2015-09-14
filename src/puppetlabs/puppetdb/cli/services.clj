@@ -238,8 +238,7 @@
 
         write-db (jdbc/pooled-datasource database)
         read-db (jdbc/pooled-datasource (assoc read-database :read-only? true))
-        mq-dir (str (io/file vardir "mq"))
-        discard-dir (io/file mq-dir "discarded")]
+        discard-dir (io/file (conf/mq-discard-dir config))]
 
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
@@ -251,7 +250,9 @@
       (dlo/create-metrics-for-dlo! discard-dir))
     (let [broker (try
                    (log/info "Starting broker")
-                   (mq/build-and-start-broker! "localhost" mq-dir command-processing)
+                   (mq/build-and-start-broker! "localhost"
+                                               (conf/mq-dir config)
+                                               command-processing)
                    (catch java.io.EOFException e
                      (log/error
                       "EOF Exception caught during broker start, this "
@@ -268,7 +269,6 @@
                           .start)
           globals {:scf-read-db read-db
                    :scf-write-db write-db
-                   :discard-dir (.getAbsolutePath discard-dir)
                    :catalog-hash-debug-dir catalog-hash-debug-dir
                    :command-mq {:connection mq-connection}}]
       (transfer-old-messages! mq-connection (conf/mq-endpoint config))
