@@ -35,8 +35,7 @@
 
            (is (= 0 (count (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes")))))
            (is (= {:error "No information is known about node foo.com"}
-                  (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes/foo.com"))
-                  ))))))))
+                  (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes/foo.com"))))))))))
 
 (deftest test-zero-gc-interval
   (with-redefs [puppetlabs.puppetdb.cli.services/purge-nodes! (tu/mock-fn)]

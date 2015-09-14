@@ -48,6 +48,7 @@
       vec))
 
 (def example-certname "foo.local")
+
 (def example-facts
   {:certname example-certname
    :environment "DEV"
@@ -56,11 +57,13 @@
             :baz "the baz"
             :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
    :producer_timestamp (time-coerce/to-string (time/now))})
+
 (def example-catalog
   (-> examples/wire-catalogs
       (get-in [6 :empty])
       (assoc :certname example-certname
              :producer_timestamp (time/now))))
+
 (def example-report
   (-> examples-reports/reports
       :basic

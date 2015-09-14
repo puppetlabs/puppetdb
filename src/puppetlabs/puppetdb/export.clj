@@ -83,7 +83,7 @@
 
 (defn export!*
   [tar-writer query-fn]
-  (doseq [[entity unexpanded-fields query->wire-fn file-suffix]
+  (doseq [[entity unexpanded-fields query->wire-fn]
           [[:catalogs [:edges :resources] catalogs/catalogs-query->wire-v6]
            [:factsets [:facts] factsets/factsets-query->wire-v4]
            [:reports [:resource_events :metrics :logs] reports/reports-query->wire-v5]]
