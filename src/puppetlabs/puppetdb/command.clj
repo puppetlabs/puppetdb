@@ -311,6 +311,8 @@
     "Submits the raw-command to the endpoint of the connection and
     returns the command's unique id.")
 
+  (submit-raw-command [this raw-command uuid])
+  
   (submit-command
     [this command version payload]
     [this command version payload uuid])
@@ -402,6 +404,12 @@
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
+
+  (submit-raw-command [this raw-command uuid]
+    (enqueue-raw-command this
+                         (get-in (shared-globals) [:command-mq :connection])
+                         (conf/mq-endpoint (get-config))
+                         raw-command uuid))
 
   (submit-command [this command version payload]
     (submit-command this command version payload nil))

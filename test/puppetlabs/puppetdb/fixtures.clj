@@ -72,10 +72,10 @@
   ([f]
    (binding [*command-app* (mid/wrap-with-puppetdb-middleware
                             (command/command-app
-                             (fn [] (:connection *mq*))
-                             conf/default-mq-endpoint
                              (fn [] {})
-                             #'dispatch/do-enqueue-raw-command
+                             (partial #'dispatch/do-enqueue-raw-command
+                                      (:connection *mq*)
+                                      conf/default-mq-endpoint)
                              (fn [] nil))
                             nil)]
      (f))))

@@ -89,15 +89,14 @@
 
 (defn- enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
-  [get-mq-connection mq-endpoint enqueue-fn get-response-pub]
+  [enqueue-fn get-response-pub]
   (fn [{:keys [body-string params] :as request}]
     (let [uuid (kitchensink/uuid)
           completion-timeout-ms (some-> params
                                         (get "secondsToWaitForCompletion")
                                         Double/parseDouble
                                         (* 1000))
-          do-submit #(enqueue-fn (get-mq-connection) mq-endpoint
-                                 body-string uuid)]
+          do-submit #(enqueue-fn body-string uuid)]
       (if (some-> completion-timeout-ms pos?)
         (blocking-submit-command do-submit (get-response-pub) uuid completion-timeout-ms)
         (do
@@ -111,10 +110,9 @@
 ;; return functions that accept a ring request map
 
 (defn command-app
-  [get-mq-connection mq-endpoint get-shared-globals enqueue-fn get-response-pub]
+  [get-shared-globals enqueue-fn get-response-pub]
   (-> (moustache/app
-       ["v1" &] {:any (enqueue-command-handler get-mq-connection mq-endpoint
-                                               enqueue-fn get-response-pub)})
+       ["v1" &] {:any (enqueue-command-handler enqueue-fn get-response-pub)})
       validate-command-version
       mid/verify-accepts-json
       mid/verify-checksum
