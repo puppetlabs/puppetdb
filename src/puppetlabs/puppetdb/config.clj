@@ -425,8 +425,7 @@
   (str (io/file (mq-dir config) "discard")))
 
 (defprotocol DefaultedConfig
-  (get-config [this])
-  (get-in-config [this ks]))
+  (get-config [this]))
 
 (defn create-defaulted-config-service [config-transform-fn]
   (tk/service
@@ -435,9 +434,7 @@
    (init [this context]
          (assoc context :config (config-transform-fn (get-config))))
    (get-config [this]
-               (:config (service-context this)))
-   (get-in-config [this ks]
-                  (get-in (service-context this) ks))))
+               (:config (service-context this)))))
 
 (def config-service
   (create-defaulted-config-service process-config!))
