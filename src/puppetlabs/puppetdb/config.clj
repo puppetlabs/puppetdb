@@ -413,6 +413,11 @@
           (get-in config [:command-processing :mq :address])
           (get-in config [:command-processing :max-frame-size])))
 
+(defn mq-thread-count
+  "Returns the desired number of MQ listener threads."
+  [config]
+  (get-in config [:command-processing :threads]))
+
 (defprotocol DefaultedConfig
   (get-config [this])
   (get-in-config [this ks]))

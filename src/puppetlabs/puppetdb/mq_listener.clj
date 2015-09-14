@@ -361,13 +361,13 @@
         (assoc context :listeners (atom [])))
 
   (start [this context]
-    (let [{:keys [discard-dir mq-threads]} (shared-globals)
-          factory (mq/activemq-connection-factory
-                   (conf/mq-broker-url (get-config)))
-          mq-endpoint (conf/mq-endpoint (get-config))
+    (let [{:keys [discard-dir]} (shared-globals)
+          config (get-config)
+          factory (mq/activemq-connection-factory (conf/mq-broker-url config))
+          mq-endpoint (conf/mq-endpoint config)
           connection (.createConnection factory)
           process-msg #(process-message this %)
-          receivers (doall (repeatedly mq-threads
+          receivers (doall (repeatedly (conf/mq-thread-count config)
                                        #(start-receiver connection
                                                         mq-endpoint
                                                         discard-dir

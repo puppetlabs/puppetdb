@@ -233,7 +233,7 @@
         {:keys [vardir catalog-hash-debug-dir]} global
         {:keys [gc-interval dlo-compression-interval node-ttl
                 node-purge-ttl report-ttl]} database
-        {:keys [dlo-compression-threshold threads]} command-processing
+        {:keys [dlo-compression-threshold]} command-processing
         {:keys [disable-update-checking]} puppetdb
 
         write-db (jdbc/pooled-datasource database)
@@ -269,7 +269,6 @@
           globals {:scf-read-db read-db
                    :scf-write-db write-db
                    :discard-dir (.getAbsolutePath discard-dir)
-                   :mq-threads threads
                    :catalog-hash-debug-dir catalog-hash-debug-dir
                    :command-mq {:connection mq-connection}}]
       (transfer-old-messages! mq-connection (conf/mq-endpoint config))
