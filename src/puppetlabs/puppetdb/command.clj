@@ -72,6 +72,7 @@
             [puppetlabs.trapperkeeper.services
              :refer [defservice service-context]]
             [schema.core :as s]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [clj-time.core :refer [now]]
             [clojure.set :as set]
@@ -310,6 +311,10 @@
     "Submits the raw-command to the endpoint of the connection and
     returns the command's unique id.")
 
+  (submit-command
+    [this command version payload]
+    [this command version payload uuid])
+
   (stats [this]
     "Returns command processing statistics as a map
     containing :received-commands (a count of the commands received so
@@ -344,7 +349,8 @@
 
 (defservice command-service
   PuppetDBCommandDispatcher
-  [[:PuppetDBServer shared-globals]
+  [[:DefaultedConfig get-config]
+   [:PuppetDBServer shared-globals]
    [:MessageListenerService register-listener]]
   (init [this context]
     (let [response-chan (async/chan 1000)
@@ -396,6 +402,15 @@
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
+
+  (submit-command [this command version payload]
+    (submit-command this command version payload nil))
+
+  (submit-command [this command version payload uuid]
+    (enqueue-command this
+                     (get-in (shared-globals) [:command-mq :connection])
+                     (conf/mq-endpoint (get-config))
+                     (command-names command) version payload uuid))
 
   (response-pub [this]
     (-> this service-context :response-pub))

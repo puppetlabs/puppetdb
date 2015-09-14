@@ -17,7 +17,6 @@
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service] :as dispatch]
-            [puppetlabs.puppetdb.http.command :refer [puppetdb-command-service]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -69,7 +68,6 @@
    #'message-listener-service
    #'command-service
    #'metrics/metrics-service
-   #'puppetdb-command-service
    #'dashboard-redirect-service
    #'pdb-routing-service
    #'maint-mode-service

@@ -87,7 +87,7 @@
                                                         :timed_out false)
                                                  200)))))))))
 
-(defn enqueue-command-handler
+(defn- enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
   [get-mq-connection mq-endpoint enqueue-fn get-response-pub]
   (fn [{:keys [body-string params] :as request}]
@@ -123,27 +123,3 @@
       (mid/verify-content-type ["application/json"])
       (mid/wrap-with-metrics (atom {}) http/leading-uris)
       (mid/wrap-with-globals get-shared-globals)))
-
-(defprotocol PuppetDBCommand
-  (submit-command
-    [this command version payload]
-    [this command version payload uuid]))
-
-(defservice puppetdb-command-service
-  PuppetDBCommand
-  [[:DefaultedConfig get-config]
-   [:PuppetDBServer shared-globals]
-   [:PuppetDBCommandDispatcher enqueue-command]]
-
-  (start [this context]
-         (log/info "Starting command service")
-         context)
-
-  (submit-command [this command version payload]
-    (submit-command this command version payload nil))
-
-  (submit-command [this command version payload uuid]
-    (let [{{:keys [connection]} :command-mq} (shared-globals)]
-      (enqueue-command connection
-                       (conf/mq-endpoint (get-config))
-                       (command-names command) version payload uuid))))

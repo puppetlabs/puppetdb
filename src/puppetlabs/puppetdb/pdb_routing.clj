@@ -86,8 +86,8 @@
 (tk/defservice pdb-routing-service
   [[:WebroutingService add-ring-handler get-route]
    [:PuppetDBServer shared-globals query set-url-prefix]
-   [:PuppetDBCommand submit-command]
-   [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub]
+   [:PuppetDBCommandDispatcher
+    enqueue-command enqueue-raw-command response-pub submit-command]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]
    [:DefaultedConfig get-config]]
   (init [this context]

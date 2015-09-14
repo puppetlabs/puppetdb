@@ -7,7 +7,7 @@
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :refer :all]
             [puppetlabs.puppetdb.testutils.cli :refer [get-factsets]]
-            [puppetlabs.puppetdb.http.command :refer :all]
+            [puppetlabs.puppetdb.command :refer [submit-command]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.meta.version :as version]
@@ -51,13 +51,15 @@
 
 (deftest query-via-puppdbserver-service
   (svc-utils/with-single-quiet-pdb-instance
-    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)]
-      (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
-                                                        :environment "DEV"
-                                                        :values {:foo "the foo"
-                                                                 :bar "the bar"
-                                                                 :baz "the baz"}
-                                                        :producer_timestamp (to-string (now))})
+    (let [dispatcher (get-service svc-utils/*server*
+                                  :PuppetDBCommandDispatcher)]
+      (submit-command dispatcher :replace-facts 4
+                      {:certname "foo.local"
+                       :environment "DEV"
+                       :values {:foo "the foo"
+                                :bar "the bar"
+                                :baz "the baz"}
+                       :producer_timestamp (to-string (now))})
 
       @(block-until-results 100 (first (get-factsets "foo.local")))
 
@@ -81,11 +83,13 @@
 
 (deftest pagination-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
-    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)]
-      (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
-                                                        :environment "DEV"
-                                                        :values {:a "a" :b "b" :c "c"}
-                                                        :producer_timestamp (to-string (now))})
+    (let [dispatcher (get-service svc-utils/*server*
+                                  :PuppetDBCommandDispatcher)]
+      (submit-command dispatcher :replace-facts 4
+                      {:certname "foo.local"
+                       :environment "DEV"
+                       :values {:a "a" :b "b" :c "c"}
+                       :producer_timestamp (to-string (now))})
 
       @(block-until-results 100 (first (get-factsets "foo.local")))
       (let [exp ["a" "b" "c"]
