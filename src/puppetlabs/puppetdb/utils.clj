@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.utils
   (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.scf.storage-utils]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [schema.core :as s]
@@ -70,8 +69,7 @@
 
 (def export-root-dir "puppetdb-bak")
 
-(pls/defn-validated add-tar-entry
-  :- nil
+(pls/defn-validated add-tar-entry :- nil
   "Writes the given `tar-item` to `tar-writer` using
    export-root-directory as the base directory for contents"
   [tar-writer
