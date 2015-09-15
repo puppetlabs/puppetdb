@@ -19,6 +19,8 @@ tmp_m2=$(pwd)/$(mktemp -d m2-local.XXXX)
 set -e
 lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- install
 lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- deps
+# The ci-voom profile has nexus credentials
+lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- with-profile user,ci-voom deploy
 lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- with-profile ezbake ezbake build
 set +e
 

@@ -12,7 +12,7 @@ What is KahaDB?
 
 Internally PuppetDB utilises ActiveMQ for queuing commands received via the API and sometimes initiated internally. The queue today utilises a technology built for ActiveMQ called 'KahaDB' which is a file based persistence database designed specifically for high performance queuing.
 
-The KahaDB storage for PuppetDB is located in a sub-directory underneath your configured `vardir` (see [Configuration][configure_vardir] for more details). This sub-directory is generally, `mq/localhost/KahaDB`. For OSS PuppetDB the full path is usually `/var/lib/puppetdb/mq/localhost/KahaDB`.
+The KahaDB storage for PuppetDB is located in a sub-directory underneath your configured `vardir` (see [Configuration][configure_vardir] for more details). This sub-directory is generally, `mq/localhost/KahaDB`. For OSS PuppetDB the full path is usually `/opt/puppetlabs/server/data/puppetdb/mq/localhost/KahaDB`.
 
 Why does corruption occur?
 -----
@@ -36,7 +36,7 @@ How do I recover?
 During corruption, the simplest way to recover is to simply move the KahaDB directory out of the way and restart PuppetDB:
 
     $ service puppetdb stop
-    $ cd /var/lib/puppetdb/mq/localhost
+    $ cd /opt/puppetlabs/server/data/puppetdb/mq/localhost
     $ mv KahaDB KahaDB.old
     $ service puppetdb start
 

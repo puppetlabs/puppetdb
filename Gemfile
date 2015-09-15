@@ -1,6 +1,6 @@
 source ENV['GEM_SOURCE'] || "https://rubygems.org"
 puppet_branch = ENV['PUPPET_VERSION'] || "latest"
-oldest_supported_puppet = "3.5.1"
+oldest_supported_puppet = "3.8.1"
 beaker_version = ENV['BEAKER_VERSION']
 
 def location_for(place, fake_version = nil)
