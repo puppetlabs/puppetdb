@@ -2,7 +2,7 @@
   "Database utilities"
   (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)
            (java.util.concurrent TimeUnit))
-  (:require [clojure.java.jdbc.deprecated :as sql]
+  (:require [clojure.java.jdbc :as sql]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -12,6 +12,85 @@
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
             [clojure.math.numeric-tower :as math]))
+
+(def ^:dynamic *db* nil)
+
+(defn db []
+  *db*)
+
+(defmacro with-db-connection [spec & body]
+  `(sql/with-db-connection [db# ~spec]
+     (binding [*db* db#]
+       ~@body)))
+
+(defmacro with-db-transaction [opts & body]
+  `(sql/with-db-transaction [db# (db) ~@opts]
+     (binding [*db* db#]
+       ~@body)))
+
+(defn do-commands
+  "Calls clojure.jdbc/db-do-commands after adding (jdbc/db) as the
+  first argument."
+  {:arglists '([sql-command & sql-commands]
+               [transaction? sql-command & sql-commands])}
+  [transaction? & commands]
+  (apply sql/db-do-commands *db* transaction? commands))
+
+(defn do-prepared
+  "Calls clojure.jdbc/db-do-prepared after adding (jdbc/db) as the
+  first argument."
+  {:arglists '([sql & param-groups]
+               [transaction? sql & param-groups])}
+  [transaction? & remainder]
+  (apply sql/db-do-prepared *db* transaction? remainder))
+
+(defn insert!
+  "Calls clojure.jdbc/insert! after adding (jdbc/db) as the first argument."
+  {:arglists '([table row-map :transaction? true :entities identity]
+               [table row-map & row-maps :transaction? true :entities identity]
+               [table col-name-vec col-val-vec
+                & col-val-vecs :transaction? true :entities identity])}
+  [table & options]
+  (apply sql/insert! *db* table options))
+
+(defn update!
+  "Calls clojure.jdbc/update! after adding (jdbc/db) as the first argument."
+  {:arglists '([[table set-map where-clause
+                 & {:keys [entities transaction?]
+                    :or {entities identity transaction? true}}]])}
+  [table set-map where-clause & options]
+  (apply sql/update! *db* table set-map where-clause options))
+
+(defn delete!
+  "Calls clojure.jdbc/delete! after adding (jdbc/db) as the first argument."
+  {:arglists '([table where-clause
+                & {:keys [entities transaction?]
+                   :or {entities identity transaction? true}}])}
+  [table where-clause & options]
+  (apply sql/delete! *db* table where-clause options))
+
+(defn query
+  "Calls clojure.jdbc/query after adding (jdbc/db) as the first argument."
+  {:arglists '([sql-and-params
+                :as-arrays? false :identifiers clojure.string/lower-case
+                :result-set-fn doall :row-fn identity]
+               [sql-and-params
+                :as-arrays? true :identifiers clojure.string/lower-case
+                :result-set-fn vec :row-fn identity]
+               [[sql-string & params]]
+               [[stmt & params]]
+               [[option-map sql-string & params]])}
+  [sql-params & remainder]
+  (apply sql/query *db* sql-params remainder))
+
+(defn query-with-resultset
+  "Calls clojure.jdbc/db-query-with-resultset after adding (jdbc/db)
+  as the first argument."
+  {:arglists '([[sql-string & params] func]
+               [[stmt & params] func]
+               [[options-map sql-string & params] func])}
+  [sql-params func]
+  (sql/db-query-with-resultset *db* sql-params func))
 
 (defn valid-jdbc-query?
   "Most SQL queries generated in the PuppetDB code base are represented internally
@@ -63,12 +142,10 @@
           ((some-fn string? vector?) query)]
    :post [(or (zero? limit) (<= (count %) limit))]}
   (let [sql-query-and-params (if (string? query) [query] query)]
-    (sql/with-query-results result-set
-      sql-query-and-params
-      (let [limited-result-set (limit-result-set! limit result-set)]
-        (-> limited-result-set
-            convert-result-arrays
-            vec)))))
+    (query-with-resultset sql-query-and-params
+                          #(-> (limit-result-set! limit (sql/result-set-seq %))
+                               convert-result-arrays
+                               vec))))
 
 (defn query-to-vec
   "Take an SQL query and parameters, and return the result of the
@@ -148,12 +225,6 @@
       first
       :c))
 
-(def ^{:doc "A more clojurey way to refer to the JDBC transaction isolation levels"}
-  isolation-levels
-  {:read-committed java.sql.Connection/TRANSACTION_READ_COMMITTED
-   :repeatable-read java.sql.Connection/TRANSACTION_REPEATABLE_READ
-   :serializable java.sql.Connection/TRANSACTION_SERIALIZABLE})
-
 (pls/defn-validated exponential-sleep!
   "Sleeps for a period of time, based on an adjustable base exponential backoff.
 
@@ -191,23 +262,26 @@
      false)))
 
 (pls/defn-validated retry-sql*
-  "Executes f. If an exception is thrown, will retry. At most n retries
-   are done. If still some retryable error state is thrown it is bubbled upwards
-   in the call chain."
-  [remaining :- s/Int
+  "Invokes (f) up to n times, retrying only if a transient connection
+  exception occurs.  The transient exceptions will be suppressed, and
+  all others will be thrown.  If the final invocation results in a
+  transient exception, it will also be thrown."
+  [n :- s/Int
    f]
-  (loop [r remaining
+  (loop [r n
          current 0]
     (if-let [result (try
                       [(f)]
-
-                      ;; This includes org.postgresql.util.PSQLException
+                      ;; Catch connection errors, and retry for some of them.
+                      ;; cf. PostgreSQL docs: Appendix A. PostgreSQL Error Codes
                       (catch java.sql.SQLException e
+                        ;; This includes org.postgresql.util.PSQLException
                         (let [sqlstate (.getSQLState e)]
                           (case sqlstate
-                            ;; Catch connection errors and retry them
+                            ;; The connection does not exist
                             "08003" (retry-sql-or-fail r current e)
-
+                            ;; PostgreSQL was restarted
+                            "57P01" (retry-sql-or-fail r current e)
                             ;; All other errors are not retried
                             (throw e)))))]
       (result 0)
@@ -221,29 +295,28 @@
   `(retry-sql* ~n (fn [] ~@body)))
 
 (defn with-transacted-connection-fn
-  "Function for creating a connection that has the specified isolation
-   level.  If one is not specified, the JDBC default will be used (read-committed)"
-  [db-spec tx-isolation-level f]
-  {:pre [(or (nil? tx-isolation-level)
-             (get isolation-levels tx-isolation-level))]}
+  "Calls f within a transaction with the specified clojure.jdbc
+  isolation level.  If isolation is nil :read-committed will be used.
+  Retries the transaction up to 5 times."
+  [db-spec isolation f]
   (retry-sql 5
-             (sql/with-connection db-spec
-               (when-let [isolation-level (get isolation-levels tx-isolation-level)]
-                 (.setTransactionIsolation (sql/find-connection) isolation-level))
-               (sql/transaction (f)))))
+             (with-db-connection db-spec
+               (with-db-transaction [:isolation (or isolation :read-committed)]
+                 (f)))))
 
 (defmacro with-transacted-connection'
-  "Like `clojure.java.jdbc/with-connection`, except this automatically
-  wraps `body` in a database transaction with the specified transaction
-  isolation level.  See isolation-levels for possible values."
+  "Executes the body within a transaction with the specified clojure.jdbc
+  isolation level.  If isolation is nil :read-committed will be used.
+  Retries the transaction up to 5 times."
   [db-spec tx-isolation-level & body]
   `(with-transacted-connection-fn ~db-spec ~tx-isolation-level
      (fn []
        ~@body)))
 
 (defmacro with-transacted-connection
-  "Like `clojure.java.jdbc/with-connection`, except this automatically
-  wraps `body` in a database transaction."
+  "Executes the body within a transaction with a clojure.jdbc
+  isolation level of :read-committed.  Retries the transaction up to 5
+  times."
   [db-spec & body]
   `(with-transacted-connection-fn ~db-spec nil
      (fn []
@@ -260,15 +333,15 @@
   The cursor is closed when `func` returns. If an exception is thrown,
   the query is cancelled."
   [[sql & params] func]
-  (sql/transaction
-   (with-open [stmt (.prepareStatement (sql/connection) sql)]
+  (with-db-transaction []
+   (with-open [stmt (.prepareStatement (:connection *db*) sql)]
      (doseq [[index value] (map-indexed vector params)]
        (.setObject stmt (inc index) value))
      (.setFetchSize stmt 500)
      (with-open [rset (.executeQuery stmt)]
        (try
          (-> rset
-             sql/resultset-seq
+             sql/result-set-seq
              convert-result-arrays
              func)
          (catch Exception e

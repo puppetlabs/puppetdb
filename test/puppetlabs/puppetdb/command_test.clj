@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.command-test
   (:require [me.raynes.fs :as fs]
             [clj-http.client :as client]
-            [clojure.java.jdbc.deprecated :as sql]
+            [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -270,13 +270,13 @@
           (with-fixtures
             (is (= (query-to-vec "SELECT certname FROM catalogs")
                    []))
-            (sql/insert-record :certnames {:certname certname})
-            (sql/insert-records :catalogs
-                                {:hash (sutils/munge-hash-for-storage "00")
-                                 :api_version 1
-                                 :catalog_version "foo"
-                                 :certname certname
-                                 :producer_timestamp (to-timestamp (-> 1 days ago))})
+            (jdbc/insert! :certnames {:certname certname})
+            (jdbc/insert! :catalogs
+                          {:hash (sutils/munge-hash-for-storage "00")
+                           :api_version 1
+                           :catalog_version "foo"
+                           :certname certname
+                           :producer_timestamp (to-timestamp (-> 1 days ago))})
 
             (test-msg-handler command publish discard-dir
               (is (= [(with-env {:certname certname :catalog catalog-hash})]
@@ -287,16 +287,17 @@
 
         (testing "when replacing a catalog with a debug directory, should write out catalogs for inspection"
           (with-fixtures
-            (sql/insert-record :certnames {:certname certname})
+            (jdbc/insert! :certnames {:certname certname})
 
             (let [debug-dir (fs/absolute-path (temp-dir "catalog-inspection"))]
 
-              (sql/insert-records :catalogs
-                                  {:hash (sutils/munge-hash-for-storage "0000")
-                                   :api_version 1
-                                   :catalog_version "foo"
-                                   :certname certname
-                                   :producer_timestamp (to-timestamp (t/minus (now) (-> 1 days)))})
+              (jdbc/insert! :catalogs
+                            {:hash (sutils/munge-hash-for-storage "0000")
+                             :api_version 1
+                             :catalog_version "foo"
+                             :certname certname
+                             :producer_timestamp (to-timestamp
+                                                  (t/minus (now) (-> 1 days)))})
 
               (is (nil? (fs/list-dir debug-dir)))
               (test-msg-handler-with-opts command publish discard-dir {:catalog-hash-debug-dir debug-dir}
@@ -317,15 +318,15 @@
 
         (testing "with a newer catalog should ignore the message"
           (with-fixtures
-            (sql/insert-record :certnames {:certname certname})
-            (sql/insert-record :catalogs
-                               {:id 1
-                                :hash (sutils/munge-hash-for-storage "ab")
-                                :api_version 1
-                                :catalog_version "foo"
-                                :certname certname
-                                :timestamp tomorrow
-                                :producer_timestamp (to-timestamp (now))})
+            (jdbc/insert! :certnames {:certname certname})
+            (jdbc/insert! :catalogs
+                          {:id 1
+                           :hash (sutils/munge-hash-for-storage "ab")
+                           :api_version 1
+                           :catalog_version "foo"
+                           :certname certname
+                           :timestamp tomorrow
+                           :producer_timestamp (to-timestamp (now))})
 
             (test-msg-handler command publish discard-dir
               (is (= [{:certname certname :catalog "ab"}]
@@ -337,7 +338,7 @@
 
         (testing "should reactivate the node if it was deactivated before the message"
           (with-fixtures
-            (sql/insert-record :certnames {:certname certname :deactivated yesterday})
+            (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
             (test-msg-handler command publish discard-dir
               (is (= [{:certname certname :deactivated nil}]
                      (query-to-vec "SELECT certname,deactivated FROM certnames")))
@@ -349,7 +350,7 @@
 
         (testing "should store the catalog if the node was deactivated after the message"
           (scf-store/delete-certname! certname)
-          (sql/insert-record :certnames {:certname certname :deactivated tomorrow})
+          (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
           (test-msg-handler command publish discard-dir
             (is (= [{:certname certname :deactivated tomorrow}]
                    (query-to-vec "SELECT certname,deactivated FROM certnames")))
@@ -574,7 +575,7 @@
     (doverseq [version fact-versions
                :let [command v4-command]]
 
-      (sql/transaction
+      (jdbc/with-db-transaction []
        (scf-store/ensure-environment "DEV")
        (scf-store/add-certname! certname)
        (scf-store/replace-facts! {:certname certname
@@ -616,7 +617,7 @@
     (doverseq [version fact-versions
                :let [command v4-command]]
 
-      (sql/transaction
+      (jdbc/with-db-transaction []
        (scf-store/ensure-environment "DEV")
        (scf-store/add-certname! certname)
        (scf-store/add-facts! {:certname certname
@@ -654,7 +655,7 @@
                :let [command v4-command]]
 
       (testing "should reactivate the node if it was deactivated before the message"
-        (sql/insert-record :certnames {:certname certname :deactivated yesterday})
+        (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
         (test-msg-handler command publish discard-dir
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated nil}]))
@@ -680,7 +681,7 @@
 
       (testing "should store the facts if the node was deactivated after the message"
         (scf-store/delete-certname! certname)
-        (sql/insert-record :certnames {:certname certname :deactivated tomorrow})
+        (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
         (test-msg-handler command publish discard-dir
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated tomorrow}]))
@@ -833,7 +834,7 @@
           hand-off-queue (java.util.concurrent.SynchronousQueue.)
           storage-replace-facts! scf-store/update-facts!]
 
-      (sql/transaction
+      (jdbc/with-db-transaction []
        (scf-store/add-certname! certname)
        (scf-store/add-facts! {:certname certname
                               :values (:values facts)
@@ -954,7 +955,7 @@
         storage-delete-pending-path-id-orphans!
         scf-store/delete-pending-path-id-orphans!]
 
-    (sql/transaction
+    (jdbc/with-db-transaction []
      (scf-store/add-certname! certname-1)
      (scf-store/add-certname! certname-2)
      (scf-store/add-facts! {:certname certname-1
@@ -1035,7 +1036,7 @@
           hand-off-queue (java.util.concurrent.SynchronousQueue.)
           storage-replace-catalog! scf-store/replace-catalog!]
 
-      (sql/transaction
+      (jdbc/with-db-transaction []
        (scf-store/add-certname! certname)
        (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
@@ -1080,7 +1081,7 @@
           hand-off-queue (java.util.concurrent.SynchronousQueue.)
           storage-replace-catalog! scf-store/replace-catalog!]
 
-      (sql/transaction
+      (jdbc/with-db-transaction []
        (scf-store/add-certname! certname)
        (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
@@ -1142,7 +1143,7 @@
   (deftest deactivate-node-node-active
     (testing "should deactivate the node"
       (doseq [{:keys [certname command]} cases]
-        (sql/insert-record :certnames {:certname certname})
+        (jdbc/insert! :certnames {:certname certname})
         (test-msg-handler command publish discard-dir
           (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
                 result  (first results)]
@@ -1150,7 +1151,7 @@
             (is (instance? java.sql.Timestamp (:deactivated result)))
             (is (= 0 (times-called publish)))
             (is (empty? (fs/list-dir discard-dir)))
-            (sql/do-prepared "delete from certnames"))))))
+            (jdbc/do-prepared "delete from certnames"))))))
 
   (deftest deactivate-node-node-inactive
     (doseq [{:keys [certname command]} cases]
@@ -1164,7 +1165,8 @@
                        command
                        (assoc-in command
                                  [:payload :producer_timestamp] yesterday))]
-         (sql/insert-record :certnames {:certname certname :deactivated yesterday})
+         (jdbc/insert! :certnames
+                       {:certname certname :deactivated yesterday})
          (test-msg-handler
            command
            publish discard-dir
@@ -1181,7 +1183,7 @@
                (is (= {:certname certname :deactivated yesterday} row)))
              (is (= 0 (times-called publish)))
              (is (empty? (fs/list-dir discard-dir)))
-             (sql/do-prepared "delete from certnames")))))))
+             (jdbc/do-prepared "delete from certnames")))))))
 
   (deftest deactivate-node-node-missing
     (testing "should add the node and deactivate it"
@@ -1189,11 +1191,11 @@
         (test-msg-handler command publish discard-dir
           (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
                 result  (first results)]
-            (is (= (:certname result) certname ))
+            (is (= (:certname result) certname))
             (is (instance? java.sql.Timestamp (:deactivated result)))
-            (is (= 0 (times-called publish)))
+            (is (zero? (times-called publish)))
             (is (empty? (fs/list-dir discard-dir)))
-            (sql/do-prepared "delete from certnames")))))))
+            (jdbc/do-prepared "delete from certnames")))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

@@ -3,11 +3,11 @@
 
    This namespace contains some utility functions relating to checking version
    numbers of various fun things."
-  (:require [clojure.java.jdbc.deprecated :as sql]
-            [clojure.string :as string]
+  (:require [clojure.string :as string]
             [clj-http.client :as client]
             [ring.util.codec :as ring-codec]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.dujour.version-check :as version-check]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]))
 
@@ -23,7 +23,7 @@
 
 (defn pdb-version-check-values*
   [db]
-  (sql/with-connection db
+  (jdbc/with-db-connection db
     {:product-name {:group-id "puppetlabs"
                     :artifact-id "puppetdb"}
      :database-name (:database @sutils/db-metadata)

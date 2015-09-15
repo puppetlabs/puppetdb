@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.query-eng
-  (:require [clojure.java.jdbc.deprecated :as sql]
+  (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.paging :as paging]
@@ -197,6 +197,5 @@
                               INNER JOIN factsets
                               ON factsets.certname = certnames.certname
                               WHERE certnames.certname=?")]
-    (sql/with-query-results result-set
-      [check-sql id]
-      (pos? (count result-set)))))
+    (jdbc/query-with-resultset [check-sql id]
+                               (comp boolean seq sql/result-set-seq))))
