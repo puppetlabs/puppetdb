@@ -28,8 +28,8 @@
 (defn wrap-with-context [uri route]
   (compojure/context uri [] route))
 
-(defn pdb-core-routes [defaulted-config get-shared-globals submit-command-fn
-                       query-fn submit-raw-command-fn response-pub]
+(defn pdb-core-routes [defaulted-config get-shared-globals enqueue-command-fn
+                       query-fn enqueue-raw-command-fn response-pub]
   (let [meta-cfg #(select-keys (get-shared-globals) [:scf-read-db])
         get-response-pub #(response-pub)]
     (map #(apply wrap-with-context %)
@@ -38,9 +38,9 @@
           ;; The remaining get-shared-globals args are for wrap-with-globals.
           ["/meta" (meta/build-app meta-cfg defaulted-config)
            "/cmd" (cmd/command-app get-shared-globals
-                                   submit-raw-command-fn get-response-pub)
+                                   enqueue-raw-command-fn get-response-pub)
            "/query" (server/build-app get-shared-globals)
-           "/admin" (admin/build-app submit-command-fn query-fn)]))))
+           "/admin" (admin/build-app enqueue-command-fn query-fn)]))))
 
 (defn pdb-app [root defaulted-config maint-mode-fn app-routes]
   (-> (compojure/context root []
@@ -84,7 +84,7 @@
   [[:WebroutingService add-ring-handler get-route]
    [:PuppetDBServer shared-globals query set-url-prefix]
    [:PuppetDBCommandDispatcher
-    enqueue-command response-pub submit-command submit-raw-command]
+    enqueue-command enqueue-raw-command response-pub]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]
    [:DefaultedConfig get-config]]
   (init [this context]
@@ -101,9 +101,9 @@
                                           maint-mode?
                                           (pdb-core-routes config
                                                            augmented-globals
-                                                           submit-command
+                                                           enqueue-command
                                                            query
-                                                           submit-raw-command
+                                                           enqueue-raw-command
                                                            response-pub))))
         (enable-maint-mode)
         context)

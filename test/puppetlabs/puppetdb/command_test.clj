@@ -1307,9 +1307,7 @@
                         (deliver received-cmd? true)
                         @go-ahead-and-execute
                         (apply real-replace! args))]
-          (enqueue-command connection
-                           (conf/mq-endpoint (get-config))
-                           (command-names :replace-facts) 4
+          (enqueue-command (command-names :replace-facts) 4
                            {:environment "DEV" :certname "foo.local"
                             :values {:foo "foo"}
                             :producer_timestamp (to-string (now))})
@@ -1333,9 +1331,7 @@
           ;; enqueue, a DateTime wasn't a problem.
           input-stamp (java.util.Date. deactivate-ms)
           expected-stamp (DateTime. deactivate-ms DateTimeZone/UTC)]
-      (enqueue-command connection
-                       (conf/mq-endpoint (get-config))
-                       (command-names :deactivate-node) 3
+      (enqueue-command (command-names :deactivate-node) 3
                        {:certname "foo.local" :producer_timestamp input-stamp})
       (is (svc-utils/wait-for-server-processing svc-utils/*server* 5000))
       ;; While we're here, check the value in the database too...
@@ -1370,9 +1366,7 @@
           response-chan (async/chan)
           command-uuid (ks/uuid)]
       (async/tap response-mult response-chan)
-      (enqueue-command connection
-                       (conf/mq-endpoint (get-config))
-                       (command-names :deactivate-node) 3
+      (enqueue-command (command-names :deactivate-node) 3
                        {:certname "foo.local" :producer_timestamp (java.util.Date.)}
                        command-uuid)
       (let [received-uuid (async/alt!! response-chan ([msg] (:id msg))

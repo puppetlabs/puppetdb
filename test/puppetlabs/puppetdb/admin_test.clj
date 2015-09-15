@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.admin-test
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.cli.services :refer :all]
-            [puppetlabs.puppetdb.command :refer [submit-command]]
+            [puppetlabs.puppetdb.command :refer [enqueue-command]]
             [puppetlabs.puppetdb.export :as export]
             [puppetlabs.puppetdb.import :as import]
             [puppetlabs.puppetdb.cli.import :as cli-import]
@@ -43,7 +43,7 @@
 
        (let [dispatcher (tk-app/get-service svc-utils/*server*
                                             :PuppetDBCommandDispatcher)
-             submit-command-fn (partial submit-command dispatcher)
+             submit-command-fn (partial enqueue-command dispatcher)
              command-versions (:command_versions (cli-import/parse-metadata
                                                   export-out-file))]
          (import/import! export-out-file command-versions submit-command-fn))

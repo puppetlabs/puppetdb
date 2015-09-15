@@ -302,20 +302,14 @@
 
 (defprotocol PuppetDBCommandDispatcher
   (enqueue-command
-    [this connection endpoint command version payload]
-    [this connection endpoint command version payload uuid]
-    "Annotates the command via annotate-command, submits it to the
-    endpoint of the connection, and then returns its unique id.")
-
-  (enqueue-raw-command [this connection endpoint raw-command uuid]
-    "Submits the raw-command to the endpoint of the connection and
-    returns the command's unique id.")
-
-  (submit-raw-command [this raw-command uuid])
-  
-  (submit-command
     [this command version payload]
-    [this command version payload uuid])
+    [this command version payload uuid]
+    "Annotates the command via annotate-command, submits it for
+    processing, and then returns its unique id.")
+
+  (enqueue-raw-command [this raw-command uuid]
+    "Submits the raw-command for processing and returns the command's
+    unique id.")
 
   (stats [this]
     "Returns command processing statistics as a map
@@ -395,38 +389,28 @@
   (stats [this]
     @(:stats (service-context this)))
 
-  (enqueue-command [this connection endpoint command version payload]
-    (enqueue-command this connection endpoint command version payload nil))
+  (enqueue-command [this command version payload]
+    (enqueue-command this command version payload nil))
 
-  (enqueue-command [this connection endpoint command version payload uuid]
-    (let [result (do-enqueue-command connection endpoint
+  (enqueue-command [this command version payload uuid]
+    (let [config (get-config)
+          connection (:connection (service-context this))
+          endpoint (get-in config [:command-processing :mq :endpoint])
+          command (if (string? command) command (command-names command))
+          result (do-enqueue-command connection endpoint
                                      command version payload uuid)]
-
-
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
 
-  (enqueue-raw-command [this connection endpoint raw-command uuid]
-    (let [result (do-enqueue-raw-command connection endpoint raw-command uuid)]
+  (enqueue-raw-command [this raw-command uuid]
+    (let [config (get-config)
+          connection (:connection (service-context this))
+          endpoint (get-in config [:command-processing :mq :endpoint])
+          result (do-enqueue-raw-command connection endpoint raw-command uuid)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
-
-  (submit-raw-command [this raw-command uuid]
-    (enqueue-raw-command this
-                         (get-in (shared-globals) [:command-mq :connection])
-                         (conf/mq-endpoint (get-config))
-                         raw-command uuid))
-
-  (submit-command [this command version payload]
-    (submit-command this command version payload nil))
-
-  (submit-command [this command version payload uuid]
-    (enqueue-command this
-                     (:connection (service-context this))
-                     (conf/mq-endpoint (get-config))
-                     (command-names command) version payload uuid))
 
   (response-pub [this]
     (-> this service-context :response-pub))
