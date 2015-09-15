@@ -54,7 +54,42 @@ describe Puppet::Util::Puppetdb::Command do
         subject.submit
       end
     end
-
   end
 
+  it "should not warn when the the string contains valid UTF-8 characters" do
+    Puppet.expects(:warning).never
+    cmd = described_class.new("command-1", 1, "foo.localdomain", {"foo" => "\u2192"})
+    cmd.payload.include?("\u2192").should be_true
+  end
+
+  it "should warn when a command payload includes non-ascii UTF-8 characters" do
+    Puppet.expects(:warning).with {|msg| msg =~ /Error encoding a 'command-1' command for host 'foo.localdomain' ignoring invalid UTF-8 byte sequences/}
+    cmd = described_class.new("command-1", 1, "foo.localdomain", {"foo" => [192].pack('c*')})
+    cmd.payload.include?("\ufffd").should be_true
+  end
+
+  describe "Debug log testing of bad data" do
+    let!(:existing_log_level){ Puppet[:log_level]}
+
+    before :each do
+      Puppet[:log_level] = "debug"
+    end
+
+    after :each do
+      Puppet[:log_level] = "notice"
+    end
+
+    it "should warn when a command payload includes non-ascii UTF-8 characters" do
+      Puppet.expects(:warning).with do |msg|
+        msg =~ /Error encoding a 'command-1' command for host 'foo.localdomain' ignoring invalid UTF-8 byte sequences/
+      end
+      Puppet.expects(:debug).with do |msg|
+        msg =~ /Error encoding a 'command-1' command for host 'foo.localdomain'/ &&
+        msg =~ Regexp.new(Regexp.quote('"command":"command-1","version":1,"payload":{"foo"')) &&
+        msg =~ /1 invalid\/undefined/
+      end
+      cmd = described_class.new("command-1", 1, "foo.localdomain", {"foo" => [192].pack('c*')})
+      cmd.payload.include?("\ufffd").should be_true
+    end
+  end
 end
