@@ -159,8 +159,6 @@
   [{:keys [broker mq-factory mq-connection]}]
   (when broker
     (log/info "Shutting down the messsage queues.")
-    (.close mq-connection)
-    (.close mq-factory)
     (mq/stop-broker! broker)))
 
 (defn stop-puppetdb
@@ -176,7 +174,7 @@
     (.close ds))
   context)
 
-(defn- transfer-old-messages! [connection mq-endpoint]
+(defn- transfer-old-messages! [mq-endpoint]
   (let [[pending exists?]
         (try+
          [(mq/queue-size "localhost" "com.puppetlabs.puppetdb.commands") true]
@@ -259,19 +257,10 @@
                       "might be due to KahaDB corruption. Consult the "
                       "PuppetDB troubleshooting guide.")
                      (throw e)))
-          mq-factory (mq/activemq-connection-factory
-                      (conf/mq-broker-url config))
-          mq-connection (doto (.createConnection mq-factory)
-                          (.setExceptionListener
-                           (reify ExceptionListener
-                             (onException [this ex]
-                               (log/error ex "service queue connection error"))))
-                          .start)
           globals {:scf-read-db read-db
                    :scf-write-db write-db
-                   :catalog-hash-debug-dir catalog-hash-debug-dir
-                   :command-mq {:connection mq-connection}}]
-      (transfer-old-messages! mq-connection (conf/mq-endpoint config))
+                   :catalog-hash-debug-dir catalog-hash-debug-dir}]
+      (transfer-old-messages! (conf/mq-endpoint config))
 
       (when-not disable-update-checking
         (maybe-check-for-updates config read-db))
@@ -300,8 +289,6 @@
                        job-pool)))
       (assoc context
              :broker broker
-             :mq-factory mq-factory
-             :mq-connection mq-connection
              :shared-globals globals))))
 
 (defprotocol PuppetDBServer
