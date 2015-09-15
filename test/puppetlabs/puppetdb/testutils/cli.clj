@@ -10,6 +10,8 @@
             [puppetlabs.puppetdb.factsets :as factsets]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils.reports :as tur]
+            [puppetlabs.puppetdb.testutils.catalogs :as tuc]
+            [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]))
 
 (defn get-child [href]
@@ -69,3 +71,10 @@
       :basic
       (assoc :certname example-certname)
       tur/munge-example-report-for-storage))
+
+(defn munge-tar-map
+  [tar-map]
+  (-> tar-map
+      (update "facts" tuf/munge-facts)
+      (update "reports" tur/munge-report)
+      (update "catalogs" tuc/munge-catalog)))

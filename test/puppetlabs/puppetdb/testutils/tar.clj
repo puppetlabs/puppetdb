@@ -4,7 +4,7 @@
             [clj-time.core :as time]
             [puppetlabs.puppetdb.cheshire :as json]
             [me.raynes.fs :as fs]
-            [puppetlabs.puppetdb.utils :refer [export-root-dir]]))
+            [puppetlabs.puppetdb.utils :as utils]))
 
 (defn path
   "Creates a platform independent relative path built
@@ -31,7 +31,7 @@
   (reduce-kv (fn [top-level dir file-map]
                (merge top-level
                       (reduce-kv (fn [acc filename contents]
-                                   (assoc acc (path export-root-dir dir (str filename ".json")) contents))
+                                   (assoc acc (path utils/export-root-dir dir (str filename ".json")) contents))
                                  {} file-map)))
              {} m))
 
@@ -44,25 +44,18 @@
       (doseq [[path clj-contents] collapsed-map]
         (archive/add-entry tar-writer "UTF-8" path (json/generate-pretty-string clj-contents))))))
 
-(defn mapify
+(defn tar-entry->map-path
+  [tar-entry]
+  (-> (.getName tar-entry) fs/split rest vec))
+
+(defn tar->map
   "Convert elements in an import/export tarball to a hashmap.
    Nested directories convert to nested maps with the files
    converted from JSON to clojure data structures"
-  [file]
-  (with-open [tar (archive/tarball-reader file)]
+  [tar-file]
+  (with-open [tar-reader (archive/tarball-reader tar-file)]
     (reduce (fn [acc tar-entry]
               (assoc-in acc
-                        (-> (.getName tar-entry)
-                            fs/split
-                            rest
-                            vec)
-                        (json/parse-string (archive/read-entry-content tar))))
-            {} (archive/all-entries tar))))
-
-(defn parse-tar-entry-contents
-  "Parses the first of a list of tar-entries :contents"
-  [tar-entries]
-  (-> tar-entries
-      first
-      :contents
-      (json/parse-string true)))
+                        (tar-entry->map-path tar-entry)
+                        (utils/read-json-content tar-reader)))
+            {} (archive/all-entries tar-reader))))
