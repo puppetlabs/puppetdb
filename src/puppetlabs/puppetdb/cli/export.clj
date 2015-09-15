@@ -24,6 +24,8 @@
 (defn- validate-cli!
   [args]
   (let [specs [["-o" "--outfile OUTFILE" "Path to backup file (required)"]
+               ["-a" "--anonymization ANONYMIZATION" (str "Choice of anonymization profile: " anon/anon-profiles-str)
+                :default ::no-anonymization]
                ["-H" "--host HOST" "Hostname of PuppetDB server"
                 :default "127.0.0.1"]
                ["-p" "--port PORT" "Port to connect to PuppetDB server (HTTP protocol only)"
@@ -44,15 +46,18 @@
 
 (pls/defn-validated trigger-export-via-http!
   [base-url :- utils/base-url-schema
-   filename :- s/Str]
+   filename :- s/Str
+   anonymization]
   (-> (str (utils/base-url->str base-url) "/archive")
-      (http-client/get {:accept :octet-stream :as :stream})
+      (http-client/get (cond-> {:accept :octet-stream :as :stream}
+                         (not= anonymization ::no-anonymization)
+                         (assoc :query-params {"anonymization_profile" anonymization})))
       :body
       (io/copy (io/file filename))))
 
 (defn -main
   [& args]
-  (let [{:keys [outfile base-url]} (validate-cli! args)]
+  (let [{:keys [outfile base-url anonymization]} (validate-cli! args)]
     (println (str "Triggering export to " outfile " at " (now) "..."))
-    (trigger-export-via-http! base-url outfile)
+    (trigger-export-via-http! base-url outfile anonymization)
     (println (str "Finished export to " outfile " at " (now) "."))))

@@ -3,6 +3,7 @@
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.anonymizer :as anon]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.catalogs :as catalogs]
@@ -67,43 +68,63 @@
          kitchensink/utf8-string->sha1
          (format "%s-%s.json" certname))))
 
-(pls/defn-validated export-data->tar-item :- utils/tar-item
+(pls/defn-validated export-datum->tar-item :- utils/tar-item
   "Creates a tar-item map for a PuppetDB entity"
-  [entity data]
+  [entity datum]
   (let [file-suffix
         (case entity
-          :factsets ["facts" (str (:certname data) ".json")]
-          :catalogs ["catalogs" (str (:certname data) ".json")]
-          :reports ["reports" (export-report-filename data)])]
+          :factsets ["facts" (str (:certname datum) ".json")]
+          :catalogs ["catalogs" (str (:certname datum) ".json")]
+          :reports ["reports" (export-report-filename datum)])]
     {:file-suffix file-suffix
      :contents (if (= entity :reports)
-                 (-> data (dissoc :hash) json/generate-pretty-string)
-                 (json/generate-pretty-string data))}))
+                 (-> datum (dissoc :hash) json/generate-pretty-string)
+                 (json/generate-pretty-string datum))}))
+
+(defn export-data->tar-items
+  [entity data]
+  (map #(export-datum->tar-item entity %) data))
+
+(def export-info
+  {:catalogs {:child-fields [:edges :resources]
+              :query->wire-fn catalogs/catalogs-query->wire-v6
+              :anonimize-fn anon/anonymize-catalog}
+   :reports {:child-fields [:metrics :logs :resource_events]
+             :query->wire-fn reports/reports-query->wire-v5
+             :anonimize-fn anon/anonymize-report}
+   :factsets {:child-fields [:facts]
+              :query->wire-fn factsets/factsets-query->wire-v4
+              :anonimize-fn anon/anonymize-facts}})
+
+(defn maybe-anonymize [anonymize-fn anon-config data]
+  (if (not= anon-config ::not-found)
+    (map #(anonymize-fn anon-config %) data)
+    data))
 
 (defn add-tar-entries [tar-writer entries]
   (doseq [entry entries]
     (utils/add-tar-entry tar-writer entry)))
 
 (defn export!*
-  [tar-writer query-fn]
-  (doseq [[entity unexpanded-fields query->wire-fn]
-          [[:catalogs [:edges :resources] catalogs/catalogs-query->wire-v6]
-           [:factsets [:facts] factsets/factsets-query->wire-v4]
-           [:reports [:resource_events :metrics :logs] reports/reports-query->wire-v5]]
-          :let [query-callback-fn (fn [rows]
-                                    (->> rows
-                                         (complete-unexpanded-fields query-fn unexpanded-fields)
-                                         query->wire-fn
-                                         (map #(export-data->tar-item entity %))
-                                         (add-tar-entries tar-writer)))]]
-    (query-fn entity query-api-version nil nil query-callback-fn)))
+  [tar-writer query-fn anonymize-profile]
+  (let [anon-config (get anon/anon-profiles anonymize-profile ::not-found)]
+    (doseq [[entity {:keys [child-fields query->wire-fn anonymize-fn]}] export-info
+            :let [query-callback-fn (fn [rows]
+                                      (->> rows
+                                           (complete-unexpanded-fields query-fn child-fields)
+                                           query->wire-fn
+                                           (maybe-anonymize anonymize-fn anon-config)
+                                           (export-data->tar-items entity)
+                                           (add-tar-entries tar-writer)))]]
+      (query-fn entity query-api-version nil nil query-callback-fn))))
 
 (defn export!
-  [outfile query-fn]
-  (log/info "Export triggered for PuppetDB")
-  (with-open [tar-writer (archive/tarball-writer outfile)]
-    (utils/add-tar-entry
-     tar-writer {:file-suffix [export-metadata-file-name]
-                 :contents (json/generate-pretty-string {:timestamp (now) :command_versions command-versions})})
-    (export!* tar-writer query-fn))
-  (log/infof "Finished exporting PuppetDB"))
+  ([outfile query-fn] (export! outfile query-fn nil))
+  ([outfile query-fn anonymize-profile]
+   (log/info "Export triggered for PuppetDB")
+   (with-open [tar-writer (archive/tarball-writer outfile)]
+     (utils/add-tar-entry
+      tar-writer {:file-suffix [export-metadata-file-name]
+                  :contents (json/generate-pretty-string {:timestamp (now) :command_versions command-versions})})
+     (export!* tar-writer query-fn anonymize-profile))
+   (log/infof "Finished exporting PuppetDB")))

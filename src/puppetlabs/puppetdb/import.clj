@@ -8,6 +8,7 @@
   (:require [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.archive :as archive]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]))
@@ -34,19 +35,17 @@
           ;;   the list of nodes that we submitted and the output of that query
           (command-fn :replace-catalog
                       (:replace_catalog command-versions)
-                      (json/parse-string (archive/read-entry-content tar-reader))))
+                      (utils/read-json-content tar-reader)))
       (file-pattern "reports")
       (do (log/infof "Importing report from archive entry '%s'" path)
           (command-fn :store-report
                       (:store_report command-versions)
-                      (-> (archive/read-entry-content tar-reader)
-                          (json/parse-string true)
-                          puppetlabs.puppetdb.reports/sanitize-report)))
+                      (reports/sanitize-report (utils/read-json-content tar-reader true))))
       (file-pattern "facts")
       (do (log/infof "Importing facts from archive entry '%s'" path)
           (command-fn :replace-facts
                       (:replace_facts command-versions)
-                      (json/parse-string (archive/read-entry-content tar-reader))))
+                      (utils/read-json-content tar-reader)))
       nil)))
 
 (defn import!

@@ -9,6 +9,7 @@
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.cheshire :as json]
             [clojure.walk :as walk]
             [slingshot.slingshot :refer [try+ throw+]]
             [com.rpl.specter :as sp])
@@ -77,6 +78,13 @@
   (archive/add-entry tar-writer "UTF-8"
                      (.getPath (apply io/file export-root-dir file-suffix))
                      contents))
+
+(defn read-json-content
+  "Utility function for our cli tools.
+  For reading json content from a tar-reader."
+  ([reader] (read-json-content reader false))
+  ([reader keywordize-keys?]
+   (-> reader archive/read-entry-content (json/parse-string keywordize-keys?))))
 
 (defmacro assoc-when
   "Assocs the provided values with the corresponding keys if and only
