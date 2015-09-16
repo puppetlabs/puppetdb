@@ -26,7 +26,7 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [com.rpl.specter :as sp]
-            [clojure.java.jdbc.deprecated :as sql]
+            [clojure.java.jdbc :as sql]
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -199,15 +199,14 @@
   "Returns a boolean indicating whether or not the given certname exists in the db"
   [certname]
   {:pre [certname]}
-  (sql/with-query-results result-set
-    ["SELECT 1 FROM certnames WHERE certname=? LIMIT 1" certname]
-    (pos? (count result-set))))
+  (not (empty? (jdbc/query ["SELECT 1 FROM certnames WHERE certname=? LIMIT 1"
+                            certname]))))
 
 (defn delete-certname!
   "Delete the given host from the db"
   [certname]
   {:pre [certname]}
-  (sql/delete-rows :certnames ["certname=?" certname]))
+  (jdbc/delete! :certnames ["certname=?" certname]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Node activation/deactivation
@@ -235,25 +234,25 @@
   the node is currently active."
   [certname]
   {:pre [(string? certname)]}
-  (sql/with-query-results result-set
-    ["SELECT deactivated FROM certnames WHERE certname=?" certname]
-    (:deactivated (first result-set))))
+  (jdbc/query-with-resultset
+   ["SELECT deactivated FROM certnames WHERE certname=?" certname]
+   (comp :deactivated first sql/result-set-seq)))
 
 (defn node-expired-time
   "Returns the time the node specified by `certname` expired, or nil if
   the node is currently active."
   [certname]
   {:pre [(string? certname)]}
-  (sql/with-query-results result-set
-    ["SELECT expired FROM certnames WHERE certname=?" certname]
-    (:expired (first result-set))))
+  (jdbc/query-with-resultset
+   ["SELECT expired FROM certnames WHERE certname=?" certname]
+   (comp :expired first sql/result-set-seq)))
 
 (defn purge-deactivated-and-expired-nodes!
   "Delete nodes from the database which were deactivated before `time`."
   [time]
   {:pre [(kitchensink/datetime? time)]}
   (let [ts (to-timestamp time)]
-    (sql/delete-rows :certnames ["deactivated < ? OR expired < ?" ts ts])))
+    (jdbc/delete! :certnames ["deactivated < ? OR expired < ?" ts ts])))
 
 (defn activate-node!
   "Reactivate the given host. Adds the host to the database if it was not
@@ -262,24 +261,26 @@
   {:pre [(string? certname)]}
   (when-not (certname-exists? certname)
     (add-certname! certname))
-  (sql/update-values :certnames
-                     ["certname=?" certname]
-                     {:deactivated nil, :expired nil}))
+  (jdbc/update! :certnames
+                {:deactivated nil, :expired nil}
+                ["certname=?" certname]))
 
 (pls/defn-validated create-row :- s/Int
   "Creates a row using `row-map` for `table`, returning the PK that was created upon insert"
   [table :- s/Keyword
    row-map :- {s/Keyword s/Any}]
-  (:id (first (sql/insert-records table row-map))))
+  (:id (first (jdbc/insert! table row-map))))
 
 (pls/defn-validated query-id :- (s/maybe s/Int)
   "Returns the id (primary key) from `table` that contain `row-map` values"
   [table :- s/Keyword
    row-map :- {s/Keyword s/Any}]
   (let [cols (keys row-map)
-        where-clause (str "where " (str/join " " (map (fn [col] (str (name col) "=?") ) cols)))]
-    (sql/with-query-results rs (apply vector (format "select id from %s %s" (name table) where-clause) (map row-map cols))
-      (:id (first rs)))))
+        q (format "select id from %s where %s"
+                  (name table)
+                  (str/join " " (map #(str (name %) "=?") cols)))]
+    (jdbc/query-with-resultset (apply vector q (map row-map cols))
+                               (comp :id first sql/result-set-seq))))
 
 (pls/defn-validated ensure-row :- (s/maybe s/Int)
   "Check if the given row (defined by `row-map` exists in `table`, creates it if it does not. Always returns
@@ -332,10 +333,11 @@
   "Returns the id and hash of certname's catalog"
   [certname]
   {:pre [certname]}
-  (sql/with-query-results result-set
-    [(format "SELECT id, %s AS hash FROM catalogs WHERE certname=?" (sutils/sql-hash-as-str "catalogs.hash"))
-     certname]
-    (first result-set)))
+  (jdbc/query-with-resultset
+   [(format "SELECT id, %s AS hash FROM catalogs WHERE certname=?"
+            (sutils/sql-hash-as-str "catalogs.hash"))
+    certname]
+   (comp first sql/result-set-seq)))
 
 (pls/defn-validated catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
@@ -356,9 +358,9 @@
    hash :- String
    catalog :- catalog-schema
    received-timestamp :- pls/Timestamp]
-  (sql/update-values :catalogs
-                     ["id=?" id]
-                     (catalog-row-map hash catalog received-timestamp)))
+  (jdbc/update! :catalogs
+                (catalog-row-map hash catalog received-timestamp)
+                ["id=?" id]))
 
 (pls/defn-validated add-catalog-metadata!
   "Given some catalog metadata, persist it in the db. Returns a map of the
@@ -367,9 +369,9 @@
    {:keys [certname] :as catalog} :- catalog-schema
    received-timestamp :- pls/Timestamp]
   {:post [(map? %)]}
-  (first (sql/insert-records :catalogs
-                             (assoc (catalog-row-map hash catalog received-timestamp)
-                                    :certname certname))))
+  (first (jdbc/insert! :catalogs
+                       (assoc (catalog-row-map hash catalog received-timestamp)
+                              :certname certname))))
 
 (pls/defn-validated resources-exist? :- #{String}
   "Given a collection of resource-hashes, return the subset that
@@ -381,9 +383,8 @@
                                (sutils/sql-hash-as-str "resource")
                                (jdbc/in-clause resource-hashes))
                        (map sutils/munge-hash-for-storage resource-hashes))]
-      (sql/with-query-results result-set
-        query
-        (set (map :resource result-set))))
+      (jdbc/query-with-resultset query
+                                 #(set (map :resource (sql/result-set-seq %)))))
     #{}))
 
 ;;The schema definition of this function should be
@@ -393,12 +394,16 @@
 (pls/defn-validated catalog-resources
   "Returns the resource hashes keyed by resource reference"
   [catalog-id :- Number]
-  (sql/with-query-results result-set
-    [(format "SELECT type, title, tags, exported, file, line, %s AS resource
-              FROM catalog_resources
-              WHERE catalog_id = ?" (sutils/sql-hash-as-str "resource")) catalog-id]
-    (zipmap (map #(select-keys % [:type :title]) result-set)
-            (jdbc/convert-result-arrays set result-set))))
+  (jdbc/query-with-resultset
+   [(format "SELECT type, title, tags, exported, file, line, %s
+               AS resource
+               FROM catalog_resources
+               WHERE catalog_id = ?"
+            (sutils/sql-hash-as-str "resource")) catalog-id]
+   (fn [rs]
+     (let [rss (sql/result-set-seq rs)]
+       (zipmap (map #(select-keys % [:type :title]) rss)
+               (jdbc/convert-result-arrays set rss))))))
 
 (pls/defn-validated new-params-only
   "Returns a map of not persisted parameters, keyed by hash"
@@ -417,7 +422,7 @@
   [table :- s/Keyword
    record-coll :- [{s/Keyword s/Any}]]
   (when (seq record-coll)
-    (apply sql/insert-records table record-coll)))
+    (apply jdbc/insert! table record-coll)))
 
 (pls/defn-validated add-params!
   "Persists the new parameters found in `refs-to-resources` and populates the
@@ -487,7 +492,9 @@
     (update! (:catalog-volatility performance-metrics) (count refs-to-delete))
 
     (doseq [{:keys [type title]} refs-to-delete]
-      (sql/delete-rows :catalog_resources ["catalog_id = ? and type = ? and title = ?" catalog-id type title]))))
+      (jdbc/delete! :catalog_resources
+                    ["catalog_id = ? and type = ? and title = ?"
+                     catalog-id type title]))))
 
 (s/defn basic-diff
   "Basic diffing that returns only the keys/values of `right` whose values don't match those of `left`.
@@ -535,9 +542,10 @@
       (update! (:catalog-volatility performance-metrics) (count updated-resources))
 
       (doseq [[{:keys [type title]} updated-cols] updated-resources]
-        (sql/update-values :catalog_resources
-                           ["catalog_id = ? and type = ? and title = ?" catalog-id type title]
-                           (convert-tags-array updated-cols))))))
+        (jdbc/update! :catalog_resources
+                      (convert-tags-array updated-cols)
+                      ["catalog_id = ? and type = ? and title = ?"
+                       catalog-id type title])))))
 
 (defn strip-params
   "Remove params from the resource as it is stored (and hashed) separately
@@ -552,7 +560,7 @@
    refs-to-hashes :- {resource-ref-schema String}]
   (let [old-resources (catalog-resources catalog-id)
         diffable-resources (kitchensink/mapvals strip-params refs-to-resources)]
-    (sql/transaction
+    (jdbc/with-db-transaction []
      (add-params! refs-to-resources refs-to-hashes)
      (utils/diff-fn old-resources
                     diffable-resources
@@ -563,14 +571,16 @@
 (pls/defn-validated catalog-edges-map
   "Return all edges for a given catalog id as a map"
   [certname :- String]
-  (sql/with-query-results result-set
-    [(format "SELECT %s AS source, %s AS target, type FROM edges WHERE certname=?"
-             (sutils/sql-hash-as-str "source")
-             (sutils/sql-hash-as-str "target")) certname]
-    ;; Transform the result-set into a map with [source,target,type] as the key
-    ;; and nil as always the value. This just feeds into clojure.data/diff
-    ;; better this way.
-    (zipmap (map vals result-set)
+  ;; Transform the result-set into a map with [source,target,type] as the key
+  ;; and nil as always the value. This just feeds into clojure.data/diff
+  ;; better this way.
+  (jdbc/query-with-resultset
+   [(format "SELECT %s AS source, %s AS target, type FROM edges
+               WHERE certname=?"
+            (sutils/sql-hash-as-str "source")
+            (sutils/sql-hash-as-str "target"))
+    certname]
+   #(zipmap (map vals (sql/result-set-seq %))
             (repeat nil))))
 
 (pls/defn-validated delete-edges!
@@ -588,10 +598,11 @@
   (doseq [[source target type] edges]
     ;; This is relatively inefficient. If we have id's for edges, we could do
     ;; this in 1 statement.
-    (sql/delete-rows :edges
-                     [(format "certname=? and %s=? and %s=? and type=?"
-                              (sutils/sql-hash-as-str "source")
-                              (sutils/sql-hash-as-str "target")) certname source target type])))
+    (jdbc/delete! :edges
+                  [(format "certname=? and %s=? and %s=? and type=?"
+                           (sutils/sql-hash-as-str "source")
+                           (sutils/sql-hash-as-str "target"))
+                   certname source target type])))
 
 (pls/defn-validated insert-edges!
   "Insert edges for a given certname.
@@ -613,7 +624,7 @@
                   :type type})]
 
       (update! (:catalog-volatility performance-metrics) (count rows))
-      (apply sql/insert-records :edges rows))))
+      (apply jdbc/insert! :edges rows))))
 
 (pls/defn-validated replace-edges!
   "Persist the given edges in the database
@@ -711,7 +722,7 @@
          {id :id
           stored-hash :hash} (catalog-metadata certname)]
 
-     (sql/transaction
+     (jdbc/with-db-transaction []
       (cond
        (nil? id)
        (add-new-catalog hash catalog refs-to-hashes received-timestamp)
@@ -727,15 +738,16 @@
 (defn delete-catalog!
   "Remove the catalog identified by the following hash"
   [catalog-hash]
-  (sql/delete-rows :catalogs [(str (sutils/sql-hash-as-str "hash") "=?")
-                              catalog-hash]))
+  (jdbc/delete! :catalogs [(str (sutils/sql-hash-as-str "hash") "=?")
+                           catalog-hash]))
 
 (defn catalog-hash-for-certname
   "Returns the hash for the `certname` catalog"
   [certname]
-  (sql/with-query-results result-set
-    ["SELECT %s as catalog FROM catalogs WHERE certname=?" (sutils/sql-hash-as-str "hash") certname]
-    (:catalog (first result-set))))
+  (jdbc/query-with-resultset
+   ["SELECT %s as catalog FROM catalogs WHERE certname=?"
+    (sutils/sql-hash-as-str "hash") certname]
+   (comp :catalog first sql/result-set-seq)))
 
 ;; ## Database compaction
 
@@ -743,27 +755,32 @@
   "Remove any resources that aren't associated with a catalog"
   []
   (time! (:gc-params performance-metrics)
-         (sql/delete-rows :resource_params_cache ["NOT EXISTS (SELECT * FROM catalog_resources cr WHERE cr.resource=resource_params_cache.resource)"])))
+         (jdbc/delete!
+          :resource_params_cache
+          ["NOT EXISTS (SELECT * FROM catalog_resources cr
+                          WHERE cr.resource=resource_params_cache.resource)"])))
 
 
 (defn delete-unassociated-environments!
   "Remove any environments that aren't associated with a catalog, report or factset"
   []
-  (time! (:gc-environments performance-metrics)
-         (sql/delete-rows :environments
-                          ["ID NOT IN
-              (SELECT environment_id FROM catalogs WHERE environment_id IS NOT NULL
-               UNION
-               SELECT environment_id FROM reports WHERE environment_id IS NOT NULL
-               UNION
-               SELECT environment_id FROM factsets WHERE environment_id IS NOT NULL)"])))
+  (time!
+   (:gc-environments performance-metrics)
+   (jdbc/delete!
+    :environments
+    ["ID NOT IN
+        (SELECT environment_id FROM catalogs WHERE environment_id IS NOT NULL
+           UNION SELECT environment_id FROM reports
+                   WHERE environment_id IS NOT NULL
+           UNION SELECT environment_id FROM factsets
+                   WHERE environment_id IS NOT NULL)"])))
 
 (defn delete-unassociated-statuses!
   "Remove any statuses that aren't associated with a report"
   []
   (time! (:gc-report-statuses performance-metrics)
-         (sql/delete-rows :report_statuses
-                          ["ID NOT IN (SELECT status_id FROM reports)"])))
+         (jdbc/delete! :report_statuses
+                       ["ID NOT IN (SELECT status_id FROM reports)"])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Facts
@@ -780,9 +797,9 @@
 (defn-validated certname-to-factset-id :- s/Int
   "Given a certname, returns the factset id."
   [certname :- String]
-  (sql/with-query-results result-set
-    ["SELECT id from factsets WHERE certname = ?" certname]
-    (:id (first result-set))))
+  (jdbc/query-with-resultset
+   ["SELECT id from factsets WHERE certname = ?" certname]
+   (comp :id first sql/result-set-seq)))
 
 (defn-validated delete-pending-path-id-orphans!
   "Delete paths in dropped-pids that are no longer mentioned
@@ -791,27 +808,27 @@
   (when-let [dropped-pids (seq dropped-pids)]
     (if (sutils/postgres?)
       (let [candidate-paths (sutils/array-to-param "bigint" Long dropped-pids)]
-        (sql/do-prepared
-          "DELETE FROM fact_paths fp
-             WHERE fp.id = ANY (?)
-             AND NOT EXISTS (SELECT 1 FROM facts f
-                             WHERE f.fact_path_id = ANY (?)
-                             AND f.fact_path_id = fp.id
-                             AND f.factset_id <> ?)"
-          (concat [candidate-paths]
-                  [candidate-paths]
-                  [factset-id])))
+        (jdbc/do-prepared
+         "DELETE FROM fact_paths fp
+            WHERE fp.id = ANY (?)
+              AND NOT EXISTS (SELECT 1 FROM facts f
+                                WHERE f.fact_path_id = ANY (?)
+                                  AND f.fact_path_id = fp.id
+                                  AND f.factset_id <> ?)"
+         (concat [candidate-paths]
+                 [candidate-paths]
+                 [factset-id])))
       (let [in-pids (jdbc/in-clause dropped-pids)]
-        (sql/do-prepared
-          (format
-            "DELETE FROM fact_paths fp
-               WHERE fp.id %s
+        (jdbc/do-prepared
+         (format
+          "DELETE FROM fact_paths fp
+             WHERE fp.id %s
                AND NOT EXISTS (SELECT 1 FROM facts f
-                 WHERE f.fact_path_id %s
-                 AND f.fact_path_id = fp.id
-                 AND f.factset_id <> ?)"
-            in-pids in-pids)
-          (concat dropped-pids dropped-pids [factset-id]))))))
+                                 WHERE f.fact_path_id %s
+                                   AND f.fact_path_id = fp.id
+                                   AND f.factset_id <> ?)"
+          in-pids in-pids)
+         (concat dropped-pids dropped-pids [factset-id]))))))
 
 (defn-validated delete-pending-value-id-orphans!
   "Delete values in removed-pid-vid-pairs that are no longer mentioned
@@ -822,7 +839,7 @@
           rm-facts (map cons (repeat factset-id) removed-pid-vid-pairs)
           in-vids (jdbc/in-clause vids)
           in-rm-facts (jdbc/in-clause-multi rm-facts 3)]
-      (sql/do-prepared
+      (jdbc/do-prepared
        (format
         "DELETE FROM fact_values fv
            WHERE fv.id %s
@@ -847,16 +864,15 @@
   (if (zero? n)
     0
     (first
-     (sql/transaction
-      (sql/do-prepared
-       "DELETE FROM fact_paths
-          WHERE id IN (SELECT fp.id
-                         FROM fact_paths fp
-                         WHERE NOT EXISTS (SELECT 1
-                                             FROM facts f
-                                             WHERE fp.id = f.fact_path_id)
-                         LIMIT ?)"
-       [n])))))
+     (jdbc/with-db-transaction []
+       (jdbc/do-prepared
+        "DELETE FROM fact_paths
+           WHERE id IN (SELECT fp.id FROM fact_paths fp
+                          WHERE NOT EXISTS (SELECT 1
+                                              FROM facts f
+                                              WHERE fp.id = f.fact_path_id)
+                          LIMIT ?)"
+        [n])))))
 
 (defn-validated delete-orphaned-values! :- s/Int
   "Deletes up to n values that are no longer mentioned by any
@@ -870,38 +886,39 @@
   (if (zero? n)
     0
     (first
-     (sql/transaction
-      (sql/do-prepared
-       "DELETE FROM fact_values
-          WHERE id in (SELECT fv.id
-                         FROM fact_values fv
-                         WHERE NOT EXISTS (SELECT 1
-                                             FROM facts f
-                                             WHERE fv.id = f.fact_value_id)
-                         LIMIT ?)"
-       [n])))))
+     (jdbc/with-db-transaction []
+       (jdbc/do-prepared
+        "DELETE FROM fact_values
+           WHERE id in (SELECT fv.id
+                          FROM fact_values fv
+                          WHERE NOT EXISTS (SELECT 1
+                                              FROM facts f
+                                              WHERE fv.id = f.fact_value_id)
+                          LIMIT ?)"
+        [n])))))
 
 ;; NOTE: now only used in tests.
 (defn-validated delete-certname-facts!
   "Delete all the facts for certname."
   [certname :- String]
-  (sql/transaction
-   (let [factset-id (certname-to-factset-id certname)
-         dead-pairs (select-pid-vid-pairs-for-factset factset-id)]
-     (sql/do-commands
-      (format "DELETE FROM facts WHERE factset_id = %s" factset-id))
-     (delete-pending-path-id-orphans! factset-id (set (map first dead-pairs)))
-     (delete-pending-value-id-orphans! factset-id dead-pairs)
-     (sql/delete-rows :factsets ["id=?" factset-id]))))
+  (jdbc/with-db-transaction []
+    (let [factset-id (certname-to-factset-id certname)
+          dead-pairs (select-pid-vid-pairs-for-factset factset-id)]
+      (jdbc/do-commands (format "DELETE FROM facts WHERE factset_id = %s"
+                                factset-id))
+      (delete-pending-path-id-orphans! factset-id (set (map first dead-pairs)))
+      (delete-pending-value-id-orphans! factset-id dead-pairs)
+      (jdbc/delete! :factsets ["id=?" factset-id]))))
 
 (defn-validated insert-facts-pv-pairs!
   [factset-id :- s/Int
    pairs :- (s/either [(s/pair s/Int "path-id" s/Int "value-id")]
                       #{(s/pair s/Int "path-id" s/Int "value-id")})]
-  (apply sql/insert-records
-         :facts
-         (for [[pid vid] pairs]
-           {:factset_id factset-id :fact_path_id pid :fact_value_id vid})))
+  (when-let [rows (seq (for [[pid vid] pairs]
+                         {:factset_id factset-id
+                          :fact_path_id pid
+                          :fact_value_id vid}))]
+    (apply jdbc/insert! :facts rows)))
 
 (defn existing-row-ids
   "Returns a map from value to id for each value that's already in the
@@ -925,12 +942,13 @@
           [value id])))
 
 (defn realize-records!
-  "Inserts the records (maps) into the named database and returns them
+  "Inserts the records (maps) into the named table and returns them
   with their new :id values."
-  [database records]
-  (map #(assoc %2 :id %1)
-       (map :id (apply sql/insert-records database records))
-       records))
+  [table records]
+  (when (seq records)
+    (map #(assoc %2 :id %1)
+         (map :id (apply jdbc/insert! table records))
+         records)))
 
 (defn realize-paths!
   "Ensures that all paths exist in the database and returns a map of
@@ -980,18 +998,18 @@
   ([{:keys [certname values environment timestamp producer_timestamp]
      :as fact-data} :- facts-schema
     include-hash? :- s/Bool]
-   (sql/transaction
-    (sql/insert-record
-     :factsets
-     (merge
-      {:certname certname
-       :timestamp (to-timestamp timestamp)
-       :environment_id (ensure-environment environment)
-       :producer_timestamp (to-timestamp producer_timestamp)}
-      (when include-hash?
-        {:hash (sutils/munge-hash-for-storage
-                (shash/generic-identity-hash
-                 (dissoc fact-data :timestamp :producer_timestamp)))})))
+   (jdbc/with-db-transaction []
+     (jdbc/insert!
+      :factsets
+      (merge
+       {:certname certname
+        :timestamp (to-timestamp timestamp)
+        :environment_id (ensure-environment environment)
+        :producer_timestamp (to-timestamp producer_timestamp)}
+       (when include-hash?
+         {:hash (sutils/munge-hash-for-storage
+                 (shash/generic-identity-hash
+                  (dissoc fact-data :timestamp :producer_timestamp)))})))
     ;; Ensure that all the required paths and values exist, and then
     ;; insert the new facts.
     (let [paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
@@ -1012,14 +1030,16 @@
   [{:keys [certname values environment timestamp producer_timestamp] :as fact-data}
    :- facts-schema]
 
-  (sql/transaction
-   (let [factset-id (certname-to-factset-id certname)
-         initial-factset-paths-vhashes
-         (query-to-vec (format "SELECT fp.path, %s AS value_hash FROM facts f
-                                INNER JOIN fact_paths fp ON f.fact_path_id = fp.id
-                                INNER JOIN fact_values fv ON f.fact_value_id = fv.id
-                                WHERE factset_id = ?" (sutils/sql-hash-as-str "fv.value_hash"))
-                       factset-id)
+  (jdbc/with-db-transaction []
+    (let [factset-id (certname-to-factset-id certname)
+          initial-factset-paths-vhashes
+          (query-to-vec
+           (format "SELECT fp.path, %s AS value_hash FROM facts f
+                      INNER JOIN fact_paths fp ON f.fact_path_id = fp.id
+                      INNER JOIN fact_values fv ON f.fact_value_id = fv.id
+                      WHERE factset_id = ?"
+                   (sutils/sql-hash-as-str "fv.value_hash"))
+           factset-id)
          ;; Ensure that all the required paths and values exist.
          paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
          pathstrs (map (comp facts/factpath-to-string first) paths-and-valuemaps)
@@ -1037,7 +1057,7 @@
      ;; Paths are unique per factset so we can delete solely based on pid.
      (when rm-pairs
        (let [rm-pids (set (map first rm-pairs))]
-         (sql/do-prepared
+         (jdbc/do-prepared
           (format "DELETE FROM facts WHERE factset_id = ? AND fact_path_id %s"
                   (jdbc/in-clause rm-pids))
           (cons factset-id rm-pids))))
@@ -1051,21 +1071,14 @@
                                          (set (map first new-pairs))))
        (delete-pending-value-id-orphans! factset-id rm-pairs))
 
-     (sql/update-values
-      :factsets ["id=?" factset-id]
-      {:timestamp (to-timestamp timestamp)
-       :environment_id (ensure-environment environment)
-       :producer_timestamp (to-timestamp producer_timestamp)
-       :hash (-> (dissoc fact-data :timestamp :producer_timestamp)
-                 shash/generic-identity-hash
-                 sutils/munge-hash-for-storage)}))))
-
-(pls/defn-validated factset-producer-timestamp :- (s/maybe pls/Timestamp)
-  "Return the factset producer-timestamp for the given certname, nil if not found"
-  [certname :- String]
-  (sql/with-query-results result-set
-    ["SELECT producer_timestamp FROM factsets WHERE certname=? ORDER BY producer_timestamp DESC" certname]
-    (:producer_timestamp (first result-set))))
+     (jdbc/update! :factsets
+                   {:timestamp (to-timestamp timestamp)
+                    :environment_id (ensure-environment environment)
+                    :producer_timestamp (to-timestamp producer_timestamp)
+                    :hash (-> (dissoc fact-data :timestamp :producer_timestamp)
+                              shash/generic-identity-hash
+                              sutils/munge-hash-for-storage)}
+                   ["id=?" factset-id]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Reports
@@ -1080,10 +1093,9 @@
                                       WHERE certname = ?
                                       ORDER BY end_time DESC
                                       LIMIT 1" node])))]
-    (sql/update-values
-      :certnames
-      ["certname = ?" node]
-      {:latest_report_id latest-report})))
+    (jdbc/update! :certnames
+                  {:latest_report_id latest-report}
+                  ["certname = ?" node])))
 
 (defn find-containing-class
   "Given a containment path from Puppet, find the outermost 'class'."
@@ -1152,7 +1164,7 @@
                        status noop metrics logs resources resource_events]
                 :as report} (normalize-report orig-report)
                 report-hash (shash/report-identity-hash report)]
-           (sql/transaction
+           (jdbc/with-db-transaction []
              (let [certname-id (certname-id certname)
                    row-map {:hash (sutils/munge-hash-for-storage report-hash)
                             :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
@@ -1170,17 +1182,17 @@
                             :receive_time (to-timestamp received-timestamp)
                             :environment_id (ensure-environment environment)
                             :status_id (ensure-status status)}
-                   {report-id :id} (->> row-map
-                                        maybe-environment
-                                        maybe-resources
-                                        (sql/insert-record :reports))
+                   [{report-id :id}] (->> row-map
+                                          maybe-environment
+                                          maybe-resources
+                                          (jdbc/insert! :reports))
                    assoc-ids #(assoc %
                                      :report_id report-id
                                      :certname_id certname-id)]
                (->> resource_events
                     (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
                     (map assoc-ids)
-                    (apply sql/insert-records :resource_events))
+                    (apply jdbc/insert! :resource_events))
                (when update-latest-report?
                  (update-latest-report! certname)))))))
 
@@ -1192,10 +1204,11 @@
   (when (not (sutils/postgres?))
     ;; there's an ON DELETE SET NULL foreign key constraint in postgres for
     ;; this, but we can't do that in hsqldb
-    (sql/update-values :certnames ["latest_report_id in (select id from reports where producer_timestamp < ?)"
-                                   (to-timestamp time)]
-                       {:latest_report_id nil}))
-  (sql/delete-rows :reports ["producer_timestamp < ?" (to-timestamp time)]))
+    (jdbc/update! :certnames
+                  {:latest_report_id nil}
+                  ["latest_report_id in (select id from reports where producer_timestamp < ?)"
+                   (to-timestamp time)]))
+  (jdbc/delete! :reports ["producer_timestamp < ?" (to-timestamp time)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database support/deprecation
@@ -1222,7 +1235,7 @@
 (pls/defn-validated add-certname!
   "Add the given host to the db"
   [certname :- String]
-  (sql/insert-record :certnames {:certname certname}))
+  (jdbc/insert! :certnames {:certname certname}))
 
 (defn timestamp-of-newest-record [entity certname]
   (let [query {:select [:producer_timestamp]
@@ -1230,8 +1243,7 @@
                :where [:= :certname certname]
                :order-by [[:producer_timestamp :desc]]
                :limit 1}]
-    (sql/with-query-results result-set (hcore/format query)
-      (:producer_timestamp (first result-set)))))
+    (:producer_timestamp (first (jdbc/query (hcore/format query))))))
 
 (pls/defn-validated have-record-produced-after?
   [entity :- s/Keyword
@@ -1262,10 +1274,10 @@
   (when-not (certname-exists? certname)
     (add-certname! certname))
   (let [timestamp (to-timestamp time)
-        replaced  (sql/update-values :certnames
-                                     ["certname=? AND (deactivated<? OR expired<?)"
-                                      certname timestamp timestamp]
-                                     {:deactivated nil, :expired nil})]
+        replaced  (jdbc/update! :certnames
+                                {:deactivated nil, :expired nil}
+                                ["certname=? AND (deactivated<? OR expired<?)"
+                                 certname timestamp timestamp])]
     (pos? (first replaced))))
 
 (pls/defn-validated deactivate-node!
@@ -1278,19 +1290,19 @@
      (log/warnf "Not deactivating node %s because local data is newer than %s."
                 certname timestamp)
      (let [sql-timestamp (to-timestamp timestamp)]
-       (sql/do-prepared "UPDATE certnames SET deactivated = ?
-                           WHERE certname=?
-                             AND (deactivated IS NULL OR deactivated < ?)"
-                        [sql-timestamp certname sql-timestamp])))))
+       (jdbc/do-prepared "UPDATE certnames SET deactivated = ?
+                            WHERE certname=?
+                              AND (deactivated IS NULL OR deactivated < ?)"
+                         [sql-timestamp certname sql-timestamp])))))
 
 (pls/defn-validated expire-node!
   "Expire the given host, recording the current time. If the node is
   currently expired, no change is made."
   [certname :- String & [timestamp :- pls/Timestamp]]
   (let [timestamp (to-timestamp (or timestamp (now)))]
-   (sql/do-prepared "UPDATE certnames SET expired = ?
-                    WHERE certname=? AND expired IS NULL"
-                    [timestamp certname])))
+    (jdbc/do-prepared "UPDATE certnames SET expired = ?
+                         WHERE certname=? AND expired IS NULL"
+                      [timestamp certname])))
 
 (pls/defn-validated catalog-newer-than?
   "Returns true if the most current catalog for `certname` is more recent than
@@ -1311,8 +1323,8 @@
     received-timestamp :- pls/Timestamp
     catalog-hash-debug-dir :- (s/maybe s/Str)]
    (time! (:replace-catalog performance-metrics)
-          (sql/transaction
-           (add-catalog! catalog catalog-hash-debug-dir received-timestamp)))))
+          (jdbc/with-db-transaction []
+            (add-catalog! catalog catalog-hash-debug-dir received-timestamp)))))
 
 (pls/defn-validated replace-facts!
   "Updates the facts of an existing node, if the facts are newer than the current set of facts.

@@ -1,10 +1,10 @@
 (ns puppetlabs.puppetdb.fixtures
   (:import [java.io ByteArrayInputStream])
-  (:require [clojure.java.jdbc.deprecated :as sql]
+  (:require [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.http.command :as command]
-            [puppetlabs.puppetdb.jdbc :as pjdbc]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.config :as cfg]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -23,14 +23,14 @@
 (def ^:dynamic *command-app* nil)
 
 (defn init-db [db read-only?]
-  (sql/with-connection db (migrate! db))
-  (pjdbc/pooled-datasource (assoc db :read-only? read-only?)))
+  (jdbc/with-db-connection db (migrate! db))
+  (jdbc/pooled-datasource (assoc db :read-only? read-only?)))
 
 (defn with-db-metadata
   "A fixture to collect DB type and version information before a test."
   [f]
   (binding [*db* (clean-db-map)]
-    (sql/with-connection *db*
+    (jdbc/with-db-connection *db*
       (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
         (f)))))
 
@@ -38,7 +38,7 @@
   "A fixture to start and migrate a test db before running tests."
   [f]
   (binding [*db* (clean-db-map)]
-    (sql/with-connection *db*
+    (jdbc/with-db-connection *db*
       (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
         (migrate! *db*)
         (f)))))
@@ -52,7 +52,7 @@
    route testing code to ensure that the route has it's own db
    connection."
   [f]
-  (binding [sql/*db* nil]
+  (binding [jdbc/*db* nil]
     (f)))
 
 (defn with-test-mq

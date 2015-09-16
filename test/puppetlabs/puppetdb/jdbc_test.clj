@@ -1,36 +1,46 @@
 (ns puppetlabs.puppetdb.jdbc-test
   (:require [puppetlabs.puppetdb.jdbc :as subject]
-            [clojure.java.jdbc.deprecated :as sql]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.testutils :refer [test-db]]
             [puppetlabs.puppetdb.testutils.db :refer [antonym-data with-antonym-test-database insert-map *db-spec*]]))
 
 (use-fixtures :each with-antonym-test-database)
 
+(defn- full-sql-exception-msg [ex]
+  (apply str (take-while identity (iterate #(.getNextException %) ex))))
+
 (deftest pool-construction
 
   (testing "can construct pool with numeric usernames and passwords"
-    (let [pool (-> (test-db)
+    (let [pool (-> *db-spec*
                    (assoc :username "1234" :password "1234")
                    fixt/defaulted-write-db-config
                    subject/pooled-datasource)]
       (.close (:datasource pool))))
 
   (testing "writes not allowed on read-only pools"
-    (let [write-pool (subject/pooled-datasource (fixt/defaulted-write-db-config *db-spec*))
-          read-pool (subject/pooled-datasource (fixt/defaulted-read-db-config (assoc *db-spec* :read-only? true)))]
-
-      (subject/with-transacted-connection write-pool
-        (insert-map {"foo" 1})
-        (is (= [{:value "1"}] (subject/query-to-vec "SELECT value FROM test WHERE key='foo'"))))
-
-      (subject/with-transacted-connection read-pool
-        (is (thrown-with-msg? java.sql.SQLException #"read-only.*transaction"
-                              (insert-map {"bar" 1}))))
-
-      (.close (:datasource write-pool))
-      (.close (:datasource read-pool)))))
+    (let [write-pool (-> *db-spec*
+                         fixt/defaulted-write-db-config
+                         subject/pooled-datasource)]
+      (with-open [_ (:datasource write-pool)]
+        (subject/with-transacted-connection write-pool
+          (insert-map {"foo" 1})
+          (is (= [{:value "1"}]
+                 (subject/query-to-vec
+                  "SELECT value FROM test WHERE key='foo'"))))))
+    (let [read-pool (-> (assoc *db-spec* :read-only? true)
+                        fixt/defaulted-read-db-config
+                        subject/pooled-datasource)]
+      (with-open [_ (:datasource read-pool)]
+        (subject/with-transacted-connection read-pool
+          (let [msg (try
+                      (insert-map {"bar" 1})
+                      ""
+                      (catch java.sql.SQLException ex
+                        (full-sql-exception-msg ex)))]
+            (is (re-find #"read-only.*transaction" msg))))))))
 
 (deftest query-to-vec
   (testing "query string only"
@@ -83,17 +93,19 @@
         db (test-db)]
 
     (subject/with-transacted-connection' db nil
-      (let [conn (sql/find-connection)]
-        (is (false? (.getAutoCommit (sql/find-connection))))
-        (is (= java.sql.Connection/TRANSACTION_READ_COMMITTED (.getTransactionIsolation conn)))
+      (let [conn (:connection (jdbc/db))]
+        (is (false? (.getAutoCommit conn)))
+        (is (= java.sql.Connection/TRANSACTION_READ_COMMITTED
+               (.getTransactionIsolation conn)))
         (reset! evaled-body? true)))
 
     (is (true? @evaled-body?))
 
-    (are [isolation-level isolation-level-kwd] (subject/with-transacted-connection' db isolation-level-kwd
-                                                 (let [conn (sql/find-connection)]
-                                                   (= isolation-level (.getTransactionIsolation conn))))
+    (are [isolation-level isolation-level-kwd]
+      (subject/with-transacted-connection' db isolation-level-kwd
+        (let [conn (:connection (jdbc/db))]
+          (= isolation-level (.getTransactionIsolation conn))))
 
-         java.sql.Connection/TRANSACTION_REPEATABLE_READ :repeatable-read
-         java.sql.Connection/TRANSACTION_SERIALIZABLE :serializable
-         java.sql.Connection/TRANSACTION_READ_COMMITTED :read-committed)))
+      java.sql.Connection/TRANSACTION_REPEATABLE_READ :repeatable-read
+      java.sql.Connection/TRANSACTION_SERIALIZABLE :serializable
+      java.sql.Connection/TRANSACTION_READ_COMMITTED :read-committed)))

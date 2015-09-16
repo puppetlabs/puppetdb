@@ -6,7 +6,7 @@
              :refer [flatten-facts-with
                      path->pathmap]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [clojure.java.jdbc.deprecated :as sql]
+            [clojure.java.jdbc :as sql]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.scf.hash :as hash]
@@ -56,7 +56,7 @@
 (pls/defn-validated add-certname-27!
   "Add the given host to the db"
   [certname :- String]
-  (sql/insert-record :certnames {:name certname}))
+  (jdbc/insert! :certnames {:name certname}))
 
 (def fact-set {s/Str s/Any})
 
@@ -107,7 +107,7 @@
   was created upon insert"
   [table :- s/Keyword
    row-map :- {s/Keyword s/Any}]
-  (:id (first (sql/insert-records table row-map))))
+  (:id (first (jdbc/insert! table row-map))))
 
 (pls/defn-validated query-id :- (s/maybe s/Int)
   "Returns the id (primary key) from `table` that contain `row-map` values"
@@ -116,11 +116,11 @@
   (let [cols (keys row-map)
         where-clause (str "where " (str/join " " (map #(str (name %) "=?")
                                                       cols)))]
-    (sql/with-query-results rs (apply vector (format "select id from %s %s"
+    (jdbc/query-with-resultset (apply vector (format "select id from %s %s"
                                                      (name table)
                                                      where-clause)
                                       (map row-map cols))
-      (:id (first rs)))))
+                               (comp :id first sql/result-set-seq))))
 
 (pls/defn-validated ensure-row :- (s/maybe s/Int)
   "Check if the given row (defined by `row-map` exists in `table`, creates it
@@ -151,16 +151,17 @@
                            (:value_type_id data)
                            (:name data)])
                         factpaths)]
-    (sql/with-query-results result-set
-      (vec (flatten [(str "SELECT fp.id, fp.path, fp.depth, fp.value_type_id, fp.name
-                             FROM fact_paths fp
-                             WHERE (fp.path, fp.depth, fp.value_type_id, fp.name)"
-                          (jdbc/in-clause-multi factpath-data 4))
-                     factpath-data]))
-      (into {} (map (fn [data]
-                      [(select-keys data [:path :depth :value_type_id :name])
-                       (:id data)])
-                    result-set)))))
+    (jdbc/query-with-resultset
+     (vec (flatten [(str "SELECT fp.id, fp.path, fp.depth, fp.value_type_id, fp.name
+                            FROM fact_paths fp
+                            WHERE (fp.path, fp.depth, fp.value_type_id, fp.name)"
+                         (jdbc/in-clause-multi factpath-data 4))
+                    factpath-data]))
+     (fn [rs]
+       (into {} (map (fn [data]
+                       [(select-keys data [:path :depth :value_type_id :name])
+                        (:id data)])
+                     (sql/result-set-seq rs)))))))
 
 (pls/defn-validated fact-path-new-ids :- {fact-path-types-to-ids-map s/Int}
   "Given a list of fact path strings, return a map of paths to ids for newly
@@ -171,7 +172,7 @@
         ;; Here we merge the results with the record set to make the hsqldb
         ;; driver work more like pgsql.
         result-set (map-indexed (fn [idx itm] (merge (get (vec record-set) idx) itm))
-                                (apply sql/insert-records :fact_paths record-set))]
+                                (apply jdbc/insert! :fact_paths record-set))]
     (into {} (map (fn [data]
                     [(select-keys data [:path :depth :value_type_id :name])
                      (:id data)])
@@ -204,16 +205,17 @@
                                    (:value_type_id data)
                                    (:value_hash data)])
                        factvalues)]
-    (sql/with-query-results result-set
-      (vec (flatten [(str "SELECT fv.id, fv.value_type_id, fv.value_hash, fv.path_id
-                             FROM fact_values fv
-                             WHERE (fv.path_id, fv.value_type_id, fv.value_hash) "
-                          (jdbc/in-clause-multi fv-triples 3))
-                     fv-triples]))
-      (into {} (map (fn [data]
-                      [(select-keys data [:path_id :value_type_id :value_hash])
-                       (:id data)])
-                    result-set)))))
+    (jdbc/query-with-resultset
+     (vec (flatten [(str "SELECT fv.id, fv.value_type_id, fv.value_hash, fv.path_id
+                            FROM fact_values fv
+                            WHERE (fv.path_id, fv.value_type_id, fv.value_hash) "
+                         (jdbc/in-clause-multi fv-triples 3))
+                    fv-triples]))
+     (fn [rs]
+       (into {} (map (fn [data]
+                       [(select-keys data [:path_id :value_type_id :value_hash])
+                        (:id data)])
+                     (sql/result-set-seq rs)))))))
 
 (pls/defn-validated fact-value-new-ids :- {fact-values-to-ids-map s/Int}
   "Give a list of fact-values-to-ids-map constructs, returns a map with the
@@ -228,8 +230,7 @@
         ;; Here we merge the results with the record set to make the hsqldb
         ;; driver work more like pgsql.
         result-set (map-indexed (fn [idx itm] (merge (get record-set idx) itm))
-                                (apply sql/insert-records :fact_values
-                                       record-set))]
+                                (apply jdbc/insert! :fact_values record-set))]
     (into {} (map (fn [data]
                     [(select-keys data [:path_id
                                         :value_type_id :value_hash
@@ -302,9 +303,9 @@
 (pls/defn-validated certname-to-factset-id :- s/Int
   "Given a certname, returns the factset id."
   [certname :- String]
-  (sql/with-query-results result-set
-    ["SELECT id from factsets WHERE certname = ?" certname]
-    (:id (first result-set))))
+  (jdbc/query-with-resultset
+   ["SELECT id from factsets WHERE certname = ?" certname]
+   (comp :id first sql/result-set-seq)))
 
 (pls/defn-validated insert-facts!
   "Given a certname and set of fact_value_id's, insert them into the
@@ -313,18 +314,18 @@
    ids :- #{s/Int}]
   (let [default {:factset_id factset}
         rows (map #(assoc default :fact_value_id %) ids)]
-    (apply sql/insert-records :facts rows)))
+    (apply jdbc/insert! :facts rows)))
 
 (pls/defn-validated add-facts-27!
   "Associates the given values with certname in the database using
   database schema 27."
   [{:keys [certname values environment timestamp producer_timestamp] :as fact-data}
    :- facts-schema]
-  (sql/insert-record :factsets
-                     {:certname certname
-                      :timestamp (to-timestamp timestamp)
-                      :environment_id (ensure-environment environment)
-                      :producer_timestamp (to-timestamp producer_timestamp)})
+  (jdbc/insert! :factsets
+                {:certname certname
+                 :timestamp (to-timestamp timestamp)
+                 :environment_id (ensure-environment environment)
+                 :producer_timestamp (to-timestamp producer_timestamp)})
   (let [new-facts (new-fact-value-ids values)
         factset (certname-to-factset-id certname)]
     (insert-facts! factset (set new-facts))))

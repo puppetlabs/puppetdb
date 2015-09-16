@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.scf.storage-utils
-  (:require [clojure.java.jdbc.deprecated :as sql]
+  (:require [clojure.java.jdbc :as sql]
             [honeysql.core :as hcore]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.honeysql :as h]
@@ -13,7 +13,9 @@
 
 (defn array-to-param
   [col-type java-type values]
-  (.createArrayOf (sql/connection) col-type (into-array java-type values)))
+  (.createArrayOf (:connection (jdbc/db))
+                  col-type
+                  (into-array java-type values)))
 
 (def pg-extension-map
   "Maps to the table definition in postgres, but only includes some of the
@@ -36,12 +38,10 @@
 ;; FUNCTIONS
 (defn db-metadata-fn
   []
-  (let [db-metadata (.. (sql/find-connection)
-                        (getMetaData))
-        major (.getDatabaseMajorVersion db-metadata)
-        minor (.getDatabaseMinorVersion db-metadata)]
+  (let [db-metadata (.getMetaData (:connection (jdbc/db)))]
     {:database (.getDatabaseProductName db-metadata)
-     :version [major minor]}))
+     :version [(.getDatabaseMajorVersion db-metadata)
+               (.getDatabaseMinorVersion db-metadata)]}))
 
 (def db-metadata
   (delay (db-metadata-fn)))
@@ -76,7 +76,7 @@
   our unit tests rely on this.)."
   []
   (let [query   "SELECT table_name FROM information_schema.tables WHERE LOWER(table_schema) = 'public'"
-        results (sql/transaction (jdbc/query-to-vec query))]
+        results (jdbc/with-db-transaction [] (jdbc/query-to-vec query))]
     (map :table_name results)))
 
 (defn sql-current-connection-sequence-names
@@ -86,7 +86,7 @@
   database.  (Some of our unit tests rely on this.)."
   []
   (let [query   "SELECT sequence_name FROM information_schema.sequences WHERE LOWER(sequence_schema) = 'public'"
-        results (sql/transaction (jdbc/query-to-vec query))]
+        results (jdbc/with-db-transaction [] (jdbc/query-to-vec query))]
     (map :sequence_name results)))
 
 (pls/defn-validated pg-installed-extensions :- {s/Str pg-extension-map}
@@ -98,7 +98,7 @@
                       extversion as version,
                       extrelocatable as relocatable
                FROM pg_extension"
-        results (sql/transaction (jdbc/query-to-vec query))]
+        results (jdbc/with-db-transaction [] (jdbc/query-to-vec query))]
     (zipmap (map :name results)
             results)))
 
@@ -130,10 +130,9 @@
   "Takes the supplied collection and transforms it into a
   JDBC-appropriate VARCHAR array."
   [coll]
-  (let [connection (sql/find-connection)]
-    (->> coll
-         (into-array Object)
-         (.createArrayOf connection "varchar"))))
+  (->> coll
+       (into-array Object)
+       (.createArrayOf (:connection (jdbc/db)) "varchar")))
 
 (defmulti sql-array-type-string
   "Returns a string representing the correct way to declare an array
@@ -252,29 +251,29 @@ must be supplied as the value to be matched."
   [table column]
   {:pre [(string? table)
          (string? column)]}
-  (sql/transaction
+  (jdbc/with-db-transaction []
    (if (postgres?)
      ;; PostgreSQL specific way
      (do
-       (sql/do-commands (str "LOCK TABLE " table " IN ACCESS EXCLUSIVE MODE"))
-       (sql/with-query-results _
-         [(str "SELECT setval(
-            pg_get_serial_sequence(?, ?),
-            (SELECT max(" column ") FROM " table "))") table column]))
+       (jdbc/do-commands (str "LOCK TABLE " table " IN ACCESS EXCLUSIVE MODE"))
+       (jdbc/query-with-resultset
+        [(str "SELECT setval(pg_get_serial_sequence(?, ?),
+                             (SELECT max(" column ") FROM " table "))")
+         table column]
+        (constantly nil)))
 
      ;; HSQLDB specific way
-     (let [_ (sql/do-commands (str "LOCK TABLE " table " WRITE"))
-           maxid (sql/with-query-results result-set
-                   [(str "SELECT max(" column ") as id FROM " table)]
-                   (:id (first result-set)))
+     (let [_ (jdbc/do-commands (str "LOCK TABLE " table " WRITE"))
+           maxid (jdbc/query-with-resultset
+                  [(str "SELECT max(" column ") as id FROM " table)]
+                  (comp :id first sql/result-set-seq))
            ;; While postgres handles a nil case gracefully, hsqldb does not
            ;; so here we return 1 if the maxid is nil, and otherwise return
            ;; maxid +1 to indicate that the next number should be higher
            ;; then the current one.
            restartid (if (nil? maxid) 1 (inc maxid))]
-       (sql/do-commands
-        (str "ALTER TABLE " table " ALTER COLUMN " column
-             " RESTART WITH " restartid))))))
+       (jdbc/do-commands (str "ALTER TABLE " table " ALTER COLUMN " column
+                              " RESTART WITH " restartid))))))
 
 (defn sql-hash-as-str
   [column]

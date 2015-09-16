@@ -44,7 +44,6 @@
      maintain acceptable performance."
   (:require [clj-time.core :refer [ago]]
             [clojure.java.io :as io]
-            [clojure.java.jdbc.deprecated :as sql]
             [clojure.tools.logging :as log]
             [compojure.core :as compojure]
             [overtone.at-at :refer [mk-pool interspaced]]
@@ -54,7 +53,7 @@
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http.server :as server]
-            [puppetlabs.puppetdb.jdbc :as pl-jdbc :refer [with-transacted-connection]]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.meta.version :as version]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.mq :as mq]
@@ -91,7 +90,7 @@
     (kitchensink/demarcate
      (format "sweep of stale nodes (threshold: %s)"
              (format-period node-ttl))
-     (with-transacted-connection db
+     (jdbc/with-transacted-connection db
        (doseq [node (scf-store/stale-nodes (ago node-ttl))]
          (log/infof "Auto-expiring node %s" node)
          (scf-store/expire-node! node))))
@@ -107,7 +106,7 @@
     (kitchensink/demarcate
      (format "purge deactivated and expired nodes (threshold: %s)"
              (format-period node-purge-ttl))
-     (with-transacted-connection db
+     (jdbc/with-transacted-connection db
        (scf-store/purge-deactivated-and-expired-nodes! (ago node-purge-ttl))))
     (catch Exception e
       (log/error e "Error while purging deactivated and expired nodes"))))
@@ -121,7 +120,7 @@
     (kitchensink/demarcate
      (format "sweep of stale reports (threshold: %s)"
              (format-period report-ttl))
-     (with-transacted-connection db
+     (jdbc/with-transacted-connection db
        (scf-store/delete-reports-older-than! (ago report-ttl))))
     (catch Exception e
       (log/error e "Error while sweeping reports"))))
@@ -207,7 +206,7 @@
   database doesn't exist but we open and close a connection without
   creating anything."
   [db-conn-pool config]
-  (sql/with-connection db-conn-pool
+  (jdbc/with-db-connection db-conn-pool
     (scf-store/validate-database-version #(System/exit 1))
     @sutils/db-metadata
     (migrate! db-conn-pool)
@@ -221,11 +220,12 @@
   being fully started when PuppetDB starts. This connection pool will
   be opened and closed within the body of this function."
   [write-db-config config]
-  (with-open [init-db-pool (pl-jdbc/make-connection-pool (assoc write-db-config
-                                                           ;; Block waiting to grab a connection
-                                                           :connection-timeout 0
-                                                           ;; Only allocate connections when needed
-                                                           :pool-availability-threshold 0))]
+  (with-open [init-db-pool (jdbc/make-connection-pool
+                            (assoc write-db-config
+                                   ;; Block waiting to grab a connection
+                                   :connection-timeout 0
+                                   ;; Only allocate connections when needed
+                                   :pool-availability-threshold 0))]
     (let [db-pool-map {:datasource init-db-pool}]
       (initialize-schema db-pool-map config))))
 
@@ -245,8 +245,8 @@
                 max-frame-size threads]} command-processing
         {:keys [disable-update-checking]} puppetdb
 
-        write-db (pl-jdbc/pooled-datasource database)
-        read-db (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
+        write-db (jdbc/pooled-datasource database)
+        read-db (jdbc/pooled-datasource (assoc read-database :read-only? true))
         mq-dir (str (io/file vardir "mq"))
         discard-dir (io/file mq-dir "discarded")
         mq-connection-str (add-max-framesize max-frame-size mq-addr)]

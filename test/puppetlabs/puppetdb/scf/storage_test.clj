@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.scf.storage-test
-  (:require [clojure.java.jdbc.deprecated :as sql]
+  (:require [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.scf.hash :as shash]
@@ -24,8 +24,7 @@
             [clojure.math.combinatorics :refer [combinations subsets]]
             [clj-time.core :refer [ago from-now now days]]
             [clj-time.coerce :refer [to-timestamp to-string]]
-            [puppetlabs.puppetdb.jdbc :refer [query-to-vec with-transacted-connection
-                                              convert-result-arrays]]
+            [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.fixtures :refer :all]))
 
 (use-fixtures :each with-test-db)
@@ -41,22 +40,21 @@
 (defn-validated factset-map :- {s/Str s/Str}
   "Return all facts and their values for a given certname as a map"
   [certname :- String]
-  (sql/with-query-results result-set
-    ["SELECT fp.path as name,
-             COALESCE(fv.value_string,
-                      cast(fv.value_integer as text),
-                      cast(fv.value_boolean as text),
-                      cast(fv.value_float as text),
-                      '') as value
-             FROM factsets fs
-                  INNER JOIN facts as f on fs.id = f.factset_id
-                  INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                  INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-             WHERE fp.depth = 0 AND
-                   fs.certname = ?"
-     certname]
-    (zipmap (map :name result-set)
-            (map :value result-set))))
+  (let [result (jdbc/query
+                ["SELECT fp.path as name,
+                    COALESCE(fv.value_string,
+                             cast(fv.value_integer as text),
+                             cast(fv.value_boolean as text),
+                             cast(fv.value_float as text),
+                             '') as value
+                    FROM factsets fs
+                    INNER JOIN facts as f on fs.id = f.factset_id
+                    INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
+                    INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                    WHERE fp.depth = 0 AND fs.certname = ?"
+                 certname])]
+    (zipmap (map :name result)
+            (map :value result))))
 
 (deftest fact-persistence
   (testing "Persisted facts"
@@ -69,8 +67,8 @@
       (add-certname! certname)
 
       (is (nil?
-           (sql/transaction
-            (timestamp-of-newest-record :factsets "some_certname"))))
+           (jdbc/with-db-transaction []
+             (timestamp-of-newest-record :factsets "some_certname"))))
       (is (empty? (factset-map "some_certname")))
 
       (add-facts! {:certname certname
@@ -99,8 +97,8 @@
                 {:certname certname :name "kernel" :value "Linux"}
                 {:certname certname :name "operatingsystem" :value "Debian"}]))
 
-        (is (sql/transaction
-             (timestamp-of-newest-record :factsets  "some_certname")))
+        (is (jdbc/with-db-transaction []
+              (timestamp-of-newest-record :factsets  "some_certname")))
         (is (= facts (factset-map "some_certname"))))
 
       (testing "should add the certname if necessary"
@@ -110,8 +108,8 @@
         ;;Ensuring here that new records are inserted, updated
         ;;facts are updated (not deleted and inserted) and that
         ;;the necessary deletes happen
-        (tu/with-wrapped-fn-args [adds sql/insert-records
-                                  updates sql/update-values]
+        (tu/with-wrapped-fn-args [adds sql/insert!
+                                  updates sql/update!]
           (let [new-facts {"domain" "mynewdomain.com"
                            "fqdn" "myhost.mynewdomain.com"
                            "hostname" "myhost"
@@ -150,17 +148,19 @@
                            :hash "cf56e1d01b3517d26f875855da4459ce19f8cd18"
                            :producer_timestamp (to-timestamp reference-time)}}
                         ;; Again we grab the pertinent non-id bits
-                        (map (fn [itm] (-> (last itm)
-                                           (update-in [:hash] sutils/parse-db-hash))) @updates)))
+                        (map (fn [itm]
+                               (-> (second itm)
+                                   (update-in [:hash] sutils/parse-db-hash)))
+                             (map rest @updates))))
               (is (some (fn [update-call]
                           (and (= :factsets (first update-call))
-                               (:timestamp (last update-call))))
-                        @updates)))
+                               (:timestamp (second update-call))))
+                        (map rest @updates))))
             (testing "should only insert uptime_seconds"
               (is (some #{[:fact_paths {:path "uptime_seconds"
                                         :name "uptime_seconds"
                                         :depth 0}]}
-                        @adds))))))
+                        (map rest @adds)))))))
 
       (testing "replacing all new facts"
         (delete-certname-facts! certname)
@@ -233,7 +233,7 @@
       (add-certname! certname)
 
       (is (nil?
-           (sql/transaction
+           (jdbc/with-db-transaction []
             (timestamp-of-newest-record :factsets "some_certname"))))
       (is (empty? (factset-map "some_certname")))
       (is (nil? (environment-id "PROD")))
@@ -362,35 +362,40 @@
     (testing "paths - globally, incrementally"
       (letfn [(str->pathmap [s] (-> s string-to-factpath path->pathmap))]
         (reset-db!)
-        (sql/insert-records :fact_paths (str->pathmap "foo"))
+        (jdbc/insert! :fact_paths (str->pathmap "foo"))
         (delete-orphaned-paths! 0)
         (is (= (map #(dissoc % :id) (db-paths)) [(str->pathmap "foo")]))
         (delete-orphaned-paths! 1)
         (is (empty? (map #(dissoc % :id) (db-paths))))
-        (sql/insert-records :fact_paths (str->pathmap "foo"))
+        (jdbc/insert! :fact_paths (str->pathmap "foo"))
         (delete-orphaned-paths! 11)
         (is (empty? (map #(dissoc % :id) (db-paths))))
-        (apply
-         sql/insert-records :fact_paths
-         (for [x (range 10)] (str->pathmap (str "foo-" x))))
+        (apply jdbc/insert!
+               :fact_paths
+               (for [x (range 10)] (str->pathmap (str "foo-" x))))
         (delete-orphaned-paths! 3)
         (is (= 7 (:c (first
                       (query-to-vec
                        "select count(id) as c from fact_paths")))))))
     (testing "values - globally, incrementally"
       (reset-db!)
-      (sql/insert-records :fact_values (update-in (value->valuemap "foo") [:value_hash] sutils/munge-hash-for-storage))
+      (jdbc/insert! :fact_values
+                    (update-in (value->valuemap "foo")
+                               [:value_hash] sutils/munge-hash-for-storage))
       (delete-orphaned-values! 0)
       (is (= (db-vals) #{"foo"}))
       (delete-orphaned-values! 1)
       (is (empty? (db-vals)))
-      (sql/insert-records :fact_values (update-in (value->valuemap "foo") [:value_hash] sutils/munge-hash-for-storage))
+      (jdbc/insert! :fact_values
+                    (update-in (value->valuemap "foo")
+                               [:value_hash] sutils/munge-hash-for-storage))
       (delete-orphaned-values! 11)
       (is (empty? (db-vals)))
-      (apply
-       sql/insert-records :fact_values
-       (for [x (range 10)] (update-in (value->valuemap (str "foo-" x))
-                                      [:value_hash] sutils/munge-hash-for-storage)))
+      (apply jdbc/insert!
+             :fact_values
+             (for [x (range 10)] (update-in (value->valuemap (str "foo-" x))
+                                            [:value_hash]
+                                            sutils/munge-hash-for-storage)))
       (delete-orphaned-values! 3)
       (is (= 7 (:c (first
                     (query-to-vec
@@ -528,8 +533,8 @@
       ;; Lets intercept the insert/update/delete level so we can test it later
       ;; Here we only replace edges, so we can capture those specific SQL
       ;; operations
-      (tu/with-wrapped-fn-args [adds sql/insert-records
-                                deletes sql/delete-rows]
+      (tu/with-wrapped-fn-args [adds sql/insert!
+                                deletes sql/delete!]
         (let [resources    (:resources modified-catalog)
               refs-to-hash (reduce-kv (fn [i k v]
                                         (assoc i k (shash/resource-identity-hash v)))
@@ -555,13 +560,13 @@
                              "ff0702ba8a7dc69d3fb17f9d151bf9bd265a9ed9"
                              "57495b553981551c5194a21b9a26554cd93db3d9"
                              "contains"]]]
-                   @deletes)))
+                   (map rest @deletes))))
           (testing "should only insert the 1 edge"
             (is (= [[:edges {:certname "basic.catalogs.com"
                              :source (sutils/munge-hash-for-storage "57495b553981551c5194a21b9a26554cd93db3d9")
                              :target (sutils/munge-hash-for-storage "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1")
                              :type "before"}]]
-                   @adds)))
+                   (map rest @adds))))
           (testing "when reran to check for idempotency"
             (reset! adds [])
             (reset! deletes [])
@@ -767,10 +772,10 @@
     x))
 
 (defn table-args
-  "Many of the java.jdbc functions accept a table name as the first arg, this
+  "Many of the java.jdbc functions accept a table name as the second arg, this
    function grabs that argument"
   [coll]
-  (map first coll))
+  (map second coll))
 
 (defn remove-edge-changes
   "Remove the edge related changes from the `coll` of function call arguments"
@@ -814,9 +819,9 @@
                                    FROM catalogs c INNER JOIN catalog_resources cr ON c.id = cr.catalog_id
                                    WHERE c.certname=?" certname))))
 
-        (tu/with-wrapped-fn-args [inserts sql/insert-records
-                                  deletes sql/delete-rows
-                                  updates sql/update-values]
+        (tu/with-wrapped-fn-args [inserts sql/insert!
+                                  deletes sql/delete!
+                                  updates sql/update!]
           (with-redefs [performance-metrics (assoc metrics-map :catalog-volatility (histogram [ns-str "default" (str (gensym))]))]
             (add-catalog! (assoc updated-catalog :transaction_uuid new-uuid) nil yesterday)
 
@@ -833,8 +838,9 @@
           (is (= [:catalogs]
                  (table-args @updates)))
           (is (= [[:catalog_resources ["catalog_id = ? and type = ? and title = ?"
-                                       ((comp second second first) @updates) "File" "/etc/foobar"]]]
-                 (remove-edge-changes @deletes))))
+                                       (-> @updates first (#(nth % 3)) second)
+                                       "File" "/etc/foobar"]]]
+                 (remove-edge-changes (map rest @deletes)))))
 
         (is (= #{{:type "Class" :title "foobar"}
                  {:type "File" :title "/etc/foobar2"}
@@ -866,9 +872,9 @@
 
     (is (= 3 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname)))))
 
-    (tu/with-wrapped-fn-args [inserts sql/insert-records
-                              updates sql/update-values
-                              deletes sql/delete-rows]
+    (tu/with-wrapped-fn-args [inserts sql/insert!
+                              updates sql/update!
+                              deletes sql/delete!]
       (add-catalog! (assoc-in catalog
                               [:resources {:type "File" :title "/etc/foobar2"}]
                               {:type "File"
@@ -884,8 +890,7 @@
 
       (is (sort= [:resource_params_cache :resource_params :catalog_resources]
                  (table-args @inserts)))
-      (is (= [:catalogs]
-             (table-args @updates)))
+      (is (= [:catalogs] (table-args @updates)))
       (is (empty? @deletes)))
 
     (is (= 4 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname)))))))
@@ -981,7 +986,7 @@
             :tags #{"file" "class" "foobar"}
             :line 20}}
          (-> (query-to-vec "SELECT title, tags, line FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname)
-             convert-result-arrays
+             jdbc/convert-result-arrays
              tags->set
              set)))
 
@@ -1000,7 +1005,7 @@
             :line 20
             :tags #{"file" "class" "foobar"}}}
          (-> (query-to-vec "SELECT title, tags, line FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname)
-             convert-result-arrays
+             jdbc/convert-result-arrays
              tags->set
              set))))
 
@@ -1025,16 +1030,14 @@
     (let [catalog-id (:id (first (query-to-vec "SELECT id from catalogs where certname=?" certname)))]
       (is (= 4 (count (query-to-vec "SELECT * from catalog_resources where catalog_id = ?" catalog-id))))
 
-      (tu/with-wrapped-fn-args [inserts sql/insert-records
-                                updates sql/update-values
-                                deletes sql/delete-rows]
+      (tu/with-wrapped-fn-args [inserts sql/insert!
+                                updates sql/update!
+                                deletes sql/delete!]
 
         (add-catalog! catalog nil yesterday)
         (is (empty? @inserts))
-        (is (= [:catalogs]
-               (table-args @updates)))
-        (is (= [:catalog_resources]
-               (table-args @deletes))))
+        (is (= [:catalogs] (table-args @updates)))
+        (is (= [:catalog_resources] (table-args @deletes))))
 
       (let [catalog-results (query-to-vec "SELECT timestamp from catalogs where certname=?" certname)
             {:keys [timestamp]} (first catalog-results)
@@ -1047,37 +1050,40 @@
         (is (= (to-timestamp yesterday) (to-timestamp timestamp)))))))
 
 (defn foobar-params []
-  (sql/with-query-results result-set
-    ["SELECT p.name AS k, p.value AS v
-      FROM catalog_resources cr, catalogs c, resource_params p
-      WHERE cr.catalog_id = c.id AND cr.resource = p.resource AND certname=? AND cr.type=? AND cr.title=?"
-     (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
-    (reduce (fn [acc row]
-              (assoc acc (keyword (:k row))
-                     (json/parse-string (:v row))))
-            {} result-set)))
+  (jdbc/query-with-resultset
+   ["SELECT p.name AS k, p.value AS v
+       FROM catalog_resources cr, catalogs c, resource_params p
+       WHERE cr.catalog_id = c.id AND cr.resource = p.resource AND certname=?
+         AND cr.type=? AND cr.title=?"
+    (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
+   (fn [rs]
+     (reduce (fn [acc row]
+               (assoc acc (keyword (:k row))
+                      (json/parse-string (:v row))))
+             {}
+             (sql/result-set-seq rs)))))
 
 (defn foobar-params-cache []
-  (sql/with-query-results result-set
-    ["SELECT rpc.parameters as params
-      FROM catalog_resources cr, catalogs c, resource_params_cache rpc
-      WHERE cr.catalog_id = c.id AND cr.resource = rpc.resource AND certname=? AND cr.type=? AND cr.title=?"
-     (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
-    (-> result-set
+  (jdbc/query-with-resultset
+   ["SELECT rpc.parameters as params
+       FROM catalog_resources cr, catalogs c, resource_params_cache rpc
+       WHERE cr.catalog_id = c.id AND cr.resource = rpc.resource AND certname=?
+         AND cr.type=? AND cr.title=?"
+    (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
+   #(-> (sql/result-set-seq %)
         first
         :params
         (json/parse-string true))))
 
 (defn foobar-param-hash []
-  (sql/with-query-results result-set
-    [(format "SELECT %s AS hash
-              FROM catalog_resources cr, catalogs c
-              WHERE cr.catalog_id = c.id AND certname=? AND cr.type=? AND cr.title=?"
-             (sutils/sql-hash-as-str "cr.resource"))
-     (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
-    (-> result-set
-        first
-        :hash)))
+  (jdbc/query-with-resultset
+   [(format "SELECT %s AS hash
+               FROM catalog_resources cr, catalogs c
+               WHERE cr.catalog_id = c.id AND certname=? AND cr.type=?
+                 AND cr.title=?"
+            (sutils/sql-hash-as-str "cr.resource"))
+    (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
+   (comp :hash first sql/result-set-seq)))
 
 (deftest catalog-resource-parameter-changes
   (let [{certname :certname :as catalog} (:basic catalogs)
@@ -1094,15 +1100,15 @@
       (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache)))
 
-      (tu/with-wrapped-fn-args [inserts sql/insert-records
-                                updates sql/update-values
-                                deletes sql/delete-rows]
+      (tu/with-wrapped-fn-args [inserts sql/insert!
+                                updates sql/update!
+                                deletes sql/delete!]
 
         (add-catalog! add-param-catalog nil yesterday)
         (is (sort= [:catalogs :catalog_resources]
                    (table-args @updates)))
 
-        (is (empty? (remove-edge-changes @deletes)))
+        (is (empty? (remove-edge-changes (map rest @deletes))))
 
         (is (sort= [:resource_params_cache :resource_params :edges]
                    (table-args @inserts))))
@@ -1114,15 +1120,15 @@
 
       (is (= (get-in add-param-catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache)))
-      (tu/with-wrapped-fn-args [inserts sql/insert-records
-                                updates sql/update-values
-                                deletes sql/delete-rows]
+      (tu/with-wrapped-fn-args [inserts sql/insert!
+                                updates sql/update!
+                                deletes sql/delete!]
         (add-catalog! catalog nil old-date)
 
-        (is (empty? (remove #(= :edges (first %)) @inserts)))
-        (is (empty? (remove #(= :edges (first %)) @deletes)))
+        (is (empty? (remove #(= :edges (first %)) (map rest @inserts))))
+        (is (empty? (remove #(= :edges (first %)) (map rest @deletes))))
         (is (= (sort [:catalog_resources :catalogs])
-               (sort (map first @updates)))))
+               (sort (table-args @updates)))))
 
       (is (= orig-resource-hash (foobar-param-hash)))
 

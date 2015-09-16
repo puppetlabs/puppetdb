@@ -4,13 +4,14 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.query.paging :as paging]
             [clojure.string :as string]
-            [clojure.java.jdbc.deprecated :as sql]
+            [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [me.raynes.fs :as fs]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
             [slingshot.slingshot :refer [throw+]]
             [ring.mock.request :as mock]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset mapvals]]
             [environ.core :refer [env]]
             [clojure.test :refer :all]
@@ -54,22 +55,20 @@
   "Drops a table from the database.  Expects to be called from within a db binding.
   Exercise extreme caution when calling this function!"
   [table-name]
-  (sql/do-commands
-   (format "DROP TABLE IF EXISTS %s CASCADE" table-name)))
+  (jdbc/do-commands (format "DROP TABLE IF EXISTS %s CASCADE" table-name)))
 
 (defn drop-sequence!
   "Drops a sequence from the database.  Expects to be called from within a db binding.
   Exercise extreme caution when calling this function!"
   [sequence-name]
-  (sql/do-commands
-   (format "DROP SEQUENCE IF EXISTS %s" sequence-name)))
+  (jdbc/do-commands (format "DROP SEQUENCE IF EXISTS %s" sequence-name)))
 
 (defn clear-db-for-testing!
   "Completely clears the database, dropping all puppetdb tables and other objects
   that exist within it. Expects to be called from within a db binding.  You
   Exercise extreme caution when calling this function!"
   []
-  (sql/do-commands "DROP SCHEMA IF EXISTS pdbtestschema CASCADE")
+  (jdbc/do-commands "DROP SCHEMA IF EXISTS pdbtestschema CASCADE")
   (doseq [table-name (cons "test" (sutils/sql-current-connection-table-names))]
     (drop-table! table-name))
   (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
@@ -78,7 +77,7 @@
 (defn clean-db-map
   ([] (clean-db-map (test-db)))
   ([db-config]
-   (sql/with-connection db-config (clear-db-for-testing!))
+   (jdbc/with-db-connection db-config (clear-db-for-testing!))
    db-config))
 
 (defmacro without-jmx

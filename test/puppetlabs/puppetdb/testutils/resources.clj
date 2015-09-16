@@ -1,17 +1,17 @@
 (ns puppetlabs.puppetdb.testutils.resources
-  (:require [clojure.java.jdbc.deprecated :as sql]
+  (:require [clojure.java.jdbc :as sql]
             [clj-time.core :refer [now]]
             [clj-time.coerce :refer [to-timestamp]]
             [puppetlabs.puppetdb.fixtures :refer :all]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage :refer [add-facts! ensure-environment]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils :refer [db-serialize to-jdbc-varchar-array]]))
 
 (defn store-example-resources
   ([] (store-example-resources true))
   ([environment?]
-     (with-transacted-connection *db*
-       (sql/insert-records
+     (jdbc/with-transacted-connection *db*
+       (jdbc/insert!
         :resource_params_cache
         {:resource (sutils/munge-hash-for-storage "01")
          :parameters (db-serialize {"ensure" "file"
@@ -20,17 +20,17 @@
                                     "acl"    ["john:rwx" "fred:rwx"]})}
         {:resource (sutils/munge-hash-for-storage "02")
          :parameters nil})
-       (sql/insert-records
+       (jdbc/insert!
         :resource_params
         {:resource (sutils/munge-hash-for-storage "01") :name "ensure" :value (db-serialize "file")}
         {:resource (sutils/munge-hash-for-storage "01") :name "owner"  :value (db-serialize "root")}
         {:resource (sutils/munge-hash-for-storage "01") :name "group"  :value (db-serialize "root")}
         {:resource (sutils/munge-hash-for-storage "01") :name "acl"    :value (db-serialize ["john:rwx" "fred:rwx"])})
-       (sql/insert-records
+       (jdbc/insert!
         :certnames
         {:certname "one.local"}
         {:certname "two.local"})
-       (sql/insert-records
+       (jdbc/insert!
         :catalogs
         {:id 1
          :hash (sutils/munge-hash-for-storage "f0")
@@ -61,11 +61,20 @@
                     :timestamp (to-timestamp (now))
                     :environment "DEV"
                     :producer_timestamp (to-timestamp (now))})
-       (sql/insert-records :catalog_resources
-                           {:catalog_id 1 :resource (sutils/munge-hash-for-storage "01") :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
-                           {:catalog_id 1 :resource (sutils/munge-hash-for-storage "02") :type "Notify" :title "hello" :exported false :tags (to-jdbc-varchar-array [])}
-                           {:catalog_id 2 :resource (sutils/munge-hash-for-storage "01") :type "File" :title "/etc/passwd" :exported false :tags (to-jdbc-varchar-array ["one" "two"])}
-                           {:catalog_id 2 :resource (sutils/munge-hash-for-storage "02") :type "Notify" :title "hello" :exported true :file "/foo/bar" :line 22 :tags (to-jdbc-varchar-array [])}))
+       (jdbc/insert!
+        :catalog_resources
+        {:catalog_id 1 :resource (sutils/munge-hash-for-storage "01")
+         :type "File" :title "/etc/passwd" :exported false
+         :tags (to-jdbc-varchar-array ["one" "two"])}
+        {:catalog_id 1 :resource (sutils/munge-hash-for-storage "02")
+         :type "Notify" :title "hello" :exported false
+         :tags (to-jdbc-varchar-array [])}
+        {:catalog_id 2 :resource (sutils/munge-hash-for-storage "01")
+         :type "File" :title "/etc/passwd" :exported false
+         :tags (to-jdbc-varchar-array ["one" "two"])}
+        {:catalog_id 2 :resource (sutils/munge-hash-for-storage "02")
+         :type "Notify" :title "hello" :exported true :file "/foo/bar" :line 22
+         :tags (to-jdbc-varchar-array [])}))
 
      {:foo1 {:certname   "one.local"
              :resource   "01"
