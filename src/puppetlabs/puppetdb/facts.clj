@@ -37,7 +37,7 @@
   {:value_hash s/Str
    :value_float (s/maybe Double)
    :value_string (s/maybe s/Str)
-   :value_integer (s/maybe s/Int)
+   :value_integer (s/maybe BigDecimal)
    :value_boolean (s/maybe s/Bool)
    :value (s/maybe s/Str)
    :value_type_id s/Int})
@@ -151,8 +151,7 @@
                             2 :value_float
                             3 :value_boolean
                             5 :value)]
-        (assoc initial-map value-keyword value
-          :value (sutils/db-serialize value))))))
+        (sutils/munge-fact-value-for-storage initial-map value-keyword value)))))
 
 (defn flatten-facts-with
   "Returns a collection of (leaf-fn path leaf) for all of the paths

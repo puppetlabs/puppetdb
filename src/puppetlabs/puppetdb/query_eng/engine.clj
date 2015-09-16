@@ -913,7 +913,7 @@
   (cm/match [node]
 
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
-            ["or" [op "value_integer" value] [op "value_float" value]]
+            ["or" [op "value_integer" (bigdec value)] [op "value_float" (bigdec value)]]
 
             [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
             (when (= :facts (get-in (meta node) [:query-context :entity]))
