@@ -124,10 +124,15 @@
    mq-endpoint :- s/Str
    raw-command :- s/Str
    uuid :- (s/maybe s/Str)]
-  (let [uuid (or uuid (kitchensink/uuid))]
+  (let [uuid (or uuid (kitchensink/uuid))
+        parsed (json/parse-string raw-command)
+        certname (get-in parsed ["payload" "certname"])]
     (mq/send-message! mq-connection mq-endpoint
                       raw-command
-                      {"received" (kitchensink/timestamp) "id" uuid})
+                      (merge {"received" (kitchensink/timestamp)
+                              "id" uuid}
+                             (when certname
+                               {"JMSXGroupID" certname})))
     uuid))
 
 (defn-validated ^:private do-enqueue-command :- s/Str
