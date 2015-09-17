@@ -178,8 +178,7 @@
       (update :metrics metrics-query->wire-v5)
       (update :logs logs-query->wire-v5)))
 
-(pls/defn-validated reports-query->wire-v5 :- [report-v5-wireformat-schema]
-  [reports :- [report-query-schema]]
+(defn reports-query->wire-v5 [reports]
   (map report-query->wire-v5 reports))
 
 (defn dash->underscore-report-keys [v5-report-or-older]

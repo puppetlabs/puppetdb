@@ -20,12 +20,6 @@
 
 (def c-t "application/json")
 
-(defn command-base-url
-  [base-url]
-  (assoc base-url
-         :prefix "/pdb/cmd"
-         :version :v1))
-
 (defn create-hsqldb-map
   "Returns a database connection map with a reference to a new in memory HyperSQL database"
   []

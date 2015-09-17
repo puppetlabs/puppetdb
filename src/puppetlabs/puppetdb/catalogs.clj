@@ -441,8 +441,5 @@
       (update-in [:edges] edges-expanded->wire-v6)
       (update-in [:resources] resources-expanded->wire-v6)))
 
-(pls/defn-validated catalogs-query->wire-v6
-  [catalogs :- [catalog-query-schema]]
-  (map
-   catalog-query->wire-v6
-   catalogs))
+(defn catalogs-query->wire-v6 [catalogs]
+  (map catalog-query->wire-v6 catalogs))

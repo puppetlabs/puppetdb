@@ -58,11 +58,10 @@
    (map fact-query->wire-v4
         (:data facts))))
 
-(pls/defn-validated factsets-query->wire-v4 :- [facts-wireformat-schema]
-  [factsets :- [factset-query-schema]]
+(defn factsets-query->wire-v4 [factsets]
   (map
    #(-> %
         (dissoc :hash :timestamp)
-        (update-in [:facts] facts-expanded->wire-v4)
+        (update :facts facts-expanded->wire-v4)
         (set/rename-keys {:facts :values}))
    factsets))

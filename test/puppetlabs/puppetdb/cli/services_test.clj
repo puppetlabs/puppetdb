@@ -6,6 +6,7 @@
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :refer :all]
+            [puppetlabs.puppetdb.testutils.cli :refer [get-factsets]]
             [puppetlabs.puppetdb.http.command :refer :all]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -15,8 +16,7 @@
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
             [clj-time.coerce :refer [to-string]]
-            [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.cli.export :as export]))
+            [clj-time.core :refer [now]]))
 
 (deftest update-checking
   (let [config-map {:global {:product-name "puppetdb"
@@ -51,8 +51,7 @@
 
 (deftest query-via-puppdbserver-service
   (svc-utils/with-single-quiet-pdb-instance
-    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)
-          query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
+    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)]
       (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
                                                         :environment "DEV"
                                                         :values {:foo "the foo"
@@ -60,7 +59,7 @@
                                                                  :baz "the baz"}
                                                         :producer_timestamp (to-string (now))})
 
-      @(block-until-results 100 (export/facts-for-node query-fn "foo.local"))
+      @(block-until-results 100 (first (get-factsets "foo.local")))
 
       (check-service-query
        :facts :v4 ["=" "certname" "foo.local"]
@@ -82,14 +81,13 @@
 
 (deftest pagination-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
-    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)
-          query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
+    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)]
       (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
-                                                    :environment "DEV"
-                                                    :values {:a "a" :b "b" :c "c"}
-                                                    :producer_timestamp (to-string (now))})
+                                                        :environment "DEV"
+                                                        :values {:a "a" :b "b" :c "c"}
+                                                        :producer_timestamp (to-string (now))})
 
-      @(block-until-results 100 (export/facts-for-node query-fn "foo.local"))
+      @(block-until-results 100 (first (get-factsets "foo.local")))
       (let [exp ["a" "b" "c"]
             rexp (reverse exp)]
         (doseq [order [:ascending :descending]

@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.acceptance.node-ttl
   (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*base-url*]]
+            [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [clj-http.client :as client]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.http :as tuhttp]
@@ -21,35 +21,21 @@
                catalog (-> (get-in wire-catalogs [6 :empty])
                            (assoc :certname certname
                                   :producer_timestamp (now)))]
-           (svc-utils/sync-command-post
-            (tu/command-base-url *base-url*)
-            "replace catalog" 6 catalog)
+           (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 6 catalog)
 
-           (is (= 1 (count (:body (tuhttp/pdb-get
-                                   (utils/pdb-query-base-url (:host *base-url*) (:port *base-url*))
-                                   "/nodes")))))
-           (is (nil? (:expired (:body (tuhttp/pdb-get
-                                       (utils/pdb-query-base-url (:host *base-url*) (:port *base-url*))
-                                       "/nodes/foo.com")))))
+           (is (= 1 (count (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes")))))
+           (is (nil? (:expired (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes/foo.com")))))
            (Thread/sleep 1000)
            (run-expire-nodes)
 
-           (is (= 0 (count (:body (tuhttp/pdb-get
-                                   (utils/pdb-query-base-url (:host *base-url*) (:port *base-url*))
-                                   "/nodes")))))
-           (is (:expired (:body (tuhttp/pdb-get
-                                 (utils/pdb-query-base-url (:host *base-url*) (:port *base-url*))
-                                 "/nodes/foo.com"))))
+           (is (= 0 (count (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes")))))
+           (is (:expired (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes/foo.com"))))
            (Thread/sleep 1000)
            (run-purge-nodes)
 
-           (is (= 0 (count (:body (tuhttp/pdb-get
-                                   (utils/pdb-query-base-url (:host *base-url*) (:port *base-url*))
-                                   "/nodes")))))
+           (is (= 0 (count (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes")))))
            (is (= {:error "No information is known about node foo.com"}
-                  (:body (tuhttp/pdb-get
-                          (utils/pdb-query-base-url (:host *base-url*) (:port *base-url*))
-                          "/nodes/foo.com"))))))))))
+                  (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes/foo.com"))))))))))
 
 (deftest test-zero-gc-interval
   (with-redefs [puppetlabs.puppetdb.cli.services/purge-nodes! (tu/mock-fn)]

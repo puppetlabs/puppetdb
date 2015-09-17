@@ -6,8 +6,9 @@
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.cli.export :as export]
-            [puppetlabs.puppetdb.cli.import :as import]
+            [puppetlabs.puppetdb.export :as export]
+            [puppetlabs.puppetdb.import :as import]
+            [puppetlabs.puppetdb.cli.import :as cli-import]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]
@@ -259,7 +260,7 @@
         profile-config (-> anon-profiles
                            (merge config)
                            (get profile))
-        metadata (import/parse-metadata infile)]
+        metadata (cli-import/parse-metadata infile)]
 
     (println (str "Anonymizing input data file: " infile " with profile type: " profile " to output file: " outfile))
 
