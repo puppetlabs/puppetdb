@@ -9,7 +9,6 @@
             [puppetlabs.puppetdb.factsets :as factsets]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.utils :as utils]
-            [com.rpl.specter :as sp]
             [clj-time.format :as time-fmt]
             [clj-time.coerce :as time-coerce]
             [puppetlabs.puppetdb.schema :as pls]
@@ -81,6 +80,10 @@
                  (-> data (dissoc :hash) json/generate-pretty-string)
                  (json/generate-pretty-string data))}))
 
+(defn add-tar-entries [tar-writer entries]
+  (doseq [entry entries]
+    (utils/add-tar-entry tar-writer entry)))
+
 (defn export!*
   [tar-writer query-fn]
   (doseq [[entity unexpanded-fields query->wire-fn]
@@ -92,7 +95,7 @@
                                          (complete-unexpanded-fields query-fn unexpanded-fields)
                                          query->wire-fn
                                          (map #(export-data->tar-item entity %))
-                                         (reduce #(utils/add-tar-entry tar-writer %2) nil)))]]
+                                         (add-tar-entries tar-writer)))]]
     (query-fn entity query-api-version nil nil query-callback-fn)))
 
 (defn export!
