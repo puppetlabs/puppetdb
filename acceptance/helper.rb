@@ -659,6 +659,15 @@ EOS
   # END_OF Temp Copy of Justins new Puppet Master Methods
   ##############################################################################
 
+  def parse_json_with_error(input)
+    begin
+      facts = JSON.parse(input)
+    rescue Exception => e
+      facts = "#{e.message} on input '#{input}'"
+    end
+    return facts
+  end
+
   ##############################################################################
   # Object diff functions
   ##############################################################################
