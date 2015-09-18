@@ -61,7 +61,7 @@
               (tuf/munge-facts (get-factsets example-certname))))))))
 
 (deftest test-anonymized-export
-  (for [profile (keys anon/anon-profiles)]
+  (doseq [profile (keys anon/anon-profiles)]
     (let [export-out-file (tu/temp-file "export-test" ".tar.gz")
           anon-out-file (tu/temp-file "anon-test" ".tar.gz")]
 

@@ -88,17 +88,19 @@
 (def export-info
   {:catalogs {:child-fields [:edges :resources]
               :query->wire-fn catalogs/catalogs-query->wire-v6
-              :anonimize-fn anon/anonymize-catalog}
+              :anonymize-fn anon/anonymize-catalog}
    :reports {:child-fields [:metrics :logs :resource_events]
              :query->wire-fn reports/reports-query->wire-v5
-             :anonimize-fn anon/anonymize-report}
+             :anonymize-fn anon/anonymize-report}
    :factsets {:child-fields [:facts]
               :query->wire-fn factsets/factsets-query->wire-v4
-              :anonimize-fn anon/anonymize-facts}})
+              :anonymize-fn anon/anonymize-facts}})
 
 (defn maybe-anonymize [anonymize-fn anon-config data]
   (if (not= anon-config ::not-found)
-    (map #(anonymize-fn anon-config %) data)
+    (map (comp clojure.walk/keywordize-keys
+               #(anonymize-fn anon-config %)
+               clojure.walk/stringify-keys) data)
     data))
 
 (defn add-tar-entries [tar-writer entries]

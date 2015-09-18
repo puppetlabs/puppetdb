@@ -15,7 +15,7 @@
             [puppetlabs.puppetdb.fixtures :as fixt]))
 
 (deftest test-tarball-anonymization-roundtrip
-  (for [profile (keys anon/anon-profiles)]
+  (doseq [profile (keys anon/anon-profiles)]
     (let [export-out-file (.getPath (tu/temp-file "export-test" ".tar.gz"))
           anon-out-file (.getPath (tu/temp-file "anon-test" ".tar.gz"))]
       (svc-utils/call-with-single-quiet-pdb-instance
@@ -63,7 +63,7 @@
            (is (some? (get-factsets anon-certname)))))))))
 
 (deftest test-anonymized-roundtrip
-  (for [profile (keys anon/anon-profiles)]
+  (doseq [profile (keys anon/anon-profiles)]
     (let [export-out-file (.getPath (tu/temp-file "export-test" ".tar.gz"))
           anon-out-file (.getPath (tu/temp-file "anon-test" ".tar.gz"))]
       (svc-utils/call-with-single-quiet-pdb-instance
@@ -111,7 +111,7 @@
            (is (some? (get-factsets anon-certname)))))))))
 
 (deftest test-anonymized-export-roundtrip
-  (for [profile (keys anon/anon-profiles)]
+  (doseq [profile (keys anon/anon-profiles)]
     (let [export-out-file (.getPath (tu/temp-file "export-test" ".tar.gz"))
           anon-out-file (.getPath (tu/temp-file "anon-test" ".tar.gz"))]
       (svc-utils/call-with-single-quiet-pdb-instance
