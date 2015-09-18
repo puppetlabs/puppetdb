@@ -1354,6 +1354,17 @@
            [{:certname (:certname report)
              :status_id (status-id "unchanged")}])))
 
+  (deftest report-storage-without-resources
+    (testing "should store reports"
+      (let [env-id (ensure-environment "DEV")]
+
+        (store-example-report! (assoc report :resource_events []) timestamp)
+
+        (is (= (query-to-vec ["SELECT certname FROM reports"])
+               [{:certname (:certname report)}]))
+        (is (= (query-to-vec ["SELECT COUNT(1) as num_resource_events FROM resource_events"])
+               [{:num_resource_events 0}])))))
+
   (deftest report-storage-with-existing-environment
     (testing "should store reports"
       (let [env-id (ensure-environment "DEV")]

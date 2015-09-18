@@ -1189,10 +1189,11 @@
                    assoc-ids #(assoc %
                                      :report_id report-id
                                      :certname_id certname-id)]
-               (->> resource_events
-                    (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                    (map assoc-ids)
-                    (apply jdbc/insert! :resource_events))
+               (when-not (empty? resource_events)
+                 (->> resource_events
+                      (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
+                      (map assoc-ids)
+                      (apply jdbc/insert! :resource_events)))
                (when update-latest-report?
                  (update-latest-report! certname)))))))
 
