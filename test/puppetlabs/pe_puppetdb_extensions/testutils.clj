@@ -5,7 +5,6 @@
             [puppetlabs.pe-puppetdb-extensions.sync.pe-routing :refer [pe-routing-service]]
             [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.java.jdbc.deprecated :as sql]
             [compojure.core :refer [context POST routes ANY]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [ring.middleware.params :refer [wrap-params]]
