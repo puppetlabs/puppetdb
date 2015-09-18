@@ -170,9 +170,9 @@
 (defn- sync-directly! [pdb remote-url]
   (let [server (:server pdb)
         pdb-service (get-service server :PuppetDBServer)
-        cmd-service (get-service server :PuppetDBCommand)]
+        dispatcher (get-service server :PuppetDBCommandDispatcher)]
     (sync-from-remote! (partial cli-svcs/query pdb-service)
-                       (partial command/submit-command cmd-service)
+                       (partial dispatch/enqueue-command dispatcher)
                        {:url remote-url}
                        Period/ZERO)))
 

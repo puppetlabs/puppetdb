@@ -39,9 +39,9 @@
   (-> (select-keys jetty-config [:ssl-cert :ssl-key :ssl-ca-cert])
       (assoc :url (query-endpoint server-url))))
 
-(defn- sync-with! [remote-server query-fn submit-command-fn node-ttl]
+(defn- sync-with! [remote-server query-fn enqueue-command-fn node-ttl]
   (if (compare-and-set! currently-syncing false true)
-    (try (sync-from-remote! query-fn submit-command-fn remote-server node-ttl)
+    (try (sync-from-remote! query-fn enqueue-command-fn remote-server node-ttl)
          {:status 200 :body "success"}
          (catch Exception ex
            (let [err "Remote sync from %s failed"
@@ -244,14 +244,14 @@
 
                   :priority true))))
 
-(defn blocking-sync [remote-server query-fn submit-command-fn node-ttl response-mult]
+(defn blocking-sync [remote-server query-fn enqueue-command-fn node-ttl response-mult]
   (let [remote-url (:url remote-server)
         submitted-commands-chan (async/chan)
         processed-commands-chan (async/chan 10000)
         _ (async/tap response-mult processed-commands-chan)
         finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)]
     (try
-      (sync-from-remote! query-fn submit-command-fn remote-server node-ttl submitted-commands-chan)
+      (sync-from-remote! query-fn enqueue-command-fn remote-server node-ttl submitted-commands-chan)
       (async/close! submitted-commands-chan)
       (maplog [:sync :info] {:remote remote-url}
               "Done submitting local commands for blocking sync. Waiting for commands to finish processing...")
@@ -272,7 +272,7 @@
 
 (defn sync-app
   "Top level route for PuppetDB sync"
-  [get-config query-fn submit-command-fn response-mult]
+  [get-config query-fn enqueue-command-fn response-mult]
   (let [{node-ttl :node-ttl, sync-config :sync, jetty-config :jetty} (default-config (get-config))
         allow-unsafe-sync-triggers (:allow-unsafe-sync-triggers sync-config)
         remotes-config (create-remotes-config sync-config)
@@ -296,14 +296,14 @@
                    (maplog [:sync :info] {:remote (:url remote-server)}
                            "Performing blocking sync with timeout of %s ms" completion-timeout-ms)
                    (async/alt!!
-                     (async/go (blocking-sync remote-server query-fn submit-command-fn node-ttl response-mult))
+                     (async/go (blocking-sync remote-server query-fn enqueue-command-fn node-ttl response-mult))
                      (http/json-response {:timed_out false} 200)
 
                      (async/timeout completion-timeout-ms)
                      (http/json-response {:timed_out true} 503)))
 
                  :else
-                 (sync-with! remote-server query-fn submit-command-fn node-ttl))))))))
+                 (sync-with! remote-server query-fn enqueue-command-fn node-ttl))))))))
 
 
 (defprotocol PuppetDBSync
@@ -314,9 +314,8 @@
 (defservice puppetdb-sync-service
   PuppetDBSync
   [[:DefaultedConfig get-config]
-   [:PuppetDBCommand submit-command]
    [:PuppetDBServer query shared-globals]
-   [:PuppetDBCommandDispatcher response-mult]]
+   [:PuppetDBCommandDispatcher enqueue-command response-mult]]
 
   (start [this context]
          (let [{node-ttl :node-ttl, sync-config :sync, jetty-config :jetty} (default-config (get-config))
@@ -327,7 +326,7 @@
                (try+
                 (maplog [:sync :info] {:remote server_url}
                         "Performing initial blocking sync from {remote}...")
-                (blocking-sync remote-server query submit-command node-ttl (response-mult))
+                (blocking-sync remote-server query enqueue-command node-ttl (response-mult))
                 (catch [:type ::message-processing-timeout] _
                   ;; Something is very wrong if we hit this timeout; rethrow the
                   ;; exception to crash the server.
@@ -336,11 +335,12 @@
                   ;; any other exception is basically ok; just log a warning and
                   ;; keep on going.
                   (log/warn ex "Could not perform initial sync")))
-
                (assoc context
                       :scheduled-sync
                       (atat/interspaced (to-millis interval)
-                                        #(sync-with! remote-server query submit-command node-ttl)
+                                        #(sync-with! remote-server
+                                                     query enqueue-command
+                                                     node-ttl)
                                         (atat/mk-pool))))
              context)))
 
