@@ -68,7 +68,7 @@
                 :default "moderate"]]
         required [:outfile :infile]]
     (println "**WARNING** The standalone anonymization tool for PuppetDB has been deprecated."
-             "Please use the PuppetDB export pool with an `--anonymization` flag instead.")
+             "Please use the PuppetDB export tool with an `--anonymization` flag instead.")
     (utils/try+-process-cli!
      (fn []
        (first
