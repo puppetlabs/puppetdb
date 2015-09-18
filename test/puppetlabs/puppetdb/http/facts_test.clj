@@ -448,7 +448,6 @@
    (mid/wrap-with-puppetdb-middleware
     (server/build-app #(hash-map :scf-read-db read-db
                                  :scf-write-db write-db
-                                 :command-mq *mq*
                                  :product-name "puppetdb"))
     nil)))
 

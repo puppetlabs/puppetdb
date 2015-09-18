@@ -10,6 +10,7 @@
             [puppetlabs.puppetdb.http.command :as cmd]
             [puppetlabs.puppetdb.http.server :as server]
             [clojure.tools.logging :as log]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.kitchensink.core :as ks]))
 
@@ -27,20 +28,19 @@
 (defn wrap-with-context [uri route]
   (compojure/context uri [] route))
 
-(defn pdb-core-routes [defaulted-config get-shared-globals submit-command-fn
+(defn pdb-core-routes [defaulted-config get-shared-globals enqueue-command-fn
                        query-fn enqueue-raw-command-fn response-pub]
-  (let [cmd-mq #(:command-mq (get-shared-globals))
-        meta-cfg #(select-keys (get-shared-globals) [:scf-read-db])
+  (let [meta-cfg #(select-keys (get-shared-globals) [:scf-read-db])
         get-response-pub #(response-pub)]
     (map #(apply wrap-with-context %)
          (partition
           2
           ;; The remaining get-shared-globals args are for wrap-with-globals.
           ["/meta" (meta/build-app meta-cfg defaulted-config)
-           "/cmd" (cmd/command-app cmd-mq get-shared-globals
+           "/cmd" (cmd/command-app get-shared-globals
                                    enqueue-raw-command-fn get-response-pub)
            "/query" (server/build-app get-shared-globals)
-           "/admin" (admin/build-app submit-command-fn query-fn)]))))
+           "/admin" (admin/build-app enqueue-command-fn query-fn)]))))
 
 (defn pdb-app [root defaulted-config maint-mode-fn app-routes]
   (-> (compojure/context root []
@@ -83,8 +83,8 @@
 (tk/defservice pdb-routing-service
   [[:WebroutingService add-ring-handler get-route]
    [:PuppetDBServer shared-globals query set-url-prefix]
-   [:PuppetDBCommand submit-command]
-   [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub]
+   [:PuppetDBCommandDispatcher
+    enqueue-command enqueue-raw-command response-pub]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]
    [:DefaultedConfig get-config]]
   (init [this context]
@@ -101,7 +101,7 @@
                                           maint-mode?
                                           (pdb-core-routes config
                                                            augmented-globals
-                                                           submit-command
+                                                           enqueue-command
                                                            query
                                                            enqueue-raw-command
                                                            response-pub))))

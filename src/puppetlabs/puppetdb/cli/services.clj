@@ -77,13 +77,10 @@
 ;; The following functions setup interaction between the main
 ;; PuppetDB components.
 
-(def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
-(def mq-endpoint "puppetlabs.puppetdb.commands")
-
 (defn auto-expire-nodes!
   "Expire nodes which haven't had any activity (catalog/fact submission)
   for more than `node-ttl`."
-  [node-ttl db mq-connection]
+  [node-ttl db]
   {:pre [(map? db)
          (period? node-ttl)]}
   (try
@@ -162,8 +159,6 @@
   [{:keys [broker mq-factory mq-connection]}]
   (when broker
     (log/info "Shutting down the messsage queues.")
-    (.close mq-connection)
-    (.close mq-factory)
     (mq/stop-broker! broker)))
 
 (defn stop-puppetdb
@@ -179,12 +174,7 @@
     (.close ds))
   context)
 
-(defn add-max-framesize
-  "Add a maxFrameSize to broker url for activemq."
-  [max-frame-size url]
-  (format "%s&wireFormat.maxFrameSize=%s&marshal=true" url max-frame-size))
-
-(defn- transfer-old-messages! [connection]
+(defn- transfer-old-messages! [mq-endpoint]
   (let [[pending exists?]
         (try+
          [(mq/queue-size "localhost" "com.puppetlabs.puppetdb.commands") true]
@@ -241,15 +231,12 @@
         {:keys [vardir catalog-hash-debug-dir]} global
         {:keys [gc-interval dlo-compression-interval node-ttl
                 node-purge-ttl report-ttl]} database
-        {:keys [dlo-compression-threshold
-                max-frame-size threads]} command-processing
+        {:keys [dlo-compression-threshold]} command-processing
         {:keys [disable-update-checking]} puppetdb
 
         write-db (jdbc/pooled-datasource database)
         read-db (jdbc/pooled-datasource (assoc read-database :read-only? true))
-        mq-dir (str (io/file vardir "mq"))
-        discard-dir (io/file mq-dir "discarded")
-        mq-connection-str (add-max-framesize max-frame-size mq-addr)]
+        discard-dir (io/file (conf/mq-discard-dir config))]
 
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
@@ -261,30 +248,19 @@
       (dlo/create-metrics-for-dlo! discard-dir))
     (let [broker (try
                    (log/info "Starting broker")
-                   (mq/build-and-start-broker! "localhost" mq-dir command-processing)
+                   (mq/build-and-start-broker! "localhost"
+                                               (conf/mq-dir config)
+                                               command-processing)
                    (catch java.io.EOFException e
                      (log/error
                       "EOF Exception caught during broker start, this "
                       "might be due to KahaDB corruption. Consult the "
                       "PuppetDB troubleshooting guide.")
                      (throw e)))
-          mq-factory (mq/activemq-connection-factory mq-connection-str)
-          mq-connection (doto (.createConnection mq-factory)
-                          (.setExceptionListener
-                           (reify ExceptionListener
-                             (onException [this ex]
-                               (log/error ex "service queue connection error"))))
-                          .start)
           globals {:scf-read-db read-db
                    :scf-write-db write-db
-                   :discard-dir (.getAbsolutePath discard-dir)
-                   :mq-addr mq-addr
-                   :mq-dest mq-endpoint
-                   :mq-threads threads
-                   :catalog-hash-debug-dir catalog-hash-debug-dir
-                   :command-mq {:connection mq-connection
-                                :endpoint mq-endpoint}}]
-      (transfer-old-messages! mq-connection)
+                   :catalog-hash-debug-dir catalog-hash-debug-dir}]
+      (transfer-old-messages! (conf/mq-endpoint config))
 
       (when-not disable-update-checking
         (maybe-check-for-updates config read-db))
@@ -296,7 +272,7 @@
             seconds-pos? (comp pos? to-seconds)
             db-maintenance-tasks (fn []
                                    (do
-                                     (when (seconds-pos? node-ttl) (auto-expire-nodes! node-ttl write-db mq-connection))
+                                     (when (seconds-pos? node-ttl) (auto-expire-nodes! node-ttl write-db))
                                      (when (seconds-pos? node-purge-ttl) (purge-nodes! node-purge-ttl write-db))
                                      (when (seconds-pos? report-ttl) (sweep-reports! report-ttl write-db))
                                      ;; Order is important here to ensure
@@ -313,8 +289,6 @@
                        job-pool)))
       (assoc context
              :broker broker
-             :mq-factory mq-factory
-             :mq-connection mq-connection
              :shared-globals globals))))
 
 (defprotocol PuppetDBServer

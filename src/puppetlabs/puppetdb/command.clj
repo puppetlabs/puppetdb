@@ -72,6 +72,7 @@
             [puppetlabs.trapperkeeper.services
              :refer [defservice service-context]]
             [schema.core :as s]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [clj-time.core :refer [now]]
             [clojure.set :as set]
@@ -301,14 +302,14 @@
 
 (defprotocol PuppetDBCommandDispatcher
   (enqueue-command
-    [this connection endpoint command version payload]
-    [this connection endpoint command version payload uuid]
-    "Annotates the command via annotate-command, submits it to the
-    endpoint of the connection, and then returns its unique id.")
+    [this command version payload]
+    [this command version payload uuid]
+    "Annotates the command via annotate-command, submits it for
+    processing, and then returns its unique id.")
 
-  (enqueue-raw-command [this connection endpoint raw-command uuid]
-    "Submits the raw-command to the endpoint of the connection and
-    returns the command's unique id.")
+  (enqueue-raw-command [this raw-command uuid]
+    "Submits the raw-command for processing and returns the command's
+    unique id.")
 
   (stats [this]
     "Returns command processing statistics as a map
@@ -344,7 +345,8 @@
 
 (defservice command-service
   PuppetDBCommandDispatcher
-  [[:PuppetDBServer shared-globals]
+  [[:DefaultedConfig get-config]
+   [:PuppetDBServer shared-globals]
    [:MessageListenerService register-listener]]
   (init [this context]
     (let [response-chan (async/chan 1000)
@@ -361,38 +363,51 @@
 
   (start [this context]
     (let [{:keys [scf-write-db catalog-hash-debug-dir]} (shared-globals)
-          config {:db scf-write-db
+          db-cfg {:db scf-write-db
                   :catalog-hash-debug-dir catalog-hash-debug-dir}
-          {:keys [response-chan response-pub]} context]
+          {:keys [response-chan response-pub]} context
+          factory (-> (conf/mq-broker-url (get-config))
+                      (mq/activemq-connection-factory))
+          connection (.createConnection factory)]
       (register-listener
        supported-command?
-       #(process-command-and-respond! % config response-chan (:stats context)))
-      context))
+       #(process-command-and-respond! % db-cfg response-chan (:stats context)))
+      (assoc context
+             :factory factory
+             :connection connection)))
 
   (stop [this context]
     (async/unsub-all (:response-pub context))
     (async/untap-all (:response-mult context))
     (async/close! (:response-chan-for-pub context))
     (async/close! (:response-chan context))
-    (dissoc context :response-pub :response-chan :response-chan-for-pub :response-mult))
+    (dissoc context :response-pub :response-chan :response-chan-for-pub :response-mult)
+    (.close (:connection context))
+    (.close (:factory context))
+    context)
 
   (stats [this]
     @(:stats (service-context this)))
 
-  (enqueue-command [this connection endpoint command version payload]
-    (enqueue-command this connection endpoint command version payload nil))
+  (enqueue-command [this command version payload]
+    (enqueue-command this command version payload nil))
 
-  (enqueue-command [this connection endpoint command version payload uuid]
-    (let [result (do-enqueue-command connection endpoint
+  (enqueue-command [this command version payload uuid]
+    (let [config (get-config)
+          connection (:connection (service-context this))
+          endpoint (get-in config [:command-processing :mq :endpoint])
+          command (if (string? command) command (command-names command))
+          result (do-enqueue-command connection endpoint
                                      command version payload uuid)]
-
-
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
 
-  (enqueue-raw-command [this connection endpoint raw-command uuid]
-    (let [result (do-enqueue-raw-command connection endpoint raw-command uuid)]
+  (enqueue-raw-command [this raw-command uuid]
+    (let [config (get-config)
+          connection (:connection (service-context this))
+          endpoint (get-in config [:command-processing :mq :endpoint])
+          result (do-enqueue-raw-command connection endpoint raw-command uuid)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))

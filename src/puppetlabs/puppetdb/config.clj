@@ -20,6 +20,8 @@
             [puppetlabs.trapperkeeper.core :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]))
 
+(def default-mq-endpoint "puppetlabs.puppetdb.commands")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
 
@@ -358,6 +360,14 @@
             (when dashboard-redirect?
               {:puppetlabs.puppetdb.dashboard/dashboard-redirect-service "/"}))))
 
+(defn- add-mq-defaults
+  [config-data]
+  (-> config-data
+      (update-in [:command-processing :mq :address]
+                 #(or % "vm://localhost?jms.prefetchPolicy.all=1&create=false"))
+      (update-in [:command-processing :mq :endpoint]
+                 #(or % default-mq-endpoint))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -381,7 +391,8 @@
       configure-globals
       validate-vardir
       convert-config
-      configure-catalog-debugging))
+      configure-catalog-debugging
+      add-mq-defaults))
 
 (defn foss? [config]
   (= "puppetdb" (get-in config [:global :product-name])))
@@ -392,9 +403,29 @@
 (defn update-server [config]
   (get-in config [:global :update-server]))
 
+(defn mq-endpoint [config]
+  (get-in config [:command-processing :mq :endpoint]))
+
+(defn mq-broker-url
+  "Returns an appropriate ActiveMQ broker URL."
+  [config]
+  (format "%s&wireFormat.maxFrameSize=%s&marshal=true"
+          (get-in config [:command-processing :mq :address])
+          (get-in config [:command-processing :max-frame-size])))
+
+(defn mq-thread-count
+  "Returns the desired number of MQ listener threads."
+  [config]
+  (get-in config [:command-processing :threads]))
+
+(defn mq-dir [config]
+  (str (io/file (get-in config [:global :vardir]) "mq")))
+
+(defn mq-discard-dir [config]
+  (str (io/file (mq-dir config) "discard")))
+
 (defprotocol DefaultedConfig
-  (get-config [this])
-  (get-in-config [this ks]))
+  (get-config [this]))
 
 (defn create-defaulted-config-service [config-transform-fn]
   (tk/service
@@ -403,9 +434,7 @@
    (init [this context]
          (assoc context :config (config-transform-fn (get-config))))
    (get-config [this]
-               (:config (service-context this)))
-   (get-in-config [this ks]
-                  (get-in (service-context this) ks))))
+               (:config (service-context this)))))
 
 (def config-service
   (create-defaulted-config-service process-config!))

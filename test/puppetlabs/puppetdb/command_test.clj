@@ -12,6 +12,7 @@
             [clj-time.format :as tfmt]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.command :refer :all]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]
@@ -1285,16 +1286,16 @@
       (is (= 0 (times-called publish)))
       (is (empty? (fs/list-dir discard-dir))))))
 
+(defn- get-config []
+  (conf/get-config (get-service svc-utils/*server* :DefaultedConfig)))
 
 (deftest command-service-stats
   (svc-utils/with-puppetdb-instance
     (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
           dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
-          shared-globals (partial cli-svc/shared-globals pdb)
           enqueue-command (partial enqueue-command dispatcher)
           stats (partial stats dispatcher)
-          real-replace! scf-store/replace-facts!
-          {{:keys [connection endpoint]} :command-mq} (shared-globals)]
+          real-replace! scf-store/replace-facts!]
       ;; Issue a single command and ensure the stats are right at each step.
       (is (= {:received-commands 0 :executed-commands 0} (stats)))
       (let [received-cmd? (promise)
@@ -1304,8 +1305,7 @@
                         (deliver received-cmd? true)
                         @go-ahead-and-execute
                         (apply real-replace! args))]
-          (enqueue-command connection endpoint
-                           (command-names :replace-facts) 4
+          (enqueue-command (command-names :replace-facts) 4
                            {:environment "DEV" :certname "foo.local"
                             :values {:foo "foo"}
                             :producer_timestamp (to-string (now))})
@@ -1320,23 +1320,19 @@
   (svc-utils/with-puppetdb-instance
     (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
           dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
-          shared-globals (partial cli-svc/shared-globals pdb)
           enqueue-command (partial enqueue-command dispatcher)
-          globals (shared-globals)
-          {{:keys [connection endpoint]} :command-mq} globals
           deactivate-ms 14250331086887
           ;; The problem only occurred if you passed a Date to
           ;; enqueue, a DateTime wasn't a problem.
           input-stamp (java.util.Date. deactivate-ms)
           expected-stamp (DateTime. deactivate-ms DateTimeZone/UTC)]
-      (enqueue-command connection endpoint
-                       (command-names :deactivate-node) 3
+      (enqueue-command (command-names :deactivate-node) 3
                        {:certname "foo.local" :producer_timestamp input-stamp})
       (is (svc-utils/wait-for-server-processing svc-utils/*server* 5000))
       ;; While we're here, check the value in the database too...
       (is (= expected-stamp
              (jdbc/with-transacted-connection
-               (:scf-read-db globals)
+               (:scf-read-db (cli-svc/shared-globals pdb))
                :repeatable-read
                (from-sql-date (scf-store/node-deactivated-time "foo.local")))))
       (is (= expected-stamp
@@ -1358,15 +1354,13 @@
 (deftest command-response-channel
   (svc-utils/with-puppetdb-instance
     (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
-          {:keys [connection endpoint]} (:command-mq (cli-svc/shared-globals pdb))
           dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
           enqueue-command (partial enqueue-command dispatcher)
           response-mult (response-mult dispatcher)
           response-chan (async/chan)
           command-uuid (ks/uuid)]
       (async/tap response-mult response-chan)
-      (enqueue-command connection endpoint
-                       (command-names :deactivate-node) 3
+      (enqueue-command (command-names :deactivate-node) 3
                        {:certname "foo.local" :producer_timestamp (java.util.Date.)}
                        command-uuid)
       (let [received-uuid (async/alt!! response-chan ([msg] (:id msg))
