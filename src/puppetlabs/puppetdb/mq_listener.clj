@@ -355,7 +355,7 @@
 (defservice message-listener-service
   MessageListenerService
   [[:DefaultedConfig get-config]
-   [:PuppetDBServer shared-globals]]
+   [:PuppetDBServer]] ; MessageListenerService depends on the broker
 
   (init [this context]
         (assoc context :listeners (atom [])))

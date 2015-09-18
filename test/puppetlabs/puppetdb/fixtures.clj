@@ -90,7 +90,6 @@
   ([globals-overrides f]
    (let [get-shared-globals #(merge {:scf-read-db *db*
                                      :scf-write-db *db*
-                                     :command-mq *mq*
                                      :url-prefix ""}
                                     globals-overrides)]
      (binding [*app* (mid/wrap-with-puppetdb-middleware
@@ -138,7 +137,6 @@
       :globals (merge {:update-server "FOO"
                        :scf-read-db          *db*
                        :scf-write-db         *db*
-                       :command-mq           *mq*
                        :product-name         "puppetdb"}
                       global-overrides)}))
 
@@ -155,7 +153,6 @@
       :globals {:update-server "FOO"
                 :scf-read-db          *db*
                 :scf-write-db         *db*
-                :command-mq           *mq*
                 :product-name         "puppetdb"}
       :body (ByteArrayInputStream. (.getBytes body "utf8"))}))
 
