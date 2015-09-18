@@ -13,16 +13,18 @@
             [puppetlabs.puppetdb.cli.services :as query]
             [puppetlabs.puppetdb.http.server :as server]
             [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.pdb-routing :as pdb-route]
+            [puppetlabs.puppetdb.pdb-routing
+             :refer [pdb-app pdb-core-routes wrap-with-context]]
             [puppetlabs.pe-puppetdb-extensions.server :as pe-server]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as sync-svcs]
             [puppetlabs.puppetdb.time :refer [parse-period]]
-            [puppetlabs.pe-puppetdb-extensions.reports :as ext-reports]))
+            [puppetlabs.pe-puppetdb-extensions.reports
+             :refer [reports-resources-routes turn-on-unchanged-resources!]]))
 
-(defn pe-routes [get-config get-shared-globals query submit-command response-mult]
-  (map #(apply pdb-route/wrap-with-context %)
+(defn pe-routes [get-config get-shared-globals query enqueue-command response-mult]
+  (map #(apply wrap-with-context %)
        (partition 2
-                  ["/sync" (sync-svcs/sync-app get-config query submit-command response-mult)
+                  ["/sync" (sync-svcs/sync-app get-config query enqueue-command response-mult)
                    "/ext" (pe-server/build-app query)])))
 
 (tk/defservice pe-routing-service
@@ -30,7 +32,6 @@
    [:PuppetDBServer shared-globals query set-url-prefix]
    [:DefaultedConfig get-config]
    [:PuppetDBSync]
-   [:PuppetDBCommand submit-command]
    [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub response-mult]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]]
   (init [this context]
@@ -42,19 +43,19 @@
               shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
           (set-url-prefix query-prefix)
           (log/info "Starting PuppetDB, entering maintenance mode")
-          (ext-reports/turn-on-unchanged-resources!)
-          (add-ring-handler this (pdb-route/pdb-app context-root
-                                                    config
-                                                    maint-mode?
-
-                                                    (concat (ext-reports/reports-resources-routes shared-with-prefix)
-                                                            (pdb-route/pdb-core-routes config
-                                                                                       shared-with-prefix
-                                                                                       submit-command
-                                                                                       query
-                                                                                       enqueue-raw-command
-                                                                                       response-pub)
-                                                            (pe-routes get-config shared-with-prefix query submit-command (response-mult))))))
+          (turn-on-unchanged-resources!)
+          (add-ring-handler
+           this
+           (pdb-app context-root config maint-mode?
+                    (concat (reports-resources-routes shared-with-prefix)
+                            (pdb-core-routes config
+                                             shared-with-prefix
+                                             enqueue-command
+                                             query
+                                             enqueue-raw-command
+                                             response-pub)
+                            (pe-routes get-config shared-with-prefix
+                                       query enqueue-command (response-mult))))))
         (enable-maint-mode)
         context)
   (start [this context]

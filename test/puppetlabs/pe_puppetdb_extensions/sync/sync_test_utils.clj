@@ -47,7 +47,7 @@
       (throw (Exception. (str "Couldn't find a test fn attached to var " (:name meta)))))))
 
 (defmacro with-alt-mq [mq-name & body]
-  `(with-redefs [puppetlabs.puppetdb.cli.services/mq-endpoint ~mq-name]
+  `(with-redefs [puppetlabs.puppetdb.config/default-mq-endpoint ~mq-name]
      (do ~@body)))
 
 (defn logging-query-handler
