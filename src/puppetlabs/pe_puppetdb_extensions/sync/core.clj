@@ -303,7 +303,8 @@
                                  :certname certname
                                  :producer_timestamp deactivated}
                        :start [:debug "    deactivating {certname} as of {producer_timestamp}"]
-                       :finished [:debug "    deactivated {certname}"]}
+                       :finished [:debug "    deactivated {certname}"]
+                       :error [:error  "    error deactivating {certname}"]}
       (submit-command-fn :deactivate-node 3
                          {:certname certname :producer_timestamp deactivated})
       true)))
