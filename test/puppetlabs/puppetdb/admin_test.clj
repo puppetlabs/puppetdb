@@ -12,7 +12,9 @@
             [puppetlabs.puppetdb.testutils.catalogs :as tuc]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
-            [puppetlabs.puppetdb.testutils.cli :refer :all]
+            [puppetlabs.puppetdb.testutils.cli
+             :refer [get-nodes get-catalogs get-factsets get-reports munge-tar-map
+                     example-catalog example-report example-facts example-certname]]
             [puppetlabs.puppetdb.testutils.tar :refer [tar->map]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]))
 

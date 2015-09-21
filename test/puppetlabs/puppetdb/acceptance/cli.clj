@@ -10,7 +10,9 @@
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.catalogs :as tuc]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [puppetlabs.puppetdb.testutils.cli :refer :all]
+            [puppetlabs.puppetdb.testutils.cli
+             :refer [get-nodes get-catalogs get-factsets get-reports munge-tar-map
+                     example-catalog example-report example-facts example-certname]]
             [puppetlabs.puppetdb.testutils.tar :refer [tar->map]]
             [puppetlabs.puppetdb.fixtures :as fixt]))
 
@@ -60,9 +62,9 @@
            @(tu/block-until-results 100 (first (get-reports anon-certname)))
            @(tu/block-until-results 100 (first (get-factsets anon-certname)))
 
-           (is (some? (get-catalogs anon-certname)))
-           (is (some? (get-reports anon-certname)))
-           (is (some? (get-factsets anon-certname)))))))))
+           (is (not (empty? (get-catalogs anon-certname))))
+           (is (not (empty? (get-reports anon-certname))))
+           (is (not (empty? (get-factsets anon-certname))))))))))
 
 (deftest test-anonymized-roundtrip
   (doseq [profile (keys anon/anon-profiles)]
@@ -110,9 +112,9 @@
            @(tu/block-until-results 100 (first (get-reports anon-certname)))
            @(tu/block-until-results 100 (first (get-factsets anon-certname)))
 
-           (is (some? (get-catalogs anon-certname)))
-           (is (some? (get-reports anon-certname)))
-           (is (some? (get-factsets anon-certname)))))))))
+           (is (not (empty? (get-catalogs anon-certname))))
+           (is (not (empty? (get-reports anon-certname))))
+           (is (not (empty? (get-factsets anon-certname))))))))))
 
 (deftest test-anonymized-export-roundtrip
   (doseq [profile (keys anon/anon-profiles)]
@@ -162,6 +164,6 @@
            @(tu/block-until-results 100 (first (get-reports anon-certname)))
            @(tu/block-until-results 100 (first (get-factsets anon-certname)))
 
-           (is (some? (get-catalogs anon-certname)))
-           (is (some? (get-reports anon-certname)))
-           (is (some? (get-factsets anon-certname)))))))))
+           (is (not (empty? (get-catalogs anon-certname))))
+           (is (not (empty? (get-reports anon-certname))))
+           (is (not (empty? (get-factsets anon-certname))))))))))
