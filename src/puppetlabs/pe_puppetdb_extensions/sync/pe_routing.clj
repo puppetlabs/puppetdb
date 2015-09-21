@@ -37,9 +37,8 @@
   (init [this context]
         (let [context-root (get-route this)
               query-prefix (str context-root "/query")
-              {node-ttl :node-ttl, sync-config :sync, jetty-config :jetty :as config} (get-config)
-              node-ttl (or (some-> node-ttl parse-period)
-                           Period/ZERO)
+              config (sync-svcs/default-config (get-config))
+              {sync-config :sync jetty-config :jetty} config
               shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
           (set-url-prefix query-prefix)
           (log/info "Starting PuppetDB, entering maintenance mode")

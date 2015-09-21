@@ -197,11 +197,7 @@
         (ks/seq-contains? valid-remotes remote-server))))
 
 (defn default-config [config]
-  (-> config
-      (update :node-ttl (fn [node-ttl]
-                          (or (some-> node-ttl parse-period)
-                              Period/ZERO)))
-      (update-in [:sync :allow-unsafe-sync-triggers] #(or % false))))
+  (update-in config [:sync :allow-unsafe-sync-triggers] #(or % false)))
 
 (defn create-remotes-config [sync-config]
   (-> sync-config
@@ -273,7 +269,9 @@
 (defn sync-app
   "Top level route for PuppetDB sync"
   [get-config query-fn enqueue-command-fn response-mult]
-  (let [{node-ttl :node-ttl, sync-config :sync, jetty-config :jetty} (default-config (get-config))
+  (let [{{node-ttl :node-ttl} :database
+         sync-config :sync
+         jetty-config :jetty} (default-config (get-config))
         allow-unsafe-sync-triggers (:allow-unsafe-sync-triggers sync-config)
         remotes-config (create-remotes-config sync-config)
         validate-sync-fn (partial validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config)]
@@ -317,7 +315,9 @@
    [:PuppetDBCommandDispatcher enqueue-command response-mult]]
 
   (start [this context]
-         (let [{node-ttl :node-ttl, sync-config :sync, jetty-config :jetty} (default-config (get-config))
+         (let [{{node-ttl :node-ttl} :database
+                sync-config :sync
+                jetty-config :jetty} (default-config (get-config))
                remotes-config (create-remotes-config sync-config)]
            (if (enable-periodic-sync? remotes-config)
              (let [{:keys [interval server_url]} (first remotes-config)

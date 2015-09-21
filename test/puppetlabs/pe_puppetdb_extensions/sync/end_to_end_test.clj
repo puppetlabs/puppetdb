@@ -156,8 +156,8 @@
                       (case (count infos)
                         ;; infos length tells us which server we're handling.
                         0 (utils/pdb1-sync-config)
-                        1 (assoc (utils/pdb2-sync-config)
-                                 :node-ttl "1d")
+                        1 (assoc-in (utils/pdb2-sync-config)
+                                    [:database :node-ttl] "1d")
                         nil))]
     (with-pdbs pdb-configs
       (fn [pdb1 pdb2]
