@@ -21,7 +21,7 @@
                                           (json/parse-string command_versions true)
                                           submit-command-fn)
                             (http/json-response {:ok true}))))
-       (compojure/GET "/v1/archive" []
-                      (http/streamed-tar-response #(export/export! % query-fn)
+       (compojure/GET "/v1/archive" [anonymization_profile]
+                      (http/streamed-tar-response #(export/export! % query-fn anonymization_profile)
                                                   (format "puppetdb-export-%s.tgz" (now))))
        (route/not-found "Not Found"))))

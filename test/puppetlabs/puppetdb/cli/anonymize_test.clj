@@ -12,8 +12,8 @@
           _ (spit-facts-tarball in-path (create-host-facts "foo.com" {"password" "bar"}))
           anon-output (tu/temp-file "anon-facts" ".tar.gz")
           _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "none")
-          orig-data (tar/mapify in-path)
-          anon-data (tar/mapify anon-output)]
+          orig-data (tar/tar->map in-path)
+          anon-data (tar/tar->map anon-output)]
       (is (= (get orig-data "facts")
              (get anon-data "facts")))))
 
@@ -24,9 +24,9 @@
                                                                       "totallyprivate" "baz"}))
           anon-output (tu/temp-file "anon-facts" ".tar.gz")
           _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "low")
-          orig-data (tar/mapify in-path)
+          orig-data (tar/tar->map in-path)
           orig-facts (get-in orig-data ["facts" "foo.com.json"])
-          {host "certname" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
+          {host "certname" anon-env "environment" anon-facts "values"} (first (vals (get (tar/tar->map anon-output) "facts")))]
 
       (are [k v] (= v (get-in orig-data ["facts" "foo.com.json" "values" k]))
            "password" "foo"
@@ -52,9 +52,9 @@
           _ (spit-facts-tarball in-path (create-host-facts "foo.com" {"password" "foo"}))
           anon-output (tu/temp-file "anon-facts" ".tar.gz")
           _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "moderate")
-          orig-data (tar/mapify in-path)
+          orig-data (tar/tar->map in-path)
           orig-facts (get-in orig-data ["facts" "foo.com.json"])
-          {host "certname" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
+          {host "certname" anon-env "environment" anon-facts "values"} (first (vals (get (tar/tar->map anon-output) "facts")))]
 
       (are [k v] (= v (get-in orig-data ["facts" "foo.com.json" "values" k]))
            "password" "foo"
@@ -85,9 +85,9 @@
           _ (spit-facts-tarball in-path (create-host-facts "foo.com" {"password" "foo"}))
           anon-output (tu/temp-file "anon-facts" ".tar.gz")
           _ (-main "-i" in-path "-o" (.getPath anon-output) "-p" "full")
-          orig-data (tar/mapify in-path)
+          orig-data (tar/tar->map in-path)
           orig-facts (get-in orig-data ["facts" "foo.com.json"])
-          {host "certname" anon-env "environment" anon-facts "values"} (first (vals (get (tar/mapify anon-output) "facts")))]
+          {host "certname" anon-env "environment" anon-facts "values"} (first (vals (get (tar/tar->map anon-output) "facts")))]
 
       (are [k v] (= v (get-in orig-facts ["values" k]))
            "password" "foo"

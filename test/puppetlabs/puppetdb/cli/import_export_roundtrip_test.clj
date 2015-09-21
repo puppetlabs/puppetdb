@@ -8,7 +8,9 @@
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.catalogs :as tuc]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [puppetlabs.puppetdb.testutils.cli :refer :all]
+            [puppetlabs.puppetdb.testutils.cli
+             :refer [get-nodes get-catalogs get-factsets get-reports munge-tar-map
+                     example-catalog example-report example-facts example-certname]]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [slingshot.slingshot :refer [throw+ try+]]
             [slingshot.test]))

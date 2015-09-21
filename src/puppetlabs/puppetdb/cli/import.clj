@@ -31,9 +31,7 @@
               (format "Unable to find export metadata file '%s' in archive '%s'"
                       metadata-path
                       tarball))))
-    (-> tar-reader
-        archive/read-entry-content
-        (json/parse-string true))))
+    (utils/read-json-content tar-reader true)))
 
 (defn- validate-cli!
   [args]
