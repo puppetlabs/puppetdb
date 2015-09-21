@@ -86,4 +86,6 @@
            (export/export! anon-out-file query-fn profile)
            (let [export-out-map (munge-tar-map (tar->map export-out-file))
                  anon-out-map (munge-tar-map (tar->map anon-out-file))]
-             (is (not= export-out-map anon-out-map)))))))))
+             (if (= profile "none")
+               (is (= export-out-map anon-out-map))
+               (is (not= export-out-map anon-out-map))))))))))

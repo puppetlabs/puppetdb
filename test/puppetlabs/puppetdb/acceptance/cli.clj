@@ -42,7 +42,9 @@
 
          (let [export-out-map (munge-tar-map (tar->map export-out-file))
                anon-out-map (munge-tar-map (tar->map anon-out-file))]
-           (is (not= export-out-map anon-out-map)))))
+           (if (= profile "none")
+             (is (= export-out-map anon-out-map))
+             (is (not= export-out-map anon-out-map))))))
 
       (svc-utils/call-with-single-quiet-pdb-instance
        (let [anon-out-map (tar->map anon-out-file)
@@ -90,7 +92,9 @@
 
          (let [export-out-map (tar->map export-out-file)
                anon-out-map (tar->map anon-out-file)]
-           (is (not= export-out-map anon-out-map)))))
+           (if (= profile "none")
+             (is (= export-out-map anon-out-map))
+             (is (not= export-out-map anon-out-map))))))
 
       (svc-utils/call-with-single-quiet-pdb-instance
        (let [anon-out-map (tar->map anon-out-file)
@@ -140,7 +144,9 @@
 
          (let [export-out-map (munge-tar-map (tar->map export-out-file))
                anon-out-map (munge-tar-map (tar->map anon-out-file))]
-           (is (not= export-out-map anon-out-map)))))
+           (if (= profile "none")
+             (is (= export-out-map anon-out-map))
+             (is (not= export-out-map anon-out-map))))))
 
       (svc-utils/call-with-single-quiet-pdb-instance
        (let [anon-out-map (tar->map anon-out-file)

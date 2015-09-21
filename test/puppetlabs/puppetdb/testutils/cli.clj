@@ -75,6 +75,7 @@
 (defn munge-tar-map
   [tar-map]
   (-> tar-map
+      (dissoc "export-metadata.json")
       (update "facts" tuf/munge-facts)
       (update "reports" tur/munge-report)
       (update "catalogs" tuc/munge-catalog)))
