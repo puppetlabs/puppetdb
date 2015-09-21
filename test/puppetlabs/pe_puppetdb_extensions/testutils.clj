@@ -136,14 +136,6 @@
    :headers {"Content-Type" "application/json"}
    :body (json/generate-string m)})
 
-(defn get-json [base-url suffix & [opts]]
-  (let [opts (or opts {:throw-exceptions true
-                       :throw-entire-message? true})]
-    (-> (str (base-url->str base-url) suffix)
-        (http/get opts)
-        :body
-        (json/parse-string true))))
-
 (defn get-response
   [base-url suffix opts]
   (http/get (str (base-url->str base-url) suffix) opts))
