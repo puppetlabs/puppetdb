@@ -11,6 +11,11 @@
 (def tk-version "1.1.1")
 (def ks-version "1.0.0")
 
+(def pdb-jvm-opts
+  (case (System/getProperty "java.specification.version")
+    "1.7" ["-XX:MaxPermSize=200M"]
+    []))
+
 (defproject puppetlabs/pe-puppetdb-extensions pe-pdb-version
   :pedantic? :abort
 
@@ -47,6 +52,6 @@
                       :name "pe-puppetdb"}}
   :lein-release {:scm :git, :deploy-via :lein-deploy}
 
-  :jvm-opts ["-XX:MaxPermSize=128M"]
+  :jvm-opts ~pdb-jvm-opts
 
   :main ^:skip-aot puppetlabs.puppetdb.core)
