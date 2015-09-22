@@ -59,10 +59,11 @@
   [base-url :- utils/base-url-schema
    command-version :- s/Int
    catalog-payload :- s/Str]
-  (let [result (submit-command-via-http!
-                base-url
-                (command-names :replace-catalog) command-version
-                catalog-payload)]
+  (let [payload (json/parse-string catalog-payload)
+        result (submit-command-via-http!
+                           base-url
+                           (command-names :replace-catalog) command-version
+                           payload)]
     (when-not (= http/status-ok (:status result))
       (log/error result))))
 
