@@ -129,7 +129,7 @@
         catalog (-> (get-in wire-catalogs [6 :empty])
                     (assoc :certname certname))]
     (svc-utils/call-with-single-quiet-pdb-instance
-     (assoc-in (svc-utils/create-config) [:command-processing :max-frame-size] "1024")
+     (assoc-in (svc-utils/create-config) [:command-processing :max-frame-size] 1024)
      (fn []
        (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))]
          (is (empty? (query-fn :nodes admin/query-api-version nil nil doall)))
