@@ -4,6 +4,7 @@
             [clj-time.format :as tfmt]
             [clojure.string :as str]
             [puppetlabs.puppetdb.query-eng :as qe]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [flatland.ordered.map :as omap]
@@ -227,6 +228,39 @@
           (is (= (reports-response version
                                    [basic1 basic2])
                  (set (munge-reports-for-comparison results)))))))))
+
+(deftestseq reports-json-vs-jsonb
+  [[version endpoint] endpoints
+  method [:get :post]]
+
+  (let [basic1 (:basic reports)
+        _ (store-example-report! basic1 (now))
+        basic2 (assoc (:basic2 reports) :certname "bar.local")
+        _ (store-example-report! basic2 (now))
+        initial-response (query-result method endpoint)
+        json-type (if (sutils/postgres?) "::json" "")]
+
+    (testing "response is the same with logs split between json and jsonb"
+      (jdbc/do-commands
+        (format "update reports
+                 set logs_json=(select logs%s from reports where certname='foo.local')
+                 where reports.certname='foo.local'" json-type)
+
+        "update reports
+         set logs=null where certname='foo.local'")
+
+      (is (= (query-result method endpoint) initial-response)))
+
+    (testing "response is the same with all logs in json column"
+      (jdbc/do-commands
+        (format "update reports
+                 set logs_json=(select logs%s from reports where certname='bar.local')
+                 where reports.certname='bar.local'" json-type)
+
+        "update reports
+         set logs=null where certname='bar.local'")
+
+      (is (= (query-result method endpoint) initial-response)))))
 
 (def my-reports
   (-> reports

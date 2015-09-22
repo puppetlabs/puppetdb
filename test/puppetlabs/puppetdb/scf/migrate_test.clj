@@ -348,7 +348,8 @@
       (clear-db-for-testing!)
       (fast-forward-to-migration! 36)
 
-      (let [current-time (to-timestamp (now))]
+      (let [current-time (to-timestamp (now))
+            cast-to-jsonb (if (sutils/postgres?) "::jsonb" "")]
         (jdbc/insert! :report_statuses
                       {:status "testing1" :id 1})
         (jdbc/insert! :environments
@@ -398,13 +399,20 @@
         (apply-migration-for-testing! 37)
 
         (let [response
-              (-> (str "SELECT %s AS hash, r.certname, e.environment, rs.status, %s AS uuid, metrics, logs FROM certnames c"
-                       " INNER JOIN reports r on c.latest_report_id=r.id AND c.certname=r.certname"
-                       " INNER JOIN environments e on r.environment_id=e.id"
-                       " INNER JOIN report_statuses rs on r.status_id=rs.id"
-                       " ORDER BY c.certname")
-                  (format (sutils/sql-hash-as-str "r.hash") (sutils/sql-uuid-as-str "r.transaction_uuid"))
-                  query-to-vec)]
+              (query-to-vec
+                (format "SELECT %s AS hash, r.certname, e.environment, rs.status,
+                         %s AS uuid, coalesce(metrics_json%s, metrics) as metrics,
+                         coalesce(logs_json%s, logs) as logs
+                         FROM certnames c
+                         INNER JOIN reports r ON c.latest_report_id=r.id
+                         AND c.certname=r.certname
+                         INNER JOIN environments e ON r.environment_id=e.id
+                         INNER JOIN report_statuses rs ON r.status_id=rs.id
+                         ORDER BY c.certname"
+                        (sutils/sql-hash-as-str "r.hash")
+                        (sutils/sql-uuid-as-str "r.transaction_uuid")
+                        cast-to-jsonb
+                        cast-to-jsonb))]
           ;; every node should with facts should be represented
           (is (= [{:metrics [{:foo "bar"}] :logs [{:bar "baz"}]
                    :hash "01" :environment "testing1" :certname "testing1" :status "testing1" :uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"}
