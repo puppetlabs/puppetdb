@@ -18,13 +18,15 @@
    (contains? edge "target")
    (contains? edge "relationship")))
 
-(def resource-event-schema-str (utils/str-schema reports/resource-event-v5-wireformat-schema))
+(def event-schema-str (utils/str-schema reports/event-wireformat-schema))
+(def resource-schema-str (utils/str-schema (assoc reports/resource-wireformat-schema
+                                                  :events [event-schema-str])))
 (def metric-schema-str (utils/str-schema reports/metric-wireformat-schema))
 (def log-schema-str (utils/str-schema reports/log-wireformat-schema))
-(def report-schema-str (utils/str-schema (assoc reports/report-v5-wireformat-schema
-                                           :resource_events [resource-event-schema-str]
-                                           :metrics (s/maybe [metric-schema-str])
-                                           :logs (s/maybe [log-schema-str]))))
+(def report-schema-str (utils/str-schema (assoc reports/report-wireformat-schema
+                                                :resources [resource-schema-str]
+                                                :metrics [metric-schema-str]
+                                                :logs [log-schema-str])))
 
 (defn resource?
   "Returns true if it looks like a resource"
@@ -320,37 +322,42 @@
    :post [(coll? %)]}
   (map #(anonymize-catalog-resource % context config) resources))
 
-(pls/defn-validated anonymize-resource-event :- resource-event-schema-str
-  "Anonymize a resource event from a report"
-  [event :- resource-event-schema-str
+(defn anonymize-event
+  [{:strs [message property old_value new_value] :as event}
    context config]
-  (let [newcontext {"node"          (get context "node")
-                    "title"         (get event "resource_title")
-                    "message"       (get event "message")
-                    "property_name" (get event "property")
-                    "type"          (get event "resource_type")
-                    "file"          (get event "file")
-                    "line"          (get event "line")}]
+  (let [newcontext (assoc context
+                          "message" message
+                          "property_name" property)]
     (-> event
-        (update-in ["resource_title"] anonymize-leaf :title newcontext config)
-        (update-in ["message"] anonymize-leaf :message newcontext config)
-        (update-in ["property"] anonymize-leaf :parameter-name newcontext config)
-        (update-in ["new_value"]
-                   anonymize-leaf :parameter-value
-                   (assoc newcontext :parameter-value (get event "new_value")) config)
-        (update-in ["old_value"]
-                   anonymize-leaf :parameter-value
-                   (assoc newcontext :parameter-value (get event "old_value")) config)
-        (update-in ["resource_type"] anonymize-leaf :type newcontext config)
-        (update-in-nil ["file"] anonymize-leaf :file newcontext config)
-        (update-in-nil ["line"] anonymize-leaf :line newcontext config)
-        (update-in-nil ["containment_path"]
-                       anonymize-containment-path newcontext config))))
+        (update "message" anonymize-leaf :message newcontext config)
+        (update "property" anonymize-leaf :parameter-name newcontext config)
+        (update "new_value" anonymize-leaf :parameter-value (assoc newcontext :parameter-value new_value) config)
+        (update "old_value" anonymize-leaf :parameter-value (assoc newcontext :parameter-value old_value) config))))
 
-(pls/defn-validated anonymize-metric
-  [metric :- metric-schema-str
-   context
-   config]
+(defn anonymize-events [events context config]
+  (map #(anonymize-event % context config) events))
+
+(defn anonymize-report-resource
+  [resource context config]
+  (let [newcontext {"node" (get context "node")
+                    "title" (get resource "resource_title")
+                    "type" (get resource "resource_type")
+                    "file" (get resource "file")
+                    "line" (get resource "line")}]
+    (-> resource
+        (update "resource_title" anonymize-leaf :title newcontext config)
+        (update "resource_type" anonymize-leaf :type newcontext config)
+        (utils/update-when ["file"] anonymize-leaf :file newcontext config)
+        (utils/update-when ["line"] anonymize-leaf :line newcontext config)
+        (utils/update-when ["containment_path"] anonymize-containment-path newcontext config)
+        (update "events" anonymize-events newcontext config))))
+
+(pls/defn-validated anonymize-report-resources :- [resource-schema-str]
+  [resources :- [resource-schema-str]
+   context config]
+  (map #(anonymize-report-resource % context config) resources))
+
+(defn anonymize-metric [metric context config]
   (if (= "time" (get metric "category"))
     (update metric "name" #(anonymize-lowercase-type % context config))
     metric))
@@ -373,17 +380,7 @@
   [logs :- [log-schema-str]
    context
    config]
-  (when logs
-    (map #(anonymize-log % context config) logs)))
-
-(defn anonymize-resource-events
-  "Anonymize a collection of resource events from a report"
-  [events context config]
-  {:pre  [(coll? events)]
-   :post [(coll? %)]}
-  (sort-by
-   #(mapv % ["timestamp" "resource_type" "resource_title" "property"])
-   (map #(anonymize-resource-event % context config) events)))
+  (map #(anonymize-log % context config) logs))
 
 ;; Primary entry points, for anonymizing catalogs and reports
 
@@ -392,25 +389,25 @@
   [config catalog]
   {:pre  [(catalog? catalog)]
    :post [(catalog? %)]}
-  (let [context {"node" (get catalog ["certname"])}]
+  (let [context {"node" (get catalog "certname")}]
     (-> catalog
-        (update-in ["resources"]        anonymize-resources context config)
-        (update-in ["edges"]            anonymize-edges context config)
-        (update-in ["certname"]         anonymize-leaf :node context config)
-        (update-in ["transaction_uuid"] anonymize-leaf :transaction_uuid context config)
-        (update-in ["environment"] anonymize-leaf :environment context config))))
+        (update "resources" anonymize-catalog-resources context config)
+        (update "edges" anonymize-edges context config)
+        (update "certname" anonymize-leaf :node context config)
+        (update "transaction_uuid" anonymize-leaf :transaction_uuid context config)
+        (update "environment" anonymize-leaf :environment context config))))
 
 (pls/defn-validated anonymize-report :- report-schema-str
   "Anonymize a report"
   [config report :- report-schema-str]
   (let [context {"node" (get report "certname")}]
     (-> report
-        (update-in ["certname"]         anonymize-leaf :node context config)
-        (update-in ["resource_events"]  anonymize-resource-events context config)
-        (update-in ["metrics"] anonymize-metrics context config)
-        (update-in ["logs"] anonymize-logs context config)
-        (update-in ["transaction_uuid"] anonymize-leaf :transaction_uuid context config)
-        (update-in ["environment"] anonymize-leaf :environment context config))))
+        (update "certname" anonymize-leaf :node context config)
+        (update "resources" anonymize-report-resources context config)
+        (update "metrics" anonymize-metrics context config)
+        (update "logs" anonymize-logs context config)
+        (update "transaction_uuid" anonymize-leaf :transaction_uuid context config)
+        (update "environment" anonymize-leaf :environment context config))))
 
 (defn anonymize-fact-values
   "Anonymizes fact names and values"

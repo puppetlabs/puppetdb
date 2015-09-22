@@ -53,8 +53,8 @@
    :resources [resource-wireformat-schema]
    :noop (s/maybe s/Bool)
    :transaction_uuid (s/maybe s/Str)
-   :metrics (s/maybe [metric-wireformat-schema])
-   :logs (s/maybe [log-wireformat-schema])
+   :metrics [metric-wireformat-schema]
+   :logs [log-wireformat-schema]
    :environment s/Str
    :status (s/maybe s/Str)})
 
@@ -153,33 +153,39 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Reports Query -> Wire format conversions
 
+(defn remove-reports-metadata [resource-events]
+  (map #(dissoc %
+                :report :certname :containing_class :configuration_version
+                :run_start_time :run_end_time :report_receive_time :environment)
+       resource-events))
+
 (pls/defn-validated resource-events-query->wire-v5 :- [resource-event-v5-wireformat-schema]
-  [events :- resource-events-expanded-query-schema]
-  (sort-by
-   #(mapv % [:timestamp :resource_type :resource_title :property])
-   (map
-    #(dissoc % :report :certname :containing_class :configuration_version
-             :run_start_time :run_end_time :report_receive_time :environment)
-    (:data events))))
-
-(pls/defn-validated logs-query->wire-v5 :- [log-wireformat-schema]
-  [logs :- logs-expanded-query-schema]
-  (:data logs))
-
-(pls/defn-validated metrics-query->wire-v5 :- [metric-wireformat-schema]
-  [metrics :- metrics-expanded-query-schema]
-  (:data metrics))
+  [resource-events :- resource-events-expanded-query-schema]
+  (->> resource-events
+       :data
+       remove-reports-metadata
+       (sort-by #(mapv % [:timestamp :resource_type :resource_title :property]))))
 
 (pls/defn-validated report-query->wire-v5 :- report-v5-wireformat-schema
   [report :- report-query-schema]
   (-> report
       (dissoc :hash :receive_time :resources)
       (update :resource_events resource-events-query->wire-v5)
-      (update :metrics metrics-query->wire-v5)
-      (update :logs logs-query->wire-v5)))
+      (update :metrics :data)
+      (update :logs :data)))
 
 (defn reports-query->wire-v5 [reports]
   (map report-query->wire-v5 reports))
+
+(declare wire-v5->wire-v6)
+(pls/defn-validated report-query->wire-v6 :- report-wireformat-schema
+  [report :- report-query-schema]
+  (-> report
+      report-query->wire-v5
+      wire-v5->wire-v6))
+
+(defn reports-query->wire-v6 [reports]
+  (map report-query->wire-v6 reports))
 
 (defn dash->underscore-report-keys [v5-report-or-older]
   (->> v5-report-or-older
