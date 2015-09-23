@@ -1583,5 +1583,5 @@
        (str
         "Unable to install optimal indexing\n\n"
         "We are unable to create optimal indexes for your database.\n"
-        "For maximum index performance, we recommend using PostgreSQL 9.3 or\n"
+        "For maximum index performance, we require PostgreSQL 9.4 or\n"
         "greater.\n")))))
