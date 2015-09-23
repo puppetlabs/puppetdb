@@ -196,9 +196,6 @@
     (or allow-unsafe-sync-triggers
         (ks/seq-contains? valid-remotes remote-server))))
 
-(defn default-config [config]
-  (update-in config [:sync :allow-unsafe-sync-triggers] #(or % false)))
-
 (defn create-remotes-config [sync-config]
   (-> sync-config
       scrub-sync-config
@@ -271,7 +268,7 @@
   [get-config query-fn enqueue-command-fn response-mult]
   (let [{{node-ttl :node-ttl} :database
          sync-config :sync
-         jetty-config :jetty} (default-config (get-config))
+         jetty-config :jetty} (get-config)
         allow-unsafe-sync-triggers (:allow-unsafe-sync-triggers sync-config)
         remotes-config (create-remotes-config sync-config)
         validate-sync-fn (partial validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config)]
@@ -317,7 +314,7 @@
   (start [this context]
          (let [{{node-ttl :node-ttl} :database
                 sync-config :sync
-                jetty-config :jetty} (default-config (get-config))
+                jetty-config :jetty} (get-config)
                remotes-config (create-remotes-config sync-config)]
            (if (enable-periodic-sync? remotes-config)
              (let [{:keys [interval server_url]} (first remotes-config)

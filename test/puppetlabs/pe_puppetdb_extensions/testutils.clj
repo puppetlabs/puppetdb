@@ -1,11 +1,13 @@
 (ns puppetlabs.pe-puppetdb-extensions.testutils
   (:require [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [service-context service-id]]
+            [puppetlabs.pe-puppetdb-extensions.config :as extconf]
             [puppetlabs.pe-puppetdb-extensions.sync.services :refer [puppetdb-sync-service]]
             [puppetlabs.pe-puppetdb-extensions.sync.pe-routing :refer [pe-routing-service]]
             [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [compojure.core :refer [context POST routes ANY]]
+            [puppetlabs.puppetdb.config :as pdbconf]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [ring.middleware.params :refer [wrap-params]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
@@ -16,17 +18,21 @@
    (:import [java.net MalformedURLException URISyntaxException URL]) )
 
 (defservice stub-server-service
-  [[:ConfigService get-in-config]
+  [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-route]
    [:PuppetDBSync]]
   (start [this tk-context]
-         (if-let [handler (get-in-config [:stub-server-service :handler])]
+         (if-let [handler (get-in (get-config) [:stub-server-service :handler])]
            (add-ring-handler this (wrap-params (context (get-route this) [] handler))))
          tk-context))
 
 (def pe-services
-  (concat [#'puppetdb-sync-service #'stub-server-service #'pe-routing-service]
-          (remove #(= % #'pdb-routing-service) svcs/default-services)))
+  (conj (remove #{#'pdb-routing-service #'pdbconf/config-service}
+                svcs/default-services)
+        #'extconf/config-service
+        #'puppetdb-sync-service
+        #'stub-server-service
+        #'pe-routing-service))
 
 (defmacro with-puppetdb-instance
   "Same as the core call-with-puppetdb-instance call but adds in the
