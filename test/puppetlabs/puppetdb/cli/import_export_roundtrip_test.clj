@@ -93,7 +93,7 @@
 (deftest test-max-frame-size
   (svc-utils/call-with-single-quiet-pdb-instance
    (-> (svc-utils/create-config)
-       (assoc-in [:command-processing :max-frame-size] "1024"))
+       (assoc-in [:command-processing :max-frame-size] 1024))
    (fn []
      (is (empty? (get-nodes)))
 
