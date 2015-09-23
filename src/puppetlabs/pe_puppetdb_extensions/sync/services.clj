@@ -201,7 +201,7 @@
       (update :node-ttl (fn [node-ttl]
                           (or (some-> node-ttl parse-period)
                               Period/ZERO)))
-      (update-in [:sync-config :allow-unsafe-sync-triggers] #(or % false))))
+      (update-in [:sync :allow-unsafe-sync-triggers] #(or % false))))
 
 (defn create-remotes-config [sync-config]
   (-> sync-config
