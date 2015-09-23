@@ -80,20 +80,6 @@
 (def report-v3-wireformat-schema
   (dissoc report-v4-wireformat-schema :status))
 
-(pls/defn-validated sanitize-v5-resource-events :- [resource-event-v5-wireformat-schema]
-  "This function takes an array of events and santizes them, ensuring only
-   valid keys are returned."
-  [resource-events :- (s/pred coll? 'coll?)]
-  (for [resource-event resource-events]
-    (pls/strip-unknown-keys resource-event-v5-wireformat-schema resource-event)))
-
-(pls/defn-validated sanitize-report :- report-v5-wireformat-schema
-  "This function takes a report and sanitizes it, ensuring only valid data
-   is left over."
-  [payload :- (s/pred map? 'map?)]
-  (-> (pls/strip-unknown-keys report-v5-wireformat-schema payload)
-      (update :resource_events sanitize-v5-resource-events)))
-
 (def resource-event-query-schema
   {(s/optional-key :certname) s/Str
    (s/optional-key :report_receive_time) pls/Timestamp
@@ -177,16 +163,6 @@
 (defn reports-query->wire-v5 [reports]
   (map report-query->wire-v5 reports))
 
-(declare wire-v5->wire-v6)
-(pls/defn-validated report-query->wire-v6 :- report-wireformat-schema
-  [report :- report-query-schema]
-  (-> report
-      report-query->wire-v5
-      wire-v5->wire-v6))
-
-(defn reports-query->wire-v6 [reports]
-  (map report-query->wire-v6 reports))
-
 (defn dash->underscore-report-keys [v5-report-or-older]
   (->> v5-report-or-older
        utils/dash->underscore-keys
@@ -228,6 +204,35 @@
   (-> report
       (assoc :status nil)
       (wire-v4->wire-v6 received-time)))
+
+(pls/defn-validated report-query->wire-v6 :- report-wireformat-schema
+  [report :- report-query-schema]
+  (-> report
+      report-query->wire-v5
+      wire-v5->wire-v6))
+
+(defn reports-query->wire-v6 [reports]
+  (map report-query->wire-v6 reports))
+
+(pls/defn-validated sanitize-events :- [event-wireformat-schema]
+  [events]
+  (for [event events]
+    (pls/strip-unknown-keys event-wireformat-schema event)))
+
+(pls/defn-validated sanitize-resources :- [resource-wireformat-schema]
+  [resources]
+  (for [resource resources]
+    (-> (pls/strip-unknown-keys resource-wireformat-schema resource)
+        (update :events sanitize-events))))
+
+(pls/defn-validated sanitize-report :- report-wireformat-schema
+  "This function takes a report and sanitizes it, ensuring only valid data
+   is left over."
+  [payload]
+  (as-> payload $
+    (wire-v5->wire-v6 $)
+    (pls/strip-unknown-keys report-wireformat-schema $)
+    (update $ :resources sanitize-resources)))
 
 (defn- resource->skipped-resource-events
   "Fabricate a skipped resource-event"

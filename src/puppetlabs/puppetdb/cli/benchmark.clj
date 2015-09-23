@@ -47,6 +47,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [clj-time.core :as time]
             [puppetlabs.puppetdb.client :as client]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
             [puppetlabs.puppetdb.archive :as archive]
             [slingshot.slingshot :refer [try+ throw+]]
@@ -150,7 +151,9 @@
              "transaction_uuid" uuid
              "start_time" (time/minus stamp (time/seconds 10))
              "end_time" (time/minus stamp (time/seconds 5))
-             "producer_timestamp" stamp)))
+             "producer_timestamp" stamp)
+      clojure.walk/keywordize-keys
+      reports/sanitize-report))
 
 (defn randomize-map-leaf
   "Randomizes a fact leaf."
@@ -198,9 +201,9 @@
                        (update-report uuid stamp))
         factset (some-> factset
                         (update-factset rand-percentage stamp))]
-    (when catalog (>!! command-send-ch [:catalog 6 (json/generate-string catalog)]))
-    (when report (>!! command-send-ch [:report 5 (json/generate-string report)]))
-    (when factset (>!! command-send-ch [:factset 4 (json/generate-string factset)]))
+    (when catalog (>!! command-send-ch [:catalog 6 catalog]))
+    (when report (>!! command-send-ch [:report 5 report]))
+    (when factset (>!! command-send-ch [:factset 4 factset]))
 
     (assoc state
            :catalog catalog
