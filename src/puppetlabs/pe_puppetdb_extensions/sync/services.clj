@@ -96,6 +96,9 @@
     [{:remotes _}]
     sync-config
 
+    [({} :guard empty?)]
+    {:remotes []}
+
     [nil]
     {:remotes []}
 
@@ -179,16 +182,6 @@
       set-default-ports
       :remotes))
 
-(defn- scrub-sync-config
-  "A utility function for tests which will dissoc the
-  `:allow-unsafe-sync-triggers' config option and ensure the sync-config map is
-  either non-empty or nil, which is helpful for our uses core.match above"
-  [sync-config]
-  (let [sync-config-scrubbed (-> sync-config
-                                 (dissoc :allow-unsafe-sync-triggers))]
-    (when (seq sync-config-scrubbed)
-      sync-config-scrubbed)))
-
 (defn validate-trigger-sync
   "Validates `remote-server' as a valid sync target given user config items"
   [allow-unsafe-sync-triggers remotes-config jetty-config remote-server]
@@ -197,9 +190,8 @@
         (ks/seq-contains? valid-remotes remote-server))))
 
 (defn create-remotes-config [sync-config]
-  (-> sync-config
-      scrub-sync-config
-      extract-and-check-remotes-config))
+  (extract-and-check-remotes-config (dissoc sync-config
+                                            :allow-unsafe-sync-triggers)))
 
 (defn wait-for-sync [submitted-commands-chan processed-commands-chan process-command-timeout-ms]
   (async/go-loop [pending-commands #{}
