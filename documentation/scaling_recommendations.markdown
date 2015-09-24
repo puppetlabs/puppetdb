@@ -7,7 +7,6 @@ canonical: "/puppetdb/latest/scaling_recommendations.html"
 [configure_heap]: ./configure.html#configuring-the-java-heap-size
 [dashboard]: ./maintain_and_tune.html#monitor-the-performance-dashboard
 [heap]: ./maintain_and_tune.html#tune-the-max-heap-size
-[hsqldb_deprecation_mail]: https://groups.google.com/d/msg/puppet-users/8K5sPqNgErM/8PI5pjI5iRgJ
 [threads]: ./maintain_and_tune.html#tune-the-number-of-threads
 [postgres]: ./configure.html#using-postgresql
 [pg_ha]: http://www.postgresql.org/docs/current/interactive/high-availability.html
@@ -23,27 +22,21 @@ As with scaling any service, there are several possible performance and reliabil
 Bottleneck: Database Performance
 -----
 
-### Database Backend
-
-PuppetDB has two available database backends:
-
-* PostgreSQL
-* Embedded HSQLDB
-
-The PostgreSQL backend provides the best performance, and can be set
-up as described in the [configuration documentation][postgres].
-
-The embedded database is only suitable for up to about 100 Puppet
-nodes and [requires a significantly larger Java heap][ram].  It has
-also been deprecated, and will be removed in a future release.  Please
-see this [email][hsqldb_deprecation_mail] to the puppet-users list for
-further information.
-
 ### PostgreSQL Speed and Availability
 
-Using the PostgreSQL backend, PuppetDB will be limited by the performance of your Postgres server. You can increase performance by making sure your DB server has an extremely fast disk, plenty of RAM, a fast processor, and a fast network connection to your PuppetDB server. You may also need to look into database clustering and load balancing.
+PuppetDB will be limited by the performance of your PostgreSQL server.
+You can increase performance by making sure your DB server has an
+extremely fast disk, plenty of RAM, a fast processor, and a fast
+network connection to your PuppetDB server.  You may also need to look
+into database clustering and load balancing.
 
-Database administration is beyond the scope of this manual, but the following links may be helpful:
+It's also possible that the default PostgreSQL configuration on your
+system will be very conservative.  If so, the
+[pgtune](http://pgfoundry.org/projects/pgtune/) tool can suggest
+settings that may be more appropriate for the relevant host.
+
+Database administration is beyond the scope of this manual, but the
+following links may be helpful:
 
 * [High Availability, Load Balancing, and Replication][pg_ha], from the PostgreSQL manual
 * [Replication, Clustering, and Connection Pooling][pg_replication], from the PostgreSQL wiki

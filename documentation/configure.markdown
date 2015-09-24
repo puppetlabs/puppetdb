@@ -12,7 +12,6 @@ canonical: "/puppetdb/latest/configure.html"
 [module]: ./install_via_module.html
 [low_catalog_dupe]: ./trouble_low_catalog_duplication.html
 [puppetdb.conf]: ./connect_puppet_master.html#edit-puppetdbconf
-[hsqldb_deprecation_mail]: https://groups.google.com/d/msg/puppet-users/8K5sPqNgErM/8PI5pjI5iRgJ
 
 Summary
 -----
@@ -190,8 +189,7 @@ Optional.  Setting this to `true` disables checking for updated versions of Pupp
 -----
 
 The `[database]` section configures PuppetDB's database settings.
-PuppetDB can store its data in PostgreSQL or a built-in HSQLDB
-database.  Note that HSQLDB support has been [deprecated][#using-hsqldb].
+PuppetDB stores its data in PostgreSQL.
 
 > **FAQ: Why no MySQL or Oracle support?**
 >
@@ -248,23 +246,6 @@ It's possible to use SSL to protect connections to the database. There are sever
 The main difference in the config file is that you must be sure to add `?ssl=true` to the `subname` setting:
 
     subname = //<HOST>:<PORT>/<DATABASE>?ssl=true
-
-### Using Built-in HSQLDB {#using-hsqldb}
-
-Note that support for HSQLDB has been deprecated and will be removed
-in a future release. Please see [this email][hsqldb_deprecation_mail]
-to the puppet-users list for further information.
-
-To configure PuppetDB to use HSQLDB, put the following in the
-`[database]` section:
-
-    classname = org.hsqldb.jdbcDriver
-    subprotocol = hsqldb
-    subname = file:</PATH/TO/DB>;hsqldb.tx=mvcc;sql.syntax_pgs=true
-
-Replace `</PATH/TO/DB>` with the filesystem location in which you'd like to persist the database.
-
-Do not use the `username` or `password` settings.
 
 ### `gc-interval`
 
@@ -326,25 +307,22 @@ If unset, the default value is 14 days.
 
 ### `classname`
 
-This sets the JDBC class to use. Set this to:
-
-* `org.hsqldb.jdbcDriver` when using the embedded database
-* `org.postgresql.Driver` when using PostgreSQL
+This sets the JDBC class to use.  It should be
+`org.postgresql.Driver`, which is the default.  You should not need to
+change it.
 
 ### `subprotocol`
 
-Set this to:
-
-* `hsqldb` when using the embedded database
-* `postgresql` when using PostgreSQL
+This should be `postgresql`, which is the default.  You should not
+need to change it.
 
 ### `subname`
 
-This describes where to find the database. Set this to:
-
-* `file:</PATH/TO/DB>;hsqldb.tx=mvcc;sql.syntax_pgs=true` when using the embedded database, replacing `</PATH/TO/DB>` with a local filesystem path
-* `//<HOST>:<PORT>/<DATABASE>` when using PostgreSQL, replacing `<HOST>` with the DB server's hostname, `<PORT>` with the port on which PostgreSQL is listening, and `<DATABASE>` with the name of the database
-    * Append `?ssl=true` to this if your PostgreSQL server is using SSL.
+This describes where to find the database. It should be something like
+`//<HOST>:<PORT>/<DATABASE>`, replacing `<HOST>` with the DB server's
+hostname, `<PORT>` with the port on which PostgreSQL is listening, and
+`<DATABASE>` with the name of the database.  Append `?ssl=true` to
+this if your PostgreSQL server is using SSL.
 
 ### `username`
 
