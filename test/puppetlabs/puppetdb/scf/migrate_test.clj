@@ -5,7 +5,7 @@
             [puppetlabs.puppetdb.scf.storage :as store]
             [puppetlabs.puppetdb.fixtures :refer [with-db-metadata *db*]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
-             :refer [db-serialize postgres?]]
+             :refer [db-serialize]]
             [cheshire.core :as json]
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.scf.migrate :refer :all]
@@ -256,27 +256,16 @@
                 (query-to-vec
                  "SELECT * FROM fact_values WHERE value_string = 'bar'")))))
       (testing "fact_paths enforces path uniqueness"
-        (if (postgres?)
-          (is (thrown? PSQLException
-                       (jdbc/insert! :fact_paths
-                                     {:path "foo-1" :name "foo-1" :depth 0})))
-          (is (thrown? SQLIntegrityConstraintViolationException
-                       (jdbc/insert! :fact_paths
-                                     {:path "foo-1" :name "foo-1" :depth 0})))))
+        (is (thrown? PSQLException
+                     (jdbc/insert! :fact_paths
+                                   {:path "foo-1" :name "foo-1" :depth 0}))))
       (testing "fact_values enforces value_hash uniqueness"
-        (if (postgres?)
-          (is (thrown?
-               PSQLException
-               (jdbc/insert! :fact_values
-                             {:value_type_id 0
-                              :value_hash (hash/generic-identity-hash "bar")
-                              :value_string "bar"})))
-          (is (thrown?
-               SQLIntegrityConstraintViolationException
-               (jdbc/insert! :fact_values
-                             {:value_type_id 0
-                              :value_hash (hash/generic-identity-hash "bar")
-                              :value_string "bar"}))))))))
+        (is (thrown?
+             PSQLException
+             (jdbc/insert! :fact_values
+                           {:value_type_id 0
+                            :value_hash (hash/generic-identity-hash "bar")
+                            :value_string "bar"})))))))
 
 (deftest migration-29
   (testing "should contain same reports before and after migration"
@@ -348,8 +337,7 @@
       (clear-db-for-testing!)
       (fast-forward-to-migration! 36)
 
-      (let [current-time (to-timestamp (now))
-            cast-to-jsonb (if (sutils/postgres?) "::jsonb" "")]
+      (let [current-time (to-timestamp (now))]
         (jdbc/insert! :report_statuses
                       {:status "testing1" :id 1})
         (jdbc/insert! :environments
@@ -390,10 +378,10 @@
                        :logs (sutils/munge-json-for-storage [{:bar "baz"}])})
 
         (jdbc/update! :certnames
-                      {:latest_report_id (if (postgres?) 1 0)}
+                      {:latest_report_id 1}
                       ["certname = ?" "testing1"])
         (jdbc/update! :certnames
-                      {:latest_report_id (if (postgres?) 2 1)}
+                      {:latest_report_id 2}
                       ["certname = ?" "testing2"])
 
         (apply-migration-for-testing! 37)
@@ -401,8 +389,8 @@
         (let [response
               (query-to-vec
                 (format "SELECT %s AS hash, r.certname, e.environment, rs.status,
-                         %s AS uuid, coalesce(metrics_json%s, metrics) as metrics,
-                         coalesce(logs_json%s, logs) as logs
+                         %s AS uuid, coalesce(metrics_json::jsonb, metrics) as metrics,
+                         coalesce(logs_json::jsonb, logs) as logs
                          FROM certnames c
                          INNER JOIN reports r ON c.latest_report_id=r.id
                          AND c.certname=r.certname
@@ -410,9 +398,7 @@
                          INNER JOIN report_statuses rs ON r.status_id=rs.id
                          ORDER BY c.certname"
                         (sutils/sql-hash-as-str "r.hash")
-                        (sutils/sql-uuid-as-str "r.transaction_uuid")
-                        cast-to-jsonb
-                        cast-to-jsonb))]
+                        (sutils/sql-uuid-as-str "r.transaction_uuid")))]
           ;; every node should with facts should be represented
           (is (= [{:metrics [{:foo "bar"}] :logs [{:bar "baz"}]
                    :hash "01" :environment "testing1" :certname "testing1" :status "testing1" :uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"}
@@ -466,7 +452,7 @@
     (jdbc/do-commands
      ;; Cleaned up in clear-db-for-testing!
      "CREATE SCHEMA pdbtestschema"
-     (format "SET SCHEMA %s" (if (postgres?) "'pdbtestschema'" "pdbtestschema")))
+     "SET SCHEMA 'pdbtestschema'")
     ((migrations 1))
     (record-migration! 1)
     (let [tables (sutils/sql-current-connection-table-names)]

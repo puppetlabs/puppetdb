@@ -85,9 +85,8 @@
             expected (get queries q)]
         (is (= (count expected) (count response-body)))
         (is (= (sort (map :certname expected)) (sort (map :certname response-body))))
-        (when (sutils/postgres?)
-          (is (= (extract-tags expected)
-                 (extract-tags (catalogs/catalogs-query->wire-v7 response-body))))))))
+        (is (= (extract-tags expected)
+               (extract-tags (catalogs/catalogs-query->wire-v7 response-body)))))))
 
   (testing "projection queries"
     (are [query expected]
@@ -103,12 +102,11 @@
 
          ["extract" ["edges"] ["=" "certname" "host2.localdomain"]]
          #{{:edges (merge {:href "/v4/catalogs/host2.localdomain/edges"}
-                          (when (sutils/postgres?)
-                            {:data [{:source_type "Apt::Pin"
-                                     :source_title "puppetlabs"
-                                     :target_type "File"
-                                     :target_title "/etc/apt/preferences.d/puppetlabs.pref"
-                                     :relationship "contains"}]}))}}
+                          {:data [{:source_type "Apt::Pin"
+                                   :source_title "puppetlabs"
+                                   :target_type "File"
+                                   :target_title "/etc/apt/preferences.d/puppetlabs.pref"
+                                   :relationship "contains"}]})}}
 
          ["extract" [["function" "count"] "environment"]
           ["~" "certname" ""]

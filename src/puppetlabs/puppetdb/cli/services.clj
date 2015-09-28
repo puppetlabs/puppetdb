@@ -191,10 +191,7 @@
 
 (defn initialize-schema
   "Ensure the database is migrated to the latest version, and warn if
-  it's deprecated, log and exit if it's unsupported. We do this in a
-  single connection because HSQLDB seems to get confused if the
-  database doesn't exist but we open and close a connection without
-  creating anything."
+  it's deprecated, log and exit if it's unsupported."
   [db-conn-pool config]
   (jdbc/with-db-connection db-conn-pool
     (scf-store/validate-database-version #(System/exit 1))

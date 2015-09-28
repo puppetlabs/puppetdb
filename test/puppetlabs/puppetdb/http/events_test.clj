@@ -507,7 +507,7 @@
                  ["~" "certname" "[]"]
                  #".*invalid regular expression: brackets.*not balanced")))
 
-(deftestseq ^{:hsqldb false} pg-invalid-regexps
+(deftestseq pg-invalid-regexps
   [[version endpoint] endpoints
    method  [:get :post]]
 

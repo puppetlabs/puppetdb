@@ -804,10 +804,12 @@
         (is (= (to-timestamp old-date) (to-timestamp timestamp)))))
 
     (testing "changing a resource title"
-      (let [{orig-id :id
-             orig-tx-id :transaction_uuid
-             orig-timestamp :timestamp}
-            (first (query-to-vec (format "SELECT id, timestamp, transaction_uuid%s from catalogs where certname=?" (if (sutils/postgres?) "::text" "")) certname))
+      (let [[{orig-id :id
+              orig-tx-id :transaction_uuid
+              orig-timestamp :timestamp}]
+            (query-to-vec (str "select id, timestamp, transaction_uuid::text"
+                               "  from catalogs where certname=?")
+                          certname)
             updated-catalog (walk/prewalk foobar->foobar2 (:basic catalogs))
             new-uuid (kitchensink/uuid)
             metrics-map performance-metrics]
@@ -849,9 +851,10 @@
                                    FROM catalogs c INNER JOIN catalog_resources cr ON c.id = cr.catalog_id
                                    WHERE c.certname=?" certname))))
 
-        (let [results (query-to-vec (format "SELECT id, timestamp, %s from catalogs where certname=?"
-                                            (sutils/sql-uuid-as-str "transaction_uuid"))
-                                    certname)
+        (let [results (query-to-vec
+                       (str "select id, timestamp, transaction_uuid::text"
+                            "  from catalogs where certname=?")
+                       certname)
               {new-timestamp :timestamp
                new-tx-id :transaction_uuid
                new-id :id} (first results)]
@@ -1440,7 +1443,6 @@
       "PostgreSQL" [9 4] nil)))
 
 (def not-supported-regex #"PostgreSQL DB versions older than 9.4 are no longer supported. Please upgrade Postgres and restart PuppetDB.")
-(def hsqldb-deprecated-regex #"HSQLDB support has been deprecated .*")
 
 (deftest test-unsupported-fail
   (testing "unsupported postgres version"
@@ -1463,18 +1465,6 @@
                    (validate-database-version #(reset! fail? true)))))
             (is (false? @fail?))
             (is (empty? @log))))))))
-
-(deftest test-db-deprecation
-  (let [fail? (atom false)]
-    (with-db-version "HSQLDB" [2 2]
-      (fn []
-        (pllog/with-log-output log
-          (is (str/blank?
-               (tu/with-err-str
-                 (validate-database-version #(reset! fail? true)))))
-          (is (false? @fail?))
-          (is (= 1 (count @log)))
-          (is (re-find hsqldb-deprecated-regex (last (first @log)))))))))
 
 (deftest test-catalog-schemas
   (is (= (:basic catalogs) (s/validate catalog-schema (:basic catalogs)))))

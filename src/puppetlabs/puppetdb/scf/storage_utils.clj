@@ -46,11 +46,6 @@
 (def db-metadata
   (delay (db-metadata-fn)))
 
-(pls/defn-validated postgres? :- s/Bool
-  "Returns true if currently connected to a Postgres DB instance"
-  []
-  (= (:database @db-metadata) "PostgreSQL"))
-
 (pls/defn-validated db-version? :- s/Bool
   "Returns true if the version list you pass matches the version of the current
    database."
@@ -93,7 +88,6 @@
   "Obtain the extensions installed and metadata about each extension for
    the current database."
   []
-  {:pre [(postgres?)]}
   (let [query "SELECT extname as name,
                       extversion as version,
                       extrelocatable as relocatable
@@ -105,7 +99,6 @@
 (pls/defn-validated pg-extension? :- s/Bool
   "Returns true if the named PostgreSQL extension is installed."
   [extension :- s/Str]
-  {:pre [(postgres?)]}
   (let [extensions (pg-installed-extensions)]
     (not= (get extensions extension) nil)))
 
@@ -115,7 +108,6 @@
      (index-exists? index "public"))
   ([index :- s/Str
     namespace :- s/Str]
-     {:pre [(postgres?)]}
      (let [query "SELECT c.relname
                     FROM   pg_index as idx
                     JOIN   pg_class as c ON c.oid = idx.indexrelid
@@ -134,110 +126,52 @@
        (into-array Object)
        (.createArrayOf (:connection (jdbc/db)) "varchar")))
 
-(defmulti sql-array-type-string
-  "Returns a string representing the correct way to declare an array
-  of the supplied base database type."
-  ;; Dispatch based on database from the metadata of DB connection at the time
-  ;; of call; this copes gracefully with multiple connection types.
-  (fn [_] (:database @db-metadata)))
-
-(defmulti sql-array-query-string
-  "Returns an SQL fragment representing a query for a single value being
-found in an array column in the database.
-
-  `(str \"SELECT ... WHERE \" (sql-array-query-string \"column_name\"))`
-
-The returned SQL fragment will contain *one* parameter placeholder, which
-must be supplied as the value to be matched."
-  (fn [column] (:database @db-metadata)))
-
-(defmulti legacy-sql-regexp-match
-  "Returns db-specific code for performing a regexp match"
-  (fn [_] (:database @db-metadata)))
-
-(defmethod legacy-sql-regexp-match "PostgreSQL"
+(defn legacy-sql-regexp-match
+  "Returns the SQL for performing a regexp match."
   [column]
   (format "(%s ~ ? AND %s IS NOT NULL)" column column))
 
-(defmethod legacy-sql-regexp-match "HSQL Database Engine"
-  [column]
-  (format "REGEXP_SUBSTRING(%s, ?) IS NOT NULL" column))
-
-(defmulti sql-regexp-match
-  "Returns db-specific code for performing a regexp match"
-  (fn [_] (:database @db-metadata)))
-
-(defmulti sql-regexp-array-match
-  "Returns db-specific code for performing a regexp match against the
-  contents of an array. If any of the array's items match the supplied
-  regexp, then that satisfies the match."
-  (fn [_ _ _] (:database @db-metadata)))
-
-(defmulti sql-as-numeric
-  "Returns appropriate db-specific code for converting the given column to a
-  number, or to NULL if it is not numeric."
-  (fn [_] (:database @db-metadata)))
-
-(defmethod sql-as-numeric "PostgreSQL"
+(defn sql-as-numeric
+  "Returns the SQL for converting the given column to a number, or to
+  NULL if it is not numeric."
   [column]
   (hcore/raw (format (str "CASE WHEN %s~E'^\\\\d+$' THEN %s::bigint "
                           "WHEN %s~E'^\\\\d+\\\\.\\\\d+$' THEN %s::float "
                           "ELSE NULL END")
                      column column column column)))
 
-(defmethod sql-as-numeric "HSQL Database Engine"
-  [column]
-  (hcore/raw (format (str "CASE WHEN REGEXP_MATCHES(%s, '^\\d+$') THEN CAST(%s AS BIGINT) "
-                          "WHEN REGEXP_MATCHES(%s, '^\\d+\\.\\d+$') THEN CAST(%s AS FLOAT) "
-                          "ELSE NULL END")
-                     column column column column)))
-
-(defmethod sql-array-type-string "PostgreSQL"
+(defn sql-array-type-string
+  "Returns the SQL to declare an array of the supplied base database
+  type."
   [basetype]
   (format "%s ARRAY[1]" basetype))
 
-(defmethod sql-array-type-string "HSQL Database Engine"
-  [basetype]
-  (format "%s ARRAY[%d]" basetype 65535))
+(defn sql-array-query-string
+  "Returns an SQL fragment representing a query for a single value
+  being found in an array column in the database.
 
-(defmethod sql-array-query-string "PostgreSQL"
+    (str \"SELECT ... WHERE \" (sql-array-query-string \"column_name\"))
+
+  The returned SQL fragment will contain *one* parameter placeholder,
+  which must be supplied as the value to be matched."
   [column]
   (hcore/raw
    (format "ARRAY[?::text] <@ %s" (name column))))
 
-(defmethod sql-array-query-string "HSQL Database Engine"
-  [column]
-  (hcore/raw
-   (format "? IN (UNNEST(%s))" (name column))))
-
-(defmethod sql-regexp-match "PostgreSQL"
+(defn sql-regexp-match
+  "Returns db code for performing a regexp match."
   [column]
   [:and
    [(keyword "~") column "?"]
    [:is-not column nil]])
 
-(defmethod sql-regexp-match "HSQL Database Engine"
-  [column]
-  [:is-not (h/regexp-substring column "?") nil])
-
-(defmethod sql-regexp-array-match "PostgreSQL"
+(defn sql-regexp-array-match
+  "Returns SQL for performing a regexp match against the contents of
+  an array. If any of the array's items match the supplied regexp,
+  then that satisfies the match."
   [orig-table _ column]
   (hcore/raw
    (format "EXISTS(SELECT 1 FROM UNNEST(%s) WHERE UNNEST ~ ?)" (name column))))
-
-(defmethod sql-regexp-array-match "HSQL Database Engine"
-  [orig-table query-table column]
-  ;; What evil have I wrought upon the land? Good gravy.
-  ;;
-  ;; This is entirely due to the fact that HSQLDB doesn't support the
-  ;; UNNEST operator referencing a column from an outer table. UNNEST
-  ;; *has* to come after the parent table in the FROM clause of a
-  ;; separate SQL statement.
-  (let [col (name column)]
-    (hcore/raw
-     (format (str "EXISTS(SELECT 1 FROM %s %s_copy, UNNEST(%s) AS T(the_tag) "
-                  "WHERE %s.%s=%s_copy.%s AND REGEXP_SUBSTRING(the_tag, ?) IS NOT NULL)")
-             orig-table orig-table col query-table col orig-table col))))
 
 (defn db-serialize
   "Serialize `value` into a form appropriate for querying against a
@@ -252,60 +186,34 @@ must be supplied as the value to be matched."
   {:pre [(string? table)
          (string? column)]}
   (jdbc/with-db-transaction []
-   (if (postgres?)
-     ;; PostgreSQL specific way
-     (do
-       (jdbc/do-commands (str "LOCK TABLE " table " IN ACCESS EXCLUSIVE MODE"))
-       (jdbc/query-with-resultset
-        [(str "SELECT setval(pg_get_serial_sequence(?, ?),
-                             (SELECT max(" column ") FROM " table "))")
-         table column]
-        (constantly nil)))
-
-     ;; HSQLDB specific way
-     (let [_ (jdbc/do-commands (str "LOCK TABLE " table " WRITE"))
-           maxid (jdbc/query-with-resultset
-                  [(str "SELECT max(" column ") as id FROM " table)]
-                  (comp :id first sql/result-set-seq))
-           ;; While postgres handles a nil case gracefully, hsqldb does not
-           ;; so here we return 1 if the maxid is nil, and otherwise return
-           ;; maxid +1 to indicate that the next number should be higher
-           ;; then the current one.
-           restartid (if (nil? maxid) 1 (inc maxid))]
-       (jdbc/do-commands (str "ALTER TABLE " table " ALTER COLUMN " column
-                              " RESTART WITH " restartid))))))
+    (jdbc/do-commands (str "LOCK TABLE " table " IN ACCESS EXCLUSIVE MODE"))
+    (jdbc/query-with-resultset
+     [(format
+       "select setval(pg_get_serial_sequence(?, ?), (select max(%s) from %s))"
+       column table)
+      table column]
+     (constantly nil))))
 
 (defn sql-hash-as-str
   [column]
-  (if (postgres?)
-    (format "trim(leading '\\x' from %s::text)" column)
-    column))
+  (format "trim(leading '\\x' from %s::text)" column))
 
 (defn sql-uuid-as-str
   [column]
-  (if (postgres?)
-    (format "%s::text" column)
-    column))
+  (format "%s::text" column))
 
 (defn parse-db-hash
   [db-hash]
-  (if (postgres?)
-    (clojure.string/replace (.getValue db-hash) "\\x" "")
-    db-hash))
+  (clojure.string/replace (.getValue db-hash) "\\x" ""))
 
 (defn parse-db-uuid
   [db-uuid]
-  (if (postgres?)
-    (.toString db-uuid)
-    db-uuid))
+  (.toString db-uuid))
 
 (pls/defn-validated parse-db-json
   "Produce a function for parsing an object stored as json."
   [db-json :- (s/maybe (s/either s/Str PGobject))]
-  (if-let [json (if (postgres?)
-                  (when db-json (.getValue db-json))
-                  db-json)]
-    (json/parse-string json true)))
+  (some-> db-json .getValue (json/parse-string true)))
 
 (pls/defn-validated str->pgobject :- PGobject
   [type :- s/Str
@@ -316,29 +224,21 @@ must be supplied as the value to be matched."
 
 (defn munge-uuid-for-storage
   [value]
-  (if (postgres?)
-    (str->pgobject "uuid" value)
-    value))
+  (str->pgobject "uuid" value))
 
 (defn munge-hash-for-storage
   [hash]
-  (if (postgres?)
-    (str->pgobject "bytea" (format "\\x%s" hash))
-    hash))
+  (str->pgobject "bytea" (format "\\x%s" hash)))
 
 (defn munge-json-for-storage
   "Prepare a clojure object for storage depending on db type."
   [value]
   (let [json-str (json/generate-string value)]
-    (if (postgres?)
-      (str->pgobject "json" json-str)
-      json-str)))
+    (str->pgobject "json" json-str)))
 
 (defn munge-jsonb-for-storage
   "Prepare a clojure object for storage depending on db type."
   [value]
   (let [json-str (json/generate-string value)]
-    (if (postgres?)
-      (str->pgobject "jsonb" json-str)
-      json-str)))
+    (str->pgobject "jsonb" json-str)))
 

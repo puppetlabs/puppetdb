@@ -21,7 +21,6 @@
                                                    paged-results
                                                    paged-results*
                                                    deftestseq
-                                                   create-hsqldb-map
                                                    parse-result]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
                                                         vector-param]]
@@ -249,7 +248,7 @@
                   ["~" "certname" "[]"]
                   #".*invalid regular expression: brackets.*not balanced")))
 
-(deftestseq ^{:hsqldb false} pg-invalid-regexps
+(deftestseq pg-invalid-regexps
   [[version endpoint] facts-endpoints
    method [:get :post]]
 
@@ -1058,25 +1057,16 @@
       (scf-store/deactivate-node! "foo4"))))
 
 (def db {:classname "org.postgresql.Driver"
-           :subprotocol "postgresql"
-           :subname "//localhost:5432/puppetdb"
-           :username "puppetdb"
-           :password "puppetdb"})
+         :subprotocol "postgresql"
+         :subname "//localhost:5432/puppetdb"
+         :username "puppetdb"
+         :password "puppetdb"})
 
 ;; FACTSETS TRANSFORMATION
 
-(defn strip-expanded
-  "Strips out expanded data from the query results if the database is HSQLDB"
-  [{:strs [facts] :as record}]
-  (if (sutils/postgres?)
-    (update-in record ["facts" "data"] set)
-    (assoc record "facts" (dissoc facts "data"))))
-
 (defn munge-factset-response
   [factset]
-  (if (sutils/postgres?)
-    (update-in factset ["facts" "data"] set)
-    factset))
+  (update-in factset ["facts" "data"] set))
 
 (defn munge-factsets-response
   [factsets]
@@ -1087,7 +1077,7 @@
 
 (defn factset-results
   [version]
-  (map (comp strip-expanded
+  (map (comp munge-factset-response
              #(utils/assoc-when % "timestamp" reference-time "producer_timestamp" reference-time))
        [{"facts" {"href" (str "/" (name version) "/factsets/foo1/facts")
                   "data" [{"name" "domain"
@@ -1255,7 +1245,7 @@
                                (partial query-response method endpoint))
                          queries)]
       (is (= (munge-factset-response (into {} (first responses)))
-             (strip-expanded
+             (munge-factset-response
               {"facts" {"href" (str "/" (name version) "/factsets/foo1/facts")
                         "data" [{"name" "domain"
                                  "value" "testing.com"}
@@ -1277,7 +1267,7 @@
                "certname" "foo1"
                "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"})))
       (is (= (munge-factsets-response (into [] (second responses)))
-             (map strip-expanded
+             (map munge-factset-response
                   [{"facts" {"href" (str "/" (name version) "/factsets/foo1/facts")
                              "data" [{"name" "my_structured_fact"
                                       "value"
@@ -1318,7 +1308,7 @@
                     "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}])))
 
       (is (= (munge-factsets-response (into [] (nth responses 2)))
-             (map strip-expanded
+             (map munge-factset-response
                   [{"facts" {"href" (str "/" (name version) "/factsets/foo2/facts")
                              "data" [{"name" "my_structured_fact"
                                       "value"
@@ -1337,7 +1327,7 @@
                     "certname" "foo2"
                     "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}])))
       (is (= (munge-factsets-response (into [] (nth responses 3)))
-             (map strip-expanded
+             (map munge-factset-response
                   [{"facts" {"href" (str "/" (name version) "/factsets/foo2/facts")
                              "data" [{"name" "my_structured_fact"
                                       "value"
@@ -1367,16 +1357,23 @@
   (testing "querying singleton endpoint should return a single result"
     (let [response (json/parse-string (:body (query-response method (str endpoint "/foo1"))))]
       (is (= (munge-factset-response response)
-             (strip-expanded {"certname" "foo1"
-                              "environment" "DEV"
-                              "facts" {"data" #{{"name" "my_structured_fact", "value" {"a" 1, "b" 3.14, "c" ["a" "b" "c"], "d" {"n" ""}, "e" "1", "f" nil}}
-                                                {"name" "domain", "value" "testing.com"}
-                                                {"name" "test#~delimiter", "value" "foo"}
-                                                {"name" "uptime_seconds", "value" "4000"}}
-                                       "href" "/v4/factsets/foo1/facts"}
-                              "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"
-                              "producer_timestamp" "2014-10-28T20:26:21.727Z"
-                              "timestamp" "2014-10-28T20:26:21.727Z"}))))))
+             (munge-factset-response
+              {"certname" "foo1"
+               "environment" "DEV"
+               "facts" {"data" #{{"name" "my_structured_fact",
+                                  "value" {"a" 1
+                                           "b" 3.14
+                                           "c" ["a" "b" "c"]
+                                           "d" {"n" ""}
+                                           "e" "1"
+                                           "f" nil}}
+                                 {"name" "domain", "value" "testing.com"}
+                                 {"name" "test#~delimiter" "value" "foo"}
+                                 {"name" "uptime_seconds" "value" "4000"}}
+                        "href" "/v4/factsets/foo1/facts"}
+               "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"
+               "producer_timestamp" "2014-10-28T20:26:21.727Z"
+               "timestamp" "2014-10-28T20:26:21.727Z"}))))))
 
 
 ;; STRUCTURED FACTS TESTS

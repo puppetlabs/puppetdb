@@ -54,7 +54,6 @@
                  ;; Database connectivity
                  [com.jolbox/bonecp "0.7.1.RELEASE" :exclusions [org.slf4j/slf4j-api]]
                  [org.clojure/java.jdbc "0.3.7"]
-                 [org.hsqldb/hsqldb "2.2.8"]
                  [org.postgresql/postgresql "9.2-1003-jdbc4"]
 
                  ;; MQ connectivity
@@ -85,17 +84,6 @@
                  [puppetlabs/http-client "0.4.4"]]
 
   :jvm-opts ~pdb-jvm-opts
-
-  ;;The below test-selectors is basically using the PUPPETDB_DBTYPE
-  ;;environment variable to be the test selector.  The selector below
-  ;;will always run a test, unless it has a meta value for that
-  ;;dbtype, and that value is falsey, such as
-  ;;(deftest ^{:postgres false} my-test-name...)
-
-  :test-selectors {:default (fn [test-var-meta]
-                              (let [dbtype (or (keyword (System/getenv "PUPPETDB_DBTYPE"))
-                                               :postgres)]
-                                (get test-var-meta dbtype true)))}
 
   :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
                  ["snapshots" "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]

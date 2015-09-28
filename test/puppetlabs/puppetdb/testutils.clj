@@ -20,15 +20,6 @@
 
 (def c-t "application/json")
 
-(defn create-hsqldb-map
-  "Returns a database connection map with a reference to a new in memory HyperSQL database"
-  []
-  {:classname "org.hsqldb.jdbcDriver"
-   :subprotocol "hsqldb"
-   :subname (str "mem:"
-                 (java.util.UUID/randomUUID)
-                 ";hsqldb.tx=mvcc;sql.syntax_pgs=true")})
-
 (def available-postgres-configs
   [{:classname "org.postgresql.Driver"
     :subprotocol "postgresql"
@@ -41,15 +32,7 @@
     :user (env :puppetdb2-dbuser "puppetdb")
     :password (env :puppetdb2-dbpassword "puppetdb")}])
 
-(def hsqldb-map (create-hsqldb-map))
-
-(def testing-db-type (env :puppetdb-dbtype "postgres"))
-
-(defn test-db
-  []
-  (if (= testing-db-type "postgres")
-    (first available-postgres-configs)
-    hsqldb-map))
+(defn test-db [] (first available-postgres-configs))
 
 (defn drop-table!
   "Drops a table from the database.  Expects to be called from within a db binding.
