@@ -31,7 +31,7 @@
 (deftest test-sanitize-report
   (testing "no action on valid reports"
     (let [test-data (:basic reports)]
-      (= (sanitize-report test-data) test-data))))
+      (= (sanitize-report (wire-v5->wire-v6 test-data)) test-data))))
 
 (defn underscore->dash-report-keys [m]
   (->> m

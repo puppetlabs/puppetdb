@@ -225,7 +225,6 @@
    is left over."
   [payload]
   (as-> payload $
-    (wire-v5->wire-v6 $)
     (pls/strip-unknown-keys report-wireformat-schema $)
     (update $ :resources sanitize-resources)))
 

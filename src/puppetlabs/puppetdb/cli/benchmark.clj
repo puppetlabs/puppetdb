@@ -139,14 +139,22 @@
   [stamp n]
   (time/plus stamp (time/seconds (rand-int n))))
 
+(defn update-report-resources [resources stamp]
+  (let [timestamp (jitter stamp 300)
+        update-timestamps-fn (fn [resources-or-events]
+                               (map #(assoc % "timestamp" timestamp)
+                                    resources-or-events))]
+    (->> resources
+         update-timestamps-fn
+         (map #(update % "events" update-timestamps-fn)))))
+
 (defn update-report
   "configuration_version, start_time and end_time should always change
    on subsequent report submittions, this changes those fields to avoid
    computing the same hash again (causing constraint errors in the DB)"
   [report uuid stamp]
   (-> report
-      (update "resource_events" (partial map #(assoc % "timestamp"
-                                                     (jitter stamp 300))))
+      (update "resources" update-report-resources stamp)
       (assoc "configuration_version" (kitchensink/uuid)
              "transaction_uuid" uuid
              "start_time" (time/minus stamp (time/seconds 10))
@@ -202,7 +210,7 @@
         factset (some-> factset
                         (update-factset rand-percentage stamp))]
     (when catalog (>!! command-send-ch [:catalog 6 catalog]))
-    (when report (>!! command-send-ch [:report 5 report]))
+    (when report (>!! command-send-ch [:report 6 report]))
     (when factset (>!! command-send-ch [:factset 4 factset]))
 
     (assoc state
