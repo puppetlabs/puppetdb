@@ -139,18 +139,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Reports Query -> Wire format conversions
 
-(defn remove-reports-metadata [resource-events]
-  (map #(dissoc %
-                :report :certname :containing_class :configuration_version
-                :run_start_time :run_end_time :report_receive_time :environment)
-       resource-events))
-
 (pls/defn-validated resource-events-query->wire-v5 :- [resource-event-v5-wireformat-schema]
   [resource-events :- resource-events-expanded-query-schema]
   (->> resource-events
        :data
-       remove-reports-metadata
-       (sort-by #(mapv % [:timestamp :resource_type :resource_title :property]))))
+       (map #(dissoc %
+                     :report :certname :containing_class :configuration_version
+                     :run_start_time :run_end_time :report_receive_time :environment))))
 
 (pls/defn-validated report-query->wire-v5 :- report-v5-wireformat-schema
   [report :- report-query-schema]
