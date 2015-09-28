@@ -36,6 +36,7 @@
 
 (def json-agg-row (comp h/json-agg h/row-to-json))
 (def supported-fns #{"sum" "avg" "min" "max" "count"})
+(defn jsonb-type [] (if (su/postgres?) :jsonb :text))
 
 (defn hsql-hash-as-str
   [column-keyword]
@@ -297,7 +298,9 @@
   []
   (map->Query {:projections {"logs" {:type :json
                                      :queryable? false
-                                     :field :reports.logs}
+                                     :field (h/coalesce :logs
+                                                        (h/scast :logs_json
+                                                                 (jsonb-type)))}
                              "hash" {:type :string
                                      :queryable? true
                                      :query-only? true
@@ -315,7 +318,10 @@
   []
   (map->Query {:projections {"metrics" {:type :json
                                         :queryable? false
-                                        :field :reports.metrics}
+                                        :field (h/coalesce :reports.metrics
+                                                           (h/scast
+                                                             :reports.metrics_json
+                                                             (jsonb-type)))}
                              "hash" {:type :string
                                      :queryable? true
                                      :query-only? true
@@ -359,12 +365,17 @@
       "metrics" {:type :json
                  :queryable? false
                  :field {:select [(h/row-to-json :t)]
-                         :from [[{:select [[:metrics :data] [(hsql-hash-as-str :hash) :href]]} :t]]}
+                         :from [[{:select
+                                  [[(h/coalesce :metrics
+                                                (h/scast :metrics_json (jsonb-type))) :data]
+                                           [(hsql-hash-as-str :hash) :href]]} :t]]}
                  :expandable? true}
       "logs" {:type :json
               :queryable? false
               :field {:select [(h/row-to-json :t)]
-                      :from [[{:select [[:logs :data] [(hsql-hash-as-str :hash) :href]]} :t]]}
+                      :from [[{:select [[(h/coalesce :logs
+                                                     (h/scast :logs_json (jsonb-type)))
+                                         :data] [(hsql-hash-as-str :hash) :href]]} :t]]}
               :expandable? true}
       "receive_time"    {:type :timestamp
                          :queryable? true
