@@ -40,7 +40,7 @@
       (do (log/infof "Importing report from archive entry '%s'" path)
           (command-fn :store-report
                       (:store_report command-versions)
-                      (reports/sanitize-report (utils/read-json-content tar-reader true))))
+                      (utils/read-json-content tar-reader true)))
       (file-pattern "facts")
       (do (log/infof "Importing facts from archive entry '%s'" path)
           (command-fn :replace-facts
