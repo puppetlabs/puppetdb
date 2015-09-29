@@ -13,7 +13,7 @@
 
 (use-fixtures :each with-test-db)
 
-(def distinct-resource-events (comp set query-resource-events))
+(def distinct-resource-events (comp set timestamps->str query-resource-events))
 
 (def versions [:v4])
 
@@ -57,12 +57,12 @@
 (deftest resource-event-queries
   (let [basic             (store-example-report! (:basic reports) (now))
         report-hash       (:hash basic)
-        basic-events      (get-in reports [:basic :resource_events])
+        basic-events      (get-in reports [:basic :resource_events :data])
         basic-events-map  (enumerated-resource-events-map basic-events)]
     (let [version :v4]
       (testing (str "resource event retrieval by report - version " version)
         (testing "should return the list of resource events for a given report hash"
-          (let [expected  (expected-resource-events version basic-events basic)
+          (let [expected  (expected-resource-events basic-events basic)
                 actual (distinct-resource-events version ["=" "report" report-hash])]
             (is (= actual expected)))))
 
@@ -70,7 +70,6 @@
         (testing "should return the list of resource events that occurred before a given time"
           (let [end-time  "2011-01-01T12:00:03-03:00"
                 expected    (expected-resource-events
-                             version
                              (kitchensink/select-values basic-events-map [0 2])
                              basic)
                 actual (distinct-resource-events version ["<" "timestamp" end-time])]
@@ -78,7 +77,6 @@
         (testing "should return the list of resource events that occurred after a given time"
           (let [start-time  "2011-01-01T12:00:01-03:00"
                 expected    (expected-resource-events
-                             version
                              (kitchensink/select-values basic-events-map [1 2])
                              basic)
                 actual (distinct-resource-events version [">" "timestamp" start-time])]
@@ -87,7 +85,6 @@
           (let [start-time  "2011-01-01T12:00:01-03:00"
                 end-time    "2011-01-01T12:00:03-03:00"
                 expected    (expected-resource-events
-                             version
                              (kitchensink/select-values basic-events-map [2])
                              basic)
                 actual (distinct-resource-events version ["and"
@@ -98,7 +95,6 @@
           (let [start-time  "2011-01-01T12:00:01-03:00"
                 end-time    "2011-01-01T12:00:03-03:00"
                 expected    (expected-resource-events
-                             version
                              (kitchensink/select-values basic-events-map [0 1 2])
                              basic)
                 actual (distinct-resource-events version ["and"
@@ -129,7 +125,6 @@
                  [:containing_class nil                                 [0 1]]]]
           (testing (format "equality query on field '%s'" field)
             (let [expected  (expected-resource-events
-                             version
                              (kitchensink/select-values basic-events-map matches)
                              basic)
                   query     ["=" (name field) value]
@@ -161,7 +156,6 @@
                  [:containing_class nil                                 [2]]]]
           (testing (format "'not' query on field '%s'" field)
             (let [expected  (expected-resource-events
-                             version
                              (kitchensink/select-values basic-events-map matches)
                              basic)
                   query     ["not" ["=" (name field) value]]
@@ -184,7 +178,6 @@
                  [:containing_class "[fF]oo"                [2]]]]
           (testing (format "regex query on field '%s'" field)
             (let [expected  (expected-resource-events
-                             version
                              (kitchensink/select-values basic-events-map matches)
                              basic)
                   query     ["~" (name field) value]
@@ -207,7 +200,6 @@
                  [:containing_class "[fF]oo"                [0 1]]]]
           (testing (format "negated regex query on field '%s'" field)
             (let [expected  (expected-resource-events
-                             version
                              (kitchensink/select-values basic-events-map matches)
                              basic)
                   query     ["not" ["~" (name field) value]]
@@ -230,7 +222,6 @@
                    [[[:file           "foo.pp"]
                      [:line           2]]               [0 2]]]]
             (let [expected    (expected-resource-events
-                               version
                                (kitchensink/select-values basic-events-map matches)
                                basic)
                   term-fn     (fn [[field value]] ["=" (name field) value])
@@ -256,7 +247,6 @@
                    [:line             1]]             [0]]
                  [[[:containing_class "Foo"]]         [2]]]]
           (let [expected    (expected-resource-events
-                             version
                              (kitchensink/select-values basic-events-map matches)
                              basic)
                 term-fn     (fn [[field value]] ["=" (name field) value])
@@ -285,7 +275,6 @@
                     ["=" "line" 1]]
                    ["=" "line" 2]]                         [0 2]]]]
           (let [expected  (expected-resource-events
-                           version
                            (kitchensink/select-values basic-events-map matches)
                            basic)
                 actual (distinct-resource-events version query)]
@@ -301,7 +290,6 @@
                    ["=" "status" "skipped"]
                    ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [0 2]]]]
           (let [expected  (expected-resource-events
-                           version
                            (kitchensink/select-values basic-events-map matches)
                            basic)
                 actual (distinct-resource-events version query)]
@@ -313,11 +301,11 @@
   (let [basic             (store-example-report! (:basic reports) (now))
         basic2            (store-example-report! (:basic2 reports) (now))
         report-hash       (:hash basic)
-        actual* (comp set (partial query-resource-events version))
+        actual* (comp set timestamps->str (partial query-resource-events version))
         expected* (fn [events-map event-ids report]
-                    (expected-resource-events version (kitchensink/select-values events-map event-ids) report))
-        basic-events-map  (enumerated-resource-events-map (:resource_events (:basic reports)))
-        basic2-events-map (enumerated-resource-events-map (:resource_events (:basic2 reports)))]
+                    (expected-resource-events (kitchensink/select-values events-map event-ids) report))
+        basic-events-map  (enumerated-resource-events-map (get-in reports [:basic :resource_events :data]))
+        basic2-events-map (enumerated-resource-events-map (get-in reports [:basic2 :resource_events :data]))]
 
     (are [query event-ids] (= (actual* query)
                               (expected* basic-events-map event-ids basic))
@@ -348,34 +336,34 @@
 (deftest latest-report-resource-event-queries
   (let [basic1        (store-example-report! (:basic reports) (now))
         report-hash1  (:hash basic1)
-        events1       (get-in reports [:basic :resource_events])
+        events1       (get-in reports [:basic :resource_events :data])
         events1-map   (enumerated-resource-events-map events1)
 
         basic2        (store-example-report! (:basic2 reports) (now))
         report2-hash  (:hash basic2)
-        events2       (get-in reports [:basic2 :resource_events])
+        events2       (get-in reports [:basic2 :resource_events :data])
         events2-map   (enumerated-resource-events-map events2)]
     (let [version :v4]
       (testing "retrieval of events for latest report only"
         (testing "applied to entire query"
-          (let [expected (expected-resource-events version events2 basic2)
+          (let [expected (expected-resource-events events2 basic2)
                 actual (distinct-resource-events version ["=" "latest_report?" true])]
             (is (= actual expected))))
         (testing "applied to subquery"
           (let [expected (expected-resource-events
-                            version(kitchensink/select-values events2-map [1 2]) basic2)
+                          (kitchensink/select-values events2-map [1 2]) basic2)
                 actual (distinct-resource-events version ["and" ["=" "resource_type" "File"]
                                                           ["=" "latest_report?" true]])]
             (is (= actual expected)))))
 
       (testing (str "retrieval of events prior to latest report " version)
         (testing "applied to entire query"
-          (let [expected  (expected-resource-events version events1 basic1)
+          (let [expected  (expected-resource-events events1 basic1)
                 actual (distinct-resource-events version ["=" "latest_report?" false])]
             (is (= actual expected))))
         (testing "applied to subquery"
           (let [expected  (expected-resource-events
-                            version (kitchensink/select-values events1-map [0 1]) basic1)
+                           (kitchensink/select-values events1-map [0 1]) basic1)
                 actual (distinct-resource-events version ["and"
                                                           ["=" "status" "success"]
                                                           ["=" "latest_report?" false]])]
@@ -383,9 +371,9 @@
 
       (testing "compound latest report"
         (let [results1 (expected-resource-events
-                         version (kitchensink/select-values events1-map [2]) basic1)
+                        (kitchensink/select-values events1-map [2]) basic1)
               results2 (expected-resource-events
-                         version (kitchensink/select-values events2-map [1 2]) basic2)
+                        (kitchensink/select-values events2-map [1 2]) basic2)
               expected (clojure.set/union results1 results2)
               actual (distinct-resource-events version ["or"
                                                         ["and" ["=" "status" "skipped"]
@@ -398,11 +386,11 @@
   (let [basic1        (store-example-report! (:basic reports) (now))
         basic3        (store-example-report! (:basic3 reports) (now))
         report-hash3  (:hash basic3)
-        events1       (get-in reports [:basic :resource_events])
-        events3       (get-in reports [:basic3 :resource_events])]
+        events1       (get-in reports [:basic :resource_events :data])
+        events3       (get-in reports [:basic3 :resource_events :data])]
     (let [version :v4]
       (testing "retrieval of events for distinct resources only"
-        (let [expected  (expected-resource-events version events3 basic3)
+        (let [expected  (expected-resource-events events3 basic3)
               actual (distinct-resource-events version ["=" "certname" "foo.local"]
                                                {:distinct_resources true
                                                 :distinct_start_time (to-timestamp 0)
@@ -411,7 +399,7 @@
           (is (= actual expected))))
 
       (testing "events should be contained within distinct resource timestamps"
-        (let [expected  (expected-resource-events version events1 basic1)
+        (let [expected  (expected-resource-events events1 basic1)
               actual (distinct-resource-events version ["=" "certname" "foo.local"]
                                                {:distinct_resources true
                                                 :distinct_start_time (to-timestamp 0)
@@ -432,7 +420,7 @@
 
 (deftest paging-results
   (let [basic4        (store-example-report! (:basic4 reports) (now))
-        events        (get-in reports [:basic4 :resource_events])
+        events        (get-in reports [:basic4 :resource_events :data])
         event-count   (count events)
         select-values #(select-values' (enumerated-resource-events-map events) %)]
     (let [version :v4]
@@ -455,7 +443,7 @@
                                            [:descending [2 1 0]]]]
             (testing order
               (let [expected (raw-expected-resource-events
-                               version (select-values expected-events) basic4)
+                              (select-values expected-events) basic4)
                     actual (query-resource-events version [">" "timestamp" 0]
                                                   {:order_by [[:line order]]})]
                 (is (= actual expected))))))
@@ -465,7 +453,7 @@
                                            [:descending [2 1 0]]]]
             (testing order
               (let [expected (raw-expected-resource-events
-                               version (select-values expected-events) basic4)
+                              (select-values expected-events) basic4)
                     actual (query-resource-events version [">" "timestamp" 0]
                                                   {:order_by [[:file order]]})]
                 (is (= actual expected))))))
@@ -475,7 +463,7 @@
                                            [:descending [2 1 0]]]]
             (testing order
               (let [expected (raw-expected-resource-events
-                               version (select-values expected-events) basic4)
+                              (select-values expected-events) basic4)
                     actual (query-resource-events version [">" "timestamp" 0] {:order_by [[:timestamp order]]})]
                 (is (= actual expected))))))
 
@@ -484,7 +472,7 @@
                                                                 [[:ascending :descending] [2 0 1]]]]
             (testing (format "status %s resource-title %s" status-order title-order)
               (let [expected (raw-expected-resource-events
-                               version (select-values expected-events) basic4)
+                              (select-values expected-events) basic4)
                     actual (query-resource-events version [">" "timestamp" 0] {:order_by [[:status status-order]
                                                                                           [:resource_title title-order]]})]
                 (is (= actual expected)))))))
@@ -501,7 +489,7 @@
           (testing order
             (doseq [[offset expected-events] expected-sequences]
               (let [expected (raw-expected-resource-events
-                               version (select-values expected-events) basic4)
+                              (select-values expected-events) basic4)
                     actual (query-resource-events version [">" "timestamp" 0] {:order_by [[:line order]]
                                                                                :offset offset})]
                 (is (= actual expected))))))))))
@@ -510,10 +498,10 @@
   (let [basic           (store-example-report! (:basic reports) (now))
         basic2          (store-example-report! (assoc (:basic2 reports)
                                                       :environment "PROD") (now))
-        basic-events    (get-in reports [:basic :resource_events])
-        basic-events2    (get-in reports [:basic2 :resource_events])]
+        basic-events    (get-in reports [:basic :resource_events :data])
+        basic-events2    (get-in reports [:basic2 :resource_events :data])]
     (testing "query for DEV reports"
-      (let [expected    (expected-resource-events :v4 basic-events basic)]
+      (let [expected    (expected-resource-events basic-events basic)]
         (doseq [query [["=" "environment" "DEV"]
                        ["not" ["=" "environment" "PROD"]]
                        ["~" "environment" "DE.*"]
@@ -522,7 +510,7 @@
           (is (every? #(= "DEV" (:environment %)) actual))
           (is (= actual expected)))))
     (testing "query for PROD reports"
-      (let [expected    (expected-resource-events :v4 basic-events2 basic2)]
+      (let [expected    (expected-resource-events basic-events2 basic2)]
         (doseq [query [["=" "environment" "PROD"]
                        ["not" ["=" "environment" "DEV"]]
                        ["~" "environment" "PR.*"]

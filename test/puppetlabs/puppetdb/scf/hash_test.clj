@@ -6,7 +6,7 @@
             [puppetlabs.puppetdb.examples :refer [catalogs]]
             [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.report.utils :as reputils]))
+            [puppetlabs.puppetdb.reports :as reports]))
 
 (deftest hash-computation
   (testing "generic-identity-*"
@@ -210,12 +210,15 @@
 
 (deftest report-dedupe
   (let [report (:basic reports)
-        report-hash (report-identity-hash report)]
+        report2-events (get-in reports [:basic2 :resource_events :data])
+        report2 (assoc-in report [:resource_events :data] report2-events)
+        report-hash (report-identity-hash (reports/report-query->wire-v6 report))]
     (testing "Reports with the same metadata but different events should have different hashes"
-      (is (= report-hash (report-identity-hash report)))
-      (is (not= report-hash (report-identity-hash (reputils/add-random-event-to-report report))))
-      (is (not= report-hash (report-identity-hash (reputils/mod-event-in-report report))))
-      (is (not= report-hash (report-identity-hash (reputils/remove-random-event-from-report report)))))
+      (is (not= report-hash
+                (report-identity-hash (reports/report-query->wire-v6 report2))))
+      (is (not= report-hash
+                (report-identity-hash (reports/report-query->wire-v6
+                                       (update report :resource_events rest))))))
 
     (testing "Reports with different metadata but the same events should have different hashes"
       (let [mod-report-fns [#(assoc % :certname (str (:certname %) "foo"))
