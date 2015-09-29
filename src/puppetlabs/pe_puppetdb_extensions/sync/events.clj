@@ -1,5 +1,5 @@
 (ns puppetlabs.pe-puppetdb-extensions.sync.events
-  (:require [puppetlabs.pe-puppetdb-extensions.semlog :refer [maplog]]
+  (:require [puppetlabs.structured-logging.core :refer [maplog]]
             [puppetlabs.kitchensink.core :as ks]
             [clj-time.core :as time :refer [now interval in-seconds]]
             [metrics.gauges :refer [gauge-fn]]
