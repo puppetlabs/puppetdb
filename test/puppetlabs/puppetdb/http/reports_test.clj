@@ -6,7 +6,6 @@
             [puppetlabs.puppetdb.query-eng :as qe]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.test :refer :all]
-            [clojure.walk :refer [keywordize-keys]]
             [flatland.ordered.map :as omap]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -25,89 +24,11 @@
                                                         ordered-query-result
                                                         vector-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
-                                                           munge-resource-events]]))
+                                                           munge-reports-for-comparison]]))
 
 (def endpoints [[:v4 "/v4/reports"]])
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
-
-;; TRANSFORMATIONS
-
-(defn strip-expanded
-  "Strips out expanded data from the wire format if the database is HSQLDB"
-  [report]
-  (if (sutils/postgres?)
-    report
-    (dissoc report :resource_events :metrics :logs)))
-
-(defn normalize-time
-  "Normalize start_time end_time, by coercing it, it forces the timezone to
-  become consistent during comparison."
-  [record]
-  (kitchensink/mapvals
-   to-string
-   [:start_time :end_time :producer_timestamp]
-   record))
-
-(defn munge-actual-report
-  [report]
-  (-> report
-      (update-in [:resource_events] (comp keywordize-keys munge-resource-events))
-      normalize-time
-      strip-expanded))
-
-(defn munge-expected-report
-  [report]
-  (-> report
-      (update-in [:resource_events] (comp keywordize-keys munge-resource-events))
-      normalize-time
-      strip-expanded))
-
-(defn munge-actual-reports
-  "Convert actual reports to a format ready for comparison"
-  [reports]
-  (map (comp munge-actual-report
-             reports/report-query->wire-v5
-             #(update-in % [:logs :data] keywordize-keys)
-             #(update-in % [:metrics :data] keywordize-keys))
-       reports))
-
-(defn munge-expected-reports
-  [reports]
-  (map munge-expected-report reports))
-
-(defn report-response
-  [report]
-  (kitchensink/mapvals
-   ;; the timestamps are already strings, but calling to-string on them forces
-   ;; them to be coerced to dates and then back to strings, which normalizes
-   ;; the timezone so that it will match the value returned form the db.
-   to-string
-   [:start_time :end_time :producer_timestamp]
-   ;; the response won't include individual events, so we need to pluck those
-   ;; out of the example report object before comparison
-   (-> report
-       (update-in [:resource_events] (comp keywordize-keys munge-resource-events))
-       (update-in [:metrics] keywordize-keys)
-       strip-expanded)))
-
-(defn reports-response
-  "Convert expected results to a comparable format"
-  [version reports]
-  (set (map report-response
-            reports)))
-
-(defn munge-report-for-comparison
-  [report]
-  (-> report
-      (update-in [:resource_events] (comp keywordize-keys munge-resource-events))
-      strip-expanded))
-
-(defn munge-reports-for-comparison
-  "Convert actual results for reports queries to wire format ready for comparison."
-  [reports]
-  (map munge-report-for-comparison
-       (reports/reports-query->wire-v5 reports)))
 
 ;; TESTS
 
@@ -132,7 +53,8 @@
                          munge-reports-for-comparison)]
           (is (every? #(= "DEV" (:environment %)) result))
           (is (every? #(= "unchanged" (:status %)) result))
-          (is (= (set result) (reports-response version [basic]))))))))
+          (is (= result
+                 (munge-reports-for-comparison [basic]))))))))
 
 (deftestseq query-with-projection
   [[version endpoint] endpoints
@@ -152,13 +74,13 @@
       (is (= (query-result method endpoint ["extract" "logs"
                                             ["=" "certname" (:certname basic)]])
              #{{:logs (merge {:href (utils/as-path "/v4/reports" report-hash "logs")}
-                             (when (sutils/postgres?) {:data (:logs basic)}))}})))
+                             (when (sutils/postgres?) {:data (get-in basic [:logs :data])}))}})))
 
     (testing "metrics projected"
       (is (= (query-result method endpoint ["extract" "metrics"
                                             ["=" "certname" (:certname basic)]])
              #{{:metrics (merge {:href (utils/as-path "/v4/reports" report-hash "metrics")}
-                                (when (sutils/postgres?) {:data (:metrics basic)}))}})))
+                                (when (sutils/postgres?) {:data (get-in basic [:metrics :data])}))}})))
 
     (testing "one projected column with a not"
       (is (= (query-result method endpoint ["extract" "hash"
@@ -203,7 +125,8 @@
         get-data (fn [hash field]
                    (query-result method (format "/v4/reports/%s/%s" hash field)))]
     (testing (format "%s endpoint returns the proper data" (name field))
-      (is (= (get-data report-hash (name field)) (-> basic field set))))))
+      (is (= (get-data report-hash (name field))
+             (-> basic field :data set))))))
 
 (deftestseq query-with-paging
   [[version endpoint] endpoints
@@ -225,9 +148,8 @@
                               :total   2
                               :include_total  count?})]
           (is (= 2 (count results)))
-          (is (= (reports-response version
-                                   [basic1 basic2])
-                 (set (munge-reports-for-comparison results)))))))))
+          (is (= (munge-reports-for-comparison [basic1 basic2])
+                 (munge-reports-for-comparison results))))))))
 
 (deftestseq reports-json-vs-jsonb
   [[version endpoint] endpoints
@@ -306,7 +228,7 @@
                                     ["=" "certname" "foo.local"]
                                     {:limit limit})
               actual  (count results)]
-          (is (= actual expected)))))
+          (is (= expected actual)))))
 
       (testing "numerical fields"
         (doseq [[order expected] [["asc" [report1 report2 report4 report3]]
@@ -318,9 +240,9 @@
                                                 (vector-param
                                                   method
                                                   [{"field" "report_format"
-                                                    "order" order}])}
-                                               munge-actual-reports)]
-              (is (= actual (munge-expected-reports expected)))))))
+                                                    "order" order}])})]
+              (is (= (munge-reports-for-comparison expected)
+                     (munge-reports-for-comparison actual)))))))
 
       (testing "alphabetical fields"
         (doseq [[order expected] [["asc"  [report1 report2 report3 report4]]
@@ -331,10 +253,9 @@
                                                {:order_by (vector-param
                                                             method
                                                             [{"field" "transaction_uuid"
-                                                              "order" order}])}
-                                               munge-actual-reports)]
-              (is (= (map :transaction_uuid actual)
-                     (map :transaction_uuid (munge-expected-reports expected))))))))
+                                                              "order" order}])})]
+              (is (= (map :transaction_uuid (munge-reports-for-comparison expected))
+                     (map :transaction_uuid (munge-reports-for-comparison actual))))))))
 
     (testing "timestamp fields"
       (doseq [[order expected] [["asc"  [report2 report3 report4 report1]]
@@ -343,9 +264,9 @@
           (let [actual (ordered-query-result method endpoint
                                              ["=" "certname" "foo.local"]
                                              {:order_by (vector-param method [{"field" "start_time"
-                                                                               "order" order}])}
-                                             munge-actual-reports)]
-            (is (= actual (munge-expected-reports expected)))))))
+                                                                               "order" order}])})]
+            (is (= (munge-reports-for-comparison expected)
+                   (munge-reports-for-comparison actual)))))))
 
     (testing "multiple fields"
       (doseq [[[puppet-version-order conf-version-order] expected]
@@ -358,9 +279,9 @@
                                               (vector-param method [{"field" "puppet_version"
                                                                      "order" puppet-version-order}
                                                                     {"field" "configuration_version"
-                                                                     "order" conf-version-order}])}
-                                             munge-actual-reports)]
-            (is (= actual (munge-expected-reports expected)))))))
+                                                                     "order" conf-version-order}])})]
+            (is (= (munge-reports-for-comparison expected)
+                   (munge-reports-for-comparison actual)))))))
 
     (testing "offset"
       (doseq [[order offset expected] [["asc" 0 [report1 report2 report4 report3]]
@@ -379,9 +300,9 @@
                                              {:order_by (vector-param
                                                           method [{"field" "report_format"
                                                                    "order" order}])
-                                              :offset offset}
-                                             munge-actual-reports)]
-            (is (= actual (munge-expected-reports expected)))))))))
+                                              :offset offset})]
+            (is (= (munge-reports-for-comparison expected)
+                   (munge-reports-for-comparison actual)))))))))
 
 (deftestseq invalid-queries
   [[version endpoint] endpoints
@@ -421,25 +342,30 @@
         (is (= 2 (count unchanged-reports)))
         (is (every? #(= "unchanged" (:status %)) unchanged-reports))
 
-        (is (= unchanged-reports (reports-response version [basic basic2])))
+        (is (= unchanged-reports
+               (munge-reports-for-comparison [basic basic2])))
 
         (is (= 1 (count changed-reports)))
-        (is (= changed-reports (reports-response version [basic3])))
+        (is (= changed-reports
+               (munge-reports-for-comparison [basic3])))
 
         (is (= 1 (count failed-reports)))
-        (is (= failed-reports (reports-response version [basic4])))))))
+        (is (= failed-reports
+               (munge-reports-for-comparison [basic4])))))))
 
 (deftestseq query-by-certname-with-environment
   [[version endpoint] endpoints
    method [:get :post]]
 
-  (let [basic (:basic reports)
-        _ (store-example-report! basic (now))]
-
+  (let [basic (:basic reports)]
+    (store-example-report! basic (now))
     (testing "should return all reports for a certname"
-      (let [result (query-result method "/v4/environments/DEV/reports" ["=" "certname" (:certname basic)] {} munge-reports-for-comparison)]
+      (let [result (query-result method
+                                 "/v4/environments/DEV/reports" ["=" "certname" (:certname basic)] {}
+                                 munge-reports-for-comparison)]
         (is (every? #(= "DEV" (:environment %)) result))
-        (is (= result (reports-response version [basic])))))
+        (is (= (munge-reports-for-comparison [basic])
+               result))))
 
     (testing "PROD environment"
       (is (=
@@ -469,13 +395,13 @@
                            {} munge-reports-for-comparison)]
 
     (is (= 1 (count v301)))
-    (is (= v301 (reports-response version [basic])))
+    (is (= v301 (munge-reports-for-comparison [basic])))
 
     (is (= 1 (count v360)))
-    (is (= v360 (reports-response version [basic2])))
+    (is (= v360 (munge-reports-for-comparison [basic2])))
 
     (is (= 2 (count v30x)))
-    (is (= v30x (reports-response version [basic basic3])))))
+    (is (= v30x (munge-reports-for-comparison [basic basic3])))))
 
 (deftestseq query-by-report-format
   [[version endpoint] endpoints
@@ -500,13 +426,13 @@
                                 {} munge-reports-for-comparison)]
 
     (is (= 1 (count v4-format)))
-    (is (= v4-format (reports-response version [basic])))
+    (is (= v4-format (munge-reports-for-comparison [basic])))
 
     (is (= 1 (count v5-format)))
-    (is (= v5-format (reports-response version [basic2])))
+    (is (= v5-format (munge-reports-for-comparison [basic2])))
 
     (is (= 2 (count v6-format)))
-    (is (= v6-format (reports-response version [basic2 basic3])))))
+    (is (= v6-format (munge-reports-for-comparison [basic2 basic3])))))
 
 (deftestseq query-by-configuration-version
   [[version endpoint] endpoints
@@ -524,11 +450,11 @@
 
     (is (= 1 (count basic-result-body)))
     (is (= basic-result-body
-           (reports-response version [basic])))
+           (munge-reports-for-comparison [basic])))
 
     (is (= 2 (count basic2-result-body)))
     (is (= basic2-result-body
-           (reports-response version [basic basic2])))))
+           (munge-reports-for-comparison [basic basic2])))))
 
 (deftestseq query-by-start-and-end-time
   [[version endpoint] endpoints
@@ -553,16 +479,16 @@
                                     {} munge-reports-for-comparison)]
 
     (is (= 1 (count basic-result)))
-    (is (= basic-result (reports-response version [basic])))
+    (is (= basic-result (munge-reports-for-comparison [basic])))
 
     (is (= 1 (count basic-range)))
-    (is (= basic-range (reports-response version [basic])))
+    (is (= basic-range (munge-reports-for-comparison [basic])))
 
     (is (= 1 (count basic2-result)))
-    (is (= basic2-result (reports-response version [basic2])))
+    (is (= basic2-result (munge-reports-for-comparison [basic2])))
 
     (is (= 2 (count all-reports)))
-    (is (= all-reports (reports-response version [basic basic2])))))
+    (is (= all-reports (munge-reports-for-comparison [basic basic2])))))
 
 (defn ts->str [ts]
   (tfmt/unparse (tfmt/formatters :date-time) (tcoerce/to-date-time ts)))
@@ -578,7 +504,7 @@
                                    {} munge-reports-for-comparison)]
 
     (is (= 1 (count basic-result)))
-    (is (= basic-result (reports-response version [basic])))))
+    (is (= basic-result (munge-reports-for-comparison [basic])))))
 
 (deftestseq query-by-transaction-uuid
   [[version endpoint] endpoints
@@ -596,10 +522,10 @@
                                   {} munge-reports-for-comparison)]
 
     (is (= 1 (count basic-result)))
-    (is (= basic-result (reports-response version [basic])))
+    (is (= basic-result (munge-reports-for-comparison [basic])))
 
     (is (= 2 (count all-results)))
-    (is (= all-results (reports-response version [basic basic2])))))
+    (is (= all-results (munge-reports-for-comparison [basic basic2])))))
 
 (deftestseq latest-report-queries
   [[version endpoint] endpoints
@@ -617,20 +543,20 @@
                               {} munge-reports-for-comparison)]
 
     (is (= 1 (count latest)))
-    (is (= latest (reports-response version [basic2])))
+    (is (= latest (munge-reports-for-comparison [basic2])))
 
     (is (= 0 (count latest2)))
-    (is (= latest2 (reports-response version [])))
+    (is (= latest2 (munge-reports-for-comparison [])))
 
     (is (= 1 (count latest3)))
-    (is (= latest3 (reports-response version [basic2])))
+    (is (= latest3 (munge-reports-for-comparison [basic2])))
 
     (let [basic4 (assoc (:basic4 reports) :certname "bar.local")
           _ (store-example-report! basic4 (now))
           latest4 (query-result method endpoint ["=" "latest_report?" true]
                                 {} munge-reports-for-comparison)]
       (is (= 2 (count latest4)))
-      (is (= latest4 (reports-response version [basic2 basic4]))))))
+      (is (= latest4 (munge-reports-for-comparison [basic2 basic4]))))))
 
 (deftestseq query-by-hash
   [[version endpoint] endpoints
@@ -644,7 +570,7 @@
                                    {} munge-reports-for-comparison)]
 
     (is (= 1 (count basic-result)))
-    (is (= basic-result (reports-response version [basic])))))
+    (is (= basic-result (munge-reports-for-comparison [basic])))))
 
 (def invalid-projection-queries
   (omap/ordered-map

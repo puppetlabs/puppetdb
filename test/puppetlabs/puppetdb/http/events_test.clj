@@ -3,7 +3,7 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [cheshire.core :as json]
-            [puppetlabs.puppetdb.testutils.events :refer [http-expected-resource-events]]
+            [puppetlabs.puppetdb.testutils.events :refer [expected-resource-events]]
             [flatland.ordered.map :as omap]
             [puppetlabs.puppetdb.examples :refer [catalogs]]
             [clj-time.core :refer [ago now seconds]]
@@ -71,7 +71,7 @@
 
   (let [basic-report (:basic reports)
         basic (store-example-report! basic-report (now))
-        basic-events (:resource_events basic-report)
+        basic-events (get-in basic-report [:resource_events :data])
         basic-events-map (enumerated-resource-events-map basic-events)
         report-hash (:hash basic)]
 
@@ -80,7 +80,7 @@
     (testing "should return the list of resource events for a given report hash"
       (let [response (query-result method endpoint ["=" "report" report-hash]
                                    {} munge-event-values)
-            expected (http-expected-resource-events version basic-events basic)]
+            expected (expected-resource-events basic-events basic)]
         (is (= response expected))))
 
     ;; NOTE: more exhaustive testing for these queries can be found in
@@ -92,8 +92,7 @@
         (testing "should support single term timestamp queries"
           (let [response (query-result method endpoint ["<" "timestamp" end_time]
                                        {} munge-event-values)
-                expected (http-expected-resource-events
-                          version
+                expected (expected-resource-events
                           (kitchensink/select-values basic-events-map [0 2])
                           basic)]
             (is (= response expected))))
@@ -102,8 +101,7 @@
           (let [response (query-result method endpoint ["and" [">" "timestamp" start_time]
                                                         ["<" "timestamp" end_time]]
                                        {} munge-event-values)
-                expected (http-expected-resource-events
-                          version
+                expected (expected-resource-events
                           (kitchensink/select-values basic-events-map [2])
                           basic)]
             (is (= response expected))))))
@@ -129,8 +127,7 @@
                  ["=" "status" "skipped"]
                  ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [0 2]]]]
         (let [response (query-result method endpoint query {} munge-event-values)
-              expected (http-expected-resource-events
-                         version
+              expected (expected-resource-events
                          (kitchensink/select-values basic-events-map matches)
                          basic)]
           (is (= response expected)))))
@@ -182,15 +179,14 @@
                         :include_total  count?
                         :params  {:order_by (json/generate-string [{"field" "status"}])}})]
           (is (= (count basic-events) (count results)))
-          (is (= (http-expected-resource-events
-                  version
+          (is (= (expected-resource-events
                   basic-events
                   basic)
                  (set (munge-event-values results)))))))
 
     (testing "order_by field names"
       (testing "should accept underscores"
-        (let [expected (http-expected-resource-events version basic-events basic)
+        (let [expected (expected-resource-events basic-events basic)
               {:keys [status body]} (query-response
                                       method endpoint [">" "timestamp" 0]
                                       {:order_by (vector-param method [{:field "resource_title"}])})]
@@ -210,10 +206,10 @@
    method [:get :post]]
 
   (let [basic             (store-example-report! (:basic reports) (now))
-        basic-events      (get-in reports [:basic :resource_events])
+        basic-events      (get-in reports [:basic :resource_events :data])
 
         basic3            (store-example-report! (:basic3 reports) (now))
-        basic3-events     (get-in reports [:basic3 :resource_events])]
+        basic3-events     (get-in reports [:basic3 :resource_events :data])]
 
     (testing "should return an error if the caller passes :distinct_resources without timestamps"
       (let [response (query-response method endpoint ["=" "certname" "foo.local"]
@@ -247,7 +243,7 @@
              body))))
 
     (testing "should return only one event for a given resource"
-      (let [expected (http-expected-resource-events version basic3-events basic3)
+      (let [expected (expected-resource-events basic3-events basic3)
             response  (query-result method endpoint ["=" "certname" "foo.local"]
                                     {:distinct_resources true
                                      :distinct_start_time 0
@@ -256,7 +252,7 @@
         (is (= response expected))))
 
     (testing "distinct params should work with include_total"
-      (let [expected  (http-expected-resource-events version basic3-events basic3)
+      (let [expected  (expected-resource-events basic3-events basic3)
             response  (query-result method endpoint ["=" "certname" "foo.local"]
                                     {:distinct_resources true
                                      :distinct_start_time 0
@@ -266,7 +262,7 @@
         (is (= response expected))))
 
     (testing "events should be contained within distinct resource timestamps"
-      (let [expected  (http-expected-resource-events version basic-events basic)
+      (let [expected  (expected-resource-events basic-events basic)
             response  (query-result method endpoint ["=" "certname" "foo.local"]
                                     {:distinct_resources true
                                      :distinct_start_time 0
@@ -290,28 +286,28 @@
    method [:get :post]]
 
   (let [basic (store-example-report! (:basic reports) (now))
-        basic-events (get-in reports [:basic :resource_events])
+        basic-events (get-in reports [:basic :resource_events :data])
 
         basic3 (store-example-report! (:basic3 reports) (now))
-        basic3-events (get-in reports [:basic3 :resource_events])]
+        basic3-events (get-in reports [:basic3 :resource_events :data])]
 
     (testing "query by report start time"
-      (let [expected  (http-expected-resource-events version basic-events basic)
+      (let [expected  (expected-resource-events basic-events basic)
             response  (query-result method endpoint
                                     ["<" "run_start_time" "2011-01-02T00:00:00-03:00"]
                                     {} munge-event-values)]
         (is (= response expected))))
 
     (testing "query by report end time"
-      (let [expected  (http-expected-resource-events version basic3-events basic3)
+      (let [expected  (expected-resource-events basic3-events basic3)
             response  (query-result method endpoint
                                     [">" "run_end_time" "2011-01-02T00:00:00-03:00"]
                                     {} munge-event-values)]
         (is (= response expected))))
 
     (testing "query without a query parameter"
-      (let [expected  (clj-set/union (http-expected-resource-events version basic3-events basic3)
-                                     (http-expected-resource-events version basic-events basic))
+      (let [expected  (clj-set/union (expected-resource-events basic3-events basic3)
+                                     (expected-resource-events basic-events basic))
             response  (query-result method endpoint nil {} munge-event-values)]
         (is (= response expected))))
 
@@ -329,9 +325,9 @@
 
   (let [test-start-time (-> 1 seconds ago)
         basic           (store-example-report! (:basic reports) (now))
-        basic-events    (get-in reports [:basic :resource_events])]
+        basic-events    (get-in reports [:basic :resource_events :data])]
     (testing "query by report receive time"
-      (let [expected  (http-expected-resource-events version basic-events basic)
+      (let [expected  (expected-resource-events basic-events basic)
             response  (query-result method endpoint
                                     [">" "report_receive_time" (to-string test-start-time)]
                                     {} munge-event-values)]

@@ -2,6 +2,7 @@
   (:require [clj-time.coerce :as time-coerce]
             [clj-time.core :as time]
             [clojure.string :as str]
+            [clojure.walk :refer [keywordize-keys stringify-keys]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.catalogs :as catalogs]
@@ -12,7 +13,8 @@
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.catalogs :as tuc]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils]))
+            [puppetlabs.puppetdb.testutils.services :as svc-utils]
+            [clojure.walk :as walk]))
 
 (defn get-child [href]
   (svc-utils/get-json (svc-utils/pdb-query-url)
@@ -39,7 +41,8 @@
   (-> (svc-utils/pdb-query-url)
       (svc-utils/get-reports certname)
       (get-children [:metrics :logs :resource_events])
-      reports/reports-query->wire-v5
+      tur/munge-reports
+      reports/reports-query->wire-v6
       vec))
 
 (defn get-factsets [certname]
@@ -70,12 +73,15 @@
   (-> examples-reports/reports
       :basic
       (assoc :certname example-certname)
-      tur/munge-example-report-for-storage))
+      tur/munge-report
+      reports/report-query->wire-v6))
 
 (defn munge-tar-map
   [tar-map]
   (-> tar-map
       (dissoc "export-metadata.json")
       (update "facts" tuf/munge-facts)
-      (update "reports" tur/munge-report)
+      (update "reports" (comp stringify-keys
+                              tur/munge-report
+                              keywordize-keys))
       (update "catalogs" tuc/munge-catalog)))

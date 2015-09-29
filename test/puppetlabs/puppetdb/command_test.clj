@@ -18,7 +18,6 @@
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.examples :refer :all]
-            [puppetlabs.puppetdb.testutils.reports :refer [munge-example-report-for-storage]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [clj-time.coerce
@@ -1207,7 +1206,7 @@
 (def v5-report
   (-> (:basic report-examples/reports)
       (assoc :environment "DEV")
-      munge-example-report-for-storage))
+      reports/report-query->wire-v5))
 
 (def v4-report
   (-> v5-report

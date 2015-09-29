@@ -24,7 +24,7 @@
   ;;  version of the `catalog` endpoint... or even to query what the latest
   ;;  version of a command is.  We should improve that.
   {:replace_catalog 6
-   :store_report 5
+   :store_report 6
    :replace_facts 4})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -90,7 +90,7 @@
               :query->wire-fn catalogs/catalogs-query->wire-v6
               :anonymize-fn anon/anonymize-catalog}
    :reports {:child-fields [:metrics :logs :resource_events]
-             :query->wire-fn reports/reports-query->wire-v5
+             :query->wire-fn reports/reports-query->wire-v6
              :anonymize-fn anon/anonymize-report}
    :factsets {:child-fields [:facts]
               :query->wire-fn factsets/factsets-query->wire-v4
