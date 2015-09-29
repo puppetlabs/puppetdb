@@ -4,7 +4,7 @@
             [clojure.tools.logging :as log]
             [overtone.at-at :as atat]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.pe-puppetdb-extensions.semlog :as semlog :refer [maplog]]
+            [puppetlabs.structured-logging.core :refer [maplog]]
             [puppetlabs.puppetdb.time :refer [to-millis periods-equal? parse-period period?]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote! with-trailing-slash]]
@@ -46,7 +46,7 @@
          (catch Exception ex
            (let [err "Remote sync from %s failed"
                  url (:url remote-server)]
-             (semlog/maplog [:sync :error] ex
+             (maplog [:sync :error] ex
                             {:remote url :phase "sync"}
                             (format err url))
              (log/error ex err url)
@@ -54,7 +54,7 @@
          (finally (swap! currently-syncing (constantly false))))
     (let [err "Refusing to sync from %s. Sync already in progress."
           url (:url remote-server)]
-      (semlog/maplog [:sync :info]
+      (maplog [:sync :info]
                      {:remote url :phase "sync"}
                      (format err url))
       (log/infof err url)

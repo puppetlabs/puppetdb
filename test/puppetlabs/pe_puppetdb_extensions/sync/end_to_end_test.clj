@@ -259,8 +259,8 @@
   (with-pdbs (default-pdb-configs 2)
     (fn [pdb1 pdb2]
       (let [events (let [log (atom [])]
-                     (with-log-level ":sync" :debug
-                       (with-logging-to-atom ":sync" log
+                     (with-log-level "sync" :debug
+                       (with-logging-to-atom "sync" log
                          (let [certname (:certname catalog)]
                            ;; Submit a normal sequence of commands
                            (with-alt-mq (:mq-name pdb1)
@@ -312,8 +312,8 @@
       (let [events
             ;; Force a transfer error while syncing a factset.
             (let [log (atom [])]
-              (with-log-level ":sync" :debug
-                (with-logging-to-atom ":sync" log
+              (with-log-level "sync" :debug
+                (with-logging-to-atom "sync" log
                   (let [certname (:certname catalog)]
                     (with-alt-mq (:mq-name pdb1)
                       (submit-factset pdb1 facts))

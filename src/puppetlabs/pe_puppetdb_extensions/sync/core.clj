@@ -12,7 +12,7 @@
             [clj-time.format :as tf]
             [clojure.tools.logging :as log]
             [slingshot.slingshot :refer [try+ throw+]]
-            [puppetlabs.pe-puppetdb-extensions.semlog :refer [maplog]]
+            [puppetlabs.structured-logging.core :refer [maplog]]
             [puppetlabs.pe-puppetdb-extensions.sync.events :as events
              :refer [with-sync-events]]
             [puppetlabs.puppetdb.scf.storage
