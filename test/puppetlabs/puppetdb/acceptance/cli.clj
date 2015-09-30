@@ -25,13 +25,12 @@
          (is (empty? (get-nodes)))
 
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 6 example-catalog)
-         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 5 example-report)
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 6 example-report)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace facts" 4 example-facts)
 
          (is (= (tuc/munge-catalog example-catalog)
                 (tuc/munge-catalog (get-catalogs example-certname))))
-         (is (= (tur/munge-report example-report)
-                (tur/munge-report (get-reports example-certname))))
+         (is (= [example-report] (get-reports example-certname)))
          (is (= (tuf/munge-facts example-facts)
                 (tuf/munge-facts (get-factsets example-certname))))
 
@@ -75,13 +74,12 @@
          (is (empty? (get-nodes)))
 
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 6 example-catalog)
-         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 5 example-report)
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 6 example-report)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace facts" 4 example-facts)
 
          (is (= (tuc/munge-catalog example-catalog)
                 (tuc/munge-catalog (get-catalogs example-certname))))
-         (is (= (tur/munge-report example-report)
-                (tur/munge-report (get-reports example-certname))))
+         (is (= [example-report] (get-reports example-certname)))
          (is (= (tuf/munge-facts example-facts)
                 (tuf/munge-facts (get-factsets example-certname))))
 
@@ -125,13 +123,12 @@
          (is (empty? (get-nodes)))
 
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 6 example-catalog)
-         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 5 example-report)
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 6 example-report)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace facts" 4 example-facts)
 
          (is (= (tuc/munge-catalog example-catalog)
                 (tuc/munge-catalog (get-catalogs example-certname))))
-         (is (= (tur/munge-report example-report)
-                (tur/munge-report (get-reports example-certname))))
+         (is (= [example-report] (get-reports example-certname)))
          (is (= (tuf/munge-facts example-facts)
                 (tuf/munge-facts (get-factsets example-certname))))
 

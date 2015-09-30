@@ -209,25 +209,6 @@
 (defn reports-query->wire-v6 [reports]
   (map report-query->wire-v6 reports))
 
-(pls/defn-validated sanitize-events :- [event-wireformat-schema]
-  [events]
-  (for [event events]
-    (pls/strip-unknown-keys event-wireformat-schema event)))
-
-(pls/defn-validated sanitize-resources :- [resource-wireformat-schema]
-  [resources]
-  (for [resource resources]
-    (-> (pls/strip-unknown-keys resource-wireformat-schema resource)
-        (update :events sanitize-events))))
-
-(pls/defn-validated sanitize-report :- report-wireformat-schema
-  "This function takes a report and sanitizes it, ensuring only valid data
-   is left over."
-  [payload]
-  (as-> payload $
-    (pls/strip-unknown-keys report-wireformat-schema $)
-    (update $ :resources sanitize-resources)))
-
 (defn- resource->skipped-resource-events
   "Fabricate a skipped resource-event"
   [resource]

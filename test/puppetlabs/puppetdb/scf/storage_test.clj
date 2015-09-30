@@ -1304,7 +1304,7 @@
 (let [timestamp (now)
       {:keys [certname] :as report} (:basic reports)
       report-hash (-> report
-                      report/wire-v5->wire-v6
+                      report/report-query->wire-v6
                       normalize-report
                       shash/report-identity-hash)]
 
@@ -1358,7 +1358,7 @@
     (testing "should store reports"
       (let [env-id (ensure-environment "DEV")]
 
-        (store-example-report! (assoc report :resource_events []) timestamp)
+        (store-example-report! (assoc-in report [:resource_events :data] []) timestamp)
 
         (is (= (query-to-vec ["SELECT certname FROM reports"])
                [{:certname (:certname report)}]))
@@ -1391,33 +1391,32 @@
 
   (deftest report-cleanup
     (testing "should delete reports older than the specified age"
-      (let [report1       (assoc report
-                                 :end_time (to-string (-> 5 days ago))
-                                 :producer_timestamp (to-string (-> 5 days ago)))
-            report1-hash  (:hash (store-example-report! report1 timestamp))
-            report2       (assoc report
-                                 :end_time (to-string (-> 2 days ago))
-                                 :producer_timestamp (to-string (-> 2 days ago)))
-            report2-hash  (:hash (store-example-report! report2 timestamp))
-            certname      (:certname report1)
-            _             (delete-reports-older-than! (-> 3 days ago))
-            expected      (map #(dissoc % :resource_events :metrics :logs)
-                               (expected-reports [(assoc report2 :hash report2-hash)]))
-            actual        (->> (reports-query-result :v4 ["=" "certname" certname])
-                               (map #(dissoc % :resource_events :metrics :logs)))]
-        (is (= expected actual)))))
+      (let [report1 (assoc report
+                           :certname "foo"
+                           :end_time (to-string (-> 5 days ago))
+                           :producer_timestamp (to-string (-> 5 days ago)))
+            report2 (assoc report
+                           :certname "bar"
+                           :end_time (to-string (-> 2 days ago))
+                           :producer_timestamp (to-string (-> 2 days ago)))]
+
+        (store-example-report! report1 timestamp)
+        (store-example-report! report2 timestamp)
+        (delete-reports-older-than! (-> 3 days ago))
+
+        (is (= (query-to-vec ["SELECT certname FROM reports"])
+               [{:certname "bar"}])))))
 
   (deftest resource-events-cleanup
     (testing "should delete all events for reports older than the specified age"
-      (let [report1       (assoc report :end_time (to-string (-> 5 days ago)))
-            report1-hash  (:hash (store-example-report! report1 timestamp))
-            report2       (assoc report :end_time (to-string (-> 2 days ago)))
-            report2-hash  (:hash (store-example-report! report2 timestamp))
-            certname      (:certname report1)
-            _             (delete-reports-older-than! (-> 3 days ago))
-            expected      #{}
-            actual (set (query-resource-events :latest ["=" "report" report1-hash] {}))]
-        (is (= expected actual))))))
+      (let [report1 (assoc report :end_time (to-string (-> 5 days ago)))
+            report1-hash (:hash (store-example-report! report1 timestamp))
+            report2 (assoc report :end_time (to-string (-> 2 days ago)))]
+
+        (store-example-report! report2 timestamp)
+        (delete-reports-older-than! (-> 3 days ago))
+        (is (= #{}
+               (set (query-resource-events :latest ["=" "report" report1-hash] {}))))))))
 
 (defn with-db-version [db version f]
   (with-redefs [sutils/db-metadata (delay {:database db
