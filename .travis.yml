@@ -14,5 +14,3 @@ notifications:
 addons:
   postgresql: "9.4"
 services: postgresql
-before_install:
-  - rvm use 1.9.3
