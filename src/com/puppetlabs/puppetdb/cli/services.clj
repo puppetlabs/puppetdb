@@ -319,7 +319,7 @@
                                              command-mq-connection-string
                                              mq-endpoint
                                              discard-dir
-                                             {:db                     write-db
+                                             {:db write-db
                                               :catalog-hash-debug-dir (:catalog-hash-debug-dir global)})
                                            error-shutdown!)))))
           context (assoc context :command-procs command-procs)

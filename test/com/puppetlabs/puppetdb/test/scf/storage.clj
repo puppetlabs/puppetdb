@@ -60,6 +60,40 @@
     (zipmap (map :name result-set)
             (map :value result-set))))
 
+(deftest large-fact-update
+  (testing "updating lots of facts"
+    (let [certname "scale.com"
+          facts1 (zipmap (take 10000 (repeatedly #(random/random-string 10)))
+                         (take 10000 (repeatedly #(random/random-string 10))))
+          timestamp1 (-> 2 days ago)
+          facts2 (zipmap (take 11000 (repeatedly #(random/random-string 10)))
+                         (take 11000 (repeatedly #(random/random-string 10))))
+          timestamp2 (-> 1 days ago)]
+      (add-certname! certname)
+      (add-facts! {:name certname
+                   :values facts1
+                   :timestamp timestamp1
+                   :environment nil
+                   :producer-timestamp nil})
+
+      (testing "10000 facts stored"
+        (is (= 10000
+               (->> (query-to-vec "SELECT count(*) as c from fact_values")
+                    first
+                    :c))))
+
+      (update-facts! {:name certname
+                      :values facts2
+                      :timestamp timestamp2
+                      :environment nil
+                      :producer-timestamp nil})
+
+      (testing "11000 facts stored"
+        (is (= 11000
+               (->> (query-to-vec "SELECT count(*) as c from fact_values")
+                    first
+                    :c)))))))
+
 (deftest fact-persistence
   (testing "Persisted facts"
     (let [certname "some_certname"
