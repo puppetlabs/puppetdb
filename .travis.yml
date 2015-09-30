@@ -1,16 +1,31 @@
 language: clojure
+
 lein: lein2
+
+jdk:
+  - openjdk7
+  - oraclejdk8
+  - oraclejdk7
+
 env:
-  - T_TEST=java:oraclejdk7:hsqldb
-  - T_TEST=java:oraclejdk8:hsqldb
-  - T_TEST=java:openjdk7:hsqldb
-  - T_TEST=java:oraclejdk7:postgres
-  - T_TEST=java:oraclejdk8:postgres
-  - T_TEST=java:openjdk7:postgres
-  - T_TEST=ruby:default:none
-script: ./ext/travisci/test.sh
+  - PDB_TEST_LANG=clojure PDB_TEST_DB=hsqldb
+  - PDB_TEST_LANG=clojure PDB_TEST_DB=postgres
+  - PDB_TEST_LANG=ruby
+
+# Only run one ruby test
+matrix:
+  exclude:
+    - jdk: oraclejdk8
+      env: PDB_TEST_LANG=ruby
+    - jdk: oraclejdk7
+      env: PDB_TEST_LANG=ruby
+
+script: ext/travisci/test.sh
+
 notifications:
   email: false
+
 addons:
   postgresql: "9.4"
+
 services: postgresql
