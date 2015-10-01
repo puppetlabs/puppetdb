@@ -241,13 +241,13 @@
 
 (def catalog-versions
   "Currently supported catalog versions"
-  [:v6])
+  [:v7])
 
 (deftest replace-catalog
   (doverseq [version catalog-versions
              :let [command {:command (command-names :replace-catalog)
-                            :version 6
-                            :payload (-> (get-in wire-catalogs [6 :empty])
+                            :version 7
+                            :payload (-> (get-in wire-catalogs [7 :empty])
                                          (assoc :producer_timestamp (now)))}]]
     (testing (str (command-names :replace-catalog) " " version)
       (let [certname (get-in command [:payload :certname])
@@ -364,6 +364,29 @@
 ;; potentially have commands of an unsupported format that need to be
 ;; processed. Although we don't support the catalog versions below, we
 ;; need to test that those commands will be processed properly
+(deftest replace-catalog-with-v6
+  (testing "catalog wireformat v6"
+    (let [command {:command (command-names :replace-catalog)
+                   :version 6
+                   :payload (get-in wire-catalogs [6 :empty])}
+          certname (get-in command [:payload :certname])
+          cmd-producer-timestamp (get-in command [:payload :producer_timestamp])]
+      (with-fixtures
+        (test-msg-handler command publish discard-dir
+
+          ;;names in v5 are hyphenated, this check ensures we're sending a v5 catalog
+          (is (contains? (:payload command) :producer_timestamp))
+          (is (= [(with-env {:certname certname})]
+                 (query-to-vec "SELECT certname, environment_id FROM catalogs")))
+          (is (= 0 (times-called publish)))
+          (is (empty? (fs/list-dir discard-dir)))
+
+          ;;this should be the hyphenated producer timestamp provided above
+          (is (= (-> (query-to-vec "SELECT producer_timestamp FROM catalogs")
+                     first
+                     :producer_timestamp)
+                 (to-timestamp cmd-producer-timestamp))))))))
+
 (deftest replace-catalog-with-v5
   (testing "catalog wireformat v5"
     (let [command {:command (command-names :replace-catalog)
@@ -425,12 +448,12 @@
                        resources)))))
 
 (def basic-wire-catalog
-  (get-in wire-catalogs [6 :basic]))
+  (get-in wire-catalogs [7 :basic]))
 
 (deftest catalog-with-updated-resource-line
   (doverseq [version catalog-versions
              :let [command {:command (command-names :replace-catalog)
-                            :version 6
+                            :version 7
                             :payload basic-wire-catalog}
                    command-1 (stringify-payload command)
                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :line 20)))]]
@@ -451,7 +474,7 @@
 (deftest catalog-with-updated-resource-file
   (doverseq [version catalog-versions
              :let [command {:command (command-names :replace-catalog)
-                            :version 6
+                            :version 7
                             :payload basic-wire-catalog}
                    command-1 (stringify-payload command)
                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :file "/tmp/not-foo")))]]
@@ -471,7 +494,7 @@
 (deftest catalog-with-updated-resource-exported
   (doverseq [version catalog-versions
              :let [command {:command (command-names :replace-catalog)
-                            :version 6
+                            :version 7
                             :payload basic-wire-catalog}
                    command-1 (stringify-payload command)
                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :exported true)))]]
@@ -492,7 +515,7 @@
 (deftest catalog-with-updated-resource-tags
   (doverseq [version catalog-versions
              :let [command {:command (command-names :replace-catalog)
-                            :version 6
+                            :version 7
                             :payload basic-wire-catalog}
                    command-1 (stringify-payload command)
                    command-2 (stringify-payload

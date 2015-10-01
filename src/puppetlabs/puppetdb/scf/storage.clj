@@ -80,9 +80,9 @@
   Moving the more restrictive resource/edge schemas into puppetdb.catalogs is TODO. Upstream
   code needs to assume a map of resources (not a vector) and tests need to be update to adhere
   to the new format."
-  (assoc (cat/catalog-wireformat :all)
-    :resources resource-ref->resource-schema
-    :edges #{edge-schema}))
+  (assoc cat/catalog-wireformat-schema
+         :resources resource-ref->resource-schema
+         :edges #{edge-schema}))
 
 (def environments-schema
   {:id s/Int
@@ -342,15 +342,18 @@
 (pls/defn-validated catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
   [hash
-   {:keys [api_version version transaction_uuid environment producer_timestamp]} :- catalog-schema
+   {:keys [version code_id transaction_uuid environment producer_timestamp]} :- catalog-schema
    received-timestamp :- pls/Timestamp]
   {:hash (sutils/munge-hash-for-storage hash)
-   :api_version api_version
    :catalog_version  version
    :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
    :timestamp (to-timestamp received-timestamp)
+   :code_id code_id
    :environment_id (ensure-environment environment)
-   :producer_timestamp (to-timestamp producer_timestamp)})
+   :producer_timestamp (to-timestamp producer_timestamp)
+   ;; FIXME THIS `api_version` IS NO LONGER USED IN ANY CAPACITY AND NEEDS TO BE
+   ;; REMOVED FROM OUR SCHEMA
+   :api_version 1})
 
 (pls/defn-validated update-catalog-metadata!
   "Given some catalog metadata, update the db"

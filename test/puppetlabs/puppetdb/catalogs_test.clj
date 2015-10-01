@@ -2,7 +2,6 @@
   (:import [clojure.lang ExceptionInfo])
   (:require [schema.core :as s]
             [puppetlabs.puppetdb.catalogs :refer :all]
-            [puppetlabs.puppetdb.testutils.catalogs :refer [canonical->wire-format]]
             [puppetlabs.puppetdb.examples :refer :all]
             [clojure.test :refer :all]
             [clojure.set :as set]
@@ -88,32 +87,23 @@
             (is (= catalog (validate-edges catalog)))))))
 
     (testing "key validation"
-      (let [catalog (:basic catalogs)
-            v5-catalog (dissoc catalog :api_version)
-            v4-catalog (dissoc catalog :api_version :producer_timestamp)
-            v3-catalog (dissoc catalog :environment :producer_timestamp)
-            v2-catalog (dissoc catalog :transaction_uuid :environment :producer_timestamp)
-            v1-catalog (assoc catalog :something "random")]
+      (let [catalog (dissoc (:basic catalogs) :api_version)
+            v6-catalog (dissoc catalog :code_id)]
         (testing "should accept catalogs with the correct set of keys"
-          (are [version catalog] (= catalog (s/validate (catalog-wireformat version) catalog))
-               :all catalog
-               :v5 v5-catalog
-               ))
+          (= catalog (s/validate catalog-wireformat-schema catalog))
+          (= v6-catalog (s/validate catalog-v6-wireformat-schema v6-catalog)))
 
         (testing "should fail if the catalog has an extra key"
-          (are [version catalog] (thrown-with-msg? ExceptionInfo #"Value does not match schema"
-                                                   (s/validate (catalog-wireformat version) (assoc catalog :classes #{})))
-               :all catalog
-               :v5 v5-catalog
-               ))
+          (is (thrown-with-msg? ExceptionInfo #"Value does not match schema"
+                              (s/validate catalog-v6-wireformat-schema (assoc v6-catalog :classes #{}))))
+          (is (thrown-with-msg? ExceptionInfo #"Value does not match schema"
+                              (s/validate catalog-wireformat-schema (assoc catalog :classes #{})))))
 
         (testing "should fail if the catalog is missing a key"
-          (are [version catalog] (thrown-with-msg? ExceptionInfo #"Value does not match schema"
-                                                   (s/validate (catalog-wireformat version) (dissoc catalog :version)))
-
-               :all catalog
-               :v5 v5-catalog
-               ))))))
+          (is (thrown-with-msg? ExceptionInfo #"Value does not match schema"
+                              (s/validate catalog-wireformat-schema (dissoc catalog :resources))))
+          (is (thrown-with-msg? ExceptionInfo #"Value does not match schema"
+                              (s/validate catalog-v6-wireformat-schema (dissoc v6-catalog :resources)))))))))
 
 (deftest resource-normalization
   (let [;; Synthesize some fake resources
@@ -155,60 +145,48 @@
       ;; pre-created resource maps aren't allow
       (is (thrown? AssertionError (transform-resources {:resources {}}))))))
 
-(deftest test-canonical-catalog
-  (let [catalog (:basic catalogs)]
-    (testing "conversion to :all should never lose information"
-      (doseq [version [:v5]]
-        (is (= (canonical-catalog version catalog)
-               (canonical-catalog version (canonical-catalog :all catalog))))))
-    (testing "version 5"
-      (let [v5-catalog (canonical-catalog :v5 catalog)]
-        (is (= (:transaction_uuid catalog)
-               (:transaction_uuid v5-catalog)))
-        (is (= (:environment catalog)
-               (:environment v5-catalog)))
-        (is (= (:producer_timestamp catalog)
-               (:producer_timestamp v5-catalog)))
-        (is (not (contains? v5-catalog :api_version)))))))
+(deftest test-v7-conversion
+  (testing "v6->v7"
+    (let [v6-catalog (get-in wire-catalogs [6 :empty])]
+      (are [pred key] (pred (contains? v6-catalog key))
+        false? :code_id)
 
-(deftest test-canonical->wire-format
-  (let [catalog (:basic catalogs)]
-    (testing "version 5"
-      (let [wire-catalog (canonical->wire-format :v5 catalog)]
-        (is (not (contains? wire-catalog :data)))
-        (is (not (contains? wire-catalog :metadata)))
-        (is (= (dissoc catalog :api_version)
-               wire-catalog))))))
+      (let [v7-catalog (parse-catalog v6-catalog 6 (now))]
+        (are [pred key] (pred (contains? v7-catalog key))
+          true? :code_id))))
 
-(deftest test-v6-conversion
-  (testing "v5->v6"
+  (testing "v5->v7"
     (let [v5-catalog (get-in wire-catalogs [5 :empty])]
       (are [pred key] (pred (contains? v5-catalog key))
            true? :name
            false? :certname
+           false? :code_id
            true? :transaction-uuid)
 
-      (let [v6-catalog (parse-catalog v5-catalog 5 (now))]
-        (are [pred key] (pred (contains? v6-catalog key))
+      (let [v7-catalog (parse-catalog v5-catalog 5 (now))]
+        (are [pred key] (pred (contains? v7-catalog key))
              false? :name
+             true? :code_id
              true? :certname
              false? :transaction-uuid
              true? :transaction_uuid))))
 
-  (testing "v4->v6"
+  (testing "v4->v7"
     (let [v4-catalog (get-in wire-catalogs [4 :empty])]
       (are [pred key] (pred (contains? v4-catalog key))
            true? :name
            false? :certname
+           false? :code_id
            true? :transaction-uuid
            false? :producer_timestamp
            false? :producer-timestamp)
 
-      (let [v6-catalog (parse-catalog v4-catalog 4 (now))]
-        (are [pred key] (pred (contains? v6-catalog key))
+      (let [v7-catalog (parse-catalog v4-catalog 4 (now))]
+        (are [pred key] (pred (contains? v7-catalog key))
              false? :name
              true? :certname
              false? :transaction-uuid
+             true? :code_id
              true? :transaction_uuid
              true? :producer_timestamp
              false? :producer-timestamp))))

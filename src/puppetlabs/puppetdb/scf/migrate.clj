@@ -1350,6 +1350,9 @@
    "CREATE INDEX idx_reports_producer_timestamp
       ON reports(producer_timestamp)"))
 
+(defn add-code-id-to-catalogs []
+  (jdbc/do-commands "ALTER TABLE catalogs ADD code_id TEXT"))
+
 (defn add-certname-id-to-certnames
   []
   (jdbc/do-commands
@@ -1504,6 +1507,7 @@
    35 (fn [] true)
    36 rename-environments-name-to-environment
    37 add-jsonb-columns-for-metrics-and-logs
+   38 add-code-id-to-catalogs
    })
 
 (def desired-schema-version (apply max (keys migrations)))
