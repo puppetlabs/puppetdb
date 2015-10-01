@@ -969,6 +969,7 @@
   "Expands/normalizes the user provided query to a minimal subset of the
   query language"
   [node]
+  (log/spy ["aaaaaaaaaaaaaaaaaaaaaa" node])
   (cm/match [node]
 
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
@@ -1028,6 +1029,28 @@
                     [(str "select_" sub-entity) expr]]])
                 (throw (IllegalArgumentException. (format "No implicit relationship for entity '%s'" sub-entity)))))
 
+            ;; Experimental version that only accepts 1 columns list
+            ;; on both sides
+            #_[["subquery" sub-entity cols expr]]
+            #_["in" cols
+             ["extract" cols
+              [(str "select_" sub-entity) expr]]]
+
+            ;; New format, that takes 'columns' as an internal operator
+            [["subquery" sub-entity ["columns" & cols] expr]]
+            (case (count cols)
+              1
+              ["in" (first cols)
+               ["extract" (first cols)
+                [(str "select_" sub-entity) expr]]]
+
+              2
+              ["in" (first cols)
+               ["extract" (second cols)
+                [(str "select_" sub-entity) expr]]]
+
+              (throw (IllegalArgumentException. (format "The columns operator for subqueries may only contain 1 or 2 items"))))
+
             [["=" "latest_report?" value]]
             (let [entity (get-in (meta node) [:query-context :entity])
                   expanded-latest (case entity
@@ -1056,7 +1079,7 @@
             [[op "tag" array-value]]
             [op "tags" (string/lower-case array-value)]
 
-            :else nil))
+            :else (do (log/spy "zzzzzzzzzzzzzz") nil)))
 
 (def binary-operator-checker
   "A function that will return nil if the query snippet successfully validates, otherwise
@@ -1354,16 +1377,21 @@
                    :state (cond-> state column-validation-message (conj column-validation-message))
                    :cut true})
 
-                [["subquery" relationship expr]]
-                (let [subquery-expr (push-down-context
+                [["subquery" relationship & args]]
+                (let [[x y] args
+                      expr (or y x)
+                      cols (when y x)
+                      subquery-expr (push-down-context
                                      (user-query->logical-obj (str "select_" relationship))
                                      expr)
-                      nested-qc (:query-context (meta subquery-expr))]
+                      nested-qc (:query-context (meta subquery-expr))
+                      new-meta (vary-meta expr assoc :query-contenxt nested-qc)]
 
-                  {:node (vary-meta ["subquery" relationship
-                                     (vary-meta expr
-                                                assoc :query-context nested-qc)]
-                                    assoc :query-context context)
+                  {:node (vary-meta
+                          (if cols
+                            ["subquery" relationship cols new-meta]
+                            ["subquery" relationship new-meta])
+                          assoc :query-context context)
                    :state state
                    :cut true})
 

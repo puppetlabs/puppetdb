@@ -224,8 +224,9 @@ with `web1`:
     ["and",
       ["~", "certname", "^web1"],
       ["subquery", "resources",
-        ["=", "type", "Package"],
-        ["=", "title", "Tomcat"]]]
+        ["and",
+          ["=", "type", "Package"],
+          ["=", "title", "Tomcat"]]]]
 
 If you wanted to display the entire `networking` fact, if the hosts interfaces uses a certain mac address
 you can do the following on the [facts][`facts`] endpoint:
@@ -233,8 +234,9 @@ you can do the following on the [facts][`facts`] endpoint:
     ["and",
       ["=", "name", "networking"],
       ["subquery", "fact_contents",
-        ["~>", "path", ["networking", ".*", "macaddresses", ".*"]],
-        ["=", "value", "aa:bb:cc:dd:ee:00"]]]
+        ["and",
+          ["~>", "path", ["networking", ".*", "macaddresses", ".*"]],
+          ["=", "value", "aa:bb:cc:dd:ee:00"]]]]
 
 ### Explicit Subqueries
 

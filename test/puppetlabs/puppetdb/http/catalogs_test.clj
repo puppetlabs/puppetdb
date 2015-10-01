@@ -154,6 +154,11 @@
       (is (= (query-result method endpoint query {} strip-hash)
              expected))
 
+    ;;;;;;;;;;
+    ;; Resources subquery
+    ;;;;;;;;;;
+
+    ;; In syntax
     ["extract" "certname"
      ["in" "certname"
       ["extract" "certname"
@@ -162,6 +167,7 @@
     #{{:certname "myhost.localdomain"}
       {:certname "host2.localdomain"}}
 
+    ;; Implicit subquery syntax
     ["extract" "certname"
      ["subquery" "resources"
       ["=" "type" "Apt::Pin"]]]
@@ -203,8 +209,24 @@
     #{{:certname "host2.localdomain"}
       {:certname "myhost.localdomain"}}
 
+    ;; Implicit query
     ["extract" "certname"
      ["subquery" "edges"
+      ["=" "target_type" "File"]]]
+    #{{:certname "host2.localdomain"}
+      {:certname "myhost.localdomain"}}
+
+    ;; Explicit without columns identifier
+    ;; TODO: determine if this syntax is okay
+    ["extract" "certname"
+     ["subquery" "edges" "certname"
+      ["=" "target_type" "File"]]]
+    #{{:certname "host2.localdomain"}
+      {:certname "myhost.localdomain"}}
+
+    ;; Explicit but with columns bit, only 1 column
+    ["extract" "certname"
+     ["subquery" "edges" ["columns" "certname"]
       ["=" "target_type" "File"]]]
     #{{:certname "host2.localdomain"}
       {:certname "myhost.localdomain"}}))

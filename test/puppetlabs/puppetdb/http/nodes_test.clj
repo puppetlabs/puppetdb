@@ -139,7 +139,11 @@
     (are [query expected]
         (is-query-result method endpoint query expected)
 
-      ;; Basic sub-query for fact operatingsystem
+      ;;;;;;;;;;;;
+      ;; Fact subqueries
+      ;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_facts"
@@ -148,13 +152,26 @@
           ["=" "value" "Debian"]]]]]
       [db web1 web2]
 
+      ;; Implicit subquery
       ["subquery" "facts"
        ["and"
         ["=" "name" "operatingsystem"]
         ["=" "value" "Debian"]]]
       [db web1 web2]
 
-      ;; Fact_contents subquery
+      ;; Explicit subquery
+      ["subquery" "facts"
+       ["columns" "certname"]
+       ["and"
+        ["=" "name" "operatingsystem"]
+        ["=" "value" "Debian"]]]
+      [db web1 web2]
+
+      ;;;;;;;;;;;
+      ;; Fact_contents subqueries
+      ;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_fact_contents"
@@ -163,13 +180,26 @@
           ["=" "value" "Debian"]]]]]
       [db web1 web2]
 
+      ;; Implicit subquery
       ["subquery" "fact_contents"
        ["and"
         ["=" "name" "operatingsystem"]
         ["=" "value" "Debian"]]]
       [db web1 web2]
 
+      ;; Explicit subquery
+      ["subquery" "fact_contents"
+       ["columns" "certname"]
+       ["and"
+        ["=" "name" "operatingsystem"]
+        ["=" "value" "Debian"]]]
+      [db web1 web2]
+
+      ;;;;;;;;;;;;;
       ;; Nodes with a class matching their hostname
+      ;;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_facts"
@@ -182,6 +212,7 @@
               ["=" "type" "Class"]]]]]]]]]
       [web1]
 
+      ;; Implicit subquery
       ["subquery" "facts"
        ["and"
         ["=" "name" "hostname"]
@@ -192,7 +223,21 @@
             ["=" "type" "Class"]]]]]]]
       [web1]
 
+      ;; Explicit subquery
+      ["subquery" "facts"
+       ["columns" "certname"]
+       ["and"
+        ["=" "name" "hostname"]
+        ["subquery" "resources"
+         ["columns" "value" "title"]
+         ["=" "type" "Class"]]]]
+      [web1]
+
+      ;;;;;;;;;;;;
       ;; Nodes with matching select-resources for file/line
+      ;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_resources"
@@ -201,64 +246,128 @@
           ["=" "line" 1]]]]]
       [db puppet web1]
 
+      ;; Implicit subquery
       ["subquery" "resources"
        ["and"
         ["=" "file" "/etc/puppet/modules/settings/manifests/init.pp"]
         ["=" "line" 1]]]
       [db puppet web1]
 
+      ;; Explicit subquery
+      ["subquery" "resources"
+       ["columns" "certname"]
+       ["and"
+        ["=" "file" "/etc/puppet/modules/settings/manifests/init.pp"]
+        ["=" "line" 1]]]
+      [db puppet web1]
+
+      ;;;;;;;;;;;;
       ;; Reports subquery
+      ;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_reports"
          ["=" "certname" db]]]]
       [db]
 
+      ;; Implicit subquery
       ["subquery" "reports"
        ["=" "certname" db]]
       [db]
 
+      ;; Explicit subquery
+      ["subquery" "reports"
+       ["columns" "certname"]
+       ["=" "certname" db]]
+      [db]
+
+      ;;;;;;;;;;;;;;
       ;; Catalogs subquery
+      ;;;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_catalogs"
          ["=" "certname" web1]]]]
       [web1]
 
+      ;; Implicit subquery
       ["subquery" "catalogs"
        ["=" "certname" web1]]
       [web1]
 
+      ;; Explicit subquery
+      ["subquery" "catalogs"
+       ["columns" "certname"]
+       ["=" "certname" web1]]
+      [web1]
+
+      ;;;;;;;;;;;;;;
       ;; Factsets subquery
+      ;;;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_factsets"
          ["=" "certname" web2]]]]
       [web2]
 
+      ;; Implict subquery
       ["subquery" "factsets"
        ["=" "certname" web2]]
       [web2]
 
+      ;; Explicit subquery
+      ["subquery" "factsets"
+       ["columns" "certname"]
+       ["=" "certname" web2]]
+      [web2]
+
+      ;;;;;;;;;;;;;
       ;; Events subquery
+      ;;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_events"
          ["=" "certname" db]]]]
       [db]
 
+      ;; Implicit subquery
       ["subquery" "events"
        ["=" "certname" db]]
       [db]
 
+      ;; Explicit subquery
+      ["subquery" "events"
+       ["columns" "certname"]
+       ["=" "certname" db]]
+      [db]
+
+      ;;;;;;;;;;;;;
       ;; Resource subquery
+      ;;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_resources"
          ["=" "certname" web1]]]]
       [web1]
 
+      ;; Implicit subquery
       ["subquery" "resources"
+       ["=" "certname" web1]]
+      [web1]
+
+      ;; Explicit subquery
+      ["subquery" "resources"
+       ["columns" "certname"]
        ["=" "certname" web1]]
       [web1]))
 

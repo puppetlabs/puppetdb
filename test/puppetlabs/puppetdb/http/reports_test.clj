@@ -586,6 +586,11 @@
       (is (= expected
              (query-result method endpoint query)))
 
+    ;;;;;;;;;;;;;;;
+    ;; Event subqueries
+    ;;;;;;;;;;;;;;;
+
+    ;; In format
     ["extract" "certname"
      ["in" "hash"
       ["extract" "report"
@@ -593,8 +598,16 @@
         ["=" "file" "bar"]]]]]
     #{{:certname "foo.local"}}
 
+    ;; Implicit subqueries
     ["extract" "certname"
      ["subquery" "events"
+      ["=" "file" "bar"]]]
+    #{{:certname "foo.local"}}
+
+    ;; Explicit subqueries
+    ["extract" "certname"
+     ["subquery" "events"
+      ["columns" "hash" "report"]
       ["=" "file" "bar"]]]
     #{{:certname "foo.local"}}))
 
