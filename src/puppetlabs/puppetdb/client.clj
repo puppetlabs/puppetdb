@@ -9,7 +9,6 @@
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [clojure.walk :refer  [keywordize-keys]]
             [schema.core :as s]))
 
 (defn-validated submit-command-via-http!
@@ -58,12 +57,11 @@
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
   [base-url :- utils/base-url-schema
    command-version :- s/Int
-   catalog-payload :- s/Str]
-  (let [payload (json/parse-string catalog-payload)
-        result (submit-command-via-http!
-                           base-url
-                           (command-names :replace-catalog) command-version
-                           payload)]
+   catalog-payload]
+  (let [result (submit-command-via-http!
+                base-url
+                (command-names :replace-catalog) command-version
+                catalog-payload)]
     (when-not (= http/status-ok (:status result))
       (log/error result))))
 
@@ -72,15 +70,11 @@
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
   [base-url :- utils/base-url-schema
    command-version :- s/Int
-   report-payload :- s/Str]
-  (let [payload (-> report-payload
-                    json/parse-string
-                    keywordize-keys
-                    reports/sanitize-report)
-        result  (submit-command-via-http!
-                 base-url
-                 (command-names :store-report) command-version
-                 payload)]
+   report-payload]
+  (let [result (submit-command-via-http!
+                base-url
+                (command-names :store-report) command-version
+                report-payload)]
     (when-not (= http/status-ok (:status result))
       (log/error result))))
 
@@ -89,14 +83,10 @@
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
   [base-url :- utils/base-url-schema
    facts-version :- s/Int
-   fact-payload :- s/Str]
-  (let [payload (case facts-version
-                  1 fact-payload
-                  (json/parse-string fact-payload))
-        result  (submit-command-via-http!
+   fact-payload]
+  (let [result  (submit-command-via-http!
                  base-url
-                 (command-names :replace-facts)
-                 facts-version
-                 payload)]
+                 (command-names :replace-facts) facts-version
+                 fact-payload)]
     (when-not (= http/status-ok (:status result))
       (log/error result))))

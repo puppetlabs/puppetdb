@@ -53,8 +53,8 @@
    :resources [resource-wireformat-schema]
    :noop (s/maybe s/Bool)
    :transaction_uuid (s/maybe s/Str)
-   :metrics (s/maybe [metric-wireformat-schema])
-   :logs (s/maybe [log-wireformat-schema])
+   :metrics [metric-wireformat-schema]
+   :logs [log-wireformat-schema]
    :environment s/Str
    :status (s/maybe s/Str)})
 
@@ -79,20 +79,6 @@
 
 (def report-v3-wireformat-schema
   (dissoc report-v4-wireformat-schema :status))
-
-(pls/defn-validated sanitize-v5-resource-events :- [resource-event-v5-wireformat-schema]
-  "This function takes an array of events and santizes them, ensuring only
-   valid keys are returned."
-  [resource-events :- (s/pred coll? 'coll?)]
-  (for [resource-event resource-events]
-    (pls/strip-unknown-keys resource-event-v5-wireformat-schema resource-event)))
-
-(pls/defn-validated sanitize-report :- report-v5-wireformat-schema
-  "This function takes a report and sanitizes it, ensuring only valid data
-   is left over."
-  [payload :- (s/pred map? 'map?)]
-  (-> (pls/strip-unknown-keys report-v5-wireformat-schema payload)
-      (update :resource_events sanitize-v5-resource-events)))
 
 (def resource-event-query-schema
   {(s/optional-key :certname) s/Str
@@ -154,29 +140,20 @@
 ;;; Reports Query -> Wire format conversions
 
 (pls/defn-validated resource-events-query->wire-v5 :- [resource-event-v5-wireformat-schema]
-  [events :- resource-events-expanded-query-schema]
-  (sort-by
-   #(mapv % [:timestamp :resource_type :resource_title :property])
-   (map
-    #(dissoc % :report :certname :containing_class :configuration_version
-             :run_start_time :run_end_time :report_receive_time :environment)
-    (:data events))))
-
-(pls/defn-validated logs-query->wire-v5 :- [log-wireformat-schema]
-  [logs :- logs-expanded-query-schema]
-  (:data logs))
-
-(pls/defn-validated metrics-query->wire-v5 :- [metric-wireformat-schema]
-  [metrics :- metrics-expanded-query-schema]
-  (:data metrics))
+  [resource-events :- resource-events-expanded-query-schema]
+  (->> resource-events
+       :data
+       (map #(dissoc %
+                     :report :certname :containing_class :configuration_version
+                     :run_start_time :run_end_time :report_receive_time :environment))))
 
 (pls/defn-validated report-query->wire-v5 :- report-v5-wireformat-schema
   [report :- report-query-schema]
   (-> report
       (dissoc :hash :receive_time :resources)
       (update :resource_events resource-events-query->wire-v5)
-      (update :metrics metrics-query->wire-v5)
-      (update :logs logs-query->wire-v5)))
+      (update :metrics :data)
+      (update :logs :data)))
 
 (defn reports-query->wire-v5 [reports]
   (map report-query->wire-v5 reports))
@@ -222,6 +199,34 @@
   (-> report
       (assoc :status nil)
       (wire-v4->wire-v6 received-time)))
+
+(pls/defn-validated report-query->wire-v6 :- report-wireformat-schema
+  [report :- report-query-schema]
+  (-> report
+      report-query->wire-v5
+      wire-v5->wire-v6))
+
+(defn reports-query->wire-v6 [reports]
+  (map report-query->wire-v6 reports))
+
+(pls/defn-validated sanitize-events :- [event-wireformat-schema]
+  [events]
+  (for [event events]
+    (pls/strip-unknown-keys event-wireformat-schema event)))
+
+(pls/defn-validated sanitize-resources :- [resource-wireformat-schema]
+  [resources]
+  (for [resource resources]
+    (-> (pls/strip-unknown-keys resource-wireformat-schema resource)
+        (update :events sanitize-events))))
+
+(pls/defn-validated sanitize-report :- report-wireformat-schema
+  "This function takes a report and sanitizes it, ensuring only valid data
+   is left over."
+  [payload]
+  (as-> payload $
+    (pls/strip-unknown-keys report-wireformat-schema $)
+    (update $ :resources sanitize-resources)))
 
 (defn- resource->skipped-resource-events
   "Fabricate a skipped resource-event"

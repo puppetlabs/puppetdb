@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.cli.benchmark-test
   (:require [puppetlabs.puppetdb.cli.benchmark :as benchmark]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.client :as client]
             [puppetlabs.trapperkeeper.config :as config]
@@ -18,7 +17,7 @@
             :base-url base-url
             :version version
             :payload-string payload-string
-            :payload (json/parse-string payload-string true)})))
+            :payload (clojure.walk/keywordize-keys payload-string)})))
 
 (defn run-benchmark [config & cli-args]
   (let [submitted-records (atom [])]
