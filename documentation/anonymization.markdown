@@ -61,7 +61,7 @@ The profile itself can be chosen on the command line when the command is run. Fo
 
 The `full` profile will anonymize everything, while keeping the shape of data as previously mentioned. This includes: node names, resource types, resource titles, parameter names, values, any log messages, file names and file lines. The result should be a completely anonymized data set. Report metrics under the `resources` and `events` categories are left intact, as these can be inferred from the rest of the data, but names of metrics under the `time` category are anonymized as resource types.
 
-This is useful if you really paranoid about what data you expose, but provides the least amount of usefulness for the consumer of such data depending on the activity they are trying to test.
+This is useful if you are really concerned about limiting the data you expose, but provides the least utility for the consumer depending on the activity they are trying to test.
 
 ### Profile: moderate
 
