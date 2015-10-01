@@ -245,15 +245,15 @@
 
 (deftest replace-catalog
   (doverseq [version catalog-versions
-             :let [command {:command (command-names :replace-catalog)
+             :let [raw-command {:command (command-names :replace-catalog)
                             :version 7
                             :payload (-> (get-in wire-catalogs [7 :empty])
                                          (assoc :producer_timestamp (now)))}]]
     (testing (str (command-names :replace-catalog) " " version)
-      (let [certname (get-in command [:payload :certname])
+      (let [certname (get-in raw-command [:payload :certname])
             catalog-hash (shash/catalog-similarity-hash
-                          (catalog/parse-catalog (:payload command) (version-kwd->num version) (now)))
-            command (stringify-payload command)
+                          (catalog/parse-catalog (:payload raw-command) (version-kwd->num version) (now)))
+            command (stringify-payload raw-command)
             one-day      (* 24 60 60 1000)
             yesterday    (to-timestamp (- (System/currentTimeMillis) one-day))
             tomorrow     (to-timestamp (+ (System/currentTimeMillis) one-day))]
@@ -265,6 +265,17 @@
                      (query-to-vec "SELECT certname, environment_id FROM catalogs")))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
+
+        (testing "with code-id should store the catalog"
+          (with-fixtures
+            (test-msg-handler (-> raw-command
+                                  (assoc-in [:payload :code_id] "my_git_sha1")
+                                  stringify-payload)
+                              publish discard-dir
+                              (is (= [(with-env {:certname certname :code_id "my_git_sha1"})]
+                                     (query-to-vec "SELECT certname, code_id, environment_id FROM catalogs")))
+                              (is (= 0 (times-called publish)))
+                              (is (empty? (fs/list-dir discard-dir))))))
 
         (testing "with an existing catalog should replace the catalog"
           (with-fixtures

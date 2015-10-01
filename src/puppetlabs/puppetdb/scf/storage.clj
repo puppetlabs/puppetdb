@@ -351,8 +351,6 @@
    :code_id code_id
    :environment_id (ensure-environment environment)
    :producer_timestamp (to-timestamp producer_timestamp)
-   ;; FIXME THIS `api_version` IS NO LONGER USED IN ANY CAPACITY AND NEEDS TO BE
-   ;; REMOVED FROM OUR SCHEMA
    :api_version 1})
 
 (pls/defn-validated update-catalog-metadata!

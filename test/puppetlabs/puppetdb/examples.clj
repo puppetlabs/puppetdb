@@ -156,5 +156,4 @@
                                    :tags ["file" "class" "foobar"]
                                    :parameters {:ensure "directory"
                                                 :group  "root"
-                                                :user   "root"}}))}
-   })
+                                                :user   "root"}}))}})
