@@ -11,6 +11,7 @@ def run_beaker(test_files)
   xml = ENV["BEAKER_XML"] == "true" ? true : false
   type = ENV["BEAKER_TYPE"] || "aio"
   keyfile = ENV["BEAKER_KEYFILE"] || nil
+  collect_perf_data = ENV["BEAKER_COLLECT_PERF_DATA"] || nil
 
   beaker = "bundle exec beaker " +
      "-c '#{config}' " +
@@ -24,6 +25,7 @@ def run_beaker(test_files)
   beaker += " --keyfile #{keyfile}" if keyfile
   beaker += " --no-color" unless color
   beaker += " --xml" if xml
+  beaker += " --collect-perf-data #{collect_perf_data}" if collect_perf_data
   beaker += " --no-provision" if no_provision
 
   sh beaker

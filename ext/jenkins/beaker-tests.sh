@@ -21,6 +21,7 @@ export PUPPETDB_USE_PROXIES=false
 export BEAKER_project=PuppetDB
 export BEAKER_department=eso-dept
 export BEAKER_PRESERVE_HOSTS=onfail
+export BEAKER_COLLECT_PERF_DATA=aggressive
 
 # Transform LAYOUT from old static host config style to genconfig2 style
 # Once the necessary PRs (puppetlabs/puppetdb#1636 and
