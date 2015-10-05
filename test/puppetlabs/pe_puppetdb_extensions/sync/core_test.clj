@@ -6,6 +6,7 @@
             [puppetlabs.pe-puppetdb-extensions.sync.sync-test-utils :refer [with-alt-mq]]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils :refer [with-puppetdb-instance blocking-command-post]]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.random :refer [random-string]]
             [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
@@ -87,12 +88,12 @@
            config-2 (utils/pdb2-sync-config)]
        (with-log-suppressed-unless-notable notable-pdb-event?
         (with-puppetdb-instance config-1
-          (let [report (tur/munge-example-report-for-storage (:basic reports))
+          (let [report (reports/report-query->wire-v6 (:basic reports))
                 query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))]
-            (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report)
+            (blocking-command-post (utils/pdb-cmd-url) "store report" 6 report)
             (is (not (empty? (svcs/get-reports (utils/pdb-query-url) (:certname report)))))
 
             (with-alt-mq "puppetlabs.puppetdb.commands-2"
               (with-puppetdb-instance config-2
-                (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report)
+                (blocking-command-post (utils/pdb-cmd-url) "store report" 6 report)
                 (is (not (empty? (svcs/get-reports (utils/pdb-query-url) (:certname report))))))))))))))

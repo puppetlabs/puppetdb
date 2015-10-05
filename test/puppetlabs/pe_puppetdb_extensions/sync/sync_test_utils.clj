@@ -9,11 +9,11 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
             [puppetlabs.puppetdb.testutils :refer [without-jmx]]
-            [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
             [puppetlabs.trapperkeeper.app :as tk-app]
@@ -30,7 +30,7 @@
 (def catalog (assoc (get-in wire-catalogs [6 :basic])
                     :certname "foo.local"))
 
-(def report (-> reports :basic tur/munge-example-report-for-storage))
+(def report (-> reports :basic reports/report-query->wire-v6))
 
 
 ;;; General test utils
@@ -112,7 +112,7 @@
   (blocking-command-post (:command-url endpoint) "replace facts" 4 facts))
 
 (defn submit-report [endpoint report]
-  (blocking-command-post (:command-url endpoint) "store report" 5 report))
+  (blocking-command-post (:command-url endpoint) "store report" 6 report))
 
 (defn deactivate-node [endpoint certname]
   (blocking-command-post (:command-url endpoint) "deactivate node" 3

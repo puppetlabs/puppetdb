@@ -84,12 +84,12 @@
     :record-ordering-fn (constantly 0) ; TODO: rename this, maybe to record-conflict-key-fn or something
 
     :clean-up-record-fn (fn clean-up-report [report]
-                          (utils/update-when report [:resource_events] #(map clean-up-resource-event %)))
+                          (dissoc report :resource_events))
 
     ;; When a record is out-of-date, the whole thing is
     ;; downloaded and then stored with this command
     :submit-command {:command :store-report
-                     :version 5}}
+                     :version 6}}
 
    {:entity :factsets
     :record-hashes-query {:version :v4
