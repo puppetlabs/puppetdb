@@ -361,7 +361,9 @@
     (store-example-report! basic (now))
     (testing "should return all reports for a certname"
       (let [result (query-result method
-                                 "/v4/environments/DEV/reports" ["=" "certname" (:certname basic)] {}
+                                 "/v4/environments/DEV/reports"
+                                 ["=" "certname" (:certname basic)]
+                                 {}
                                  munge-reports-for-comparison)]
         (is (every? #(= "DEV" (:environment %)) result))
         (is (= (munge-reports-for-comparison [basic])

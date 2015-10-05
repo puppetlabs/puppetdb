@@ -52,7 +52,7 @@
      (scf-store/add-report!* example-report timestamp update-latest-report?)
      (report-for-hash :v4 report-hash))))
 
-(defn munge-resource-events
+(defn munge-resource-events-for-comparison
   [resource-events]
   (set
    (map (fn [resource-event]
@@ -66,7 +66,7 @@
   [report]
   (if (sutils/postgres?)
     (-> report
-        (update :resource_events munge-resource-events)
+        (update :resource_events munge-resource-events-for-comparison)
         (update :metrics set)
         (update :logs set))
     (dissoc report :resource_events :metrics :logs)))
@@ -100,16 +100,16 @@
        kitchensink/enumerate
        (into (omap/ordered-map))))
 
+(defn munge-resource-events [resource-events]
+  (->> resource-events
+       (map #(update % :timestamp time-coerce/to-string))
+       (sort-by #(mapv % [:timestamp :resource_type :resource_title :property]))))
+
 (defn munge-report
   [report]
   (-> report
       keywordize-keys
-      (update-in [:resource_events :data]
-                 (comp (partial sort-by
-                                #(mapv % [:timestamp :resource_type :resource_title :property]))
-                       (partial map
-                                (fn [resource-event]
-                                  (update resource-event :timestamp time-coerce/to-string)))))
+      (update-in [:resource_events :data] munge-resource-events)
       normalize-time))
 
 (defn munge-reports [reports]
