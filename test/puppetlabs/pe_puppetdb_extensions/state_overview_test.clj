@@ -4,22 +4,19 @@
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [with-puppetdb-instance blocking-command-post]]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.log
              :refer [with-log-suppressed-unless-notable notable-pdb-event?]]))
-
-(defn get-munged-report [report]
-  (tur/munge-example-report-for-storage (get reports report)))
 
 (deftest query-state-overview
   (with-log-suppressed-unless-notable notable-pdb-event?
     (with-puppetdb-instance (utils/pdb1-sync-config)
-      (let [report (get-munged-report :basic)
-            report2 (-> (get-munged-report :basic2)
+      (let [report (:basic reports)
+            report2 (-> (:basic2 reports)
                         (merge {:certname "bar.local" :end_time (now)}))]
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report)
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report2)
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report))
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report2))
         (testing "query with no parameters returns correct counts"
           (let [actual (svcs/get-json (utils/pe-pdb-url) "/state-overview")
                 expected {:unchanged 0

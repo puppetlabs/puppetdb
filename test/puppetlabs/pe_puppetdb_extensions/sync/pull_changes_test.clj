@@ -15,6 +15,7 @@
              :refer [with-puppetdb-instance index-by blocking-command-post]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.test-protocols :refer [called?]]
             [puppetlabs.puppetdb.testutils :refer [mock-fn]]
@@ -31,7 +32,7 @@
 ;;; after sync.
 
 (deftest pull-reports-test
-  (let [report-1 (-> reports :basic tur/munge-example-report-for-storage)
+  (let [report-1 (-> reports :basic reports/report-query->wire-v6)
         report-2 (assoc report-1 :certname "bar.local")
         pdb-x-queries (atom [])
         stub-data-atom (atom [])
@@ -39,8 +40,8 @@
     (with-log-suppressed-unless-notable notable-pdb-event?
       (with-puppetdb-instance (utils/pdb1-sync-config stub-handler)
         ;; store two reports in PDB Y
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-1)
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report-2)
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 6 report-1)
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 6 report-2)
 
         (let [query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))
               created-report-1 (first (svcs/get-reports (utils/pdb-query-url) (:certname report-1)))

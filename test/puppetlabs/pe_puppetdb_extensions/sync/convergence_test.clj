@@ -11,6 +11,7 @@
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.client :refer [submit-command-via-http!]]
             [puppetlabs.puppetdb.examples :as examples]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.examples.reports :as report-examples]
             [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.http.command :as command]
@@ -43,9 +44,9 @@
 (defn- make-test-report [stamp n]
   (-> report-examples/reports
       :basic
-      (assoc-in [:resource_events 0 :line] n)
+      (assoc-in [:resource_events :data 0 :line] n)
       (assoc :producer_timestamp (DateTime. stamp))
-      tur/munge-example-report-for-storage))
+      reports/report-query->wire-v6))
 
 (defn- make-test-facts [stamp n]
   {:certname example-certname
@@ -148,7 +149,7 @@
       (submit pdb-x pdb-y target "replace facts" 4 (make-test-facts stamp n))
 
       {:cmd :store-report :target target :stamp stamp :seed n}
-      (submit pdb-x pdb-y target "store report" 5 (make-test-report stamp n))
+      (submit pdb-x pdb-y target "store report" 6 (make-test-report stamp n))
 
       {:cmd :deactivate-node :target target :stamp stamp}
       (submit pdb-x pdb-y target "deactivate node" 3 {:certname example-certname
