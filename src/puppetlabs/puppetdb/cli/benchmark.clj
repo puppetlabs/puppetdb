@@ -160,8 +160,7 @@
              "start_time" (time/minus stamp (time/seconds 10))
              "end_time" (time/minus stamp (time/seconds 5))
              "producer_timestamp" stamp)
-      clojure.walk/keywordize-keys
-      reports/sanitize-report))
+      clojure.walk/keywordize-keys))
 
 (defn randomize-map-leaf
   "Randomizes a fact leaf."

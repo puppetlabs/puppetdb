@@ -1,12 +1,13 @@
 (ns puppetlabs.puppetdb.scf.hash-test
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.hash :refer :all]
+            [puppetlabs.puppetdb.scf.storage :refer [normalize-report]]
             [puppetlabs.puppetdb.random :as random]
             [clojure.math.combinatorics :refer (combinations subsets)]
             [puppetlabs.puppetdb.examples :refer [catalogs]]
             [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.report.utils :as reputils]))
+            [puppetlabs.puppetdb.reports :as reports]))
 
 (deftest hash-computation
   (testing "generic-identity-*"
@@ -209,13 +210,19 @@
             (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))
 
 (deftest report-dedupe
-  (let [report (:basic reports)
-        report-hash (report-identity-hash report)]
+  (let [report-query->hash (comp report-identity-hash
+                                 normalize-report
+                                 reports/report-query->wire-v6)
+        report (:basic reports)
+        report2-events (get-in reports [:basic4 :resource_events :data])
+        report2 (assoc-in report [:resource_events :data] report2-events)
+        report-hash (report-query->hash report)
+        report2-hash (report-query->hash report2)
+        report3-hash (report-query->hash
+                      (update-in report [:resource_events :data] rest))]
     (testing "Reports with the same metadata but different events should have different hashes"
-      (is (= report-hash (report-identity-hash report)))
-      (is (not= report-hash (report-identity-hash (reputils/add-random-event-to-report report))))
-      (is (not= report-hash (report-identity-hash (reputils/mod-event-in-report report))))
-      (is (not= report-hash (report-identity-hash (reputils/remove-random-event-from-report report)))))
+      (is (not= report-hash report2-hash))
+      (is (not= report-hash report3-hash)))
 
     (testing "Reports with different metadata but the same events should have different hashes"
       (let [mod-report-fns [#(assoc % :certname (str (:certname %) "foo"))

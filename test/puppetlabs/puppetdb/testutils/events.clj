@@ -11,24 +11,10 @@
 ;; can be compared for testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn munge-example-event-for-storage
-  "Helper function to munge our example reports into a format suitable for submission
-  via the 'store report' command."
-  [example-event]
-  ;; Because we want to compare 'certname' in the output of event queries, the
-  ;; example data includes it... but it is not a legal key for an event during
-  ;; report submission.
-  (dissoc example-event :certname :containing_class :environment))
-
-(defn environment [resource-event report version]
-  (if (= :v4 version)
-    (assoc-when resource-event :environment (:environment report))
-    (dissoc resource-event :environment)))
-
 (defn expected-resource-event
   "Given a resource event from the example data, plus a report hash, coerce the
   event into the format that we expect to be returned from a real query."
-  [version example-resource-event report]
+  [example-resource-event report]
   (-> example-resource-event
       ;; the examples don't have the report-id or configuration-version,
       ;; but the results from the database do... so we need to munge those in.
@@ -40,15 +26,15 @@
       ;; we need to convert the datetime fields from the examples to timestamp objects
       ;; in order to compare them.
       (update :timestamp to-timestamp)
-      (environment report version)))
+      (assoc-when :environment (:environment report))))
 
 (defn raw-expected-resource-events
   "Given a sequence of resource events from the example data, plus a report,
   coerce the events into the format that we expected to be returned from a real query.
   Unlike the more typical `expected-resource-events`, this does not put the events
   into a set, which makes this function useful for testing the order of results."
-  [version example-resource-events report]
-  (map #(expected-resource-event version % report) example-resource-events))
+  [example-resource-events report]
+  (map #(expected-resource-event % report) example-resource-events))
 
 (defn timestamps->str
   "Walks events and stringifies all timestamps"
@@ -59,18 +45,14 @@
                      x))
                  events))
 
-(defn http-expected-resource-events
-  "Returns an HTTPish version of resource events"
-  [version example-resource-events report]
-  (-> (raw-expected-resource-events version example-resource-events report)
-      timestamps->str
-      set))
-
 (defn expected-resource-events
   "Given a sequence of resource events from the example data, plus a report,
   coerce the events into the format that we expect to be returned from a real query."
-  [version example-resource-events report]
-  (set (raw-expected-resource-events version example-resource-events report)))
+  [example-resource-events report]
+  (-> example-resource-events
+      (raw-expected-resource-events report)
+      timestamps->str
+      set))
 
 (defn query-resource-events
   ([version query]
