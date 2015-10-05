@@ -27,7 +27,7 @@
             :values tuf/base-facts
             :producer_timestamp (new java.util.Date)})
 
-(def catalog (assoc (get-in wire-catalogs [6 :basic])
+(def catalog (assoc (get-in wire-catalogs [7 :basic])
                     :certname "foo.local"))
 
 (def report (-> reports :basic reports/report-query->wire-v6))
