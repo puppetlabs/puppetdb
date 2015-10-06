@@ -32,8 +32,6 @@ group :test do
   end
 
   gem 'mocha', '~> 1.0'
-  gem 'activerecord', '~> 3.2'
-  gem 'sqlite3'
 end
 
 group :acceptance do

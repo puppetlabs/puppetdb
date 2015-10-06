@@ -18,11 +18,6 @@ This page describes how to install PuppetDB from an archive of the source code, 
 
 If possible, we recommend installing PuppetDB [with the puppetlabs-puppetdb module][module] or [from packages][packages]; either approach will be easier. However, if you are testing a new version, developing PuppetDB, or installing it on a system not supported with official packages, you will need to install it from source.
 
-> **Note:**
->
-> If you'd like to migrate existing exported resources from your ActiveRecord storeconfigs database, please see the documentation on [Migrating Data][migrating].
-
-
 Step 1: Install Prerequisites
 -----
 
