@@ -115,11 +115,9 @@
   [value]
   (cond
    (string? value) (random-string 30)
-   (integer? value) (rand-int 300)
+   (integer? value) (rand-int (max value 20))
    (float? value) (rand)
    (boolean? value) (random-bool)
-   (vector? value) (mapv anonymize-leaf-value value)
-   (seq? value) (seq (map anonymize-leaf-value value))
    (map? value) (zipmap (take (count value)
                               (repeatedly #(random-string 10)))
                         (vals (utils/update-vals value (keys value)
@@ -136,16 +134,19 @@
        :title (random-string 15)
        :name (random-string 10)
        :parameter-name (random-string-alpha 10)
-       :parameter-value (anonymize-leaf-value value)
        :message (random-string 50)
        :log-message (random-string (count value))
        :file (random-pp-path)
-       :line (rand-int 300)
+       :line (when value (rand-int (max value 20)))
        :value (rand 100)
        :transaction_uuid (uuid)
        :fact-name (random-string 15)
-       :fact-value (anonymize-leaf-value value)
-       :environment (random-string 15)))))
+       :environment (random-string 15)
+       (:fact-value :parameter-value)
+       (cond
+         (vector? value) (map (partial anonymize-leaf-memoize ltype) value)
+         (seq? value) (seq (map (partial anonymize-leaf-memoize ltype) value))
+         :else (anonymize-leaf-value value))))))
 
 (defn anonymize-leaf
   "Anonymize leaf data, if the context matches a rule"
@@ -412,13 +413,16 @@
 (defn anonymize-fact-values
   "Anonymizes fact names and values"
   [facts context config]
-  (reduce-kv (fn [acc k v]
-               (assoc acc
-                 (anonymize-leaf k :fact-name (assoc context "fact-name" k) config)
-                 (anonymize-leaf v :fact-value (assoc context
-                                                 "fact-name" k
-                                                 "fact-value" v) config)))
-             {} facts))
+  (reduce-kv
+    (fn [acc k v]
+      (assoc acc
+             (anonymize-leaf k :fact-name (assoc context "fact-name" k) config)
+             (if (map? v)
+               (anonymize-fact-values v context config)
+               (anonymize-leaf v :fact-value (assoc context
+                                                    "fact-name" k
+                                                    "fact-value" v) config))))
+    {} facts))
 
 (defn anonymize-facts
   "Anonymize a fact set"
