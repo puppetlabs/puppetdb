@@ -4,9 +4,7 @@ sudo: false
 install:
     - bash ./ext/travisci/install.sh ~/.lein/profiles.clj
 jdk:
-    - oraclejdk7
     - oraclejdk8
-    - openjdk7
 notifications:
     email: false
 script:
@@ -14,3 +12,4 @@ script:
 addons:
   postgresql: "9.4"
 services: postgresql
+sudo: false

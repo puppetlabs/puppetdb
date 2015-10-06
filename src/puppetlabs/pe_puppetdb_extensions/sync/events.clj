@@ -1,5 +1,5 @@
 (ns puppetlabs.pe-puppetdb-extensions.sync.events
-  (:require [puppetlabs.pe-puppetdb-extensions.semlog :refer [maplog]]
+  (:require [puppetlabs.structured-logging.core :refer [maplog]]
             [puppetlabs.kitchensink.core :as ks]
             [clj-time.core :as time :refer [now interval in-seconds]]
             [metrics.gauges :refer [gauge-fn]]
@@ -89,14 +89,15 @@
   (into (empty m) (for [[k v] m] [k (f v)])))
 
 (defn sync-event [event {:keys [context] :as opts}]
-  (let [[level message] (get opts event)
+  (let [[level message] (get opts event [:debug nil])
         context (-> (generic-mapvals resolve-thunk
                                      (into (sorted-map) context))
                     (assoc :event (name event))
                     (maybe-assoc-ok event))]
-    (if-let [ex (:exception context)]
-     (maplog [:sync level] ex (dissoc context :exception) message)
-     (maplog [:sync level] context message))))
+    (when message
+     (if-let [ex (:exception context)]
+       (maplog [:sync level] ex (dissoc context :exception) message)
+       (maplog [:sync level] context message)))))
 
 (defn timer-metric-key [opts]
   (let [key-fn (get opts :timer-key :phase)]

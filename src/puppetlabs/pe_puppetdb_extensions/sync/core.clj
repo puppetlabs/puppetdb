@@ -12,7 +12,7 @@
             [clj-time.format :as tf]
             [clojure.tools.logging :as log]
             [slingshot.slingshot :refer [try+ throw+]]
-            [puppetlabs.pe-puppetdb-extensions.semlog :refer [maplog]]
+            [puppetlabs.structured-logging.core :refer [maplog]]
             [puppetlabs.pe-puppetdb-extensions.sync.events :as events
              :refer [with-sync-events]]
             [puppetlabs.puppetdb.scf.storage
@@ -84,12 +84,12 @@
     :record-ordering-fn (constantly 0) ; TODO: rename this, maybe to record-conflict-key-fn or something
 
     :clean-up-record-fn (fn clean-up-report [report]
-                          (utils/update-when report [:resource_events] #(map clean-up-resource-event %)))
+                          (dissoc report :resource_events))
 
     ;; When a record is out-of-date, the whole thing is
     ;; downloaded and then stored with this command
     :submit-command {:command :store-report
-                     :version 5}}
+                     :version 6}}
 
    {:entity :factsets
     :record-hashes-query {:version :v4
@@ -303,7 +303,8 @@
                                  :certname certname
                                  :producer_timestamp deactivated}
                        :start [:debug "    deactivating {certname} as of {producer_timestamp}"]
-                       :finished [:debug "    deactivated {certname}"]}
+                       :finished [:debug "    deactivated {certname}"]
+                       :error [:error  "    error deactivating {certname}"]}
       (submit-command-fn :deactivate-node 3
                          {:certname certname :producer_timestamp deactivated})
       true)))

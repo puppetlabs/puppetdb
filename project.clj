@@ -5,11 +5,16 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def pdb-version "3.1.2-SNAPSHOT")
-(def pe-pdb-version "3.1.2-SNAPSHOT")
+(def pdb-version "4.0.0-SNAPSHOT")
+(def pe-pdb-version "4.0.0-SNAPSHOT")
 
 (def tk-version "1.1.1")
 (def ks-version "1.0.0")
+
+(def pdb-jvm-opts
+  (case (System/getProperty "java.specification.version")
+    "1.7" ["-XX:MaxPermSize=200M"]
+    []))
 
 (defproject puppetlabs/pe-puppetdb-extensions pe-pdb-version
   :pedantic? :abort
@@ -19,7 +24,8 @@
                  ["snapshots"  "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
   :source-paths ["src"]
   :dependencies [[puppetlabs/puppetdb ~pdb-version]
-                 [net.logstash.logback/logstash-logback-encoder "4.2"]]
+                 [net.logstash.logback/logstash-logback-encoder "4.2"]
+                 [puppetlabs/structured-logging "0.1.0"]]
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
   :resource-paths ["resources"]
@@ -36,16 +42,17 @@
                                   [ring-mock "0.1.5"]
                                   [puppetlabs/puppetdb ~pdb-version :classifier "test"]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
-                                  [puppetlabs/kitchensink ~ks-version :classifier "test"]]}
+                                  [puppetlabs/kitchensink ~ks-version :classifier "test"]
+                                  [environ "1.0.0"]]}
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]
                                                [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]]
-                      :plugins [[puppetlabs/lein-ezbake "0.3.18"
-                                 :exclusions [org.clojure/clojure]]]
+                      :plugins [[puppetlabs/lein-ezbake "0.3.13"
+                                :exclusions [org.clojure/clojure]]]
                       :version ~pe-pdb-version
                       :name "pe-puppetdb"}}
   :lein-release {:scm :git, :deploy-via :lein-deploy}
 
-  :jvm-opts ["-XX:MaxPermSize=128M"]
+  :jvm-opts ~pdb-jvm-opts
 
   :main ^:skip-aot puppetlabs.puppetdb.core)

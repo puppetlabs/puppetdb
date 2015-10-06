@@ -9,7 +9,9 @@
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [ring.middleware.params :refer [wrap-params]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
+            [puppetlabs.puppetdb.testutils :refer [clean-db-map postgres-map temp-dir]]
             [puppetlabs.puppetdb.cheshire :as json]
+            [environ.core :refer [env]]
             [clj-http.client :as http])
    (:import [java.net MalformedURLException URISyntaxException URL]) )
 
@@ -42,18 +44,48 @@
 (def sync-url-prefix (str pdb-prefix "/sync"))
 (def stub-url-prefix "/stub")
 
+(def pdb2-postgres-map
+  {:classname "org.postgresql.Driver"
+   :subprotocol "postgresql"
+   :subname (env :puppetdb2-dbsubname "//127.0.0.1:5432/puppetdb2_test")
+   :user (env :puppetdb2-dbuser "puppetdb")
+   :password (env :puppetdb2-dbpassword "puppetdb")})
+
+(defn clean-pdb1-db-map [] (clean-db-map postgres-map))
+(defn clean-pdb2-db-map [] (clean-db-map pdb2-postgres-map))
+
+(defn create-config
+  "Creates a default config, populated with a temporary vardir and
+  a fresh hypersql instance"
+  []
+  {:nrepl {}
+   :global {:vardir (temp-dir)}
+   :jetty {:port 0}
+   :command-processing {}})
+
 (defn sync-config
   "Returns a default TK config setup for sync testing. PuppetDB is
   hosted at /pdb, and the sync service at /sync. Takes an optional
   `stub-handler` parameter, a ring handler that will be hosted under
   '/stub'."
-  ([] (sync-config nil))
+  [stub-handler]
+  (-> (create-config)
+      (assoc-in [:sync :allow-unsafe-sync-triggers] true)
+      (assoc :stub-server-service {:handler stub-handler}
+             :web-router-service  {:puppetlabs.pe-puppetdb-extensions.sync.pe-routing/pe-routing-service pdb-prefix
+                                   :puppetlabs.pe-puppetdb-extensions.testutils/stub-server-service stub-url-prefix})))
+
+(defn pdb1-sync-config
+  ([] (pdb1-sync-config nil))
   ([stub-handler]
-   (-> (svcs/create-config)
-       (assoc-in [:sync :allow-unsafe-sync-triggers] true)
-       (assoc :stub-server-service {:handler stub-handler}
-              :web-router-service  {:puppetlabs.pe-puppetdb-extensions.sync.pe-routing/pe-routing-service pdb-prefix
-                                    :puppetlabs.pe-puppetdb-extensions.testutils/stub-server-service stub-url-prefix}))))
+   (-> (sync-config stub-handler)
+       (assoc :database (clean-pdb1-db-map)))))
+
+(defn pdb2-sync-config
+  ([] (pdb2-sync-config nil))
+  ([stub-handler]
+   (-> (sync-config stub-handler)
+       (assoc :database (clean-pdb2-db-map)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; URL helper functions for inside a with-puppetdb-instance block
@@ -103,14 +135,6 @@
   {:status 200
    :headers {"Content-Type" "application/json"}
    :body (json/generate-string m)})
-
-(defn get-json [base-url suffix & [opts]]
-  (let [opts (or opts {:throw-exceptions true
-                       :throw-entire-message? true})]
-    (-> (str (base-url->str base-url) suffix)
-        (http/get opts)
-        :body
-        (json/parse-string true))))
 
 (defn get-response
   [base-url suffix opts]

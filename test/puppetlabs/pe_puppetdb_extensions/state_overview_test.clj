@@ -3,25 +3,22 @@
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
-             :refer [get-json with-puppetdb-instance blocking-command-post]]
+             :refer [with-puppetdb-instance blocking-command-post]]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.log
              :refer [with-log-suppressed-unless-notable notable-pdb-event?]]))
 
-(defn get-munged-report [report]
-  (tur/munge-example-report-for-storage (get reports report)))
-
 (deftest query-state-overview
   (with-log-suppressed-unless-notable notable-pdb-event?
-    (with-puppetdb-instance (utils/sync-config)
-      (let [report (get-munged-report :basic)
-            report2 (-> (get-munged-report :basic2)
+    (with-puppetdb-instance (utils/pdb1-sync-config)
+      (let [report (:basic reports)
+            report2 (-> (:basic2 reports)
                         (merge {:certname "bar.local" :end_time (now)}))]
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report)
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 report2)
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report))
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report2))
         (testing "query with no parameters returns correct counts"
-          (let [actual (get-json (utils/pe-pdb-url) "/state-overview")
+          (let [actual (svcs/get-json (utils/pe-pdb-url) "/state-overview")
                 expected {:unchanged 0
                           :failed 0
                           :noop 1
@@ -33,7 +30,7 @@
           (do
             ;; Wait a little while so we can test unresponsive threshold
             (Thread/sleep 1000)
-            (let [actual (get-json (utils/pe-pdb-url) (format "/state-overview?unresponsive_threshold=1" ))
+            (let [actual (svcs/get-json (utils/pe-pdb-url) (format "/state-overview?unresponsive_threshold=1" ))
                   ;; Wait a little while so we can test unresponsive threshold
                   expected {:unchanged 0
                             :failed 0
@@ -54,7 +51,7 @@
             (blocking-command-post (utils/pdb-cmd-url) "deactivate node" 3 {"certname" "bar.local"})
             ;; Sleep to allow status to change to unresponsive with threshold=1
             (Thread/sleep 1000)
-            (let [actual (get-json (utils/pe-pdb-url) (format "/state-overview?unresponsive_threshold=1"))
+            (let [actual (svcs/get-json (utils/pe-pdb-url) (format "/state-overview?unresponsive_threshold=1"))
                   expected {:unchanged 0
                             :failed 0
                             :noop 0

@@ -3,28 +3,22 @@
             [clojure.core.match :as ccm]
             [clojure.test :refer :all]
             [clojure.test.check.clojure-test :refer [defspec]]
-            [clojure.test.check :as check]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.pe-puppetdb-extensions.sync.core
-             :refer [sync-from-remote!]]
-            [puppetlabs.pe-puppetdb-extensions.sync.core-test
-             :refer [default-pdb-configs with-alt-mq with-pdbs start-sync]]
+            [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote!]]
+            [puppetlabs.pe-puppetdb-extensions.sync.sync-test-utils :refer [default-pdb-configs with-pdbs start-sync]]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.client :refer [submit-command-via-http!]]
             [puppetlabs.puppetdb.examples :as examples]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.examples.reports :as report-examples]
             [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.http.command :as command]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.puppetdb.testutils.reports :as tur]
-            [puppetlabs.puppetdb.testutils.services :as svcs]
-            [puppetlabs.puppetdb.time :refer [to-millis]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
-            [puppetlabs.pe-puppetdb-extensions.semlog :as semlog]
-            [puppetlabs.trapperkeeper.app :refer [get-service]]
-            [puppetlabs.trapperkeeper.services :refer [service-context]])
+            [puppetlabs.trapperkeeper.app :refer [get-service]])
   (:import
    [org.joda.time Period DateTime]))
 
@@ -50,9 +44,9 @@
 (defn- make-test-report [stamp n]
   (-> report-examples/reports
       :basic
-      (assoc-in [:resource_events 0 :line] n)
+      (assoc-in [:resource_events :data 0 :line] n)
       (assoc :producer_timestamp (DateTime. stamp))
-      tur/munge-example-report-for-storage))
+      reports/report-query->wire-v6))
 
 (defn- make-test-facts [stamp n]
   {:certname example-certname
@@ -155,7 +149,7 @@
       (submit pdb-x pdb-y target "replace facts" 4 (make-test-facts stamp n))
 
       {:cmd :store-report :target target :stamp stamp :seed n}
-      (submit pdb-x pdb-y target "store report" 5 (make-test-report stamp n))
+      (submit pdb-x pdb-y target "store report" 6 (make-test-report stamp n))
 
       {:cmd :deactivate-node :target target :stamp stamp}
       (submit pdb-x pdb-y target "deactivate node" 3 {:certname example-certname
@@ -177,9 +171,9 @@
 (defn- sync-directly! [pdb remote-url]
   (let [server (:server pdb)
         pdb-service (get-service server :PuppetDBServer)
-        cmd-service (get-service server :PuppetDBCommand)]
+        dispatcher (get-service server :PuppetDBCommandDispatcher)]
     (sync-from-remote! (partial cli-svcs/query pdb-service)
-                       (partial command/submit-command cmd-service)
+                       (partial dispatch/enqueue-command dispatcher)
                        {:url remote-url}
                        Period/ZERO)))
 
