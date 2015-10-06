@@ -8,8 +8,8 @@ LEIN="${1:-lein2}"
 # get_dep_version
 # :arg1 is the dependency project whose version we want to grab from project.clj
 get_dep_version() {
-	local REGEX="puppetlabs\/${1:?} "
-	$LEIN pprint :dependencies | grep "$REGEX" | cut -d\" -f2
+  local REGEX="puppetlabs\/puppetdb\s*\"([[:alnum:]]|\-|\.)+\"[[:space:]]*\]"
+  echo "$($LEIN pprint :dependencies | egrep $REGEX | cut -d\" -f2)"
 }
 
 rm -rf checkouts && mkdir checkouts
@@ -21,12 +21,17 @@ pushd checkouts
 git clone https://github.com/puppetlabs/puppetdb
 
 # Try to checkout to the "release" tag in puppetdb corresponding to
-# the dependency version. If we can't find it, just use the master branch.
+# the dependency version. If we can't find it, default to a branch of
+# the same name as the current branch
 depversion="$(get_dep_version 'puppetdb')"
 pushd 'puppetdb'
-if [ -n "$(git tag -l | grep $depversion | awk '{print $2;}')" ]
+
+tag="$(git tag -l \"${depversion?}\")"
+if test -n "${tag?}"
 then
-    git checkout $depversion
+    git checkout "$depversion"
+else
+    git checkout "$TRAVIS_BRANCH"
 fi
 $LEIN install
 popd

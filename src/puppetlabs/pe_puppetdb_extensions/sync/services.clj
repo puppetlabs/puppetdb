@@ -305,7 +305,6 @@
                  :else
                  (sync-with! remote-server query-fn enqueue-command-fn node-ttl))))))))
 
-
 (defprotocol PuppetDBSync
   ;;Marker protocol to allow services to depend on the
   ;;puppetdb-sync-service below
