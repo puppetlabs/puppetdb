@@ -27,7 +27,6 @@ Install It Now
 To start using PuppetDB today:
 
 * Review [the system requirements below](#system-requirements) (and, optionally, [our scaling recommendations][scaling]).
-* If you'd like to migrate existing exported resources from your ActiveRecord storeconfigs database, please see the documentation on [Migrating Data][migrating].
 * Choose your installation method:
     * [easy install][install_via_module] using the PuppetDB puppet module on our recommended platforms
     * [install from packages][install_from_packages] on our recommended platforms

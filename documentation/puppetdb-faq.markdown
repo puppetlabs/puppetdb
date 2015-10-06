@@ -10,12 +10,6 @@ canonical: "/puppetdb/latest/puppetdb-faq.html"
 [maintaining_tuning]: ./maintain_and_tune.html
 [low_catalog_dupe]: ./trouble_low_catalog_duplication.html
 
-## Can I migrate my data from ActiveRecord storeconfigs or from an existing PuppetDB to a new instance?
-
-Yes.  At this time, you can only migrate exported resources from ActiveRecord, and
-you can migrate catalogs from an existing PuppetDB.  For more information, see
-[Migrating Data][migrating] for more information.
-
 ## PuppetDB is complaining about a truststore or keystore file. What do I do?
 
 There are several related causes for this, but it boils down to PuppetDB being

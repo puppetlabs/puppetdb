@@ -16,10 +16,6 @@ PuppetDB termini for your Puppet master) using [the PuppetDB module][module] fro
 * If you are **already familiar with Puppet** and have a working Puppet deployment, this is the easiest method for installing PuppetDB. In this guide, we expect that you already know how to assign Puppet classes to nodes.
 * If you are **just getting started with Puppet,** you should probably follow the [Installing PuppetDB From Packages guide](./install_from_packages.html) instead.
 
-> **Note:**
->
-> If you'd like to migrate existing exported resources from your ActiveRecord storeconfigs database, please see the documentation on [Migrating Data][migrating].
-
 Step 1: Enable the Puppet Labs Package Repository
 -----
 
