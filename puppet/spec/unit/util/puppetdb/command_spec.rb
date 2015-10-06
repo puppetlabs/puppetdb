@@ -62,7 +62,7 @@ describe Puppet::Util::Puppetdb::Command do
     cmd.payload.include?("\u2192").should be_true
   end
 
-  describe "on ruby > 1.8", :if => RUBY_VERSION !~ /^1.8/ do
+  describe "on ruby >= 1.9" do
 
     it "should warn when a command payload includes non-ascii UTF-8 characters" do
       Puppet.expects(:warning).with {|msg| msg =~ /Error encoding a 'command-1' command for host 'foo.localdomain' ignoring invalid UTF-8 byte sequences/}
