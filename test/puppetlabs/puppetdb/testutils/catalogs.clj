@@ -11,15 +11,6 @@
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.catalogs :refer [catalog-version]]))
 
-(defn canonical->wire-format
-  "Converts the `catalog` in the canonical format to the correct wire-format version.
-   Note that the wire format is still in keywords"
-  [version catalog]
-  (let [versioned-catalog (->> catalog
-                               (cats/canonical-catalog :all)
-                               (cats/canonical-catalog version))]
-    (s/validate (cats/catalog-wireformat version) versioned-catalog)))
-
 (defn replace-catalog
   "Convenience function for simulating a `replace catalog` command during testing.
 

@@ -191,20 +191,14 @@
   (testing "Catalogs with different metadata but the same content should have the same hashes"
     (let [catalog            (:basic catalogs)
           hash               (catalog-similarity-hash catalog)
-          ;; Functions that tweak various attributes of a catalog
-          tweak-api-version  #(update-in % [:api_version] inc)
-          tweak-version      #(update-in % [:version] str)
-          ;; List of all the tweaking functions
-          chaos-monkeys      [tweak-api-version tweak-version]
-          ;; Function that will apply a random tweak function
-          apply-monkey       #((rand-nth chaos-monkeys) %)]
+          chaos-monkey #(update % :version str)]
 
       ;; Do the following 100 times: pick up to 10 tweaking functions,
       ;; successively apply them all to the original catalog, and
       ;; verify that the hash of the resulting catalog is the same as
       ;; the hash of the original catalog
       (doseq [nmonkeys (repeatedly 100 #(inc (rand-int 10)))
-              :let [tweaked-catalog (nth (iterate apply-monkey catalog) nmonkeys)
+              :let [tweaked-catalog (nth (iterate chaos-monkey catalog) nmonkeys)
                     tweaked-hash    (catalog-similarity-hash tweaked-catalog)]]
         (is (= hash tweaked-hash)
             (str catalog "\n has hash: " hash "\n and \n" tweaked-catalog "\n has hash: " tweaked-hash))))))

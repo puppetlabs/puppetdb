@@ -6,6 +6,7 @@ canonical: "/puppetdb/latest/api/command/v1/commands.html"
 
 [factsv4]: ../../wire_format/facts_format_v4.html
 [catalogv6]: ../../wire_format/catalog_format_v6.html
+[catalogv7]: ../../wire_format/catalog_format_v7.html
 [reportv5]: ../../wire_format/report_format_v5.html
 [reportv6]: ../../wire_format/report_format_v6.html
 [deactivatev3]: ../../wire_format/deactivate_node_format_v3.html
@@ -88,15 +89,12 @@ processed.
 
 ## List of Commands
 
-### "replace catalog", version 6
+### "replace catalog", version 7
 
-* All field names that were previously separated by dashes are
-  separated by underscores.
-
-* The catalog 'name' field has been renamed to 'certname'.
+* The nullable `code_id` property has been added.
 
 The payload is expected to be a Puppet catalog, as a JSON object,
-conforming exactly to the [catalog wire format v6][catalogv6]. Extra
+conforming exactly to the [catalog wire format v7][catalogv7]. Extra
 or missing fields are an error.
 
 ### "replace facts", version 4
@@ -132,6 +130,17 @@ Puppet resources. It is structured as a JSON object, conforming to the
 [report wire format v6][reportv6].
 
 ## Deprecated Commands
+
+### "replace catalog", version 6
+
+* All field names that were previously separated by dashes are
+  separated by underscores.
+
+* The catalog 'name' field has been renamed to 'certname'.
+
+The payload is expected to be a Puppet catalog, as a JSON object,
+conforming exactly to the [catalog wire format v6][catalogv6]. Extra
+or missing fields are an error.
 
 ### "store report", version 5
 

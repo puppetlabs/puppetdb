@@ -87,7 +87,7 @@
         (is (= (sort (map :certname expected)) (sort (map :certname response-body))))
         (when (sutils/postgres?)
           (is (= (extract-tags expected)
-                 (extract-tags (catalogs/catalogs-query->wire-v6 response-body))))))))
+                 (extract-tags (catalogs/catalogs-query->wire-v7 response-body))))))))
 
   (testing "projection queries"
     (are [query expected]

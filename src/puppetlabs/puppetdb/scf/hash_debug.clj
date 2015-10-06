@@ -69,7 +69,7 @@
         first
         (maybe-expand :resources version query)
         (maybe-expand :edges version query)
-        catalogs/catalog-query->wire-v6
+        catalogs/catalog-query->wire-v7
         (update :edges edge-relationships->kwds)
         (update :resources resource-params->kwds))))
 

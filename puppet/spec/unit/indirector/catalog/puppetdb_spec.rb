@@ -23,6 +23,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
       cat
     end
     let(:options) {{
+      :code_id => 'my_git_sha1',
       :transaction_uuid => 'abcdefg',
       :environment => 'my_environment',
       :producer_timestamp => "a test",
@@ -41,7 +42,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
       command_payload = subject.munge_catalog(catalog, options)
       payload = {
         :command => Puppet::Util::Puppetdb::CommandNames::CommandReplaceCatalog,
-        :version => 6,
+        :version => 7,
         :payload => command_payload,
       }.to_json
 
@@ -695,7 +696,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         result = subject.munge_catalog(catalog)
 
         result.keys.should =~ ['certname', 'version', 'edges', 'resources',
-          'transaction_uuid', 'environment', 'producer_timestamp']
+          'transaction_uuid', 'environment', 'producer_timestamp', "code_id"]
       end
     end
   end
