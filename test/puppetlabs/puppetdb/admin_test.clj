@@ -1,110 +1,91 @@
 (ns puppetlabs.puppetdb.admin-test
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.cli.services :refer :all]
-            [puppetlabs.puppetdb.http.command :refer :all]
-            [puppetlabs.puppetdb.cli.export :as export]
-            [puppetlabs.puppetdb.cli.import :as import]
-            [puppetlabs.puppetdb.admin :as admin]
+            [puppetlabs.puppetdb.command :refer [enqueue-command]]
+            [puppetlabs.puppetdb.export :as export]
+            [puppetlabs.puppetdb.import :as import]
+            [puppetlabs.puppetdb.anonymizer :as anon]
+            [puppetlabs.puppetdb.cli.import :as cli-import]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.testutils.tar :as tar]
-            [puppetlabs.puppetdb.testutils.catalogs :as tuc]
             [puppetlabs.puppetdb.fixtures :as fixt]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.examples :as examples]
-            [puppetlabs.puppetdb.examples.reports :as example-reports]
+            [puppetlabs.puppetdb.testutils.catalogs :as tuc]
             [puppetlabs.puppetdb.testutils.reports :as tur]
-            [clj-time.core :as time]
-            [clj-time.coerce :as time-coerce]
+            [puppetlabs.puppetdb.testutils.facts :as tuf]
+            [puppetlabs.puppetdb.testutils.cli
+             :refer [get-nodes get-catalogs get-factsets get-reports munge-tar-map
+                     example-catalog example-report example-facts example-certname]]
+            [puppetlabs.puppetdb.testutils.tar :refer [tar->map]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]))
 
 (use-fixtures :each fixt/with-test-logging-silenced)
 
 (deftest test-basic-roundtrip
-  (let [certname "foo.local"
-        facts {:certname certname
-               :environment "DEV"
-               :values {:foo "the foo"
-                        :bar "the bar"
-                        :baz "the baz"
-                        :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
-               :producer_timestamp (time-coerce/to-string (time/now))}
-        export-out-file (tu/temp-file "export-test" ".tar.gz")
-        catalog (-> (get-in examples/wire-catalogs [6 :empty])
-                    (assoc :certname certname
-                           :producer_timestamp (time/now)))
-        report (-> (:basic example-reports/reports)
-                   (assoc :certname certname))]
+  (let [export-out-file (tu/temp-file "export-test" ".tar.gz")]
 
     (svc-utils/call-with-single-quiet-pdb-instance
      (fn []
-       (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))
-             submit-command-fn (partial submit-command (tk-app/get-service svc-utils/*server* :PuppetDBCommand))]
-         (is (empty? (query-fn :nodes admin/query-api-version nil nil doall)))
+       (is (empty? (get-nodes)))
 
-         (svc-utils/sync-command-post
-           (tu/command-base-url svc-utils/*base-url*)
-           "replace catalog" 6 catalog)
-         (svc-utils/sync-command-post
-           (tu/command-base-url svc-utils/*base-url*)
-           "store report" 5
-           (tur/munge-example-report-for-storage report))
-         (svc-utils/sync-command-post
-           (tu/command-base-url svc-utils/*base-url*)
-           "replace facts" 4 facts)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 6 example-catalog)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 6 example-report)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace facts" 4 example-facts)
 
-         (is (tu/=-after? tuc/munge-catalog
-                          catalog
-                          (->> certname
-                               (export/catalogs-for-node query-fn)
-                               tar/parse-tar-entry-contents)))
+       (is (= (tuc/munge-catalog example-catalog)
+              (tuc/munge-catalog (get-catalogs example-certname))))
+       (is (= [example-report] (get-reports example-certname)))
+       (is (= (tuf/munge-facts example-facts)
+              (tuf/munge-facts (get-factsets example-certname))))
 
-         (is (tu/=-after? tur/munge-report
-                          report
-                          (->> certname
-                               (export/reports-for-node query-fn)
-                               tar/parse-tar-entry-contents)))
-
-         (is (= facts (->> certname
-                           (export/facts-for-node query-fn)
-                           tar/parse-tar-entry-contents)))
-
-         (admin/export-app export-out-file query-fn))))
+       (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))]
+         (export/export! export-out-file query-fn))))
 
     (svc-utils/call-with-single-quiet-pdb-instance
      (fn []
-       (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))
-             submit-command-fn (partial submit-command (tk-app/get-service svc-utils/*server* :PuppetDBCommand))]
-         (is (empty? (query-fn :nodes admin/query-api-version nil nil doall)))
+       (is (empty? (get-nodes)))
 
-         (svc-utils/until-consumed
-          3
-          (fn []
-            (let [command-versions (:command_versions (import/parse-metadata export-out-file))]
-              (import/import! export-out-file command-versions submit-command-fn))))
+       (let [dispatcher (tk-app/get-service svc-utils/*server*
+                                            :PuppetDBCommandDispatcher)
+             submit-command-fn (partial enqueue-command dispatcher)
+             command-versions (:command_versions (cli-import/parse-metadata
+                                                  export-out-file))]
+         (import/import! export-out-file command-versions submit-command-fn))
 
-         ;; For some reason, although the fact's/report's message has
-         ;; been consumed and committed, it's not immediately available
-         ;; for querying. Maybe this is a race condition in our tests?
-         ;; The next two lines ensure that the message is not only
-         ;; consumed but present in the DB before proceeding
-         @(tu/block-until-results 100 (export/catalogs-for-node query-fn certname))
-         @(tu/block-until-results 100 (export/facts-for-node query-fn certname))
-         @(tu/block-until-results 100 (export/reports-for-node query-fn certname))
+       @(tu/block-until-results 100 (first (get-catalogs example-certname)))
+       @(tu/block-until-results 100 (first (get-reports example-certname)))
+       @(tu/block-until-results 100 (first (get-factsets example-certname)))
 
-         (is (tu/=-after? tuc/munge-catalog
-                          catalog
-                          (->> certname
-                               (export/catalogs-for-node query-fn)
-                               tar/parse-tar-entry-contents)))
+       (is (= (tuc/munge-catalog example-catalog)
+              (tuc/munge-catalog (get-catalogs example-certname))))
+       (is (= [example-report] (get-reports example-certname)))
+       (is (= (tuf/munge-facts example-facts)
+              (tuf/munge-facts (get-factsets example-certname))))))))
+
+(deftest test-anonymized-export
+  (doseq [profile (keys anon/anon-profiles)]
+    (let [export-out-file (tu/temp-file "export-test" ".tar.gz")
+          anon-out-file (tu/temp-file "anon-test" ".tar.gz")]
+
+      (svc-utils/call-with-single-quiet-pdb-instance
+       (fn []
+         (is (empty? (get-nodes)))
+
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 6 example-catalog)
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 6 example-report)
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace facts" 4 example-facts)
 
 
-         (is (= facts (->> certname
-                           (export/facts-for-node query-fn)
-                           tar/parse-tar-entry-contents)))
+         (is (= (tuc/munge-catalog example-catalog)
+                (tuc/munge-catalog (get-catalogs example-certname))))
+         (is (= [example-report] (get-reports example-certname)))
+         (is (= (tuf/munge-facts example-facts)
+                (tuf/munge-facts (get-factsets example-certname))))
 
-         (is (tu/=-after? tur/munge-report
-                          report
-                          (->> certname
-                               (export/reports-for-node query-fn)
-                               tar/parse-tar-entry-contents))))))))
+         (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))]
+           (export/export! export-out-file query-fn)
+           (export/export! anon-out-file query-fn profile)
+           (let [export-out-map (munge-tar-map (tar->map export-out-file))
+                 anon-out-map (munge-tar-map (tar->map anon-out-file))]
+             (if (= profile "none")
+               (is (= export-out-map anon-out-map))
+               (is (not= export-out-map anon-out-map))))))))))

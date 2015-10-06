@@ -14,7 +14,7 @@ canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 You can query catalogs by making an HTTP request to the
 `/catalogs` endpoint.
 
-## `GET /pdb/query/v4/catalogs`
+## `/pdb/query/v4/catalogs`
 
 This will return a JSON array containing the most recent catalog for each node in your infrastructure.
 
@@ -135,7 +135,7 @@ This query will return all catalogs with producer_timestamp after 2014-11-19:
     } ]
 
 
-## `GET /pdb/query/v4/catalogs/<NODE>`
+## `/pdb/query/v4/catalogs/<NODE>`
 
 This will return the most recent catalog for the given node. Supplying a node
 this way will restrict any given query to only apply to that node, but in
@@ -166,7 +166,7 @@ a JSON error message if the catalog is not found:
       "error" : "Could not find catalog for my_fake_hostname"
     }
 
-## `GET /pdb/query/v4/catalogs/<NODE>/edges`
+## `/pdb/query/v4/catalogs/<NODE>/edges`
 
 This will return all edges for a particular catalog, designated by a node certname.
 
@@ -182,7 +182,7 @@ If you provide a `query` parameter, it will specify additional criteria, which w
 used to return a subset of the information normally returned by
 this route.
 
-## `GET /pdb/query/v4/catalogs/<NODE>/resources`
+## `/pdb/query/v4/catalogs/<NODE>/resources`
 
 This will return all resources for a particular catalog, designated by a node certname.
 

@@ -7,6 +7,7 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.cheshire :as json]
             [net.cgrand.moustache :as moustache]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
             [compojure.core :as compojure]
             [clojure.core.async :as async]
@@ -86,17 +87,16 @@
                                                         :timed_out false)
                                                  200)))))))))
 
-(defn enqueue-command-handler
+(defn- enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
-  [get-command-mq enqueue-fn get-response-pub]
+  [enqueue-fn get-response-pub]
   (fn [{:keys [body-string params] :as request}]
     (let [uuid (kitchensink/uuid)
           completion-timeout-ms (some-> params
                                         (get "secondsToWaitForCompletion")
                                         Double/parseDouble
                                         (* 1000))
-          {:keys [connection endpoint]} (get-command-mq)
-          do-submit #(enqueue-fn connection endpoint body-string uuid)]
+          do-submit #(enqueue-fn body-string uuid)]
       (if (some-> completion-timeout-ms pos?)
         (blocking-submit-command do-submit (get-response-pub) uuid completion-timeout-ms)
         (do
@@ -110,9 +110,9 @@
 ;; return functions that accept a ring request map
 
 (defn command-app
-  [get-command-mq get-shared-globals enqueue-fn get-response-pub]
+  [get-shared-globals enqueue-fn get-response-pub]
   (-> (moustache/app
-       ["v1" &] {:any (enqueue-command-handler get-command-mq enqueue-fn get-response-pub)})
+       ["v1" &] {:any (enqueue-command-handler enqueue-fn get-response-pub)})
       validate-command-version
       mid/verify-accepts-json
       mid/verify-checksum
@@ -121,25 +121,3 @@
       (mid/verify-content-type ["application/json"])
       (mid/wrap-with-metrics (atom {}) http/leading-uris)
       (mid/wrap-with-globals get-shared-globals)))
-
-(defprotocol PuppetDBCommand
-  (submit-command
-    [this command version payload]
-    [this command version payload uuid]))
-
-(defservice puppetdb-command-service
-  PuppetDBCommand
-  [[:PuppetDBServer shared-globals]
-   [:PuppetDBCommandDispatcher enqueue-command]]
-
-  (start [this context]
-         (log/info "Starting command service")
-         context)
-
-  (submit-command [this command version payload]
-    (submit-command this command version payload nil))
-
-  (submit-command [this command version payload uuid]
-    (let [{{:keys [connection endpoint]} :command-mq} (shared-globals)]
-      (enqueue-command connection endpoint
-                       (command-names command) version payload uuid))))

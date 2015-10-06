@@ -90,7 +90,7 @@
   "Helper function to executed paged queries.  Builds up the paged sql string,
   executes the query, and returns map containing the `:result` key and an
   optional `:count` key."
-  [fail-limit query {:keys [limit offset order_by count?] :as paging-options}]
+  [fail-limit query {:keys [limit offset order_by include_total] :as paging-options}]
   {:pre [(and (integer? fail-limit) (>= fail-limit 0))
          (valid-jdbc-query? query)
          ((some-fn nil? integer?) limit)
@@ -110,7 +110,7 @@
     ;; which would allow us to get the results and the count via a
     ;; single query (rather than two separate ones).  Need to do
     ;; some benchmarking to see which is faster.
-    (if count?
+    (if include_total
       (assoc result :count
              (get-result-count (apply vector (count-sql sql) params)))
       result)))

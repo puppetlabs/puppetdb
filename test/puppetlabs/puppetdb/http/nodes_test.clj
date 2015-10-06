@@ -4,10 +4,12 @@
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
             [puppetlabs.kitchensink.core :refer [keyset]]
-            [puppetlabs.puppetdb.testutils :refer [get-request
-                                                   paged-results
-                                                   deftestseq
-                                                   query-request]]
+            [puppetlabs.puppetdb.testutils :refer [paged-results
+                                                   deftestseq]]
+            [puppetlabs.puppetdb.testutils.http :refer [ordered-query-result
+                                                        query-result
+                                                        vector-param
+                                                        query-response]]
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
             [flatland.ordered.map :as omap]))
 
@@ -15,27 +17,12 @@
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
-;; RETRIEVAL
-(defn query-response
-  ([method endpoint]      (query-response method endpoint nil))
-  ([method endpoint query] (query-response method endpoint query {}))
-  ([method endpoint query params] (fixt/*app* (query-request method endpoint query {:params params}))))
-
 ;; HELPERS
-(defn get-version
-  "Lookup version from endpoint uri"
-  [endpoint]
-  (ffirst (filter (fn [[version version-endpoint]]
-                    (= version-endpoint endpoint))
-                  endpoints)))
-
-(defn certname [version]
-  "certname")
 
 (defn status-for-node
   "Returns status information for the given `node-name`"
   [method endpoint node-name]
-  (-> (query-response method endpoint ["=" (certname (get-version endpoint)) node-name])
+  (-> (query-response method endpoint ["=" "certname" node-name])
       :body
       slurp
       (json/parse-string true)
@@ -58,7 +45,8 @@
 
     (doseq [res result]
       (is (= #{:certname :deactivated :expired :catalog_timestamp :facts_timestamp :report_timestamp
-               :catalog_environment :facts_environment :report_environment} (keyset res))
+               :catalog_environment :facts_environment :report_environment
+               :latest_report_status :latest_report_hash} (keyset res))
           (str "Query was: " query))
       (is (= (set expected) (set (mapv :certname result)))
           (str "Query was: " query)))
@@ -89,12 +77,29 @@
         (is (:facts_timestamp (status-for-node' web1)))))
 
     (testing "basic equality is supported for name"
-      (is-query-result' ["=" (certname version) "web1.example.com"] [web1]))
+      (is-query-result' ["=" "certname" "web1.example.com"] [web1]))
+
+    (testing "equality is supported on facts_environment"
+      (is-query-result' ["=" "facts_environment" "DEV"]
+                        [web1 web2 puppet db]))
 
     (testing "regular expressions are supported for name"
-      (is-query-result' ["~" (certname version) "web\\d+.example.com"] [web1 web2])
-      (is-query-result' ["~" (certname version) "\\w+.example.com"] [db puppet web1 web2])
-      (is-query-result' ["~" (certname version) "example.net"] []))
+      (is-query-result' ["~" "certname" "web\\d+.example.com"] [web1 web2])
+      (is-query-result' ["~" "certname" "\\w+.example.com"] [db puppet web1 web2])
+      (is-query-result' ["~" "certname" "example.net"] []))
+
+    (testing "querying on latest report hash works"
+      (let [cert-hashes (query-result method endpoint ["extract"
+                                                       ["certname" "latest_report_hash"]
+                                                       ["~" "certname" ".*"]])]
+        (doseq [{:keys [certname latest_report_hash]} cert-hashes]
+          (let [body (query-result method endpoint ["=" "latest_report_hash" latest_report_hash])]
+            (is (= certname (:certname (first body))))))))
+
+    (testing "querying on latest report status works"
+      (is-query-result' ["=" "latest_report_status" "success"] [])
+      (is-query-result' ["=" "latest_report_status" "failure"] [])
+      (is-query-result' ["=" "latest_report_status" "unchanged"] [web1 db puppet]))
 
     (testing "basic equality works for facts, and is based on string equality"
       (is-query-result' ["=" ["fact" "operatingsystem"] "Debian"] [db web1 web2])
@@ -135,7 +140,7 @@
   (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
     (doseq [[query expected] {
                               ;; Basic sub-query for fact operatingsystem
-                              ["in" (certname version)
+                              ["in" "certname"
                                ["extract" "certname"
                                 ["select_facts"
                                  ["and"
@@ -145,7 +150,7 @@
                               [db web1 web2]
 
                               ;; Nodes with a class matching their hostname
-                              ["in" (certname version)
+                              ["in" "certname"
                                ["extract" "certname"
                                 ["select_facts"
                                  ["and"
@@ -168,7 +173,7 @@
     (let [{:keys [web1 web2 db puppet]} (store-example-nodes)]
       (doseq [[query expected] {
                                 ;; Nodes with matching select-resources for file/line
-                                ["in" (certname version)
+                                ["in" "certname"
                                  ["extract" "certname"
                                   ["select_resources"
                                    ["and"
@@ -183,7 +188,7 @@
     (doseq [[query msg] {
                          ;; Ensure the v2 version of sourcefile/sourceline returns
                          ;; a proper error.
-                         ["in" (certname version)
+                         ["in" "certname"
                           ["extract" "certname"
                            ["select_resources"
                             ["and"
@@ -192,16 +197,84 @@
 
                          (re-pattern (format "'sourcefile' is not a queryable object.*" (last (name version))))}]
       (testing (str endpoint " query: " query " should fail with msg: " msg)
-        (let [request (get-request endpoint (json/generate-string query))
-              {:keys [status body] :as result} (fixt/*app* request)]
+        (let [{:keys [status body]} (query-response method endpoint query)]
           (is (= status http/status-bad-request))
           (is (re-find msg body)))))))
 
-(deftestseq node-query-paging
+(deftestseq paging-results
   [[version endpoint] endpoints
    method [:get :post]]
 
   (let [expected (store-example-nodes)]
+
+    (testing "limit"
+      (doseq [[limit expected] [[1 1] [2 2] [100 4]]]
+        (let [results (query-result method endpoint nil {:limit limit})]
+          (is (= (count results) expected)))))
+
+    (testing "order by"
+      (testing "rejects invalid fields"
+        (let [{:keys [body status]} (query-response
+                                      method endpoint nil
+                                      {:order_by
+                                       (vector-param method
+                                                     [{"field" "invalid-field"}])})]
+          (is (re-find #"Unrecognized column 'invalid-field' specified in :order_by"
+                       body))))
+
+      (testing "alphabetical fields"
+        (let [ordered-names ["db.example.com" "puppet.example.com"
+                             "web1.example.com" "web2.example.com"]]
+          (doseq [[order expected] [["asc" ordered-names]
+                                    ["desc" (reverse ordered-names)]]]
+            (let [result (ordered-query-result method endpoint nil
+                                               {:order_by (vector-param method
+                                                                        [{"field" "certname"
+                                                                          "order" order}])})]
+              (is (= (mapv :certname result) expected))))))
+
+      (testing "timestamp fields"
+        (let [ordered-names  ["db.example.com" "puppet.example.com"
+                              "web2.example.com" "web1.example.com"]]
+          (doseq [[order expected] [["asc" (reverse ordered-names)]
+                                    ["desc" ordered-names]]]
+            (let [result (ordered-query-result method endpoint nil
+                                               {:order_by (vector-param method
+                                                            [{"field" "facts_timestamp"
+                                                              "order" order}])})]
+              (is (= (mapv :certname result) expected))))))
+
+      (testing "multiple fields"
+        (let [ordered-names  ["db.example.com" "puppet.example.com"
+                              "web1.example.com" "web2.example.com"]]
+          (doseq [[[timestamp-order name-order] expected]
+                  [[["asc" "desc"] ordered-names]
+                   [["asc" "asc"] ordered-names]]]
+            (let [result (ordered-query-result method endpoint nil
+                                               {:order_by (vector-param method
+                                                            [{"field" "facts_timestamp"
+                                                              "order" timestamp-order}
+                                                             {"field" "certname"
+                                                              "order" name-order}])})]))))
+
+      (testing "offset"
+        (let [ordered-names ["db.example.com" "puppet.example.com" "web1.example.com" "web2.example.com"]
+              reversed-names (reverse ordered-names)]
+          (doseq [[order offset expected] [["asc" 0 ordered-names]
+                                           ["asc" 1 (drop 1 ordered-names)]
+                                           ["asc" 2 (drop 2 ordered-names)]
+                                           ["asc" 3 (drop 3 ordered-names)]
+                                           ["desc" 0 reversed-names]
+                                           ["desc" 1 (drop 1 reversed-names)]
+                                           ["desc" 2 (drop 2 reversed-names)]
+                                           ["desc" 3 (drop 3 reversed-names)]]]
+            (let [result (ordered-query-result method endpoint nil
+                                               {:order_by (vector-param
+                                                            method
+                                                            [{"field" "certname"
+                                                              "order" order}])
+                                                :offset offset})]
+              (is (= (mapv :certname result) expected)))))))
 
     (doseq [[label count?] [["without" false]
                             ["with" true]]]
@@ -212,9 +285,9 @@
                         :limit   1
                         :total   (count expected)
                         :include_total  count?
-                        :params {:order_by (if (= :get method)
-                                             (json/generate-string [{:field (certname version) :order "asc"}])
-                                             [{:field (certname version) :order "asc"}])}})]
+                        :params {:order_by
+                                 (vector-param method [{:field "certname"
+                                                        :order "asc"}])}})]
           (is (= (count results) (count expected)))
           (is (= (set (vals expected))
                  (set (map :certname results)))))))))

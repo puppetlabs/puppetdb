@@ -1,27 +1,42 @@
 (ns puppetlabs.puppetdb.http.fact-names
-  (:require [puppetlabs.puppetdb.query.facts :as f]
-            [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
+  (:require [puppetlabs.puppetdb.query.paging :as paging]
+            [puppetlabs.puppetdb.http.query :as http-q]
             [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params wrap-with-paging-options validate-no-query-params]]
-            [puppetlabs.puppetdb.http :refer [query-result-response]]))
+            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
+            [clojure.walk :refer [keywordize-keys]]
+            [puppetlabs.puppetdb.utils :refer [assoc-when]]
+            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
+                                                    validate-query-params
+                                                    wrap-with-paging-options]]))
 
-(defn get-fact-names
-  "Produces a response body containing the list of known facts."
-  [{:keys [globals paging-options]}]
-  (let [db (:scf-read-db globals)
-        facts (with-transacted-connection db
-                (f/fact-names paging-options))]
-    (query-result-response facts)))
-
-(def routes
+(defn query-route
+  "Returns a route for querying PuppetDB that supports the standard
+   paging parameters. Also accepts GETs and POSTs. Composes
+   `optional-handlers` with the middleware function that executes the
+   query."
+  [entity version param-spec & optional-handlers]
   (app
-   [""]
-   {:get get-fact-names}))
+    (http-q/extract-query param-spec)
+    (apply comp
+           (fn [{:keys [params globals puppetdb-query]}]
+             (let [puppetdb-query (assoc-when puppetdb-query :order_by [[:name :ascending]])]
+               (produce-streaming-body
+                 entity
+                 version
+                 (http-q/validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                 (:scf-read-db globals)
+                 (:url-prefix globals))))
+           optional-handlers)))
+
+(defn routes
+  [version]
+  (let [param-spec {:optional paging/query-params}]
+    (app
+      []
+      (query-route :fact-names version param-spec identity))))
 
 (defn fact-names-app
   [version]
-  (-> routes
-    verify-accepts-json
-    (validate-query-params {:optional paging/query-params})
-    wrap-with-paging-options))
+  (-> (routes version)
+      verify-accepts-json
+      wrap-with-paging-options))

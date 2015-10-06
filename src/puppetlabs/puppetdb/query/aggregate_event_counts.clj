@@ -22,7 +22,7 @@
 (defn- assemble-aggregate-sql
   "Convert an aggregate-event-counts `query` and a value to `summarize_by`
    into a SQL string."
-  [version query summarize_by query-options]
+  [version query {:keys [summarize_by] :as query-options}]
   {:pre  [((some-fn nil? sequential?) query)
           (string? summarize_by)
           ((some-fn map? nil?) query-options)]}
@@ -31,23 +31,25 @@
                                (event-counts/query->sql
                                  true
                                  version
-                                 query [summarize_by query-options {}]))]
+                                 query
+                                 query-options))]
     (vector (get-aggregate-sql count-sql summarize_by) params)))
 
 (defn query->sql
   "Convert an aggregate-event-counts `query` and a value(s) to `summarize_by`
    into a SQL string. Since all inputs are forwarded to
    `event-counts/query->sql`, look there for proper documentation."
-  [version query [summarize_by {:keys [distinct_resources?] :as query-options}]]
+  [version query {:keys [distinct_resources summarize_by] :as query-options}]
   {:pre  [((some-fn nil? sequential?) query)
           ((some-fn map? nil?) query-options)]
    :post [(jdbc/valid-jdbc-query? (:results-query %))]}
   (let [summary-vec (str/split summarize_by #",")
         nsummarized (count summary-vec)
-        aggregate-fn #(assemble-aggregate-sql version query % query-options)
+        aggregate-fn #(assemble-aggregate-sql
+                        version query (assoc query-options :summarize_by %))
         aggregated-sql-and-params (map aggregate-fn summary-vec)
         common-params (or (second (first aggregated-sql-and-params)) [])
-        params (if distinct_resources?
+        params (if distinct_resources
                  ;; when distinct resources is used, the first two parameters
                  ;; are the distinct start/end times.
                  ;; extract the distinct start/end times and duplicate the rest
@@ -57,7 +59,7 @@
                  ;; repeat all params as many times as there are summarize_by's
                  (flatten (repeat nsummarized common-params)))
         unioned-sql (cond-> (str/join " UNION ALL " (map first aggregated-sql-and-params))
-                      distinct_resources?  events/with-latest-events)]
+                      distinct_resources events/with-latest-events)]
     {:results-query (apply vector unioned-sql params)}))
 
 (defn- perform-query

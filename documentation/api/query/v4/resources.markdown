@@ -12,7 +12,7 @@ You can query resources by making an HTTP request to the
 `/resources` endpoint.
 
 
-## `GET /pdb/query/v4/resources`
+## `/pdb/query/v4/resources`
 
 This will return all resources matching the given query. Resources for
 deactivated nodes are not included in the response.
@@ -82,7 +82,7 @@ for "example.local," the JSON query structure would be:
             ["=", ["parameter", "ensure"], "enabled"]]
 
 
-## `GET /pdb/query/v4/resources/<TYPE>`
+## `/pdb/query/v4/resources/<TYPE>`
 
 This will return all resources for all nodes with the given
 type. Resources from deactivated nodes aren't included in the
@@ -140,7 +140,7 @@ this route.
       "type" : "User",
       "certname" : "host2.mydomain.com"}]
 
-## `GET /pdb/query/v4/resources/<TYPE>/<TITLE>`
+## `/pdb/query/v4/resources/<TYPE>/<TITLE>`
 
 This will return all resources for all nodes with the given type and
 title. Resources from deactivated nodes aren't included in the

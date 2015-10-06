@@ -125,6 +125,16 @@
     (is (string? (anonymize-leaf-memoize :parameter-name "good old string")))
     (is (= 10 (count (anonymize-leaf-memoize :parameter-name "good old string"))))))
 
+(deftest anonymize-fact-value
+  (testing "identical paths with different values should be memoized"
+    (let [facts1 {:b {:baz 3000}}
+          facts2 {:b {:baz 2000}}
+          anon1 (anonymize-fact-values facts1 {} {})
+          anon2 (anonymize-fact-values facts2 {} {})]
+      (is (= (keys anon1) (keys anon2)))
+      (is (= (keys (first (vals anon1))) (keys (first (vals anon2)))))
+      (is (not= anon1 anon2)))))
+
 (deftest test-anonymize-leaf-value
   (testing "should return the same string twice"
     (is (= (anonymize-leaf-memoize :parameter-value "test string") (anonymize-leaf-memoize :parameter-value "test string"))))
@@ -139,8 +149,6 @@
     (is (integer? (anonymize-leaf-value 100))))
   (testing "should return an float when passed an float"
     (is (float? (anonymize-leaf-value 3.14))))
-  (testing "should return a vector when passed a vector"
-    (is (vector? (anonymize-leaf-value ["asdf" "asdf"]))))
   (testing "should return a map when passed a map"
     (is (map? (anonymize-leaf-value {"foo" "bar"}))))
   (testing "maps should retain their child types"
@@ -152,6 +160,11 @@
   (testing "should return a string 50 characters long"
     (is (string? (anonymize-leaf-memoize :message "good old string")))
     (is (= 50 (count (anonymize-leaf-memoize :message "good old string"))))))
+
+(deftest test-memoized-vector-elements
+  (testing "should memoize individual vector elements"
+    (is (= (take 2 (anonymize-leaf-memoize :fact-value [1 2 3]))
+           (take 2 (anonymize-leaf-memoize :fact-value [1 2 10]))))))
 
 (deftest test-anonymize-leaf-file
   (testing "should return a string 54 characters long"
@@ -265,7 +278,7 @@
       (is (coll? (anonymize-edges [test-edge] {} {})))
       (is (= 1 (count (anonymize-edges [test-edge] {} {})))))))
 
-(deftest test-anonymize-resource
+(deftest test-anonymize-catalog-resource
   (testing "should handle a resource"
     (let [test-resource {"parameters" {"ensure" "present"}
                          "exported"   true
@@ -274,7 +287,7 @@
                          "tags"       ["package"]
                          "title"      "foo"
                          "type"       "Package"}
-          result        (anonymize-resource test-resource {} {})]
+          result (anonymize-catalog-resource test-resource {} {})]
       (is (map? result))
       (is (= #{"parameters" "exported" "line" "title" "tags" "type" "file"} (ks/keyset result)))))
   (testing "should handle nil for file and line"
@@ -283,11 +296,11 @@
                          "tags"       ["package"]
                          "title"      "foo"
                          "type"       "Package"}
-          result        (anonymize-resource test-resource {} {})]
+          result        (anonymize-catalog-resource test-resource {} {})]
       (is (map? result))
       (is (= #{"parameters" "exported" "title" "tags" "type"} (ks/keyset result))))))
 
-(deftest test-anonymize-resources
+(deftest test-anonymize-catalog-resources
   (testing "should handle a resource"
     (let [test-resource {"parameters" {"ensure" "present"}
                          "exported"   true
@@ -296,7 +309,7 @@
                          "tags"       ["package"]
                          "title"      "foo"
                          "type"       "Package"}
-          result (first (anonymize-resources [test-resource] {} {}))]
+          result (first (anonymize-catalog-resources [test-resource] {} {}))]
 
       (is (= (ks/keyset test-resource)
              (ks/keyset result)))
@@ -310,52 +323,48 @@
            "type"
            "file"))))
 
-(deftest test-anonymize-resource-event
-  (testing "should handle a resource event"
+(deftest test-anonymize-event
+  (testing "should handle a event"
     (let [test-event {"status"           "noop"
                       "timestamp"        "2013-03-04T19:56:34.000Z"
-                      "resource_title"   "foo"
                       "property"         "ensure"
                       "message"          "Ensure was absent now present"
                       "new_value"        "present"
-                      "old_value"        "absent"
-                      "resource_type"    "Package"
-                      "file"             "/home/user/site.pp"
-                      "line"             1
-                      "containment_path" ["Stage[main]" "Foo" "Notify[hi]"]}
-          anonymized-event (anonymize-resource-event test-event {} {})]
-      (is (map? anonymized-event))
-      (is (= (keys test-event) (keys anonymized-event)))))
-  (testing "should handle a resource event with optionals"
-    (let [test-event {"status"           "noop"
-                      "timestamp"        "2013-03-04T19:56:34.000Z"
-                      "resource_title"   "foo"
-                      "property"         "ensure"
-                      "message"          "Ensure was absent now present"
-                      "new_value"        "present"
-                      "old_value"        "absent"
-                      "resource_type"    "Package"
-                      "file"             nil
-                      "line"             nil
-                      "containment_path" nil}
-          anonymized-event (anonymize-resource-event test-event {} {})]
+                      "old_value"        "absent"}
+          anonymized-event (anonymize-event test-event {} {})]
       (is (map? anonymized-event))
       (is (= (keys test-event) (keys anonymized-event))))))
 
-(deftest test-anonymize-resource-events
+(deftest test-anonymize-report-resource
   (testing "should handle a resource event"
-    (let [test-event {"status"           "noop"
-                      "timestamp"        "2013-03-04T19:56:34.000Z"
-                      "resource_title"   "foo"
-                      "property"         "ensure"
-                      "message"          "Ensure was absent now present"
-                      "new_value"        "present"
-                      "old_value"        "absent"
-                      "resource_type"    "Package"
-                      "file"             nil
-                      "line"             nil
-                      "containment_path" nil}]
-      (is (coll? (anonymize-resource-events [test-event] {} {}))))))
+    (let [test-resource {"events" [{"status" "noop"
+                                    "timestamp" "2013-03-04T19:56:34.000Z"
+                                    "property" "ensure"
+                                    "message" "Ensure was absent now present"
+                                    "new_value" "present"
+                                    "old_value" "absent"}]
+                         "timestamp" "2013-03-04T19:56:34.000Z"
+                         "resource_title" "foo"
+                         "resource_type" "Package"
+                         "skipped" false
+                         "file" "/home/user/site.pp"
+                         "line" 1
+                         "containment_path" ["Stage[main]" "Foo" "Notify[hi]"]}
+          anonymized-resource (anonymize-report-resource test-resource {} {})]
+      (is (map? anonymized-resource))
+      (is (= (keys test-resource) (keys anonymized-resource)))))
+  (testing "should handle a resource event with optionals"
+    (let [test-resource {"timestamp" "2013-03-04T19:56:34.000Z"
+                         "resource_title" "foo"
+                         "events" []
+                         "resource_type" "Package"
+                         "skipped" true
+                         "file" nil
+                         "line" nil
+                         "containment_path" nil}
+          anonymized-resource (anonymize-report-resource test-resource {} {})]
+      (is (map? anonymized-resource))
+      (is (= (keys test-resource) (keys anonymized-resource))))))
 
 (deftest test-anonymize-catalog
   (testing "should accept basic valid data"

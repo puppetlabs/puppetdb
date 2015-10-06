@@ -5,11 +5,12 @@
             [compojure.core :as compojure]))
 
 (defservice metrics-service
-  [[:PuppetDBServer shared-globals]
+  [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-route]]
 
   (start [this context]
-         (let [app (->> (server/build-app #(:authorizer (shared-globals)))
+         (let [app (->> (get-in (get-config) [:puppetdb :certificate-whitelist])
+                        server/build-app
                         (compojure/context (get-route this) []))]
            (log/info "Starting metrics server")
            (add-ring-handler this app)

@@ -1,9 +1,10 @@
 (ns puppetlabs.puppetdb.scf.storage-utils-test
-  (:require [clojure.java.jdbc.deprecated :as sql]
+  (:require [clojure.java.jdbc :as sql]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage-utils :refer :all]
             [cheshire.core :as json]
-            [puppetlabs.puppetdb.fixtures :refer [with-test-db]]))
+            [puppetlabs.puppetdb.fixtures :refer [with-test-db]]
+            [puppetlabs.puppetdb.jdbc :as jdbc]))
 
 (use-fixtures :each with-test-db)
 
@@ -39,7 +40,7 @@
   (testing "test to see if an index doesn't exists"
     (is (false? (index-exists? "somerandomname"))))
   (testing "test to see if an index does exist"
-    (sql/do-commands "CREATE INDEX foobar ON fact_values(value_float)")
+    (jdbc/do-commands "CREATE INDEX foobar ON fact_values(value_float)")
     (is (true? (index-exists? "foobar")))))
 
 (deftest ^{:postgres false} test-postgres?-hsql

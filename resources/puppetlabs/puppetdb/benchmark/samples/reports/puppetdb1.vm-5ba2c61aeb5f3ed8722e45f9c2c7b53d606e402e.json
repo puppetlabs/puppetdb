@@ -1,191 +1,260 @@
 {
-  "transaction_uuid" : "3c99e9cc-bc56-45a5-bc71-e1b4fa2aff37",
-  "puppet_version" : "3.7.2",
-  "noop" : false,
-  "logs" : [ {
-    "level" : "notice",
-    "message" : "Finished catalog run in 0.59 seconds",
-    "source" : "Puppet",
-    "tags" : [ "notice" ],
-    "time" : "2015-02-13T13:30:30.882+00:00",
-    "file" : null,
-    "line" : null
-  }, {
-    "level" : "notice",
-    "message" : "defined 'message' as 'foo'",
-    "source" : "/Stage[main]/Loadtest/Notify[foo]/message",
-    "tags" : [ "notice", "notify", "foo", "class", "loadtest", "node", "puppetdb1.vm" ],
-    "time" : "2015-02-13T13:30:30.478+00:00",
-    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
-    "line" : 3
-  }, {
-    "level" : "notice",
-    "message" : "foo",
-    "source" : "Puppet",
-    "tags" : [ "notice" ],
-    "time" : "2015-02-13T13:30:30.477+00:00",
-    "file" : null,
-    "line" : null
-  }, {
-    "level" : "info",
-    "message" : "Applying configuration version '1423834124'",
-    "source" : "Puppet",
-    "tags" : [ "info" ],
-    "time" : "2015-02-13T13:30:30.373+00:00",
-    "file" : null,
-    "line" : null
-  }, {
-    "level" : "info",
-    "message" : "Caching catalog for puppetdb1.vm",
-    "source" : "Puppet",
-    "tags" : [ "info" ],
-    "time" : "2015-02-13T13:30:30.226+00:00",
-    "file" : null,
-    "line" : null
-  }, {
-    "level" : "info",
-    "message" : "Loading facts",
-    "source" : "Puppet",
-    "tags" : [ "info" ],
-    "time" : "2015-02-13T13:30:28.956+00:00",
-    "file" : null,
-    "line" : null
-  }, {
-    "level" : "info",
-    "message" : "Retrieving plugin",
-    "source" : "Puppet",
-    "tags" : [ "info" ],
-    "time" : "2015-02-13T13:30:28.531+00:00",
-    "file" : null,
-    "line" : null
-  }, {
-    "level" : "info",
-    "message" : "Retrieving pluginfacts",
-    "source" : "Puppet",
-    "tags" : [ "info" ],
-    "time" : "2015-02-13T13:30:28.461+00:00",
-    "file" : null,
-    "line" : null
-  } ],
-  "report_format" : 4,
-  "start_time" : "2015-02-13T13:30:28.352Z",
-  "end_time" : "2015-02-13T13:30:29.332Z",
-  "resource_events" : [ {
-    "new_value" : "foo",
-    "property" : "message",
-    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
-    "old_value" : "absent",
-    "line" : 3,
-    "resource_type" : "Notify",
-    "status" : "success",
-    "resource_title" : "foo",
-    "timestamp" : "2015-02-13T13:30:30.477Z",
-    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
-    "message" : "defined 'message' as 'foo'"
-  } ],
-  "status" : "changed",
-  "configuration_version" : "1423834124",
-  "environment" : "production",
-  "certname" : "puppetdb1.vm",
-  "metrics" : [ {
-    "category" : "time",
-    "value" : 5.22122E-4,
-    "name" : "anchor"
-  }, {
-    "category" : "time",
-    "value" : 0.605934475,
-    "name" : "config_retrieval"
-  }, {
-    "category" : "time",
-    "value" : 0.06095043,
-    "name" : "exec"
-  }, {
-    "category" : "time",
-    "value" : 0.04168878300000001,
-    "name" : "file"
-  }, {
-    "category" : "time",
-    "value" : 6.7981E-5,
-    "name" : "filebucket"
-  }, {
-    "category" : "time",
-    "value" : 0.052758734,
-    "name" : "gnupg_key"
-  }, {
-    "category" : "time",
-    "value" : 4.27311E-4,
-    "name" : "ini_setting"
-  }, {
-    "category" : "time",
-    "value" : 0.001462416,
-    "name" : "notify"
-  }, {
-    "category" : "time",
-    "value" : 0.03715446999999999,
-    "name" : "package"
-  }, {
-    "category" : "time",
-    "value" : 4.53319E-4,
-    "name" : "schedule"
-  }, {
-    "category" : "time",
-    "value" : 0.178737151,
-    "name" : "service"
-  }, {
-    "category" : "time",
-    "value" : 0.980443806,
-    "name" : "total"
-  }, {
-    "category" : "time",
-    "value" : 2.86614E-4,
-    "name" : "vcsrepo"
-  }, {
-    "category" : "resources",
-    "value" : 1,
-    "name" : "changed"
-  }, {
-    "category" : "resources",
-    "value" : 0,
-    "name" : "failed"
-  }, {
-    "category" : "resources",
-    "value" : 0,
-    "name" : "failed_to_restart"
-  }, {
-    "category" : "resources",
-    "value" : 1,
-    "name" : "out_of_sync"
-  }, {
-    "category" : "resources",
-    "value" : 0,
-    "name" : "restarted"
-  }, {
-    "category" : "resources",
-    "value" : 0,
-    "name" : "scheduled"
-  }, {
-    "category" : "resources",
-    "value" : 0,
-    "name" : "skipped"
-  }, {
-    "category" : "resources",
-    "value" : 47,
-    "name" : "total"
-  }, {
-    "category" : "events",
-    "value" : 0,
-    "name" : "failure"
-  }, {
-    "category" : "events",
-    "value" : 1,
-    "name" : "success"
-  }, {
-    "category" : "events",
-    "value" : 1,
-    "name" : "total"
-  }, {
-    "category" : "changes",
-    "value" : 1,
-    "name" : "total"
-  } ]
+    "certname": "puppetdb1.vm",
+    "configuration_version": "1423834124",
+    "end_time": "2015-02-13T13:30:29.332Z",
+    "environment": "production",
+    "logs": [
+        {
+            "file": null,
+            "level": "notice",
+            "line": null,
+            "message": "Finished catalog run in 0.59 seconds",
+            "source": "Puppet",
+            "tags": [
+                "notice"
+            ],
+            "time": "2015-02-13T13:30:30.882+00:00"
+        },
+        {
+            "file": "/etc/puppet/modules/loadtest/manifests/init.pp",
+            "level": "notice",
+            "line": 3,
+            "message": "defined 'message' as 'foo'",
+            "source": "/Stage[main]/Loadtest/Notify[foo]/message",
+            "tags": [
+                "notice",
+                "notify",
+                "foo",
+                "class",
+                "loadtest",
+                "node",
+                "puppetdb1.vm"
+            ],
+            "time": "2015-02-13T13:30:30.478+00:00"
+        },
+        {
+            "file": null,
+            "level": "notice",
+            "line": null,
+            "message": "foo",
+            "source": "Puppet",
+            "tags": [
+                "notice"
+            ],
+            "time": "2015-02-13T13:30:30.477+00:00"
+        },
+        {
+            "file": null,
+            "level": "info",
+            "line": null,
+            "message": "Applying configuration version '1423834124'",
+            "source": "Puppet",
+            "tags": [
+                "info"
+            ],
+            "time": "2015-02-13T13:30:30.373+00:00"
+        },
+        {
+            "file": null,
+            "level": "info",
+            "line": null,
+            "message": "Caching catalog for puppetdb1.vm",
+            "source": "Puppet",
+            "tags": [
+                "info"
+            ],
+            "time": "2015-02-13T13:30:30.226+00:00"
+        },
+        {
+            "file": null,
+            "level": "info",
+            "line": null,
+            "message": "Loading facts",
+            "source": "Puppet",
+            "tags": [
+                "info"
+            ],
+            "time": "2015-02-13T13:30:28.956+00:00"
+        },
+        {
+            "file": null,
+            "level": "info",
+            "line": null,
+            "message": "Retrieving plugin",
+            "source": "Puppet",
+            "tags": [
+                "info"
+            ],
+            "time": "2015-02-13T13:30:28.531+00:00"
+        },
+        {
+            "file": null,
+            "level": "info",
+            "line": null,
+            "message": "Retrieving pluginfacts",
+            "source": "Puppet",
+            "tags": [
+                "info"
+            ],
+            "time": "2015-02-13T13:30:28.461+00:00"
+        }
+    ],
+    "metrics": [
+        {
+            "category": "time",
+            "name": "anchor",
+            "value": 0.000522122
+        },
+        {
+            "category": "time",
+            "name": "config_retrieval",
+            "value": 0.605934475
+        },
+        {
+            "category": "time",
+            "name": "exec",
+            "value": 0.06095043
+        },
+        {
+            "category": "time",
+            "name": "file",
+            "value": 0.04168878300000001
+        },
+        {
+            "category": "time",
+            "name": "filebucket",
+            "value": 6.7981e-05
+        },
+        {
+            "category": "time",
+            "name": "gnupg_key",
+            "value": 0.052758734
+        },
+        {
+            "category": "time",
+            "name": "ini_setting",
+            "value": 0.000427311
+        },
+        {
+            "category": "time",
+            "name": "notify",
+            "value": 0.001462416
+        },
+        {
+            "category": "time",
+            "name": "package",
+            "value": 0.03715446999999999
+        },
+        {
+            "category": "time",
+            "name": "schedule",
+            "value": 0.000453319
+        },
+        {
+            "category": "time",
+            "name": "service",
+            "value": 0.178737151
+        },
+        {
+            "category": "time",
+            "name": "total",
+            "value": 0.980443806
+        },
+        {
+            "category": "time",
+            "name": "vcsrepo",
+            "value": 0.000286614
+        },
+        {
+            "category": "resources",
+            "name": "changed",
+            "value": 1
+        },
+        {
+            "category": "resources",
+            "name": "failed",
+            "value": 0
+        },
+        {
+            "category": "resources",
+            "name": "failed_to_restart",
+            "value": 0
+        },
+        {
+            "category": "resources",
+            "name": "out_of_sync",
+            "value": 1
+        },
+        {
+            "category": "resources",
+            "name": "restarted",
+            "value": 0
+        },
+        {
+            "category": "resources",
+            "name": "scheduled",
+            "value": 0
+        },
+        {
+            "category": "resources",
+            "name": "skipped",
+            "value": 0
+        },
+        {
+            "category": "resources",
+            "name": "total",
+            "value": 47
+        },
+        {
+            "category": "events",
+            "name": "failure",
+            "value": 0
+        },
+        {
+            "category": "events",
+            "name": "success",
+            "value": 1
+        },
+        {
+            "category": "events",
+            "name": "total",
+            "value": 1
+        },
+        {
+            "category": "changes",
+            "name": "total",
+            "value": 1
+        }
+    ],
+    "noop": false,
+    "puppet_version": "3.7.2",
+    "report_format": 4,
+    "resources": [
+        {
+            "containment_path": [
+                "Stage[main]",
+                "Loadtest",
+                "Notify[foo]"
+            ],
+            "events": [
+                {
+                    "message": "defined 'message' as 'foo'",
+                    "new_value": "foo",
+                    "old_value": "absent",
+                    "property": "message",
+                    "status": "success",
+                    "timestamp": "2015-02-13T13:30:30.477Z"
+                }
+            ],
+            "file": "/etc/puppet/modules/loadtest/manifests/init.pp",
+            "line": 3,
+            "resource_title": "foo",
+            "resource_type": "Notify",
+            "skipped": false,
+            "timestamp": "2015-02-13T13:30:30.477Z"
+        }
+    ],
+    "start_time": "2015-02-13T13:30:28.352Z",
+    "status": "changed",
+    "transaction_uuid": "3c99e9cc-bc56-45a5-bc71-e1b4fa2aff37"
 }

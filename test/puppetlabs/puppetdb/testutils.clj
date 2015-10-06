@@ -4,89 +4,75 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.query.paging :as paging]
             [clojure.string :as string]
-            [clojure.java.jdbc.deprecated :as sql]
+            [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [me.raynes.fs :as fs]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
             [slingshot.slingshot :refer [throw+]]
             [ring.mock.request :as mock]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset mapvals]]
+            [environ.core :refer [env]]
             [clojure.test :refer :all]
-            [clojure.set :refer [difference]]))
+            [clojure.set :refer [difference]]
+            [puppetlabs.puppetdb.test-protocols :as test-protos]))
 
 (def c-t "application/json")
 
-(defn command-base-url
-  [base-url]
-  (assoc base-url
-         :prefix "/pdb/cmd"
-         :version :v1))
-
-(defn test-db-config
-  "This is a placeholder function; it is supposed to return a map containing
-  the database configuration settings to use during testing.  We expect for
-  it to be overridden by another definition from the test config file, so
-  this implementation simply throws an exception that would indicate that our
-  config file was invalid or not read properly."
+(defn create-hsqldb-map
+  "Returns a database connection map with a reference to a new in memory HyperSQL database"
   []
-  (throw (IllegalStateException.
-          (str "No test database configuration found!  Please make sure that "
-               "your test config file defines a no-arg function named "
-               "'test-db-config'."))))
+  {:classname "org.hsqldb.jdbcDriver"
+   :subprotocol "hsqldb"
+   :subname (str "mem:"
+                 (java.util.UUID/randomUUID)
+                 ";hsqldb.tx=mvcc;sql.syntax_pgs=true")})
 
-(defn load-test-config
-  "Loads the test configuration file from the classpath.  First looks for
-  `config/local.clj`, and if that is not found, falls back to
-  `config/default.clj`.
+(def postgres-map
+  {:classname "org.postgresql.Driver"
+   :subprotocol "postgresql"
+   :subname (env :puppetdb-dbsubname "//127.0.0.1:5432/puppetdb_test")
+   :user (env :puppetdb-dbuser "puppetdb")
+   :password (env :puppetdb-dbpassword "puppetdb")})
+(def hsqldb-map (create-hsqldb-map))
 
-  Returns a map containing the test configuration.  Current keys include:
-
-    :testdb-config-fn : a no-arg function that returns a hash of database
-        settings, suitable for passing to the various `clojure.java.jdbc`
-        functions."
-  []
-  (binding [*ns* (create-ns 'puppetlabs.puppetdb.testutils)]
-    (try
-      (load "/config/local")
-      (catch java.io.FileNotFoundException ex
-        (load "/config/default")))
-    {:testdb-config-fn test-db-config}))
-
-;; Memoize the loading of the test config file so that we don't have to
-;; keep going back to disk for it.
-(def test-config
-  (memoize load-test-config))
+(def testing-db-type (env :puppetdb-dbtype "postgres"))
 
 (defn test-db
-  "Return a map of connection attrs for the test database"
   []
-  ((:testdb-config-fn (test-config))))
+  (if (= testing-db-type "postgres")
+    postgres-map
+    hsqldb-map))
 
 (defn drop-table!
   "Drops a table from the database.  Expects to be called from within a db binding.
   Exercise extreme caution when calling this function!"
   [table-name]
-  (sql/do-commands
-   (format "DROP TABLE IF EXISTS %s CASCADE" table-name)))
+  (jdbc/do-commands (format "DROP TABLE IF EXISTS %s CASCADE" table-name)))
 
 (defn drop-sequence!
   "Drops a sequence from the database.  Expects to be called from within a db binding.
   Exercise extreme caution when calling this function!"
   [sequence-name]
-  (sql/do-commands
-   (format "DROP SEQUENCE IF EXISTS %s" sequence-name)))
+  (jdbc/do-commands (format "DROP SEQUENCE IF EXISTS %s" sequence-name)))
 
 (defn clear-db-for-testing!
   "Completely clears the database, dropping all puppetdb tables and other objects
   that exist within it. Expects to be called from within a db binding.  You
   Exercise extreme caution when calling this function!"
   []
-  (sql/do-commands "DROP SCHEMA IF EXISTS pdbtestschema CASCADE")
+  (jdbc/do-commands "DROP SCHEMA IF EXISTS pdbtestschema CASCADE")
   (doseq [table-name (cons "test" (sutils/sql-current-connection-table-names))]
     (drop-table! table-name))
   (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
     (drop-sequence! sequence-name)))
+
+(defn clean-db-map
+  ([] (clean-db-map (test-db)))
+  ([db-config]
+   (jdbc/with-db-connection db-config (clear-db-for-testing!))
+   db-config))
 
 (defmacro without-jmx
   "Disable ActiveMQ's usage of JMX. If you start two AMQ brokers in
@@ -163,33 +149,6 @@
 
 (defn json-content-type? [response]
   (= http/json-response-content-type (get-in response [:headers "Content-Type"])))
-
-(defn response-equal?
-  "Test if the HTTP request is a success, and if the result is equal
-  to the result of the form supplied to this method.  Arguments:
-
-  `response`      - the HTTP response object.  This will be used to validate the
-                    status code, and then the response body will be parsed as a JSON
-                    string for comparison with the expected response.
-  `expected`      - the expected result.  This should not be JSON-serialized as the
-                    body of the HTTP response will be deserialized prior to comparison.
-  `body-munge-fn` - optional.  If this is passed, it should be a function that will
-                    be applied to the HTTP response body *after* JSON deserialization,
-                    but before comparison with the expected result.  This can
-                    be used to filter out fields that aren't relevant to the tests,
-                    etc."
-  ([response expected]
-     (response-equal? response expected identity))
-  ([response expected body-munge-fn]
-     (is (= http/status-ok (:status response)))
-     (is (json-content-type? response))
-     (let [actual (when (:body response)
-                    (-> (:body response)
-                        (json/parse-string true)
-                        (body-munge-fn)
-                        (set)))]
-       (is (= actual expected)
-           (str response)))))
 
 (defmacro =-after?
   "Checks equality of `args` after
@@ -481,3 +440,22 @@
                                              (apply orig-fn# args#)
                                              (deliver after# true))]
        ~@body)))
+
+(defn mock-fn
+  "Create a mock version of a function that can tell you if it has been called."
+  []
+  (let [was-called (atom false)]
+    (reify
+      clojure.lang.IFn
+      (invoke [_] (reset! was-called true))
+      (invoke [_ _] (reset! was-called true))
+      (invoke [_ _ _] (reset! was-called true))
+      (invoke [_ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _ _ _ _] (reset! was-called true))
+      (invoke [_ _ _ _ _ _ _ _ _] (reset! was-called true))
+
+      test-protos/IMockFn
+      (called? [_] @was-called))))

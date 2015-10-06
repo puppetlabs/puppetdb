@@ -8,8 +8,7 @@
   (app ["" &] {:get (fn [req] (rr/redirect "/pdb/dashboard/index.html"))}))
 
 (defservice dashboard-redirect-service
-  [[:PuppetDBServer shared-globals]
-   [:WebroutingService add-ring-handler get-route]]
+  [[:WebroutingService add-ring-handler get-route]]
 
   (start [this context]
          (log/info "Redirecting / to the PuppetDB dashboard")

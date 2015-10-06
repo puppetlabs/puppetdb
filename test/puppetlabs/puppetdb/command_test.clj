@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.command-test
   (:require [me.raynes.fs :as fs]
             [clj-http.client :as client]
-            [clojure.java.jdbc.deprecated :as sql]
+            [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -12,11 +12,12 @@
             [clj-time.format :as tfmt]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.command :refer :all]
+            [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.examples :refer :all]
-            [puppetlabs.puppetdb.testutils.reports :refer [munge-example-report-for-storage]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [clj-time.coerce
@@ -269,13 +270,13 @@
           (with-fixtures
             (is (= (query-to-vec "SELECT certname FROM catalogs")
                    []))
-            (sql/insert-record :certnames {:certname certname})
-            (sql/insert-records :catalogs
-                                {:hash (sutils/munge-hash-for-storage "00")
-                                 :api_version 1
-                                 :catalog_version "foo"
-                                 :certname certname
-                                 :producer_timestamp (to-timestamp (-> 1 days ago))})
+            (jdbc/insert! :certnames {:certname certname})
+            (jdbc/insert! :catalogs
+                          {:hash (sutils/munge-hash-for-storage "00")
+                           :api_version 1
+                           :catalog_version "foo"
+                           :certname certname
+                           :producer_timestamp (to-timestamp (-> 1 days ago))})
 
             (test-msg-handler command publish discard-dir
               (is (= [(with-env {:certname certname :catalog catalog-hash})]
@@ -286,16 +287,17 @@
 
         (testing "when replacing a catalog with a debug directory, should write out catalogs for inspection"
           (with-fixtures
-            (sql/insert-record :certnames {:certname certname})
+            (jdbc/insert! :certnames {:certname certname})
 
             (let [debug-dir (fs/absolute-path (temp-dir "catalog-inspection"))]
 
-              (sql/insert-records :catalogs
-                                  {:hash (sutils/munge-hash-for-storage "0000")
-                                   :api_version 1
-                                   :catalog_version "foo"
-                                   :certname certname
-                                   :producer_timestamp (to-timestamp (t/minus (now) (-> 1 days)))})
+              (jdbc/insert! :catalogs
+                            {:hash (sutils/munge-hash-for-storage "0000")
+                             :api_version 1
+                             :catalog_version "foo"
+                             :certname certname
+                             :producer_timestamp (to-timestamp
+                                                  (t/minus (now) (-> 1 days)))})
 
               (is (nil? (fs/list-dir debug-dir)))
               (test-msg-handler-with-opts command publish discard-dir {:catalog-hash-debug-dir debug-dir}
@@ -316,15 +318,15 @@
 
         (testing "with a newer catalog should ignore the message"
           (with-fixtures
-            (sql/insert-record :certnames {:certname certname})
-            (sql/insert-record :catalogs
-                               {:id 1
-                                :hash (sutils/munge-hash-for-storage "ab")
-                                :api_version 1
-                                :catalog_version "foo"
-                                :certname certname
-                                :timestamp tomorrow
-                                :producer_timestamp (to-timestamp (now))})
+            (jdbc/insert! :certnames {:certname certname})
+            (jdbc/insert! :catalogs
+                          {:id 1
+                           :hash (sutils/munge-hash-for-storage "ab")
+                           :api_version 1
+                           :catalog_version "foo"
+                           :certname certname
+                           :timestamp tomorrow
+                           :producer_timestamp (to-timestamp (now))})
 
             (test-msg-handler command publish discard-dir
               (is (= [{:certname certname :catalog "ab"}]
@@ -336,7 +338,7 @@
 
         (testing "should reactivate the node if it was deactivated before the message"
           (with-fixtures
-            (sql/insert-record :certnames {:certname certname :deactivated yesterday})
+            (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
             (test-msg-handler command publish discard-dir
               (is (= [{:certname certname :deactivated nil}]
                      (query-to-vec "SELECT certname,deactivated FROM certnames")))
@@ -348,7 +350,7 @@
 
         (testing "should store the catalog if the node was deactivated after the message"
           (scf-store/delete-certname! certname)
-          (sql/insert-record :certnames {:certname certname :deactivated tomorrow})
+          (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
           (test-msg-handler command publish discard-dir
             (is (= [{:certname certname :deactivated tomorrow}]
                    (query-to-vec "SELECT certname,deactivated FROM certnames")))
@@ -573,7 +575,7 @@
     (doverseq [version fact-versions
                :let [command v4-command]]
 
-      (sql/transaction
+      (jdbc/with-db-transaction []
        (scf-store/ensure-environment "DEV")
        (scf-store/add-certname! certname)
        (scf-store/replace-facts! {:certname certname
@@ -615,7 +617,7 @@
     (doverseq [version fact-versions
                :let [command v4-command]]
 
-      (sql/transaction
+      (jdbc/with-db-transaction []
        (scf-store/ensure-environment "DEV")
        (scf-store/add-certname! certname)
        (scf-store/add-facts! {:certname certname
@@ -653,7 +655,7 @@
                :let [command v4-command]]
 
       (testing "should reactivate the node if it was deactivated before the message"
-        (sql/insert-record :certnames {:certname certname :deactivated yesterday})
+        (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
         (test-msg-handler command publish discard-dir
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated nil}]))
@@ -679,7 +681,7 @@
 
       (testing "should store the facts if the node was deactivated after the message"
         (scf-store/delete-certname! certname)
-        (sql/insert-record :certnames {:certname certname :deactivated tomorrow})
+        (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
         (test-msg-handler command publish discard-dir
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated tomorrow}]))
@@ -748,7 +750,7 @@
 
 (deftest replace-facts-with-v2-wire-format
   (let [certname  "foo.example.com"
-        before-test-starts-time (now)
+        before-test-starts-time (-> 1 seconds ago)
         facts-cmd {:command (command-names :replace-facts)
                    :version 2
                    :payload {:name certname
@@ -777,12 +779,12 @@
               {:certname certname :name "b" :value "2" :environment "DEV"}
               {:certname certname :name "c" :value "3" :environment "DEV"}]))
 
-      (is (= (every? (comp #(t/before? before-test-starts-time %)
-                           to-date-time
-                           :producer_timestamp)
-                     (query-to-vec
-                      "SELECT fs.producer_timestamp
-                         FROM factsets fs"))))
+      (is (every? (comp #(t/before? before-test-starts-time %)
+                        to-date-time
+                        :producer_timestamp)
+                  (query-to-vec
+                   "SELECT fs.producer_timestamp
+                         FROM factsets fs")))
       (is (= 0 (times-called publish)))
       (is (empty? (fs/list-dir discard-dir)))
       (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
@@ -832,7 +834,7 @@
           hand-off-queue (java.util.concurrent.SynchronousQueue.)
           storage-replace-facts! scf-store/update-facts!]
 
-      (sql/transaction
+      (jdbc/with-db-transaction []
        (scf-store/add-certname! certname)
        (scf-store/add-facts! {:certname certname
                               :values (:values facts)
@@ -953,7 +955,7 @@
         storage-delete-pending-path-id-orphans!
         scf-store/delete-pending-path-id-orphans!]
 
-    (sql/transaction
+    (jdbc/with-db-transaction []
      (scf-store/add-certname! certname-1)
      (scf-store/add-certname! certname-2)
      (scf-store/add-facts! {:certname certname-1
@@ -1034,7 +1036,7 @@
           hand-off-queue (java.util.concurrent.SynchronousQueue.)
           storage-replace-catalog! scf-store/replace-catalog!]
 
-      (sql/transaction
+      (jdbc/with-db-transaction []
        (scf-store/add-certname! certname)
        (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
@@ -1079,7 +1081,7 @@
           hand-off-queue (java.util.concurrent.SynchronousQueue.)
           storage-replace-catalog! scf-store/replace-catalog!]
 
-      (sql/transaction
+      (jdbc/with-db-transaction []
        (scf-store/add-certname! certname)
        (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
@@ -1141,7 +1143,7 @@
   (deftest deactivate-node-node-active
     (testing "should deactivate the node"
       (doseq [{:keys [certname command]} cases]
-        (sql/insert-record :certnames {:certname certname})
+        (jdbc/insert! :certnames {:certname certname})
         (test-msg-handler command publish discard-dir
           (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
                 result  (first results)]
@@ -1149,7 +1151,7 @@
             (is (instance? java.sql.Timestamp (:deactivated result)))
             (is (= 0 (times-called publish)))
             (is (empty? (fs/list-dir discard-dir)))
-            (sql/do-prepared "delete from certnames"))))))
+            (jdbc/do-prepared "delete from certnames"))))))
 
   (deftest deactivate-node-node-inactive
     (doseq [{:keys [certname command]} cases]
@@ -1163,7 +1165,8 @@
                        command
                        (assoc-in command
                                  [:payload :producer_timestamp] yesterday))]
-         (sql/insert-record :certnames {:certname certname :deactivated yesterday})
+         (jdbc/insert! :certnames
+                       {:certname certname :deactivated yesterday})
          (test-msg-handler
            command
            publish discard-dir
@@ -1180,7 +1183,7 @@
                (is (= {:certname certname :deactivated yesterday} row)))
              (is (= 0 (times-called publish)))
              (is (empty? (fs/list-dir discard-dir)))
-             (sql/do-prepared "delete from certnames")))))))
+             (jdbc/do-prepared "delete from certnames")))))))
 
   (deftest deactivate-node-node-missing
     (testing "should add the node and deactivate it"
@@ -1188,11 +1191,11 @@
         (test-msg-handler command publish discard-dir
           (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
                 result  (first results)]
-            (is (= (:certname result) certname ))
+            (is (= (:certname result) certname))
             (is (instance? java.sql.Timestamp (:deactivated result)))
-            (is (= 0 (times-called publish)))
+            (is (zero? (times-called publish)))
             (is (empty? (fs/list-dir discard-dir)))
-            (sql/do-prepared "delete from certnames")))))))
+            (jdbc/do-prepared "delete from certnames")))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -1200,114 +1203,98 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def report-versions
-  "Report versions supported. Version 1 is not currently being tested."
-  [:v5])
+(def v5-report
+  (-> (:basic report-examples/reports)
+      (assoc :environment "DEV")
+      reports/report-query->wire-v5))
 
-(defn- resource-event->resource
-  [resource-event]
-  (-> resource-event
-      (select-keys [:file :line :timestamp :resource_type :resource_title :containment_path])
-      (assoc :skipped (= "skipped" (:status resource-event)))))
+(def v4-report
+  (-> v5-report
+      (dissoc :producer_timestamp :metrics :logs :noop)
+      utils/underscore->dash-keys))
 
-(defn- resource-events->resources
-  [resource-events]
-  (for [[resource events] (group-by resource-event->resource resource-events)]
-    (assoc resource :events (map #(dissoc % :file :line :resource_type :resource_title :containment_path) events))))
+(def store-report (command-names :store-report))
 
-(let [report (-> (:basic report-examples/reports)
-                 (assoc :environment "DEV")
-                 munge-example-report-for-storage
-                 (update :resource_events resource-events->resources)
-                 (clojure.set/rename-keys {:resource_events :resources}))
-      v6-command {:command (command-names :store-report)
-                  :version 6
-                  :payload report}]
-  (deftest store-v6-report
-    (testing "should store the report"
-      (test-msg-handler v6-command publish discard-dir
-        (is (= [(with-env (select-keys report [:certname :configuration_version]))]
-               (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")))
-        (is (= 0 (times-called publish)))
-        (is (empty? (fs/list-dir discard-dir)))))))
+(deftest store-v6-report-test
+  (let [v6-report (-> v5-report
+                      (update :resource_events reports/resource-events-v5->resources)
+                      (clojure.set/rename-keys {:resource_events :resources}))
+        command {:command store-report
+                 :version 6
+                 :payload v6-report}]
+    (test-msg-handler command publish discard-dir
+      (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
+             [(with-env (select-keys v6-report [:certname :configuration_version]))]))
+      (is (= 0 (times-called publish)))
+      (is (empty? (fs/list-dir discard-dir))))))
 
-(let [report (-> (:basic report-examples/reports)
-                 (assoc :environment "DEV")
-                 munge-example-report-for-storage)
-      v5-command {:command (command-names :store-report)
-                  :version 5
-                  :payload report}]
-  (deftest store-report
-    (testing "should store the report"
-      (doverseq [version report-versions
-                 :let [command v5-command]]
-        (test-msg-handler command publish discard-dir
-          (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
-                 [(with-env {:certname (:certname report) :configuration_version (:configuration_version report)})]))
-          (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir))))))))
+(deftest store-v5-report-test
+  (let [command {:command store-report
+                 :version 5
+                 :payload v5-report}]
+    (test-msg-handler command publish discard-dir
+      (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
+             [(with-env (select-keys v5-report [:certname :configuration_version]))]))
+      (is (= 0 (times-called publish)))
+      (is (empty? (fs/list-dir discard-dir))))))
 
-(let [old-report (-> (:basic report-examples/reports)
-                     (assoc :environment "DEV")
-                     munge-example-report-for-storage
-                     (dissoc :producer_timestamp :metrics :logs :noop)
-                     utils/underscore->dash-keys)
-      recent-time (-> 1 seconds ago)]
-  (deftest store-v4-report
-    (let [command {:command (command-names :store-report)
-                   :version 4
-                   :payload old-report}]
-      (test-msg-handler command publish discard-dir
-        (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
-               [(with-env {:certname (:certname old-report)
-                           :configuration_version (:configuration-version old-report)})]))
+(deftest store-v4-report-test
+  (let [command {:command store-report
+                 :version 4
+                 :payload v4-report}
+        recent-time (-> 1 seconds ago)]
+    (test-msg-handler command publish discard-dir
+      (is (= [(with-env (utils/dash->underscore-keys
+                         (select-keys v4-report [:certname :configuration-version])))]
+             (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")))
 
-        ;;Status is present in v4+ (but not in v3)
-        (is (= "unchanged" (-> (query-to-vec "SELECT rs.status FROM reports r inner join report_statuses rs on r.status_id = rs.id")
-                               first
-                               :status)))
+      ;;Status is present in v4+ (but not in v3)
+      (is (= "unchanged" (-> (query-to-vec "SELECT rs.status FROM reports r inner join report_statuses rs on r.status_id = rs.id")
+                             first
+                             :status)))
 
-        ;;No producer_timestamp is included in v4, message received time (now) is used intead
-        (is (t/before? recent-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
-                                        first
-                                        :producer_timestamp
-                                        to-date-time)))
-        (is (= 0 (times-called publish)))
-        (is (empty? (fs/list-dir discard-dir))))))
+      ;;No producer_timestamp is included in v4, message received time (now) is used intead
+      (is (t/before? recent-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
+                                     first
+                                     :producer_timestamp
+                                     to-date-time)))
+      (is (= 0 (times-called publish)))
+      (is (empty? (fs/list-dir discard-dir))))))
 
-  (deftest store-v3-report
-    (let [recent-time (-> 1 seconds ago)
-          command {:command (command-names :store-report)
-                   :version 3
-                   :payload (dissoc old-report :status)}]
-      (Thread/sleep 100)
-      (test-msg-handler command publish discard-dir
-        (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
-               [(with-env {:certname (:certname old-report)
-                           :configuration_version (:configuration-version old-report)})]))
+(deftest store-v3-report-test
+  (let [v3-report (dissoc v4-report :status)
+        recent-time (-> 1 seconds ago)
+        command {:command store-report
+                 :version 3
+                 :payload v3-report}]
+    (test-msg-handler command publish discard-dir
+      (is (= [(with-env (utils/dash->underscore-keys
+                         (select-keys v3-report [:certname :configuration-version])))]
+             (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")))
 
-        ;;No producer_timestamp is included in v4, message received time (now) is used intead
-        (is (t/before? recent-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
-                                        first
-                                        :producer_timestamp
-                                        to-date-time)))
+      ;;No producer_timestamp is included in v4, message received time (now) is used intead
+      (is (t/before? recent-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
+                                     first
+                                     :producer_timestamp
+                                     to-date-time)))
 
-        ;;Status is not supported in v3, should be nil
-        (is (nil? (-> (query-to-vec "SELECT status_id FROM reports")
-                      first
-                      :status)))
-        (is (= 0 (times-called publish)))
-        (is (empty? (fs/list-dir discard-dir)))))))
+      ;;Status is not supported in v3, should be nil
+      (is (nil? (-> (query-to-vec "SELECT status_id FROM reports")
+                    first
+                    :status)))
+      (is (= 0 (times-called publish)))
+      (is (empty? (fs/list-dir discard-dir))))))
+
+(defn- get-config []
+  (conf/get-config (get-service svc-utils/*server* :DefaultedConfig)))
 
 (deftest command-service-stats
   (svc-utils/with-puppetdb-instance
     (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
           dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
-          shared-globals (partial cli-svc/shared-globals pdb)
           enqueue-command (partial enqueue-command dispatcher)
           stats (partial stats dispatcher)
-          real-replace! scf-store/replace-facts!
-          {{:keys [connection endpoint]} :command-mq} (shared-globals)]
+          real-replace! scf-store/replace-facts!]
       ;; Issue a single command and ensure the stats are right at each step.
       (is (= {:received-commands 0 :executed-commands 0} (stats)))
       (let [received-cmd? (promise)
@@ -1317,8 +1304,7 @@
                         (deliver received-cmd? true)
                         @go-ahead-and-execute
                         (apply real-replace! args))]
-          (enqueue-command connection endpoint
-                           (command-names :replace-facts) 4
+          (enqueue-command (command-names :replace-facts) 4
                            {:environment "DEV" :certname "foo.local"
                             :values {:foo "foo"}
                             :producer_timestamp (to-string (now))})
@@ -1333,23 +1319,19 @@
   (svc-utils/with-puppetdb-instance
     (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
           dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
-          shared-globals (partial cli-svc/shared-globals pdb)
           enqueue-command (partial enqueue-command dispatcher)
-          globals (shared-globals)
-          {{:keys [connection endpoint]} :command-mq} globals
           deactivate-ms 14250331086887
           ;; The problem only occurred if you passed a Date to
           ;; enqueue, a DateTime wasn't a problem.
           input-stamp (java.util.Date. deactivate-ms)
           expected-stamp (DateTime. deactivate-ms DateTimeZone/UTC)]
-      (enqueue-command connection endpoint
-                       (command-names :deactivate-node) 3
+      (enqueue-command (command-names :deactivate-node) 3
                        {:certname "foo.local" :producer_timestamp input-stamp})
       (is (svc-utils/wait-for-server-processing svc-utils/*server* 5000))
       ;; While we're here, check the value in the database too...
       (is (= expected-stamp
              (jdbc/with-transacted-connection
-               (:scf-read-db globals)
+               (:scf-read-db (cli-svc/shared-globals pdb))
                :repeatable-read
                (from-sql-date (scf-store/node-deactivated-time "foo.local")))))
       (is (= expected-stamp
@@ -1371,15 +1353,13 @@
 (deftest command-response-channel
   (svc-utils/with-puppetdb-instance
     (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
-          {:keys [connection endpoint]} (:command-mq (cli-svc/shared-globals pdb))
           dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
           enqueue-command (partial enqueue-command dispatcher)
           response-mult (response-mult dispatcher)
           response-chan (async/chan)
           command-uuid (ks/uuid)]
       (async/tap response-mult response-chan)
-      (enqueue-command connection endpoint
-                       (command-names :deactivate-node) 3
+      (enqueue-command (command-names :deactivate-node) 3
                        {:certname "foo.local" :producer_timestamp (java.util.Date.)}
                        command-uuid)
       (let [received-uuid (async/alt!! response-chan ([msg] (:id msg))

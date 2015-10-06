@@ -4,12 +4,30 @@ layout: default
 canonical: "/puppetdb/latest/anonymization.html"
 ---
 
-There are times when sharing your PuppetDB data is required, however due to the nature of the data it may contain sensitive items that need to be scrubbed or anonymized beforehand. For this purpose, we have written a tool that supports anonymizing a PuppetDB export file, resulting in a new 'anonymized' export file.
+There are times when sharing your PuppetDB data is required, however due to the
+nature of the data it may contain sensitive items that need to be scrubbed or
+anonymized beforehand. For this purpose we have given the export tool the ability
+to anonymize the PuppetDB archive before returning the archive.
 
-> **This tool is currently experimental:** While we have taken measures to ensure this tool is of the greatest quality it is still under development and may change without notice. If you like the tool, but find problems or have suggestions please let us know.
-
-Using the tool
+Using the `export` command
 -----
+
+To create an anonymized PuppetDB archive directly all you need it the `puppetdb
+export` tool,
+[more information here](./migrate.html#exporting-data-from-an-existing-puppetdb-database):
+
+    $ sudo puppetdb export --outfile ./my-puppetdb-export.tar.gz --anonymization moderate
+
+This needs to be run on your PuppetDB instance preferably. See `puppetdb export -h` for more options for remote execution.
+
+Using the `anonymize` command
+-----
+
+> **This tool is currently deprecated:** The functionality of the `anonymize`
+> command has been merged with the export tool such that a user may directly
+> download an anonymized tarball via the `--anonymization <profile>` flag with
+> the `export` command. The standalone `anonymize` command will be removed in a
+> future release.
 
 First of all you should start by [exporting your existing database](./migrate.html#exporting-data-from-an-existing-puppetdb-database) using the `puppetdb export` tool:
 
@@ -37,21 +55,15 @@ Anonymizing all data is often not that useful so we have provided you with a num
 
 The profile itself can be chosen on the command line when the command is run. For example, you can choose the `low` profile as an option like so:
 
-    $ sudo puppetdb anonymize --infile ./my-puppetdb-export.tar.gz --outfile ./my-puppetdb-anonymized-export.tar.gz --profile low
-
-At the moment there are some different built-in profiles you can choose from, and each one is documented below. The default profile is none is specified is `moderate`.
-
-> **Note:** While we do provide a way to create a custom profile with the `--config` switch this is an advanced interface that we have avoided documenting due to its experimental nature (and the fact that we may change this at any time in the future). If you have have specific requirements and the built-in profiles do not suffice, please let us know and we can help hand-craft a suitable configuration to suit your needs.
+    $ sudo puppetdb export --outfile ./my-puppetdb-anonymized-export.tar.gz --profile low
 
 ### Profile: full
 
 The `full` profile will anonymize everything, while keeping the shape of data as previously mentioned. This includes: node names, resource types, resource titles, parameter names, values, any log messages, file names and file lines. The result should be a completely anonymized data set. Report metrics under the `resources` and `events` categories are left intact, as these can be inferred from the rest of the data, but names of metrics under the `time` category are anonymized as resource types.
 
-This is useful if you really paranoid about what data you expose, but provides the least amount of usefulness for the consumer of such data depending on the activity they are trying to test.
+This is useful if you are really concerned about limiting the data you expose, but provides the least utility for the consumer depending on the activity they are trying to test.
 
 ### Profile: moderate
-
-> **Note:** If no profile is specified, this is the default.
 
 The `moderate` profile attempts to be a bit smarter about what it anonymizes and is the recommended one for most cases. It operates different depending on the data type:
 

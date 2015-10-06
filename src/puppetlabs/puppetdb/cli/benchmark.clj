@@ -47,9 +47,12 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [clj-time.core :as time]
             [puppetlabs.puppetdb.client :as client]
+            [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
             [puppetlabs.puppetdb.archive :as archive]
-            [slingshot.slingshot :refer [try+ throw+]]))
+            [slingshot.slingshot :refer [try+ throw+]]
+            [clojure.core.async :refer [go go-loop >! <! >!! <!! timeout chan alt! close! dropping-buffer]]
+            [clojure.core.match :as cm]))
 
 (def cli-description "Development-only benchmarking tool")
 
@@ -136,19 +139,28 @@
   [stamp n]
   (time/plus stamp (time/seconds (rand-int n))))
 
+(defn update-report-resources [resources stamp]
+  (let [timestamp (jitter stamp 300)
+        update-timestamps-fn (fn [resources-or-events]
+                               (map #(assoc % "timestamp" timestamp)
+                                    resources-or-events))]
+    (->> resources
+         update-timestamps-fn
+         (map #(update % "events" update-timestamps-fn)))))
+
 (defn update-report
   "configuration_version, start_time and end_time should always change
    on subsequent report submittions, this changes those fields to avoid
    computing the same hash again (causing constraint errors in the DB)"
   [report uuid stamp]
   (-> report
-      (update "resource_events" (partial map #(assoc % "timestamp"
-                                                     (jitter stamp 300))))
+      (update "resources" update-report-resources stamp)
       (assoc "configuration_version" (kitchensink/uuid)
              "transaction_uuid" uuid
              "start_time" (time/minus stamp (time/seconds 10))
              "end_time" (time/minus stamp (time/seconds 5))
-             "producer_timestamp" stamp)))
+             "producer_timestamp" stamp)
+      clojure.walk/keywordize-keys))
 
 (defn randomize-map-leaf
   "Randomizes a fact leaf."
@@ -182,65 +194,12 @@
       (assoc "producer_timestamp" stamp)
       (update "values" (partial randomize-map-leaves rand-percentage))))
 
-(defn timed-update-host
-  "Send a new _clock tick_ to a host
-
-  On each tick, a host:
-
-  * Determines if its time to submit a new catalog (by looking at the
-    time it last sent one, and comparing that to the desired
-    `runinterval`
-
-  * If we need to submit a catalog, optionally tweak the catalog (a
-    hosts catalog changes in accordance to the users preference)
-
-  * Submit the resulting catalog"
-  [{:keys [host lastrun catalog report factset] :as state} base-url run-interval rand-percentage current-time]
-  (if-not (time/after?
-            current-time
-            (time/plus lastrun run-interval))
-    state
-    (let [uuid (kitchensink/uuid)
-          catalog (some-> catalog
-                          (update-catalog rand-percentage uuid current-time))
-          report (some-> report
-                         (update-report uuid current-time))
-          factset (some-> factset
-                          (update-factset rand-percentage current-time))]
-      ;; Submit the catalog and reports in separate threads, so as to not
-      ;; disturb the world-loop and otherwise distort the space-time continuum.
-      (when catalog
-        (future
-          (try
-            (client/submit-catalog base-url 6 (json/generate-string catalog))
-            (log/infof "[%s] submitted catalog" host)
-            (catch Exception e
-              (log/errorf "[%s] failed to submit catalog: %s" host e)))))
-      (when report
-        (future
-          (try
-            (client/submit-report base-url 5 (json/generate-string report))
-            (log/infof "[%s] submitted report" host)
-            (catch Exception e
-              (log/errorf "[%s] failed to submit report: %s" host e)))))
-      (when factset
-        (future
-          (try
-            (client/submit-facts base-url 4 (json/generate-string factset))
-            (log/infof "[%s] submitted factset" host)
-            (catch Exception e
-              (log/errorf "[%s] failed to submit factset: %s" host e)))))
-      (assoc state
-             :lastrun current-time
-             :factset factset
-             :catalog catalog))))
-
 (defn update-host
   "Submit a `catalog` for `hosts` (when present), possibly mutating it before
    submission.  Also submit a report for the host (if present). This is
    similar to timed-update-host, but always sends the update (doesn't run/skip
    based on the clock)"
-  [{:keys [catalog report factset] :as state} base-url rand-percentage current-time]
+  [{:keys [catalog report factset] :as state} rand-percentage current-time command-send-ch]
   (let [stamp (jitter current-time 1800)
         uuid (kitchensink/uuid)
         catalog (some-> catalog
@@ -249,47 +208,49 @@
                        (update-report uuid stamp))
         factset (some-> factset
                         (update-factset rand-percentage stamp))]
-    (when catalog (client/submit-catalog base-url 6 (json/generate-string catalog)))
-    (when report (client/submit-report base-url 5 (json/generate-string report)))
-    (when factset (client/submit-facts base-url 4 (json/generate-string factset)))
+    (when catalog (>!! command-send-ch [:catalog 6 catalog]))
+    (when report (>!! command-send-ch [:report 6 report]))
+    (when factset (>!! command-send-ch [:factset 4 factset]))
+
     (assoc state
            :catalog catalog
            :factset factset)))
+
+(defn run-simulated-hosts
+  "Run a host simulation job."
+  [hosts run-interval-min rand-percentage command-send-ch]
+  (let [close-to-stop-ch (chan)
+        host-queue (into clojure.lang.PersistentQueue/EMPTY hosts)
+        ms-per-host (float (/ (* 60000 run-interval-min) (count host-queue)))]
+    (go
+      (alt!
+        close-to-stop-ch
+        ::stopped
+
+        (timeout (rand 1000)) ; random initial offset from other simulation threads
+        (go-loop [host-queue host-queue]
+          (let [host-timeout (timeout ms-per-host)
+                updated-host (update-host (first host-queue) rand-percentage (time/now) command-send-ch)
+                new-host-queue (conj (pop host-queue) updated-host)]
+            (alt!
+              close-to-stop-ch ::stopped
+              host-timeout (recur new-host-queue))))))
+    close-to-stop-ch))
 
 (defn submit-n-messages
   "Given a list of host maps, send `num-messages` to each host.  The function
    is recursive to accumulate possible catalog mutations (i.e. changing a previously
    mutated catalog as opposed to different mutations of the same catalog)."
-  [hosts num-msgs base-url rand-percentage]
+  [hosts num-msgs rand-percentage command-send-ch]
   (log/infof "Sending %s messages for %s hosts, will exit upon completion"
              num-msgs (count hosts))
   (loop [mutated-hosts hosts
          msgs-to-send num-msgs
          stamp (time/minus (time/now) (time/minutes (* 30 num-msgs)))]
     (when-not (zero? msgs-to-send)
-      (recur (mapv #(update-host % base-url rand-percentage stamp) mutated-hosts)
+      (recur (mapv #(update-host % rand-percentage stamp command-send-ch) mutated-hosts)
              (dec msgs-to-send)
              (time/plus stamp (time/minutes 30))))))
-
-(defn world-loop
-  "Sends out new _clock tick_ messages to all agents.
-
-  This function never terminates.
-
-  The time resolution of this loop is 10ms."
-  [base-url run-interval rand-percentage hosts]
-  (loop [last-time (time/now)]
-    (let [curr-time (time/now)]
-      ;; Send out updated ticks to each agent
-      (doseq [host hosts]
-        (send host timed-update-host base-url run-interval rand-percentage curr-time)
-        (when-let [error (agent-error host)]
-          (log/errorf error "[%s] agent failed; restarting" host)
-          ;; Restart it with exactly the same state. Hopefully that's okay!
-          (restart-agent host @host)))
-
-      (Thread/sleep 10)
-      (recur curr-time))))
 
 (defn validate-options
   [options]
@@ -323,7 +284,10 @@
                 :default 0
                 :parse-fn #(Integer/parseInt %)]
                ["-N" "--nummsgs NUMMSGS" "Number of commands and/or reports to send for each host"
-                :parse-fn #(Long/valueOf %)]]
+                :parse-fn #(Long/valueOf %)]
+               ["-t" "--threads THREADS" "Number of threads to use for command submission"
+                :default (* 4 (.availableProcessors (Runtime/getRuntime)))
+                :parse-fn #(Integer/parseInt %)]]
         required [:config :numhosts]]
     (utils/try+-process-cli!
      (fn []
@@ -362,9 +326,72 @@
                                   [data-paths false])]
       (kitchensink/mapvals #(some-> % (load-sample-data from-cp?)) data-paths))))
 
-(defn -main
+(defn try-read-and-send-command [base-url command-send-ch]
+  (try
+   (cm/match [(<!! command-send-ch)]
+             [:stop] nil
+             [nil] nil
+             [[entity version payload]] (do ((case entity
+                                               :catalog client/submit-catalog
+                                               :report client/submit-report
+                                               :factset client/submit-facts)
+                                             base-url version payload)
+                                            ::submitted))
+   (catch Exception e
+     (println "Exception while submitting command: " e)
+     ::error)))
+
+(defn start-command-sender
+  "Start a command sending thread. Reads commands from command-send-ch of the
+  form [entity version payload-string]. Writes a value to rate-monitor-ch for
+  every command sent."
+  [base-url command-send-ch rate-monitor-ch]
+  (future
+    (loop []
+      (case (try-read-and-send-command base-url command-send-ch)
+        ::submitted (do (>!! rate-monitor-ch true)
+                        (recur))
+        ::error (recur)
+        nil nil))))
+
+(defn start-rate-monitor
+  "Start a task which monitors the rate of messages on rate-monitor-ch and
+  prints it to the console every 5 seconds. Uses run-interval to compute the
+  number of nodes that would produce that load."
+  [rate-monitor-ch run-interval commands-per-puppet-run]
+  (let [run-interval-seconds (time/in-seconds run-interval)
+        expected-node-message-rate (/ commands-per-puppet-run run-interval-seconds)]
+    (go-loop [events-since-last-report 0
+              last-report-time (System/currentTimeMillis)]
+      (when (<! rate-monitor-ch)
+        (let [t (System/currentTimeMillis)
+              time-diff (- t last-report-time)]
+          (if (> time-diff 5000)
+            (let [time-diff-seconds (/ time-diff 1000)
+                  messages-per-second (float (/ events-since-last-report time-diff-seconds))]
+              (println "Sending" messages-per-second "messages/s"
+                       "(load equivalent to" (int (/ messages-per-second expected-node-message-rate)) "nodes)")
+              (flush)
+              (recur 0 t))
+            (recur (inc events-since-last-report) last-report-time)))))))
+
+(defn rand-lastrun [run-interval]
+  (jitter (time/minus (time/now) run-interval)
+          (time/in-seconds run-interval)))
+
+(defn partition-into-buckets [num-buckets s]
+  (loop [s s
+         buckets (into clojure.lang.PersistentQueue/EMPTY
+                       (repeat num-buckets '()))]
+    (if (seq s)
+      (recur (rest s)
+             (conj (pop buckets)
+                   (cons (first s) (first buckets))))
+      (seq buckets))))
+
+(defn benchmark-main
   [& args]
-  (let [{:keys [config rand-perc numhosts nummsgs] :as options} (validate-cli! args)
+  (let [{:keys [config rand-perc numhosts nummsgs threads] :as options} (validate-cli! args)
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
         {pdb-host :host pdb-port :port
@@ -378,21 +405,61 @@
         make-host (fn [i]
                     (let [host (str "host-" i)]
                       {:host host
-                       :catalog (when-let [catalog (get-random-entity host catalogs)] 
+                       :catalog (when-let [catalog (get-random-entity host catalogs)]
                                   (update catalog "resources" (partial map #(update % "tags" conj pdb-host))))
                        :report (get-random-entity host reports)
                        :factset (get-random-entity host facts)}))
-        hosts (map make-host (range numhosts))]
+        hosts (map make-host (range numhosts))
+        command-send-ch (if nummsgs
+                          (chan)
+                          (chan (dropping-buffer 10000)))
+        rate-monitor-ch (chan (* 2 threads))
+        run-interval (-> (get options :runinterval 30) time/minutes)
+        simulation-threads 10
+        commands-per-puppet-run (+ (if catalogs 1 0)
+                                   (if reports 1 0)
+                                   (if facts 1 0))]
+
+    (start-rate-monitor rate-monitor-ch run-interval commands-per-puppet-run)
+
+    (dotimes [_ threads]
+      (start-command-sender base-url command-send-ch rate-monitor-ch))
 
     (when-not catalogs (log/info "No catalogs specified; skipping catalog submission"))
     (when-not reports (log/info "No reports specified; skipping report submission"))
     (when-not facts (log/info "No facts specified; skipping fact submission"))
+
     (if nummsgs
-      (submit-n-messages hosts nummsgs base-url rand-perc)
-      (let [run-interval (time/minutes (:runinterval options))
-            rand-lastrun (fn [run-interval]
-                           (jitter (time/minus (time/now) run-interval)
-                                   (time/in-seconds run-interval)))]
-        (->> hosts
-             (mapv #(agent (assoc % :lastrun (rand-lastrun run-interval))))
-             (world-loop base-url run-interval rand-perc))))))
+      (do
+        (submit-n-messages hosts nummsgs rand-perc command-send-ch)
+        (dotimes [_ threads]
+          (>!! command-send-ch :stop))
+        (close! command-send-ch))
+
+      (let [run-interval-minutes (time/in-minutes run-interval)
+            partitioned-hosts (->> hosts
+                                   (map #(assoc % :lastrun (rand-lastrun run-interval)))
+                                   (partition-into-buckets simulation-threads))
+            close-to-stop-chans (mapv (fn [hosts-for-partition]
+                                        (run-simulated-hosts hosts-for-partition
+                                                             run-interval-minutes
+                                                             rand-perc
+                                                             command-send-ch))
+                                      partitioned-hosts)
+            close-to-stop-ch (chan)]
+        (go
+          (<! close-to-stop-ch)
+          (close! rate-monitor-ch)
+          (close! command-send-ch)
+          (dorun (map close! close-to-stop-chans)))
+
+        close-to-stop-ch))))
+
+(defn chan? [x]
+  (satisfies? clojure.core.async.impl.protocols/Channel x))
+
+(defn -main [& args]
+  (let [x (apply benchmark-main args)]
+   (when (chan? x)
+     (println "Press ctrl-c to stop.")
+     (<!! x))))

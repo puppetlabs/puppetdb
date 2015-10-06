@@ -164,6 +164,10 @@ that represents the containment hierarchy of the resource within the catalog. Th
 `"events"` is a collection of objects where each is a Puppet event corresponding
 to the resource. This array may be empty.
 
+`"file"` is the manifest in which the resource is defined. This field may be `null`.
+
+`"line"` is the line number (within `"file"`) where the resource is defined. This field may be `null`.
+
 ### Data type: `<event>`
 
 A JSON Object of the following form:
@@ -175,9 +179,7 @@ A JSON Object of the following form:
      "status": <string>,
      "old_value": <string>,
      "new_value": <string>,
-     "message": <string>,
-     "file": <string>,
-     "line: <integer>
+     "message": <string>
     }
 
 All keys are required.
@@ -194,6 +196,3 @@ to the event.
 `"message"` is a descriptive message providing extra information about the event.
 This should be `null` if `status` is `success`.
 
-`"file"` is the manifest in which the resource is defined. This field may be `null`.
-
-`"line"` is the line number (within `"file"`) where the resource is defined. This field may be `null`.

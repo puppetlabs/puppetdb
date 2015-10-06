@@ -2,7 +2,7 @@
   (:require [cheshire.core :as json]
             [clj-time.coerce :refer [to-timestamp to-string]]
             [clj-time.core :refer [now]]
-            [clojure.java.jdbc.deprecated :as sql]
+            [clojure.java.jdbc :as sql]
             [clojure.java.io :as io]
             [clojure.test :refer :all]
             [flatland.ordered.map :as omap]
@@ -13,13 +13,16 @@
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.server :as server]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.testutils :refer [get-request
                                                    assert-success!
                                                    paged-results
                                                    paged-results*
                                                    deftestseq
+                                                   create-hsqldb-map
                                                    parse-result]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response
+                                                        vector-param]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.kitchensink.core :as ks]
@@ -39,11 +42,6 @@
 
 (def c-t http/json-response-content-type)
 (def reference-time "2014-10-28T20:26:21.727Z")
-
-(defn get-response
-  ([endpoint]      (get-response endpoint nil))
-  ([endpoint query] (*app* (get-request endpoint query)))
-  ([endpoint query params] (*app* (get-request endpoint query params))))
 
 (defn is-query-result
   [endpoint query expected-results]
@@ -231,11 +229,12 @@
                 #"Can't extract unknown 'facts' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
 
 (deftestseq invalid-projections
-  [[version endpoint] facts-endpoints]
+  [[version endpoint] facts-endpoints
+   method [:get :post]]
 
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body] :as result} (get-response endpoint query)]
+      (let [{:keys [status body]} (query-response method endpoint query)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))))))
 
@@ -249,11 +248,12 @@
                   #".*invalid regular expression: brackets.*not balanced")))
 
 (deftestseq ^{:hsqldb false} pg-invalid-regexps
-  [[version endpoint] facts-endpoints]
+  [[version endpoint] facts-endpoints
+   method [:get :post]]
 
   (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body] :as result} (get-response endpoint query)]
+      (let [{:keys [status body]} (query-response method endpoint query)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))))))
 
@@ -448,27 +448,20 @@
    (mid/wrap-with-puppetdb-middleware
     (server/build-app #(hash-map :scf-read-db read-db
                                  :scf-write-db write-db
-                                 :command-mq *mq*
                                  :product-name "puppetdb"))
     nil)))
-
-(defn with-shutdown-after [dbs f]
-  (f)
-  (doseq [db dbs]
-    (sql/with-connection db
-      (sql/do-commands "SHUTDOWN"))
-    (.close (:datasource db))))
 
 (defmacro with-shutdown-after
   [dbs & body]
   `(do ~@body)
   `(doseq [db# ~dbs]
-     (sql/with-connection db#
-       (sql/do-commands "SHUTDOWN"))
+     (jdbc/with-db-connection db#
+       (jdbc/do-commands "SHUTDOWN"))
      (.close (:datasource db#))))
 
 (deftestseq fact-queries
-  [[version endpoint] facts-endpoints]
+  [[version endpoint] facts-endpoints
+   method [:get :post]]
 
   (let [facts1 {"domain" "testing.com"
                 "hostname" "foo1"
@@ -491,7 +484,7 @@
                 "kernel" "Linux"
                 "operatingsystem" "RedHat"
                 "uptime_seconds" 6000}]
-    (with-transacted-connection *db*
+    (jdbc/with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
@@ -519,7 +512,7 @@
       (scf-store/deactivate-node! "foo4"))
 
     (testing "query without param should not fail"
-      (let [response (get-response endpoint)]
+      (let [response (query-response method endpoint)]
         (assert-success! response)
         (slurp (:body response))))
 
@@ -547,7 +540,8 @@
           (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
 
 (deftestseq fact-subqueries
-  [[version endpoint] facts-endpoints]
+  [[version endpoint] facts-endpoints
+   method [:get :post]]
 
   (scf-store/add-certname! "foo")
   (scf-store/add-certname! "bar")
@@ -588,10 +582,11 @@
           (is (= status http/status-bad-request)))))))
 
 (deftestseq ^{:postgres false} two-database-fact-query-config
-  [[version endpoint] facts-endpoints]
+  [[version endpoint] facts-endpoints
+   method [:get :post]]
 
-  (let [read-db-config (create-db-map)
-        write-db-config (create-db-map)
+  (let [read-db-config (create-hsqldb-map)
+        write-db-config (create-hsqldb-map)
         config (-> (svc-utils/create-config)
                    (assoc :read-database read-db-config)
                    (assoc :database write-db-config))
@@ -619,7 +614,7 @@
                           "some_version" "1.3.7+build.11.e0f985a"
                           "uptime_seconds" "4000"}]
 
-              (with-transacted-connection write-db
+              (jdbc/with-transacted-connection write-db
                 (scf-store/add-certname! "foo1")
                 (scf-store/add-facts! {:certname "foo1"
                                        :values facts1
@@ -655,17 +650,18 @@
                          (sort-by :name (json/parse-stream (io/reader body) true))))))))))))
 
 (defn test-paged-results
-  [endpoint query limit total count?]
+  [endpoint query limit total include_total]
   (paged-results
    {:app-fn  *app*
     :path    endpoint
     :query   query
     :limit   limit
     :total   total
-    :include_total  count?}))
+    :include_total include_total}))
 
 (deftestseq fact-query-paging
-  [[version endpoint] facts-endpoints]
+  [[version endpoint] facts-endpoints
+   method [:get :post]]
 
   (let [facts1 {"domain" "testing.com"
                 "hostname" "foo1"
@@ -678,7 +674,7 @@
                 "kernel" "Linux"
                 "operatingsystem" "RedHat"
                 "uptime_seconds" "6000"}]
-    (with-transacted-connection *db*
+    (jdbc/with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
       (scf-store/add-facts! {:certname "foo1"
@@ -746,14 +742,15 @@
    (:results (raw-query-endpoint endpoint query paging-options))))
 
 (deftestseq paging-results
-  [[version endpoint] facts-endpoints]
+  [[version endpoint] facts-endpoints
+   method [:get :post]]
 
-  (let [f1         {:certname "a.local" :name "hostname"    :value "a-host" :environment "DEV"}
-        f2         {:certname "b.local" :name "uptime_days" :value "4" :environment "DEV"}
-        f3         {:certname "c.local" :name "hostname"    :value "c-host" :environment "DEV"}
-        f4         {:certname "d.local" :name "uptime_days" :value "2" :environment "DEV"}
-        f5         {:certname "e.local" :name "my_structured_fact"
-                    :value {"a" [1 2 3 4 5 6 7 8 9 10]} :environment "DEV"}
+  (let [f1 {:certname "a.local" :name "hostname"    :value "a-host" :environment "DEV"}
+        f2 {:certname "b.local" :name "uptime_days" :value "4" :environment "DEV"}
+        f3 {:certname "c.local" :name "hostname"    :value "c-host" :environment "DEV"}
+        f4 {:certname "d.local" :name "uptime_days" :value "2" :environment "DEV"}
+        f5 {:certname "e.local" :name "my_structured_fact"
+            :value {"a" [1 2 3 4 5 6 7 8 9 10]} :environment "DEV"}
         fact-count 5]
 
     (scf-store/add-certname! "c.local")
@@ -800,13 +797,19 @@
     (testing "order_by"
       (testing "rejects invalid fields"
         (is (re-matches #"Unrecognized column 'invalid-field' specified in :order_by.*"
-                        (:body (*app* (get-request endpoint nil {:order_by (json/generate-string [{"field" "invalid-field" "order" "ASC"}])}))))))
+                        (:body (query-response method endpoint nil
+                                               {:order_by (vector-param method
+                                                                       [{"field" "invalid-field"
+                                                                         "order" "ASC"}])})))))
       (testing "alphabetical fields"
         (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
                                   ["DESC" [f5 f4 f3 f2 f1]]]]
           (testing order
-            (let [actual (query-endpoint endpoint
-                                         {:params {:order_by (json/generate-string [{"field" "certname" "order" order}])}})]
+            (let [actual (->> {:order_by (vector-param method [{"field" "certname" "order" order}])}
+                              (query-response method endpoint nil)
+                              :body
+                              slurp)
+                  actual (json/parse-string actual true)]
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
                                            version)))))
@@ -815,12 +818,11 @@
         (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
                                   ["DESC" [f5 f4 f3 f2 f1]]]]
           (testing order
-            (let [actual (query-endpoint
-                           endpoint
-                           ["extract" "environment" ["~" "certname" ".*"]]
-                           {:params {:order_by
-                                     (json/generate-string
-                                       [{"field" "certname" "order" order}])}})]
+            (let [actual (->> {:order_by (vector-param method [{"field" "certname" "order" order}])}
+                              (query-response method endpoint ["extract" "environment" ["~" "certname" ".*"]])
+                              :body
+                              slurp)
+                  actual (json/parse-string actual true)]
               (compare-structured-response
                 (map (comp :environment unkeywordize-values) actual)
                 (map :environment expected)
@@ -832,9 +834,12 @@
                                                         [["ASC" "DESC"]  [f3 f1 f5 f4 f2]]
                                                         [["ASC" "ASC"]   [f1 f3 f5 f2 f4]]]]
           (testing (format "name %s certname %s" name-order certname-order)
-            (let [actual (query-endpoint endpoint
-                                         {:params {:order_by (json/generate-string [{"field" "name" "order" name-order}
-                                                                                    {"field" "certname" "order" certname-order}])}})]
+            (let [actual (->> {:order_by (vector-param method [{"field" "name" "order" name-order}
+                                                              {"field" "certname" "order" certname-order}])}
+                              (query-response method endpoint nil)
+                              :body
+                              slurp)
+                  actual (json/parse-string actual true)]
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
                                            version))))))
@@ -855,21 +860,24 @@
 
         (testing order
           (doseq [[offset expected] expected-sequences]
-            (let [actual (query-endpoint endpoint
-                                         {:params {:order_by (json/generate-string [{"field" "certname" "order" order}])}
-                                          :offset offset})]
+            (let [actual (->> {:order_by (vector-param method [{"field" "certname" "order" order}]) :offset offset}
+                              (query-response method endpoint nil)
+                              :body
+                              slurp)
+                  actual (json/parse-string actual true)]
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
                                            version))))
         (testing "rejects order by value on v4+"
           (is (re-matches #"Unrecognized column 'value' specified in :order_by.*"
-                          (:body (*app*(get-request endpoint nil
-                                                    {:order_by
-                                                     (json/generate-string
-                                                      [{"field" "value" "order" "ASC"}])}))))))))))
+                          (:body (query-response method endpoint nil
+                                                 {:order_by
+                                                  (vector-param method
+                                                               [{"field" "value" "order" "ASC"}])})))))))))
 
 (deftestseq facts-environment-paging
   [[version endpoint] facts-endpoints
+   method [:get :post]
    :when (not= endpoint v4-facts-environment)]
 
   (let [f1         {:certname "a.local" :name "hostname"    :value "a-host" :environment "A"}
@@ -917,17 +925,19 @@
                                                  [["ASC" "ASC"]  [f1 f4 f2 f3 f5]]]]
 
         (testing (format "environment %s name %s" env-order name-order)
-          (let [actual (query-endpoint
-                        endpoint
-                        {:params {:order_by
-                                  (json/generate-string [{"field" "environment" "order" env-order}
-                                                         {"field" "name" "order" name-order}])}})]
-            (compare-structured-response (map unkeywordize-values actual)
+          (let [actual (query-response method
+                                       endpoint
+                                       nil
+                                       {:order_by
+                                                 (vector-param method [{"field" "environment" "order" env-order}
+                                                                      {"field" "name" "order" name-order}])})]
+            (compare-structured-response (map unkeywordize-values (json/parse-string (slurp (:body actual)) true))
                                          expected
                                          version)))))))
 
 (deftestseq fact-environment-queries
   [[version endpoint] facts-endpoints
+   method [:get :post]
    :when (not #(re-find #"environment" endpoint))]
 
   (testing (str "endpoint " endpoint)
@@ -951,7 +961,7 @@
                   "kernel" "Linux"
                   "operatingsystem" "RedHat"
                   "uptime_seconds" "6000"}]
-      (with-transacted-connection *db*
+      (jdbc/with-transacted-connection *db*
         (scf-store/add-certname! "foo1")
         (scf-store/add-certname! "foo2")
         (scf-store/add-certname! "foo3")
@@ -1025,7 +1035,7 @@
                 "domain" "testing.com"
                 "hostname" "foo4"
                 "uptime_seconds" "6000"}]
-    (with-transacted-connection *db*
+    (jdbc/with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
@@ -1125,12 +1135,14 @@
          "hash" "f1122885dd4393bd1b786751384728bd1ca97bab"}]))
 
 (deftestseq factset-paging-results
-  [[version endpoint] factsets-endpoints]
+  [[version endpoint] factsets-endpoints
+   method [:get :post]]
   (let [factset-count 3]
     (populate-for-structured-tests reference-time)
     (testing "include total results count"
       (let [actual (json/parse-string
-                    (slurp (:body (get-response endpoint nil {:include_total true}))))]
+                    (slurp (:body (query-response method endpoint nil
+                                                  {:include_total true}))))]
         (is (= (count actual) factset-count))))
 
     (testing "limit results"
@@ -1142,25 +1154,27 @@
     (testing "order_by"
       (testing "rejects invalid fields"
         (is (re-matches #"Unrecognized column 'invalid-field' specified in :order_by.*"
-                        (:body (*app*
-                                (get-request endpoint nil
-                                             {:order_by (json/generate-string
+                        (:body (query-response
+                                 method endpoint nil
+                                 {:order_by (vector-param method
                                                          [{"field" "invalid-field"
-                                                           "order" "ASC"}])}))))))
+                                                           "order" "ASC"}])})))))
       (testing "alphabetical fields"
         (doseq [[order expected] [["ASC" (sort-by #(get % "certname") (factset-results version))]
                                   ["DESC" (reverse (sort-by #(get % "certname") (factset-results version)))]]]
           (testing order
-            (let [ordering {:order_by (json/generate-string [{"field" "certname" "order" order}])}
-                  actual (json/parse-string (slurp (:body (get-response endpoint nil ordering))))]
+            (let [ordering {:order_by (vector-param method [{"field" "certname" "order" order}])}
+                  actual (json/parse-string (slurp (:body (query-response
+                                                            method endpoint nil ordering))))]
               (is (= (munge-factsets-response actual) expected))))))
 
       (testing "order on hash"
         (doseq [[order expected] [["ASC" (sort-by #(get % "hash") (factset-results version))]
                                   ["DESC" (reverse (sort-by #(get % "hash") (factset-results version)))]]]
           (testing order
-            (let [ordering {:order_by (json/generate-string [{"field" "hash" "order" order}])}
-                  actual (json/parse-string (slurp (:body (get-response endpoint nil ordering))))]
+            (let [ordering {:order_by (vector-param method [{"field" "hash" "order" order}])}
+                  actual (json/parse-string (slurp (:body (query-response
+                                                            method endpoint nil ordering))))]
               (is (= (munge-factsets-response actual) expected))))))
 
       (testing "order on unextracted field with function alias"
@@ -1171,10 +1185,11 @@
                                                        (factset-results version)))]]]
           (testing order
             (let [ordering {:order_by
-                            (json/generate-string [{"field" "hash" "order" order}])}
+                            (vector-param method [{"field" "hash" "order" order}])}
                   query ["extract" "certname" ["~" "certname" ".*"]]
                   actual (json/parse-string
-                           (slurp (:body (get-response endpoint query ordering))))]
+                           (slurp (:body (query-response
+                                          method endpoint query ordering))))]
               (is (= (map :certname (munge-factsets-response actual))
                      (map :certname expected)))))))
 
@@ -1185,9 +1200,10 @@
                                                              [["ASC" "ASC"]   [0 1 2]]]]
           (testing (format "environment %s certname %s" env-order certname-order)
             (let [params {:order_by
-                          (json/generate-string [{"field" "environment" "order" env-order}
+                          (vector-param method [{"field" "environment" "order" env-order}
                                                  {"field" "certname" "order" certname-order}])}
-                  actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
+                  actual (json/parse-string (slurp (:body (query-response
+                                                           method endpoint nil params))))]
               (is (= (munge-factsets-response actual) (map #(nth (factset-results version) %) expected-order))))))
         (doseq [[[pt-order certname-order] expected-order] [[["DESC" "ASC"]  [0 2 1]]
                                                             [["DESC" "DESC"] [2 0 1]]
@@ -1195,9 +1211,10 @@
                                                             [["ASC" "ASC"]   [1 0 2]]]]
           (testing (format "producer_timestamp %s certname %s" pt-order certname-order)
             (let [params {:order_by
-                          (json/generate-string [{"field" "producer_timestamp" "order" pt-order}
+                          (vector-param method [{"field" "producer_timestamp" "order" pt-order}
                                                  {"field" "certname" "order" certname-order}])}
-                  actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
+                  actual (json/parse-string (slurp (:body (query-response
+                                                           method endpoint nil params))))]
               (is (= (munge-factsets-response actual) (map #(nth (factset-results version) %) expected-order))))))))
 
     (testing "offset"
@@ -1210,21 +1227,24 @@
                                                    [2 [0]]
                                                    [3 [ ]]]]]]
         (doseq [[offset expected-order] expected-sequences]
-          (let [params {:order_by (json/generate-string [{"field" "certname" "order" order}]) :offset offset}
-                actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
+          (let [params {:order_by (vector-param method [{"field" "certname" "order" order}]) :offset offset}
+                actual (json/parse-string (slurp (:body (query-response
+                                                         method endpoint nil params))))]
             (is (= (munge-factsets-response actual) (map #(nth (factset-results version) %) expected-order)))))))))
 
 (deftestseq factset-queries
-  [[version endpoint] factsets-endpoints]
+  [[version endpoint] factsets-endpoints
+   method [:get :post]]
   (populate-for-structured-tests reference-time)
 
   (testing "query without param should not fail"
-    (let [response (get-response endpoint)]
+    (let [response (query-response method endpoint)]
       (assert-success! response)
       (slurp (:body response))))
 
   (testing "factsets query should ignore deactivated nodes"
-    (let [responses (json/parse-string (slurp (:body (get-response endpoint))))]
+    (let [responses (json/parse-string (slurp (:body (query-response
+                                                       method endpoint))))]
       (is (not (contains? (into [] (map #(get % "certname") responses)) "foo4")))))
 
   (testing "factset queries should return appropriate results"
@@ -1237,7 +1257,7 @@
           responses (map (comp json/parse-string
                                slurp
                                :body
-                               (partial get-response endpoint))
+                               (partial query-response method endpoint))
                          queries)]
       (is (= (munge-factset-response (into {} (first responses)))
              (strip-expanded
@@ -1345,11 +1365,12 @@
                "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}])))))
 
 (deftestseq factset-single-response
-  [[version endpoint] factsets-endpoints]
+  [[version endpoint] factsets-endpoints
+   method [:get :post]]
   (populate-for-structured-tests reference-time)
 
   (testing "querying singleton endpoint should return a single result"
-    (let [response (json/parse-string (:body (get-response (str endpoint "/foo1"))))]
+    (let [response (json/parse-string (:body (query-response method (str endpoint "/foo1"))))]
       (is (= (munge-factset-response response)
              (strip-expanded {"certname" "foo1"
                               "environment" "DEV"
@@ -1476,7 +1497,8 @@
      [{:environment "DEV" :max "uptime_seconds"}]}))
 
 (deftestseq structured-fact-queries
-  [[version endpoint] facts-endpoints]
+  [[version endpoint] facts-endpoints
+   method [:get :post]]
   (let [facts1 {"my_structured_fact" {"a" 1
                                       "b" 3.14
                                       "c" ["a" "b" "c"]
@@ -1511,7 +1533,7 @@
                 "domain" "testing.com"
                 "hostname" "foo4"
                 "uptime_seconds" 6000}]
-    (with-transacted-connection *db*
+    (jdbc/with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
@@ -1539,7 +1561,7 @@
       (scf-store/deactivate-node! "foo4"))
 
     (testing "query without param should not fail"
-      (let [response (get-response endpoint)]
+      (let [response (query-response method endpoint)]
         (assert-success! response)
         (slurp (:body response))))
 
@@ -1559,7 +1581,7 @@
                       ["group_by" "environment"]]]
             responses (map (comp parse-result
                                  :body
-                                 (partial get-response endpoint)) queries)]
+                                 (partial query-response method endpoint)) queries)]
 
         (doseq [[response query] (map vector responses queries)]
           (is (= (set response)
@@ -1568,28 +1590,29 @@
 
 ;; FACT-CONTENTS TESTS
 
-(defn fact-content-response [endpoint order-by-map]
+(defn fact-content-response [method endpoint order-by-map]
   (fn [req]
-    (-> (get-response endpoint req order-by-map)
+    (-> (query-response method endpoint req order-by-map)
         :body
         slurp
         json/parse-string)))
 
 (deftestseq fact-contents-queries
-  [[version endpoint] fact-contents-endpoints]
+  [[version endpoint] fact-contents-endpoints
+   method [:get :post]]
   (populate-for-structured-tests reference-time)
 
   (testing "query without param should not fail"
-    (let [response (get-response endpoint)]
+    (let [response (query-response method endpoint)]
       (assert-success! response)
       (slurp (:body response))))
 
   (testing "fact nodes queries should ignore deactivated nodes"
-    (let [responses (json/parse-string (slurp (:body (get-response endpoint))))]
+    (let [responses (json/parse-string (slurp (:body (query-response method endpoint))))]
       (is (not (contains? (into [] (map #(get % "certname") responses)) "foo4")))))
 
   (testing "fact nodes queries should return appropriate results"
-    (let [response (fact-content-response endpoint {:order_by (json/generate-string [{:field "path"} {:field "certname"}])})]
+    (let [response (fact-content-response method endpoint {:order_by (vector-param method [{:field "path"} {:field "certname"}])})]
       (is (= (into {} (first (response ["=" "certname" "foo1"])))
              {"certname" "foo1", "name" "domain" "path" ["domain"], "value" "testing.com", "environment" "DEV"}))
       (is (= (into [] (response ["=" "environment" "DEV"]))
@@ -1683,7 +1706,7 @@
               {"certname" "foo3", "path" ["domain"], "name" "domain", "value" "testing.com", "environment" "PROD"}]))))
 
   (testing "fact nodes queries should return appropriate results"
-    (let [response (fact-content-response endpoint {})]
+    (let [response (fact-content-response method endpoint {})]
       (is (= (response ["extract" "value" ["=", "name" "domain"]])
              [{"value" "testing.com"}
               {"value" "testing.com"}
@@ -1698,8 +1721,9 @@
 (def no-parent-endpoints [[:v4 "/v4/factsets/foo/facts"]])
 
 (deftestseq unknown-parent-handling
-  [[version endpoint] no-parent-endpoints]
+  [[version endpoint] no-parent-endpoints
+   method [:get :post]]
 
-  (let [{:keys [status body]} (get-response endpoint)]
+  (let [{:keys [status body]} (query-response method endpoint)]
     (is (= status http/status-not-found))
     (is (= {:error "No information is known about factset foo"} (json/parse-string body true)))))

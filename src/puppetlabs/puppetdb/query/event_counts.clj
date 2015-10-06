@@ -114,22 +114,21 @@
 
 (defn munge-result-rows
   "Helper function to transform the event count subject data from the raw format that we get back from the
-  database into the more structured format that the API specifies."
-  [summarize_by]
-  (fn [_ _]
-   (fn [rows]
-     (map (partial munge-subject summarize_by) rows))))
+   database into the more structured format that the API specifies."
+  [summarize_by _ _]
+  (fn [rows]
+    (map (partial munge-subject summarize_by) rows)))
 
 (defn query->sql
   "Convert an event-counts `query` and a value to `summarize_by` into a SQL string.
   A second `counts-filter` query may be provided to further reduce the results, and
   the value to `count_by` may also be specified (defaults to `resource`)."
-  ([version query [summarize_by query-options paging-options]]
-   (query->sql false version query [summarize_by query-options paging-options]))
+  ([version query query-options]
+   (query->sql false version query query-options))
   ([will-union?
     version
     query
-    [summarize_by {:keys [counts_filter count_by] :as query-options} paging-options]]
+    {:keys [summarize_by counts_filter count_by] :as query-options}]
      {:pre  [((some-fn nil? sequential?) query)
              (string? summarize_by)
              ((some-fn nil? sequential?) counts_filter)
@@ -137,29 +136,29 @@
       :post [(map? %)
              (jdbc/valid-jdbc-query? (:results-query %))
              (or
-              (not (:count? paging-options))
+              (not (:include_total query-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
      (let [count_by                        (or count_by "resource")
            group-by                        (get-group-by summarize_by)
            _                               (paging/validate-order-by!
                                             (map keyword (event-counts-columns group-by))
-                                            paging-options)
+                                            query-options)
            {counts-filter-where  :where
             counts-filter-params :params}  (get-counts-filter-where-clause counts_filter)
            distinct-opts                   (select-keys query-options
-                                                        [:distinct_resources?
+                                                        [:distinct_resources
                                                          :distinct_start_time
                                                          :distinct_end_time])
            [event-sql & event-params]      (:results-query
-                                            (if (:distinct_resources? query-options)
+                                            (if (:distinct_resources query-options)
                                               ;;The query engine does not support distinct-resources!
-                                              (events/query->sql will-union? version query [distinct-opts nil])
+                                              (events/query->sql will-union? version query distinct-opts)
                                               (qe/compile-user-query->sql qe/report-events-query query)))
            count-by-sql                    (get-count-by-sql event-sql count_by group-by)
            event-count-sql                 (get-event-count-sql count-by-sql group-by)
            sql                             (get-filtered-sql event-count-sql counts-filter-where)
            params                          (concat event-params counts-filter-params)
-           paged-select                    (jdbc/paged-sql sql paging-options)]
+           paged-select                    (jdbc/paged-sql sql query-options)]
        (conj {:results-query (apply vector paged-select params)}
-             (when (:count? paging-options)
+             (when (:include_total query-options)
                [:count-query (apply vector (jdbc/count-sql sql) params)])))))

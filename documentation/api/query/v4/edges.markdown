@@ -14,7 +14,7 @@ They represent the edges inside the catalog graph, whereas resources represent
 the nodes in the graph. You can query edges by making an HTTP request to the
 `/edges` endpoint.
 
-## `GET /pdb/query/v4/edges`
+## `/pdb/query/v4/edges`
 
 This will return all edges known to PuppetDB.
 

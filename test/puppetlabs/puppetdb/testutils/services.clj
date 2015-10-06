@@ -2,7 +2,7 @@
   (:require [clj-time.core :as t]
             [clj-time.coerce :as time-coerce]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.testutils :refer [temp-dir temp-file]]
+            [puppetlabs.puppetdb.testutils :as testutils]
             [puppetlabs.puppetdb.testutils.log
              :refer [notable-pdb-event? with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.fixtures :as fixt]
@@ -17,9 +17,10 @@
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service] :as dispatch]
-            [puppetlabs.puppetdb.http.command :refer [puppetdb-command-service]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.utils :refer [base-url->str]]
             [clj-http.util :refer [url-encode]]
             [clj-http.client :as client]
             [clojure.string :as str]
@@ -28,7 +29,8 @@
             [clojure.tools.logging :as log]
             [clojure.data.xml :as xml]
             [puppetlabs.puppetdb.dashboard :refer [dashboard-redirect-service]]
-            [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service maint-mode-service]]))
+            [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service maint-mode-service]]
+            [puppetlabs.puppetdb.config :refer [config-service]]))
 
 ;; See utils.clj for more information about base-urls.
 (def ^:dynamic *base-url* nil) ; Will not have a :version.
@@ -38,9 +40,9 @@
   a fresh hypersql instance"
   []
   {:nrepl {}
-   :global {:vardir (temp-dir)}
+   :global {:vardir (testutils/temp-dir)}
    :jetty {:port 0}
-   :database (fixt/create-db-map)
+   :database (testutils/clean-db-map)
    :command-processing {}})
 
 (defn open-port-num
@@ -66,10 +68,10 @@
    #'message-listener-service
    #'command-service
    #'metrics/metrics-service
-   #'puppetdb-command-service
    #'dashboard-redirect-service
    #'pdb-routing-service
-   #'maint-mode-service])
+   #'maint-mode-service
+   #'config-service])
 
 (defn call-with-puppetdb-instance
   "Stands up a puppetdb instance with `config`, tears down once `f` returns.
@@ -107,14 +109,39 @@
          (log/errorf e "Error occured when Jetty tried to bind to port %s, attempt #%s" port attempts)
          (call-with-puppetdb-instance config services (dec attempts) f))))))
 
+(defn pdb-query-url []
+  (assoc *base-url* :prefix "/pdb/query" :version :v4))
+
+(defn pdb-cmd-url []
+  (assoc *base-url* :prefix "/pdb/cmd" :version :v1))
+
+(defn get-json [base-url suffix & [opts]]
+  (let [opts (or opts {:throw-exceptions true
+                       :throw-entire-message? true})]
+    (-> (str (base-url->str base-url) suffix)
+        (client/get opts)
+        :body
+        (json/parse-string true))))
+
+(defn get-reports [base-url certname]
+  (get-json base-url "/reports"
+            {:query-params {:query (json/generate-string [:= :certname certname])}}))
+
+(defn get-factsets [base-url certname]
+  (get-json base-url "/factsets"
+            {:query-params {:query (json/generate-string [:= :certname certname])}}))
+
+(defn get-catalogs [base-url certname]
+  (get-json base-url "/catalogs"
+            {:query-params {:query (json/generate-string [:= :certname certname])}}))
+
 (defmacro with-puppetdb-instance
   "Convenience macro to launch a puppetdb instance"
   [& body]
-  `(with-redefs [sutils/db-metadata (delay {:database "HSQL Database Engine"
-                                            :version [2 2]})]
+  `(with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
      (call-with-puppetdb-instance
-       (fn []
-         ~@body))))
+      (fn []
+        ~@body))))
 
 (defn call-with-single-quiet-pdb-instance
   "Calls the call-with-puppetdb-instance with args after suppressing
@@ -138,7 +165,7 @@
   [host]
   (str "org.apache.activemq:type=Broker,brokerName=" (url-encode host)
        ",destinationType=Queue"
-       ",destinationName=" svcs/mq-endpoint))
+       ",destinationName=" conf/default-mq-endpoint))
 
 (defn mq-mbeans-found?
   "Returns true if the ActiveMQ mbeans and the discarded command
@@ -165,7 +192,7 @@
   roughly 5 seconds."
   []
   (loop [attempts 0]
-    (let [{:keys [status body]:as response}
+    (let [{:keys [status body] :as response}
           (client/get (mbeans-url-str *base-url*) {:as :json :throw-exceptions false})]
       (cond
         (and (= 200 status)

@@ -13,7 +13,7 @@ You can query facts by making an HTTP request to the `/facts` endpoint.
 In Puppet's world, you only interact with facts from one node at a time, so any given fact consists of only a **fact name** and a **value.** But since PuppetDB interacts with a whole population of nodes, each PuppetDB fact also includes a **certname** and an **environment.**
 
 
-## `GET /pdb/query/v4/facts`
+## `/pdb/query/v4/facts`
 
 This will return all facts matching the given query. Facts for
 deactivated nodes are not included in the response.
@@ -129,7 +129,7 @@ for your nodes by environment:
         "avg" : 271.18281821459045
     } ]
 
-## `GET /pdb/query/v4/facts/<FACT NAME>`
+## `/pdb/query/v4/facts/<FACT NAME>`
 
 This will return all facts with the given fact name, for all nodes. It
 behaves exactly like a call to `/pdb/query/v4/facts` with a query string of
@@ -180,7 +180,7 @@ Get the partitions fact for a single node:
       "certname" : "a.example.com"
     } ]
 
-## `GET /pdb/query/v4/facts/<FACT NAME>/<VALUE>`
+## `/pdb/query/v4/facts/<FACT NAME>/<VALUE>`
 
 This will return all facts with the given fact name and value, for all
 nodes. (That is, only the `certname` field will differ in each

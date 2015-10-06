@@ -47,7 +47,7 @@ This endpoint can be used to stream a tarred, gzipped backup archive of PuppetDB
 
 ### URL Parameters
 
-This endpoint takes no URL parameters.
+* `anonymization_profile`: Optional. The level of anonymization applied to the archive files.
 
 ### Response Format
 

@@ -1,18 +1,18 @@
 (ns puppetlabs.puppetdb.fixtures
   (:import [java.io ByteArrayInputStream])
-  (:require [clojure.java.jdbc.deprecated :as sql]
+  (:require [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.http.command :as command]
-            [puppetlabs.puppetdb.jdbc :as pjdbc]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.config :as cfg]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-test-logging]]
             [clojure.tools.macro :as tmacro]
             [clojure.test :refer [join-fixtures use-fixtures]]
             [puppetlabs.puppetdb.testutils
-             :refer [clear-db-for-testing! test-db with-test-broker without-jmx]]
+             :refer [clean-db-map with-test-broker without-jmx]]
             [puppetlabs.trapperkeeper.logging :refer [reset-logging]]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
             [puppetlabs.puppetdb.middleware :as mid]))
@@ -23,29 +23,23 @@
 (def ^:dynamic *command-app* nil)
 
 (defn init-db [db read-only?]
-  (binding [*db* db]
-    (do
-      (sql/with-connection *db*
-        (sql/transaction
-         (clear-db-for-testing!)
-         (migrate! *db*)))
-      (pjdbc/pooled-datasource (assoc db :read-only? read-only?)))))
+  (jdbc/with-db-connection db (migrate! db))
+  (jdbc/pooled-datasource (assoc db :read-only? read-only?)))
 
 (defn with-db-metadata
   "A fixture to collect DB type and version information before a test."
   [f]
-  (binding [*db* (test-db)]
-    (sql/with-connection *db*
+  (binding [*db* (clean-db-map)]
+    (jdbc/with-db-connection *db*
       (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
         (f)))))
 
 (defn with-test-db
   "A fixture to start and migrate a test db before running tests."
   [f]
-  (binding [*db* (test-db)]
-    (sql/with-connection *db*
+  (binding [*db* (clean-db-map)]
+    (jdbc/with-db-connection *db*
       (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
-        (clear-db-for-testing!)
         (migrate! *db*)
         (f)))))
 
@@ -58,7 +52,7 @@
    route testing code to ensure that the route has it's own db
    connection."
   [f]
-  (binding [sql/*db* nil]
+  (binding [jdbc/*db* nil]
     (f)))
 
 (defn with-test-mq
@@ -67,8 +61,7 @@
   [f]
   (without-jmx
    (with-test-broker "test" connection
-     (binding [*mq* {:connection connection
-                     :endpoint "puppetlabs.puppetdb.commands"}]
+     (binding [*mq* {:connection connection}]
        (f)))))
 
 (defn with-command-app
@@ -79,9 +72,10 @@
   ([f]
    (binding [*command-app* (mid/wrap-with-puppetdb-middleware
                             (command/command-app
-                             (fn [] *mq*)
                              (fn [] {})
-                             #'dispatch/do-enqueue-raw-command
+                             (partial #'dispatch/do-enqueue-raw-command
+                                      (:connection *mq*)
+                                      conf/default-mq-endpoint)
                              (fn [] nil))
                             nil)]
      (f))))
@@ -96,8 +90,6 @@
   ([globals-overrides f]
    (let [get-shared-globals #(merge {:scf-read-db *db*
                                      :scf-write-db *db*
-                                     :command-mq *mq*
-                                     :product-name "puppetdb"
                                      :url-prefix ""}
                                     globals-overrides)]
      (binding [*app* (mid/wrap-with-puppetdb-middleware
@@ -106,25 +98,18 @@
        (f)))))
 
 (defn defaulted-write-db-config
-  "Defaults and converts `db-config` from the write database INI format to the internal
-   write database format"
+  "Defaults and converts `db-config` from the write database INI
+  format to the internal write database format"
   [db-config]
-  (pls/transform-data cfg/write-database-config-in cfg/write-database-config-out db-config))
+  (pls/transform-data conf/write-database-config-in
+                      conf/write-database-config-out db-config))
 
 (defn defaulted-read-db-config
-  "Defaults and converts `db-config` from the read-database INI format to the internal
-   read database format"
+  "Defaults and converts `db-config` from the read-database INI format
+  to the internal read database format"
   [db-config]
-  (pls/transform-data cfg/database-config-in cfg/database-config-out db-config))
-
-(defn create-db-map
-  "Returns a database connection map with a reference to a new in memory HyperSQL database"
-  []
-  {:classname   "org.hsqldb.jdbcDriver"
-   :subprotocol "hsqldb"
-   :subname     (str "mem:"
-                     (java.util.UUID/randomUUID)
-                     ";hsqldb.tx=mvcc;sql.syntax_pgs=true")})
+  (pls/transform-data conf/database-config-in
+                      conf/database-config-out db-config))
 
 (defn with-test-logging-silenced
   "A fixture to temporarily redirect all logging output to an atom, rather than
@@ -152,7 +137,6 @@
       :globals (merge {:update-server "FOO"
                        :scf-read-db          *db*
                        :scf-write-db         *db*
-                       :command-mq           *mq*
                        :product-name         "puppetdb"}
                       global-overrides)}))
 
@@ -169,7 +153,6 @@
       :globals {:update-server "FOO"
                 :scf-read-db          *db*
                 :scf-write-db         *db*
-                :command-mq           *mq*
                 :product-name         "puppetdb"}
       :body (ByteArrayInputStream. (.getBytes body "utf8"))}))
 

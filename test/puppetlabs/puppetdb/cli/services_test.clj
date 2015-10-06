@@ -6,7 +6,8 @@
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :refer :all]
-            [puppetlabs.puppetdb.http.command :refer :all]
+            [puppetlabs.puppetdb.testutils.cli :refer [get-factsets]]
+            [puppetlabs.puppetdb.command :refer [enqueue-command]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.meta.version :as version]
@@ -15,18 +16,20 @@
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
             [clj-time.coerce :refer [to-string]]
-            [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.cli.export :as export]))
+            [clj-time.core :refer [now]]))
 
 (deftest update-checking
-  (testing "should check for updates if running as puppetdb"
-    (with-redefs [version/check-for-updates! (constantly "Checked for updates!")]
-      (is (= (maybe-check-for-updates "puppetdb" "update-server!" {}) "Checked for updates!"))))
+  (let [config-map {:global {:product-name "puppetdb"
+                              :update-server "update-server!"}}]
 
-  (testing "should skip the update check if running as pe-puppetdb"
-    (with-log-output log-output
-      (maybe-check-for-updates "pe-puppetdb" "update-server!" {})
-      (is (= 1 (count (logs-matching #"Skipping update check on Puppet Enterprise" @log-output)))))))
+    (testing "should check for updates if running as puppetdb"
+      (with-redefs [version/check-for-updates! (constantly "Checked for updates!")]
+        (is (= (maybe-check-for-updates config-map {}) "Checked for updates!"))))
+
+    (testing "should skip the update check if running as pe-puppetdb"
+      (with-log-output log-output
+        (maybe-check-for-updates (assoc-in config-map [:global :product-name] "pe-puppetdb") {})
+        (is (= 1 (count (logs-matching #"Skipping update check on Puppet Enterprise" @log-output))))))))
 
 (defn- check-service-query
   [endpoint version q pagination check-result]
@@ -48,16 +51,17 @@
 
 (deftest query-via-puppdbserver-service
   (svc-utils/with-single-quiet-pdb-instance
-    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)
+    (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
           query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
-      (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
-                                                        :environment "DEV"
-                                                        :values {:foo "the foo"
-                                                                 :bar "the bar"
-                                                                 :baz "the baz"}
-                                                        :producer_timestamp (to-string (now))})
+      (enqueue-command dispatcher :replace-facts 4
+                       {:certname "foo.local"
+                        :environment "DEV"
+                        :values {:foo "the foo"
+                                 :bar "the bar"
+                                 :baz "the baz"}
+                        :producer_timestamp (to-string (now))})
 
-      @(block-until-results 100 (export/facts-for-node query-fn "foo.local"))
+      @(block-until-results 100 (first (get-factsets "foo.local")))
 
       (check-service-query
        :facts :v4 ["=" "certname" "foo.local"]
@@ -79,14 +83,15 @@
 
 (deftest pagination-via-puppdbserver-service
   (svc-utils/with-puppetdb-instance
-    (let [pdb-cmd-service (get-service svc-utils/*server* :PuppetDBCommand)
+    (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
           query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
-      (submit-command pdb-cmd-service :replace-facts 4 {:certname "foo.local"
-                                                    :environment "DEV"
-                                                    :values {:a "a" :b "b" :c "c"}
-                                                    :producer_timestamp (to-string (now))})
+      (enqueue-command dispatcher :replace-facts 4
+                       {:certname "foo.local"
+                        :environment "DEV"
+                        :values {:a "a" :b "b" :c "c"}
+                        :producer_timestamp (to-string (now))})
 
-      @(block-until-results 100 (export/facts-for-node query-fn "foo.local"))
+      @(block-until-results 100 (first (get-factsets "foo.local")))
       (let [exp ["a" "b" "c"]
             rexp (reverse exp)]
         (doseq [order [:ascending :descending]
@@ -122,16 +127,6 @@
       (doseq [v [:v1 :v2 :v3]]
         (testing (format "%s requests are refused" (name v)))
         (is (retirement-response? v (ping v)))))))
-
-(deftest whitelist-middleware
-  (testing "should log on reject"
-    (let [wl (temp-file "whitelist-log-reject")]
-      (spit wl "foobar")
-      (let [authorizer-fn (build-whitelist-authorizer (fs/absolute-path wl))]
-        (is (= :authorized (authorizer-fn {:ssl-client-cn "foobar"})))
-        (with-log-output logz
-          (is (string? (authorizer-fn {:ssl-client-cn "badguy"})))
-          (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
 
 (defn make-https-request-with-whitelisted-host [whitelisted-host]
   (let [whitelist-file (temp-file "whitelist-log-reject")

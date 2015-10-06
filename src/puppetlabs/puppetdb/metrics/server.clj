@@ -23,6 +23,6 @@
   function that accepts a request.  The request will be allowed only
   if authorize returns :authorized.  Otherwise, the return value
   should be a message describing the reason that access was denied."
-  [get-authorizer]
+  [cert-whitelist]
   (-> routes
-      (wrap-with-puppetdb-middleware get-authorizer)))
+      (wrap-with-puppetdb-middleware cert-whitelist)))

@@ -36,6 +36,7 @@
 
 (def json-agg-row (comp h/json-agg h/row-to-json))
 (def supported-fns #{"sum" "avg" "min" "max" "count"})
+(defn jsonb-type [] (if (su/postgres?) :jsonb :text))
 
 (defn hsql-hash-as-str
   [column-keyword]
@@ -85,6 +86,13 @@
                              "report_timestamp" {:type :timestamp
                                                  :queryable? true
                                                  :field :reports.end_time}
+                             "latest_report_hash" {:type :string
+                                                   :queryable? true
+                                                   :field (hsql-hash-as-str
+                                                            :reports.hash)}
+                             "latest_report_status" {:type :string
+                                                     :queryable? true
+                                                     :field :report_statuses.status}
                              "catalog_environment" {:type :string
                                                     :queryable? true
                                                     :field :catalog_environment.environment}
@@ -107,6 +115,9 @@
 
                                        [:environments :catalog_environment]
                                        [:= :catalog_environment.id :catalogs.environment_id]
+
+                                       :report_statuses
+                                       [:= :reports.status_id :report_statuses.id]
 
                                        [:environments :facts_environment]
                                        [:= :facts_environment.id :fs.environment_id]
@@ -159,6 +170,17 @@
 
                :source-table "fact_paths"
                :alias "fact_paths"
+               :subquery? false}))
+
+(defn fact-names-query
+  []
+  (map->Query {:projections {"name" {:type :string
+                                     :queryable? true
+                                     :field :name}}
+               :selection {:from [[:fact_paths :fp]]
+                           :modifiers [:distinct]}
+               :source-table "fact_paths"
+               :alias "fact_names"
                :subquery? false}))
 
 (defn facts-query
@@ -276,7 +298,9 @@
   []
   (map->Query {:projections {"logs" {:type :json
                                      :queryable? false
-                                     :field :reports.logs}
+                                     :field (h/coalesce :logs
+                                                        (h/scast :logs_json
+                                                                 (jsonb-type)))}
                              "hash" {:type :string
                                      :queryable? true
                                      :query-only? true
@@ -294,7 +318,10 @@
   []
   (map->Query {:projections {"metrics" {:type :json
                                         :queryable? false
-                                        :field :reports.metrics}
+                                        :field (h/coalesce :reports.metrics
+                                                           (h/scast
+                                                             :reports.metrics_json
+                                                             (jsonb-type)))}
                              "hash" {:type :string
                                      :queryable? true
                                      :query-only? true
@@ -338,12 +365,17 @@
       "metrics" {:type :json
                  :queryable? false
                  :field {:select [(h/row-to-json :t)]
-                         :from [[{:select [[:metrics :data] [(hsql-hash-as-str :hash) :href]]} :t]]}
+                         :from [[{:select
+                                  [[(h/coalesce :metrics
+                                                (h/scast :metrics_json (jsonb-type))) :data]
+                                           [(hsql-hash-as-str :hash) :href]]} :t]]}
                  :expandable? true}
       "logs" {:type :json
               :queryable? false
               :field {:select [(h/row-to-json :t)]
-                      :from [[{:select [[:logs :data] [(hsql-hash-as-str :hash) :href]]} :t]]}
+                      :from [[{:select [[(h/coalesce :logs
+                                                     (h/scast :logs_json (jsonb-type)))
+                                         :data] [(hsql-hash-as-str :hash) :href]]} :t]]}
               :expandable? true}
       "receive_time"    {:type :timestamp
                          :queryable? true
@@ -1360,7 +1392,7 @@
   "Given a user provided query and a Query instance, convert the
    user provided query to SQL and extract the parameters, to be used
    in a prepared statement"
-  [query-rec user-query & [{:keys [count?] :as paging-options}]]
+  [query-rec user-query & [{:keys [include_total] :as paging-options}]]
   ;; Call the query-rec so we can evaluate query-rec functions
   ;; which depend on the db connection type
   (let [query-rec (query-rec)
@@ -1376,4 +1408,4 @@
         sql (plan->sql plan)
         paged-sql (jdbc/paged-sql sql paging-options)]
     (cond-> {:results-query (apply vector paged-sql params)}
-      count? (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))
+      include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))

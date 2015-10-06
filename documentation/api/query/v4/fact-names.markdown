@@ -11,12 +11,20 @@ canonical: "/puppetdb/latest/api/query/v4/fact-names.html"
 The `/fact-names` endpoint can be used to retrieve all known fact names.
 
 
-## `GET /pdb/query/v4/fact-names`
+## `/pdb/query/v4/fact-names`
 
 This will return an alphabetical list of all known fact names, *including* those which are
 known only for deactivated nodes.
 
-This endpoint does not use any URL parameters or query strings.
+
+### URL Parameters
+
+* `query`: Optional. A JSON array containing the query in prefix notation
+(`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the
+supported operators and fields. For general info about queries,
+see [the page on query structure.][query]
+
+If a query parameter is not provided, all results will be returned.
 
 ### Response Format
 

@@ -172,6 +172,9 @@ and override this setting to point to your proxy server.
 
 ### `catalog-hash-conflict-debugging`
 
+**NOTE** This setting is deprecated and will be retired in the next major
+release.
+
 When this is set to true, debugging information will be written to `<vardir>/debug/catalog-hashes` every time a catalog is received with a hash that is different than the previously received catalog for that host. Note that this should only be enabled when troubleshooting performance related issues with PuppetDB and the database server. This will output many files and could potentially slow down a production PuppetDB instance. See the [Troubleshooting Low Catalog Duplication guide][low_catalog_dupe] for more information on the outputted files and debugging this problem.
 
 `[puppetdb]` Settings
@@ -272,8 +275,20 @@ Do not use the `username` or `password` settings.
 
 ### `gc-interval`
 
-This controls how often, in minutes, to compact the database. The compaction process reclaims space and deletes unnecessary rows. If not supplied, the default is every 60 minutes.
+This controls how often, in minutes, to compact the database. The compaction
+process reclaims space and deletes unnecessary rows. If not supplied, the
+default is every 60 minutes.
 
+If `gc-interval` is set to 0, all database GC processes will be disabled. When
+using this value, you should explicitly set a `dlo-compression-interval` if your
+system will receive any commands.
+
+### `dlo-compression-interval`
+
+Any PuppetDB instance which receives commands must perform periodic maintenance
+on the message queue. This setting controls the interval at which that process
+is performed. By default, it is equal to `gc-interval` (60 minutes if not specified).
+You may wish to set this explicitly if you are using a zero `gc-interval`. 
 
 ### `node-ttl`
 
