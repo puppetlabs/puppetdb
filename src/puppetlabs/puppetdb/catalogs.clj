@@ -201,9 +201,9 @@
       (dissoc :api_version)
       wire-v6->wire-v7))
 
-(defn wire-v4->wire-v7 [catalog recieved-time]
+(defn wire-v4->wire-v7 [catalog received-time]
   (-> catalog
-      (assoc :producer_timestamp recieved-time)
+      (assoc :producer_timestamp received-time)
       wire-v5->wire-v7))
 
 (def ^:const valid-relationships
@@ -325,11 +325,13 @@
         (throw (IllegalArgumentException. (format "Catalog is missing keys: %s" (string/join ", " (map name missing-keys)))))))
     catalog))
 
-(def validate
+(defn validate
   "Function for validating v7- of the catalogs"
-  (comp validate-edges
-        validate-resources
-        #(s/validate catalog-wireformat-schema %)))
+  [catalog]
+  (->> catalog
+       (s/validate catalog-wireformat-schema)
+       validate-resources
+       validate-edges))
 
 ;; ## High-level parsing routines
 
@@ -436,8 +438,8 @@
   [catalog :- catalog-query-schema]
   (-> catalog
       (dissoc :hash)
-      (update-in [:edges] edges-expanded->wire-v7)
-      (update-in [:resources] resources-expanded->wire-v7)))
+      (update :edges edges-expanded->wire-v7)
+      (update :resources resources-expanded->wire-v7)))
 
 (defn catalogs-query->wire-v7 [catalogs]
   (map catalog-query->wire-v7 catalogs))
