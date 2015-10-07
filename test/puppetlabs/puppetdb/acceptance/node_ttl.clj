@@ -18,10 +18,10 @@
            (assoc-in [:database :node-purge-ttl] "1s"))
        (fn []
          (let [certname "foo.com"
-               catalog (-> (get-in wire-catalogs [6 :empty])
+               catalog (-> (get-in wire-catalogs [7 :empty])
                            (assoc :certname certname
                                   :producer_timestamp (now)))]
-           (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 6 catalog)
+           (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 7 catalog)
 
            (is (= 1 (count (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes")))))
            (is (nil? (:expired (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes/foo.com")))))

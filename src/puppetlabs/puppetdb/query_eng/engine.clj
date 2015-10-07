@@ -438,6 +438,9 @@
       "transaction_uuid" {:type :string
                           :queryable? true
                           :field (hsql-uuid-as-str :c.transaction_uuid)}
+      "code_id" {:type :string
+                 :queryable? true
+                 :field :c.code_id}
       "environment" {:type :string
                      :queryable? true
                      :field :e.environment}

@@ -33,6 +33,7 @@ See [the Operators page.](./operators.html)
 * `version` (string): an arbitrary string that uniquely identifies each catalog for a node
 * `environment` (string): the environment associated with the catalog's certname
 * `transaction_uuid` (string): a string used to tie a catalog to a report from the same puppet run
+* `code_id` (string): a string used to tie a catalog to the Puppet code which generated the catalog
 * `hash` (string): sha1 hash of the resources of associated with a node's most
   recent catalog
 * `producer_timestamp` (string): a string representing the time at which the
@@ -51,6 +52,7 @@ the form:
       "environment" : <catalog environment>,
       "hash" : <sha1 sum of catalog resources>,
       "transaction_uuid" : <string to identify puppet run>,
+      "code_id" : <string to identify puppet code>,
       "producer_timestamp": <time of transmission by master>,
       "resources" : <expanded resources>,
       "edges" : <expanded edges>
@@ -102,6 +104,7 @@ This query will return the complete list of catalogs:
       "hash" : "62cdc40a78750144b1e1ee06638ac2dd0eeb9a46",
       "version" : "e4c339f",
       "transaction_uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
+      "code_id" : null,
       "producer_timestamp": "2014-10-13T20:46:00.000Z",
       "environment" : "production",
       "edges" : {...},
@@ -112,6 +115,7 @@ This query will return the complete list of catalogs:
       "hash" : "e1a4610ecbb3483fa5e637f42374b2cc46d06474",
       "version" : "449720",
       "transaction_uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
+      "code_id" : null,
       "producer_timestamp": "2014-11-20T02:15:20.861Z",
       "environment" : "production",
       "edges" : {...},
@@ -128,6 +132,7 @@ This query will return all catalogs with producer_timestamp after 2014-11-19:
       "hash" : "e1a4610ecbb3483fa5e637f42374b2cc46d06474",
       "version" : "449720",
       "transaction_uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
+      "code_id" : null,
       "producer_timestamp": "2014-11-20T02:15:20.861Z",
       "environment" : "production",
       "edges" : {...},
@@ -154,6 +159,7 @@ a JSON error message if the catalog is not found:
      "hash" : "62cdc40a78750144b1e1ee06638ac2dd0eeb9a46",
      "version" : "e4c339f",
      "transaction_uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
+     "code_id" : null,
      "producer_timestamp": "2014-10-13T20:46:00.000Z",
      "environment" : "production",
      "edges" : {...},

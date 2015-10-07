@@ -10,7 +10,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def save(request)
     profile("catalog#save", [:puppetdb, :catalog, :save, request.key]) do
       catalog = munge_catalog(request.instance, extract_extra_request_data(request))
-      submit_command(request.key, catalog, CommandReplaceCatalog, 6)
+      submit_command(request.key, catalog, CommandReplaceCatalog, 7)
     end
   end
 
@@ -24,6 +24,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       :transaction_uuid => request.options[:transaction_uuid],
       :environment => request.environment.to_s,
       :producer_timestamp => request.options[:producer_timestamp] || Time.now.iso8601(5),
+      :code_id => request.options[:code_id],
     }
   end
 
@@ -51,6 +52,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       add_environment(data, extra_request_data[:environment])
       add_producer_timestamp(data, extra_request_data[:producer_timestamp])
       change_name_to_certname(data)
+      add_code_id(data, extra_request_data[:code_id])
 
       data
     end
@@ -110,6 +112,18 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # @api private
   def add_transaction_uuid(hash, transaction_uuid)
     hash['transaction_uuid'] = transaction_uuid
+
+    hash
+  end
+
+  # Include code_id in hash, returning the complete hash.
+  #
+  # @param hash [Hash] original data hash
+  # @param code_id [String] code_id
+  # @return [Hash] returns original hash augmented with transaction_uuid
+  # @api private
+  def add_code_id(hash, code_id)
+    hash['code_id'] = code_id
 
     hash
   end

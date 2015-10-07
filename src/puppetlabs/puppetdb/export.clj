@@ -23,7 +23,7 @@
   ;;  on which version of the `replace catalog` matches up with the current
   ;;  version of the `catalog` endpoint... or even to query what the latest
   ;;  version of a command is.  We should improve that.
-  {:replace_catalog 6
+  {:replace_catalog 7
    :store_report 6
    :replace_facts 4})
 
@@ -87,7 +87,7 @@
 
 (def export-info
   {:catalogs {:child-fields [:edges :resources]
-              :query->wire-fn catalogs/catalogs-query->wire-v6
+              :query->wire-fn catalogs/catalogs-query->wire-v7
               :anonymize-fn anon/anonymize-catalog}
    :reports {:child-fields [:metrics :logs :resource_events]
              :query->wire-fn reports/reports-query->wire-v6
