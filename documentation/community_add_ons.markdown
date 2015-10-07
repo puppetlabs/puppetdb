@@ -50,5 +50,3 @@ runs - that is, something is changing back and forth over and over again.
 * `puppetdb-tooquiet` - lists hosts that have not checked in over the last two hours (configurable)
 
 There are also a variety of tools for querying specific system facts and providing useful reports, which are tied to the upstream environment fact list.  
-
-* 
