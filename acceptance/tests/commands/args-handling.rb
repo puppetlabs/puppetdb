@@ -1,7 +1,7 @@
 test_name "argument handling" do
   bin_loc = puppetdb_bin_dir(database)
 
-  ["ssl-setup", "import", "export", "anonymize"].each do |k|
+  ["ssl-setup", "import", "export"].each do |k|
     step "running puppetdb #{k} -h should not error out" do
       on database, "#{bin_loc}/puppetdb #{k} -h"
     end
