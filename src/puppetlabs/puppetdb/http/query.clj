@@ -82,6 +82,9 @@
     [["extract" columns nil]]
     ["extract" columns crit]
 
+    [["extract" columns]]
+    ["extract" columns crit]
+
     [["extract" columns subquery]]
     ["extract" columns ["and" subquery crit]]
 

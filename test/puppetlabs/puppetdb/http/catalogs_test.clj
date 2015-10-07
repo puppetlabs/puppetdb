@@ -91,11 +91,15 @@
 
   (testing "projection queries"
     (are [query expected]
-         (is (= (-> (reader (:body (query-response method endpoint query)))
-                    (json/parse-stream true)
-                    strip-hash
-                    set)
-                expected))
+        (= expected
+           (-> (reader (:body (query-response method endpoint query)))
+               (json/parse-stream true)
+               strip-hash
+               set))
+
+      ["extract" "certname"]
+      #{{:certname "myhost.localdomain"}
+        {:certname "host2.localdomain"}}
 
          ["extract" ["certname"] ["~" "certname" ""]]
          #{{:certname "myhost.localdomain"}

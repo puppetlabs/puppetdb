@@ -384,6 +384,21 @@
            [">" "value" 5000]]
           []
 
+          ["extract" "certname"]
+          [{:certname "foo1"}
+           {:certname "foo1"}
+           {:certname "foo1"}
+           {:certname "foo1"}
+           {:certname "foo1"}
+           {:certname "foo2"}
+           {:certname "foo1"}
+           {:certname "foo2"}
+           {:certname "foo2"}
+           {:certname "foo2"}
+           {:certname "foo3"}
+           {:certname "foo3"}
+           {:certname "foo3"}]
+
           ["extract" "certname"
            ["not" ["=" "name" "domain"]]]
           [{:certname "foo1"}

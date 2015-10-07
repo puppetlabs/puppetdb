@@ -1113,10 +1113,11 @@
   (map #(get-in query-rec [:projections % :field]) (sort columns)))
 
 (defn strip-function-calls
-  [column]
-  (let [{functions true nonfunctions false} (group-by #(= "function" (first %)) column)]
-    [(into [] (rest (first functions)))
-     nonfunctions]))
+  [column-or-columns]
+  (let [columns (utils/vector-maybe column-or-columns)
+        {[function-call] true nonfunctions false} (group-by #(= "function" (first %)) columns)]
+    [(vec (rest function-call))
+     (vec nonfunctions)]))
 
 (defn replace-numeric-args
   [fargs]
@@ -1211,13 +1212,26 @@
             (map->InExpression {:column (columns->fields query-rec (utils/vector-maybe column))
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
 
-            [["extract" [["function" & fargs]] expr]]
-            (-> query-rec
-                (assoc :call (replace-numeric-args fargs))
-                (create-extract-node [] expr))
+            [["extract" column]]
+            (let [[fargs cols] (strip-function-calls column)
+                  call (replace-numeric-args fargs)
+                  query-rec-with-call (cond-> query-rec
+                                        (not (empty? call)) (assoc :call call))]
+              (create-extract-node query-rec-with-call cols nil))
 
             [["extract" column expr]]
-            (create-extract-node query-rec (utils/vector-maybe column) expr)
+            (let [[fargs cols] (strip-function-calls column)
+                  call (replace-numeric-args fargs)
+                  query-rec-with-call (cond-> query-rec
+                                        (not (empty? call)) (assoc :call call))]
+              (create-extract-node query-rec-with-call cols expr))
+
+            [["extract" columns ["group_by" & clauses]]]
+            (let [[fargs cols] (strip-function-calls columns)]
+              (-> query-rec
+                  (assoc :call (replace-numeric-args fargs))
+                  (assoc :group-by clauses)
+                  (create-extract-node cols nil)))
 
             [["extract" columns expr ["group_by" & clauses]]]
             (let [[fargs cols] (strip-function-calls columns)]
