@@ -311,6 +311,7 @@
     (-> resource
         (utils/update-when ["file"] anonymize-leaf :file newcontext config)
         (utils/update-when ["line"] anonymize-leaf :line newcontext config)
+        (utils/update-when ["code_id"] anonymize-leaf :code_id newcontext config)
         (update "parameters" anonymize-parameters newcontext config)
         (update "tags" anonymize-tags newcontext config)
         (update "title" anonymize-leaf :title newcontext config)
