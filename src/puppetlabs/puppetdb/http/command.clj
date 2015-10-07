@@ -90,13 +90,14 @@
 (defn- enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
   [enqueue-fn get-response-pub]
-  (fn [{:keys [body-string params] :as request}]
+  (fn [{:keys [body-string params ssl-client-cn] :as request}]
+    (clojure.pprint/pprint request)
     (let [uuid (kitchensink/uuid)
           completion-timeout-ms (some-> params
                                         (get "secondsToWaitForCompletion")
                                         Double/parseDouble
                                         (* 1000))
-          do-submit #(enqueue-fn body-string uuid)]
+          do-submit #(enqueue-fn body-string uuid ssl-client-cn)]
       (if (some-> completion-timeout-ms pos?)
         (blocking-submit-command do-submit (get-response-pub) uuid completion-timeout-ms)
         (do

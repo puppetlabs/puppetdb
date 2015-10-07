@@ -1,5 +1,7 @@
-{
-    "certname" : "myhost.localdomain",
+{"command": "replace catalog",
+ "version": 6,
+ "payload": {
+    "certname" : "centos7.vm",
     "producer_timestamp": "2014-07-10T22:33:54.781Z",
     "edges" : [ {
         "relationship" : "contains",
@@ -44,4 +46,5 @@
     "version" : "1330463446",
     "transaction_uuid" : "68b08e2a-eeb1-4322-b241-bfdf151d294c",
     "environment" : "DEV"
+}
 }

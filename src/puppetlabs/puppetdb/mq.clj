@@ -150,6 +150,7 @@
   "Creates a map of custom headers included in `message`, currently only
   supports String headers."
   [^Message msg]
+  (println "the thing: " (enumeration-seq (.getPropertyNames msg)))
   (reduce (fn [acc k]
             (assoc acc
               (keyword k)
@@ -199,6 +200,7 @@
   {:-to-jms-message (fn [x properties session]
                       (let [msg (.createTextMessage session x)]
                         (doseq [[name value] properties]
+                          (println (format "Setting name: %s and value: %s" name value))
                           (-set-jms-property! value name msg))
                         msg))})
 
@@ -214,6 +216,7 @@
 (defn to-jms-message
   "Converts x to a JMSMessage with the given properties via session."
   [session x properties]
+  (println "Properties: " properties)
   (-to-jms-message x properties session))
 
 (defmacro commit-or-rollback
