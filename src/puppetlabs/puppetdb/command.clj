@@ -97,11 +97,10 @@
           (number? (:version %))
           (map? (:annotations %))]}
   (let [message     (json/parse-string body true)
-        received    (get headers :received (kitchensink/timestamp))
-        id          (get headers :id (kitchensink/uuid))]
-    (-> message
-        (assoc-in [:annotations :received] received)
-        (assoc-in [:annotations :id] id))))
+        annotations (merge {:received (kitchensink/timestamp)
+                            :id (kitchensink/uuid)}
+                           headers)]
+    (assoc message :annotations annotations)))
 
 (defn assemble-command
   "Builds a command-map from the supplied parameters"
@@ -124,11 +123,16 @@
   [mq-connection :- mq/connection-schema
    mq-endpoint :- s/Str
    raw-command :- s/Str
-   uuid :- (s/maybe s/Str)]
+   uuid :- (s/maybe s/Str)
+   ssl-client-cn :- (s/maybe s/Str)]
   (let [uuid (or uuid (kitchensink/uuid))]
+    (println "This is where I belong\n\n\n\n")
     (mq/send-message! mq-connection mq-endpoint
                       raw-command
-                      {"received" (kitchensink/timestamp) "id" uuid})
+                      {"received" (kitchensink/timestamp)
+                       "id" uuid
+                       "ssl-client-cn" ssl-client-cn
+                       "oneword" "anotherword"})
     uuid))
 
 (defn-validated ^:private do-enqueue-command :- s/Str
@@ -139,9 +143,11 @@
    command :- s/Str
    version :- s/Int
    payload
-   uuid :- (s/maybe s/Str)]
+   uuid :- (s/maybe s/Str)
+   ssl-client-cn :- (s/maybe s/Str)]
+  (println "WHY AM I HERE!!!\n\n\n\n")
   (let [command-map (assemble-command command version payload)]
-    (do-enqueue-raw-command mq-connection mq-endpoint (json/generate-string command-map) uuid)))
+    (do-enqueue-raw-command mq-connection mq-endpoint (json/generate-string command-map) uuid ssl-client-cn)))
 
 ;; ## Command processing exception classes
 
@@ -176,7 +182,12 @@
         catalog (upon-error-throw-fatality (cat/parse-catalog payload version received-timestamp))
         certname (:certname catalog)
         id (:id annotations)
+        ssl-client-cn (:ssl-client-cn annotations)
+        _ (do (println "Printing annotations")
+              (clojure.pprint/pprint annotations))
         producer-timestamp (:producer_timestamp catalog)]
+    (when (not= ssl-client-cn certname)
+      (throw (RuntimeException. (format "SSL Client certname: %s and command certname: %s do not match, rejecting command" ssl-client-cn certname))))
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       ;; Only store a catalog if its producer_timestamp is <= the existing catalog's.
@@ -307,7 +318,7 @@
     "Annotates the command via annotate-command, submits it for
     processing, and then returns its unique id.")
 
-  (enqueue-raw-command [this raw-command uuid]
+  (enqueue-raw-command [this raw-command uuid ssl-client-cn]
     "Submits the raw-command for processing and returns the command's
     unique id.")
 
@@ -403,11 +414,11 @@
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
 
-  (enqueue-raw-command [this raw-command uuid]
+  (enqueue-raw-command [this raw-command uuid ssl-client-cn]
     (let [config (get-config)
           connection (:connection (service-context this))
           endpoint (get-in config [:command-processing :mq :endpoint])
-          result (do-enqueue-raw-command connection endpoint raw-command uuid)]
+          result (do-enqueue-raw-command connection endpoint raw-command uuid ssl-client-cn)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))

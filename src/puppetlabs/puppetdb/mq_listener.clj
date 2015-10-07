@@ -346,7 +346,9 @@
      (reify MessageListener
        (onMessage [this msg]
          (try
-           (mq/commit-or-rollback sess (handle (mq/convert-jms-message msg)))
+           (let [converted-message (mq/convert-jms-message msg)]
+             (println "converted message " converted-message)
+             (mq/commit-or-rollback sess (handle converted-message)))
            (catch Throwable ex
              (log/error ex "message receive failed")
              (throw ex))))))
@@ -398,5 +400,6 @@
   (process-message [this message]
     (if-let [handler-fn (matching-handler @(:listeners (service-context this))
                                           message)]
-      (handler-fn message)
+      (do (println "calling handler-fn with " message)
+          (handler-fn message))
       (log/warnf "No message handler found for %s" message))))
