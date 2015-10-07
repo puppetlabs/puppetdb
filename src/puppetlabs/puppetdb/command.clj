@@ -202,6 +202,10 @@
   [command options]
   (replace-catalog* command options))
 
+(defmethod process-command! [(command-names :replace-catalog) 7]
+  [command options]
+  (replace-catalog* command options))
+
 ;; Fact replacement
 
 (defmethod process-command! [(command-names :replace-facts) 4]

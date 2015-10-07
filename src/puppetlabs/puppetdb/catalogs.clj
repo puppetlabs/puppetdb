@@ -98,7 +98,7 @@
 (def ^:const catalog-version
   "Constant representing the version number of the PuppetDB
   catalog format"
-  6)
+  7)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Schemas
@@ -107,7 +107,7 @@
 ;;; edges/resources in here and more of the codebase switched over to
 ;;; using the new schemas
 
-(def full-catalog
+(def catalog-wireformat-schema
   "This flattened catalog schema is for the superset of catalog information.
    Use this when in the general case as it can be converted to any of the other
    (v5-) schemas"
@@ -116,6 +116,7 @@
    :environment (s/maybe s/Str)
    :transaction_uuid (s/maybe s/Str)
    :producer_timestamp pls/Timestamp
+   :code_id (s/maybe s/Str)
 
 
    ;; This is a crutch. We use sets for easier searching and avoid
@@ -130,16 +131,10 @@
    ;; transformation to the second earlier in the process, then all of
    ;; the code can expect it (it's just a faster access version of the first)
    :resources (s/either [{s/Any s/Any}]
-                        {s/Any {s/Any s/Any}})
-   :api_version (s/maybe s/Int)})
+                        {s/Any {s/Any s/Any}})})
 
-(defn catalog-wireformat
-  "Returns the correct schema for the `version`, use :all for the full-catalog (superset)"
-  [version]
-  (case version
-    :all full-catalog
-    :v6 (dissoc full-catalog :api_version)
-    (catalog-wireformat :v6)))
+(def catalog-v6-wireformat-schema
+  (dissoc catalog-wireformat-schema :code_id))
 
 (def edge-query-schema
   "Schema for validating a single edge."
@@ -182,6 +177,7 @@
    (s/optional-key :producer_timestamp) (s/maybe pls/Timestamp)
    (s/optional-key :resources) resources-expanded-query-schema
    (s/optional-key :transaction_uuid) (s/maybe s/Str)
+   (s/optional-key :code_id) (s/maybe s/Str)
    (s/optional-key :version) s/Str})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -193,19 +189,22 @@
   [catalog]
   (utils/assoc-when catalog
                     :transaction_uuid nil
-                    :environment nil
-                    :api_version 1))
+                    :environment nil))
 
-(pls/defn-validated canonical-catalog
-  "Converts `catalog` to `version` in the canonical format, adding
-   and removing keys as needed"
-  [version catalog]
-  (let [target-schema (catalog-wireformat version)
-        strip-keys #(pls/strip-unknown-keys target-schema %)]
-    (s/validate target-schema
-                (case version
-                  :all (strip-keys (default-missing-keys catalog))
-                  (strip-keys (dissoc catalog :api_version))))))
+(defn wire-v6->wire-v7 [catalog]
+  (assoc catalog :code_id nil))
+
+(defn wire-v5->wire-v7 [catalog]
+  (-> catalog
+      (set/rename-keys {:name :certname})
+      utils/dash->underscore-keys
+      (dissoc :api_version)
+      wire-v6->wire-v7))
+
+(defn wire-v4->wire-v7 [catalog received-time]
+  (-> catalog
+      (assoc :producer_timestamp received-time)
+      wire-v5->wire-v7))
 
 (def ^:const valid-relationships
   #{:contains :required-by :notifies :before :subscription-of})
@@ -275,11 +274,6 @@
                                  [resource-spec new-resource]))]
     (assoc catalog :resources new-resources)))
 
-(defn transform-catalog
-  "Does any munging needed for the catalog properties itself before being validated"
-  [catalog]
-  (update-in catalog [:version] str))
-
 ;; ## Integrity checking
 ;;
 ;; Functions to ensure that the catalog structure is coherent.
@@ -331,9 +325,13 @@
         (throw (IllegalArgumentException. (format "Catalog is missing keys: %s" (string/join ", " (map name missing-keys)))))))
     catalog))
 
-(def validate
-  "Function for validating v5- of the catalogs"
-  (comp validate-edges validate-resources #(s/validate (catalog-wireformat :all) %)))
+(defn validate
+  "Function for validating v7- of the catalogs"
+  [catalog]
+  (->> catalog
+       (s/validate catalog-wireformat-schema)
+       validate-resources
+       validate-edges))
 
 ;; ## High-level parsing routines
 
@@ -374,31 +372,33 @@
 
 (defmethod parse-catalog 4
   [catalog version received-time]
-  {:pre [(map? catalog)
-         (number? version)]
+  {:pre [(map? catalog)]
    :post [(map? %)]}
-  (-> catalog
-      (assoc :producer_timestamp received-time)
-      (parse-catalog 5 received-time)))
+  (parse-catalog (wire-v4->wire-v7 catalog received-time)
+                 7 nil))
 
 (defmethod parse-catalog 5
-  [catalog version received-time]
-  {:pre [(map? catalog)
-         (number? version)]
+  [catalog version _]
+  {:pre [(map? catalog)]
    :post [(map? %)]}
-  (-> catalog
-      (set/rename-keys {:name :certname})
-      utils/dash->underscore-keys
-      (parse-catalog 6 received-time)))
+  (parse-catalog (wire-v5->wire-v7 catalog)
+                 7 nil))
 
 (defmethod parse-catalog 6
   [catalog version _]
-  {:pre [(map? catalog)
-         (number? version)]
+  {:pre [(map? catalog)]
+   :post [(map? %)]}
+  (parse-catalog (wire-v6->wire-v7 catalog)
+                7 nil))
+
+(defmethod parse-catalog 7
+  [catalog version _]
+  {:pre [(map? catalog)]
    :post [(map? %)]}
   (->> catalog
+       default-missing-keys
        transform
-       (canonical-catalog :all)
+       (pls/strip-unknown-keys catalog-wireformat-schema)
        validate))
 
 (defmethod parse-catalog :default
@@ -408,7 +408,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Query -> Wire format conversions
 
-(pls/defn-validated edge-query->wire-v6
+(pls/defn-validated edge-query->wire-v7
   [edge :- edge-query-schema]
   {:source
    {:title (:source_title edge)
@@ -418,28 +418,28 @@
     :type (:target_type edge)}
    :relationship (:relationship edge)})
 
-(pls/defn-validated edges-expanded->wire-v6
+(pls/defn-validated edges-expanded->wire-v7
   [edges :- edges-expanded-query-schema]
-  (map edge-query->wire-v6
+  (map edge-query->wire-v7
        (:data edges)))
 
-(pls/defn-validated resource-query->wire-v6
+(pls/defn-validated resource-query->wire-v7
   [resource :- resource-query-schema]
   (-> resource
       (dissoc :resource :certname :environment)
       (kitchensink/dissoc-if-nil :file :line)))
 
-(pls/defn-validated resources-expanded->wire-v6
+(pls/defn-validated resources-expanded->wire-v7
   [resources :- resources-expanded-query-schema]
-  (map resource-query->wire-v6
+  (map resource-query->wire-v7
        (:data resources)))
 
-(pls/defn-validated catalog-query->wire-v6 :- (catalog-wireformat :v6)
+(pls/defn-validated catalog-query->wire-v7 :- catalog-wireformat-schema
   [catalog :- catalog-query-schema]
   (-> catalog
       (dissoc :hash)
-      (update-in [:edges] edges-expanded->wire-v6)
-      (update-in [:resources] resources-expanded->wire-v6)))
+      (update :edges edges-expanded->wire-v7)
+      (update :resources resources-expanded->wire-v7)))
 
-(defn catalogs-query->wire-v6 [catalogs]
-  (map catalog-query->wire-v6 catalogs))
+(defn catalogs-query->wire-v7 [catalogs]
+  (map catalog-query->wire-v7 catalogs))
