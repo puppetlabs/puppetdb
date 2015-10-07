@@ -28,10 +28,6 @@ module Puppet::Util::Puppetdb
     @config
   end
 
-  def self.puppet3compat?
-    defined?(Puppet::Parser::AST::HashOrArrayAccess)
-  end
-
   # Given an instance of ruby's Time class, this method converts it to a String
   # that conforms to PuppetDB's wire format for representing a date/time.
   def self.to_wire_time(time)

@@ -38,40 +38,14 @@ describe Puppet::Node::Facts::Puppetdb do
       subject.save(Puppet::Node::Facts.indirection.request(:save, facts.name, facts, options))
     end
 
-    it "should POST the facts as a JSON string" do
-      Puppet::Util::Puppetdb.stubs(:puppet3compat?).returns(true)
-      f = {
-        "certname" => facts.name,
-        "values" => subject.maybe_strip_internal(facts),
-        "environment" => "my_environment",
-        "producer_timestamp" => "a test",
-      }
-
-      payload = {
-        :command => CommandReplaceFacts,
-        :version => 4,
-        :payload => f,
-      }.to_json
-
-      http.expects(:post).with do |uri, body, headers|
-        expect(body).to eq(payload)
-      end.returns response
-
-      save
-    end
-
     it "should POST the trusted data we tell it to" do
-
-      if Puppet::Util::Puppetdb.puppet3compat?
-        Puppet[:trusted_node_data] = true
-      end
 
       trusted_data = {"foo" => "foobar", "certname" => "testing_posting"}
       subject.stubs(:get_trusted_info).returns trusted_data
 
       f = {
         "certname" => facts.name,
-        "values" => subject.maybe_strip_internal(facts).merge({"trusted" => trusted_data}),
+        "values" => facts.values.merge({"trusted" => trusted_data}),
         "environment" => "my_environment",
         "producer_timestamp" => "a test",
       }
