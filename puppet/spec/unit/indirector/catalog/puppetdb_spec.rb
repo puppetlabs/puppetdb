@@ -608,14 +608,6 @@ describe Puppet::Resource::Catalog::Puppetdb do
         }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { subscribe => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
       end
 
-      it "should produce a reasonable error message for an invalid resourceref" do
-        resource[:subscribe] = 'Foobar::baz[name]'
-
-        hash = subject.add_parameters_if_missing(catalog_data_hash)
-        expect {
-          subject.synthesize_edges(hash, catalog)
-        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { subscribe => Foobar::baz[name] }, because Foobar::baz[name] doesn't seem to be in the correct format. Resource references should be formatted as: Classname['title'] or Modulename::Classname['title'] (take careful note of the capitalization).")
-      end
     end #synthesize_edges
 
     describe "#munge_catalog" do
