@@ -171,7 +171,7 @@
 ;; Catalog replacement
 
 (defn replace-catalog*
-  [{:keys [payload annotations version]} {:keys [db catalog-hash-debug-dir]}]
+  [{:keys [payload annotations version]} db]
   (let [received-timestamp (:received annotations)
         catalog (upon-error-throw-fatality (cat/parse-catalog payload version received-timestamp))
         certname (:certname catalog)
@@ -181,7 +181,7 @@
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       ;; Only store a catalog if its producer_timestamp is <= the existing catalog's.
       (if-not (scf-storage/catalog-newer-than? certname producer-timestamp)
-        (scf-storage/replace-catalog! catalog received-timestamp catalog-hash-debug-dir)
+        (scf-storage/replace-catalog! catalog received-timestamp)
         (log/warnf "Not replacing catalog for certname %s because local data is newer." certname)))
     (log/infof "[%s] [%s] %s" id (command-names :replace-catalog) certname)))
 
@@ -191,16 +191,16 @@
   (log/warnf "command '%s' version %s is deprecated, use the latest version" command version))
 
 (defmethod process-command! [(command-names :replace-catalog) 4]
-  [command options]
-  (replace-catalog* command options))
+  [command db]
+  (replace-catalog* command db))
 
 (defmethod process-command! [(command-names :replace-catalog) 5]
-  [command options]
-  (replace-catalog* command options))
+  [command db]
+  (replace-catalog* command db))
 
 (defmethod process-command! [(command-names :replace-catalog) 6]
-  [command options]
-  (replace-catalog* command options))
+  [command db]
+  (replace-catalog* command db))
 
 (defmethod process-command! [(command-names :replace-catalog) 7]
   [command options]
@@ -209,7 +209,7 @@
 ;; Fact replacement
 
 (defmethod process-command! [(command-names :replace-facts) 4]
-  [{:keys [payload annotations]} {:keys [db]}]
+  [{:keys [payload annotations]} db]
   (let [{:keys [certname values] :as fact-data} payload
         id        (:id annotations)
         received-timestamp (:received annotations)
@@ -225,35 +225,35 @@
     (log/infof "[%s] [%s] %s" id (command-names :replace-facts) certname)))
 
 (defmethod process-command! [(command-names :replace-facts) 3]
-  [command config]
+  [command db]
   (-> command
       fact/v3-wire->v4-wire
-      (process-command! config)))
+      (process-command! db)))
 
 (defmethod process-command! [(command-names :replace-facts) 2]
-  [command config]
+  [command db]
   (let [received-time (get-in command [:annotations :received])]
     (-> command
         (fact/v2-wire->v4-wire received-time)
-        (process-command! config))))
+        (process-command! db))))
 
 ;; Node deactivation
 (defmethod process-command! [(command-names :deactivate-node) 1]
-  [command config]
+  [command db]
   (-> command
       (assoc :version 2)
       (update :payload #(upon-error-throw-fatality (json/parse-string % true)))
-      (process-command! config)))
+      (process-command! db)))
 
 (defmethod process-command! [(command-names :deactivate-node) 2]
-  [command config]
+  [command db]
   (-> command
       (assoc :version 3)
       (update :payload #(hash-map :certname %))
-      (process-command! config)))
+      (process-command! db)))
 
 (defmethod process-command! [(command-names :deactivate-node) 3]
-  [{:keys [payload annotations]} {:keys [db]}]
+  [{:keys [payload annotations]} db]
   (let [certname (:certname payload)
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))
         id  (:id annotations)]
@@ -281,24 +281,24 @@
                puppet_version certname)))
 
 (defmethod process-command! [(command-names :store-report) 3]
-  [command {:keys [db]}]
+  [command db]
   (store-report* 6 db
                  (let [received-time (get-in command [:annotations :received])]
                    (update command :payload report/wire-v3->wire-v6 received-time))))
 
 (defmethod process-command! [(command-names :store-report) 4]
-  [command {:keys [db]}]
+  [command db]
   (store-report* 6 db
                  (let [received-time (get-in command [:annotations :received])]
                    (update command :payload report/wire-v4->wire-v6 received-time))))
 
 (defmethod process-command! [(command-names :store-report) 5]
-  [command {:keys [db]}]
+  [command db]
   (store-report* 6 db
                  (update command :payload report/wire-v5->wire-v6)))
 
 (defmethod process-command! [(command-names :store-report) 6]
-  [command {:keys [db]}]
+  [command db]
   (store-report* 6 db command))
 
 (def supported-command?
@@ -335,9 +335,9 @@
   (merge {:id (-> cmd :annotations :id)}
          (when ex {:exception ex})))
 
-(defn process-command-and-respond! [cmd config response-pub-chan stats-atom]
+(defn process-command-and-respond! [cmd db response-pub-chan stats-atom]
   (try
-    (let [result (process-command! cmd config)]
+    (let [result (process-command! cmd db)]
       (swap! stats-atom update :executed-commands inc)
       (async/>!! response-pub-chan
                  (make-cmd-processed-message cmd nil))
@@ -366,16 +366,14 @@
              :response-pub (async/pub response-chan-for-pub :id))))
 
   (start [this context]
-    (let [{:keys [scf-write-db catalog-hash-debug-dir]} (shared-globals)
-          db-cfg {:db scf-write-db
-                  :catalog-hash-debug-dir catalog-hash-debug-dir}
+    (let [{:keys [scf-write-db]} (shared-globals)
           {:keys [response-chan response-pub]} context
           factory (-> (conf/mq-broker-url (get-config))
                       (mq/activemq-connection-factory))
           connection (.createConnection factory)]
       (register-listener
        supported-command?
-       #(process-command-and-respond! % db-cfg response-chan (:stats context)))
+       #(process-command-and-respond! % scf-write-db response-chan (:stats context)))
       (assoc context
              :factory factory
              :connection connection)))

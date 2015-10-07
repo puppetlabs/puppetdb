@@ -132,10 +132,10 @@ Create a new class in a new module (something like `site::puppetdb::server::extr
         require => Class['puppetdb::server::validate_db'],
       }
 
-      ini_setting {'puppetdb-catalog-hash-conflict-debugging':
+      ini_setting {'puppetdb-extra-setting':
         path    => "${confdir}/global.ini",
         section => 'global',
-        setting => 'catalog-hash-conflict-debugging',
+        setting => <some-extra-setting>,
         value   => 'true',
       }
     }
@@ -169,13 +169,6 @@ The URL to query when checking for newer versions; defaults to `http://updates.p
 Overriding this setting may be useful if your PuppetDB server is firewalled and can't make external HTTP requests, in which case you could
 configure a proxy server to send requests to the `updates.puppetlabs.com` URL
 and override this setting to point to your proxy server.
-
-### `catalog-hash-conflict-debugging`
-
-**NOTE** This setting is deprecated and will be retired in the next major
-release.
-
-When this is set to true, debugging information will be written to `<vardir>/debug/catalog-hashes` every time a catalog is received with a hash that is different than the previously received catalog for that host. Note that this should only be enabled when troubleshooting performance related issues with PuppetDB and the database server. This will output many files and could potentially slow down a production PuppetDB instance. See the [Troubleshooting Low Catalog Duplication guide][low_catalog_dupe] for more information on the outputted files and debugging this problem.
 
 `[puppetdb]` Settings
 -----

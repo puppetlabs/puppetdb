@@ -182,35 +182,6 @@
       (is (= (validate-vardir (vardir filename))
              (vardir filename))))))
 
-(deftest catalog-debugging
-  (testing "no changes when debugging is not enabled"
-    (is (= {} (configure-catalog-debugging {})))
-    (is (= {:global {:catalog-hash-conflict-debugging "false"}}
-           (configure-catalog-debugging {:global {:catalog-hash-conflict-debugging "false"}})))
-    (is (= {:global {:catalog-hash-conflict-debugging "something that is not true"}}
-           (configure-catalog-debugging {:global {:catalog-hash-conflict-debugging "something that is not true"}}))))
-
-  (testing "creating the directory when not present"
-    (let [vardir (str (tu/temp-dir "catalog-dbg-dir"))
-          config {:global {:vardir vardir
-                           :catalog-hash-conflict-debugging "true"}}]
-      (is (false? (fs/exists? (catalog-debug-path config))))
-      (is (= (assoc-in config [:global :catalog-hash-debug-dir] (str vardir "/debug/catalog-hashes"))
-             (configure-catalog-debugging config)))))
-
-  (testing "failure to create directory"
-    (let [vardir (str (tu/temp-dir "catalog-dbg-dir-fail"))
-          config {:global {:vardir vardir
-                           :catalog-hash-conflict-debugging "true"}}
-          mkdirs-called? (atom true)]
-
-      (with-redefs [fs/mkdirs (fn [& args]
-                                (reset! mkdirs-called? true)
-                                (throw (SecurityException. "Stuff is broken")))]
-        (is (= config
-               (configure-catalog-debugging config))))
-      (is (true? @mkdirs-called?)))))
-
 (deftest product-name-validation
   (doseq [product-name ["puppetdb" "pe-puppetdb"]]
     (testing (format "should accept %s and return it" product-name)

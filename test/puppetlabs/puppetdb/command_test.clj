@@ -82,12 +82,12 @@
       (is (thrown? Exception (parse-command {:body (.getBytes "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}" "UTF-16")}))))))
 
 (defmacro test-msg-handler*
-  [command publish-var discard-var opts-map & body]
+  [command publish-var discard-var db & body]
   `(let [log-output#     (atom [])
          publish#        (call-counter)
          discard-dir#    (fs/temp-dir "test-msg-handler")
          handle-message# (mql/create-message-handler
-                          publish# discard-dir# #(process-command! % ~opts-map))
+                          publish# discard-dir# #(process-command! % ~db))
          msg#            {:headers {:id "foo-id-1"
                                     :received (tfmt/unparse (tfmt/formatters :date-time) (now))}
                           :body (json/generate-string ~command)}]
@@ -108,15 +108,7 @@
    `body` is executed with `publish-var` bound to the number of times the message
    was processed and `discard-var` bound to the directory that contains failed messages."
   [command publish-var discard-var & body]
-  `(test-msg-handler* ~command ~publish-var ~discard-var {:db *db*} ~@body))
-
-(defmacro test-msg-handler-with-opts
-  "Similar to test-msg-handler, but allows the passing of additional config
-   options to the message handler via `opts-map`."
-  [command publish-var discard-var opts-map & body]
-  `(test-msg-handler* ~command ~publish-var ~discard-var (merge {:db *db*}
-                                                                ~opts-map)
-                      ~@body))
+  `(test-msg-handler* ~command ~publish-var ~discard-var *db* ~@body))
 
 (deftest command-processor-integration
   (let [command {:command "some command" :version 1 :payload "payload"}]
@@ -131,13 +123,13 @@
               (is (empty? (fs/list-dir discard-dir))))))
 
         (testing "when a fatal error occurs should be discarded to the dead letter queue"
-          (with-redefs [process-command! (fn [cmd opt] (throw+ (fatality (Exception. "fatal error"))))]
+          (with-redefs [process-command! (fn [cmd db] (throw+ (fatality (Exception. "fatal error"))))]
             (test-msg-handler command publish discard-dir
               (is (= 0 (times-called publish)))
               (is (= 1 (count (fs/list-dir discard-dir)))))))
 
         (testing "when a non-fatal error occurs should be requeued with the error recorded"
-          (with-redefs [process-command! (fn [cmd opt] (throw+ (Exception. "non-fatal error")))]
+          (with-redefs [process-command! (fn [cmd db] (throw+ (Exception. "non-fatal error")))]
             (test-msg-handler command publish discard-dir
               (is (empty? (fs/list-dir discard-dir)))
               (let [[msg & _] (first (args-supplied publish))
@@ -295,29 +287,6 @@
                                            (sutils/sql-hash-as-str "hash")))))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
-
-        (testing "when replacing a catalog with a debug directory, should write out catalogs for inspection"
-          (with-fixtures
-            (jdbc/insert! :certnames {:certname certname})
-
-            (let [debug-dir (fs/absolute-path (temp-dir "catalog-inspection"))]
-
-              (jdbc/insert! :catalogs
-                            {:hash (sutils/munge-hash-for-storage "0000")
-                             :api_version 1
-                             :catalog_version "foo"
-                             :certname certname
-                             :producer_timestamp (to-timestamp
-                                                  (t/minus (now) (-> 1 days)))})
-
-              (is (nil? (fs/list-dir debug-dir)))
-              (test-msg-handler-with-opts command publish discard-dir {:catalog-hash-debug-dir debug-dir}
-                (is (= [(with-env {:certname certname :catalog catalog-hash})]
-                       (query-to-vec (format "SELECT certname, %s as catalog, environment_id FROM catalogs"
-                                             (sutils/sql-hash-as-str "hash")))))
-                (is (= 5 (count (fs/list-dir debug-dir))))
-                (is (= 0 (times-called publish)))
-                (is (empty? (fs/list-dir discard-dir)))))))
 
         (let [command (assoc command :payload "bad stuff")]
           (testing "with a bad payload should discard the message"
@@ -1074,10 +1043,10 @@
        (scf-store/add-certname! certname)
        (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
-      (with-redefs [scf-store/replace-catalog! (fn [catalog timestamp dir]
+      (with-redefs [scf-store/replace-catalog! (fn [catalog timestamp]
                                                  (.put hand-off-queue "got the lock")
                                                  (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
-                                                 (storage-replace-catalog! catalog timestamp dir))]
+                                                 (storage-replace-catalog! catalog timestamp))]
         (let [first-message? (atom false)
               second-message? (atom false)
               fut (future
@@ -1119,10 +1088,10 @@
        (scf-store/add-certname! certname)
        (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
-      (with-redefs [scf-store/replace-catalog! (fn [catalog timestamp dir]
+      (with-redefs [scf-store/replace-catalog! (fn [catalog timestamp]
                                                  (.put hand-off-queue "got the lock")
                                                  (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
-                                                 (storage-replace-catalog! catalog timestamp dir))]
+                                                 (storage-replace-catalog! catalog timestamp))]
         (let [first-message? (atom false)
               second-message? (atom false)
               fut (future
@@ -1131,17 +1100,17 @@
 
               _ (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
 
-              new-wire-catalog (update-in wire-catalog [:resources]
-                                          conj
-                                          {:type       "File"
-                                           :title      "/etc/foobar2"
-                                           :exported   false
-                                           :file       "/tmp/foo2"
-                                           :line       10
-                                           :tags       #{"file" "class" "foobar2"}
-                                           :parameters {:ensure "directory"
-                                                        :group  "root"
-                                                        :user   "root"}})
+              new-wire-catalog (update wire-catalog :resources
+                                       conj
+                                       {:type       "File"
+                                        :title      "/etc/foobar2"
+                                        :exported   false
+                                        :file       "/tmp/foo2"
+                                        :line       10
+                                        :tags       #{"file" "class" "foobar2"}
+                                        :parameters {:ensure "directory"
+                                                     :group  "root"
+                                                     :user   "root"}})
               new-catalog-cmd {:command (command-names :replace-catalog)
                                :version 6
                                :payload (json/generate-string new-wire-catalog)}]
@@ -1403,6 +1372,5 @@
 ;; Local Variables:
 ;; mode: clojure
 ;; eval: (define-clojure-indent (test-msg-handler (quote defun))
-;;                              (test-msg-handler-with-opts (quote defun))
 ;;                              (doverseq (quote defun))))
 ;; End:

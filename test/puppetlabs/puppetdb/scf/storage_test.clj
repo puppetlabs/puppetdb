@@ -795,7 +795,7 @@
       (add-certname! certname)
       (is (empty? (query-to-vec "SELECT * from catalogs where certname=?" certname)))
 
-      (add-catalog! catalog nil old-date)
+      (add-catalog! catalog old-date)
 
       (let [results (query-to-vec "SELECT timestamp from catalogs where certname=?" certname)
             {:keys [timestamp]} (first results)]
@@ -823,7 +823,7 @@
                                   deletes sql/delete!
                                   updates sql/update!]
           (with-redefs [performance-metrics (assoc metrics-map :catalog-volatility (histogram [ns-str "default" (str (gensym))]))]
-            (add-catalog! (assoc updated-catalog :transaction_uuid new-uuid) nil yesterday)
+            (add-catalog! (assoc updated-catalog :transaction_uuid new-uuid) yesterday)
 
             ;; 2 edge deletes
             ;; 2 edge inserts
@@ -868,7 +868,7 @@
         old-date (-> 2 days ago)
         yesterday (-> 1 days ago)]
     (add-certname! certname)
-    (add-catalog! catalog nil old-date)
+    (add-catalog! catalog old-date)
 
     (is (= 3 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname)))))
 
@@ -886,7 +886,7 @@
                                :parameters {:ensure "directory"
                                             :group  "root"
                                             :user   "root"}})
-                    nil old-date)
+                    old-date)
 
       (is (sort= [:resource_params_cache :resource_params :catalog_resources]
                  (table-args @inserts)))
@@ -1025,7 +1025,7 @@
                                                             :group  "root"
                                                             :user   "root"}})]
     (add-certname! certname)
-    (add-catalog! catalog-with-extra-resource nil old-date)
+    (add-catalog! catalog-with-extra-resource old-date)
 
     (let [catalog-id (:id (first (query-to-vec "SELECT id from catalogs where certname=?" certname)))]
       (is (= 4 (count (query-to-vec "SELECT * from catalog_resources where catalog_id = ?" catalog-id))))
@@ -1034,7 +1034,7 @@
                                 updates sql/update!
                                 deletes sql/delete!]
 
-        (add-catalog! catalog nil yesterday)
+        (add-catalog! catalog yesterday)
         (is (empty? @inserts))
         (is (= [:catalogs] (table-args @updates)))
         (is (= [:catalog_resources] (table-args @deletes))))
@@ -1090,7 +1090,7 @@
         old-date (-> 2 days ago)
         yesterday (-> 1 days ago)]
     (add-certname! certname)
-    (add-catalog! catalog nil old-date)
+    (add-catalog! catalog old-date)
 
     (let [orig-resource-hash (foobar-param-hash)
           add-param-catalog (assoc-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters :uid] "100")]
@@ -1104,7 +1104,7 @@
                                 updates sql/update!
                                 deletes sql/delete!]
 
-        (add-catalog! add-param-catalog nil yesterday)
+        (add-catalog! add-param-catalog yesterday)
         (is (sort= [:catalogs :catalog_resources]
                    (table-args @updates)))
 
@@ -1123,7 +1123,7 @@
       (tu/with-wrapped-fn-args [inserts sql/insert!
                                 updates sql/update!
                                 deletes sql/delete!]
-        (add-catalog! catalog nil old-date)
+        (add-catalog! catalog old-date)
 
         (is (empty? (remove #(= :edges (first %)) (map rest @inserts))))
         (is (empty? (remove #(= :edges (first %)) (map rest @deletes))))

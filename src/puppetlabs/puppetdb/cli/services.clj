@@ -228,7 +228,7 @@
   (let [{:keys [global   jetty
                 database read-database
                 puppetdb command-processing]} config
-        {:keys [vardir catalog-hash-debug-dir]} global
+        {:keys [vardir]} global
         {:keys [gc-interval dlo-compression-interval node-ttl
                 node-purge-ttl report-ttl]} database
         {:keys [dlo-compression-threshold]} command-processing
@@ -258,8 +258,7 @@
                       "PuppetDB troubleshooting guide.")
                      (throw e)))
           globals {:scf-read-db read-db
-                   :scf-write-db write-db
-                   :catalog-hash-debug-dir catalog-hash-debug-dir}]
+                   :scf-write-db write-db}]
       (transfer-old-messages! (conf/mq-endpoint config))
 
       (when-not disable-update-checking
