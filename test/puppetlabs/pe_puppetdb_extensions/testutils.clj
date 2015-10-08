@@ -9,7 +9,8 @@
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [ring.middleware.params :refer [wrap-params]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
-            [puppetlabs.puppetdb.testutils :refer [clean-db-map postgres-map temp-dir]]
+            [puppetlabs.puppetdb.testutils
+             :refer [available-postgres-configs clean-db-map temp-dir]]
             [puppetlabs.puppetdb.cheshire :as json]
             [environ.core :refer [env]]
             [clj-http.client :as http])
@@ -44,24 +45,8 @@
 (def sync-url-prefix (str pdb-prefix "/sync"))
 (def stub-url-prefix "/stub")
 
-(def pdb2-postgres-map
-  {:classname "org.postgresql.Driver"
-   :subprotocol "postgresql"
-   :subname (env :puppetdb2-dbsubname "//127.0.0.1:5432/puppetdb2_test")
-   :user (env :puppetdb2-dbuser "puppetdb")
-   :password (env :puppetdb2-dbpassword "puppetdb")})
-
-(defn clean-pdb1-db-map [] (clean-db-map postgres-map))
-(defn clean-pdb2-db-map [] (clean-db-map pdb2-postgres-map))
-
-(defn create-config
-  "Creates a default config, populated with a temporary vardir and
-  a fresh hypersql instance"
-  []
-  {:nrepl {}
-   :global {:vardir (temp-dir)}
-   :jetty {:port 0}
-   :command-processing {}})
+(defn clean-pdb1-db-map [] (clean-db-map (first available-postgres-configs)))
+(defn clean-pdb2-db-map [] (clean-db-map (second available-postgres-configs)))
 
 (defn sync-config
   "Returns a default TK config setup for sync testing. PuppetDB is
@@ -69,7 +54,7 @@
   `stub-handler` parameter, a ring handler that will be hosted under
   '/stub'."
   [stub-handler]
-  (-> (create-config)
+  (-> (svcs/create-config)
       (assoc-in [:sync :allow-unsafe-sync-triggers] true)
       (assoc :stub-server-service {:handler stub-handler}
              :web-router-service  {:puppetlabs.pe-puppetdb-extensions.sync.pe-routing/pe-routing-service pdb-prefix
