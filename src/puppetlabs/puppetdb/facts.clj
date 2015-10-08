@@ -245,17 +245,15 @@
            factpath-to-string)
        "$"))
 
-(defn v3-wire->v4-wire
+(defn wire-v3->wire-v4
   "Takes a v3 formatted replace facts command and upgrades it to a v4 facts command"
-  [command]
-  (-> command
-      (assoc :version 4)
-      (update :payload #(set/rename-keys % {:producer-timestamp :producer_timestamp
-                                            :name :certname}))))
+  [facts]
+  (set/rename-keys facts {:producer-timestamp :producer_timestamp
+                          :name :certname}))
 
-(defn v2-wire->v4-wire
+(defn wire-v2->wire-v4
   "Takes a v2 formatted replace facts command and upgrades it to a v4 facts command"
-  [command received-time]
-  (-> command
-      (assoc-in [:payload :producer-timestamp] received-time)
-      v3-wire->v4-wire))
+  [facts received-time]
+  (-> facts
+      (assoc :producer-timestamp received-time)
+      wire-v3->wire-v4))

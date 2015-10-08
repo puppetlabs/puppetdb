@@ -67,7 +67,6 @@
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [slingshot.slingshot :refer [try+ throw+]]
-            [cheshire.custom :refer [JSONable]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.trapperkeeper.services
              :refer [defservice service-context]]
@@ -78,43 +77,32 @@
             [clojure.set :as set]
             [clojure.core.async :as async]))
 
+(defn version-range [min-version max-version]
+  (set (range min-version (inc max-version))))
+
+(def supported-command-versions
+  {"replace facts" (version-range 2 4)
+   "replace catalog" (version-range 4 7)
+   "store report" (version-range 3 6)
+   "deactivate node" (version-range 1 3)})
+
 ;; ## Command parsing
 
-(defmulti parse-command
+(defn parse-command
   "Take a wire-format command and parse it into a command object."
-  (comp class :body))
-
-(defmethod parse-command (class (byte-array 0))
-  [bytes-message]
-  (parse-command (update-in bytes-message [:body] #(String. % "UTF-8"))))
-
-(defmethod parse-command String
   [{:keys [headers body]}]
-  {:pre  [(string? body)]
-   :post [(map? %)
+  {:post [(map? %)
           (:payload %)
           (string? (:command %))
           (number? (:version %))
           (map? (:annotations %))]}
-  (let [message     (json/parse-string body true)
-        received    (get headers :received (kitchensink/timestamp))
-        id          (get headers :id (kitchensink/uuid))]
-    (-> message
-        (assoc-in [:annotations :received] received)
-        (assoc-in [:annotations :id] id))))
-
-(defn assemble-command
-  "Builds a command-map from the supplied parameters"
-  [command version payload]
-  {:pre  [(string? command)
-          (number? version)
-          (satisfies? JSONable payload)]
-   :post [(map? %)
-          (:payload %)]}
-  {:command command
-   :version version
-   :payload payload})
-
+  (let [message (if (= (class body) (class (byte-array 0)))
+                      (json/parse-string (String. body "UTF-8") true)
+                      (json/parse-string body true))
+        default-annotations {:received (kitchensink/timestamp)
+                             :id (kitchensink/uuid)}]
+    (update message :annotations
+            merge default-annotations headers)))
 
 ;; ## Command submission
 
@@ -140,7 +128,9 @@
    version :- s/Int
    payload
    uuid :- (s/maybe s/Str)]
-  (let [command-map (assemble-command command version payload)]
+  (let [command-map {:command command
+                     :version version
+                     :payload payload}]
     (do-enqueue-raw-command mq-connection mq-endpoint (json/generate-string command-map) uuid)))
 
 ;; ## Command processing exception classes
@@ -160,23 +150,12 @@
     (catch Throwable e#
       (throw+ (fatality e#)))))
 
-;; ## Command processors
-
-(defmulti process-command!
-  "Takes a command object and processes it to completion. Dispatch is
-  based on the command's name and version information"
-  (fn [{:keys [command version]} _]
-    [command version]))
-
 ;; Catalog replacement
 
 (defn replace-catalog*
   [{:keys [payload annotations version]} db]
-  (let [received-timestamp (:received annotations)
-        catalog (upon-error-throw-fatality (cat/parse-catalog payload version received-timestamp))
-        certname (:certname catalog)
-        id (:id annotations)
-        producer-timestamp (:producer_timestamp catalog)]
+  (let [{id :id received-timestamp :received} annotations
+        {producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       ;; Only store a catalog if its producer_timestamp is <= the existing catalog's.
@@ -185,93 +164,78 @@
         (log/warnf "Not replacing catalog for certname %s because local data is newer." certname)))
     (log/infof "[%s] [%s] %s" id (command-names :replace-catalog) certname)))
 
-(defn warn-deprecated
-  "Logs a deprecation warning message for the given `command` and `version`"
-  [version command]
-  (log/warnf "command '%s' version %s is deprecated, use the latest version" command version))
-
-(defmethod process-command! [(command-names :replace-catalog) 4]
-  [command db]
-  (replace-catalog* command db))
-
-(defmethod process-command! [(command-names :replace-catalog) 5]
-  [command db]
-  (replace-catalog* command db))
-
-(defmethod process-command! [(command-names :replace-catalog) 6]
-  [command db]
-  (replace-catalog* command db))
-
-(defmethod process-command! [(command-names :replace-catalog) 7]
-  [command options]
-  (replace-catalog* command options))
+(defn replace-catalog [{:keys [payload annotations version] :as command} db]
+  (let [{received-timestamp :received} annotations
+        validated-payload (upon-error-throw-fatality
+                           (cat/parse-catalog payload version received-timestamp))]
+    (-> command
+        (assoc :payload validated-payload)
+        (replace-catalog* db))))
 
 ;; Fact replacement
 
-(defmethod process-command! [(command-names :replace-facts) 4]
-  [{:keys [payload annotations]} db]
-  (let [{:keys [certname values] :as fact-data} payload
-        id        (:id annotations)
-        received-timestamp (:received annotations)
-        fact-data (-> fact-data
-                      (update-in [:values] utils/stringify-keys)
-                      (update-in [:producer_timestamp] to-timestamp)
-                      (assoc :timestamp received-timestamp)
-                      upon-error-throw-fatality)
+(defn replace-facts*
+  [{:keys [payload annotations version]} db]
+  (let [{:keys [id]} annotations
+        {:keys [certname values] :as fact-data} payload
         producer-timestamp (:producer_timestamp fact-data)]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-facts! fact-data))
     (log/infof "[%s] [%s] %s" id (command-names :replace-facts) certname)))
 
-(defmethod process-command! [(command-names :replace-facts) 3]
-  [command db]
-  (-> command
-      fact/v3-wire->v4-wire
-      (process-command! db)))
-
-(defmethod process-command! [(command-names :replace-facts) 2]
-  [command db]
-  (let [received-time (get-in command [:annotations :received])]
+(defn replace-facts [{:keys [payload version annotations] :as command} db]
+  (let [{received-timestamp :received} annotations
+        latest-version-of-payload (case version
+                                    2 (fact/wire-v2->wire-v4 payload received-timestamp)
+                                    3 (fact/wire-v3->wire-v4 payload)
+                                    payload)
+        validated-payload (upon-error-throw-fatality
+                           (-> latest-version-of-payload
+                               (update :values utils/stringify-keys)
+                               (update :producer_timestamp to-timestamp)
+                               (assoc :timestamp received-timestamp)))]
     (-> command
-        (fact/v2-wire->v4-wire received-time)
-        (process-command! db))))
+        (assoc :payload validated-payload)
+        (replace-facts* db))))
+
 
 ;; Node deactivation
-(defmethod process-command! [(command-names :deactivate-node) 1]
-  [command db]
-  (-> command
-      (assoc :version 2)
-      (update :payload #(upon-error-throw-fatality (json/parse-string % true)))
-      (process-command! db)))
 
-(defmethod process-command! [(command-names :deactivate-node) 2]
-  [command db]
-  (-> command
-      (assoc :version 3)
-      (update :payload #(hash-map :certname %))
-      (process-command! db)))
+(defn deactivate-node-wire-v2->wire-3 [deactive-node]
+  {:certname deactive-node})
 
-(defmethod process-command! [(command-names :deactivate-node) 3]
+(defn deactivate-node-wire-v1->wire-3 [deactive-node]
+  (-> deactive-node
+      (json/parse-string true)
+      upon-error-throw-fatality
+      deactivate-node-wire-v2->wire-3))
+
+(defn deactivate-node*
   [{:keys [payload annotations]} db]
   (let [certname (:certname payload)
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))
-        id  (:id annotations)]
+        id (:id annotations)]
     (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname producer-timestamp))
     (log/infof "[%s] [%s] %s" id (command-names :deactivate-node) certname)))
 
+(defn deactivate-node [{:keys [payload version] :as command} db]
+  (-> command
+      (assoc :payload (case version
+                        1 (deactivate-node-wire-v1->wire-3 payload)
+                        2 (deactivate-node-wire-v2->wire-3 payload)
+                        payload))
+      (deactivate-node* db)))
+
 ;; Report submission
 
 (defn store-report*
-  [version db {:keys [payload annotations]}]
+  [{:keys [payload annotations]} db]
   (let [{id :id received-timestamp :received} annotations
-        {:keys [certname puppet_version] :as report}
-        (->> payload
-             (s/validate report/report-wireformat-schema)
-             upon-error-throw-fatality)
+        {:keys [certname puppet_version] :as report} payload
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
     (jdbc/with-transacted-connection db
       (scf-storage/maybe-activate-node! certname producer-timestamp)
@@ -280,29 +244,46 @@
                id (command-names :store-report)
                puppet_version certname)))
 
-(defmethod process-command! [(command-names :store-report) 3]
-  [command db]
-  (store-report* 6 db
-                 (let [received-time (get-in command [:annotations :received])]
-                   (update command :payload report/wire-v3->wire-v6 received-time))))
+(defn store-report [{:keys [payload version annotations] :as command} db]
+  (let [{received-timestamp :received} annotations
+        latest-version-of-payload (case version
+                                    3 (report/wire-v3->wire-v6 payload received-timestamp)
+                                    4 (report/wire-v4->wire-v6 payload received-timestamp)
+                                    5 (report/wire-v5->wire-v6 payload)
+                                    payload)
+        validated-payload (upon-error-throw-fatality
+                           (s/validate report/report-wireformat-schema latest-version-of-payload))]
+    (-> command
+        (assoc :payload validated-payload)
+        (store-report* db))))
 
-(defmethod process-command! [(command-names :store-report) 4]
-  [command db]
-  (store-report* 6 db
-                 (let [received-time (get-in command [:annotations :received])]
-                   (update command :payload report/wire-v4->wire-v6 received-time))))
-
-(defmethod process-command! [(command-names :store-report) 5]
-  [command db]
-  (store-report* 6 db
-                 (update command :payload report/wire-v5->wire-v6)))
-
-(defmethod process-command! [(command-names :store-report) 6]
-  [command db]
-  (store-report* 6 db command))
+;; ## Command processors
 
 (def supported-command?
   (comp (kitchensink/valset command-names) :command))
+
+(defn supported-version? [command version]
+  (contains? (get supported-command-versions command #{}) version))
+
+(defn supported-command-version? [command-name [received-command-name received-version]]
+  (boolean
+   (and (= command-name received-command-name)
+        (supported-version? command-name received-version))))
+
+(defn process-command!
+  "Takes a command object and processes it to completion. Dispatch is
+  based on the command's name and version information"
+  [{command-name :command version :version :as command} db]
+  (condp supported-command-version? [command-name version]
+    "replace catalog" (replace-catalog command db)
+    "replace facts" (replace-facts command db)
+    "store report" (store-report command db)
+    "deactivate node" (deactivate-node command db)))
+
+(defn warn-deprecated
+  "Logs a deprecation warning message for the given `command` and `version`"
+  [version command]
+  (log/warnf "command '%s' version %s is deprecated, use the latest version" command version))
 
 (defprotocol PuppetDBCommandDispatcher
   (enqueue-command
