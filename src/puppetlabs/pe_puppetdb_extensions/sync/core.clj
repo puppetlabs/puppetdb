@@ -120,7 +120,7 @@
                               (utils/update-when [:edges] #(map clean-up-edge %))
                               (utils/update-when [:resources] #(map clean-up-resource %))))
     :submit-command {:command :replace-catalog
-                     :version 6}}
+                     :version 7}}
 
    {:entity :nodes
     :record-hashes-query {:version :v4

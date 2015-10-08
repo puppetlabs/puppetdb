@@ -27,7 +27,7 @@
 (def ^:private example-resource-uuid (kitchensink/uuid))
 
 (defn- make-test-catalog [stamp n]
-  (-> (get-in examples/wire-catalogs [6 :basic])
+  (-> (get-in examples/wire-catalogs [7 :basic])
       (assoc :certname example-certname)
       (assoc :producer_timestamp (DateTime. stamp))
       (update :resources conj
@@ -143,7 +143,7 @@
                                         command version data)))]
     (ccm/match command
       {:cmd :replace-catalog :target target :stamp stamp :seed n}
-      (submit pdb-x pdb-y target "replace catalog" 6 (make-test-catalog stamp n))
+      (submit pdb-x pdb-y target "replace catalog" 7 (make-test-catalog stamp n))
 
       {:cmd :replace-facts :target target :stamp stamp :seed n}
       (submit pdb-x pdb-y target "replace facts" 4 (make-test-facts stamp n))
