@@ -14,7 +14,9 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.testutils :refer [get-request
+            [puppetlabs.puppetdb.testutils :refer [available-postgres-configs
+                                                   clear-db-for-testing!
+                                                   get-request
                                                    assert-success!
                                                    paged-results
                                                    paged-results*
@@ -451,14 +453,6 @@
                                  :product-name "puppetdb"))
     nil)))
 
-(defmacro with-shutdown-after
-  [dbs & body]
-  `(do ~@body)
-  `(doseq [db# ~dbs]
-     (jdbc/with-db-connection db#
-       (jdbc/do-commands "SHUTDOWN"))
-     (.close (:datasource db#))))
-
 (deftestseq fact-queries
   [[version endpoint] facts-endpoints
    method [:get :post]]
@@ -581,73 +575,74 @@
           (is (= body msg))
           (is (= status http/status-bad-request)))))))
 
-(deftestseq ^{:postgres false} two-database-fact-query-config
+(deftestseq ^{:hsqldb false} two-database-fact-query-config
   [[version endpoint] facts-endpoints
    method [:get :post]]
 
-  (let [read-db-config (create-hsqldb-map)
-        write-db-config (create-hsqldb-map)
+  (assert (> (count available-postgres-configs) 1))
+  (let [read-db-config (available-postgres-configs 0)
+        write-db-config (available-postgres-configs 1)
         config (-> (svc-utils/create-config)
                    (assoc :read-database read-db-config)
                    (assoc :database write-db-config))
-        read-db (-> read-db-config
-                    defaulted-read-db-config
-                    (init-db true))
-        write-db (-> write-db-config
-                     defaulted-write-db-config
-                     (init-db false))]
+        read-config (-> read-db-config defaulted-read-db-config)
+        write-config (-> write-db-config defaulted-write-db-config)]
+    (clear-db-for-testing! read-config)
+    (clear-db-for-testing! write-config)
+    (init-db read-config true)
+    (init-db write-config false)
+    (svc-utils/call-with-puppetdb-instance
+     config
+     (fn []
+       (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
+             shared-globals (cli-svc/shared-globals pdb)
+             read-db (:scf-read-db shared-globals)
+             write-db (:scf-write-db shared-globals)
+             one-db-app (test-app write-db)
+             two-db-app (test-app read-db write-db)
+             facts1 {"domain" "testing.com"
+                     "hostname" "foo1"
+                     "kernel" "Linux"
+                     "operatingsystem" "Debian"
+                     "some_version" "1.3.7+build.11.e0f985a"
+                     "uptime_seconds" "4000"}]
 
-    (with-shutdown-after [read-db write-db]
-        (svc-utils/call-with-puppetdb-instance
-          config
-          (fn []
-            (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
-                  shared-globals (cli-svc/shared-globals pdb)
-                  read-db (:scf-read-db shared-globals)
-                  write-db (:scf-write-db shared-globals)
-                  one-db-app (test-app write-db)
-                  two-db-app (test-app read-db write-db)
-                  facts1 {"domain" "testing.com"
-                          "hostname" "foo1"
-                          "kernel" "Linux"
-                          "operatingsystem" "Debian"
-                          "some_version" "1.3.7+build.11.e0f985a"
-                          "uptime_seconds" "4000"}]
+         (jdbc/with-transacted-connection write-db
+           (scf-store/add-certname! "foo1")
+           (scf-store/add-facts! {:certname "foo1"
+                                  :values facts1
+                                  :timestamp (now)
+                                  :environment "DEV"
+                                  :producer_timestamp (now)}))
 
-              (jdbc/with-transacted-connection write-db
-                (scf-store/add-certname! "foo1")
-                (scf-store/add-facts! {:certname "foo1"
-                                       :values facts1
-                                       :timestamp (now)
-                                       :environment "DEV"
-                                       :producer_timestamp (now)}))
+         (testing "queries only use the read database"
+           (let [request (get-request endpoint)
+                 {:keys [status body headers]} (two-db-app request)]
+             (is (= (headers "Content-Type") c-t))
+             ;; Environments endpoint will return a proper JSON
+             ;; error with a 404, as opposed to an empty array.
+             (if (= endpoint "/v4/environments/DEV/facts")
+               (do
+                 (is (= {:error "No information is known about environment DEV"}
+                        (json/parse-string body true)))
+                 (is (= status http/status-not-found)))
+               (do
+                 (is (empty? (json/parse-stream (io/reader body) true)))
+                 (is (= status http/status-ok))))))
 
-              (testing "queries only use the read database"
-                (let [request (get-request endpoint (json/parse-string nil))
-                      {:keys [status body headers]} (two-db-app request)]
-                  (is (= (headers "Content-Type") c-t))
-                  ;; Environments endpoint will return a proper JSON
-                  ;; error with a 404, as opposed to an empty array.
-                  (if (= endpoint "/v4/environments/DEV/facts")
-                    (do
-                      (is (= {:error "No information is known about environment DEV"} (json/parse-string body true)))
-                      (is (= status http/status-not-found)))
-                    (do
-                      (is (empty? (json/parse-stream (io/reader body) true)))
-                      (is (= status http/status-ok))))))
-
-              (testing "config with only a single database returns results"
-                (let [request (get-request endpoint (json/parse-string nil))
-                      {:keys [status body headers]} (one-db-app request)]
-                  (is (= status http/status-ok))
-                  (is (= (headers "Content-Type") c-t))
-                  (is (= [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
-                          {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
-                          {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
-                          {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
-                          {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
-                          {:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}]
-                         (sort-by :name (json/parse-stream (io/reader body) true))))))))))))
+         (testing "config with only a single database returns results"
+           (let [request (get-request endpoint)
+                 {:keys [status body headers]} (one-db-app request)]
+             (is (= status http/status-ok))
+             (is (= (headers "Content-Type") c-t))
+             (is (= [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
+                     {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
+                     {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
+                     {:certname "foo1" :name "operatingsystem" :value "Debian" :environment "DEV"}
+                     {:certname "foo1" :name "some_version" :value "1.3.7+build.11.e0f985a" :environment "DEV"}
+                     {:certname "foo1" :name "uptime_seconds" :value "4000" :environment "DEV"}]
+                    (sort-by :name (json/parse-stream (io/reader body)
+                                                      true)))))))))))
 
 (defn test-paged-results
   [endpoint query limit total include_total]

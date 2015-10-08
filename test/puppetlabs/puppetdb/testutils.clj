@@ -29,12 +29,18 @@
                  (java.util.UUID/randomUUID)
                  ";hsqldb.tx=mvcc;sql.syntax_pgs=true")})
 
-(def postgres-map
-  {:classname "org.postgresql.Driver"
-   :subprotocol "postgresql"
-   :subname (env :puppetdb-dbsubname "//127.0.0.1:5432/puppetdb_test")
-   :user (env :puppetdb-dbuser "puppetdb")
-   :password (env :puppetdb-dbpassword "puppetdb")})
+(def available-postgres-configs
+  [{:classname "org.postgresql.Driver"
+    :subprotocol "postgresql"
+    :subname (env :puppetdb-dbsubname "//127.0.0.1:5432/puppetdb_test")
+    :user (env :puppetdb-dbuser "puppetdb")
+    :password (env :puppetdb-dbpassword "puppetdb")}
+   {:classname "org.postgresql.Driver"
+    :subprotocol "postgresql"
+    :subname (env :puppetdb2-dbsubname "//127.0.0.1:5432/puppetdb2_test")
+    :user (env :puppetdb2-dbuser "puppetdb")
+    :password (env :puppetdb2-dbpassword "puppetdb")}])
+
 (def hsqldb-map (create-hsqldb-map))
 
 (def testing-db-type (env :puppetdb-dbtype "postgres"))
@@ -42,7 +48,7 @@
 (defn test-db
   []
   (if (= testing-db-type "postgres")
-    postgres-map
+    (first available-postgres-configs)
     hsqldb-map))
 
 (defn drop-table!
@@ -58,21 +64,22 @@
   (jdbc/do-commands (format "DROP SEQUENCE IF EXISTS %s" sequence-name)))
 
 (defn clear-db-for-testing!
-  "Completely clears the database, dropping all puppetdb tables and other objects
-  that exist within it. Expects to be called from within a db binding.  You
+  "Completely clears the database specified by config (or the current
+  database), dropping all puppetdb tables and other objects that exist
+  within it. Expects to be called from within a db binding.  You
   Exercise extreme caution when calling this function!"
-  []
-  (jdbc/do-commands "DROP SCHEMA IF EXISTS pdbtestschema CASCADE")
-  (doseq [table-name (cons "test" (sutils/sql-current-connection-table-names))]
-    (drop-table! table-name))
-  (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
-    (drop-sequence! sequence-name)))
+  ([config]
+   (jdbc/with-db-connection config (clear-db-for-testing!)))
+  ([]
+   (jdbc/do-commands "DROP SCHEMA IF EXISTS pdbtestschema CASCADE")
+   (doseq [table-name (cons "test" (sutils/sql-current-connection-table-names))]
+     (drop-table! table-name))
+   (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
+     (drop-sequence! sequence-name))))
 
 (defn clean-db-map
   ([] (clean-db-map (test-db)))
-  ([db-config]
-   (jdbc/with-db-connection db-config (clear-db-for-testing!))
-   db-config))
+  ([db-config] (doto db-config clear-db-for-testing!)))
 
 (defmacro without-jmx
   "Disable ActiveMQ's usage of JMX. If you start two AMQ brokers in

@@ -11,10 +11,14 @@ case "$PDB_TEST_LANG" in
     case "$PDB_TEST_DB" in
       postgres)
         psql -c 'create database puppetdb_test;' -U postgres
+        psql -c 'create database puppetdb2_test;' -U postgres
         PUPPETDB_DBTYPE=postgres \
           PUPPETDB_DBUSER=postgres \
           PUPPETDB_DBSUBNAME=//127.0.0.1:5432/puppetdb_test \
           PUPPETDB_DBPASSWORD= \
+          PUPPETDB2_DBUSER=postgres \
+          PUPPETDB2_DBSUBNAME=//127.0.0.1:5432/puppetdb2_test \
+          PUPPETDB2_DBPASSWORD= \
             lein2 test
         ;;
       hsqldb)
