@@ -1646,6 +1646,24 @@
                            query)))))))))
 
 ;; FACT-CONTENTS TESTS
+(deftestseq fact-contents-result-munging
+  [[version endpoint] fact-contents-endpoints
+   method [:get :post]]
+  (let [facts1 {"\"foo" "bar"
+                "baz" {"1" "foo"}
+                "\"bar\"" {1 "foo"}
+                "foo#~bar" "baz"}]
+    (jdbc/with-transacted-connection *db*
+      (scf-store/add-certname! "foo1")
+      (scf-store/add-facts! {:certname "foo1"
+                             :values facts1
+                             :timestamp reference-time
+                             :environment "DEV"
+                             :producer_timestamp reference-time}))
+
+    (let [result (query-result method endpoint ["=" "certname" "foo1"])]
+      (is (= (set (map :name result))
+             #{"\"foo" "baz" "\"bar\"" "foo#~bar"})))))
 
 (defn fact-content-response [method endpoint order-by-map]
   (fn [req]

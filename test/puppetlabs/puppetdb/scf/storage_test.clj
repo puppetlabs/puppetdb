@@ -91,6 +91,26 @@
                     first
                     :c)))))))
 
+(deftest escaped-string-factnames
+  (testing "should work with escaped strings"
+    (let [certname "some_certname"
+          facts {"\"hello\"" "world"
+                 "foo#~bar" "baz"
+                 "\"foo" "bar"
+                 "foo#~" "bar"
+                 "foo" "bar"}]
+      (add-certname! certname)
+
+      (add-facts! {:certname certname
+                   :values facts
+                   :timestamp previous-time
+                   :environment nil
+                   :producer_timestamp previous-time})
+      (let [stored-names (->> (jdbc/query ["SELECT name from fact_paths"])
+                              (map :name)
+                              set)]
+        (is (= stored-names (set (keys facts))))))))
+
 (deftest fact-persistence
   (testing "Persisted facts"
     (let [certname "some_certname"
