@@ -958,6 +958,7 @@
   (if-let [pathstrs (seq pathstrs)]
     (let [existing-path-ids (existing-row-ids :fact_paths "path" pathstrs identity
                                               String "text")
+
           missing-db-paths (set/difference (set pathstrs)
                                            (set (keys existing-path-ids)))]
       (merge existing-path-ids
@@ -1022,7 +1023,8 @@
       (insert-facts-pv-pairs! (certname-to-factset-id certname)
                               (map #(vector (get paths-to-ids %1)
                                             (get vhashes-to-ids %2))
-                                   pathstrs vhashes))))))
+                                   (map facts/unescape-string pathstrs)
+                                   vhashes))))))
 
 (defn-validated update-facts!
   "Given a certname, querys the DB for existing facts for that
@@ -1051,7 +1053,8 @@
          ;; Add new facts and remove obsolete facts.
          replacement-pv-pairs (set (map #(vector (paths-to-ids %1)
                                                  (vhashes-to-ids %2))
-                                        pathstrs vhashes))
+                                        (map facts/unescape-string pathstrs)
+                                        vhashes))
          current-pairs (set (select-pid-vid-pairs-for-factset factset-id))
          [new-pairs rm-pairs] (data/diff replacement-pv-pairs current-pairs)]
 

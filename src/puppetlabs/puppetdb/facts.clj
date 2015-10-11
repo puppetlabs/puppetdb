@@ -69,7 +69,7 @@
 (defn unescape-string
   "Strip escaped quotes from a string."
   [^String s]
-  (if (= \" (.charAt s 0))
+  (if (= \" (first s) (last s))
     (subs s 1 (dec (.length s)))
     s))
 
