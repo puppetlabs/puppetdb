@@ -20,27 +20,6 @@ export` tool,
 
 This needs to be run on your PuppetDB instance preferably. See `puppetdb export -h` for more options for remote execution.
 
-Using the `anonymize` command
------
-
-> **This tool is currently deprecated:** The functionality of the `anonymize`
-> command has been merged with the export tool such that a user may directly
-> download an anonymized tarball via the `--anonymization <profile>` flag with
-> the `export` command. The standalone `anonymize` command will be removed in a
-> future release.
-
-First of all you should start by [exporting your existing database](./migrate.html#exporting-data-from-an-existing-puppetdb-database) using the `puppetdb export` tool:
-
-    $ sudo puppetdb export --outfile ./my-puppetdb-export.tar.gz
-
-This needs to be run on your PuppetDB instance preferably. See `puppetdb export -h` for more options for remote execution.
-
-Once you have the export file, then you can utilise the `puppetdb anonymize` tool to transform that file:
-
-    $ sudo puppetdb anonymize --infile ./my-puppetdb-export.tar.gz --outfile ./my-puppetdb-anonymized-export.tar.gz
-
-The anonymization tool can run on any machine with PuppetDB installed so you can avoid putting load on your production systems by running it on your own desktop or another server if you like.
-
 How does it work?
 -----
 
