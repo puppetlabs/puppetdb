@@ -198,10 +198,6 @@
   [column]
   (format "trim(leading '\\x' from %s::text)" column))
 
-(defn sql-uuid-as-str
-  [column]
-  (format "%s::text" column))
-
 (defn parse-db-hash
   [db-hash]
   (clojure.string/replace (.getValue db-hash) "\\x" ""))

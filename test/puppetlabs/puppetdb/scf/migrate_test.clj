@@ -313,12 +313,15 @@
 
         (let [response
               (query-to-vec
-                (format "SELECT %s AS hash, r.certname, e.name AS environment, rs.status, %s AS uuid
-                         FROM
-                         certnames c INNER JOIN reports r on c.latest_report_id=r.id AND c.certname=r.certname
-                         INNER JOIN environments e on r.environment_id=e.id
-                         INNER JOIN report_statuses rs on r.status_id=rs.id
-                         order by c.certname" (sutils/sql-hash-as-str "r.hash") (sutils/sql-uuid-as-str "r.transaction_uuid")))]
+               (format
+                "SELECT %s AS hash, r.certname, e.name AS environment,
+                        rs.status, r.transaction_uuid::text AS uuid
+                   FROM certnames c
+                     INNER JOIN reports r
+                       on c.latest_report_id=r.id AND c.certname=r.certname
+                     INNER JOIN environments e on r.environment_id=e.id
+                     INNER JOIN report_statuses rs on r.status_id=rs.id
+                   order by c.certname" (sutils/sql-hash-as-str "r.hash")))]
           ;; every node should with facts should be represented
           (is (= response
                  [{:hash "01" :environment "testing1" :certname "testing1" :status "testing1" :uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"}
@@ -388,17 +391,18 @@
 
         (let [response
               (query-to-vec
-                (format "SELECT %s AS hash, r.certname, e.environment, rs.status,
-                         %s AS uuid, coalesce(metrics_json::jsonb, metrics) as metrics,
-                         coalesce(logs_json::jsonb, logs) as logs
-                         FROM certnames c
-                         INNER JOIN reports r ON c.latest_report_id=r.id
-                         AND c.certname=r.certname
-                         INNER JOIN environments e ON r.environment_id=e.id
-                         INNER JOIN report_statuses rs ON r.status_id=rs.id
-                         ORDER BY c.certname"
-                        (sutils/sql-hash-as-str "r.hash")
-                        (sutils/sql-uuid-as-str "r.transaction_uuid")))]
+               (format
+                "SELECT %s AS hash, r.certname, e.environment, rs.status,
+                        r.transaction_uuid::text AS uuid,
+                        coalesce(metrics_json::jsonb, metrics) as metrics,
+                        coalesce(logs_json::jsonb, logs) as logs
+                   FROM certnames c
+                     INNER JOIN reports r
+                       ON c.latest_report_id=r.id AND c.certname=r.certname
+                     INNER JOIN environments e ON r.environment_id=e.id
+                     INNER JOIN report_statuses rs ON r.status_id=rs.id
+                   ORDER BY c.certname"
+                (sutils/sql-hash-as-str "r.hash")))]
           ;; every node should with facts should be represented
           (is (= [{:metrics [{:foo "bar"}] :logs [{:bar "baz"}]
                    :hash "01" :environment "testing1" :certname "testing1" :status "testing1" :uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"}
