@@ -8,6 +8,7 @@
             [puppetlabs.puppetdb.testutils :refer [paged-results deftestseq
                                                    parse-result]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
+                                                        query-result
                                                         vector-param]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]))
 
@@ -202,9 +203,22 @@
                 {:path ["kernel"], :type "string"}
                 {:path ["hostname"], :type "string"}
                 {:path ["domain"], :type "string"}]))))
+
     (testing "invalid query throws an error"
       (let [{:keys [status body]} (query-response
                                     method endpoint ["=" "myfield" "myval"])
             result (parse-result body)]
         (is (= status http/status-bad-request))
-        (is (re-find #"is not a queryable object" result))))))
+        (is (re-find #"is not a queryable object" result))))
+
+    (testing "subqueries"
+      (are [query expected]
+          (is (= expected
+                 (query-result method endpoint query)))
+
+        ;; Fact contents
+        ["in" "path"
+         ["extract" "path"
+          ["select_fact_contents"
+           ["=" "path" ["kernel"]]]]]
+        #{{:path ["kernel"] :type "string"}}))))
