@@ -8,6 +8,43 @@ canonical: "/puppetdb/latest/release_notes.html"
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
 [upgrading]: ./api/query/v4/preparing-for-3.0.html
 
+2.3.8
+-----
+
+PuppetDB 2.3.8 is a backward-compatible bugfix release to address a garbage
+collection issue that can arise when a node changes 6554 or more fact values
+in a single run, or when prepending to array-valued structured facts with
+leaves totaling 6554 or more.
+
+### Upgrading
+
+* For the best-possible performance and scaling capacity, we recommend
+  PostgreSQL version 9.4 or newer with the [`pg_trgm`][pg_trgm]
+  extension enabled, as explained [here][configure_postgres]. We have
+  officially deprecated versions prior to 9.4.  HSQLDB is
+  only recommended for local development because it has a number of
+  scaling and operational issues.
+
+* Make sure that all of your PuppetDB instances are shut down, and
+  only upgrade one at a time.
+
+* Make sure to upgrade your puppetdb-terminus package (on the host
+  where your Puppet master lives), and restart your master service.
+
+### Contributors
+
+Ken Barber, Ryan Senior, Wyatt Alt
+
+### Bug Fixes and Maintenance
+
+* Updating 6554 or more fact values at once would produce a prepared statement
+  with more parameters than can be represented with a 16-bit integer, which is the
+  maximum allowed by the PostgreSQL JDBC driver. These updates will now occur in
+  batches of 6000, so the limit should not be reached.
+  ([PDB-2003](https://tickets.puppetlabs.com/browse/PDB-2003))
+
+* Minor changes to testing and documentation updates.
+
 2.3.7
 -----
 
