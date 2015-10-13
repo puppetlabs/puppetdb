@@ -91,6 +91,28 @@
                              ["=" ["parameter" "bar"] "baz"]]))))
 
 
+(deftest test-extract-with-no-subexpression-compiles
+  (is (re-find #"SELECT .*certname FROM reports"
+               (->> ["extract" "certname"]
+                    (compile-user-query->sql reports-query)
+                    :results-query
+                    first)))
+  (is (re-find #"SELECT .*certname FROM reports"
+               (->> ["extract" ["certname"]]
+                    (compile-user-query->sql reports-query)
+                    :results-query
+                    first)))
+  (is (re-find #"SELECT count\(certname\) AS \"count\" FROM reports"
+               (->> ["extract" [["function" "count" "certname"]]]
+                    (compile-user-query->sql reports-query)
+                    :results-query
+                    first)))
+  (is (re-find #"SELECT .*certname AS certname, count\(\*\) .* FROM reports"
+               (->> ["extract" [["function" "count"] "certname"] ["group_by" "certname"]]
+                    (compile-user-query->sql reports-query)
+                    :results-query
+                    first))))
+
 (deftest test-valid-query-fields
   (is (thrown-with-msg? IllegalArgumentException
                         #"'foo' is not a queryable object for resources, known queryable objects are.*"

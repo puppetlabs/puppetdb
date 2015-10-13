@@ -70,6 +70,10 @@
                                                  ["=" "certname" (:certname basic)]])
              #{{:hash report-hash}})))
 
+    (testing "one projected column with no subquery"
+      (is (= (query-result method endpoint ["extract" "certname"])
+             #{{:certname "foo.local"} {:certname "bar.local"}})))
+
     (testing "logs projected"
       (is (= (query-result method endpoint ["extract" "logs"
                                             ["=" "certname" (:certname basic)]])
