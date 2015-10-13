@@ -86,6 +86,11 @@
            {:name "bar"}
            {:name "baz"}}
 
+         ;;;;;;;;;;;;
+         ;; Basic facts subquery examples
+         ;;;;;;;;;;;;
+
+         ;; In syntax
          ["in" "name"
           ["extract" "environment"
            ["select_facts"
@@ -94,6 +99,26 @@
              ["=" "value" "Debian"]]]]]
          #{{:name "DEV"}}
 
+         ;; Implicit subquery syntax
+         ["subquery" "facts"
+          ["and"
+           ["=" "name" "operatingsystem"]
+           ["=" "value" "Debian"]]]
+         #{{:name "DEV"}}
+
+         ;; Explicit subquery syntax
+         ["subquery" "facts"
+          ["columns" "name" "environment"]
+          ["and"
+           ["=" "name" "operatingsystem"]
+           ["=" "value" "Debian"]]]
+         #{{:name "DEV"}}
+
+         ;;;;;;;;;;;;;
+         ;; Not-wrapped subquery syntax
+         ;;;;;;;;;;;;;
+
+         ;; In syntax
          ["not"
           ["in" "name"
            ["extract" "environment"
@@ -105,6 +130,32 @@
            {:name "bar"}
            {:name "baz"}}
 
+         ;; Implict subquery syntax
+         ["not"
+          ["subquery" "facts"
+          ["and"
+           ["=" "name" "operatingsystem"]
+           ["=" "value" "Debian"]]]]
+         #{{:name "foo"}
+          {:name "bar"}
+          {:name "baz"}}
+
+         ;; Explicit subquery syntax with column definitions
+         ["not"
+          ["subquery" "facts"
+           ["columns" "name" "environment"]
+          ["and"
+           ["=" "name" "operatingsystem"]
+           ["=" "value" "Debian"]]]]
+         #{{:name "foo"}
+          {:name "bar"}
+          {:name "baz"}}
+
+         ;;;;;;;;
+         ;; Complex subquery example
+         ;;;;;;;;
+
+         ;; In syntax
          ["in" "name"
           ["extract" "environment"
            ["select_facts"
@@ -113,20 +164,32 @@
              ["in" "value"
               ["extract" "title"
                ["select_resources"
-                ["and"
-                 ["=" "type" "Class"]]]]]]]]]
+                ["=" "type" "Class"]]]]]]]]
+         #{{:name "DEV"}}
+
+         ;; Note: fact/resource comparison isn't a natural
+         ;; join, so there is no implicit syntax here.
+
+         ;; Complex Explicit subquery syntax
+         ["subquery" "facts"
+          ["columns" "name" "environment"]
+          ["and"
+           ["=" "name" "hostname"]
+           ["subquery" "resources"
+            ["columns" "value" "title"]
+            ["=" "type" "Class"]]]]
          #{{:name "DEV"}}))
 
   (testing "failed comparison"
     (are [query]
-         (let [{:keys [status body]} (query-response method endpoint query)]
-           (re-find
+          (let [{:keys [status body]} (query-response method endpoint query)]
+            (re-find
              #"Query operators >,>=,<,<= are not allowed on field name" body))
 
-         ["<=" "name" "foo"]
-         [">=" "name" "foo"]
-         ["<" "name" "foo"]
-         [">" "name" "foo"])))
+      ["<=" "name" "foo"]
+      [">=" "name" "foo"]
+      ["<" "name" "foo"]
+      [">" "name" "foo"])))
 
 (def no-parent-endpoints [[:v4 "/v4/environments/foo/events"]
                           [:v4 "/v4/environments/foo/facts"]

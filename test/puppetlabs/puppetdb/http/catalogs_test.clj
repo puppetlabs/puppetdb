@@ -8,7 +8,9 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq strip-hash]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response vector-param]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response
+                                                        query-result
+                                                        vector-param]]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]))
 
 (def endpoints [[:v4 "/v4/catalogs"]])
@@ -140,6 +142,94 @@
     (let [{:keys [body]} (query-response method (str endpoint "/myhost.localdomain"))
           response-body  (json/parse-string body true)]
       (is (= "myhost.localdomain" (:certname response-body))))))
+
+(deftestseq catalog-subqueries
+  [[version endpoint] endpoints
+   method [:get :post]]
+
+  (testcat/replace-catalog (json/generate-string catalog1))
+  (testcat/replace-catalog (json/generate-string catalog2))
+
+  (are [query expected]
+      (is (= (query-result method endpoint query {} strip-hash)
+             expected))
+
+    ;;;;;;;;;;
+    ;; Resources subquery
+    ;;;;;;;;;;
+
+    ;; In syntax
+    ["extract" "certname"
+     ["in" "certname"
+      ["extract" "certname"
+       ["select_resources"
+        ["=" "type" "Apt::Pin"]]]]]
+    #{{:certname "myhost.localdomain"}
+      {:certname "host2.localdomain"}}
+
+    ;; Implicit subquery syntax
+    ["extract" "certname"
+     ["subquery" "resources"
+      ["=" "type" "Apt::Pin"]]]
+    #{{:certname "myhost.localdomain"}
+      {:certname "host2.localdomain"}}
+
+    ;; Explicit subquery syntax
+    ;; TODO: determine if this format is going to be used
+    ["extract" "certname"
+     ["subquery" "resources" "certname"
+      ["=" "type" "Apt::Pin"]]]
+    #{{:certname "myhost.localdomain"}
+      {:certname "host2.localdomain"}}
+
+    ;; Explicit with columns specified
+    ["extract" "certname"
+     ["subquery" "resources" ["columns" "certname"]
+      ["=" "type" "Apt::Pin"]]]
+    #{{:certname "myhost.localdomain"}
+      {:certname "host2.localdomain"}}
+
+    ;; Explicit but with inside and outside columns specified
+    ["extract" "certname"
+     ["subquery" "resources" ["columns" ["certname"] ["certname"]]
+      ["=" "type" "Apt::Pin"]]]
+    #{{:certname "myhost.localdomain"}
+      {:certname "host2.localdomain"}}
+
+    ;;;;;;;;;
+    ;; Edges subqueries
+    ;;;;;;;;;
+
+    ;; In operator
+    ["extract" "certname"
+     ["in" "certname"
+      ["extract" "certname"
+       ["select_edges"
+        ["=" "target_type" "File"]]]]]
+    #{{:certname "host2.localdomain"}
+      {:certname "myhost.localdomain"}}
+
+    ;; Implicit query
+    ["extract" "certname"
+     ["subquery" "edges"
+      ["=" "target_type" "File"]]]
+    #{{:certname "host2.localdomain"}
+      {:certname "myhost.localdomain"}}
+
+    ;; Explicit without columns identifier
+    ;; TODO: determine if this syntax is okay
+    ["extract" "certname"
+     ["subquery" "edges" "certname"
+      ["=" "target_type" "File"]]]
+    #{{:certname "host2.localdomain"}
+      {:certname "myhost.localdomain"}}
+
+    ;; Explicit but with columns bit, only 1 column
+    ["extract" "certname"
+     ["subquery" "edges" ["columns" "certname"]
+      ["=" "target_type" "File"]]]
+    #{{:certname "host2.localdomain"}
+      {:certname "myhost.localdomain"}}))
 
 (def no-parent-endpoints [[:v4 "/v4/catalogs/foo/edges"]
                           [:v4 "/v4/catalogs/foo/resources"]])

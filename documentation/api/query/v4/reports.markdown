@@ -11,6 +11,8 @@ canonical: "/puppetdb/latest/api/query/v4/reports.html"
 [statuses]: /puppet/latest/reference/format_report.html#puppettransactionreport
 [query]: ./query.html
 [8601]: http://en.wikipedia.org/wiki/ISO_8601
+[subqueries]: ./operators.html#subquery-operators
+[events]: ./events.html
 
 Puppet agent nodes submit reports after their runs, and the puppet master forwards these to PuppetDB. Each report includes:
 
@@ -68,6 +70,15 @@ The below fields are allowed as filter criteria and are returned in all response
 
 * `latest_report?` (boolean): return only reports associated with the most recent puppet run for each node.
   NOTE: this field does not appear in the response.
+
+### Subquery Relationships
+
+Here is a list of relationships that can be queried using implicit subqueries. For
+more information consult the documentation for [subqueries].
+
+Direct relationships:
+
+* [`events`][events]: Events received in this report.
 
 ### Response format
 

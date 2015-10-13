@@ -24,6 +24,7 @@
                                                    create-hsqldb-map
                                                    parse-result]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
+                                                        query-result
                                                         vector-param]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
@@ -170,6 +171,7 @@
                                                                                       [">" "value" 10000]]]]]]]]]]
 
    #{{:certname "foo" :name "ipaddress" :value "192.168.1.100" :environment "DEV"}}
+
    ;; Multiple fact subqueries
    ["and"
     ["=" "name" "ipaddress"]
@@ -182,7 +184,49 @@
                                              ["=" "name" "uptime_seconds"]
                                              [">" "value" 10000]]]]]]
 
-   #{{:certname "foo" :name "ipaddress" :value "192.168.1.100" :environment "DEV"}}))
+   #{{:certname "foo" :name "ipaddress" :value "192.168.1.100" :environment "DEV"}}
+
+   ;;;;;;;;;
+   ;; Fact-contents subqueries
+   ;;;;;;;;;
+
+   ;; In syntax
+   ["in" ["certname" "name"]
+    ["extract" ["certname" "name"]
+     ["select_fact_contents"
+      ["and"
+       ["=" "path" ["osfamily"]]
+       ["=" "value" "Debian"]]]]]
+   #{{:certname "bar" :environment "DEV" :name "osfamily" :value "Debian"}
+     {:certname "foo" :environment "DEV" :name "osfamily" :value "Debian"}}
+
+   ;; Implicit subquery
+   ["subquery" "fact_contents"
+    ["and"
+     ["=" "path" ["osfamily"]]
+     ["=" "value" "Debian"]]]
+   #{{:certname "bar" :environment "DEV" :name "osfamily" :value "Debian"}
+     {:certname "foo" :environment "DEV" :name "osfamily" :value "Debian"}}
+
+   ;; Explicit new subquery, with columns specified
+   ["subquery" "fact_contents"
+    ["columns" ["certname" "name"]]
+    ["and"
+     ["=" "path" ["osfamily"]]
+     ["=" "value" "Debian"]]]
+   #{{:certname "bar" :environment "DEV" :name "osfamily" :value "Debian"}
+     {:certname "foo" :environment "DEV" :name "osfamily" :value "Debian"}}
+
+   ;; Explicit new subquery, with inner & outer columns specified
+   ["subquery" "fact_contents"
+    ["columns"
+     ["certname" "name"]
+     ["certname" "name"]]
+    ["and"
+     ["=" "path" ["osfamily"]]
+     ["=" "value" "Debian"]]]
+   #{{:certname "bar" :environment "DEV" :name "osfamily" :value "Debian"}
+     {:certname "foo" :environment "DEV" :name "osfamily" :value "Debian"}}))
 
 (def versioned-subqueries
   (omap/ordered-map
@@ -1358,6 +1402,76 @@
       (is (= (into [] (nth responses 4))
              [{"certname" "foo1"
                "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}])))))
+
+(deftestseq factset-subqueries
+  [[version endpoint] factsets-endpoints
+   method [:get :post]]
+
+  (populate-for-structured-tests reference-time)
+
+  (are [query expected]
+      (is (= expected
+             (query-result method endpoint query)))
+
+    ;;;;;;;;;;;;;;
+    ;; Facts subqueries
+    ;;;;;;;;;;;;;;
+
+    ;; In format
+    ["extract" "certname"
+     ["in" "certname"
+      ["extract" "certname"
+       ["select_facts"
+        ["and"
+         ["=" "name" "uptime_seconds"]
+         ["=" "value" "4000"]]]]]]
+    #{{:certname "foo1"}}
+
+    ;; Implicit subquery
+    ["extract" "certname"
+     ["subquery" "facts"
+      ["and"
+       ["=" "name" "uptime_seconds"]
+       ["=" "value" "4000"]]]]
+    #{{:certname "foo1"}}
+
+    ;; Explicit subquery
+    ["extract" "certname"
+     ["subquery" "facts" ["columns" "certname"]
+      ["and"
+       ["=" "name" "uptime_seconds"]
+       ["=" "value" "4000"]]]]
+    #{{:certname "foo1"}}
+
+    ;;;;;;;;;;;;;
+    ;; Fact content subqueries
+    ;;;;;;;;;;;;;
+
+    ;; In format
+    ["extract" "certname"
+     ["in" "certname"
+      ["extract" "certname"
+       ["select_fact_contents"
+        ["and"
+         ["=" "name" "uptime_seconds"]
+         ["=" "value" "4000"]]]]]]
+    #{{:certname "foo1"}}
+
+    ;; Implicit subqueries
+    ["extract" "certname"
+     ["subquery" "fact_contents"
+      ["and"
+       ["=" "name" "uptime_seconds"]
+       ["=" "value" "4000"]]]]
+    #{{:certname "foo1"}}
+
+    ;; Explicit subqueries
+    ["extract" "certname"
+     ["subquery" "fact_contents" ["columns" "certname"]
+      ["and"
+       ["=" "name" "uptime_seconds"]
+       ["=" "value" "4000"]]]]
+    #{{:certname "foo1"}}))
 
 (deftestseq factset-single-response
   [[version endpoint] factsets-endpoints

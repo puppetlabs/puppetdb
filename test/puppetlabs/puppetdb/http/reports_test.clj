@@ -574,6 +574,43 @@
     (is (= 1 (count basic-result)))
     (is (= basic-result (munge-reports-for-comparison [basic])))))
 
+(deftestseq report-subqueries
+  [[version endpoint] endpoints
+   method [:get :post]]
+
+  (store-example-report! (:basic reports) (now))
+  (store-example-report! (:basic2 reports) (now))
+  (store-example-report! (:basic3 reports) (now))
+
+  (are [query expected]
+      (is (= expected
+             (query-result method endpoint query)))
+
+    ;;;;;;;;;;;;;;;
+    ;; Event subqueries
+    ;;;;;;;;;;;;;;;
+
+    ;; In format
+    ["extract" "certname"
+     ["in" "hash"
+      ["extract" "report"
+       ["select_events"
+        ["=" "file" "bar"]]]]]
+    #{{:certname "foo.local"}}
+
+    ;; Implicit subqueries
+    ["extract" "certname"
+     ["subquery" "events"
+      ["=" "file" "bar"]]]
+    #{{:certname "foo.local"}}
+
+    ;; Explicit subqueries
+    ["extract" "certname"
+     ["subquery" "events"
+      ["columns" "hash" "report"]
+      ["=" "file" "bar"]]]
+    #{{:certname "foo.local"}}))
+
 (def invalid-projection-queries
   (omap/ordered-map
     ;; Top level extract using invalid fields should throw an error
