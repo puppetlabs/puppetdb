@@ -1,0 +1,136 @@
+#+TITLE: PuppetDB High Availability
+#+OPTIONS: toc:nil
+
+* Requirements
+- /Availability/: Puppet runs should not fail due to the loss of a single PuppetDB
+  node.
+- /Durability/: Data should not be lost due to the loss of a single PuppetDB node.
+- /Deployment/: An HA deployment should require no more than two PuppetDB nodes to
+  ease customer adoption.
+- /Topologies/: A simple master/replica topology with automatic failover must be
+  supported.
+- /PE/: The HA feature must be available only in Puppet Enterprise.
+
+This beta release of HA meets all of these requirements except for Durability;
+there are some known scenarios in which data may still be lost. These will be
+rectified in the following release. 
+
+* Overview 
+PuppetDB implements a pull-based, asynchronous, eventually consistent
+replication mechanism at the application layer.
+
+** Pull-based
+Each PuppetDB is configured to pull from another instance at a regular interval.
+It uses the regular query system to retrieve a summary of available records for
+each kind of record under consideration (catalogs, factsets, reports, and
+nodes). The summary query contains information about each record's identity
+(certname and identity hash) and the time it was created in the terminus
+(=producer_timestamp=).
+
+The result of the summary query is compared with the results of the same query
+against the local database. Any records which either do not exist locally or are
+out of date are downloaded using the appropriate REST endpoint, transformed to
+command form, and placed on the local queue
+
+** Asynchronous
+The replication process is completely separate from regular command processing
+and submission.
+
+** Eventually consistent
+As with a standalone PuppetDB, an HA configuration makes no particular
+guarantees about the state of the database with respect to submitted commands
+before they have been processed or, in this case, replicated. It does guarantee
+that in the fullness of time the states of all connected PuppetDB instances will
+converge even in the face of intermittent connectivity.
+
+** Application layer
+Replication is implemented entirely in application code; no database-level
+replication is used. There are two reasons for this: 
+
+1. Relational databases must bear a greater consistency burden than PuppetDB.
+   This is a difference in design goals: where they favor consistency, PuppetDB
+   favors availability. It is very difficult to meet our Availability
+   requirements using something like PostgreSQL streaming replication.
+
+2. By taking advantage of PuppetDB's simple command-based data model, we can
+   design a replication system that works in cases where normal database
+   replication would fall over. Though not currently supported due to lack of
+   test resources, PuppetDB's replication system can easily work in asymmetric
+   or widely distributed configurations.
+
+* Theory
+For the most part, PuppetDB state is modeled as a CRDT. Specifically, it is a
+state-based CRDT, where each sync is a merge operation. Pains are taken to make
+sure that the merge operation is commutative, as well as all the commands.
+
+See https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type. 
+
+CRDTs require a partial order between commands that would otherwise collide; in
+PuppetDB, this is established with the =[certname producer_timestamp]= tuple.
+That is, given two commands which would write data to the same location, the
+newer is kept (according to =producer_timestamp=, the timestamp on the master at
+the time of command submission).
+
+This assumes that the clocks on the masters in a multi-master configuration are
+kept relatively in sync. (within /runinterval/ of one another) Since we require
+NTP to be running on these machines and because runintervals are on the order of
+30min, this is a safe assumption.
+
+* Implementation details
+** Node deactivation / expiration
+Node deactivation is triggered by the user, nominally from a master machine
+using the =puppet node deactivate= command. When invoked in this way, the
+command bears a =producer_timestamp= which can be used to establish an ordering
+with other such deactivate commands for the same certname.
+
+Expiration, on the other hand, is triggered when records for a node have been
+present in PuppetDB for too long without any new data appearing. Since this
+event is not triggered from the master, there is nowhere to get an appropriate
+=producer_timestamp=. The information thus cannot participate in the regular
+sync mechanism.
+
+To account for this, we don't synchronize node expiration. The following rule is
+used:
+
+#+BEGIN_QUOTE
+/When pulling records from another PuppetDB, don't pull any record that would be
+expired locally./
+#+END_QUOTE
+
+As it is outside of established distributed systems research, this rule has been
+subject to a great deal of scrutiny, mathematical modeling, simulation testing,
+and generative and manual unit testing.
+
+** Terminus
+The PuppetDB terminus has the ability to configure more than one PuppetDB
+instance. These are always tried in order; if commands cannot be submitted to
+the first machine, they are instead submitted to the second. So, even though
+PuppetDB is implemented as a multi-master system, whichever system is first on
+the list is designated the primary.
+
+** Blocking startup
+In order to prevent degenerate cases on node startup, especially involving
+exported resources, PuppetDB startup blocks until it has performed a single sync
+operation.
+
+* Known issues
+** Data loss scenarios
+In the current beta release, data may be lost if a command is submitted to the
+primary PuppetDB but that node loses data before it can be replicated. This will
+be rectified in a future release by keeping some of the data in a local cache on
+the master.
+
+** Exported resources
+Exported resources are already a bit dicey in a standalone configuration: since
+command are processed asynchronously from their submission, there is a delay
+before the queries issued for use in exported resources reflect the current
+state of the world.
+
+HA makes it much worse. Not only does it introduce additional delay while
+waiting for replication to occur, it also provides the potential for some
+exported resources to appear to go back in time if a failover occurs when
+commands are in the queue.
+
+Short of introducing a consistent distributed store like Raft or Zookeeper, it
+is not yet clear how to robustly handle such scenarios.
+
