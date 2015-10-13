@@ -28,7 +28,6 @@ Additionally, these instructions may be useful for understanding the various mov
 
 > **Notes:**
 >
-> * If you'd like to migrate existing exported resources from your ActiveRecord storeconfigs database, please see the documentation on [Migrating Data][migrating].
 > * After following these instructions, you should [connect your puppet master(s) to PuppetDB][connect_master]. (If you use a standalone Puppet deployment, you will need to [connect every node to PuppetDB][connect_apply].)
 > * These instructions are for [platforms with official PuppetDB packages][requirements]. To install on other systems, you should instead follow [the instructions for installing from source](./install_from_source.html).
 > * If this is a production deployment, [review the scaling recommendations](./scaling_recommendations.html) before installing. You should ensure your PuppetDB server will be able to comfortably handle your site's load.

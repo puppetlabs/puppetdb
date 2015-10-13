@@ -113,24 +113,6 @@ describe Puppet::Resource::Catalog::Puppetdb do
       end
     end
 
-    describe "#stringify_titles" do
-      if Puppet::Util::Puppetdb.puppet3compat?
-        it "should make all resource titles strings if they aren't" do
-          Puppet[:code] = <<-MANIFEST
-          $foo = true
-          notify { $foo: }
-        MANIFEST
-
-          hash = catalog.to_data_hash
-          result = subject.stringify_titles(hash)
-
-          result['resources'].should be_any { |res|
-            res['type'] == 'Notify' and res['title'] == 'true'
-          }
-        end
-      end
-    end
-
     describe "#add_namevar_aliases" do
       it "should add namevar to aliases if it's not already present" do
         name = 'with a different name'
@@ -454,30 +436,6 @@ describe Puppet::Resource::Catalog::Puppetdb do
           result = subject.munge_catalog(catalog)
 
           result['edges'].should include(edge)
-        end
-
-        if Puppet::Util::Puppetdb.puppet3compat?
-          it "should add edges which refer to collected virtual resources with hyphens in the classname" do
-            Puppet[:code] = <<-MANIFEST
-          define foo-bar- (){}
-          @foo-bar- { 'baz': }
-
-          notify { source:
-            before => Foo-bar-[baz],
-          }
-
-          Foo-bar- <| |>
-            MANIFEST
-
-            result = subject.munge_catalog(catalog)
-            other_edge = {
-              'source' => {'type' => 'Notify', 'title' => 'source'},
-              'target' => {'type' => 'Foo-bar-', 'title' => 'baz'},
-              'relationship' => 'before'
-            }
-
-            result['edges'].should include(other_edge)
-          end
         end
 
         it "should add edges defined on collected virtual resources" do

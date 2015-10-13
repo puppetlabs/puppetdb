@@ -1,6 +1,6 @@
 source ENV['GEM_SOURCE'] || "https://rubygems.org"
 puppet_branch = ENV['PUPPET_VERSION'] || "latest"
-oldest_supported_puppet = "3.8.1"
+oldest_supported_puppet = "4.0.0"
 beaker_version = ENV['BEAKER_VERSION']
 
 def location_for(place, fake_version = nil)
@@ -14,16 +14,7 @@ def location_for(place, fake_version = nil)
 end
 
 gem 'facter'
-
-case RUBY_VERSION
-when '1.8.7'
-  gem 'rake', '<= 10.1.1'
-  # activesupport calls in the latest i18n, which drops 1.8.7. This pins to
-  # a lower version
-  gem 'i18n', '~> 0.6.11'
-else
-  gem 'rake'
-end
+gem 'rake'
 
 group :test do
   # Pinning to work-around an incompatiblity with 2.14 in puppetlabs_spec_helper
@@ -41,15 +32,6 @@ group :test do
   end
 
   gem 'mocha', '~> 1.0'
-
-  # Since newer versions of rake are not supported, we pin
-  case RUBY_VERSION
-  when '1.8.7'
-    # No activerecord or sqlite for you
-  else
-    gem 'activerecord', '~> 3.2'
-    gem 'sqlite3'
-  end
 end
 
 group :acceptance do

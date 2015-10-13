@@ -14,11 +14,9 @@ require 'puppet/util/puppetdb'
 require 'puppet/util/log'
 
 def create_environmentdir(environment)
-  if not Puppet::Util::Puppetdb.puppet3compat?
-    envdir = File.join(Puppet[:environmentpath], environment)
-    if not Dir.exists?(envdir)
-      Dir.mkdir(envdir)
-    end
+  envdir = File.join(Puppet[:environmentpath], environment)
+  if not Dir.exists?(envdir)
+    Dir.mkdir(envdir)
   end
 end
 
