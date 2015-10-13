@@ -51,8 +51,12 @@
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
             [puppetlabs.puppetdb.archive :as archive]
             [slingshot.slingshot :refer [try+ throw+]]
-            [clojure.core.async :refer [go go-loop >! <! >!! <!! timeout chan alt! close! dropping-buffer]]
-            [clojure.core.match :as cm]))
+            [clojure.core.async :refer [go go-loop >! <! >!! <!! timeout chan close! dropping-buffer pipeline]]
+            [clojure.core.match :as cm]
+            [puppetlabs.puppetdb.mq :as mq]
+            [taoensso.nippy :as nippy])
+  (:import [org.apache.activemq.broker BrokerService]
+           [javax.jms Connection Message TextMessage BytesMessage Session]))
 
 (def cli-description "Development-only benchmarking tool")
 
@@ -196,9 +200,7 @@
 
 (defn update-host
   "Submit a `catalog` for `hosts` (when present), possibly mutating it before
-   submission.  Also submit a report for the host (if present). This is
-   similar to timed-update-host, but always sends the update (doesn't run/skip
-   based on the clock)"
+  submission. Also submit a report for the host (if present)."
   [{:keys [catalog report factset] :as state} rand-percentage current-time command-send-ch]
   (let [stamp (jitter current-time 1800)
         uuid (kitchensink/uuid)
@@ -215,27 +217,6 @@
     (assoc state
            :catalog catalog
            :factset factset)))
-
-(defn run-simulated-hosts
-  "Run a host simulation job."
-  [hosts run-interval-min rand-percentage command-send-ch]
-  (let [close-to-stop-ch (chan)
-        host-queue (into clojure.lang.PersistentQueue/EMPTY hosts)
-        ms-per-host (float (/ (* 60000 run-interval-min) (count host-queue)))]
-    (go
-      (alt!
-        close-to-stop-ch
-        ::stopped
-
-        (timeout (rand 1000)) ; random initial offset from other simulation threads
-        (go-loop [host-queue host-queue]
-          (let [host-timeout (timeout ms-per-host)
-                updated-host (update-host (first host-queue) rand-percentage (time/now) command-send-ch)
-                new-host-queue (conj (pop host-queue) updated-host)]
-            (alt!
-              close-to-stop-ch ::stopped
-              host-timeout (recur new-host-queue))))))
-    close-to-stop-ch))
 
 (defn submit-n-messages
   "Given a list of host maps, send `num-messages` to each host.  The function
@@ -389,6 +370,110 @@
                    (cons (first s) (first buckets))))
       (seq buckets))))
 
+(defn make-jms-nippy-message
+  "Create a jms message containing the clojure data structure 'payload' encoded
+  into a byte array using nippy."
+  [session payload]
+  (let [msg (.createBytesMessage session)
+        payload-bytes (nippy/freeze payload)]
+    (.writeBytes msg payload-bytes)
+    msg))
+
+(defn unpack-jms-nippy-message
+  "Return the clojure data payload from a message created with
+  'make-jms-nippy-message'."
+  [msg]
+  (let [bytes (byte-array (.getBodyLength msg))]
+    (.readBytes msg bytes)
+    (nippy/thaw bytes)))
+
+(defn amq-broker-chans
+  "Create an amq broker with the given name in the current directory, connecting
+  to the given endpoint. Returns a triple of [in-chan out-chan error-chan].
+
+  A producer thread is created to read from in-chan, serialize messages using
+  nippy, and write them to the queue. Similarly, a consumer thread is created to
+  read from from the queue, deserialize the messages, and write them to
+  out-chan. Both channels are unbuffered to engender coordination with a client
+  process.
+
+  The broker is shut down and the broker directory deleted when either in-chan
+  or out-chan is closed. "
+  [broker-name endpoint-name]
+  (let [dir (fs/absolute-path broker-name)
+        conn-str (str "vm://" broker-name
+                      "?broker.useJmx=false"
+                      "&broker.enableStatistics=false"
+                      "&jms.useCompression=true"
+                      "&jms.copyMessageOnSend=false")
+        size-megs              20000
+        ^BrokerService broker (mq/build-embedded-broker
+                               broker-name
+                               dir
+                               {:store-usage size-megs
+                                :temp-usage  size-megs})
+        _ (println "Using amq in" dir)
+        _ (.setPersistent broker false)
+        _ (mq/start-broker! broker)
+        factory (mq/activemq-connection-factory conn-str)
+        connection (doto (.createConnection factory) .start)
+        closing (atom false)
+        cleanup (fn []
+                  (locking closing
+                    (when-not @closing
+                      (println "Shutting down AMQ...")
+                      (reset! closing true)
+                      (mq/stop-broker! broker)
+                      (fs/delete-dir dir))))
+        in (chan)
+        out (chan)]
+
+    (.addShutdownHook (Runtime/getRuntime) (Thread. cleanup))
+
+    ;; amq send thread
+    (future
+      (try
+        (let [s (.createSession connection true Session/SESSION_TRANSACTED)
+              producer (.createProducer s (.createQueue s endpoint-name))]
+          (loop []
+            (when-let [message (<!! in)]
+              (mq/commit-or-rollback s (.send producer (make-jms-nippy-message s message)))
+              (recur))))
+        (catch Exception ex
+          (when-not @closing
+            (log/error ex "Caught error in AMQ send thread, aborting.")))
+        (finally
+          (cleanup))))
+
+    ;; amq receive thread
+    (future
+      (try
+        (let [s (.createSession connection true Session/SESSION_TRANSACTED)
+              consumer (.createConsumer s (.createQueue s endpoint-name))]
+          (loop []
+            (when-let [message (mq/commit-or-rollback s (unpack-jms-nippy-message (.receive consumer)))]
+              (>!! out message)
+              (recur))))
+        (catch Exception ex
+          (when-not @closing
+            (log/error ex "Caught error in AMQ receive thread, aborting.")))
+        (finally
+          (cleanup))))
+    [in out]))
+
+(defn relay-messages-at-rate
+  "Relay messages from in-ch to out-ch at the given rate in
+  messages-per-second."
+  [in-ch out-ch messages-per-second]
+  (let [ms-per-message (- (/ 1000 messages-per-second) 3)]
+    (go-loop []
+      (let [message (<! in-ch)
+            message-timeout (timeout (int (+ (rand) ms-per-message)))]
+        (when message
+          (>! out-ch message)
+          (<! message-timeout)
+          (recur))))))
+
 (defn benchmark-main
   [& args]
   (let [{:keys [config rand-perc numhosts nummsgs threads] :as options} (validate-cli! args)
@@ -415,7 +500,7 @@
                           (chan (dropping-buffer 10000)))
         rate-monitor-ch (chan (* 2 threads))
         run-interval (-> (get options :runinterval 30) time/minutes)
-        simulation-threads 10
+        simulation-threads 4
         commands-per-puppet-run (+ (if catalogs 1 0)
                                    (if reports 1 0)
                                    (if facts 1 0))]
@@ -436,23 +521,30 @@
           (>!! command-send-ch :stop))
         (close! command-send-ch))
 
-      (let [run-interval-minutes (time/in-minutes run-interval)
-            partitioned-hosts (->> hosts
-                                   (map #(assoc % :lastrun (rand-lastrun run-interval)))
-                                   (partition-into-buckets simulation-threads))
-            close-to-stop-chans (mapv (fn [hosts-for-partition]
-                                        (run-simulated-hosts hosts-for-partition
-                                                             run-interval-minutes
-                                                             rand-perc
-                                                             command-send-ch))
-                                      partitioned-hosts)
-            close-to-stop-ch (chan)]
-        (go
-          (<! close-to-stop-ch)
-          (close! rate-monitor-ch)
-          (close! command-send-ch)
-          (dorun (map close! close-to-stop-chans)))
+      (let [close-to-stop-ch (chan)
+            [mq-in mq-out] (amq-broker-chans "benchmark-mq" "benchmark-endpoint")]
 
+        ;; initial queue population
+        (future
+          (println "Populating the queue in the background")
+          (dotimes [n numhosts]
+            (let [h (-> (make-host n)
+                        (assoc :lastrun (rand-lastrun run-interval)))]
+              (>!! mq-in h)))
+
+          (println "... finished filling the queue, continuing with the simulation."))
+
+        (let [run-interval-minutes (time/in-minutes run-interval)
+              hosts-per-second (/ numhosts (* run-interval-minutes 60))
+              rate-limited-mq-out (chan)]
+          (relay-messages-at-rate mq-out rate-limited-mq-out hosts-per-second)
+          (pipeline simulation-threads
+                    mq-in
+                    (map #(update-host % rand-perc (time/now) command-send-ch))
+                    rate-limited-mq-out)
+          (go
+            (<! close-to-stop-ch)
+            (mapv close! [rate-limited-mq-out mq-in mq-out rate-monitor-ch command-send-ch])))
         close-to-stop-ch))))
 
 (defn chan? [x]

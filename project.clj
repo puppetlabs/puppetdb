@@ -82,7 +82,8 @@
                  [honeysql "0.6.2"]
                  [com.rpl/specter "0.5.7"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
-                 [puppetlabs/http-client "0.4.4"]]
+                 [puppetlabs/http-client "0.4.4"]
+                 [com.taoensso/nippy "2.10.0" :exclusions [org.clojure/tools.reader]]]
 
   :jvm-opts ~pdb-jvm-opts
 
