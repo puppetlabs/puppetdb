@@ -266,47 +266,6 @@
      :else
      config)))
 
-(defn catalog-debug-path
-  "Given a `config` create the path to the directory directory to store
-   catalog debug info."
-  [{{vardir :vardir} :global}]
-  {:pre [(not (str/blank? vardir))]}
-  (fs/file vardir "debug" "catalog-hashes"))
-
-(defn create-catalog-debug-dir
-  "Attempt to crate the catalog debug directory at `path`. Failing to create the
-   directory only causes a warning as not having this directory shouldn't cause
-   PuppetDB to crash on startup."
-  [path]
-  (try
-    (do (fs/mkdirs path) (str path))
-    (catch SecurityException e
-      (log/warnf e
-                (str "catalog-hash-conflig-debugging was enabled, "
-                     "but PuppetDB was not able to create a directory at %s")
-                path))))
-
-(def ^{:doc "Create the directory for catalog debug info if it does not already
-              exist, returning the path if successful (or it already exists)"}
-  ensure-catalog-debug-dir
-  (comp create-catalog-debug-dir catalog-debug-path))
-
-(defn configure-catalog-debugging
-  "When [global] contains catalog-hash-conflict-debugging=true, assoc into the config the directory
-   to store the debugging, if not return the config unmodified."
-  [config]
-  (if-let [debug-dir (and (kitchensink/true-str? (get-in config [:global :catalog-hash-conflict-debugging]))
-                          (ensure-catalog-debug-dir config))]
-    (do
-      (log/warn (str "Global config catalog-hash-conflict-debugging set to true. "
-                     "This is intended to troubleshoot catalog duplication issues and "
-                     "not for enabling in production long term.  See the PuppetDB docs "
-                     "for more information on this setting."))
-      (log/warn (str "The config item 'catalog-hash-conflict-debugging' is "
-                     "deprecated and will be retired in a future release."))
-      (assoc-in config [:global :catalog-hash-debug-dir] debug-dir))
-    config))
-
 (defn normalize-product-name
   "Checks that `product-name` is specified as a legal value, throwing an
   exception if not. Returns `product-name` if it's okay."
@@ -331,6 +290,11 @@
 (defn warn-retirements
   "Warn a user they are using the old [repl] block, instead of [nrepl]."
   [config-data]
+  (when (get-in config-data [:global :catalog-hash-conflict-debugging])
+    (utils/println-err (str "The configuration item `catalog-hash-conflict-debugging`"
+                            " in the [global] section is retired,"
+                            " please remove this item from your config."
+                            " Consult the documentation for more details.")))
   (when (get-in config-data [:repl])
     (utils/println-err (str "The configuration block [repl] is now retired and will be ignored."
                             " Use [nrepl] instead. Consult the documentation for more details.")))
@@ -391,7 +355,6 @@
       configure-globals
       validate-vardir
       convert-config
-      configure-catalog-debugging
       add-mq-defaults))
 
 (defn foss? [config]

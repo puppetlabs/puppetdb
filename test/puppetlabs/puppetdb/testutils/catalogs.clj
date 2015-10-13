@@ -24,7 +24,7 @@
     :annotations {:id (uuid)
                   :received (now)}
     :version     catalog-version}
-   {:db          *db*}))
+   *db*))
 
 (defn munge-catalog-for-comparison
   "Given a catalog object (represented as a map, either having come out of a

@@ -219,10 +219,6 @@ module PuppetDBExtensions
     "/opt/puppetlabs/server/data/puppetdb"
   end
 
-  def catalog_hash_debug_dir(host)
-    puppetdb_vardir(host) + "/debug/catalog-hashes/"
-  end
-
   def puppetdb_pids(host)
     java_bin = "java"
     jar_file = "puppetdb.jar"

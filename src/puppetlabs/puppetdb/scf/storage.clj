@@ -33,7 +33,6 @@
             [clojure.data :as data]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.scf.hash-debug :as hashdbg]
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
@@ -675,19 +674,14 @@
          (replace-edges! certname edges refs-to-hashes)))
 
 (pls/defn-validated update-catalog-hash-miss
-  "New catalogs for a given certname needs to have their metadata, resources and edges updated.  This
-   function also outputs debugging related information when `catalog-hash-debug-dir` is not nil"
+  "New catalogs for a given certname needs to have their metadata, resources and edges updated."
   [catalog-id :- Number
    hash :- String
    catalog :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}
-   catalog-hash-debug-dir :- (s/maybe s/Str)
    received-timestamp :- pls/Timestamp]
 
   (inc! (:updated-catalog performance-metrics))
-
-  (when catalog-hash-debug-dir
-    (hashdbg/debug-catalog catalog-hash-debug-dir hash catalog))
 
   (time! (:catalog-hash-miss performance-metrics)
          (update-catalog-metadata! catalog-id hash catalog received-timestamp)
@@ -706,12 +700,10 @@
 
 (pls/defn-validated add-catalog!
   "Persist the supplied catalog in the database, returning its
-   similarity hash. `catalog-hash-debug-dir` is an optional path that
-   indicates where catalog debugging information should be stored."
+   similarity hash."
   ([catalog :- catalog-schema]
-   (add-catalog! catalog nil (now)))
+   (add-catalog! catalog (now)))
   ([{:keys [api_version resources edges certname] :as catalog} :- catalog-schema
-    catalog-hash-debug-dir :- (s/maybe s/Str)
     received-timestamp :- pls/Timestamp]
 
    (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
@@ -732,7 +724,7 @@
        (update-catalog-hash-match id hash catalog received-timestamp)
 
        :else
-       (update-catalog-hash-miss id hash catalog refs-to-hashes catalog-hash-debug-dir received-timestamp)))
+       (update-catalog-hash-miss id hash catalog refs-to-hashes received-timestamp)))
 
      hash)))
 
@@ -1315,18 +1307,12 @@
 
 (pls/defn-validated replace-catalog!
   "Given a catalog, replace the current catalog, if any, for its
-  associated host with the supplied one. `catalog-hash-debug-dir`
-  is an optional path that indicates where catalog debugging information
-  should be stored."
-  ([catalog :- catalog-schema
-    received-timestamp :- pls/Timestamp]
-   (replace-catalog! catalog received-timestamp nil))
-  ([{:keys [certname] :as catalog} :- catalog-schema
-    received-timestamp :- pls/Timestamp
-    catalog-hash-debug-dir :- (s/maybe s/Str)]
-   (time! (:replace-catalog performance-metrics)
-          (jdbc/with-db-transaction []
-            (add-catalog! catalog catalog-hash-debug-dir received-timestamp)))))
+  associated host with the supplied one."
+  [catalog :- catalog-schema
+   received-timestamp :- pls/Timestamp]
+  (time! (:replace-catalog performance-metrics)
+         (jdbc/with-db-transaction []
+           (add-catalog! catalog received-timestamp))))
 
 (pls/defn-validated replace-facts!
   "Updates the facts of an existing node, if the facts are newer than the current set of facts.
