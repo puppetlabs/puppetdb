@@ -25,7 +25,7 @@
   :source-paths ["src"]
   :dependencies [[puppetlabs/puppetdb ~pdb-version]
                  [net.logstash.logback/logstash-logback-encoder "4.2"]
-                 [puppetlabs/structured-logging "0.1.0"]]
+                 [puppetlabs/structured-logging "0.1.0" :exclusions [org.slf4j/slf4j-api]]]
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
   :resource-paths ["resources"]
