@@ -5,6 +5,8 @@ require File.expand_path(File.join(File.dirname(options_file_path), 'common.rb')
 
 common_options_hash.tap do |my_hash|
   my_hash[:puppetdb_database] = 'embedded'
+  my_hash[:graphite_server] = 'graphite.ops.puppetlabs.net'
+  my_hash[:graphite_perf_data] = 'qe.vmpooler.sysprofile.puppetdb'
   my_hash[:is_puppetserver]        = 'true'
   my_hash[:'use-service']          = 'true'
   my_hash[:'puppetserver-confdir'] = '/etc/puppetlabs/puppetserver/conf.d'
