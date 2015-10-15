@@ -25,7 +25,7 @@
   :source-paths ["src"]
   :dependencies [[puppetlabs/puppetdb ~pdb-version]
                  [net.logstash.logback/logstash-logback-encoder "4.2"]
-                 [puppetlabs/structured-logging "0.1.0"]]
+                 [puppetlabs/structured-logging "0.1.0" :exclusions [org.slf4j/slf4j-api]]]
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
   :resource-paths ["resources"]
@@ -47,7 +47,7 @@
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]
                                                [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]]
-                      :plugins [[puppetlabs/lein-ezbake "0.3.13"
+                      :plugins [[puppetlabs/lein-ezbake "0.3.18"
                                 :exclusions [org.clojure/clojure]]]
                       :version ~pe-pdb-version
                       :name "pe-puppetdb"}}
