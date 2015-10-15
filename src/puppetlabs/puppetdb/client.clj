@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.client
-  (:require [puppetlabs.puppetdb.command :as command]
-            [puppetlabs.puppetdb.http :as http]
+  (:require [puppetlabs.puppetdb.http :as http]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.reports :as reports]
             [clj-http.client :as http-client]
@@ -22,7 +21,7 @@
     version :- s/Int
     payload]
    (submit-command-via-http! base-url
-                             (command/assemble-command command version payload)
+                             {:command command :version version :payload payload}
                              nil))
 
   ([base-url
@@ -31,7 +30,7 @@
     payload
     timeout]
    (submit-command-via-http! base-url
-                             (command/assemble-command command version payload)
+                             {:command command :version version :payload payload}
                              timeout))
 
   ([base-url :- utils/base-url-schema

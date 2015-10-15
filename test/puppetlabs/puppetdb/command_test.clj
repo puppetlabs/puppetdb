@@ -36,13 +36,6 @@
 
 (use-fixtures :each with-test-db)
 
-(deftest command-assembly
-  (testing "Formatting commands for submission"
-    (is (= (assemble-command "my command" 1 [1 2 3 4 5])
-           {:command "my command"
-            :version 1
-            :payload [1 2 3 4 5]}))))
-
 (deftest command-parsing
   (testing "Command parsing"
 
@@ -235,7 +228,7 @@
   "Currently supported catalog versions"
   [:v7])
 
-(deftest replace-catalog
+(deftest replace-catalog-test
   (doverseq [version catalog-versions
              :let [raw-command {:command (command-names :replace-catalog)
                             :version 7
@@ -1216,13 +1209,13 @@
       (dissoc :producer_timestamp :metrics :logs :noop)
       utils/underscore->dash-keys))
 
-(def store-report (command-names :store-report))
+(def store-report-name (command-names :store-report))
 
 (deftest store-v6-report-test
   (let [v6-report (-> v5-report
                       (update :resource_events reports/resource-events-v5->resources)
                       (clojure.set/rename-keys {:resource_events :resources}))
-        command {:command store-report
+        command {:command store-report-name
                  :version 6
                  :payload v6-report}]
     (test-msg-handler command publish discard-dir
@@ -1232,7 +1225,7 @@
       (is (empty? (fs/list-dir discard-dir))))))
 
 (deftest store-v5-report-test
-  (let [command {:command store-report
+  (let [command {:command store-report-name
                  :version 5
                  :payload v5-report}]
     (test-msg-handler command publish discard-dir
@@ -1242,7 +1235,7 @@
       (is (empty? (fs/list-dir discard-dir))))))
 
 (deftest store-v4-report-test
-  (let [command {:command store-report
+  (let [command {:command store-report-name
                  :version 4
                  :payload v4-report}
         recent-time (-> 1 seconds ago)]
@@ -1267,7 +1260,7 @@
 (deftest store-v3-report-test
   (let [v3-report (dissoc v4-report :status)
         recent-time (-> 1 seconds ago)
-        command {:command store-report
+        command {:command store-report-name
                  :version 3
                  :payload v3-report}]
     (test-msg-handler command publish discard-dir
