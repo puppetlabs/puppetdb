@@ -93,11 +93,6 @@ is of the form:
       "logs" : <expanded logs>
     }
 
-> **Note: Expansion and the `data` field**
->
-> For the following data structures the `data` field is only expanded for users running PostgreSQL. Expansion is not supported on HSQLDB, instead you must use
-> the `href` field to construct a secondary query to retrieve that information.
-
 The `<expanded resource events>` object is of the following form:
 
     {

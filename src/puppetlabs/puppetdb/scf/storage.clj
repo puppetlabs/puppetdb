@@ -799,29 +799,17 @@
    in other factsets."
   [factset-id dropped-pids]
   (when-let [dropped-pids (seq dropped-pids)]
-    (if (sutils/postgres?)
-      (let [candidate-paths (sutils/array-to-param "bigint" Long dropped-pids)]
-        (jdbc/do-prepared
-         "DELETE FROM fact_paths fp
-            WHERE fp.id = ANY (?)
-              AND NOT EXISTS (SELECT 1 FROM facts f
-                                WHERE f.fact_path_id = ANY (?)
-                                  AND f.fact_path_id = fp.id
-                                  AND f.factset_id <> ?)"
-         (concat [candidate-paths]
-                 [candidate-paths]
-                 [factset-id])))
-      (let [in-pids (jdbc/in-clause dropped-pids)]
-        (jdbc/do-prepared
-         (format
-          "DELETE FROM fact_paths fp
-             WHERE fp.id %s
-               AND NOT EXISTS (SELECT 1 FROM facts f
-                                 WHERE f.fact_path_id %s
-                                   AND f.fact_path_id = fp.id
-                                   AND f.factset_id <> ?)"
-          in-pids in-pids)
-         (concat dropped-pids dropped-pids [factset-id]))))))
+    (let [candidate-paths (sutils/array-to-param "bigint" Long dropped-pids)]
+      (jdbc/do-prepared
+       "DELETE FROM fact_paths fp
+          WHERE fp.id = ANY (?)
+            AND NOT EXISTS (SELECT 1 FROM facts f
+                              WHERE f.fact_path_id = ANY (?)
+                                AND f.fact_path_id = fp.id
+                                AND f.factset_id <> ?)"
+       (concat [candidate-paths]
+               [candidate-paths]
+               [factset-id])))))
 
 (defn-validated delete-pending-value-id-orphans!
   "Delete values in removed-pid-vid-pairs that are no longer mentioned
@@ -920,18 +908,13 @@
   [table column values column-transform java-type sql-type]
   (into {}
         (for [{:keys [value id]}
-              (if (sutils/postgres?)
-                (query-to-vec
-                  (format
-                    "WITH values AS (SELECT unnest(?) as vals)
-                     SELECT %s AS value, id FROM %s
-                     INNER JOIN values ON values.vals = %s.%s"
-                    (column-transform column) (name table) (name table) column)
-                  (sutils/array-to-param sql-type java-type values))
-                (apply query-to-vec
-                       (format "SELECT %s AS value, id FROM %s WHERE %s %s"
-                               (column-transform column) (name table) column (jdbc/in-clause values))
-                       values))]
+              (query-to-vec
+               (format
+                "WITH values AS (SELECT unnest(?) as vals)
+                   SELECT %s AS value, id FROM %s
+                   INNER JOIN values ON values.vals = %s.%s"
+                (column-transform column) (name table) (name table) column)
+               (sutils/array-to-param sql-type java-type values))]
           [value id])))
 
 (defn realize-records!
@@ -1195,33 +1178,18 @@
    the specified date/time."
   [time]
   {:pre [(kitchensink/datetime? time)]}
-  (when (not (sutils/postgres?))
-    ;; there's an ON DELETE SET NULL foreign key constraint in postgres for
-    ;; this, but we can't do that in hsqldb
-    (jdbc/update! :certnames
-                  {:latest_report_id nil}
-                  ["latest_report_id in (select id from reports where producer_timestamp < ?)"
-                   (to-timestamp time)]))
   (jdbc/delete! :reports ["producer_timestamp < ?" (to-timestamp time)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database support/deprecation
 
-(defn db-deprecated-msg
-  "Returns a string with a deprecation message if the DB is deprecated,
-   nil otherwise."
-  []
-  (when-not (sutils/postgres?)
-    (str "HSQLDB support has been deprecated and will be removed in a future version. "
-         "Please migrate to PostgreSQL.")))
-
 (defn db-unsupported-msg
   "Returns a string with an unsupported message if the DB is not supported,
   nil otherwise."
   []
-  (when (and (sutils/postgres?)
-             (sutils/db-version-older-than? [9 4]))
-    "PostgreSQL DB versions older than 9.4 are no longer supported. Please upgrade Postgres and restart PuppetDB."))
+  (when (sutils/db-version-older-than? [9 4])
+    (str "PostgreSQL DB versions older than 9.4 are no longer supported."
+         "  Please upgrade Postgres and restart PuppetDB.")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -1343,9 +1311,7 @@
     (let [msg (utils/attention-msg msg)]
       (utils/println-err msg)
       (log/error msg)
-      (fail-fn)))
-  (when-let [msg (db-deprecated-msg)]
-    (log/warn msg)))
+      (fail-fn))))
 
 (def ^:dynamic *orphaned-path-gc-limit* 200)
 (def ^:dynamic *orphaned-value-gc-limit* 200)

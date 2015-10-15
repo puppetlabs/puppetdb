@@ -291,17 +291,6 @@
       (-> (sutils/parse-db-json data)
           (update :href to-href)))))
 
-(defn hsql?
-  "given a db-spec style database object, determine if hsqldb is being used."
-  [db-spec]
-  (cond
-    (:subprotocol db-spec)
-    (= (:subprotocol db-spec) "hsqldb")
-
-    (:datasource db-spec)
-    (re-matches #"jdbc:hsqldb.*"
-                (.getJdbcUrl (:datasource db-spec)))))
-
 (defn dashes->underscores
   "Accepts a string or a keyword as an argument, replaces all occurrences of the
   dash/hyphen character with an underscore, and returns the same type (string

@@ -42,7 +42,10 @@ During corruption, the simplest way to recover is to simply move the KahaDB dire
 
 (*Note:* it is very important for us that you preserve the old KahaDB directory. If the problem turns out to be something our Engineers haven't seen before we'll need that directory to replicate the problem, so make sure you preserve it.)
 
-In most cases this is enough, however this means that any data that was not processed may be lost. This is usually only transient queue data however, and is not the persisted data that is stored in your PostgreSQL or HSQLDB database, so in most cases it is not a major concern. For most cases re-running puppet on your nodes will resubmit these lost commands for processing.
+In most cases this is enough, though it does mean that any queued,
+unprocessed data may be lost (i.e. data that had not reached
+PostgreSQL yet).  Re-running puppet on your nodes should normally
+resubmit the lost commands.
 
 If this is going to be too destructive, there are a few things you can do. Before doing anything, backup your KahaDB directory so you can revert it after attempting the actions below:
 

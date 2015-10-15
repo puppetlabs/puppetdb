@@ -54,8 +54,8 @@
      :conn-max-age (pls/defaulted-maybe s/Int 60)
      :conn-keep-alive (pls/defaulted-maybe s/Int 45)
      :conn-lifetime (s/maybe s/Int)
-     :classname (s/maybe String)
-     :subprotocol (s/maybe String)
+     :classname (pls/defaulted-maybe String "org.postgresql.Driver")
+     :subprotocol (pls/defaulted-maybe String "postgresql")
      :subname (s/maybe String)
      :username String
      :user String
@@ -157,36 +157,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database config
 
-(defn hsql-default-connection
-  "Returns a map of default, file-backed, HyperSQL connection information"
-  [vardir]
-  {:classname   "org.hsqldb.jdbcDriver"
-   :subprotocol "hsqldb"
-   :subname     (format "file:%s;hsqldb.tx=mvcc;sql.syntax_pgs=true" (io/file vardir "db"))})
-
 (defn validate-db-settings
   "Throws a {:type ::cli-error :message m} exception
   describing the required additions if the [database] configuration
   doesn't specify classname, subprotocol and subname, all of which are
   now required."
-  [{global :global db-config :database :or {db-config {}} :as config}]
-  ;; If the user has none of these settings, then they've either been
-  ;; relying on the old HSQLDB default, or they just have no settings.
-  ;; Testing not-any? is fine because we catch partial configurations
-  ;; elsewhere.
-  (when (not-any? db-config [:classname :subprotocol :subname])
-    (let [default (hsql-default-connection (:vardir global))
-          setting-needed #(when-not (% db-config)
-                            (format "\n  %s = %s" (name %) (% default)))
-          msg (str "database configuration is now required."
-                   " Previously HSQLDB was the default, but support has been deprecated."
-                   " If you were relying on that default,"
-                   " please add this to the [database] section of your config file:"
-                   (setting-needed :classname)
-                   (setting-needed :subprotocol)
-                   (setting-needed :subname))]
-      (throw+ {:type ::cli-error
-               :message msg})))
+  [{db-config :database :or {db-config {}} :as config}]
+  (when (str/blank? (:subname db-config))
+    (throw+
+     {:type ::cli-error
+      :message
+      (str "PuppetDB requires PostgreSQL."
+           "  The [database] section must contain an appropriate"
+           " \"//host:port/database\" subname setting.")}))
   config)
 
 (defn convert-section-config
@@ -288,8 +271,14 @@
                (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))
 
 (defn warn-retirements
-  "Warn a user they are using the old [repl] block, instead of [nrepl]."
+  "Warns about configuration retirements.  Abruptly exits the entire
+  process if a [global] url-prefix is found."
   [config-data]
+  (doseq [param [:classname :subprotocol]]
+    (when (get-in config-data [:database param])
+      (utils/println-err
+       (format "The [database] %s setting has been retired and will be ignored."
+               (name param)))))
   (when (get-in config-data [:global :catalog-hash-conflict-debugging])
     (utils/println-err (str "The configuration item `catalog-hash-conflict-debugging`"
                             " in the [global] section is retired,"
@@ -303,7 +292,9 @@
                             " please remove this item from your config."
                             " PuppetDB has a non-configurable context route of `/pdb`."
                             " Consult the documentation for more details."))
-    (System/exit 1))
+    (flush)
+    (binding [*out* *err*] (flush))
+    (System/exit 1)) ; cf. PDB-2053
   config-data)
 
 (defn add-web-routing-service-config

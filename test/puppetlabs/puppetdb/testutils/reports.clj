@@ -64,12 +64,10 @@
 (defn munge-children
   "Strips out expanded data from the wire format if the database is HSQLDB"
   [report]
-  (if (sutils/postgres?)
-    (-> report
-        (update :resource_events munge-resource-events-for-comparison)
-        (update :metrics set)
-        (update :logs set))
-    (dissoc report :resource_events :metrics :logs)))
+  (-> report
+      (update :resource_events munge-resource-events-for-comparison)
+      (update :metrics set)
+      (update :logs set)))
 
 (defn normalize-time
   "Normalize start_time end_time, by coercing it, it forces the timezone to

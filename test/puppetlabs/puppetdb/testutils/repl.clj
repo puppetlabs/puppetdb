@@ -32,21 +32,6 @@
     (kitchensink/spit-ini new-config-file (merge-with merge (kitchensink/ini-to-map config) config-overrides))
     (svcs/-main "--config" config-path)))
 
-(defn launch-mem-puppetdb
-  "Launches a puppetdb instance using an in-memory HSQL database and creates a
-   temporary dirctory for MQ storage (vardir in the config). See launch-puppetdb
-   for more info on parameters."
-  [& {:keys [config config-overrides]
-      :or {config "config.sample.ini"}}]
-  (launch-puppetdb :config-overrides (merge-with merge
-                                                 {:global {:vardir (testutils/temp-dir)}
-                                                  :database (testutils/create-hsqldb-map)}
-                                                 config-overrides)))
-
-#_(def mem-puppetdb
-    (future
-      (launch-mem-puppetdb)))
-
 ;; Example of "reloaded" pattern with trapperkeeper
 
 (def system nil)

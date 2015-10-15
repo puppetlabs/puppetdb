@@ -32,21 +32,13 @@
       (is (= (db-serialize sample)
              "{\"a\":{\"a\":{\"b\":\"asdf\",\"m\":\"asdf\"},\"k\":[\"z\",{\"a\":1,\"z\":26},\"c\"],\"z\":\"asdf\"},\"b\":\"asdf\"}")))))
 
-(deftest ^{:hsqldb false} test-pg-extension?
+(deftest test-pg-extension?
   (testing "check if plpsql is installed"
     (is (true? (pg-extension? "plpgsql")))))
 
-(deftest ^{:hsqldb false} test-index-exists?
+(deftest test-index-exists?
   (testing "test to see if an index doesn't exists"
     (is (false? (index-exists? "somerandomname"))))
   (testing "test to see if an index does exist"
     (jdbc/do-commands "CREATE INDEX foobar ON fact_values(value_float)")
     (is (true? (index-exists? "foobar")))))
-
-(deftest ^{:postgres false} test-postgres?-hsql
-  (testing "false if hsqldb"
-    (is (false? (postgres?)))))
-
-(deftest ^{:hsqldb false} test-postgres?-pg
-  (testing "true if postgresql"
-    (is (true? (postgres?)))))

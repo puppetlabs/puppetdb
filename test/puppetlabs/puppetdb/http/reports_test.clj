@@ -3,6 +3,7 @@
             [clj-time.core :refer [now ago days]]
             [clj-time.format :as tfmt]
             [clojure.string :as str]
+            [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.query-eng :as qe]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.test :refer :all]
@@ -73,14 +74,15 @@
     (testing "logs projected"
       (is (= (query-result method endpoint ["extract" "logs"
                                             ["=" "certname" (:certname basic)]])
-             #{{:logs (merge {:href (utils/as-path "/v4/reports" report-hash "logs")}
-                             (when (sutils/postgres?) {:data (get-in basic [:logs :data])}))}})))
+             #{{:logs {:href (utils/as-path "/v4/reports" report-hash "logs")
+                       :data (get-in basic [:logs :data])}}})))
 
     (testing "metrics projected"
       (is (= (query-result method endpoint ["extract" "metrics"
                                             ["=" "certname" (:certname basic)]])
-             #{{:metrics (merge {:href (utils/as-path "/v4/reports" report-hash "metrics")}
-                                (when (sutils/postgres?) {:data (get-in basic [:metrics :data])}))}})))
+             #{{:metrics {:href (utils/as-path "/v4/reports" report-hash
+                                               "metrics")
+                          :data (get-in basic [:metrics :data])}}})))
 
     (testing "one projected column with a not"
       (is (= (query-result method endpoint ["extract" "hash"
@@ -159,28 +161,25 @@
         _ (store-example-report! basic1 (now))
         basic2 (assoc (:basic2 reports) :certname "bar.local")
         _ (store-example-report! basic2 (now))
-        initial-response (query-result method endpoint)
-        json-type (if (sutils/postgres?) "::json" "")]
+        initial-response (query-result method endpoint)]
 
     (testing "response is the same with logs split between json and jsonb"
       (jdbc/do-commands
-        (format "update reports
-                 set logs_json=(select logs%s from reports where certname='foo.local')
-                 where reports.certname='foo.local'" json-type)
-
-        "update reports
-         set logs=null where certname='foo.local'")
+       "update reports
+          set logs_json=(select logs::json from reports
+                           where certname='foo.local')
+            where reports.certname='foo.local'"
+       "update reports set logs=null where certname='foo.local'")
 
       (is (= (query-result method endpoint) initial-response)))
 
     (testing "response is the same with all logs in json column"
       (jdbc/do-commands
-        (format "update reports
-                 set logs_json=(select logs%s from reports where certname='bar.local')
-                 where reports.certname='bar.local'" json-type)
-
-        "update reports
-         set logs=null where certname='bar.local'")
+       "update reports
+          set logs_json=(select logs::json from reports
+                           where certname='bar.local')
+            where reports.certname='bar.local'"
+        "update reports set logs=null where certname='bar.local'")
 
       (is (= (query-result method endpoint) initial-response)))))
 
@@ -602,7 +601,7 @@
                   ["~" "certname" "[]"]
                   #".*invalid regular expression: brackets.*not balanced")))
 
-(deftestseq ^{:hsqldb false} pg-invalid-regexps
+(deftestseq pg-invalid-regexps
   [[version endpoint] endpoints
    method [:get :post]]
 

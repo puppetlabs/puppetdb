@@ -36,7 +36,6 @@
 
 (def json-agg-row (comp h/json-agg h/row-to-json))
 (def supported-fns #{"sum" "avg" "min" "max" "count"})
-(defn jsonb-type [] (if (su/postgres?) :jsonb :text))
 
 (defn hsql-hash-as-str
   [column-keyword]
@@ -47,10 +46,7 @@
 
 (defn hsql-uuid-as-str
   [column-keyword]
-  (->> column-keyword
-       name
-       su/sql-uuid-as-str
-       hcore/raw))
+  (-> column-keyword name (str "::text") hcore/raw))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Queryable Entities
@@ -298,9 +294,8 @@
   []
   (map->Query {:projections {"logs" {:type :json
                                      :queryable? false
-                                     :field (h/coalesce :logs
-                                                        (h/scast :logs_json
-                                                                 (jsonb-type)))}
+                                     :field (h/coalesce
+                                             :logs (h/scast :logs_json :jsonb))}
                              "hash" {:type :string
                                      :queryable? true
                                      :query-only? true
@@ -318,10 +313,10 @@
   []
   (map->Query {:projections {"metrics" {:type :json
                                         :queryable? false
-                                        :field (h/coalesce :reports.metrics
-                                                           (h/scast
-                                                             :reports.metrics_json
-                                                             (jsonb-type)))}
+                                        :field (h/coalesce
+                                                :reports.metrics
+                                                (h/scast :reports.metrics_json
+                                                         :jsonb))}
                              "hash" {:type :string
                                      :queryable? true
                                      :query-only? true
@@ -367,15 +362,17 @@
                  :field {:select [(h/row-to-json :t)]
                          :from [[{:select
                                   [[(h/coalesce :metrics
-                                                (h/scast :metrics_json (jsonb-type))) :data]
+                                                (h/scast :metrics_json :jsonb))
+                                    :data]
                                            [(hsql-hash-as-str :hash) :href]]} :t]]}
                  :expandable? true}
       "logs" {:type :json
               :queryable? false
               :field {:select [(h/row-to-json :t)]
-                      :from [[{:select [[(h/coalesce :logs
-                                                     (h/scast :logs_json (jsonb-type)))
-                                         :data] [(hsql-hash-as-str :hash) :href]]} :t]]}
+                      :from [[{:select [[(h/coalesce :logs (h/scast :logs_json
+                                                                    :jsonb))
+                                         :data]
+                                        [(hsql-hash-as-str :hash) :href]]} :t]]}
               :expandable? true}
       "receive_time"    {:type :timestamp
                          :queryable? true
@@ -752,42 +749,29 @@
        sort))
 
 (defn extract-fields
-  "Return all fields from a projection, if expand? true. If expand? false,
-   returns all fields except for expanded ones, which are returned as
-   [<identifier> k], where identifier is the component used to make the href.
-
-   Return nil for fields which are query-only? since these can't be projected
-   either."
-  [[name {:keys [expandable? field]}] entity expand?]
-  (let [href-key (case entity
-                       :catalogs :certname
-                       :factsets :certname
-                       :reports :hash
-                       nil)]
-    (if (or expand? (not expandable?))
-      [field name]
-      [href-key name])))
+  "Returns all fields from a projection.  Returns nil for fields which
+  are query-only? since these can't be projected either."
+  [[name {:keys [field]}] entity]
+  [field name])
 
 (defn merge-function-options
   "Optionally merge call and grouping into an existing query map.
-   Alias function calls with escape-quoted function name for hsqldb compatability.
    For instance, (merge-function-options {} ['count' :*] ['status'])"
   [selection call grouping]
   (cond-> selection
-    call (hsql/merge-select [(apply hcore/call call) (format "\"%s\"" (first call))])
+    call (hsql/merge-select [(apply hcore/call call) (first call)])
     grouping (assoc :group-by (map keyword grouping))))
 
 (defn honeysql-from-query
   "Convert a query to honeysql format"
   [{:keys [projected-fields group-by call selection projections entity]}]
-  (let [expand? (su/postgres?)
-        call (when-let [[f & args] (some-> call utils/vector-maybe)]
+  (let [call (when-let [[f & args] (some-> call utils/vector-maybe)]
                (apply vector f (or (seq (map keyword args)) [:*])))
         new-select (if (and call (empty? projected-fields))
                      []
                      (->> (sort projections)
                           (remove (comp :query-only? val))
-                          (mapv #(extract-fields % entity expand?))))]
+                          (mapv #(extract-fields % entity))))]
     (-> selection
         (assoc :select new-select)
         (merge-function-options call group-by)

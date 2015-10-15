@@ -211,9 +211,7 @@
   (jdbc/do-commands
    "CREATE INDEX idx_catalog_resources_catalog ON catalog_resources(catalog)"
    "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources(type,title)"
-   (if (sutils/postgres?)
-     "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)"
-     "select 1")))
+   "CREATE INDEX idx_catalog_resources_tags_gin ON catalog_resources USING gin(tags)"))
 
 (defn drop-old-tags-index
   "Drops the non-GIN tags index, which is never used (because nobody
@@ -234,9 +232,7 @@
   "Renames the `fact` column on `certname_facts` to `name`, for consistency."
   []
   (jdbc/do-commands
-   (if (sutils/postgres?)
-     "ALTER TABLE certname_facts RENAME COLUMN fact TO name"
-     "ALTER TABLE certname_facts ALTER COLUMN fact RENAME TO name")
+   "ALTER TABLE certname_facts RENAME COLUMN fact TO name"
    "ALTER INDEX idx_certname_facts_fact RENAME TO idx_certname_facts_name"))
 
 (defn add-reports-tables
@@ -338,12 +334,7 @@
   encountered some version strings that are longer than 40 chars."
   []
   (jdbc/do-commands
-   (condp = (:database @sutils/db-metadata)
-     "PostgreSQL" "ALTER TABLE reports ALTER puppet_version TYPE VARCHAR(255)"
-     "HSQL Database Engine" "ALTER TABLE reports ALTER puppet_version VARCHAR(255)"
-     (throw (IllegalArgumentException.
-             (format "Unsupported database engine '%s'"
-                     (:database @sutils/db-metadata)))))))
+   "ALTER TABLE reports ALTER puppet_version TYPE VARCHAR(255)"))
 
 (defn burgundy-schema-changes
   "Schema changes for the initial release of Burgundy. These include:
@@ -371,12 +362,8 @@
    "ALTER TABLE catalogs ADD COLUMN transaction_uuid VARCHAR(255) DEFAULT NULL"
    "CREATE INDEX idx_catalogs_transaction_uuid ON catalogs(transaction_uuid)"
 
-   (if (sutils/postgres?)
-     "ALTER TABLE catalog_resources RENAME COLUMN sourcefile TO file"
-     "ALTER TABLE catalog_resources ALTER COLUMN sourcefile RENAME TO file")
-   (if (sutils/postgres?)
-     "ALTER TABLE catalog_resources RENAME COLUMN sourceline TO line"
-     "ALTER TABLE catalog_resources ALTER COLUMN sourceline RENAME TO line")))
+   "ALTER TABLE catalog_resources RENAME COLUMN sourcefile TO file"
+   "ALTER TABLE catalog_resources RENAME COLUMN sourceline TO line"))
 
 (defn add-latest-reports-table
   "Add `latest_reports` table for easy lookup of latest report for each certname."
@@ -483,13 +470,8 @@
    "ALTER TABLE edges_transform RENAME to edges"
    "ALTER TABLE catalogs_transform RENAME to catalogs"
 
-   ;; catalogs: Add constraints to new catalogs table
-   ;;   hsqldb automatically creates the primary key when we created the table
-   ;;   with a bigserial so its only needed for pgsql.
-   (if (sutils/postgres?)
-     "ALTER TABLE catalogs
-        ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)"
-     "select 1")
+   "ALTER TABLE catalogs
+      ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)"
    "ALTER TABLE catalogs
       ADD CONSTRAINT catalogs_hash_key UNIQUE (hash)"
 
@@ -547,11 +529,8 @@
   since the more common value is false its not useful to index this."
   []
   (jdbc/do-commands
-   (if (sutils/postgres?)
-     "CREATE INDEX idx_catalog_resources_exported_true
-         ON catalog_resources (exported) WHERE exported = true"
-     "CREATE INDEX idx_catalog_resources_exported
-         ON catalog_resources (exported)")))
+   "CREATE INDEX idx_catalog_resources_exported_true
+      ON catalog_resources (exported) WHERE exported = true"))
 
 (defn differential-edges
   "Convert edges so it becomes a 1 to many relationship with certnames
@@ -631,9 +610,7 @@
             ;;Rename catalogs_transform to catalogs, replace constraints
             "ALTER TABLE catalogs_transform RENAME to catalogs"
 
-            (when (sutils/postgres?)
-              "ALTER TABLE catalogs
-               ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)")
+            "ALTER TABLE catalogs ADD CONSTRAINT catalogs_pkey PRIMARY KEY (id)"
 
             "ALTER TABLE catalog_resources
              ADD CONSTRAINT catalog_resources_catalog_id_fkey FOREIGN KEY (catalog_id)
@@ -667,9 +644,7 @@
 
    "ALTER TABLE catalogs ADD environment_id integer"
 
-   (if (sutils/postgres?)
-     "ALTER TABLE catalogs ALTER COLUMN api_version DROP NOT NULL"
-     "ALTER TABLE catalogs ALTER COLUMN api_version SET NULL")
+   "ALTER TABLE catalogs ALTER COLUMN api_version DROP NOT NULL"
 
    "ALTER TABLE certname_facts_metadata ADD environment_id integer"
    "ALTER TABLE reports ADD environment_id integer"
@@ -853,32 +828,28 @@
   (jdbc/delete! :fact_paths
                 ["ID NOT IN (SELECT path_id FROM fact_values)"])
 
-  (when (sutils/postgres?)
-    (jdbc/do-commands
-
-     "ALTER TABLE fact_values DROP CONSTRAINT fact_values_path_id_fk"
-     (str "ALTER TABLE fact_values ADD CONSTRAINT fact_values_path_id_fk
-           FOREIGN KEY (path_id) REFERENCES fact_paths (id) MATCH SIMPLE
-           ON UPDATE NO ACTION ON DELETE NO ACTION
-           DEFERRABLE")
-
-     "ALTER TABLE facts DROP CONSTRAINT fact_value_id_fk"
-     (str "ALTER TABLE facts ADD CONSTRAINT fact_value_id_fk
-           FOREIGN KEY (fact_value_id) REFERENCES fact_values(id)
-           ON UPDATE NO ACTION  ON DELETE NO ACTION
-           DEFERRABLE")))
-
   (jdbc/do-commands
+
+   "ALTER TABLE fact_values DROP CONSTRAINT fact_values_path_id_fk"
+   "ALTER TABLE fact_values ADD CONSTRAINT fact_values_path_id_fk
+      FOREIGN KEY (path_id) REFERENCES fact_paths (id) MATCH SIMPLE
+      ON UPDATE NO ACTION ON DELETE NO ACTION
+      DEFERRABLE"
+
+   "ALTER TABLE facts DROP CONSTRAINT fact_value_id_fk"
+   "ALTER TABLE facts ADD CONSTRAINT fact_value_id_fk
+      FOREIGN KEY (fact_value_id) REFERENCES fact_values(id)
+      ON UPDATE NO ACTION  ON DELETE NO ACTION
+      DEFERRABLE"
+
    "CREATE INDEX fact_value_id_idx ON facts(fact_value_id)"))
 
 (defn switch-value-string-index-to-gin
   "This drops the fact_values_string_trgm index so that it can be recreated
   as a GIN index."
   []
-  (when (and (sutils/postgres?)
-             (sutils/index-exists? "fact_values_string_trgm"))
-    (jdbc/do-commands
-      "DROP INDEX fact_values_string_trgm")))
+  (when (sutils/index-exists? "fact_values_string_trgm")
+    (jdbc/do-commands "DROP INDEX fact_values_string_trgm")))
 
 (defn lift-fact-paths-into-facts
   "Pairs paths and values directly in facts, i.e. change facts from (id
@@ -961,9 +932,8 @@
    "CREATE INDEX facts_fact_path_id_idx ON facts(fact_path_id)"
    "CREATE INDEX facts_fact_value_id_idx ON facts(fact_value_id)"
 
-   (if (sutils/postgres?) "ANALYZE facts" "SELECT 1")
+   "ANALYZE facts"
 
-   ;; These are for the more pedantic HSQLDB.
    "ALTER TABLE fact_paths DROP CONSTRAINT fact_paths_path_type_id_key"
    "ALTER TABLE fact_paths DROP CONSTRAINT fact_paths_value_type_id"
    "DROP INDEX fact_paths_value_type_id"
@@ -983,11 +953,7 @@
   ;;   Ensuring producer_timestamp is NOT NULL
   ;;   Changing the types of hashes and uuids in postgres to bytea and uuid respectively
   []
-  (let [hash-type (if (sutils/postgres?) "bytea" "varchar(40)")
-        uuid-type (if (sutils/postgres?) "uuid" "varchar(255)")
-        json-type (if (sutils/postgres?) "json" "text")
-        munge-hash (if (sutils/postgres?) (fn [column] (format "('\\x' || %s)::bytea" column)) identity)
-        munge-uuid (if (sutils/postgres?) (fn [column] (format "%s::uuid" column)) identity)]
+  (let [munge-hash (fn [column] (format "('\\x' || %s)::bytea" column))]
 
     (jdbc/do-commands
       "UPDATE catalogs SET producer_timestamp=timestamp
@@ -1001,7 +967,7 @@
        ["certname" "text NOT NULL"]
        ["timestamp" "timestamp with time zone NOT NULL"]
        ["environment_id" "bigint"]
-       ["hash" hash-type]
+       ["hash" "bytea"]
        ["producer_timestamp" "timestamp with time zone NOT NULL"])
 
       "INSERT INTO factsets_transform
@@ -1012,7 +978,7 @@
       (sql/create-table-ddl
        :fact_values_transform
        ["id" "bigint NOT NULL DEFAULT nextval('fact_values_id_seq')"]
-       ["value_hash" hash-type "NOT NULL"]
+       ["value_hash" "bytea" "NOT NULL"]
        ["value_type_id" "bigint NOT NULL"]
        ["value_integer" "bigint"]
        ["value_float" "double precision"]
@@ -1029,7 +995,7 @@
                 FROM fact_values")
 
       (sql/create-table-ddl :resource_params_cache_transform
-                            ["resource" hash-type "NOT NULL"]
+                            ["resource" "bytea" "NOT NULL"]
                             ["parameters" "TEXT"])
 
       (str "INSERT INTO resource_params_cache_transform
@@ -1040,7 +1006,7 @@
       (sql/create-table-ddl
        :catalog_resources_transform
        ["catalog_id" "bigint NOT NULL"]
-       ["resource" hash-type "NOT NULL"]
+       ["resource" "bytea" "NOT NULL"]
        ["tags" (sutils/sql-array-type-string "TEXT") "NOT NULL"]
        ["type" "TEXT" "NOT NULL"]
        ["title" "TEXT" "NOT NULL"]
@@ -1055,7 +1021,7 @@
                 FROM catalog_resources")
 
       (sql/create-table-ddl :resource_params_transform
-                            ["resource" hash-type "NOT NULL"]
+                            ["resource" "bytea" "NOT NULL"]
                             ["name"  "TEXT" "NOT NULL"]
                             ["value" "TEXT" "NOT NULL"])
 
@@ -1066,8 +1032,8 @@
 
       (sql/create-table-ddl :edges_transform
                             ["certname" "TEXT" "NOT NULL"]
-                            ["source" hash-type "NOT NULL"]
-                            ["target" hash-type "NOT NULL"]
+                            ["source" "bytea" "NOT NULL"]
+                            ["target" "bytea" "NOT NULL"]
                             ["type" "TEXT" "NOT NULL"])
 
       (str "INSERT INTO edges_transform (certname, source, target, type)
@@ -1080,8 +1046,8 @@
       (sql/create-table-ddl
        :catalogs_transform
        ["id" "bigint NOT NULL DEFAULT nextval('catalogs_id_seq')"]
-       ["hash" hash-type "NOT NULL"]
-       ["transaction_uuid" uuid-type]
+       ["hash" "bytea" "NOT NULL"]
+       ["transaction_uuid" "uuid"]
        ["certname" "text NOT NULL"]
        ["producer_timestamp" "timestamp with time zone NOT NULL"]
        ["api_version" "INTEGER NOT NULL"]
@@ -1093,7 +1059,7 @@
               (id, hash, transaction_uuid, certname, producer_timestamp,
                api_version, timestamp, catalog_version, environment_id)
               SELECT id, " (munge-hash "hash") ",
-                   " (munge-uuid "transaction_uuid") ", certname,
+                     transaction_uuid::uuid, certname,
                      producer_timestamp, api_version, timestamp,
                      catalog_version, environment_id
                 FROM catalogs")
@@ -1104,8 +1070,8 @@
       (sql/create-table-ddl
        :reports_transform
        ["id" "bigint NOT NULL DEFAULT nextval('reports_id_seq')"]
-       ["hash" hash-type "NOT NULL"]
-       ["transaction_uuid" uuid-type]
+       ["hash" "bytea" "NOT NULL"]
+       ["transaction_uuid" "uuid"]
        ["certname" "text NOT NULL"]
        ["puppet_version" "varchar(255) NOT NULL"]
        ["report_format" "smallint NOT NULL"]
@@ -1118,18 +1084,17 @@
        ["environment_id" "bigint"]
        ["status_id" "bigint"]
        ;; Insert columns in reports to be populated by metrics and logs.
-       ;; Text for hsql, JSON for postgres.
-       ["metrics" json-type]
-       ["logs" json-type])
+       ["metrics" "json"]
+       ["logs" "json"])
 
       (str "INSERT INTO reports_transform (
             hash, certname, puppet_version, report_format, configuration_version,
             start_time, end_time, receive_time, transaction_uuid, environment_id,
             status_id)
             SELECT " (munge-hash "hash") ", certname, puppet_version, report_format,
-            configuration_version, start_time, end_time, receive_time, "
-            (munge-uuid "transaction_uuid") ", environment_id, status_id
-            FROM reports")
+              configuration_version, start_time, end_time, receive_time,
+              transaction_uuid::uuid, environment_id, status_id
+              FROM reports")
 
       (sql/create-table-ddl
        :resource_events_transform
@@ -1219,11 +1184,8 @@
 
       "ALTER TABLE catalog_resources ADD CONSTRAINT catalog_resources_pkey
          PRIMARY KEY (catalog_id, type, title)"
-      (if (sutils/postgres?)
-        "CREATE INDEX idx_catalog_resources_exported_true
-           ON catalog_resources (exported) WHERE exported = true"
-        "CREATE INDEX idx_catalog_resources_exported
-           ON catalog_resources (exported)")
+      "CREATE INDEX idx_catalog_resources_exported_true
+         ON catalog_resources (exported) WHERE exported = true"
       "CREATE INDEX idx_catalog_resources_type ON catalog_resources(type)"
       "CREATE INDEX idx_catalog_resources_resource
          ON catalog_resources(resource)"
@@ -1300,11 +1262,9 @@
          FOREIGN KEY (certname) REFERENCES certnames(certname)
          ON DELETE CASCADE"
 
-      (if (sutils/postgres?)
-        "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey
+      "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey
            FOREIGN KEY (latest_report_id) REFERENCES reports(id)
-           ON DELETE SET NULL"
-        "select 1"))))
+           ON DELETE SET NULL")))
 
 (defn add-expired-to-certnames
   "Add a 'expired' column to the 'certnames' table, to track
@@ -1338,9 +1298,7 @@
              (map update-value-json)
              dorun)))
     (jdbc/do-commands
-      (if (sutils/postgres?)
-        "ALTER TABLE fact_values RENAME COLUMN value_json TO value"
-        "ALTER TABLE fact_values ALTER COLUMN value_json RENAME TO value"))))
+     "ALTER TABLE fact_values RENAME COLUMN value_json TO value")))
 
 (defn add-producer-timestamp-to-reports []
   (jdbc/do-commands
@@ -1384,11 +1342,9 @@
      FOREIGN KEY (certname)
      REFERENCES certnames(certname) ON DELETE CASCADE"
 
-   (if (sutils/postgres?)
-     "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey
-        FOREIGN KEY (latest_report_id)
-        REFERENCES reports(id) ON DELETE SET NULL"
-     "select 1")))
+   "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey
+      FOREIGN KEY (latest_report_id)
+      REFERENCES reports(id) ON DELETE SET NULL"))
 
 (defn add-certname-id-to-resource-events
   []
@@ -1444,26 +1400,16 @@
 (defn rename-environments-name-to-environment
   []
   (jdbc/do-commands
-    (if (sutils/postgres?)
-      "ALTER TABLE environments RENAME COLUMN name TO environment"
-      "ALTER TABLE environments ALTER COLUMN name RENAME TO environment")))
-
-(defn rename-column
-  [table old-name new-name]
-  (let [rename-str (if (sutils/postgres?)
-                     "ALTER TABLE %s RENAME COLUMN %s TO %s"
-                     "ALTER TABLE %s ALTER COLUMN %s RENAME TO %s")]
-    (format rename-str table old-name new-name)))
+   "ALTER TABLE environments RENAME COLUMN name TO environment"))
 
 (defn add-jsonb-columns-for-metrics-and-logs
   []
-  (let [jsonb-type (if (sutils/postgres?) "jsonb" "text")]
-    (jdbc/do-commands
-      (rename-column "reports" "metrics" "metrics_json")
-      (rename-column "reports" "logs" "logs_json")
-      (format "ALTER TABLE reports ADD COLUMN metrics %s DEFAULT NULL" jsonb-type)
-      (format "ALTER TABLE reports ADD COLUMN logs %s DEFAULT NULL" jsonb-type)
-      (format "ALTER TABLE reports ADD COLUMN resources %s DEFAULT NULL" jsonb-type))))
+  (jdbc/do-commands
+   "ALTER TABLE reports RENAME COLUMN metrics TO metrics_json"
+   "ALTER TABLE reports RENAME COLUMN logs TO logs_json"
+   "ALTER TABLE reports ADD COLUMN metrics jsonb DEFAULT NULL"
+   "ALTER TABLE reports ADD COLUMN logs jsonb DEFAULT NULL"
+   "ALTER TABLE reports ADD COLUMN resources jsonb DEFAULT NULL"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
@@ -1579,19 +1525,18 @@
        (doseq [[version migration] pending]
          (log/infof "Applying database migration version %d" version)
          (sql-or-die (fn [] (migration) (record-migration! version)))))
-      (when (sutils/postgres?)
-        ;; Make sure all tables (even small static tables) are
-        ;; analyzed at least once.  Note that vacuum cannot be
-        ;; called from within a transaction block.
-        ;; Make sure we're creating a new connection (the new
-        ;; clojure.jdbc API will re-use an existing one).
-        (assert (not (:connection db-connection-pool)))
-        (jdbc/with-db-connection db-connection-pool
-          (log/info "Analyzing database")
-          (sql-or-die (fn []
-                        (-> (doto (:connection (jdbc/db)) (.setAutoCommit true))
-                            .createStatement
-                            (.execute "vacuum (analyze, verbose)")))))))
+      ;; Make sure all tables (even small static tables) are
+      ;; analyzed at least once.  Note that vacuum cannot be
+      ;; called from within a transaction block.
+      ;; Make sure we're creating a new connection (the new
+      ;; clojure.jdbc API will re-use an existing one).
+      (assert (not (:connection db-connection-pool)))
+      (jdbc/with-db-connection db-connection-pool
+        (log/info "Analyzing database")
+        (sql-or-die (fn []
+                      (-> (doto (:connection (jdbc/db)) (.setAutoCommit true))
+                          .createStatement
+                          (.execute "vacuum (analyze, verbose)"))))))
     (log/info "There are no pending migrations")))
 
 ;; SPECIAL INDEX HANDLING
@@ -1611,23 +1556,14 @@
 (defn indexes!
   "Create missing indexes for applicable database platforms."
   [config]
-  (if (and (sutils/postgres?)
-           (sutils/db-version-newer-than? [9 2]))
-    (jdbc/with-db-transaction []
-     (if (sutils/pg-extension? "pg_trgm")
-       (trgm-indexes!)
-       (log/warn
-        (str
-         "Missing PostgreSQL extension `pg_trgm`\n\n"
-         "We are unable to create the recommended pg_trgm indexes due to\n"
-         "the extension not being installed correctly. Run the command:\n\n"
-         "    CREATE EXTENSION pg_trgm;\n\n"
-         "as the database super user on the PuppetDB database to correct\n"
-         "this, then restart PuppetDB.\n"))))
-    (when (conf/foss? config)
+  (jdbc/with-db-transaction []
+    (if (sutils/pg-extension? "pg_trgm")
+      (trgm-indexes!)
       (log/warn
        (str
-        "Unable to install optimal indexing\n\n"
-        "We are unable to create optimal indexes for your database.\n"
-        "For maximum index performance, we require PostgreSQL 9.4 or\n"
-        "greater.\n")))))
+        "Missing PostgreSQL extension `pg_trgm`\n\n"
+        "We are unable to create the recommended pg_trgm indexes due to\n"
+        "the extension not being installed correctly. Run the command:\n\n"
+        "    CREATE EXTENSION pg_trgm;\n\n"
+        "as the database super user on the PuppetDB database to correct\n"
+        "this, then restart PuppetDB.\n")))))

@@ -57,30 +57,14 @@
 
 (deftest database-configuration
   (testing "database"
-    (testing "validate-db-settings"
-      (let [cfg {:database {:classname "foo" :subprotocol "bar" :subname "baz"}}]
-        (is (= cfg (validate-db-settings cfg))))
-      (is (thrown+-with-msg? [:type ::conf/cli-error]
-                             #"database configuration is now required.* classname = .* subprotocol = .* subname = .*"
-                             (validate-db-settings {})))
-      (let [settings [:classname :subprotocol :subname]]
-        (doseq [x settings]
-          (let [other-settings (remove #(= % x) settings)
-                cfg-rx (re-pattern
-                        (apply str "database configuration is now required.*"
-                               (map #(str " " (name %) " = .*")
-                                    other-settings)))]
-            ;; Make sure the message contains settings for all but x.
-            (is (thrown+-with-msg? [:type ::conf/cli-error]
-                                   cfg-rx
-                                   (validate-db-settings {x "foo"})))
-            ;; Make sure the message doesn't contain a setting for x.
-            (is (try+
-                 (validate-db-settings {:database {x "foo"}})
-                 true
-                 (catch [:type ::conf/cli-error] {:keys [message]}
-                   (not (re-find (re-pattern (str " " (name x) " = "))
-                                 message)))))))))
+    (let [cfg {:database {:subname "baz"}}
+          req-re #".* must contain an appropriate .* subname setting"]
+      (testing "validate-db-settings"
+        ;; Valid config
+        (is (= cfg (validate-db-settings cfg)))
+        ;; Empty config
+        (is (thrown+-with-msg? [:type ::conf/cli-error] req-re
+                               (validate-db-settings {})))))
 
     (testing "the read-db defaulted to the specified write-db"
       (let [config (-> {:database {:classname "something"
@@ -106,39 +90,43 @@
         (is (= "stuff" (get-in config [:read-database :subname])))))))
 
 (deftest garbage-collection
-  (let [add-dummy-db #(update % :database merge (hsql-default-connection "/x"))
-        configure-dbs (fn [config]
-                        (-> config
-                            add-dummy-db
-                            (configure-section :database
-                                               write-database-config-in
-                                               write-database-config-out)))]
+  (let [config-with (fn [base-config]
+                      (-> base-config
+                          (update :database merge
+                                  (first tu/available-postgres-configs))
+                          (configure-section :database
+                                             write-database-config-in
+                                             write-database-config-out)))]
     (testing "gc-interval"
       (testing "should use the value specified in minutes"
-        (let [{:keys [gc-interval]} (:database (configure-dbs {:database {:gc-interval 900}}))]
+        (let [gc-interval (get-in (config-with {:database {:gc-interval 900}})
+                                  [:database :gc-interval])]
           (is (pl-time/period? gc-interval))
           (is (= 900 (pl-time/to-minutes gc-interval)))))
       (testing "should default to 60 minutes"
-        (let [{:keys [gc-interval]} (:database (configure-dbs {:database {}}))]
+        (let [gc-interval (get-in (config-with {:database {}})
+                                  [:database :gc-interval])]
           (is (pl-time/period? gc-interval))
           (is (= 60 (pl-time/to-minutes gc-interval))))))
 
     (testing "node-ttl"
       (testing "should parse node-ttl and return a Pl-Time/Period object"
-        (let [{:keys [node-ttl]} (:database (configure-dbs { :database { :node-ttl "10d" }}))]
+        (let [node-ttl (get-in (config-with {:database {:node-ttl "10d"}})
+                               [:database :node-ttl])]
           (is (pl-time/period? node-ttl))
           (is (= (time/days 10) (time/days (pl-time/to-days node-ttl))))))
       (testing "should default to zero (no expiration)"
-        (let [{:keys [node-ttl] :as dbconfig} (:database (configure-dbs {}))]
+        (let [node-ttl (get-in (config-with {}) [:database :node-ttl])]
           (is (pl-time/period? node-ttl))
           (is (= 0 (pl-time/to-seconds node-ttl))))))
     (testing "report-ttl"
       (testing "should parse report-ttl and produce report-ttl"
-        (let [{:keys [report-ttl]} (:database (configure-dbs { :database { :report-ttl "10d" }}))]
+        (let [report-ttl (get-in (config-with {:database {:report-ttl "10d"}})
+                                 [:database :report-ttl])]
           (is (pl-time/period? report-ttl))
           (is (= (time/days 10) (time/days (pl-time/to-days report-ttl))))))
       (testing "should default to 14 days"
-        (let [{:keys [report-ttl]} (:database (configure-dbs {}))]
+        (let [report-ttl (get-in (config-with {}) [:database :report-ttl])]
           (is (pl-time/period? report-ttl))
           (is (= (time/days 14) (time/days (pl-time/to-days report-ttl)))))))))
 
@@ -203,4 +191,11 @@
           out-str (with-out-str
                     (binding [*err* *out*]
                       (warn-retirements bad-config)))]
-      (is (.contains out-str "[repl] is now retired")))))
+      (is (.contains out-str "[repl] is now retired"))))
+  (testing "[database] config deprecations"
+    (doseq [param [:classname :subprotocol]]
+      (is (= (format "The [database] %s setting has been retired and will be ignored.\n"
+                     (name param))
+             (with-out-str
+               (binding [*err* *out*]
+                 (warn-retirements {:database {param "foo"}}))))))))

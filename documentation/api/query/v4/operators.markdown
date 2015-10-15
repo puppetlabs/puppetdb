@@ -69,10 +69,11 @@ The following example would match if the `certname` field's actual value resembl
 
     ["~", "certname", "www\\d+\\.example\\.com"]
 
-> **Note:** Regular expression matching is performed by the database backend, and the available regexp features are backend-dependent. For best results, use the simplest and most common features that can accomplish your task. See the links below for details:
->
-> * [PostgreSQL regexp features](http://www.postgresql.org/docs/9.4/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
-> * [HSQLDB (embedded database) regexp features](http://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html)
+> **Note:** Regular expression matching is performed by the database
+> backend, so the available
+> [regexp features](http://www.postgresql.org/docs/9.4/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
+> are determined by PostgreSQL.  For best results, use the simplest
+> and most common features that can accomplish your task.
 
 ### `~>` (regexp array match)
 

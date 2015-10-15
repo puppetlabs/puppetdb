@@ -16,7 +16,7 @@
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
-(deftestseq ^{:hsqldb false} query-aggregate-event-counts
+(deftestseq query-aggregate-event-counts
   [[version endpoint] endpoints
    method [:post :get]]
 
@@ -69,7 +69,7 @@
                                   :counts_filter (vector-param method ["<" "successes" 1])})]
       (is (= (first response) expected)))))
 
-(deftestseq ^{:hsqldb false} query-distinct-event-counts
+(deftestseq query-distinct-event-counts
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -95,7 +95,7 @@
          ["<=" "run_start_time" current-time-str]
          ["<=" "run_end_time" current-time-str])))
 
-(deftestseq ^{:hsqldb false} query-with-environment
+(deftestseq query-with-environment
   [[version endpoint] endpoints
    method [:get :post]]
 
