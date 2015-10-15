@@ -31,26 +31,34 @@
   (.getLogger (LoggerFactory/getILoggerFactory)
               (if (class? id) id (str id))))
 
+(defn call-with-log-level
+  "Sets the (logback) log level for the logger specified by logger-id
+  during the execution of f.  If logger-id is not a class, it is
+  converted via str, and the level must be a clojure.tools.logging
+  key, i.e. :info, :error, etc."
+  [logger-id level f]
+  ;; Specify the root logger via org.slf4j.Logger/ROOT_LOGGER_NAME.
+  ;; Assumes use of logback (i.e. logger supports Levels).
+  (let [logger (puppetlabs.puppetdb.testutils.log/find-logger logger-id)
+        original-level (.getLevel logger)]
+    (try
+      (.setLevel logger (case ~level
+                          :trace Level/TRACE
+                          :debug Level/DEBUG
+                          :info Level/INFO
+                          :warn Level/WARN
+                          :error Level/ERROR
+                          :fatal Level/ERROR))
+      (f)
+      (finally (.setLevel logger original-level)))))
+
 (defmacro with-log-level
   "Sets the (logback) log level for the logger specified by logger-id
   during the execution of body.  If logger-id is not a class, it is
   converted via str, and the level must be a clojure.tools.logging
   key, i.e. :info, :error, etc."
   [logger-id level & body]
-  ;; Specify the root logger via org.slf4j.Logger/ROOT_LOGGER_NAME.
-  ;; Assumes use of logback (i.e. logger supports Levels).
-  `(let [logger# (#'puppetlabs.puppetdb.testutils.log/find-logger ~logger-id)
-         original-level# (.getLevel logger#)]
-     (try
-       (.setLevel logger# (case ~level
-                            :trace Level/TRACE
-                            :debug Level/DEBUG
-                            :info Level/INFO
-                            :warn Level/WARN
-                            :error Level/ERROR
-                            :fatal Level/ERROR))
-       (do ~@body)
-       (finally (.setLevel logger# original-level#)))))
+  `(call-with-log-level ~logger-id ~level (fn [] ~@body)))
 
 (defn- log-event-listener
   "Returns a log Appender that will call (listen event) for each log event."
@@ -66,42 +74,47 @@
       (start [this] true)
       (stop [this] true))))
 
-(defn- call-with-additional-log-appenders [logger-id appenders body]
+(defn call-with-additional-log-appenders [logger-id appenders f]
+  "Adds the specified appenders to the logger specified by logger-id,
+  calls f, and then removes them.  If logger-id is not a class, it is
+  converted via str."
   (let [logger (find-logger logger-id)]
     (try
       (doseq [appender appenders]
         (.addAppender logger appender))
-      (body)
+      (f)
       (finally
         (doseq [appender appenders]
           (.detachAppender logger appender))))))
 
 (defmacro with-additional-log-appenders
-  "Runs body with the appenders temporarily added to the logger
-  specified by logger-id.  If logger-id is not a class, it is
-  converted via str."
+  "Adds the specified appenders to the logger specified by logger-id,
+  evaluates body, and then removes them.  If logger-id is not a class,
+  it is converted via str."
   [logger-id appenders & body]
-  `(#'puppetlabs.puppetdb.testutils.log/call-with-additional-log-appenders
-     ~logger-id ~appenders (fn [] ~@body)))
+  `(call-with-additional-log-appenders ~logger-id ~appenders (fn [] ~@body)))
 
-(defn- call-with-log-appenders [logger-id appenders body]
+(defn call-with-log-appenders [logger-id appenders f]
+  "Replaces the appenders of the logger specified by logger-id with
+  the specified appenders, calls f, and then restores the original
+  appenders.  If logger-id is not a class, it is converted via str."
   (let [logger (find-logger logger-id)
         original-appenders (iterator-seq (.iteratorForAppenders logger))]
     (try
       (doseq [appender original-appenders]
         (.detachAppender logger appender))
-      (call-with-additional-log-appenders logger-id appenders body)
+      (call-with-additional-log-appenders logger-id appenders f)
       (finally
         (doseq [appender original-appenders]
           (.addAppender logger appender))))))
 
 (defmacro with-log-appenders
-  "Runs body with the current appenders of the logger specified by
-  logger-id replaced by the specified appenders.  If logger-id is not
-  a class, it is converted via str."
+  "Replaces the appenders of the logger specified by logger-id with
+  the specified appenders, evaluates body, and then restores the
+  original appenders.  If logger-id is not a class, it is converted
+  via str."
   [logger-id appenders & body]
-  `(#'puppetlabs.puppetdb.testutils.log/call-with-log-appenders
-     ~logger-id ~appenders (fn [] ~@body)))
+  `(call-with-log-appenders ~logger-id ~appenders (fn [] ~@body)))
 
 (defmacro with-log-event-listener
   "Calls (listen event) for each logger-id event produced during the
@@ -150,7 +163,7 @@
                  (when-let [cause (.getThrowableProxy event)]
                    (re-find annoying-peer-error-rx (.getMessage cause)))))))
 
-(defn- call-with-log-suppressed-unless-notable [notable-event? f]
+(defn call-with-log-suppressed-unless-notable [notable-event? f]
   (let [problem (atom false)
         log-path (fs/absolute-path (temp-file "pdb-suppressed" ".log"))]
     (try
@@ -178,6 +191,4 @@
   correctly if the system logback config is altered during the
   execution of the body."
   [notable-event? & body]
-  `(#'puppetlabs.puppetdb.testutils.log/call-with-log-suppressed-unless-notable
-    ~notable-event?
-    (fn [] ~@body)))
+  `(call-with-log-suppressed-unless-notable ~notable-event? (fn [] ~@body)))
