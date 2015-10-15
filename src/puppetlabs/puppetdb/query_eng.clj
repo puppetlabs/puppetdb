@@ -57,28 +57,17 @@
      :resources {:munge resources/munge-result-rows
                  :rec eng/resources-query}}))
 
-(defn assoc-in-idx!
-  "assoc into the entity index as if query recs were maps"
-  [[entity & ks] v]
-  (if (and (= :rec (first ks)) (next ks))
-    ;; if it's a query rec and we're updating a nested component, call the
-    ;; existing rec and wrap val in a function
-    (let [rec' (-> ((get-in @entity-fn-idx [entity :rec]))
-                   (assoc-in (next ks) v))]
-      (swap! entity-fn-idx assoc-in [entity :rec] (fn [] rec')))
-    (swap! entity-fn-idx assoc-in (cons entity ks) v)))
-
 (defn get-munge
   [entity]
   (get-in @entity-fn-idx [entity :munge]))
 
 (defn orderable-columns
   [query-rec]
-  (if-not query-rec
-    []
-    (for [[projection-key projection-value] (:projections (query-rec))
-          :when (and (not= projection-key "value") (:queryable? projection-value))]
-      (keyword projection-key))))
+  (vec
+   (for [[projection-key projection-value] (:projections query-rec)
+         :when (and (not= projection-key "value")
+                    (:queryable? projection-value))]
+     (keyword projection-key))))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
