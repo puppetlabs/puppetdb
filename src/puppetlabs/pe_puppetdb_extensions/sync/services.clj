@@ -15,7 +15,6 @@
             [schema.core :as s]
             [clj-time.coerce :refer [to-date-time]]
             [slingshot.slingshot :refer [throw+ try+]]
-            [clojure.core.match :as m]
             [com.rpl.specter :as sp]
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.http :as http]))
@@ -88,125 +87,12 @@
 
         :else true))))
 
-(defn coerce-to-hocon-style-config
-  "Convert ini-style configuration structure to hocon-style, or just pass a
-  config through if it's already hocon-style."
-  [sync-config]
-  (m/match [sync-config]
-    [{:remotes _}]
-    sync-config
-
-    [nil]
-    {:remotes []}
-
-    [({:server_urls server_urls, :intervals intervals} :only [:server_urls :intervals])]
-    (let [server_urls (clojure.string/split server_urls #",")
-          intervals (clojure.string/split intervals #",")]
-      (when-not (= (count server_urls) (count intervals))
-        (throw+-cli-error! "The sync configuration must contain the same number of server_urls and intervals"))
-      {:remotes (map #(hash-map :server_url %1, :interval %2)
-                     server_urls
-                     intervals)})
-
-    [{:server_urls _}]
-    (throw+-cli-error! "When specifying server_urls in the sync config, you must also provide an 'intervals' entry.")
-
-    [{:intervals _}]
-    (throw+-cli-error! "When specifying intervals in the sync config, you must also provide a 'sync_urls' entry.")
-
-    :else
-    (throw+-cli-error! "The [sync] section must contain settings for server_urls and intervals, and no more.")))
-
-(defn check-sync-config-for-extra-keys! [sync-config]
-  (if (not= [:remotes] (keys sync-config))
-    (throw+-cli-error! "The 'sync' config section may only contain a 'remotes' key.")
-
-    (do
-     (doseq [remote (:remotes sync-config)]
-       (if (not= #{:server_url :interval} (set (keys remote)))
-         (throw+-cli-error! "Each remote must contain a 'server_url' and 'interval' key, and no more.")))
-     sync-config)))
-
-(defn try-parse-period [x]
-  (try
-    (parse-period x)
-    (catch Exception _
-      nil)))
-
-(defn coerce-to-period [x]
-  (cond
-    (period? x) x
-    (string? x) (try-parse-period x)
-    :else nil))
-
-(defn parse-sync-config-intervals [sync-config]
-  (sp/transform [:remotes sp/ALL :interval]
-                #(or (coerce-to-period %)
-                     (throw+-cli-error! (format "Interval '%s' cannot be parsed as a time period. Did you mean '%ss?'" % %)))
-                sync-config))
-
-(defn uri-has-port [uri]
-  (not= -1 (.getPort uri)))
-
-(defn uri-with-port [uri port]
-  (java.net.URI. (.getScheme uri)
-                 (.getUserInfo uri)
-                 (.getHost uri)
-                 port
-                 (.getPath uri)
-                 (.getQuery uri)
-                 (.getFragment uri)))
-
-(defn set-default-ports
-  "Use port 8081 for all server_urls that haven't specified one."
-  [sync-config]
-  (sp/transform [:remotes sp/ALL :server_url]
-                (fn [server_url]
-                  (let [uri (java.net.URI. server_url)]
-                    (if (uri-has-port uri)
-                      server_url
-                      (case (.getScheme uri)
-                        "https" (str (uri-with-port uri 8081))
-                        "http"  (str (uri-with-port uri 8080))
-                        server_url))))
-                sync-config))
-
-(defn extract-and-check-remotes-config [sync-config]
-  (-> sync-config
-      coerce-to-hocon-style-config
-      check-sync-config-for-extra-keys!
-      parse-sync-config-intervals
-      set-default-ports
-      :remotes))
-
-(defn- scrub-sync-config
-  "A utility function for tests which will dissoc the
-  `:allow-unsafe-sync-triggers' config option and ensure the sync-config map is
-  either non-empty or nil, which is helpful for our uses core.match above"
-  [sync-config]
-  (let [sync-config-scrubbed (-> sync-config
-                                 (dissoc :allow-unsafe-sync-triggers))]
-    (when (seq sync-config-scrubbed)
-      sync-config-scrubbed)))
-
 (defn validate-trigger-sync
   "Validates `remote-server' as a valid sync target given user config items"
   [allow-unsafe-sync-triggers remotes-config jetty-config remote-server]
   (let [valid-remotes (map (comp #(make-remote-server % jetty-config) :server_url) remotes-config)]
     (or allow-unsafe-sync-triggers
         (ks/seq-contains? valid-remotes remote-server))))
-
-(defn default-config [config]
-  (-> config
-      (update :node-ttl (fn [node-ttl]
-                          (or (some-> node-ttl parse-period)
-                              Period/ZERO)))
-      (update-in [:sync-config :allow-unsafe-sync-triggers] #(or % false))))
-
-(defn create-remotes-config [sync-config]
-  (-> sync-config
-      scrub-sync-config
-      extract-and-check-remotes-config))
 
 (defn wait-for-sync [submitted-commands-chan processed-commands-chan process-command-timeout-ms]
   (async/go-loop [pending-commands #{}
@@ -273,10 +159,15 @@
 (defn sync-app
   "Top level route for PuppetDB sync"
   [get-config query-fn enqueue-command-fn response-mult]
-  (let [{node-ttl :node-ttl, sync-config :sync, jetty-config :jetty} (default-config (get-config))
+  (let [{{node-ttl :node-ttl} :database
+         sync-config :sync
+         jetty-config :jetty} (get-config)
         allow-unsafe-sync-triggers (:allow-unsafe-sync-triggers sync-config)
-        remotes-config (create-remotes-config sync-config)
-        validate-sync-fn (partial validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config)]
+        remotes-config (:remotes sync-config)
+        validate-sync-fn (partial validate-trigger-sync
+                                  allow-unsafe-sync-triggers
+                                  remotes-config
+                                  jetty-config)]
     (routes
      (POST "/v1/trigger-sync" {:keys [body params] :as request}
            (let [sync-request (json/parse-string (slurp body) true)
@@ -317,8 +208,10 @@
    [:PuppetDBCommandDispatcher enqueue-command response-mult]]
 
   (start [this context]
-         (let [{node-ttl :node-ttl, sync-config :sync, jetty-config :jetty} (default-config (get-config))
-               remotes-config (create-remotes-config sync-config)]
+         (let [{{node-ttl :node-ttl} :database
+                sync-config :sync
+                jetty-config :jetty} (get-config)
+               remotes-config (:remotes sync-config)]
            (if (enable-periodic-sync? remotes-config)
              (let [{:keys [interval server_url]} (first remotes-config)
                    remote-server (make-remote-server server_url jetty-config)]
