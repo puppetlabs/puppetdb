@@ -44,4 +44,27 @@ node "#{name}" {
       end
     end
   end
+
+  step "attempt export with undef array elements" do
+    manifest = <<-MANIFEST
+    @@notify { "test":
+            tag => [undef, "a", "b"],
+            }
+    MANIFEST
+
+    manifest_path = create_remote_site_pp(master, manifest)
+    with_puppet_running_on master, {
+      'master' => {
+        'autosign' => 'true',
+    },
+    'main' => {
+      'environmentpath' => manifest_path
+    }
+    } do
+
+      step "run agent on master to ensure no failure" do
+        run_agent_on master, "--test --server #{master}", :acceptable_exit_codes => [0,2]
+      end
+    end
+  end
 end
