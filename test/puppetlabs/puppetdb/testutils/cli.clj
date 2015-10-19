@@ -16,31 +16,18 @@
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [clojure.walk :as walk]))
 
-(defn get-child [href]
-  (svc-utils/get-json (svc-utils/pdb-query-url)
-                      (subs href (count "/pdb/query/v4"))))
-
-(defn get-children [entities fields]
-  (map (partial kitchensink/mapvals
-                (fn [child]
-                  (utils/assoc-when child :data (get-child (:href child))))
-                fields)
-       entities))
-
 (defn get-nodes []
   (svc-utils/get-json (svc-utils/pdb-query-url) "/nodes"))
 
 (defn get-catalogs [certname]
   (-> (svc-utils/pdb-query-url)
       (svc-utils/get-catalogs certname)
-      (get-children [:edges :resources])
       catalogs/catalogs-query->wire-v7
       vec))
 
 (defn get-reports [certname]
   (-> (svc-utils/pdb-query-url)
       (svc-utils/get-reports certname)
-      (get-children [:metrics :logs :resource_events])
       tur/munge-reports
       reports/reports-query->wire-v6
       vec))
@@ -48,7 +35,6 @@
 (defn get-factsets [certname]
   (-> (svc-utils/pdb-query-url)
       (svc-utils/get-factsets certname)
-      (get-children [:facts])
       factsets/factsets-query->wire-v4
       vec))
 
