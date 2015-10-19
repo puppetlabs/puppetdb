@@ -149,8 +149,9 @@ Extract can also be used with a standalone function application:
 
     ["extract", [["function", "count"]], ["~", "certname", ".\*.com"]]
 
-At this time extract must always have an expression to extract from, like `["=", "certname", "foo.com"]`
-in the example above.
+or 
+
+    ["extract", [["function", "count"]]]
 
 ### `function`
 

@@ -1506,12 +1506,16 @@
      ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
      [{:avg 5000.0}]
 
-     ["extract" [["function" "count"] "value"] ["=" "name" "uptime_seconds"]
+     ["extract" [["function" "count"] "value"]
+      ["=" "name" "uptime_seconds"]
       ["group_by" "value"]]
-     [{:value 4000
-       :count 1}
-      {:value 6000
-       :count 1}]
+     [{:value 4000 :count 1}
+      {:value 6000 :count 1}]
+
+     ["extract" [["function" "count"] "value"]
+      ["group_by" "value"]]
+     [{:value 4000 :count 1}
+      {:value 6000 :count 1}]
 
      ["extract" [["function" "max" "name"] "environment"] ["~" "certname" ".*"]
       ["group_by" "environment"]]

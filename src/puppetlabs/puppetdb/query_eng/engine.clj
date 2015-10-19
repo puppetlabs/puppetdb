@@ -1228,19 +1228,19 @@
                                         (not (empty? call)) (assoc :call call))]
               (create-extract-node query-rec-with-call cols nil))
 
-            [["extract" column expr]]
-            (let [[fargs cols] (strip-function-calls column)
-                  call (replace-numeric-args fargs)
-                  query-rec-with-call (cond-> query-rec
-                                        (not (empty? call)) (assoc :call call))]
-              (create-extract-node query-rec-with-call cols expr))
-
             [["extract" columns ["group_by" & clauses]]]
             (let [[fargs cols] (strip-function-calls columns)]
               (-> query-rec
                   (assoc :call (replace-numeric-args fargs))
                   (assoc :group-by clauses)
                   (create-extract-node cols nil)))
+
+            [["extract" column expr]]
+            (let [[fargs cols] (strip-function-calls column)
+                  call (replace-numeric-args fargs)
+                  query-rec-with-call (cond-> query-rec
+                                        (not (empty? call)) (assoc :call call))]
+              (create-extract-node query-rec-with-call cols expr))
 
             [["extract" columns expr ["group_by" & clauses]]]
             (let [[fargs cols] (strip-function-calls columns)]

@@ -74,6 +74,12 @@
       (is (= (query-result method endpoint ["extract" "certname"])
              #{{:certname "foo.local"} {:certname "bar.local"}})))
 
+    (testing "one projected column with no subquery and an aggregate function"
+      (is (= (query-result method endpoint ["extract" [["function" "count"] "certname"]
+                                            ["group_by" "certname"]])
+             #{{:count 1 :certname "foo.local"}
+               {:count 1 :certname "bar.local"}})))
+
     (testing "logs projected"
       (is (= (query-result method endpoint ["extract" "logs"
                                             ["=" "certname" (:certname basic)]])
