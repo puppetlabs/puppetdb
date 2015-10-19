@@ -1774,7 +1774,7 @@
              [{"certname" "foo1", "name" "domain" "path" ["domain"], "value" "testing.com", "environment" "DEV"}
               {"certname" "foo2", "name" "domain" "path" ["domain"], "value" "testing.com", "environment" "DEV"}
               {"certname" "foo3", "name" "domain" "path" ["domain"], "value" "testing.com", "environment" "PROD"}]))
-      (is (= (into [] (response ["=" "value" nil]))
+      (is (= (into [] (response ["null?" "value" true]))
              [{"certname" "foo1", "name" "my_structured_fact" "path" ["my_structured_fact" "f"], "value" nil, "environment" "DEV"}
               {"certname" "foo3", "name" "my_structured_fact" "path" ["my_structured_fact" "f"], "value" nil, "environment" "PROD"}]))
       (is (= (into [] (response ["~" "name" "#~"]))
