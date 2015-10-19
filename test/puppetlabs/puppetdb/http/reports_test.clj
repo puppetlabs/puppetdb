@@ -71,6 +71,16 @@
                                                  ["=" "certname" (:certname basic)]])
              #{{:hash report-hash}})))
 
+    (testing "one projected column with no subquery"
+      (is (= (query-result method endpoint ["extract" "certname"])
+             #{{:certname "foo.local"} {:certname "bar.local"}})))
+
+    (testing "one projected column with no subquery and an aggregate function"
+      (is (= (query-result method endpoint ["extract" [["function" "count"] "certname"]
+                                            ["group_by" "certname"]])
+             #{{:count 1 :certname "foo.local"}
+               {:count 1 :certname "bar.local"}})))
+
     (testing "logs projected"
       (is (= (query-result method endpoint ["extract" "logs"
                                             ["=" "certname" (:certname basic)]])
@@ -572,6 +582,26 @@
 
     (is (= 1 (count basic-result)))
     (is (= basic-result (munge-reports-for-comparison [basic])))))
+
+(deftestseq report-subqueries
+  [[version endpoint] endpoints
+   method [:get :post]]
+
+  (store-example-report! (:basic reports) (now))
+  (store-example-report! (:basic2 reports) (now))
+  (store-example-report! (:basic3 reports) (now))
+
+  (are [query expected]
+      (is (= expected
+             (query-result method endpoint query)))
+
+    ;; Events
+    ["extract" "certname"
+     ["in" "hash"
+      ["extract" "report"
+       ["select_events"
+        ["=" "file" "bar"]]]]]
+    #{{:certname "foo.local"}}))
 
 (def invalid-projection-queries
   (omap/ordered-map

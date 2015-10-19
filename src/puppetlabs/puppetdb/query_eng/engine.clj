@@ -186,7 +186,6 @@
                                      :queryable? false
                                      :query-only? true
                                      :field :fp.path}
-
                              "value" {:type :multi
                                       :queryable? true
                                       :field :fv.value}
@@ -888,11 +887,18 @@
 ;;;              language
 
 (def user-name->query-rec-name
-  {"select_facts" facts-query
+  {"select_catalogs" catalog-query
+   "select_edges" edges-query
+   "select_environments" environments-query
+   "select_events" report-events-query
+   "select_facts" facts-query
+   "select_factsets" factsets-query
    "select_fact_contents" fact-contents-query
+   "select_fact_paths" fact-paths-query
    "select_nodes" nodes-query
    "select_latest_report" latest-report-query
    "select_params" resource-params-query
+   "select_reports" reports-query
    "select_resources" resources-query})
 
 (defn user-query->logical-obj
@@ -1100,10 +1106,11 @@
   (map #(get-in query-rec [:projections % :field]) (sort columns)))
 
 (defn strip-function-calls
-  [column]
-  (let [{functions true nonfunctions false} (group-by #(= "function" (first %)) column)]
-    [(into [] (rest (first functions)))
-     nonfunctions]))
+  [column-or-columns]
+  (let [columns (utils/vector-maybe column-or-columns)
+        {[function-call] true nonfunctions false} (group-by #(= "function" (first %)) columns)]
+    [(vec (rest function-call))
+     (vec nonfunctions)]))
 
 (defn replace-numeric-args
   [fargs]
@@ -1198,13 +1205,26 @@
             (map->InExpression {:column (columns->fields query-rec (utils/vector-maybe column))
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
 
-            [["extract" [["function" & fargs]] expr]]
-            (-> query-rec
-                (assoc :call (replace-numeric-args fargs))
-                (create-extract-node [] expr))
+            [["extract" column]]
+            (let [[fargs cols] (strip-function-calls column)
+                  call (replace-numeric-args fargs)
+                  query-rec-with-call (cond-> query-rec
+                                        (not (empty? call)) (assoc :call call))]
+              (create-extract-node query-rec-with-call cols nil))
+
+            [["extract" columns ["group_by" & clauses]]]
+            (let [[fargs cols] (strip-function-calls columns)]
+              (-> query-rec
+                  (assoc :call (replace-numeric-args fargs))
+                  (assoc :group-by clauses)
+                  (create-extract-node cols nil)))
 
             [["extract" column expr]]
-            (create-extract-node query-rec (utils/vector-maybe column) expr)
+            (let [[fargs cols] (strip-function-calls column)
+                  call (replace-numeric-args fargs)
+                  query-rec-with-call (cond-> query-rec
+                                        (not (empty? call)) (assoc :call call))]
+              (create-extract-node query-rec-with-call cols expr))
 
             [["extract" columns expr ["group_by" & clauses]]]
             (let [[fargs cols] (strip-function-calls columns)]

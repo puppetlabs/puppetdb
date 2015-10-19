@@ -66,13 +66,6 @@
     (str "\"" string "\"")
     string))
 
-(defn unescape-string
-  "Strip escaped quotes from a string."
-  [^String s]
-  (if (= \" (.charAt s 0))
-    (subs s 1 (dec (.length s)))
-    s))
-
 (pls/defn-validated encode-factpath-element :- s/Str
   "Converts a fact-path-element to an encoded string ready for database storage."
   [element :- fact-path-element]
@@ -100,14 +93,17 @@
       (catch Exception e
         nil))))
 
+(def escape-quoted-num
+  (re-pattern "^\"\\d+\"$"))
+
 (defn unencode-path-segment
   "Attempt to coerce string to number, otherwise unescape."
   [^String s]
   (if-let [num (str->num s)]
     num
-    (-> s
-        unescape-string
-        unescape-delimiter)))
+    (if (re-matches escape-quoted-num s)
+      (subs s 1 (dec (.length s)))
+      (unescape-delimiter s))))
 
 (pls/defn-validated string-to-factpath :- fact-path
   "Converts a database encoded string back to a factpath."

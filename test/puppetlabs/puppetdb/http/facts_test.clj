@@ -23,6 +23,7 @@
                                                    deftestseq
                                                    parse-result]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
+                                                        query-result
                                                         vector-param]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
@@ -169,6 +170,7 @@
                                                                                       [">" "value" 10000]]]]]]]]]]
 
    #{{:certname "foo" :name "ipaddress" :value "192.168.1.100" :environment "DEV"}}
+
    ;; Multiple fact subqueries
    ["and"
     ["=" "name" "ipaddress"]
@@ -181,7 +183,17 @@
                                              ["=" "name" "uptime_seconds"]
                                              [">" "value" 10000]]]]]]
 
-   #{{:certname "foo" :name "ipaddress" :value "192.168.1.100" :environment "DEV"}}))
+   #{{:certname "foo" :name "ipaddress" :value "192.168.1.100" :environment "DEV"}}
+
+   ;; Fact contents
+   ["in" ["certname" "name"]
+    ["extract" ["certname" "name"]
+     ["select_fact_contents"
+      ["and"
+       ["=" "path" ["osfamily"]]
+       ["=" "value" "Debian"]]]]]
+   #{{:certname "bar" :environment "DEV" :name "osfamily" :value "Debian"}
+     {:certname "foo" :environment "DEV" :name "osfamily" :value "Debian"}}))
 
 (def versioned-subqueries
   (omap/ordered-map
@@ -384,6 +396,21 @@
           ["and" ["=" "name" "domain"]
            [">" "value" 5000]]
           []
+
+          ["extract" "certname"]
+          [{:certname "foo1"}
+           {:certname "foo1"}
+           {:certname "foo1"}
+           {:certname "foo1"}
+           {:certname "foo1"}
+           {:certname "foo2"}
+           {:certname "foo1"}
+           {:certname "foo2"}
+           {:certname "foo2"}
+           {:certname "foo2"}
+           {:certname "foo3"}
+           {:certname "foo3"}
+           {:certname "foo3"}]
 
           ["extract" "certname"
            ["not" ["=" "name" "domain"]]]
@@ -1349,6 +1376,36 @@
              [{"certname" "foo1"
                "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}])))))
 
+(deftestseq factset-subqueries
+  [[version endpoint] factsets-endpoints
+   method [:get :post]]
+
+  (populate-for-structured-tests reference-time)
+
+  (are [query expected]
+      (is (= expected
+             (query-result method endpoint query)))
+
+    ;; Facts
+    ["extract" "certname"
+     ["in" "certname"
+      ["extract" "certname"
+       ["select_facts"
+        ["and"
+         ["=" "name" "uptime_seconds"]
+         ["=" "value" "4000"]]]]]]
+    #{{:certname "foo1"}}
+
+    ;; Fact contents
+    ["extract" "certname"
+     ["in" "certname"
+      ["extract" "certname"
+       ["select_fact_contents"
+        ["and"
+         ["=" "name" "uptime_seconds"]
+         ["=" "value" "4000"]]]]]]
+    #{{:certname "foo1"}}))
+
 (deftestseq factset-single-response
   [[version endpoint] factsets-endpoints
    method [:get :post]]
@@ -1441,12 +1498,16 @@
      ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
      [{:avg 5000.0}]
 
-     ["extract" [["function" "count"] "value"] ["=" "name" "uptime_seconds"]
+     ["extract" [["function" "count"] "value"]
+      ["=" "name" "uptime_seconds"]
       ["group_by" "value"]]
-     [{:value 4000
-       :count 1}
-      {:value 6000
-       :count 1}]
+     [{:value 4000 :count 1}
+      {:value 6000 :count 1}]
+
+     ["extract" [["function" "count"] "value"]
+      ["group_by" "value"]]
+     [{:value 4000 :count 1}
+      {:value 6000 :count 1}]
 
      ["extract" [["function" "max" "name"] "environment"] ["~" "certname" ".*"]
       ["group_by" "environment"]]
@@ -1581,6 +1642,24 @@
                            query)))))))))
 
 ;; FACT-CONTENTS TESTS
+(deftestseq fact-contents-result-munging
+  [[version endpoint] fact-contents-endpoints
+   method [:get :post]]
+  (let [facts1 {"\"foo" "bar"
+                "baz" {"1" "foo"}
+                "\"bar\"" {1 "foo"}
+                "foo#~bar" "baz"}]
+    (jdbc/with-transacted-connection *db*
+      (scf-store/add-certname! "foo1")
+      (scf-store/add-facts! {:certname "foo1"
+                             :values facts1
+                             :timestamp reference-time
+                             :environment "DEV"
+                             :producer_timestamp reference-time}))
+
+    (let [result (query-result method endpoint ["=" "certname" "foo1"])]
+      (is (= (set (map :name result))
+             #{"\"foo" "baz" "\"bar\"" "foo#~bar"})))))
 
 (defn fact-content-response [method endpoint order-by-map]
   (fn [req]

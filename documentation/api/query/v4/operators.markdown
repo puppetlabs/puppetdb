@@ -4,11 +4,17 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/operators.html"
 ---
 
-[resources]: ./resources.html
+[catalogs]: ./catalogs.html
+[edges]: ./edges.html
+[environments]: ./environments.html
+[events]: ./events.html
 [facts]: ./facts.html
+[fact-contents]: ./fact-contents.html
+[fact-paths]: ./fact-paths.html
 [nodes]: ./nodes.html
 [query]: ./query.html
-[fact-contents]: ./fact-contents.html
+[reports]: ./reports.html
+[resources]: ./resources.html
 
 PuppetDB's [query strings][query] can use several common operators.
 
@@ -144,8 +150,9 @@ Extract can also be used with a standalone function application:
 
     ["extract", [["function", "count"]], ["~", "certname", ".\*.com"]]
 
-At this time extract must always have an expression to extract from, like `["=", "certname", "foo.com"]`
-in the example above.
+or 
+
+    ["extract", [["function", "count"]]]
 
 ### `function`
 
@@ -172,10 +179,11 @@ To get the average uptime for your nodes,
 ## Subquery Operators
 
 Subqueries allow you to correlate data from multiple sources or multiple
-rows. (For instance, a query such as "fetch the IP addresses of all nodes with
-`Class[Apache]`" would have to use both facts and resources to return a list of facts.)
+rows. For instance, a query such as "fetch the IP addresses of all nodes with
+`Class[Apache]`" would have to use both facts and resources to return a list of facts.
 
-Subqueries are unlike the other operators listed above. They always appear together in the following form:
+Subqueries are unlike the other operators listed above. They always appear together
+in the following form:
 
     ["in", ["<FIELDS>"], ["extract", ["<FIELDS>"], <SUBQUERY STATEMENT>] ]
 
@@ -196,8 +204,6 @@ Subquery | Extract | In
 Every resource whose type is "Class" and title is "Apache." (Note that all resource objects have a `certname` field, among other fields.) | Every `certname` field from the results of the subquery. | Match if the `certname` field is present in the list from the `extract` statement.
 
 The complete `in` statement described in the table above would match any object that shares a `certname` with a node that has `Class[Apache]`. This could be combined with a boolean operator to get a specific fact from every node that matches the `in` statement.
-
-**Note:** Unlike in the v4 API, the v2 and v3 'in' and 'extract' operators do not permit vector-valued fields.
 
 ### `in`
 
@@ -232,14 +238,18 @@ As the second argument of an `extract` statement, a subquery statement acts as a
 
 ### Available Subqueries
 
-Each subquery acts as a normal query to one of the PuppetDB endpoints. For info on constructing useful queries, see the docs page for that endpoint.
+Each subquery acts as a normal query to one of the PuppetDB endpoints. For info on constructing useful queries, see the docs page for the endpoint matching the subquery:
 
-The available subqueries are:
-
-* `select_facts` (queries the [facts][] endpoint)
-* `select_fact_contents` (queries the [fact-contents][] endpoint)
-* `select_nodes` (queries the [nodes][] endpoint)
-* `select_resources` (queries the [resources][] endpoint)
+* [`select_catalogs`][catalogs]
+* [`select_edges`][edges]
+* [`select_environments`][environments]
+* [`select_events`][events]
+* [`select_facts`][facts]
+* [`select_fact_contents`][fact-contents]
+* [`select_fact_paths`][fact-paths]
+* [`select_nodes`][nodes]
+* [`select_reports`][reports]
+* [`select_resources`][resources]
 
 ### Subquery Examples
 
@@ -286,14 +296,15 @@ facts_environment `production`:
           ["select_nodes",
             ["=", "facts_environment", "production"]]]]]
 
-To find node information for a host that has a macaddress of `aa:bb:cc:dd:ee:00`, you could use this query on '/nodes':
+To find node information for a host that has a macaddress of `aa:bb:cc:dd:ee:00` as
+its first macaddress on the interface `eth0`, you could use this query on '/nodes':
 
     ["in", "certname",
       ["extract", "certname",
         ["select_fact_contents",
           ["and",
-            ["=", "path", [ "networking", "eth0", "macaddresses", 0 ]],
-            ["=", "value", "aa:bb:cc:dd:ee:00" ]]]]]
+            ["=", "path", ["networking", "eth0", "macaddresses", 0]],
+            ["=", "value", "aa:bb:cc:dd:ee:00"]]]]]
 
 To exhibit a subquery using multiple fields, you could use the following
 on '/facts' to list all top-level facts containing fact contents with paths

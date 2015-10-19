@@ -16,7 +16,7 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 [report_format]: ./api/wire_format/report_format_v5.html
 [puppetdb_server_urls]: ./puppetdb_connection.html#server_urls
 
-> Note: To use PuppetDB, your site's Puppet master(s) must be running Puppet 4.0.0 or later .
+> Note: To use PuppetDB, your site's Puppet master(s) must be running Puppet 4.0.0 or later.
 
 After PuppetDB is installed and running, you should configure your Puppet master(s) to use it. Once connected to PuppetDB, Puppet masters will do the following:
 
