@@ -66,6 +66,9 @@
                                  "--config" "anything.ini"
                                  "--numhosts" "1"
                                  "--nummsgs" "1")]
+    (when (> (count submitted) 3)
+      (println "!!!!!!!!!!!! Got more than 3 submissions!")
+      (println submitted))
     (is (= 3 (count submitted)))))
 
 (deftest multiple-messages-and-hosts
