@@ -30,35 +30,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utility Functions
 
-(defn query-child-href-internally
-  [query-fn child-href]
-  (let [[parent-str identifier child-str] (take-last 3 (str/split child-href #"/"))
-        entity (case child-str
-                 "metrics" :report-metrics
-                 "logs" :report-logs
-                 (keyword child-str))
-        query (case parent-str
-                "reports" (case child-str
-                            ("metrics" "logs") ["=" "hash" identifier]
-                            ["=" "report" identifier])
-                ("factsets" "catalogs") ["=" "certname" identifier])]
-    (query-fn entity query-api-version query nil doall)))
-
-(defn maybe-expand-href-fn
-  "Expand the child-value's href if the data key isn't present in the child-value"
-  [query-fn]
-  (fn [{:keys [href] :as child-value}]
-    (utils/assoc-when child-value :data (query-child-href-internally query-fn href))))
-
-(defn complete-unexpanded-fields
-  "Complete the unexpanded data, by retrieving data from the href if data is
-  missing for the given list of fields."
-  [query-fn fields data]
-  (let [expand-field-href-fn (maybe-expand-href-fn query-fn)
-        expand-children-fields-fn (fn [datum]
-                                    (kitchensink/mapvals expand-field-href-fn fields datum))]
-    (map expand-children-fields-fn data)))
-
 (defn export-report-filename
   [{:keys [certname start_time configuration_version] :as report}]
   (let [formatted-start-time (->> start_time
@@ -86,14 +57,11 @@
   (map #(export-datum->tar-item entity %) data))
 
 (def export-info
-  {:catalogs {:child-fields [:edges :resources]
-              :query->wire-fn catalogs/catalogs-query->wire-v7
+  {:catalogs {:query->wire-fn catalogs/catalogs-query->wire-v7
               :anonymize-fn anon/anonymize-catalog}
-   :reports {:child-fields [:metrics :logs :resource_events]
-             :query->wire-fn reports/reports-query->wire-v6
+   :reports {:query->wire-fn reports/reports-query->wire-v6
              :anonymize-fn anon/anonymize-report}
-   :factsets {:child-fields [:facts]
-              :query->wire-fn factsets/factsets-query->wire-v4
+   :factsets {:query->wire-fn factsets/factsets-query->wire-v4
               :anonymize-fn anon/anonymize-facts}})
 
 (defn maybe-anonymize [anonymize-fn anon-config data]
@@ -110,10 +78,9 @@
 (defn export!*
   [tar-writer query-fn anonymize-profile]
   (let [anon-config (get anon/anon-profiles anonymize-profile ::not-found)]
-    (doseq [[entity {:keys [child-fields query->wire-fn anonymize-fn]}] export-info
+    (doseq [[entity {:keys [query->wire-fn anonymize-fn]}] export-info
             :let [query-callback-fn (fn [rows]
                                       (->> rows
-                                           (complete-unexpanded-fields query-fn child-fields)
                                            query->wire-fn
                                            (maybe-anonymize anonymize-fn anon-config)
                                            (export-data->tar-items entity)
