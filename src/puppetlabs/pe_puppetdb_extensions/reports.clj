@@ -23,10 +23,9 @@
       (mid/wrap-with-globals get-shared-globals)
       vector))
 
-(defn report-resources-query
+(def report-resources-query
   "Query intended to be used by the `/reports/<hash>/reosurces` endpoint
   used for digging into the resources for a specific report."
-  []
   (query-eng-engine/map->Query {:projections {"resources" {:type :json
                                           :queryable? false
                                           :field :reports.resources}
@@ -49,8 +48,8 @@
                  #(utils/update-when % [:resources] utils/child->expansion :reports :resources base-url))
            rows))))
 
-(defn reports-with-resources-query []
-  (-> (query-eng-engine/reports-query)
+(def reports-with-resources-query
+  (-> query-eng-engine/reports-query
       (assoc-in [:projections "resources"]
                 {:type :json
                  :queryable? false
