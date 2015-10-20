@@ -55,12 +55,11 @@
   [{:keys [entity] :as query-rec}]
   (cond-> query-rec
     (= :facts entity) (assoc-in [:projections "value" :field]
-                        (h/coalesce :fv.value_string
-                                    (h/scast :fv.value_boolean :text)))))
+                                (h/coalesce :fv.value_string
+                                            (h/scast :fv.value_boolean :text)))))
 
-(defn nodes-query
+(def nodes-query
   "Query for nodes entities, mostly used currently for subqueries"
-  []
   (map->Query {:projections {"certname" {:type :string
                                          :queryable? true
                                          :field :certnames.certname}
@@ -125,9 +124,8 @@
                :alias "nodes"
                :subquery? false}))
 
-(defn resource-params-query
+(def resource-params-query
   "Query for the resource-params query, mostly used as a subquery"
-  []
   (map->Query {:projections {"res_param_resource" {:type :string
                                                    :queryable? true
                                                    :field (hsql-hash-as-str :resource)}
@@ -143,9 +141,8 @@
                :alias "resource_params"
                :subquery? false}))
 
-(defn fact-paths-query
+(def fact-paths-query
   "Query for the resource-params query, mostly used as a subquery"
-  []
   (map->Query {:projections {"type" {:type :string
                                      :queryable? true
                                      :field :type}
@@ -168,8 +165,7 @@
                :alias "fact_paths"
                :subquery? false}))
 
-(defn fact-names-query
-  []
+(def fact-names-query
   (map->Query {:projections {"name" {:type :string
                                      :queryable? true
                                      :field :name}}
@@ -179,9 +175,8 @@
                :alias "fact_names"
                :subquery? false}))
 
-(defn facts-query
+(def facts-query
   "Query structured facts."
-  []
   (map->Query {:projections {"path" {:type :string
                                      :queryable? false
                                      :query-only? true
@@ -236,9 +231,8 @@
                :entity :facts
                :subquery? false}))
 
-(defn fact-contents-query
+(def fact-contents-query
   "Query for fact nodes"
-  []
   (map->Query {:projections {"path" {:type :path
                                      :queryable? true
                                      :field :fp.path}
@@ -287,10 +281,9 @@
                :source-table "facts"
                :subquery? false}))
 
-(defn report-logs-query
+(def report-logs-query
   "Query intended to be used by the `/reports/<hash>/logs` endpoint
   used for digging into the logs for a specific report."
-  []
   (map->Query {:projections {"logs" {:type :json
                                      :queryable? false
                                      :field (h/coalesce
@@ -306,10 +299,9 @@
                :entity :reports
                :source-table "reports"}))
 
-(defn report-metrics-query
+(def report-metrics-query
   "Query intended to be used by the `/reports/<hash>/metrics` endpoint
   used for digging into the metrics for a specific report."
-  []
   (map->Query {:projections {"metrics" {:type :json
                                         :queryable? false
                                         :field (h/coalesce
@@ -327,9 +319,8 @@
                :entity :reports
                :source-table "reports"}))
 
-(defn reports-query
+(def reports-query
   "Query for the reports entity"
-  []
   (map->Query
     {:projections
      {"hash"            {:type :string
@@ -417,9 +408,8 @@
      :entity :reports
      :source-table "reports"}))
 
-(defn catalog-query
+(def catalog-query
   "Query for the top level catalogs entity"
-  []
   (map->Query
     {:projections
      {"version" {:type :string
@@ -490,9 +480,8 @@
      :subquery? false
      :source-table "catalogs"}))
 
-(defn edges-query
+(def edges-query
   "Query for catalog edges"
-  []
   (map->Query {:projections {"certname" {:type :string
                                          :queryable? true
                                          :field :edges.certname}
@@ -529,9 +518,8 @@
                :subquery? false
                :source-table "edges"}))
 
-(defn resources-query
+(def resources-query
   "Query for the top level resource entity"
-  []
   (map->Query {:projections {"certname" {:type  :string
                                          :queryable? true
                                          :field :c.certname}
@@ -579,9 +567,8 @@
                :subquery? false
                :source-table "catalog_resources"}))
 
-(defn report-events-query
+(def report-events-query
   "Query for the top level reports entity"
-  []
   (map->Query {:projections {"certname" {:type :string
                                          :queryable? true
                                          :field :reports.certname}
@@ -653,9 +640,8 @@
                :entity :events
                :source-table "resource_events"}))
 
-(defn latest-report-query
+(def latest-report-query
   "Usually used as a subquery of reports"
-  []
   (map->Query {:projections {"latest_report_hash" {:type :string
                                                    :queryable? true
                                                    :field (hsql-hash-as-str :reports.hash)}}
@@ -667,9 +653,8 @@
                :subquery? false
                :source-table "latest_report"}))
 
-(defn environments-query
+(def environments-query
   "Basic environments query, more useful when used with subqueries"
-  []
   (map->Query {:projections {"name" {:type :string
                                      :queryable? true
                                      :field :environment}}
@@ -679,9 +664,8 @@
                :subquery? false
                :source-table "environments"}))
 
-(defn factsets-query
+(def factsets-query
   "Query for the top level facts query"
-  []
   (map->Query
     {:projections
      {"timestamp" {:type :timestamp
@@ -905,7 +889,9 @@
   "Keypairs of the stringified subquery keyword (found in user defined queries) to the
    appropriate plan node"
   [subquery]
-  (augment-for-subquery (assoc ((get user-name->query-rec-name subquery)) :subquery? true)))
+  (-> (get user-name->query-rec-name subquery)
+      (assoc :subquery? true)
+      augment-for-subquery))
 
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
@@ -1402,8 +1388,7 @@
   [query-rec user-query & [{:keys [include_total] :as paging-options}]]
   ;; Call the query-rec so we can evaluate query-rec functions
   ;; which depend on the db connection type
-  (let [query-rec (query-rec)
-        allowed-fields (map keyword (queryable-fields query-rec))
+  (let [allowed-fields (map keyword (queryable-fields query-rec))
         paging-options (some->> paging-options
                                 (paging/validate-order-by! allowed-fields)
                                 (paging/dealias-order-by query-rec))

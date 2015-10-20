@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.query-eng.engine :refer :all]
-            [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx assoc-in-idx!]]
+            [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx]]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
@@ -118,7 +118,6 @@
                         #"'foo' is not a queryable object for resources, known queryable objects are.*"
                         (compile-user-query->sql resources-query ["=" "foo" "bar"]))))
 
-
 (defn fact-names-tests
   "test that we can modify a query rec. This is a function because the actual
    test needs to use the with-http-app fixture, which the rest of this ns
@@ -174,18 +173,19 @@
           (is (= result expected-result))))
 
       (testing "query rec is modifiable"
-        (assoc-in-idx! [:fact-names :munge] (fn [_ _] identity))
+        (swap! entity-fn-idx assoc-in [:fact-names :munge] (fn [_ _] identity))
 
-        (assoc-in-idx! [:fact-names :rec :projections "depth"] {:type :integer
-                                                                :queryable? true
-                                                                :field :depth})
+        (swap! entity-fn-idx
+               assoc-in [:fact-names :rec :projections "depth"] {:type :integer
+                                                                 :queryable? true
+                                                                 :field :depth})
         (let [request (get-request endpoint)
               {:keys [status body]} (fixt/*app* request)
               result (vec (parse-result body))]
           (is (= status http/status-ok))
           (is (= result (map #(hash-map :name % :depth 0) expected-result)))))
 
-      (swap! entity-fn-idx (fn [_] initial-idx))
+      (reset! entity-fn-idx initial-idx)
       (testing "fact-names back to normal"
         (let [request (get-request endpoint)
               {:keys [status body]} (fixt/*app* request)
