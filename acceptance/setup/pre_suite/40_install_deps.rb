@@ -68,7 +68,7 @@ unless (test_config[:skip_presuite_provisioning])
           # Ubuntu 10.04 has rubygems 1.3.5 which is known to not be reliable, so therefore
           # we skip.
         else
-          on master, "apt-get install -y rubygems ruby-dev libsqlite3-dev"
+          on master, "apt-get install -y rubygems ruby-dev libsqlite3-dev build-essential"
           # this is to get around the activesupport dependency on Ruby 1.9.3 for
           # Ubuntu 12.04. We can remove it when we drop support for 1.8.7.
           on master, "gem install i18n -v 0.6.11"
