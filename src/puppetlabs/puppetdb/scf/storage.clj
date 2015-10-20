@@ -794,13 +794,13 @@
    in other factsets."
   [factset-id dropped-pids]
   (when-let [dropped-pids (seq dropped-pids)]
-    (let [dropped-chunks (partition-all gc-chunksize dropped-pis)]
+    (let [dropped-chunks (partition-all gc-chunksize dropped-pids)]
       (if (sutils/postgres?)
         (let [candidate-chunks (map (partial sutils/array-to-param "bigint" Long)
                                     dropped-chunks)]
           (dorun
            (map (fn [candidate-paths]
-                  (jdbc/do-prepared
+                  (sql/do-prepared
                    "DELETE FROM fact_paths fp
                     WHERE fp.id = ANY (?)
                     AND NOT EXISTS (SELECT 1 FROM facts f
@@ -814,7 +814,7 @@
         (let [in-chunks (map jdbc/in-clause dropped-chunks)]
           (dorun
            (map (fn [in dropped]
-                  (jdbc/do-prepared
+                  (sql/do-prepared
                    (format
                     "DELETE FROM fact_paths fp
                      WHERE fp.id %s
