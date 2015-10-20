@@ -113,7 +113,14 @@ describe Puppet::Node::Facts::Puppetdb do
     it 'should return trusted data' do
       node = Puppet::Node.new('my_certname')
       trusted = subject.get_trusted_info(node)
-      expect(trusted).to eq({'authenticated'=>"local", 'certname'=>'testing', 'extensions'=>{}})
+      # Extra keys domainname & hostname introduced by PUP-5097, Puppet 4.2.1-dirty (4.3.0 probably)
+      if trusted.has_key?("domainname")
+        expect(trusted).to eq({'authenticated'=>'local', 'certname'=>'testing',
+                               'extensions'=>{}, 'hostname'=>'testing', 'domainname'=>nil})
+      else
+        # Puppet 4.2.x and older
+        expect(trusted).to eq({'authenticated'=>'local', 'certname'=>'testing', 'extensions'=>{}})
+      end
     end
 
     it 'should return trusted data when falling back to the node' do
@@ -127,7 +134,14 @@ describe Puppet::Node::Facts::Puppetdb do
       node = Puppet::Node.new('my_certname', :parameters => {'clientcert' => 'trusted_certname'})
       trusted = subject.get_trusted_info(node)
 
-      expect(trusted).to eq({'authenticated'=>'local', 'certname'=>'trusted_certname', 'extensions'=>{}})
+      # Extra keys domainname & hostname introduced by PUP-5097, Puppet 4.2.1-dirty (4.3.0 probably)
+      if trusted.has_key?("domainname")
+        expect(trusted).to eq({'authenticated'=>'local', 'certname'=>'trusted_certname',
+                               'extensions'=>{}, 'hostname'=>'trusted_certname', 'domainname'=>nil})
+      else
+        # Puppet 4.2.x and older
+        expect(trusted).to eq({'authenticated'=>'local', 'certname'=>'trusted_certname', 'extensions'=>{}})
+      end
 
       # Put the context back the way the test harness expects
       Puppet.push_context({}, 'context to make the tests happy')

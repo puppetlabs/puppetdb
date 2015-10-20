@@ -50,7 +50,7 @@ same as the one PuppetDB uses, but you only need two entries:
 There is currently no script for running the tool, so you'll need a
 command like the one below:
 
-    $ /usr/bin/java -jar /usr/share/puppetdb/puppetdb.jar benchmark --config myconfig.ini --catalogs /tmp/puppetdb-bak/catalogs --runinterval 30 --numhosts 1000 --rand-perc 10
+    $ /usr/bin/java -cp /usr/share/puppetdb/puppetdb.jar clojure.main -m com.puppetlabs.puppetdb.cli.benchmark --config myconfig.ini --catalogs /tmp/puppetdb-bak/catalogs --runinterval 30 --numhosts 1000 --rand-perc 10
 
 More information on the arguments accepted by the benchmark command
 are below.
