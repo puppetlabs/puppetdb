@@ -19,7 +19,6 @@
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.reports :refer :all]
             [puppetlabs.puppetdb.testutils.events :refer :all]
-            [puppetlabs.puppetdb.query.reports :refer [is-latest-report?]]
             [puppetlabs.puppetdb.random :as random]
             [puppetlabs.puppetdb.scf.storage :refer :all]
             [clojure.test :refer :all]
