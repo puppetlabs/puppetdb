@@ -214,7 +214,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
         params = resource['parameters']
         UnorderedMetaparams.each do |metaparam|
           if params[metaparam].kind_of? Array then
-            values = params[metaparam].sort
+            values = params[metaparam].sort_by {|x| x.to_s}
             params[metaparam] = values unless values.empty?
           end
         end
