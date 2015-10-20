@@ -19,6 +19,7 @@
             [puppetlabs.puppetdb.testutils.reports :refer :all]
             [puppetlabs.puppetdb.testutils.events :refer :all]
             [puppetlabs.puppetdb.query.reports :refer [is-latest-report?]]
+            [puppetlabs.puppetdb.random :as random]
             [puppetlabs.puppetdb.scf.storage :refer :all]
             [clojure.test :refer :all]
             [clojure.math.combinatorics :refer [combinations subsets]]
@@ -57,6 +58,40 @@
      certname]
     (zipmap (map :name result-set)
             (map :value result-set))))
+
+(deftest large-fact-update
+  (testing "updating lots of facts"
+    (let [certname "scale.com"
+          facts1 (zipmap (take 10000 (repeatedly #(random/random-string 10)))
+                         (take 10000 (repeatedly #(random/random-string 10))))
+          timestamp1 (-> 2 days ago)
+          facts2 (zipmap (take 11000 (repeatedly #(random/random-string 10)))
+                         (take 11000 (repeatedly #(random/random-string 10))))
+          timestamp2 (-> 1 days ago)]
+      (add-certname! certname)
+      (add-facts! {:certname certname
+                   :values facts1
+                   :timestamp timestamp1
+                   :environment nil
+                   :producer_timestamp timestamp1})
+
+      (testing "10000 facts stored"
+        (is (= 10000
+               (->> (query-to-vec "SELECT count(*) as c from fact_values")
+                    first
+                    :c))))
+
+      (update-facts! {:certname certname
+                      :values facts2
+                      :timestamp timestamp2
+                      :environment nil
+                      :producer_timestamp timestamp2})
+
+      (testing "11000 facts stored"
+        (is (= 11000
+               (->> (query-to-vec "SELECT count(*) as c from fact_values")
+                    first
+                    :c)))))))
 
 (deftest fact-persistence
   (testing "Persisted facts"

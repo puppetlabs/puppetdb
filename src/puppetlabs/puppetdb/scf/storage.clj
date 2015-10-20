@@ -55,6 +55,12 @@
 
 (def json-primitive-schema (s/either String Number Boolean))
 
+;; the maximum number of parameters pl-jdbc will admit in a prepared statement
+;; is 32767. delete-pending-value-id-orphans will create a prepared statement
+;; with 5 times the number of invalidated values, so 6000 here keeps us under
+;; that and leaves some room.
+(def gc-chunksize 6000)
+
 (def resource-schema
   (merge resource-ref-schema
          {(s/optional-key :exported) Boolean
@@ -788,51 +794,70 @@
    in other factsets."
   [factset-id dropped-pids]
   (when-let [dropped-pids (seq dropped-pids)]
-    (if (sutils/postgres?)
-      (let [candidate-paths (sutils/array-to-param "bigint" Long dropped-pids)]
-        (sql/do-prepared
-          "DELETE FROM fact_paths fp
-             WHERE fp.id = ANY (?)
-             AND NOT EXISTS (SELECT 1 FROM facts f
-                             WHERE f.fact_path_id = ANY (?)
-                             AND f.fact_path_id = fp.id
-                             AND f.factset_id <> ?)"
-          (concat [candidate-paths]
-                  [candidate-paths]
-                  [factset-id])))
-      (let [in-pids (jdbc/in-clause dropped-pids)]
-        (sql/do-prepared
-          (format
-            "DELETE FROM fact_paths fp
-               WHERE fp.id %s
-               AND NOT EXISTS (SELECT 1 FROM facts f
-                 WHERE f.fact_path_id %s
-                 AND f.fact_path_id = fp.id
-                 AND f.factset_id <> ?)"
-            in-pids in-pids)
-          (concat dropped-pids dropped-pids [factset-id]))))))
+    (let [dropped-chunks (partition-all gc-chunksize dropped-pids)]
+      (if (sutils/postgres?)
+        (let [candidate-chunks (map (partial sutils/array-to-param "bigint" Long)
+                                    dropped-chunks)]
+          (dorun
+           (map (fn [candidate-paths]
+                  (sql/do-prepared
+                   "DELETE FROM fact_paths fp
+                    WHERE fp.id = ANY (?)
+                    AND NOT EXISTS (SELECT 1 FROM facts f
+                                    WHERE f.fact_path_id = ANY (?)
+                                    AND f.fact_path_id = fp.id
+                                    AND f.factset_id <> ?)"
+                   (concat [candidate-paths]
+                           [candidate-paths]
+                           [factset-id])))
+                candidate-chunks)))
+        (let [in-chunks (map jdbc/in-clause dropped-chunks)]
+          (dorun
+           (map (fn [in dropped]
+                  (sql/do-prepared
+                   (format
+                    "DELETE FROM fact_paths fp
+                     WHERE fp.id %s
+                     AND NOT EXISTS (SELECT 1 FROM facts f
+                                     WHERE f.fact_path_id %s
+                                     AND f.fact_path_id = fp.id
+                                     AND f.factset_id <> ?)"
+                    in in)
+                   (concat dropped dropped [factset-id])))
+                in-chunks
+                dropped-chunks)))))))
 
 (defn-validated delete-pending-value-id-orphans!
   "Delete values in removed-pid-vid-pairs that are no longer mentioned
-  in facts."
+   in facts."
   [factset-id removed-pid-vid-pairs]
   (when-let [removed-pid-vid-pairs (seq removed-pid-vid-pairs)]
-    (let [vids (map second removed-pid-vid-pairs)
-          rm-facts (map cons (repeat factset-id) removed-pid-vid-pairs)
-          in-vids (jdbc/in-clause vids)
-          in-rm-facts (jdbc/in-clause-multi rm-facts 3)]
-      (sql/do-prepared
-       (format
-        "DELETE FROM fact_values fv
-           WHERE fv.id %s
-             AND NOT EXISTS (SELECT 1 FROM facts f
-                               WHERE f.fact_value_id %s
-                                 AND f.fact_value_id = fv.id
-                                 AND (f.factset_id,
-                                      f.fact_path_id,
-                                      f.fact_value_id) NOT %s)"
-        in-vids in-vids in-rm-facts)
-       (flatten [vids vids rm-facts])))))
+    (let [vid-chunks (partition-all gc-chunksize
+                                    (map second removed-pid-vid-pairs))
+          removed-fact-chunks (->> removed-pid-vid-pairs
+                                   (map cons (repeat factset-id))
+                                   (partition-all gc-chunksize))
+          vid-in-chunks (map jdbc/in-clause vid-chunks)
+          removed-facts-in-chunks (map jdbc/in-clause-multi
+                                       removed-fact-chunks (repeat 3))]
+      (dorun
+        (map (fn [in-vids in-rm-facts vids rm-facts]
+               (sql/do-prepared
+                 (format
+                   "DELETE FROM fact_values fv
+                      WHERE fv.id %s
+                        AND NOT EXISTS (SELECT 1 FROM facts f
+                                        WHERE f.fact_value_id %s
+                                        AND f.fact_value_id = fv.id
+                                        AND (f.factset_id,
+                                             f.fact_path_id,
+                                             f.fact_value_id) NOT %s)"
+                   in-vids in-vids in-rm-facts)
+                 (flatten [vids vids rm-facts])))
+             vid-in-chunks
+             removed-facts-in-chunks
+             vid-chunks
+             removed-fact-chunks)))))
 
 (defn-validated delete-orphaned-paths! :- s/Int
   "Deletes up to n paths that are no longer mentioned by any factsets,
