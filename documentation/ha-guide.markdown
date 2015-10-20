@@ -66,7 +66,7 @@ PE PuppetDB HA Installation, Configuration and Provisioning
 
 #### Prepare the Puppet master
 
-1. Select an agent to become the primary PuppetDB, which we will call `replica`
+1. Select an agent to become the secondary PuppetDB, which we will call `replica`
 for the rest of this doc. The original PuppetDB will be referred to as
 `primary`.
 2. Add the certname of the `replica` to `/etc/puppetlabs/puppet/autosign.conf`
@@ -93,7 +93,8 @@ know where to talk to the `primary` PuppetDB. Add the following contents to
 `/etc/puppetlabs/puppetdb/conf.d/sync.ini`
 
         [sync]
-        server_urls=https//<primary PuppetDB host>:<primary PuppetDB port>
+        server_urls=https://<primary PuppetDB host>:8081
+        intervals=2m
 
 3. Restart this `replica` PuppetDB using `service pe-puppetdb restart` and wait
 for the initial "sync" with the `primary` PuppetDB to complete by tailing the
@@ -114,7 +115,8 @@ should now include `PE PuppetDB Replica`.
 class, most likely `database_host` to `replica`'s certname and
 `whitelisted_certnames` to contain the `primary` PuppetDB's certname, e.g.
 `[ "primary.puppetdb.vm" ]`.
-7. Run `puppet agent -t` on the `replica`.
+7. Run `puppet agent -t` on the `replica`. If PuppetDB didn't automatically restart,
+do so now with `service pe-puppetdb restart`. 
 
 #### Configure PE to use PuppetDB HA
 
@@ -126,7 +128,8 @@ to the `primary` to let it know where to talk to the `replica` PuppetDB. Add the
 following contents to `/etc/puppetlabs/puppetdb/conf.d/sync.ini`
 
         [sync]
-        server_urls=https//<primary PuppetDB host>:<primary PuppetDB port>
+        server_urls=https://<primary PuppetDB host>:8081
+        intervals=2m
 
 3. Run `puppet agent -t` on the Master and restart the `primary` PuppetDB with
 `service pe-puppetdb restart`.
