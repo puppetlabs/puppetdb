@@ -1411,6 +1411,12 @@
    "ALTER TABLE reports ADD COLUMN logs jsonb DEFAULT NULL"
    "ALTER TABLE reports ADD COLUMN resources jsonb DEFAULT NULL"))
 
+(defn factset-hash-field-not-nullable
+  []
+  (jdbc/do-commands
+   "UPDATE factsets SET hash=md5(factsets.id::text)::bytea WHERE hash is NULL"
+   "ALTER TABLE factsets ALTER COLUMN hash SET NOT NULL"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1454,6 +1460,7 @@
    36 rename-environments-name-to-environment
    37 add-jsonb-columns-for-metrics-and-logs
    38 add-code-id-to-catalogs
+   39 factset-hash-field-not-nullable
    })
 
 (def desired-schema-version (apply max (keys migrations)))

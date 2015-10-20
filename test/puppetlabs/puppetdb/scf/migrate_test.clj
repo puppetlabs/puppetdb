@@ -484,3 +484,31 @@
       (let [post-migration-values (query-to-vec "SELECT * FROM fact_values")]
         (is (= (map :value (sort-by :hash post-migration-values))
                (map json/generate-string ["foobar" {:foo "bar"} 1])))))))
+
+(deftest test-hash-field-not-nullable
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 38)
+
+    (let [factset-template {:timestamp (to-timestamp (now))
+                            :environment_id (store/ensure-environment "prod")
+                            :producer_timestamp (to-timestamp (now))}
+          factset-data (map (fn [fs]
+                               (merge factset-template fs))
+                             [{:certname "foo.com"
+                               :hash nil}
+                              {:certname "bar.com"
+                               :hash nil}
+                              {:certname "baz.com"
+                               :hash (sutils/munge-hash-for-storage "abc123")}])]
+
+      (apply jdbc/insert! :certnames (map (fn [{:keys [certname]}]
+                                            {:certname certname :deactivated nil})
+                                          factset-data))
+      (apply jdbc/insert! :factsets factset-data)
+
+      (is (= 2 (:c (first (query-to-vec "SELECT count(*) as c FROM factsets where hash is null")))))
+
+      (apply-migration-for-testing! 39)
+
+      (is (zero? (:c (first (query-to-vec "SELECT count(*) as c FROM factsets where hash is null"))))))))
