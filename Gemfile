@@ -18,8 +18,8 @@ gem 'rake'
 
 group :test do
   # Pinning to work-around an incompatiblity with 2.14 in puppetlabs_spec_helper
-  gem 'rspec', '2.13.0'
-  gem 'puppetlabs_spec_helper', '0.4.1', :require => false
+  gem 'rspec', '~> 3.1'
+  gem 'puppetlabs_spec_helper', :require => false
 
   case puppet_branch
   when "latest"

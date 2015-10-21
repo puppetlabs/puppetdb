@@ -2,12 +2,6 @@ require 'spec_helper'
 require 'puppet/util/puppetdb/config'
 require 'puppet/util/puppetdb/command_names'
 
-# Create a local copy of these constants so that we don't have to refer to them
-# by their full namespaced name
-CommandReplaceCatalog   = Puppet::Util::Puppetdb::CommandNames::CommandReplaceCatalog
-CommandReplaceFacts     = Puppet::Util::Puppetdb::CommandNames::CommandReplaceFacts
-CommandStoreReport      = Puppet::Util::Puppetdb::CommandNames::CommandStoreReport
-
 describe Puppet::Util::Puppetdb::Config do
   describe "#load" do
     let(:confdir) do
@@ -62,7 +56,7 @@ soft_write_failure = true
 CONF
         config = described_class.load
         config.server_urls.should == [URI("https://main-server:1234")]
-        config.soft_write_failure.should be_true
+        config.soft_write_failure.should be_truthy
       end
 
       it "should use the default if no value is specified" do
@@ -70,7 +64,7 @@ CONF
 
         config = described_class.load
         config.server_urls.should == [URI("https://puppetdb:8081")]
-        config.soft_write_failure.should be_false
+        config.soft_write_failure.should be_falsey
       end
 
       it "should be insensitive to whitespace" do
