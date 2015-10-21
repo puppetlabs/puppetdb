@@ -32,9 +32,10 @@ module Puppet::Util::Puppetdb
     # will be the concatenated version of any url_prefix and the path passed in.
     #
     # @param path_suffix [String] path for the get/post of the http action
+    # @param request_type [Symbol] :query or :command
     # @param http_callback [Proc] proc containing the code calling the action on the http connection
     # @return [Response] returns http response
-    def self.action(path_suffix, &http_callback)
+    def self.action(path_suffix, request_mode, &http_callback)
 
       response = nil
       config = Puppet::Util::Puppetdb.config

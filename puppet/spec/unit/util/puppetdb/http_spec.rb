@@ -38,7 +38,7 @@ describe Puppet::Util::Puppetdb::Http do
       Puppet::Network::HttpPool.expects(:http_instance).returns(http1)
       http1.expects(:get).with("/foo/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
 
-      described_class.action("/bar/baz") do |http_instance, path|
+      described_class.action("/bar/baz", :query) do |http_instance, path|
         http_instance.get(path, {})
       end
     end
@@ -49,7 +49,7 @@ describe Puppet::Util::Puppetdb::Http do
 
       http1.expects(:get).with("/foo/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
 
-      response = described_class.action("/baz") do |http_instance, path|
+      response = described_class.action("/baz", :query) do |http_instance, path|
         http_instance.get(path, {})
       end
 
@@ -66,7 +66,7 @@ describe Puppet::Util::Puppetdb::Http do
       http1.expects(:get).with("/foo/baz", {}).raises SystemCallError, "Connection refused"
       http2.expects(:get).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
 
-      response = described_class.action("/baz") do |http_instance, path|
+      response = described_class.action("/baz", :query) do |http_instance, path|
         http_instance.get(path, {})
       end
 
@@ -82,7 +82,7 @@ describe Puppet::Util::Puppetdb::Http do
       http1.expects(:get).with("/foo/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
       http2.expects(:get).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
 
-      response = described_class.action("/baz") do |http_instance, path|
+      response = described_class.action("/baz", :query) do |http_instance, path|
         http_instance.get(path, {})
       end
 
@@ -99,7 +99,7 @@ describe Puppet::Util::Puppetdb::Http do
 
 
       expect {
-         described_class.action("/baz") do |http_instance, path|
+         described_class.action("/baz", :query) do |http_instance, path|
            http_instance.get(path, {})
          end
       }.to raise_error Puppet::Error, /Failed to execute/
@@ -112,7 +112,7 @@ describe Puppet::Util::Puppetdb::Http do
       http1.expects(:get).with("/foo/baz", {}).raises IOError
       http2.expects(:get).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
 
-      response = described_class.action("/baz") do |http_instance, path|
+      response = described_class.action("/baz", :query) do |http_instance, path|
         http_instance.get(path, {})
       end
 
@@ -127,7 +127,7 @@ describe Puppet::Util::Puppetdb::Http do
       http1.expects(:get).with("/foo/baz", {}).raises Timeout::Error
       http2.expects(:get).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
 
-      response = described_class.action("/baz") do |http_instance, path|
+      response = described_class.action("/baz", :query) do |http_instance, path|
         http_instance.get(path, {})
       end
 

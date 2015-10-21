@@ -41,7 +41,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
   def find(request)
     profile("facts#find", [:puppetdb, :facts, :find, request.key]) do
       begin
-        response = Http.action("/pdb/query/v4/nodes/#{CGI.escape(request.key)}/facts") do |http_instance, path|
+        response = Http.action("/pdb/query/v4/nodes/#{CGI.escape(request.key)}/facts", :query) do |http_instance, path|
           profile("Query for nodes facts: #{URI.unescape(path)}",
                   [:puppetdb, :facts, :find, :query_nodes, request.key]) do
             http_instance.get(path, headers)
@@ -109,7 +109,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
       query_param = CGI.escape(query.to_json)
 
       begin
-        response = Http.action("/pdb/query/v4/nodes?query=#{query_param}") do |http_instance, path|
+        response = Http.action("/pdb/query/v4/nodes?query=#{query_param}", :query) do |http_instance, path|
           profile("Fact query request: #{URI.unescape(path)}",
                   [:puppetdb, :facts, :search, :query_request, request.key]) do
             http_instance.get(path, headers)
