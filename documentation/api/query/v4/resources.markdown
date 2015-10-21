@@ -7,10 +7,13 @@ canonical: "/puppetdb/latest/api/query/v4/resources.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
+[subqueries]: ./operators.html#subquery-operators
+[catalogs]: ./catalogs.html
+[environments]: ./environments.html
+[nodes]: ./nodes.html
 
 You can query resources by making an HTTP request to the
 `/resources` endpoint.
-
 
 ## `/pdb/query/v4/resources`
 
@@ -50,6 +53,14 @@ See [the Operators page](./operators.html) for the full list of available operat
 
 * `environment` (string): the environment of the node associated to the resource.
 
+### Subquery Relationships
+
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
+
+* [`catalogs`][catalogs]: The catalog containing a resource.
+* [`environments`][environments]: The environment associated with a resource.
+* [`nodes`][nodes]: The node associated with a resource.
 
 ### Response format
 

@@ -8,6 +8,9 @@ canonical: "/puppetdb/latest/api/query/v4/factsets.html"
 [facts]: ./facts.html
 [paging]: ./paging.html
 [query]: ./query.html
+[subqueries]: ./operators.html#subquery-operators
+[facts]: ./facts.html
+[fact-contents]: ./fact_contents.html
 
 You can query factsets by making an HTTP request to the `/factsets` endpoint.
 
@@ -37,6 +40,16 @@ See [the Operators page.](./operators.html)
   the relevant certname from the master.
 * `hash` (string): a hash of the factset's certname, environment,
   timestamp, facts, and producer_timestamp.
+
+### Subquery Relationships
+
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
+
+* [`environments`][environments]: Environment a factset was received from.
+* [`facts`][facts]: Fact names and values received from a factset.
+* [`fact_contents`][fact-contents]: Factset paths and values received from a factset.
+* [`nodes`][nodes]: Node that a factset was received from.
 
 ### Response Format
 

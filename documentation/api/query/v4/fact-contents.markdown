@@ -7,6 +7,11 @@ canonical: "/puppetdb/latest/api/query/v4/fact-contents.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
+[subqueries]: ./operators.html#subquery-operators
+[environments]: ./environments.html
+[facts]: ./facts.html
+[factsets]: ./factsets.html
+[nodes]: ./nodes.html
 
 You can query fact information with greater power by using the '/fact-contents' endpoint. This endpoint provides the capability to descend into structured facts and query tree nodes deep within this data by using the concept of paths and values.
 
@@ -51,6 +56,16 @@ See [the Operators page.](./operators.html)
 * `name` (string): the name of the parent fact
 * `path` (path): the path of traversal to get to this node
 * `value` (multi): the value of this node
+
+### Subquery Relationships
+
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
+
+* [`environment`][environments]: The environment for a fact-content.
+* [`facts`][facts]: The fact where this a fact-content occurs.
+* [`factsets`][factsets]: The factset where a fact-content occurs.
+* [`nodes`][nodes]: The node where a fact-content occurs.
 
 ### Response Format
 

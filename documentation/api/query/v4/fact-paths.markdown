@@ -8,6 +8,9 @@ canonical: "/puppetdb/latest/api/query/v4/fact-paths.html"
 [paging]: ./paging.html
 [query]: ./query.html
 [fact-names]: ./query/v4/fact-names.html
+[subqueries]: ./operators.html#subquery-operators
+[facts]: ./facts.html
+[fact-contents]: ./fact_contents.html
 
 The `/fact-paths` endpoint retrieves the set of all known fact paths for all
 known nodes, and is intended as a counterpart to the [fact-names][fact-names]
@@ -33,6 +36,14 @@ See [the Operators page.](./operators.html)
 
 * `path` (path): the path associated with a fact node
 * `type` (string): the type of the value a the fact node
+
+### Subquery Relationships
+
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
+
+* [`facts`][facts]: All facts that contain a fact-path.
+* [`fact_contents`][fact-contents]: All factset paths and values using a fact-path.
 
 ## Response Format
 

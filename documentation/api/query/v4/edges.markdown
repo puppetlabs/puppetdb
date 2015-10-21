@@ -7,6 +7,9 @@ canonical: "/puppetdb/latest/api/query/v4/edges.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
+[subqueries]: ./operators.html#subquery-operators
+[catalogs]: ./catalogs.html
+[nodes]: ./nodes.html
 [resources]: ./resources.html
 
 Catalog edges, are relationships formed between two [resources][resources].
@@ -37,6 +40,14 @@ See [the Operators page](./operators.html)
 * `source_type` (string, with first letter always capitalized): the source resource type.
 * `target_title` (string): the target resource title.
 * `target_type` (string, with first letter always capitalized): the target resource type.
+
+### Subquery Relationships
+
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
+
+* [`nodes`][nodes]: Node entity for the catalog of an edge.
+* [`catalogs`][catalogs]: Catalog entity for an edge.
 
 ### Response format
 
