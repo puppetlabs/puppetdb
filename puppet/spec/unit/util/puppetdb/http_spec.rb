@@ -25,7 +25,7 @@ describe Puppet::Util::Puppetdb::Http do
     config = stub 'config'
     config.stubs(:server_urls).returns [URI("https://server1:8080/foo"), URI("https://server2:8181/bar")]
     config.stubs(:server_url_timeout).returns 30
-    config.stubs(:server_url_config?).returns false
+    config.stubs(:server_url_config?).returns true
     config
   end
   let(:http1) {stub 'http'}
