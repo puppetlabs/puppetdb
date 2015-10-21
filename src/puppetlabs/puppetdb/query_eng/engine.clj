@@ -211,6 +211,14 @@
                                             :query-only? true
                                             :queryable? false
                                             :field :fv.value_float}
+                             "value_string" {:type :string
+                                            :query-only? true
+                                            :queryable? false
+                                            :field :fv.value_string}
+                             "value_boolean" {:type :boolean
+                                              :query-only? true
+                                              :queryable? false
+                                              :field :fv.value_boolean}
                              "name" {:type :string
                                      :queryable? true
                                      :field :fp.name}
@@ -266,6 +274,14 @@
                                             :queryable? false
                                             :field :fv.value_float
                                             :query-only? true}
+                             "value_string" {:type :string
+                                            :query-only? true
+                                            :queryable? false
+                                            :field :fv.value_string}
+                             "value_boolean" {:type :boolean
+                                              :query-only? true
+                                              :queryable? false
+                                              :field :fv.value_boolean}
                              "type" {:type :string
                                      :queryable? false
                                      :field :vt.type
@@ -935,6 +951,11 @@
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
             ["or" [op "value_integer" value] [op "value_float" value]]
 
+            [[(op :guard #{"="}) "value"
+              (value :guard #(or (string? %) (ks/boolean? %)))]]
+            (let [value-column (if (string? value) "value_string" "value_boolean")]
+            [op value-column value])
+
             [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
             (when (= :facts (get-in (meta node) [:query-context :entity]))
               ["and" ["=" "depth" 0] [op "value" value]])
@@ -957,14 +978,15 @@
                 [op "res_param_name" param-name]
                 [op "res_param_value" (su/db-serialize param-value)]]]]]
 
-            [[(op :guard #{"=" "~"}) ["fact" fact-name] (fact-value :guard #(or (string? %)
-                                                                                (instance? Boolean %)))]]
-            ["in" "certname"
-             ["extract" "certname"
-              ["select_facts"
-               ["and"
-                ["=" "name" fact-name]
-                [op "value" fact-value]]]]]
+            [[(op :guard #{"=" "~"}) ["fact" fact-name]
+              (fact-value :guard #(or (string? %) (instance? Boolean %)))]]
+            (let [value-column (if (string? fact-value) "value_string" "value_boolean")]
+              ["in" "certname"
+               ["extract" "certname"
+                ["select_facts"
+                 ["and"
+                  ["=" "name" fact-name]
+                  [op value-column fact-value]]]]])
 
             [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
             (if-not (number? fact-value)
@@ -1157,11 +1179,6 @@
                (map->BinaryExpression {:operator :=
                                        :column field
                                        :value (facts/factpath-to-string value)})
-
-               :multi
-               (map->BinaryExpression {:operator :=
-                                       :column (hsql-hash-as-str (keyword (str column "_hash")))
-                                       :value (hash/generic-identity-hash value)})
 
                (map->BinaryExpression {:operator :=
                                        :column field
