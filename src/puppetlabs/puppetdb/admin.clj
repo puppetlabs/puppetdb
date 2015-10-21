@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.admin
   (:require [compojure.core :as compojure]
-            [compojure.route :as route]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.export :as export]
             [puppetlabs.puppetdb.import :as import]
@@ -23,5 +22,4 @@
                             (http/json-response {:ok true}))))
        (compojure/GET "/v1/archive" [anonymization_profile]
                       (http/streamed-tar-response #(export/export! % query-fn anonymization_profile)
-                                                  (format "puppetdb-export-%s.tgz" (now))))
-       (route/not-found "Not Found"))))
+                                                  (format "puppetdb-export-%s.tgz" (now)))))))
