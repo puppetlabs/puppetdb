@@ -7,7 +7,6 @@ require 'thread'
 
 module Puppet::Util::Puppetdb
   class Http
-
     SERVER_URL_FAIL_MSG = "Failing over to the next PuppetDB server_url in the 'server_urls' list"
 
     # Concat two server_url snippets, taking into account a trailing/leading slash to
@@ -109,20 +108,12 @@ module Puppet::Util::Puppetdb
       if response_error == :notfound
         raise NotFoundError, "Failed to find '#{path_suffix}' on any of the following 'server_urls': #{server_url_strings}"
       else
-        raise Puppet::Error, "Failed to execute '#{path_suffix}' on any of the following 'server_urls': #{server_url_strings}"
+        min_successful_submissions = Puppet::Util::Puppetdb.config.min_successful_submissions
+        raise Puppet::Error, "Failed to execute '#{path_suffix}' on at least #{min_successful_submissions} of the following 'server_urls': #{server_url_strings}"
       end
     end
 
-    # Setup an http connection, provide a block that will do something with that http
-    # connection. The block should be a two argument block, accepting the connection (which
-    # you can call get or post on for example) and the properly constructed path, which
-    # will be the concatenated version of any url_prefix and the path passed in.
-    #
-    # @param path_suffix [String] path for the get/post of the http action
-    # @param request_type [Symbol] :query or :command
-    # @param http_callback [Proc] proc containing the code calling the action on the http connection
-    # @return [Response] returns http response
-    def self.action(path_suffix, request_mode, &http_callback)
+    def self.query_action(path_suffix, http_callback)
       response = nil
       response_error = nil
       config = Puppet::Util::Puppetdb.config
@@ -151,6 +142,59 @@ module Puppet::Util::Puppetdb
       end
 
       response
+    end
+
+    def self.command_action(path_suffix, http_callback)
+      response = nil
+      response_error = nil
+      config = Puppet::Util::Puppetdb.config
+      successful_submit_count = 0
+
+      submit_server_urls = config.server_urls + config.submit_only_server_urls
+      for server_url in submit_server_urls
+        route = concat_url_snippets(server_url.request_uri, path_suffix)
+
+        request_exception = with_http_error_logging(server_url, route) {
+          http = Puppet::Network::HttpPool.http_instance(server_url.host, server_url.port)
+
+          response = timeout(config.server_url_timeout) do
+            http_callback.call(http, route)
+          end
+        }
+
+        if request_exception.nil?
+          response_error = check_http_response(response, server_url, route)
+          if response_error.nil?
+            successful_submit_count += 1
+          end
+        end
+      end
+
+      if successful_submit_count < config.min_successful_submissions
+        raise_request_error(response, response_error, path_suffix)
+      end
+
+      response
+    end
+
+    # Setup an http connection, provide a block that will do something with that http
+    # connection. The block should be a two argument block, accepting the connection (which
+    # you can call get or post on for example) and the properly constructed path, which
+    # will be the concatenated version of any url_prefix and the path passed in.
+    #
+    # @param path_suffix [String] path for the get/post of the http action
+    # @param request_type [Symbol] :query or :command
+    # @param http_callback [Proc] proc containing the code calling the action on the http connection
+    # @return [Response] returns http response
+    def self.action(path_suffix, request_mode, &http_callback)
+      case request_mode
+      when :query
+        self.query_action(path_suffix, http_callback)
+      when :command
+        self.command_action(path_suffix, http_callback)
+      else
+        raise Puppet::Error, "Unknown request mode: #{request_mode}"
+      end
     end
   end
 

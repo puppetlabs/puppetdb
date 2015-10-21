@@ -24,6 +24,8 @@ describe Puppet::Util::Puppetdb::Config do
       it "should use the default settings" do
         config = described_class.load
         config.server_urls.should == [URI("https://puppetdb:8081")]
+        config.submit_only_server_urls.should == []
+        config.min_successful_submissions.should == 1
       end
 
     end
@@ -102,6 +104,21 @@ CONF
           described_class.load
         end.to raise_error(/Unparseable line 'foo bar baz'/)
       end
+
+      it "should raise if soft_write_failure and min_successful_submissions are both configured" do
+        write_config <<CONF
+[main]
+server = main-server
+port = 1234
+soft_write_failure = true
+min_successful_submissions = 2
+CONF
+
+        expect do
+          described_class.load
+        end.to raise_error(/soft_write_failure cannot be enabled when min_successful_submissions is greater than 1/)
+      end
+
 
       it "should accept a single url" do
         write_config <<CONF
@@ -215,6 +232,55 @@ CONF
                                       URI("https://bar.example-thing.com:8989"),
                                       URI("https://baz.example-thing.com:8989")]
       end
+
+      it "should read submit_only_server_urls" do
+        write_config <<CONF
+[main]
+server_urls = https://foo.com
+submit_only_server_urls = https://bar.com
+CONF
+
+        config = described_class.load
+        config.server_urls.should == [URI("https://foo.com")]
+        config.submit_only_server_urls.should == [URI("https://bar.com")]
+      end
+
+      it "should read min_successful_submissions" do
+        write_config <<CONF
+[main]
+server_urls = https://foo.com,https://bar.com
+min_successful_submissions = 2
+CONF
+
+        config = described_class.load
+        config.server_urls.should == [URI("https://foo.com"), URI("https://bar.com")]
+        config.min_successful_submissions.should == 2
+      end
+
+      it "shouldn't allow min_successful_submissions to be greater than the number of server_urls" do
+        write_config <<CONF
+[main]
+server_urls = https://foo.com,https://bar.com
+min_successful_submissions = 3
+CONF
+        expect do
+          config = described_class.load
+        end.to raise_error(/min_successful_submissions \(3\) must be less than or equal to/)
+      end
+
+      it "shouldn't allow submit_only_server_urls to overlap with server_urls" do
+        write_config <<CONF
+[main]
+server_urls = https://foo.com,https://bar.com
+submit_only_server_urls = https://bar.com
+CONF
+
+        expect do
+          config = described_class.load
+        end.to raise_error(/Server URLs must be in either server_urls or submit_only_server_urls/)
+      end
+
+
     end
   end
 end

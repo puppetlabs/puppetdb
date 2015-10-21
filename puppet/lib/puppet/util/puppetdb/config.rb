@@ -13,6 +13,8 @@ module Puppet::Util::Puppetdb
         :soft_write_failure          => false,
         :server_url_timeout          => 30,
         :include_unchanged_resources => false,
+        :min_successful_submissions => 1,
+        :submit_only_server_urls   => ""
       }
 
       config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
@@ -50,19 +52,43 @@ module Puppet::Util::Puppetdb
       main_section = result['main'] || {}
       # symbolize the keys
       main_section = main_section.inject({}) {|h, (k,v)| h[k.to_sym] = v ; h}
+
       # merge with defaults but filter out anything except the legal settings
       config_hash = defaults.merge(main_section).reject do |k, v|
         !([:server_urls,
            :ignore_blacklisted_events,
            :include_unchanged_resources,
            :soft_write_failure,
-           :server_url_timeout].include?(k))
+           :server_url_timeout,
+           :min_successful_submissions,
+           :submit_only_server_urls].include?(k))
       end
 
-      config_hash[:server_urls] = convert_and_validate_urls(config_hash[:server_urls].split(",").map {|s| s.strip})
+      parsed_urls = config_hash[:server_urls].split(",").map {|s| s.strip}
+      config_hash[:server_urls] = convert_and_validate_urls(parsed_urls)
+
       config_hash[:server_url_timeout] = config_hash[:server_url_timeout].to_i
       config_hash[:include_unchanged_resources] = Puppet::Util::Puppetdb.to_bool(config_hash[:include_unchanged_resources])
       config_hash[:soft_write_failure] = Puppet::Util::Puppetdb.to_bool(config_hash[:soft_write_failure])
+
+      config_hash[:submit_only_server_urls] = convert_and_validate_urls(config_hash[:submit_only_server_urls].split(",").map {|s| s.strip})
+      config_hash[:min_successful_submissions] = config_hash[:min_successful_submissions].to_i
+
+      if config_hash[:soft_write_failure] and config_hash[:min_successful_submissions] > 1
+        raise "soft_write_failure cannot be enabled when min_successful_submissions is greater than 1"
+      end
+
+      overlapping_server_urls = config_hash[:server_urls] & config_hash[:submit_only_server_urls]
+      if overlapping_server_urls.length > 0
+        overlapping_server_urls_strs = overlapping_server_urls.map { |u| u.to_s }
+        raise "Server URLs must be in either server_urls or submit_only_server_urls, not both. "\
+          "(#{overlapping_server_urls_strs.to_s} are in both)"
+      end
+
+      if config_hash[:min_successful_submissions] > config_hash[:server_urls].length
+        raise "min_successful_submissions (#{config_hash[:min_successful_submissions]}) must be less than "\
+          "or equal to the number of server_urls (#{config_hash[:server_urls].length})"
+      end
 
       self.new(config_hash)
     rescue => detail
@@ -91,6 +117,14 @@ module Puppet::Util::Puppetdb
 
     def soft_write_failure
       config[:soft_write_failure]
+    end
+
+    def min_successful_submissions
+      config[:min_successful_submissions]
+    end
+
+    def submit_only_server_urls
+      config[:submit_only_server_urls]
     end
 
     # @!group Private instance methods
