@@ -61,13 +61,6 @@
                                  "--runinterval" "1")]
     (is (>= (count submitted)) (* 3 42))))
 
-(deftest submit-one-record-of-each-type
-  (let [submitted (run-benchmark {}
-                                 "--config" "anything.ini"
-                                 "--numhosts" "1"
-                                 "--nummsgs" "1")]
-    (is (= 3 (count submitted)))))
-
 (deftest multiple-messages-and-hosts
   (let [submitted (run-benchmark {}
                                  "--config" "anything.ini"
