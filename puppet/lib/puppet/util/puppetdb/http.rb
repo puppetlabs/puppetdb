@@ -37,19 +37,23 @@ module Puppet::Util::Puppetdb
       begin
         cb.call()
       rescue Timeout::Error => e
-        Puppet.warning("Request to #{server_url.host} on #{server_url.port} at route #{route} timed out after #{config.server_url_timeout} seconds. #{SERVER_URL_FAIL_MSG}")
+        Puppet.warning("Request to #{server_url.host} on #{server_url.port} at route #{route} timed out " \
+          "after #{config.server_url_timeout} seconds. #{SERVER_URL_FAIL_MSG}")
         return e
 
       rescue SocketError, OpenSSL::SSL::SSLError, SystemCallError, Net::ProtocolError, IOError, Net::HTTPNotFound => e
-        Puppet.warning("Error connecting to #{server_url.host} on #{server_url.port} at route #{route}, error message received was '#{e.message}'. #{SERVER_URL_FAIL_MSG}")
+        Puppet.warning("Error connecting to #{server_url.host} on #{server_url.port} at route #{route}, " \
+          "error message received was '#{e.message}'. #{SERVER_URL_FAIL_MSG}")
         return e
 
       rescue Puppet::Util::Puppetdb::InventorySearchError => e
-        Puppet.warning("Could not perform inventory search from PuppetDB at #{server_url.host}:#{server_url.port}: '#{e.message}' #{SERVER_URL_FAIL_MSG}")
+        Puppet.warning("Could not perform inventory search from PuppetDB at #{server_url.host}:#{server_url.port}: " \
+          "'#{e.message}' #{SERVER_URL_FAIL_MSG}")
         return e
 
       rescue Puppet::Util::Puppetdb::CommandSubmissionError => e
-        error = "Failed to submit '#{e.context[:command]}' command for '#{e.context[:for_whom]}' to PuppetDB at #{server_url.host}:#{server_url.port}: '#{e.message}'."
+        error = "Failed to submit '#{e.context[:command]}' command for '#{e.context[:for_whom]}' to PuppetDB " \
+          "at #{server_url.host}:#{server_url.port}: '#{e.message}'."
         if config.soft_write_failure
           Puppet.err error
         else
@@ -58,12 +62,14 @@ module Puppet::Util::Puppetdb
         return e
 
       rescue Puppet::Util::Puppetdb::SoftWriteFailError => e
-        Puppet.warning("Failed to submit '#{e.context[:command]}' command for '#{e.context[:for_whom]}' to PuppetDB at #{server_url.host}:#{server_url.port}: '#{e.message}' #{SERVER_URL_FAIL_MSG}")
+        Puppet.warning("Failed to submit '#{e.context[:command]}' command for '#{e.context[:for_whom]}' to PuppetDB " \
+          "at #{server_url.host}:#{server_url.port}: '#{e.message}' #{SERVER_URL_FAIL_MSG}")
         return e
 
       rescue Puppet::Error => e
         if e.message =~ /did not match server certificate; expected one of/
-          Puppet.warning("Error connecting to #{server_url.host} on #{server_url.port} at route #{route}, error message received was '#{e.message}'. #{SERVER_URL_FAIL_MSG}")
+          Puppet.warning("Error connecting to #{server_url.host} on #{server_url.port} at route #{route}, " \
+            "error message received was '#{e.message}'. #{SERVER_URL_FAIL_MSG}")
           return e
         else
           raise
@@ -78,16 +84,19 @@ module Puppet::Util::Puppetdb
     # (:server_error, :notfound, or :other_404), or nil if there wasn't one.
     def self.check_http_response(response, server_url, route)
       if response.is_a? Net::HTTPServerError
-        Puppet.warning("Error connecting to #{server_url.host} on #{server_url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG}")
+        Puppet.warning("Error connecting to #{server_url.host} on #{server_url.port} at route #{route}, " \
+          "error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG}")
         :server_error
       elsif response.is_a? Net::HTTPNotFound
         if response.body && response.body.chars.first == "{"
           # If it appears to be json, we've probably gotten an authentic 'not found' message.
-          Puppet.debug("HTTP 404 (probably normal) when connecting to #{server_url.host} on #{server_url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG}")
+          Puppet.debug("HTTP 404 (probably normal) when connecting to #{server_url.host} on #{server_url.port} " \
+            "at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG}")
           :notfound
         else
           # But we can also get 404s when conneting to a puppetdb that's still starting or due to misconfiguration.
-          Puppet.warning("Error connecting to #{server_url.host} on #{server_url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG}")
+          Puppet.warning("Error connecting to #{server_url.host} on #{server_url.port} at route #{route}, " \
+            "error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG}")
           :other_404
         end
       else
