@@ -75,12 +75,12 @@ The below fields are allowed as filter criteria and are returned in all response
 
 ### Subquery Relationships
 
-Here is a list of relationships that can be queried using implicit subqueries. For
-more information consult the documentation for [subqueries].
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
 
-* [`environments`][environments]: Environment where this report was received from.
-* [`events`][events]: Events received in this report.
-* [`nodes`][nodes]: Node where this report was received from.
+* [`environments`][environments]: Environment where a report was received from.
+* [`events`][events]: Events received in a report.
+* [`nodes`][nodes]: Node where a report was received from.
 
 ### Response format
 

@@ -41,16 +41,16 @@ See [the Operators page](./operators.html)
 
 ### Subquery Relationships
 
-Here is a list of relationships that can be queried using implicit subqueries. For
-more information consult the documentation for [subqueries].
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
 
-* [`factsets`][factsets]: Factsets received from this environment.
-* [`reports`][reports]: Reports received from this environment.
-* [`catalogs`][catalogs]: Catalogs received for this this environment.
-* [`facts`][facts]: Fact names and values received from this environment.
-* [`fact_contents`][fact-contents]: Factset paths and values received from this environment.
-* [`events`][events]: Report events triggered from this environment.
-* [`resources`][resources]: Catalog resources received for this environment.
+* [`factsets`][factsets]: Factsets received for an environment.
+* [`reports`][reports]: Reports received for an environment.
+* [`catalogs`][catalogs]: Catalogs received for an environment.
+* [`facts`][facts]: Fact names and values received for an environment.
+* [`fact_contents`][fact-contents]: Factset paths and values received for an environment.
+* [`events`][events]: Report events triggered for an environment.
+* [`resources`][resources]: Catalog resources received for an environment.
 
 ### Response format
 

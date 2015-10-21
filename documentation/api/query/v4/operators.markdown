@@ -212,7 +212,7 @@ Consult the endpoint document for details on what implicit relationships are sup
 
 Internal to PuppetDB, we keep a mapping of how different entities relate to each
 other, and so no other data beyond the entity is needed in this case. This is
-different to explicit subqueries, for those you must specify yourself how
+different from explicit subqueries, for those you must specify yourself how
 two entities are related, although functionally they can produce the same results.
 
 #### Implicit Subquery Examples

@@ -43,11 +43,11 @@ See [the Operators page](./operators.html)
 
 ### Subquery Relationships
 
-Here is a list of relationships that can be queried using implicit subqueries. For
-more information consult the documentation for [subqueries].
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
 
-* [`nodes`][nodes]: Node for this catalog.
-* [`catalogs`][catalogs]: Catalog for this edge.
+* [`nodes`][nodes]: Node entity for the catalog of an edge.
+* [`catalogs`][catalogs]: Catalog entity for an edge.
 
 ### Response format
 

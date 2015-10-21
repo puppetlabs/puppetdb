@@ -70,17 +70,17 @@ The below fields are allowed as filter criteria and are returned in all response
 
 ### Subquery Relationships
 
-Here is a list of relationships that can be queried using implicit subqueries. For
-more information consult the documentation for [subqueries].
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
 
-* [`factsets`][factsets]: Factsets received from this node.
-* [`reports`][reports]: Reports received from this node.
-* [`catalogs`][catalogs]: Catalogs received for this node.
-* [`facts`][facts]: Fact names and values received from this node.
-* [`fact_contents`][fact-contents]: Factset paths and values received from this node.
-* [`events`][events]: Report events triggered from this node.
-* [`edges`][edges]: Catalog edges received for this node.
-* [`resources`][resources]: Catalog resources received for this node.
+* [`factsets`][factsets]: Factsets received for a node.
+* [`reports`][reports]: Reports received for a node.
+* [`catalogs`][catalogs]: Catalogs received for a node.
+* [`facts`][facts]: Fact names and values received for a node.
+* [`fact_contents`][fact-contents]: Factset paths and values received for a node.
+* [`events`][events]: Report events triggered for a node.
+* [`edges`][edges]: Catalog edges received for a node.
+* [`resources`][resources]: Catalog resources received for a node.
 
 ### Response format
 

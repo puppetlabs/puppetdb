@@ -124,12 +124,12 @@ is not supported by the regex match operator.
 
 ### Subquery Relationships
 
-Here is a list of relationships that can be queried using implicit subqueries. For
-more information consult the documentation for [subqueries].
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
 
-* [`reports`][reports]: The report this event appears in.
-* [`nodes`][nodes]: The node where this event occurred.
-* [`environments`][environments]: The environment where this event occurred.
+* [`reports`][reports]: The report asssociated with an event.
+* [`nodes`][nodes]: The node associated with an this event.
+* [`environments`][environments]: The environment associated with an event.
 
 ### Response Format
 

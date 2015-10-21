@@ -39,11 +39,11 @@ See [the Operators page.](./operators.html)
 
 ### Subquery Relationships
 
-Here is a list of relationships that can be queried using implicit subqueries. For
-more information consult the documentation for [subqueries].
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
 
-* [`facts`][facts]: All facts from all nodes using the fact path.
-* [`fact_contents`][fact-contents]: All factset paths and values using the fact path.
+* [`facts`][facts]: All facts that contain a fact-path.
+* [`fact_contents`][fact-contents]: All factset paths and values using a fact-path.
 
 ## Response Format
 

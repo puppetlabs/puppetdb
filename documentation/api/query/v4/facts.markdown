@@ -41,13 +41,13 @@ See [the Operators page.](./operators.html)
 
 ### Subquery Relationships
 
-Here is a list of relationships that can be queried using implicit subqueries. For
-more information consult the documentation for [subqueries].
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
 
-* [`environments`][environments]: The environment where this fact occurs.
-* [`factsets`][factsets]: The factset where this fact appears.
-* [`fact_contents`][fact-contents]: Expanded fact paths and values for this fact.
-* [`nodes`][nodes]: The node where this fact occurs.
+* [`environments`][environments]: The environment where a fact occurs.
+* [`factsets`][factsets]: The factset where a fact appears.
+* [`fact_contents`][fact-contents]: Expanded fact paths and values for a fact.
+* [`nodes`][nodes]: The node where a fact occurs.
 
 ### Response Format
 

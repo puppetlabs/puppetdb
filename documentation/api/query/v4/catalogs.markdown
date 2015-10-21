@@ -44,15 +44,13 @@ See [the Operators page.](./operators.html)
 
 ### Subquery Relationships
 
-Here is a list of relationships that can be queried using implicit subqueries. For
-more information consult the documentation for [subqueries].
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
 
-Relationships:
-
-* [`nodes`][nodes]: Node for this catalog.
-* [`environments`][environments]: Environment for this catalog.
-* [`edges`][edges]: Resource edges received with this catalog.
-* [`resources`][resources]: Resources received with this catalog.
+* [`nodes`][nodes]: Node for a catalog.
+* [`environments`][environments]: Environment for a catalog.
+* [`edges`][edges]: Resource edges received for a catalog.
+* [`resources`][resources]: Resources received for a catalog.
 
 ### Response Format
 

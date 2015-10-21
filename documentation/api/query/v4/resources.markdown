@@ -55,12 +55,12 @@ See [the Operators page](./operators.html) for the full list of available operat
 
 ### Subquery Relationships
 
-Here is a list of relationships that can be queried using implicit subqueries. For
-more information consult the documentation for [subqueries].
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
 
-* [`catalogs`][catalogs]: The catalog containing this resource.
-* [`environments`][environments]: The environment where this event occurred.
-* [`nodes`][nodes]: The node where this event occurred.
+* [`catalogs`][catalogs]: The catalog containing a resource.
+* [`environments`][environments]: The environment associated with a resource.
+* [`nodes`][nodes]: The node associated with a resource.
 
 ### Response format
 
