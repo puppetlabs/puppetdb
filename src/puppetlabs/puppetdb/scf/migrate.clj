@@ -1486,7 +1486,9 @@
           results (jdbc/with-db-transaction []  (query-to-vec query))]
       (apply sorted-set (map :version results)))
     (catch java.sql.SQLException e
-      (sorted-set))))
+      (if (re-find #"\"schema_migrations\" does not exist" (.getMessage e))
+        (sorted-set)
+        (throw e)))))
 
 (defn pending-migrations
   "Returns a collection of pending migrations, ordered from oldest to latest."
