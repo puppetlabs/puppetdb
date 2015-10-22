@@ -86,7 +86,11 @@
            {:name "bar"}
            {:name "baz"}}
 
-         ;; Facts
+         ;;;;;;;;;;;;
+         ;; Basic facts subquery examples
+         ;;;;;;;;;;;;
+
+         ;; In syntax
          ["in" "name"
           ["extract" "environment"
            ["select_facts"
@@ -95,6 +99,18 @@
              ["=" "value" "Debian"]]]]]
          #{{:name "DEV"}}
 
+         ;; Implicit subquery syntax
+         ["subquery" "facts"
+          ["and"
+           ["=" "name" "operatingsystem"]
+           ["=" "value" "Debian"]]]
+         #{{:name "DEV"}}
+
+         ;;;;;;;;;;;;;
+         ;; Not-wrapped subquery syntax
+         ;;;;;;;;;;;;;
+
+         ;; In syntax
          ["not"
           ["in" "name"
            ["extract" "environment"
@@ -106,7 +122,21 @@
            {:name "bar"}
            {:name "baz"}}
 
-         ;; Facts with resources
+         ;; Implict subquery syntax
+         ["not"
+          ["subquery" "facts"
+          ["and"
+           ["=" "name" "operatingsystem"]
+           ["=" "value" "Debian"]]]]
+         #{{:name "foo"}
+          {:name "bar"}
+          {:name "baz"}}
+
+         ;;;;;;;;
+         ;; Complex subquery example
+         ;;;;;;;;
+
+         ;; In syntax
          ["in" "name"
           ["extract" "environment"
            ["select_facts"
@@ -116,7 +146,11 @@
               ["extract" "title"
                ["select_resources"
                 ["=" "type" "Class"]]]]]]]]
-         #{{:name "DEV"}}))
+         #{{:name "DEV"}}
+
+         ;; Note: fact/resource comparison isn't a natural
+         ;; join, so there is no implicit syntax here.
+         ))
 
   (testing "failed comparison"
     (are [query]

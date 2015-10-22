@@ -88,8 +88,43 @@
               ["=" "res_param_name" "bar"]
               ["=" "res_param_value" "\"baz\""]]]]]]
          (expand-user-query [["=" "prop" "foo"]
-                             ["=" ["parameter" "bar"] "baz"]]))))
+                             ["=" ["parameter" "bar"] "baz"]])))
 
+  (testing "implicit subqueries"
+    (are [context in out]
+      (= (expand-user-query
+          (push-down-context context in)) out)
+
+      ;; Simplistic 1 column examples (catalogs example)
+      (map->Query {:relationships
+                   {"resources" {:columns ["certname"]}}})
+      ["subquery" "resources"
+       ["=" "type" "Class"]]
+      ["in" ["certname"]
+       ["extract" ["certname"]
+        ["select_resources"
+         ["=" "type" "Class"]]]]
+
+      ;; Where local and foreign differ (resources example)
+      (map->Query {:relationships
+                   {"environments" {:local-columns ["environment"]
+                                    :foreign-columns ["name"]}}})
+      ["subquery" "environments"
+       ["=" "name" "production"]]
+      ["in" ["environment"]
+       ["extract" ["name"]
+        ["select_environments"
+         ["=" "name" "production"]]]]
+
+      ;; Two column examples (fact-contents example)
+      (map->Query {:relationships
+                   {"facts" {:columns ["certname" "name"]}}})
+      ["subquery" "facts"
+       ["=" "name" "networking"]]
+      ["in" ["certname" "name"]
+       ["extract" ["certname" "name"]
+        ["select_facts"
+         ["=" "name" "networking"]]]])))
 
 (deftest test-extract-with-no-subexpression-compiles
   (is (re-find #"SELECT .*certname FROM reports"

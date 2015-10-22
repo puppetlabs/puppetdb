@@ -6,11 +6,15 @@ canonical: "/puppetdb/latest/api/query/v4/environments.html"
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
-[events]: ./events.html
-[reports]: ./reports.html
-[resources]: ./resources.html
-[facts]: ./facts.html
 [query]: ./query.html
+[subqueries]: ./operators.html#subquery-operators
+[factsets]: ./factsets.html
+[reports]: ./reports.html
+[catalogs]: ./catalogs.html
+[facts]: ./facts.html
+[fact-contents]: ./fact_contents.html
+[events]: ./events.html
+[resources]: ./resources.html
 
 Environments are semi-isolated groups of nodes managed by Puppet. Nodes are assigned to environments by their own configuration, or by the puppet master's external node classifier.
 
@@ -34,6 +38,19 @@ See [the Operators page](./operators.html)
 ### Query Fields
 
 * `"name"` (string): the name of an environment
+
+### Subquery Relationships
+
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
+
+* [`factsets`][factsets]: Factsets received for an environment.
+* [`reports`][reports]: Reports received for an environment.
+* [`catalogs`][catalogs]: Catalogs received for an environment.
+* [`facts`][facts]: Fact names and values received for an environment.
+* [`fact_contents`][fact-contents]: Factset paths and values received for an environment.
+* [`events`][events]: Report events triggered for an environment.
+* [`resources`][resources]: Catalog resources received for an environment.
 
 ### Response format
 

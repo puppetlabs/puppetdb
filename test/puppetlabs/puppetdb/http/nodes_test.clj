@@ -139,7 +139,11 @@
     (are [query expected]
         (is-query-result method endpoint query expected)
 
-      ;; Facts
+      ;;;;;;;;;;;;
+      ;; Fact subqueries
+      ;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_facts"
@@ -148,7 +152,18 @@
           ["=" "value" "Debian"]]]]]
       [db web1 web2]
 
-      ;; Fact contents
+      ;; Implicit subquery
+      ["subquery" "facts"
+       ["and"
+        ["=" "name" "operatingsystem"]
+        ["=" "value" "Debian"]]]
+      [db web1 web2]
+
+      ;;;;;;;;;;;
+      ;; Fact_contents subqueries
+      ;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_fact_contents"
@@ -157,7 +172,18 @@
           ["=" "value" "Debian"]]]]]
       [db web1 web2]
 
-      ;; Facts & Resources
+      ;; Implicit subquery
+      ["subquery" "fact_contents"
+       ["and"
+        ["=" "name" "operatingsystem"]
+        ["=" "value" "Debian"]]]
+      [db web1 web2]
+
+      ;;;;;;;;;;;;;
+      ;; Nodes with a class matching their hostname
+      ;;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_facts"
@@ -170,7 +196,22 @@
               ["=" "type" "Class"]]]]]]]]]
       [web1]
 
-      ;; Resources
+      ;; Implicit subquery
+      ["subquery" "facts"
+       ["and"
+        ["=" "name" "hostname"]
+        ["in" "value"
+         ["extract" "title"
+          ["select_resources"
+           ["and"
+            ["=" "type" "Class"]]]]]]]
+      [web1]
+
+      ;;;;;;;;;;;;
+      ;; Nodes with matching select-resources for file/line
+      ;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_resources"
@@ -185,33 +226,92 @@
          ["=" "certname" web1]]]]
       [web1]
 
-      ;; Reports
+      ;; Implicit subquery
+      ["subquery" "resources"
+       ["and"
+        ["=" "file" "/etc/puppet/modules/settings/manifests/init.pp"]
+        ["=" "line" 1]]]
+      [db puppet web1]
+
+      ;;;;;;;;;;;;
+      ;; Reports subquery
+      ;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_reports"
          ["=" "certname" db]]]]
       [db]
 
-      ;; Catalogs
+      ;; Implicit subquery
+      ["subquery" "reports"
+       ["=" "certname" db]]
+      [db]
+
+      ;;;;;;;;;;;;;;
+      ;; Catalogs subquery
+      ;;;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_catalogs"
          ["=" "certname" web1]]]]
       [web1]
 
-      ;; Factsets
+      ;; Implicit subquery
+      ["subquery" "catalogs"
+       ["=" "certname" web1]]
+      [web1]
+
+      ;;;;;;;;;;;;;;
+      ;; Factsets subquery
+      ;;;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_factsets"
          ["=" "certname" web2]]]]
       [web2]
 
-      ;; Events
+      ;; Implict subquery
+      ["subquery" "factsets"
+       ["=" "certname" web2]]
+      [web2]
+
+      ;;;;;;;;;;;;;
+      ;; Events subquery
+      ;;;;;;;;;;;;;
+
+      ;; In format
       ["in" "certname"
        ["extract" "certname"
         ["select_events"
          ["=" "certname" db]]]]
-      [db]))
+      [db]
+
+      ;; Implicit subquery
+      ["subquery" "events"
+       ["=" "certname" db]]
+      [db]
+
+      ;;;;;;;;;;;;;
+      ;; Resource subquery
+      ;;;;;;;;;;;;;
+
+      ;; In format
+      ["in" "certname"
+       ["extract" "certname"
+        ["select_resources"
+         ["=" "certname" web1]]]]
+      [web1]
+
+      ;; Implicit subquery
+      ["subquery" "resources"
+       ["=" "certname" web1]]
+      [web1]))
 
   (testing "subqueries: invalid"
     (doseq [[query msg] {

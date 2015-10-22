@@ -10,6 +10,10 @@ canonical: "/puppetdb/latest/api/query/v4/events.html"
 [paging]: ./paging.html
 [query]: ./query.html
 [8601]: http://en.wikipedia.org/wiki/ISO_8601
+[subqueries]: ./operators.html#subquery-operators
+[environments]: ./environments.html
+[nodes]: ./nodes.html
+[reports]: ./reports.html
 
 Puppet agent nodes submit reports after their runs, and the puppet master forwards these to PuppetDB. Each report includes:
 
@@ -117,6 +121,15 @@ is not supported by the regex match operator.
 * `configuration_version` (string): an identifier string that puppet uses to match a specific catalog for a node to a specific puppet run.
 
 * `containment_path` (array of strings, where each string is a containment path element): the containment path associated with the event, as an ordered array that ends with the most specific containing element.
+
+### Subquery Relationships
+
+Here is a list of related entities that can be used to constrain the result set using
+implicit subqueries. For more information consult the documentation for [subqueries].
+
+* [`reports`][reports]: The report asssociated with an event.
+* [`nodes`][nodes]: The node associated with an this event.
+* [`environments`][environments]: The environment associated with an event.
 
 ### Response Format
 

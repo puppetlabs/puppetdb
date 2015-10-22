@@ -216,9 +216,12 @@
           (is (= expected
                  (query-result method endpoint query)))
 
-        ;; Fact contents
         ["in" "path"
          ["extract" "path"
           ["select_fact_contents"
            ["=" "path" ["kernel"]]]]]
+        #{{:path ["kernel"] :type "string"}}
+
+        ["subquery" "fact_contents"
+         ["=" "path" ["kernel"]]]
         #{{:path ["kernel"] :type "string"}}))))
