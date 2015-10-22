@@ -11,6 +11,7 @@
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
+            [puppetlabs.trapperkeeper.services.status.status-service :refer [status-service]]
             [puppetlabs.puppetdb.client :as pdb-client]
             [puppetlabs.puppetdb.cli.services :as svcs]
             [puppetlabs.puppetdb.metrics :as metrics]
@@ -76,6 +77,7 @@
    #'message-listener-service
    #'command-service
    #'metrics/metrics-service
+   #'status-service
    #'dashboard-redirect-service
    #'pdb-routing-service
    #'maint-mode-service

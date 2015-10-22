@@ -5,8 +5,10 @@
             [puppetlabs.trapperkeeper.services :as tksvc]
             [ring.middleware.resource :refer [resource-request]]
             [ring.util.request :as rreq]
+            [puppetlabs.jdbc-util.core :refer [db-up?]]
             [ring.util.response :as rr]
             [puppetlabs.puppetdb.meta :as meta]
+            [puppetlabs.trapperkeeper.services.status.status-core :as status-core]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.http.command :as cmd]
             [puppetlabs.puppetdb.http.server :as server]
@@ -90,6 +92,7 @@
    [:PuppetDBCommandDispatcher
     enqueue-command enqueue-raw-command response-pub]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]
+   [:StatusService register-status]
    [:DefaultedConfig get-config]]
   (init [this context]
         (let [context-root (get-route this)
@@ -108,8 +111,22 @@
                                                            enqueue-command
                                                            query
                                                            enqueue-raw-command
-                                                           response-pub))))
-        (enable-maint-mode)
+                                                           response-pub)))
+          (enable-maint-mode)
+          (register-status "puppetdb-status"
+                           (status-core/get-artifact-version "puppetlabs" "puppetdb")
+                           1
+                           (fn [level]
+                             (let [globals (shared-globals)
+                                   read-db-up? (db-up? (:scf-read-db globals))
+                                   write-db-up? (db-up? (:scf-write-db globals))
+                                   state (if (and read-db-up? write-db-up?)
+                                           :running
+                                           :error)]
+                               {:state state
+                                :status {:maintenance_mode? (maint-mode?)
+                                         :read_db_up? read-db-up?
+                                         :write_db_up? write-db-up?}}))))
         context)
   (start [this context]
          (log/info "PuppetDB finished starting, disabling maintenance mode")

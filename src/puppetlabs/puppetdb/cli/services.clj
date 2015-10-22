@@ -46,6 +46,7 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [compojure.core :as compojure]
+            [puppetlabs.trapperkeeper.services.status.status-core :as status-core]
             [overtone.at-at :refer [mk-pool interspaced]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]

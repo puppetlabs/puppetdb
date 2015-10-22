@@ -181,6 +181,12 @@
   (-> (URL. protocol host port "")
       .toURI .toASCIIString))
 
+(defn base-url->str-with-prefix
+  [{:keys [protocol host port prefix] :as base-url}]
+  (-> (java.net.URL. protocol host port prefix)
+      .toURI
+      .toASCIIString))
+
 (defn describe-bad-base-url
   "If a problem is detected with `base-url`, returns a string
   describing the issue. For example {:host \"x:y\" ...}."
