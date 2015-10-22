@@ -3,6 +3,7 @@
   (:require [puppetlabs.trapperkeeper.core :as tk]
             [clout.core :as cc]
             [compojure.core :as compojure]
+            [compojure.route :as route]
             [puppetlabs.trapperkeeper.services :as tksvc]
             [ring.middleware.resource :refer [wrap-resource resource-request]]
             [ring.util.request :as rreq]
@@ -54,7 +55,8 @@
                                              enqueue-raw-command
                                              response-pub)
                             (pe-routes get-config shared-with-prefix
-                                       query enqueue-command (response-mult))))))
+                                       query enqueue-command (response-mult))
+                            [(route/not-found "Not Found")]))))
         (enable-maint-mode)
         context)
   (start [this context]
