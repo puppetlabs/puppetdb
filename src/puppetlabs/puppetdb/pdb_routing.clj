@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.pdb-routing
   (:require [puppetlabs.trapperkeeper.core :as tk]
             [compojure.core :as compojure]
+            [compojure.route :as route]
             [puppetlabs.trapperkeeper.services :as tksvc]
             [ring.middleware.resource :refer [resource-request]]
             [ring.util.request :as rreq]
@@ -40,7 +41,8 @@
            "/cmd" (cmd/command-app get-shared-globals
                                    enqueue-raw-command-fn get-response-pub)
            "/query" (server/build-app get-shared-globals)
-           "/admin" (admin/build-app enqueue-command-fn query-fn)]))))
+           "/admin" (admin/build-app enqueue-command-fn query-fn)
+           (route/not-found "Not Found")]))))
 
 (defn pdb-app [root defaulted-config maint-mode-fn app-routes]
   (-> (compojure/context root []
@@ -51,7 +53,9 @@
                                              rreq/request-url
                                              (format "%s/dashboard/index.html")
                                              rr/redirect))
-                         (apply compojure/routes app-routes))
+                         (apply compojure/routes
+                                (concat app-routes
+                                        [(route/not-found "Not Found")])))
       (mid/wrap-with-puppetdb-middleware (get-in defaulted-config [:puppetdb :certificate-whitelist]))))
 
 (defprotocol MaintenanceMode
