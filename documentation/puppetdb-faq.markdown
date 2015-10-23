@@ -20,34 +20,6 @@ Yes, but you must use PuppetDB 3.x to do so. Please consult the
 
 Yes. See [Migrating Data][migrating] for more information.
 
-## PuppetDB is complaining about a truststore or keystore file. What do I do?
-
-There are several related causes for this, but it boils down to PuppetDB being
-unable to read your truststore.jks or keystore.jks file. The former file
-contains the certificate for your certificate authority, and is what PuppetDB
-uses to authenticate clients. The latter contains the key and certificate that
-PuppetDB uses to identify itself to clients.
-
-The short answer: you can often fix these problems by reinitializing your ssl setup
-by running `/usr/sbin/puppetdb ssl-setup -f`. Note that this script
-must be run *after* a certificate is generated for the puppet agent (that is:
-after the agent has run once and had its certificate request signed). A common
-problem is installing PuppetDB before the Puppet agent has run, and this script
-will solve that problem, and many others.
-
-The long answer: if the `puppetdb ssl-setup` command doesn't solve your problem
-or if you're curious what's going on under the covers, you can manage this
-configuration by hand.  The locations of the truststore and keystore files are set
-with the `keystore` and `truststore` options in the config file. There should
-also be settings for `key-password` and `trust-password`. Make sure the
-keystore.jks and truststore.jks files are where the config says they should be,
-and that they're readable by the user PuppetDB runs as (puppetdb for an open
-source installation, pe-puppetdb for a Puppet Enterprise installation).
-Additionally, you can verify that the password is correct using
-`keytool -keystore /path/to/keystore.jks` and and entering the `key-password`.
-Similarly, you can use `keytool -keystore /path/to/truststore.jks` to verify the
-truststore.
-
 ## The PuppetDB dashboard gives me a weird SSL error when I visit it. What gives?
 
 There are two common error cases with the dashboard:
