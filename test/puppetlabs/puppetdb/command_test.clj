@@ -32,7 +32,8 @@
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as ks])
-  (:import [org.joda.time DateTime DateTimeZone]))
+  (:import [java.util.concurrent TimeUnit]
+           [org.joda.time DateTime DateTimeZone]))
 
 (use-fixtures :each with-test-db)
 
@@ -838,17 +839,18 @@
                               :environment nil
                               :producer_timestamp (-> 2 days ago)}))
 
-      (with-redefs [scf-store/update-facts! (fn [fact-data]
-                                              (.put hand-off-queue "got the lock")
-                                              (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
-                                              (storage-replace-facts! fact-data))]
+      (with-redefs [scf-store/update-facts!
+                    (fn [fact-data]
+                      (.put hand-off-queue "got the lock")
+                      (.poll hand-off-queue 5 TimeUnit/SECONDS)
+                      (storage-replace-facts! fact-data))]
         (let [first-message? (atom false)
               second-message? (atom false)
               fut (future
                     (test-msg-handler command publish discard-dir
                       (reset! first-message? true)))
 
-              _ (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
+              _ (.poll hand-off-queue 5 TimeUnit/SECONDS)
 
               new-facts (update-in facts [:values] (fn [values]
                                                      (-> values
@@ -1034,17 +1036,18 @@
        (scf-store/add-certname! certname)
        (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
-      (with-redefs [scf-store/replace-catalog! (fn [catalog timestamp]
-                                                 (.put hand-off-queue "got the lock")
-                                                 (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
-                                                 (storage-replace-catalog! catalog timestamp))]
+      (with-redefs [scf-store/replace-catalog!
+                    (fn [catalog timestamp]
+                      (.put hand-off-queue "got the lock")
+                      (.poll hand-off-queue 5 TimeUnit/SECONDS)
+                      (storage-replace-catalog! catalog timestamp))]
         (let [first-message? (atom false)
               second-message? (atom false)
               fut (future
                     (test-msg-handler command publish discard-dir
                       (reset! first-message? true)))
 
-              _ (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
+              _ (.poll hand-off-queue 5 TimeUnit/SECONDS)
 
               new-wire-catalog (assoc-in wire-catalog [:edges]
                                          #{{:relationship "contains"
@@ -1079,17 +1082,18 @@
        (scf-store/add-certname! certname)
        (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
-      (with-redefs [scf-store/replace-catalog! (fn [catalog timestamp]
-                                                 (.put hand-off-queue "got the lock")
-                                                 (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
-                                                 (storage-replace-catalog! catalog timestamp))]
+      (with-redefs [scf-store/replace-catalog!
+                    (fn [catalog timestamp]
+                      (.put hand-off-queue "got the lock")
+                      (.poll hand-off-queue 5 TimeUnit/SECONDS)
+                      (storage-replace-catalog! catalog timestamp))]
         (let [first-message? (atom false)
               second-message? (atom false)
               fut (future
                     (test-msg-handler command publish discard-dir
                       (reset! first-message? true)))
 
-              _ (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
+              _ (.poll hand-off-queue 5 TimeUnit/SECONDS)
 
               new-wire-catalog (update wire-catalog :resources
                                        conj
