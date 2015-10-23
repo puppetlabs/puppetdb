@@ -531,36 +531,13 @@ construct the cert chain starting with the first certificate found in the
 the latter case, any certificates in the `ssl-cert` PEM beyond the first one
 would be ignored.
 
-> **Note:** This setting overrides the alternate configuration settings `keystore` and `key-password`.
-
 ### `ssl-key`
 
 This sets the path to the private key PEM file that corresponds with the `ssl-cert`, it used by the PuppetDB web service for HTTPS.
 
-> **Note:** This setting overrides the alternate configuration settings `keystore` and `key-password`.
-
 ### `ssl-ca-cert`
 
 This sets the path to the CA certificate PEM file used for client authentication. Authorized clients must be signed by the CA that that corresponds to this certificate.
-
-> **Note:** This setting overrides the alternate configuration settings `truststore` and `trust-password`.
-
-### `keystore`
-
-This sets the path to a Java keystore file containing the key and certificate to be used for HTTPS.
-
-### `key-password`
-
-This sets the passphrase to use for unlocking the keystore file.
-
-### `truststore`
-
-This describes the path to a Java keystore file containing the CA certificate(s) for your puppet infrastructure.
-
-### `trust-password`
-
-This sets the passphrase to use for unlocking the truststore file.
-
 
 ### `cipher-suites`
 
