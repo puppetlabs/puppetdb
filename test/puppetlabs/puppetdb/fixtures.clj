@@ -34,7 +34,7 @@
       (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
         (f)))))
 
-(defn with-test-db
+(defn call-with-test-db
   "A fixture to start and migrate a test db before running tests."
   [f]
   (binding [*db* (clean-db-map)]
@@ -45,9 +45,9 @@
 
 (defn without-db-var
   "Binds the java.jdbc dtabase connection to nil. When running a unit
-   test using `with-test-db`, jint/*db* will be bound. If the routes
+   test using `call-with-test-db`, jint/*db* will be bound. If the routes
    being tested don't explicitly bind the db connection, it will use
-   one bound in with-test-db. This causes a problem at runtime that
+   one bound in call-with-test-db. This causes a problem at runtime that
    won't show up in the unit tests. This fixture can be used around
    route testing code to ensure that the route has it's own db
    connection."
@@ -84,7 +84,7 @@
   "A fixture to build an HTTP app and make it available as `*app*` within
   tests. This will provide the `*db*` and `*mq*` to the app as globals if they
   are available. Note this means this fixture should be nested _within_
-  `with-test-db` or `with-test-mq`."
+  `call-with-test-db` or `with-test-mq`."
   ([f]
    (with-http-app {} f))
   ([globals-overrides f]
@@ -161,11 +161,11 @@
 
    Example:
 
-     (fixt/defixture super-fixture :each fixt/with-test-db fixt/with-http-app)
+     (fixt/defixture super-fixture :each fixt/call-with-test-db fixt/with-http-app)
 
      Which is equivalent to:
 
-     (use-fixtures :each fixt/with-test-db fixt/with-http-app)
+     (use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
 
      but is also usable individually:
 

@@ -18,7 +18,7 @@
 
 (def endpoints [[:v4 v4-endpoint]])
 
-(use-fixtures :each fixt/with-test-db fixt/with-http-app)
+(use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal

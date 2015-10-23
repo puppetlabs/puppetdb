@@ -5,11 +5,11 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage :refer [deactivate-node!]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils :refer [to-jdbc-varchar-array]]
-            [puppetlabs.puppetdb.fixtures :refer [with-test-db]]
+            [puppetlabs.puppetdb.fixtures :refer [call-with-test-db]]
             [clj-time.coerce :refer [to-timestamp]]
             [clj-time.core :refer [now]]))
 
-(use-fixtures :each with-test-db)
+(use-fixtures :each call-with-test-db)
 
 (deftest resource-count
   (testing "Counting resources"

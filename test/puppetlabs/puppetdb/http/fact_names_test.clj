@@ -16,7 +16,7 @@
 
 (def fact-path-endpoints [[:v4 "/v4/fact-paths"]])
 
-(use-fixtures :each fixt/with-test-db fixt/with-http-app)
+(use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
 
 (deftestseq fact-names-endpoint-tests
   [[version endpoint] fact-name-endpoints

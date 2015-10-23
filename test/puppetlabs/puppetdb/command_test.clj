@@ -15,7 +15,7 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.fixtures :refer [*db* call-with-test-db]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
@@ -35,7 +35,7 @@
   (:import [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
 
-(use-fixtures :each with-test-db)
+(use-fixtures :each call-with-test-db)
 
 (deftest command-parsing
   (testing "Command parsing"

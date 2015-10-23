@@ -14,7 +14,7 @@
 
 (def endpoints [[:v4 "/v4/aggregate-event-counts"]])
 
-(use-fixtures :each fixt/with-test-db fixt/with-http-app)
+(use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
 
 (deftestseq query-aggregate-event-counts
   [[version endpoint] endpoints

@@ -10,7 +10,7 @@
                                                         query-result]]
             [puppetlabs.puppetdb.testutils.nodes :as tu-nodes]))
 
-(use-fixtures :each fixt/with-test-db fixt/with-http-app)
+(use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
 
 (def endpoints [[:v4 "/v4/environments"]])
 

@@ -3,10 +3,10 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.scf.storage-utils :refer :all]
             [cheshire.core :as json]
-            [puppetlabs.puppetdb.fixtures :refer [with-test-db]]
+            [puppetlabs.puppetdb.fixtures :refer [call-with-test-db]]
             [puppetlabs.puppetdb.jdbc :as jdbc]))
 
-(use-fixtures :each with-test-db)
+(use-fixtures :each call-with-test-db)
 
 (deftest serialization
   (let [values ["foo" 0 "0" nil "nil" "null" [1 2 3] ["1" "2" "3"] {"a" 1 "b" [1 2 3]}]]

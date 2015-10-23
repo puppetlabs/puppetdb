@@ -15,7 +15,7 @@
 
 (def endpoints [[:v4 "/v4/nodes"]])
 
-(use-fixtures :each fixt/with-test-db fixt/with-http-app)
+(use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
 
 ;; HELPERS
 

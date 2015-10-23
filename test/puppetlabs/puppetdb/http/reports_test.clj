@@ -29,7 +29,7 @@
 
 (def endpoints [[:v4 "/v4/reports"]])
 
-(use-fixtures :each fixt/with-test-db fixt/with-http-app)
+(use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
 
 ;; TESTS
 

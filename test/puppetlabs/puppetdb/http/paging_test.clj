@@ -3,10 +3,10 @@
             [cheshire.core :as json]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.fixtures
-             :refer [*app* with-http-app with-test-db]]
+             :refer [*app* with-http-app call-with-test-db]]
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq]]))
 
-(use-fixtures :each with-test-db with-http-app)
+(use-fixtures :each call-with-test-db with-http-app)
 
 (def versions [:v4])
 

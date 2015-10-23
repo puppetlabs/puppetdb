@@ -2,7 +2,7 @@
   (:require [puppetlabs.puppetdb.query :as query]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer [with-test-db]]
+            [puppetlabs.puppetdb.fixtures :refer [call-with-test-db]]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! enumerated-resource-events-map]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -11,7 +11,7 @@
             [clj-time.coerce :refer [to-string to-timestamp to-long]]
             [clj-time.core :refer [now ago days]]))
 
-(use-fixtures :each with-test-db)
+(use-fixtures :each call-with-test-db)
 
 (def distinct-resource-events (comp set timestamps->str query-resource-events))
 

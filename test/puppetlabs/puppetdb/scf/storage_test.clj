@@ -26,9 +26,9 @@
             [clj-time.core :refer [ago from-now now days]]
             [clj-time.coerce :refer [to-timestamp to-string]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.fixtures :refer [*db* with-test-db]]))
+            [puppetlabs.puppetdb.fixtures :refer [*db* call-with-test-db]]))
 
-(use-fixtures :each with-test-db)
+(use-fixtures :each call-with-test-db)
 
 (def reference-time "2014-10-28T20:26:21.727Z")
 (def previous-time "2014-10-26T20:26:21.727Z")

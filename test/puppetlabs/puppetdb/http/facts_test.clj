@@ -13,7 +13,7 @@
             [puppetlabs.puppetdb.fixtures
              :refer [*app* *db*
                      defaulted-read-db-config defaulted-write-db-config
-                     init-db with-http-app with-test-db]]
+                     init-db with-http-app call-with-test-db]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -43,7 +43,7 @@
 
 (def fact-contents-endpoints [[:v4 "/v4/fact-contents"]])
 
-(use-fixtures :each with-test-db with-http-app)
+(use-fixtures :each call-with-test-db with-http-app)
 
 (def c-t http/json-response-content-type)
 (def reference-time "2014-10-28T20:26:21.727Z")

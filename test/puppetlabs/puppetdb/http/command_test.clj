@@ -14,7 +14,7 @@
             [puppetlabs.puppetdb.mq :as mq]
             [clj-time.format :as time]))
 
-(use-fixtures :each fixt/with-test-db fixt/with-test-mq fixt/with-command-app)
+(use-fixtures :each fixt/call-with-test-db fixt/with-test-mq fixt/with-command-app)
 
 (def endpoints [[:v1 "/v1"]])
 

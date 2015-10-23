@@ -10,7 +10,7 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage-utils :as su]))
 
-(use-fixtures :each fixt/with-test-db)
+(use-fixtures :each fixt/call-with-test-db)
 
 (deftest test-plan-sql
   (are [sql plan] (= sql (plan->sql plan))

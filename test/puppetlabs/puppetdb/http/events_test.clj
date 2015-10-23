@@ -21,14 +21,14 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.fixtures
-             :refer [*app* with-http-app with-test-db]]))
+             :refer [*app* with-http-app call-with-test-db]]))
 
 (def endpoints [[:v4 "/v4/events"]
                 [:v4 "/v4/environments/DEV/events"]])
 
 (def content-type-json http/json-response-content-type)
 
-(use-fixtures :each with-test-db with-http-app)
+(use-fixtures :each call-with-test-db with-http-app)
 
 (defn parse-result
   "Stringify (if needed) then parse the response"

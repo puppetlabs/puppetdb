@@ -11,7 +11,7 @@
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
             [puppetlabs.puppetdb.middleware :as mid]))
 
-(use-fixtures :each fixt/with-test-db)
+(use-fixtures :each fixt/call-with-test-db)
 
 (def endpoints [[:v1 "/v1"]])
 
