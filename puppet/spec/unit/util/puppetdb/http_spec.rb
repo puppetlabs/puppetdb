@@ -19,6 +19,7 @@ describe Puppet::Util::Puppetdb::Http do
 
   before :each do
       Puppet::Util::Puppetdb.stubs(:config).returns config
+      described_class.reset_query_failover()
   end
 
   let(:config) do
@@ -81,6 +82,28 @@ describe Puppet::Util::Puppetdb::Http do
 
          http1.expects(:get).with("/foo/baz", {}).returns Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")
          http2.expects(:get).with("/bar/baz", {}).returns Net::HTTPOK.new('1.1', 200, 'OK')
+
+         response = described_class.action("/baz", :query) do |http_instance, path|
+           http_instance.get(path, {})
+         end
+
+         response.code.should == 200
+         response.message.should == 'OK'
+       end
+
+       it "reuses the same host after failover" do
+         Puppet::Network::HttpPool.expects(:http_instance).with("server1", 8080).returns(http1).at_least_once
+         Puppet::Network::HttpPool.expects(:http_instance).with("server2", 8181).returns(http2).at_least_once
+
+         http1.expects(:get).with("/foo/baz", {}).returns(Net::HTTPServiceUnavailable.new('1.1', 503, "Unavailable")).once
+         http2.expects(:get).with("/bar/baz", {}).returns(Net::HTTPOK.new('1.1', 200, 'OK')).twice
+
+         response = described_class.action("/baz", :query) do |http_instance, path|
+           http_instance.get(path, {})
+         end
+
+         response.code.should == 200
+         response.message.should == 'OK'
 
          response = described_class.action("/baz", :query) do |http_instance, path|
            http_instance.get(path, {})

@@ -4,10 +4,13 @@ require 'net/http'
 require 'timeout'
 require 'pp'
 require 'thread'
+require 'puppet/util/puppetdb/atom'
 
 module Puppet::Util::Puppetdb
   class Http
     SERVER_URL_FAIL_MSG = "Failing over to the next PuppetDB server_url in the 'server_urls' list"
+
+    @@last_good_query_server_url_index = Atom.new(0)
 
     # Concat two server_url snippets, taking into account a trailing/leading slash to
     # ensure a correct server_url is constructed
@@ -118,7 +121,12 @@ module Puppet::Util::Puppetdb
       response_error = nil
       config = Puppet::Util::Puppetdb.config
 
-      for server_url in config.server_urls
+      last_good_index = @@last_good_query_server_url_index.deref()
+      server_count = config.server_urls.length
+      server_try_order = (0...server_count).map { |i| (i + last_good_index) % server_count }
+
+      for server_url_index in server_try_order
+        server_url = config.server_urls[server_url_index]
         route = concat_url_snippets(server_url.request_uri, path_suffix)
 
         request_exception = with_http_error_logging(server_url, route) {
@@ -132,6 +140,9 @@ module Puppet::Util::Puppetdb
         if request_exception.nil?
           response_error = check_http_response(response, server_url, route)
           if response_error.nil?
+            if server_url_index != server_try_order.first()
+              @@last_good_query_server_url_index.reset!(server_url_index)
+            end
             break
           end
         end
@@ -196,6 +207,11 @@ module Puppet::Util::Puppetdb
         raise Puppet::Error, "Unknown request mode: #{request_mode}"
       end
     end
+
+    def self.reset_query_failover()
+      @@last_good_query_server_url_index.reset!(0)
+    end
+
   end
 
   class NotFoundError < Puppet::Error
