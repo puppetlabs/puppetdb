@@ -5,7 +5,8 @@
             [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.fixtures :refer :all]
+            [puppetlabs.puppetdb.fixtures
+             :refer [*app* with-http-app with-test-db]]
             [puppetlabs.puppetdb.testutils :refer [assert-success! get-request]]
             [puppetlabs.puppetdb.examples :refer :all]))
 

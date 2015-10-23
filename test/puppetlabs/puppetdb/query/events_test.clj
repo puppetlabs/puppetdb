@@ -2,7 +2,7 @@
   (:require [puppetlabs.puppetdb.query :as query]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer :all]
+            [puppetlabs.puppetdb.fixtures :refer [with-test-db]]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! enumerated-resource-events-map]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]

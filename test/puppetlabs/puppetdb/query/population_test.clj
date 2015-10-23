@@ -5,7 +5,7 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage :refer [deactivate-node!]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils :refer [to-jdbc-varchar-array]]
-            [puppetlabs.puppetdb.fixtures :refer :all]
+            [puppetlabs.puppetdb.fixtures :refer [with-test-db]]
             [clj-time.coerce :refer [to-timestamp]]
             [clj-time.core :refer [now]]))
 

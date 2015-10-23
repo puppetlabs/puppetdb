@@ -10,7 +10,10 @@
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.examples :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer :all]
+            [puppetlabs.puppetdb.fixtures
+             :refer [*app* *db*
+                     defaulted-read-db-config defaulted-write-db-config
+                     init-db with-http-app with-test-db]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]

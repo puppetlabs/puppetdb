@@ -15,7 +15,7 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer :all]
+            [puppetlabs.puppetdb.fixtures :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]

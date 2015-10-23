@@ -20,7 +20,8 @@
             [clojure.walk :refer [stringify-keys]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer :all]))
+            [puppetlabs.puppetdb.fixtures
+             :refer [*app* with-http-app with-test-db]]))
 
 (def endpoints [[:v4 "/v4/events"]
                 [:v4 "/v4/environments/DEV/events"]])
