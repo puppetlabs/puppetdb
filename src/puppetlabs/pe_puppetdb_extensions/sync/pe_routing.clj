@@ -25,7 +25,7 @@
 (defn pe-routes [get-config get-shared-globals query enqueue-command response-mult]
   (map #(apply wrap-with-context %)
        (partition 2
-                  ["/sync" (sync-svcs/sync-app get-config query enqueue-command response-mult)
+                  ["/sync" (sync-svcs/sync-app get-config query enqueue-command response-mult get-shared-globals)
                    "/ext" (pe-server/build-app query)])))
 
 (tk/defservice pe-routing-service

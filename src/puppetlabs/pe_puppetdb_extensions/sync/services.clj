@@ -11,13 +11,15 @@
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [get-service]]
             [puppetlabs.puppetdb.utils :as utils :refer [throw+-cli-error!]]
-            [compojure.core :refer [routes POST] :as compojure]
+            [compojure.core :refer [routes GET POST] :as compojure]
             [schema.core :as s]
             [clj-time.coerce :refer [to-date-time]]
             [slingshot.slingshot :refer [throw+ try+]]
             [com.rpl.specter :as sp]
             [clojure.core.async :as async]
-            [puppetlabs.puppetdb.http :as http]))
+            [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]))
 
 (def currently-syncing (atom false))
 
@@ -156,9 +158,41 @@
         (async/close! submitted-commands-chan)
         (async/untap response-mult processed-commands-chan)))))
 
+(defn reports-summary-query [scf-read-db]
+  (jdbc/with-db-connection scf-read-db
+    (jdbc/with-db-transaction []
+      ;; We need to do a little time zone dance here to get the output to be a
+      ;; timestamptz.
+      ;;
+      ;; 1) In order to make an index that this query can use, all the grouping
+      ;;    must be done in an explicit timezone (UTC here).
+      ;;
+      ;; 2) date_trunc returns a plain timestamp; we want it to be a timestamptz
+      ;;    in UTC
+      ;;
+      ;; 3) The only way to convert a timestamp to a timestamptz is to call "AT
+      ;;    TIME ZONE 'UTC'"; this interprets the timestamp as being in the
+      ;;    current time zone, does whatever offset is required to get to the
+      ;;    target, and gives you a timestamptz with the shifted time and the
+      ;;    target timezone. (This is the *outer* "AT TIME ZONE 'UTC'" in the
+      ;;    "SELECT" clause)
+      ;;
+      ;; 4) So, we need to set the timezone to UTC for this transaction. (that's
+      ;;    the "LOCAL" bit)
+      (jdbc/do-commands "SET LOCAL TIMEZONE TO 'UTC'")
+      (jdbc/query-to-vec
+       (str "SELECT date_trunc('hour', producer_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' "
+            "         AS hour, "
+            "       encode(md5_agg((date_part('epoch', timezone('UTC', producer_timestamp)) || certname)::bytea "
+            "                       order by (date_part('epoch', timezone('UTC', producer_timestamp)) || certname)::bytea), "
+            "              'hex') "
+            "         AS hash "
+            "FROM reports "
+            "GROUP BY date_trunc('hour', producer_timestamp AT TIME ZONE 'UTC')")))))
+
 (defn sync-app
   "Top level route for PuppetDB sync"
-  [get-config query-fn enqueue-command-fn response-mult]
+  [get-config query-fn enqueue-command-fn response-mult get-shared-globals]
   (let [{{node-ttl :node-ttl} :database
          sync-config :sync
          jetty-config :jetty} (get-config)
@@ -169,6 +203,14 @@
                                   remotes-config
                                   jetty-config)]
     (routes
+     (GET "/v1/reports-summary" []
+          (let [summary (reports-summary-query (:scf-read-db (get-shared-globals)))
+                summary-map (->> summary
+                                 (map (fn [{:keys [hour hash]}]
+                                        [(json/format-jdbc-timestamp hour) hash]))
+                                 (into {}))]
+            (http/json-response summary-map)))
+
      (POST "/v1/trigger-sync" {:keys [body params] :as request}
            (let [sync-request (json/parse-string (slurp body) true)
                  remote-url (:remote_host_path sync-request)
@@ -212,6 +254,17 @@
                 sync-config :sync
                 jetty-config :jetty} (get-config)
                remotes-config (:remotes sync-config)]
+
+           (jdbc/with-db-connection (:scf-read-db (shared-globals))
+             (when-not (sutils/pg-extension? "pgcrypto")
+               (throw+-cli-error!
+                (str "Missing PostgreSQL extension `pgcrypto`\n\n"
+                     "Puppet Enterprise requires the pgcrypto extension to be installed. \n"
+                     "Run the command:\n\n"
+                     "    CREATE EXTENSION pgcrypto;\n\n"
+                     "as the database super user on the PuppetDB database install it,\n"
+                     "then restart PuppetDB.\n"))))
+
            (if (enable-periodic-sync? remotes-config)
              (let [{:keys [interval server-url]} (first remotes-config)
                    remote-server (make-remote-server (str server-url) jetty-config)]
