@@ -116,17 +116,21 @@ module Puppet::Util::Puppetdb
       end
     end
 
-    def self.query_action(path_suffix, http_callback)
+    def self.failover_action(path_suffix, server_urls, sticky, http_callback)
       response = nil
       response_error = nil
       config = Puppet::Util::Puppetdb.config
+      last_good_index = 0
 
-      last_good_index = @@last_good_query_server_url_index.deref()
-      server_count = config.server_urls.length
+      if sticky
+        last_good_index = @@last_good_query_server_url_index.deref()
+      end
+
+      server_count = server_urls.length
       server_try_order = (0...server_count).map { |i| (i + last_good_index) % server_count }
 
       for server_url_index in server_try_order
-        server_url = config.server_urls[server_url_index]
+        server_url = server_urls[server_url_index]
         route = concat_url_snippets(server_url.request_uri, path_suffix)
 
         request_exception = with_http_error_logging(server_url, route) {
@@ -155,14 +159,13 @@ module Puppet::Util::Puppetdb
       response
     end
 
-    def self.command_action(path_suffix, http_callback)
+    def self.broadcast_action(path_suffix, server_urls, http_callback)
       response = nil
       response_error = nil
       config = Puppet::Util::Puppetdb.config
       successful_submit_count = 0
 
-      submit_server_urls = config.server_urls + config.submit_only_server_urls
-      for server_url in submit_server_urls
+      for server_url in server_urls
         route = concat_url_snippets(server_url.request_uri, path_suffix)
 
         request_exception = with_http_error_logging(server_url, route) {
@@ -198,11 +201,18 @@ module Puppet::Util::Puppetdb
     # @param http_callback [Proc] proc containing the code calling the action on the http connection
     # @return [Response] returns http response
     def self.action(path_suffix, request_mode, &http_callback)
+      config = Puppet::Util::Puppetdb.config
+
       case request_mode
       when :query
-        self.query_action(path_suffix, http_callback)
+        self.failover_action(path_suffix, config.server_urls, config.sticky_read_failover, http_callback)
       when :command
-        self.command_action(path_suffix, http_callback)
+        submit_server_urls = config.server_urls + config.submit_only_server_urls
+        if config.command_broadcast
+          self.broadcast_action(path_suffix, submit_server_urls, http_callback)
+        else
+          self.failover_action(path_suffix, submit_server_urls, false, http_callback)
+        end
       else
         raise Puppet::Error, "Unknown request mode: #{request_mode}"
       end

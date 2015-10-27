@@ -245,29 +245,6 @@ CONF
         config.submit_only_server_urls.should == [URI("https://bar.com")]
       end
 
-      it "should read min_successful_submissions" do
-        write_config <<CONF
-[main]
-server_urls = https://foo.com,https://bar.com
-min_successful_submissions = 2
-CONF
-
-        config = described_class.load
-        config.server_urls.should == [URI("https://foo.com"), URI("https://bar.com")]
-        config.min_successful_submissions.should == 2
-      end
-
-      it "shouldn't allow min_successful_submissions to be greater than the number of server_urls" do
-        write_config <<CONF
-[main]
-server_urls = https://foo.com,https://bar.com
-min_successful_submissions = 3
-CONF
-        expect do
-          config = described_class.load
-        end.to raise_error(/min_successful_submissions \(3\) must be less than or equal to/)
-      end
-
       it "shouldn't allow submit_only_server_urls to overlap with server_urls" do
         write_config <<CONF
 [main]
@@ -280,6 +257,66 @@ CONF
         end.to raise_error(/Server URLs must be in either server_urls or submit_only_server_urls/)
       end
 
+      it "should read command_broadcast" do
+        write_config <<CONF
+[main]
+server_urls = https://foo.com,https://bar.com
+command_broadcast = true
+CONF
+
+        config = described_class.load
+        config.server_urls.should == [URI("https://foo.com"), URI("https://bar.com")]
+        config.command_broadcast.should == true
+      end
+
+      it "should read min_successful_submissions" do
+        write_config <<CONF
+[main]
+server_urls = https://foo.com,https://bar.com
+command_broadcast = true
+min_successful_submissions = 2
+CONF
+
+        config = described_class.load
+        config.server_urls.should == [URI("https://foo.com"), URI("https://bar.com")]
+        config.command_broadcast.should == true
+        config.min_successful_submissions.should == 2
+      end
+
+      it "should only allow min_successful_submissions when command_broadcast is set" do
+        write_config <<CONF
+[main]
+server_urls = https://foo.com,https://bar.com
+min_successful_submissions = 2
+CONF
+        expect do
+          config = described_class.load
+        end.to raise_error(/command_broadcast must be set to true to use min_successful_submissions/)
+      end
+
+      it "shouldn't allow min_successful_submissions to be greater than the number of server_urls" do
+        write_config <<CONF
+[main]
+server_urls = https://foo.com,https://bar.com
+command_broadcast = true
+min_successful_submissions = 3
+CONF
+        expect do
+          config = described_class.load
+        end.to raise_error(/min_successful_submissions \(3\) must be less than or equal to/)
+      end
+
+      it "should read sticky_read_failover" do
+        write_config <<CONF
+[main]
+server_urls = https://foo.com,https://bar.com
+sticky_read_failover = true
+CONF
+
+        config = described_class.load
+        config.server_urls.should == [URI("https://foo.com"), URI("https://bar.com")]
+        config.sticky_read_failover.should == true
+      end
 
     end
   end

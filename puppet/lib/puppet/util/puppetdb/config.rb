@@ -14,7 +14,9 @@ module Puppet::Util::Puppetdb
         :server_url_timeout          => 30,
         :include_unchanged_resources => false,
         :min_successful_submissions => 1,
-        :submit_only_server_urls   => ""
+        :submit_only_server_urls   => "",
+        :command_broadcast         => false,
+        :sticky_read_failover      => false
       }
 
       config_file ||= File.join(Puppet[:confdir], "puppetdb.conf")
@@ -61,7 +63,9 @@ module Puppet::Util::Puppetdb
            :soft_write_failure,
            :server_url_timeout,
            :min_successful_submissions,
-           :submit_only_server_urls].include?(k))
+           :submit_only_server_urls,
+           :command_broadcast,
+           :sticky_read_failover].include?(k))
       end
 
       parsed_urls = config_hash[:server_urls].split(",").map {|s| s.strip}
@@ -73,6 +77,8 @@ module Puppet::Util::Puppetdb
 
       config_hash[:submit_only_server_urls] = convert_and_validate_urls(config_hash[:submit_only_server_urls].split(",").map {|s| s.strip})
       config_hash[:min_successful_submissions] = config_hash[:min_successful_submissions].to_i
+      config_hash[:command_broadcast] = Puppet::Util::Puppetdb.to_bool(config_hash[:command_broadcast])
+      config_hash[:sticky_read_failover] = Puppet::Util::Puppetdb.to_bool(config_hash[:sticky_read_failover])
 
       if config_hash[:soft_write_failure] and config_hash[:min_successful_submissions] > 1
         raise "soft_write_failure cannot be enabled when min_successful_submissions is greater than 1"
@@ -83,6 +89,10 @@ module Puppet::Util::Puppetdb
         overlapping_server_urls_strs = overlapping_server_urls.map { |u| u.to_s }
         raise "Server URLs must be in either server_urls or submit_only_server_urls, not both. "\
           "(#{overlapping_server_urls_strs.to_s} are in both)"
+      end
+
+      if config_hash[:min_successful_submissions] > 1 and not config_hash[:command_broadcast]
+        raise "command_broadcast must be set to true to use min_successful_submissions"
       end
 
       if config_hash[:min_successful_submissions] > config_hash[:server_urls].length
@@ -125,6 +135,14 @@ module Puppet::Util::Puppetdb
 
     def submit_only_server_urls
       config[:submit_only_server_urls]
+    end
+
+    def command_broadcast
+      config[:command_broadcast]
+    end
+
+    def sticky_read_failover
+      config[:sticky_read_failover]
     end
 
     # @!group Private instance methods
