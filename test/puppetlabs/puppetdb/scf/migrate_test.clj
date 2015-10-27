@@ -14,7 +14,8 @@
             [clojure.test :refer :all]
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db]])
+            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db]]
+            [puppetlabs.puppetdb.testutils.db :refer [schema-info-map diff-schema-maps]])
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
 
@@ -512,3 +513,25 @@
       (apply-migration-for-testing! 39)
 
       (is (zero? (:c (first (query-to-vec "SELECT count(*) as c FROM factsets where hash is null"))))))))
+
+(deftest test-only-hash-field-change
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 38)
+    (let [before-migration (schema-info-map *db*)]
+      (apply-migration-for-testing! 39)
+
+      (is (= {:index-diff nil,
+              :table-diff [{:left-only [{:nullable? "YES"}],
+                             :right-only [{:nullable? "NO"}]
+                             :same [{:numeric_scale nil,
+                                     :column_default nil,
+                                     :character_octet_length nil,
+                                     :datetime_precision nil,
+                                     :character_maximum_length nil,
+                                     :numeric_precision nil,
+                                     :numeric_precision_radix nil,
+                                     :data_type "bytea",
+                                     :column_name "hash",
+                                     :table_name "factsets"}]}]}
+             (diff-schema-maps before-migration (schema-info-map *db*)))))))
