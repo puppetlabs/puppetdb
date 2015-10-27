@@ -449,3 +449,8 @@
 
       test-protos/IMockFn
       (called? [_] @was-called))))
+
+(defn pprint-str
+  "Pprints `x` to a string and returns that string"
+  [x]
+  (with-out-str (clojure.pprint/pprint x)))

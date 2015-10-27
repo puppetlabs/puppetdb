@@ -1,8 +1,11 @@
 (ns puppetlabs.puppetdb.testutils.db
   (:require [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db]]
-            [puppetlabs.kitchensink.core :as ks]))
+            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db pprint-str]]
+            [puppetlabs.kitchensink.core :as ks]
+            [clojure.string :as str]
+            [clojure.test :refer [assert-expr]]))
+
 (def ^:dynamic *db-spec* nil)
 
 (def antonym-data {"absence"    "presence"
@@ -138,6 +141,23 @@ WHERE NOT nspname LIKE 'pg%';")
   (let [index-diff (diff' (:indexes left) (:indexes right))
         table-diffs (diff-table-maps (:tables left) (:tables right))]
     {:index-diff (when (or (:left-only index-diff) (:right-only index-diff))
-                   index-diff)
+                   (mapv (fn [left-item right-item same-item]
+                           {:left-only left-item
+                            :right-only right-item
+                            :same same-item})
+                         (:left-only index-diff) (:right-only index-diff) (:same index-diff)))
      :table-diff (when (seq table-diffs)
                    table-diffs)}))
+
+(defn output-table-diffs [diff-list]
+  (str/join "\n\n------------------------------\n\n"
+            (remove nil?
+                    (map (fn [{:keys [left-only right-only same]}]
+                           (when (or left-only right-only)
+                             (apply str ["Left Only:\n"
+                                         (pprint-str left-only)
+                                         "\nRight Only:\n"
+                                         (pprint-str right-only)
+                                         (str "\nSame:\n")
+                                         (pprint-str same)])))
+                         diff-list))))

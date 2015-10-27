@@ -15,7 +15,7 @@
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db]]
-            [puppetlabs.puppetdb.testutils.db :refer [schema-info-map diff-schema-maps]])
+            [puppetlabs.puppetdb.testutils.db :refer [schema-info-map diff-schema-maps output-index-diffs output-table-diffs]])
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
 
@@ -535,3 +535,18 @@
                                      :column_name "hash",
                                      :table_name "factsets"}]}]}
              (diff-schema-maps before-migration (schema-info-map *db*)))))))
+
+(deftest test-rollup-to-3-0-0
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 34)
+
+    (let [before-migration (schema-info-map *db*)]
+      (clear-db-for-testing!)
+      (init-through-2-y-z)
+
+      (let [diff-map (diff-schema-maps before-migration (schema-info-map *db*))]
+        (is (nil? (:index-diff diff-map))
+            (output-table-diffs (:index-diff diff-map)))
+        (is (nil? (:table-diff diff-map))
+            (output-table-diffs (:table-diff diff-map)))))))

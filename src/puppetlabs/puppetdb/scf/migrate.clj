@@ -79,6 +79,305 @@
   [table]
   (drop-constraints table "primary key"))
 
+(defn init-through-3-0-0 []
+  (jdbc/do-commands
+
+   ;; catalog_resources table
+   "CREATE TABLE catalog_resources (
+    catalog_id bigint NOT NULL,
+    resource bytea NOT NULL,
+    tags text[] NOT NULL,
+    type text NOT NULL,
+    title text NOT NULL,
+    exported boolean NOT NULL,
+    file text,
+    line integer,
+    PRIMARY KEY (catalog_id, type, title))"
+
+   ;; catalogs table
+   "CREATE SEQUENCE catalogs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+    CYCLE"
+
+   "CREATE TABLE catalogs (
+    id bigint DEFAULT nextval('catalogs_id_seq'::regclass) NOT NULL PRIMARY KEY,
+    hash bytea NOT NULL UNIQUE,
+    transaction_uuid uuid,
+    certname text NOT NULL UNIQUE,
+    producer_timestamp timestamp with time zone NOT NULL,
+    api_version integer NOT NULL,
+    catalog_version text NOT NULL,
+    \"timestamp\" timestamp with time zone,
+    environment_id bigint)"
+
+   ;; certnames table
+
+   "CREATE SEQUENCE certname_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+    CYCLE"
+
+   "CREATE TABLE certnames (
+    id bigint DEFAULT nextval('certname_id_seq'::regclass) NOT NULL,
+    certname text NOT NULL,
+    latest_report_id bigint,
+    deactivated timestamp with time zone,
+    expired timestamp with time zone,
+    CONSTRAINT certnames_transform_certname_key UNIQUE (certname),
+    CONSTRAINT certnames_transform_pkey PRIMARY KEY (id))"
+
+   ;; edges table
+   "CREATE TABLE edges (
+    certname text NOT NULL,
+    source bytea NOT NULL,
+    target bytea NOT NULL,
+    type text NOT NULL,
+    CONSTRAINT edges_certname_source_target_type_unique_key UNIQUE (certname, source, target, type))"
+
+   ;; environments table
+   "CREATE SEQUENCE environments_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1"
+
+   "CREATE TABLE environments (
+    id bigint DEFAULT nextval('environments_id_seq'::regclass) NOT NULL PRIMARY KEY,
+    name text NOT NULL UNIQUE)"
+
+   ;; fact_paths table
+   "CREATE SEQUENCE fact_paths_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+    CYCLE"
+
+   "CREATE TABLE fact_paths (
+    id bigint DEFAULT nextval('fact_paths_id_seq'::regclass) NOT NULL PRIMARY KEY,
+    depth integer NOT NULL,
+    name character varying(1024),
+    path text NOT NULL UNIQUE)"
+
+   ;; fact_values table
+   "CREATE SEQUENCE fact_values_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+    CYCLE"
+
+   "CREATE TABLE fact_values (
+    id bigint DEFAULT nextval('fact_values_id_seq'::regclass) NOT NULL PRIMARY KEY,
+    value_type_id bigint NOT NULL,
+    value_hash bytea NOT NULL UNIQUE,
+    value_integer bigint,
+    value_float double precision,
+    value_string text,
+    value_boolean boolean,
+    value text)"
+
+   ;; facts table
+   "CREATE TABLE facts (
+    factset_id bigint NOT NULL,
+    fact_path_id bigint NOT NULL,
+    fact_value_id bigint NOT NULL,
+    CONSTRAINT facts_factset_id_fact_path_id_fact_key UNIQUE (factset_id, fact_path_id))"
+
+   ;; factsets table
+   "CREATE SEQUENCE factsets_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+    CYCLE"
+
+   "CREATE TABLE factsets (
+    id bigint DEFAULT nextval('factsets_id_seq'::regclass) NOT NULL PRIMARY KEY,
+    certname text NOT NULL UNIQUE,
+    \"timestamp\" timestamp with time zone NOT NULL,
+    environment_id bigint,
+    hash bytea UNIQUE,
+    producer_timestamp timestamp with time zone NOT NULL,
+    CONSTRAINT factsets_certname_idx UNIQUE(certname))"
+
+   ;; report_statuses table
+   "CREATE SEQUENCE report_statuses_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1"
+
+   "CREATE TABLE report_statuses (
+    id bigint DEFAULT nextval('report_statuses_id_seq'::regclass) NOT NULL PRIMARY KEY,
+    status text NOT NULL UNIQUE)"
+
+   "ALTER SEQUENCE report_statuses_id_seq OWNED BY report_statuses.id" ;
+
+   ;; reports table
+   "CREATE SEQUENCE reports_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+    CYCLE"
+
+   "CREATE TABLE reports (
+    id bigint DEFAULT nextval('reports_id_seq'::regclass) NOT NULL PRIMARY KEY,
+    hash bytea NOT NULL UNIQUE,
+    transaction_uuid uuid,
+    certname text NOT NULL,
+    puppet_version character varying(255) NOT NULL,
+    report_format smallint NOT NULL,
+    configuration_version character varying(255) NOT NULL,
+    start_time timestamp with time zone NOT NULL,
+    end_time timestamp with time zone NOT NULL,
+    receive_time timestamp with time zone NOT NULL,
+    noop boolean,
+    environment_id bigint,
+    status_id bigint,
+    metrics json,
+    logs json,
+    producer_timestamp timestamp with time zone NOT NULL)"
+
+   ;; resource_events table
+   "CREATE TABLE resource_events (
+    report_id bigint NOT NULL,
+    certname_id bigint NOT NULL,
+    status character varying(40) NOT NULL,
+    \"timestamp\" timestamp with time zone NOT NULL,
+    resource_type text NOT NULL,
+    resource_title text NOT NULL,
+    property character varying(40),
+    new_value text,
+    old_value text,
+    message text,
+    file character varying(1024) DEFAULT NULL::character varying,
+    line integer,
+    containment_path text[],
+    containing_class character varying(255),
+    CONSTRAINT resource_events_unique UNIQUE (report_id, resource_type, resource_title, property))"
+
+   ;; resource_params table
+   "CREATE TABLE resource_params (
+    resource bytea NOT NULL,
+    name text NOT NULL,
+    value text NOT NULL,
+    CONSTRAINT resource_params_pkey PRIMARY KEY (resource, name))"
+
+   ;; resource_params_cache table
+   "CREATE TABLE resource_params_cache (
+    resource bytea NOT NULL PRIMARY KEY,
+    parameters text)"
+
+   ;; schema_migrations table
+   "CREATE TABLE schema_migrations (
+    version integer NOT NULL PRIMARY KEY,
+    \"time\" timestamp without time zone NOT NULL)"
+
+   ;; value_types table
+   "CREATE TABLE value_types (
+    id bigint NOT NULL PRIMARY KEY,
+    type character varying(32))"
+
+   ;; indexes
+   "CREATE INDEX fact_paths_name ON fact_paths USING btree (name)"
+
+   "CREATE INDEX fact_values_value_float_idx ON fact_values USING btree (value_float)"
+   "CREATE INDEX fact_values_value_integer_idx ON fact_values USING btree (value_integer)"
+
+   "CREATE INDEX facts_fact_path_id_idx ON facts USING btree (fact_path_id)"
+   "CREATE INDEX facts_fact_value_id_idx ON facts USING btree (fact_value_id)"
+
+   "CREATE INDEX idx_catalog_resources_exported_true ON catalog_resources USING btree (exported) WHERE (exported = true)"
+   "CREATE INDEX idx_catalog_resources_resource ON catalog_resources USING btree (resource)"
+   "CREATE INDEX idx_catalog_resources_type ON catalog_resources USING btree (type)"
+   "CREATE INDEX idx_catalog_resources_type_title ON catalog_resources USING btree (type, title)"
+
+   "CREATE INDEX idx_catalogs_env ON catalogs USING btree (environment_id)"
+   "CREATE INDEX idx_catalogs_producer_timestamp ON catalogs USING btree (producer_timestamp)"
+   "CREATE INDEX idx_catalogs_transaction_uuid ON catalogs USING btree (transaction_uuid)"
+
+   "CREATE INDEX reports_certname_idx ON reports USING btree (certname)"
+   "CREATE INDEX reports_end_time_idx ON reports USING btree (end_time)"
+   "CREATE INDEX reports_environment_id_idx ON reports USING btree (environment_id)"
+   "CREATE INDEX reports_status_id_idx ON reports USING btree (status_id)"
+   "CREATE INDEX reports_transaction_uuid_idx ON reports USING btree (transaction_uuid)"
+   "CREATE INDEX idx_reports_producer_timestamp ON reports USING btree (producer_timestamp)"
+
+   "CREATE INDEX resource_events_containing_class_idx ON resource_events USING btree (containing_class)"
+   "CREATE INDEX resource_events_property_idx ON resource_events USING btree (property)"
+   "CREATE INDEX resource_events_reports_id_idx ON resource_events USING btree (report_id)"
+   "CREATE INDEX resource_events_resource_type_idx ON resource_events USING btree (resource_type)"
+   "CREATE INDEX resource_events_status_idx ON resource_events USING btree (status)"
+   "CREATE INDEX resource_events_timestamp_idx ON resource_events USING btree (\"timestamp\")"
+   "CREATE INDEX resource_events_resource_title_idx ON resource_events USING btree (resource_title);"
+   "CREATE INDEX resource_events_resource_timestamp ON resource_events USING btree (resource_type, resource_title, \"timestamp\")";
+
+   "CREATE INDEX idx_resources_params_name ON resource_params USING btree (name)"
+   "CREATE INDEX idx_resources_params_resource ON resource_params USING btree (resource)"
+
+   ;; foreign key updates
+   "ALTER TABLE ONLY catalog_resources
+    ADD CONSTRAINT catalog_resources_catalog_id_fkey FOREIGN KEY (catalog_id) REFERENCES catalogs(id) ON DELETE CASCADE,
+    ADD CONSTRAINT catalog_resources_resource_fkey FOREIGN KEY (resource) REFERENCES resource_params_cache(resource) ON DELETE CASCADE"
+
+   "ALTER TABLE ONLY catalogs
+    ADD CONSTRAINT catalogs_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE,
+    ADD CONSTRAINT catalogs_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"
+
+   "ALTER TABLE ONLY certnames
+    ADD CONSTRAINT certnames_reports_id_fkey FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL"
+
+   "ALTER TABLE ONLY edges
+    ADD CONSTRAINT edges_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"
+
+   "ALTER TABLE ONLY facts
+    ADD CONSTRAINT fact_path_id_fk FOREIGN KEY (fact_path_id) REFERENCES fact_paths(id),
+    ADD CONSTRAINT fact_value_id_fk FOREIGN KEY (fact_value_id) REFERENCES fact_values(id)"
+
+   "ALTER TABLE ONLY fact_values
+    ADD CONSTRAINT fact_values_value_type_id_fk FOREIGN KEY (value_type_id) REFERENCES value_types(id) ON UPDATE RESTRICT ON DELETE RESTRICT"
+
+   "ALTER TABLE ONLY facts
+    ADD CONSTRAINT factset_id_fk FOREIGN KEY (factset_id) REFERENCES factsets(id) ON UPDATE CASCADE ON DELETE CASCADE"
+
+   "ALTER TABLE ONLY factsets
+    ADD CONSTRAINT factsets_certname_fk FOREIGN KEY (certname) REFERENCES certnames(certname) ON UPDATE CASCADE ON DELETE CASCADE,
+    ADD CONSTRAINT factsets_environment_id_fk FOREIGN KEY (environment_id) REFERENCES environments(id) ON UPDATE RESTRICT ON DELETE RESTRICT"
+
+   "ALTER TABLE ONLY reports
+    ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE,
+    ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE,
+    ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE"
+
+   "ALTER TABLE ONLY resource_events
+    ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"
+
+   "ALTER TABLE ONLY resource_params
+    ADD CONSTRAINT resource_params_resource_fkey FOREIGN KEY (resource) REFERENCES resource_params_cache(resource) ON DELETE CASCADE"
+
+   ;; Load value_types data
+   "INSERT INTO value_types (id, type) values (0, 'string')"
+   "INSERT INTO value_types (id, type) values (1, 'integer')"
+   "INSERT INTO value_types (id, type) values (2, 'float')"
+   "INSERT INTO value_types (id, type) values (3, 'boolean')"
+   "INSERT INTO value_types (id, type) values (4, 'null')"
+   "INSERT INTO value_types (id, type) values (5, 'json')"))
+
 (defn- drop-foreign-keys
   "Drop all foreign keys on the given `table`. Does not currently support
   selecting a single key to drop."
@@ -715,6 +1014,7 @@
    (sql/create-table-ddl :value_types
                          ["id" "bigint NOT NULL PRIMARY KEY"]
                          ["type" "character varying(32)"])
+   ;; Load value_types data
    "INSERT INTO value_types (id, type) values (0, 'string')"
    "INSERT INTO value_types (id, type) values (1, 'integer')"
    "INSERT INTO value_types (id, type) values (2, 'float')"
