@@ -9,10 +9,9 @@ module Puppet::Util::Puppetdb
 
     def self.load(config_file = nil)
       defaults = {
-        :server                    => "puppetdb",
-        :port                      => 8081,
-        :soft_write_failure        => false,
-        :server_url_timeout        => 30,
+        :server_urls                 => "https://puppetdb:8081",
+        :soft_write_failure          => false,
+        :server_url_timeout          => 30,
         :include_unchanged_resources => false,
       }
 
@@ -22,7 +21,7 @@ module Puppet::Util::Puppetdb
         Puppet.debug("Configuring PuppetDB terminuses with config file #{config_file}")
         content = File.read(config_file)
       else
-        Puppet.debug("No #{config_file} file found; falling back to default server and port #{defaults[:server]}:#{defaults[:port]}")
+        Puppet.debug("No #{config_file} file found; falling back to default server_urls #{defaults[:server_urls]}")
         content = ''
       end
 
@@ -53,29 +52,19 @@ module Puppet::Util::Puppetdb
       main_section = main_section.inject({}) {|h, (k,v)| h[k.to_sym] = v ; h}
       # merge with defaults but filter out anything except the legal settings
       config_hash = defaults.merge(main_section).reject do |k, v|
-        !([:server,
-           :port,
+        !([:server_urls,
            :ignore_blacklisted_events,
            :include_unchanged_resources,
            :soft_write_failure,
-           :server_urls,
            :server_url_timeout].include?(k))
       end
 
-      if config_hash[:server_urls]
-        uses_server_urls = true
-        config_hash[:server_urls] = config_hash[:server_urls].split(",").map {|s| s.strip}
-      else
-        uses_server_urls = false
-        config_hash[:server_urls] = ["https://#{config_hash[:server].strip}:#{config_hash[:port].to_s}"]
-      end
-      config_hash[:server_urls] = convert_and_validate_urls(config_hash[:server_urls])
-
+      config_hash[:server_urls] = convert_and_validate_urls(config_hash[:server_urls].split(",").map {|s| s.strip})
       config_hash[:server_url_timeout] = config_hash[:server_url_timeout].to_i
       config_hash[:include_unchanged_resources] = Puppet::Util::Puppetdb.to_bool(config_hash[:include_unchanged_resources])
       config_hash[:soft_write_failure] = Puppet::Util::Puppetdb.to_bool(config_hash[:soft_write_failure])
 
-      self.new(config_hash, uses_server_urls)
+      self.new(config_hash)
     rescue => detail
       Puppet.warning "Could not configure PuppetDB terminuses: #{detail}"
       Puppet.warning detail.backtrace if Puppet[:trace]
@@ -84,21 +73,8 @@ module Puppet::Util::Puppetdb
 
     # @!group Public instance methods
 
-    def initialize(config_hash = {}, uses_server_urls=nil)
+    def initialize(config_hash = {})
       @config = config_hash
-      if !uses_server_urls
-        Puppet.warning("Specification of server and port in puppetdb.conf is deprecated. Use the setting server_urls.")
-      end
-      # To provide accurate error messages to users about HTTP failures, we
-      # need to know whether they initially defined their config via the old
-      # server/port combo or the new server_urls. This boolean keeps track
-      # of how the user defined that config so that we can give them a
-      # better error message
-      @server_url_config = uses_server_urls
-    end
-
-    def server_url_config?
-      @server_url_config
     end
 
     def server_urls

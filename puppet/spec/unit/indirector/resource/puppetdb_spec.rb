@@ -6,8 +6,7 @@ require 'json'
 
 describe Puppet::Resource::Puppetdb do
   before :each do
-    Puppet::Util::Puppetdb.stubs(:server).returns 'localhost'
-    Puppet::Util::Puppetdb.stubs(:port).returns 0
+    Puppet::Util::Puppetdb.stubs(:server_urls).returns 'https://localhost:0'
     Puppet::Resource.indirection.stubs(:terminus).returns(subject)
   end
 
