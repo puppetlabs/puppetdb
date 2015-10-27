@@ -123,15 +123,15 @@
    ;; reliance on ordering. We should pick one of the below (probably
    ;; set) and make the conversion earlier in the pipeline, then all
    ;; code would rely on the edges to be in that format
-   :edges (s/either [{s/Any s/Any}]
-                    #{{s/Any s/Any}})
+   :edges (s/cond-pre [{s/Any s/Any}]
+                      #{{s/Any s/Any}})
 
    ;; This is a crutch, some areas of the code expect the first
    ;; format, others expect the second, ideally we would make the
    ;; transformation to the second earlier in the process, then all of
    ;; the code can expect it (it's just a faster access version of the first)
-   :resources (s/either [{s/Any s/Any}]
-                        {s/Any {s/Any s/Any}})})
+   :resources (s/cond-pre [{s/Any s/Any}]
+                          {s/Any {s/Any s/Any}})})
 
 (def catalog-v6-wireformat-schema
   (dissoc catalog-wireformat-schema :code_id))

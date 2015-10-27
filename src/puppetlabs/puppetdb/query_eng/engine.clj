@@ -1121,14 +1121,14 @@
   "A function that will return nil if the query snippet successfully validates, otherwise
   will return a data structure with error information"
   (s/checker [(s/one
-               (apply s/either (map s/eq binary-operators))
+               (apply s/enum binary-operators)
                :operator)
-              (s/one (s/either s/Str
-                               [(s/one s/Str :nested-field)
-                                (s/one s/Str :nested-value)])
+              (s/one (s/cond-pre s/Str
+                                 [(s/one s/Str :nested-field)
+                                  (s/one s/Str :nested-value)])
                      :field)
-              (s/one (s/either [(s/either s/Str s/Int)]
-                               s/Str s/Bool s/Int pls/Timestamp Double)
+              (s/one (s/cond-pre [(s/cond-pre s/Str s/Int)]
+                                 s/Str s/Bool s/Int pls/Timestamp Double)
                      :value)]))
 
 (defn vec?
@@ -1220,7 +1220,7 @@
                  (user-node->plan-node (user-query->logical-obj subquery-name)
                                        (first subquery-expression)))))))
 
-(pls/defn-validated columns->fields :- [(s/either s/Keyword SqlCall SqlRaw)]
+(pls/defn-validated columns->fields :- [(s/cond-pre s/Keyword SqlCall SqlRaw)]
   "Convert a list of columns to their true SQL field names."
   [query-rec
    columns :- [s/Str]]

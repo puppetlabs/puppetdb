@@ -38,7 +38,7 @@
   {:certname s/Str
    :values {s/Keyword s/Any}
    :environment (s/maybe s/Str)
-   :producer_timestamp (s/either (s/maybe s/Str) pls/Timestamp)})
+   :producer_timestamp (s/cond-pre pls/Timestamp (s/maybe s/Str))})
 
 ;; TRANSFORMATIONS
 

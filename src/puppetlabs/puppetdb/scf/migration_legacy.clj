@@ -65,7 +65,7 @@
    :values fact-set
    :timestamp pls/Timestamp
    :environment (s/maybe s/Str)
-   :producer_timestamp (s/either (s/maybe s/Str) pls/Timestamp)})
+   :producer_timestamp (s/cond-pre pls/Timestamp (s/maybe s/Str))})
 
 (def fact-path-map
   {:path s/Str

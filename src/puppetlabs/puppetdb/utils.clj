@@ -164,11 +164,7 @@
    :host s/Str
    :port s/Int
    (s/optional-key :prefix) s/Str
-   (s/optional-key :version) (s/both
-                              s/Keyword
-                              (s/pred #(and (keyword? %)
-                                            (re-matches #"v\d+" (name %)))
-                                      'valid-version?))})
+   (s/optional-key :version) (s/constrained s/Keyword #(re-matches #"v\d+" (name %)))})
 
 (pls/defn-validated base-url->str :- s/Str
   "Converts the `base-url' map to an ASCII URL.  May throw
@@ -280,7 +276,7 @@
 
 (pls/defn-validated child->expansion
   "Convert child to the expanded format."
-  [data :- (s/maybe (s/either PGobject s/Str))
+  [data :- (s/maybe (s/cond-pre PGobject s/Str))
    parent :- s/Keyword
    child :- s/Keyword
    url-prefix :- s/Str]

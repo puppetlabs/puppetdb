@@ -202,7 +202,7 @@
   "Parse the optional `limit` query parameter. Returns an integer
   version of `limit` upon successful validation. Throws an exception
   if provided `limit` is not a positive integer"
-  [limit :- (s/maybe (s/either String s/Int))]
+  [limit :- (s/maybe (s/cond-pre String s/Int))]
   (when limit (validate-limit limit)))
 
 (defn parse-limit

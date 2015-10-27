@@ -231,7 +231,7 @@
    In most cases a base of 2 is sufficient, but you can adjust this to create
    tighter or looser sleep cycles."
   [current-attempt :- s/Int
-   base :- (s/either s/Int Double)]
+   base :- (s/cond-pre s/Int Double)]
   (let [sleep-ms (-> (math/expt base current-attempt)
                      (- 1)
                      (* 1000))]

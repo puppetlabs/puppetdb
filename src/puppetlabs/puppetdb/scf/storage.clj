@@ -53,7 +53,7 @@
   {:type String
    :title String})
 
-(def json-primitive-schema (s/either String Number Boolean))
+(def json-primitive-schema (s/cond-pre String Number Boolean))
 
 ;; the maximum number of parameters pl-jdbc will admit in a prepared statement
 ;; is 32767. delete-pending-value-id-orphans will create a prepared statement
@@ -862,7 +862,7 @@
   transaction may decide not to delete paths that are only referred to
   by other facts that are being changed in parallel transactions to
   also not refer to the paths."
-  [n :- (s/both s/Int (s/pred (complement neg?) 'nonnegative?))]
+  [n :- (s/constrained s/Int (complement neg?))]
   (if (zero? n)
     0
     (first
@@ -884,7 +884,7 @@
   read, an update transaction may decide not to delete values that are
   only referred to by other facts that are being changed in parallel
   transactions to also not refer to the values."
-  [n :- (s/both s/Int (s/pred (complement neg?) 'nonnegative?))]
+  [n :- (s/constrained s/Int (complement neg?))]
   (if (zero? n)
     0
     (first
@@ -914,8 +914,8 @@
 
 (defn-validated insert-facts-pv-pairs!
   [factset-id :- s/Int
-   pairs :- (s/either [(s/pair s/Int "path-id" s/Int "value-id")]
-                      #{(s/pair s/Int "path-id" s/Int "value-id")})]
+   pairs :- (s/cond-pre [(s/pair s/Int "path-id" s/Int "value-id")]
+                        #{(s/pair s/Int "path-id" s/Int "value-id")})]
   (when-let [rows (seq (for [[pid vid] pairs]
                          {:factset_id factset-id
                           :fact_path_id pid

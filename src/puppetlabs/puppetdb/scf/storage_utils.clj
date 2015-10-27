@@ -208,7 +208,7 @@
 
 (pls/defn-validated parse-db-json
   "Produce a function for parsing an object stored as json."
-  [db-json :- (s/maybe (s/either s/Str PGobject))]
+  [db-json :- (s/maybe (s/cond-pre s/Str PGobject))]
   (some-> db-json .getValue (json/parse-string true)))
 
 (pls/defn-validated str->pgobject :- PGobject

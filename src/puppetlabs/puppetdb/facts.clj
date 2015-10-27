@@ -13,7 +13,7 @@
 ;; SCHEMA
 
 (def fact-path-element
-  (s/either s/Str s/Num))
+  (s/cond-pre s/Str s/Num))
 
 (def fact-path
   [fact-path-element])
@@ -31,7 +31,7 @@
    :values fact-set-schema
    :timestamp pls/Timestamp
    :environment (s/maybe s/Str)
-   :producer_timestamp (s/either s/Str pls/Timestamp)})
+   :producer_timestamp (s/cond-pre s/Str pls/Timestamp)})
 
 (def valuemap-schema
   {:value_hash s/Str
