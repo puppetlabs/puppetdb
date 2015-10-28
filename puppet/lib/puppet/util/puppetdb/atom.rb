@@ -13,7 +13,7 @@ module Puppet::Util::Puppetdb
       }
     end
 
-    def reset!(value)
+    def reset(value)
       @mutex.synchronize {
         @value = value
       }
