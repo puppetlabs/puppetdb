@@ -242,7 +242,7 @@
   that point.  The retrieved messages will have been committed."
   [connection :- connection-schema
    endpoint :- s/Str
-   timeout :- (s/both s/Int (s/pred pos?))]
+   timeout :- (s/constrained s/Int pos?)]
   (with-open [s (.createSession connection true Session/SESSION_TRANSACTED)
               consumer (.createConsumer s (.createQueue s endpoint))]
     (let [deadline (+ (System/currentTimeMillis) timeout)
@@ -260,7 +260,7 @@
   connection.  The retrieved messages will have been committed."
   [connection :- connection-schema
    endpoint :- s/Str
-   n :- (s/both s/Int (s/pred pos?))]
+   n :- (s/constrained s/Int pos?)]
   (with-open [s (.createSession connection true Session/SESSION_TRANSACTED)
               consumer (.createConsumer s (.createQueue s endpoint))]
     (vec (repeatedly n #(commit-or-rollback s

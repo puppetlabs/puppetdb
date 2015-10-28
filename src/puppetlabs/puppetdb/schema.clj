@@ -8,13 +8,14 @@
             [cheshire.custom :as json]
             [slingshot.slingshot :refer [throw+]]))
 
+
 (defrecord DefaultedMaybe [schema default]
   s/Schema
-  (s/walker [this]
-    (let [sub-walker (s/subschema-walker schema)]
-      (fn [x]
-        (when-not (nil? x)
-          (sub-walker x)))))
+  (s/spec [this]
+        (schema.spec.variant/variant-spec
+         schema.spec.core/+no-precondition+
+         [{:guard nil? :schema (s/eq nil)}
+          {:schema schema}]))
   (s/explain [this] (list 'defaulted-maybe (s/explain schema))))
 
 (defmacro defn-validated

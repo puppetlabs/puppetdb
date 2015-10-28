@@ -11,7 +11,7 @@
 
 (def key-or-sql
   "Either a honeysql call, or a keyword argument"
-  (s/either SqlCall SqlRaw s/Keyword))
+  (s/cond-pre SqlCall SqlRaw s/Keyword))
 
 ;; COMMMON DIRECT SQL FUNCTIONS
 
