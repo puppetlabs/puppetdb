@@ -114,11 +114,11 @@
   "Based on the input value, return an appropriate random replacement"
   [value]
   (cond
-   (string? value) (random-string (max 1 (count value)))
+   (string? value) (random-string (max 10 (count value)))
    (integer? value) (rand-int (max value 20))
    (float? value) (rand (max value 1))
    (boolean? value) (random-bool)
-   (map? value) (zipmap (map #(random-string (max 1 (count (name %)))) (keys value))
+   (map? value) (zipmap (map #(random-string (max 10 (count (name %)))) (keys value))
                         (vals (utils/update-vals value (keys value)
                                                  anonymize-leaf-value)))
    (nil? value) nil
@@ -130,15 +130,15 @@
      (case ltype
        :node (random-node-name)
        :type (random-type-name)
-       :title (random-string (max 1 (count value)))
-       :parameter-name (random-string-alpha (max 1 (count value)))
-       :message (random-string (max 1 (count value)))
-       :log-message (random-string (max 1 (count value)))
+       :title (random-string (max 10 (count value)))
+       :parameter-name (random-string-alpha (max 10 (count value)))
+       :message (random-string (max 10 (count value)))
+       :log-message (random-string (max 10 (count value)))
        :file (random-pp-path)
        :line (when value (rand-int (max value 20)))
        :transaction_uuid (uuid)
-       :fact-name (random-string (max 1 (count (name value))))
-       :environment (random-string (max 1 (count value)))
+       :fact-name (random-string (max 10 (count (name value))))
+       :environment (random-string (max 10 (count value)))
        (:fact-value :parameter-value)
        (cond
          (vector? value) (map (partial anonymize-leaf-memoize ltype) value)
