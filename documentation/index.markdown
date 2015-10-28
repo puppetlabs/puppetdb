@@ -36,8 +36,8 @@ To start using PuppetDB today:
 Version Note
 -----
 
-This manual covers the 3.1.x series of PuppetDB releases, which is
-a backward-compatible feature release following the 3.0.x series.
+This manual covers the 3.2.x series of PuppetDB releases, which is
+a backward-compatible feature release following the 3.1.x series.
 
 [See the release notes][releasenotes] for information on all
 changes.
