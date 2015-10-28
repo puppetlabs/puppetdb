@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.1 » API » v4 » Upgrading to PuppetDB 3.0"
+title: "PuppetDB 3.2 » API » v4 » Upgrading to PuppetDB 3.0"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/upgrading-from-v3.html"
 ---

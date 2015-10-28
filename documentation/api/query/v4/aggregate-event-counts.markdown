@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.1 » API » v4 » Querying Aggregate Event Counts"
+title: "PuppetDB 3.2 » API » v4 » Querying Aggregate Event Counts"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/aggregate-event-counts.html"
 ---
