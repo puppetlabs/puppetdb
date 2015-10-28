@@ -16,11 +16,10 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.testutils :refer [assert-success!
-                                                   get-request
-                                                   paged-results
-                                                   deftestseq]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response
+            [puppetlabs.puppetdb.testutils
+             :refer [assert-success! get-request paged-results]]
+            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
+                                                        query-response
                                                         query-result
                                                         ordered-query-result
                                                         vector-param]]
@@ -29,11 +28,7 @@
 
 (def endpoints [[:v4 "/v4/reports"]])
 
-(use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
-
-;; TESTS
-
-(deftestseq query-by-parameters
+(deftest-http-app query-by-parameters
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -57,7 +52,7 @@
           (is (= result
                  (munge-reports-for-comparison [basic]))))))))
 
-(deftestseq query-with-projection
+(deftest-http-app query-with-projection
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -128,7 +123,7 @@
                                             ["=" "certname" (:certname basic)]])
              #{(select-keys basic [:hash :certname :transaction_uuid])})))))
 
-(deftestseq query-report-data
+(deftest-http-app query-report-data
   [[version field] [[:v4 :logs] [:v4 :metrics]]
    method [:get :post]]
   (let [report-hash (:hash (store-example-report! (:basic reports) (now)))
@@ -139,7 +134,7 @@
       (is (= (get-data report-hash (name field))
              (-> basic field :data set))))))
 
-(deftestseq query-with-paging
+(deftest-http-app query-with-paging
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -162,7 +157,7 @@
           (is (= (munge-reports-for-comparison [basic1 basic2])
                  (munge-reports-for-comparison results))))))))
 
-(deftestseq reports-json-vs-jsonb
+(deftest-http-app reports-json-vs-jsonb
   [[version endpoint] endpoints
   method [:get :post]]
 
@@ -215,7 +210,7 @@
       (assoc-in [:basic3 :configuration_version] "xxx")
       (assoc-in [:basic4 :configuration_version] "yyy")))
 
-(deftestseq paging-results
+(deftest-http-app paging-results
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -312,7 +307,7 @@
             (is (= (munge-reports-for-comparison expected)
                    (munge-reports-for-comparison actual)))))))))
 
-(deftestseq invalid-queries
+(deftest-http-app invalid-queries
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -326,7 +321,7 @@
                  body))
     (is (= 400 status))))
 
-(deftestseq query-by-status
+(deftest-http-app query-by-status
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -361,7 +356,7 @@
         (is (= failed-reports
                (munge-reports-for-comparison [basic4])))))))
 
-(deftestseq query-by-certname-with-environment
+(deftest-http-app query-by-certname-with-environment
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -386,7 +381,7 @@
                            ["=" "certname" (:certname basic)]))
             true))))))
 
-(deftestseq query-by-puppet-version
+(deftest-http-app query-by-puppet-version
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -413,7 +408,7 @@
     (is (= 2 (count v30x)))
     (is (= v30x (munge-reports-for-comparison [basic basic3])))))
 
-(deftestseq query-by-report-format
+(deftest-http-app query-by-report-format
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -444,7 +439,7 @@
     (is (= 2 (count v6-format)))
     (is (= v6-format (munge-reports-for-comparison [basic2 basic3])))))
 
-(deftestseq query-by-configuration-version
+(deftest-http-app query-by-configuration-version
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -466,7 +461,7 @@
     (is (= basic2-result-body
            (munge-reports-for-comparison [basic basic2])))))
 
-(deftestseq query-by-start-and-end-time
+(deftest-http-app query-by-start-and-end-time
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -503,7 +498,7 @@
 (defn ts->str [ts]
   (tfmt/unparse (tfmt/formatters :date-time) (tcoerce/to-date-time ts)))
 
-(deftestseq query-by-receive-time
+(deftest-http-app query-by-receive-time
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -516,7 +511,7 @@
     (is (= 1 (count basic-result)))
     (is (= basic-result (munge-reports-for-comparison [basic])))))
 
-(deftestseq query-by-transaction-uuid
+(deftest-http-app query-by-transaction-uuid
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -537,7 +532,7 @@
     (is (= 2 (count all-results)))
     (is (= all-results (munge-reports-for-comparison [basic basic2])))))
 
-(deftestseq latest-report-queries
+(deftest-http-app latest-report-queries
   [[version endpoint] endpoints
    method [:get :post]]
   (let [basic (:basic reports)
@@ -568,7 +563,7 @@
       (is (= 2 (count latest4)))
       (is (= latest4 (munge-reports-for-comparison [basic2 basic4]))))))
 
-(deftestseq query-by-hash
+(deftest-http-app query-by-hash
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -582,7 +577,7 @@
     (is (= 1 (count basic-result)))
     (is (= basic-result (munge-reports-for-comparison [basic])))))
 
-(deftestseq report-subqueries
+(deftest-http-app report-subqueries
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -621,7 +616,7 @@
     ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
     #"Can't extract unknown 'reports' fields: 'nothing', 'nothing2'.*Acceptable fields are.*"))
 
-(deftestseq invalid-projections
+(deftest-http-app invalid-projections
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -640,7 +635,7 @@
                   ["~" "certname" "[]"]
                   #".*invalid regular expression: brackets.*not balanced")))
 
-(deftestseq pg-invalid-regexps
+(deftest-http-app pg-invalid-regexps
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -654,7 +649,7 @@
                           [:v4 "/v4/reports/foo/metrics"]
                           [:v4 "/v4/reports/foo/logs"]])
 
-(deftestseq unknown-parent-handling
+(deftest-http-app unknown-parent-handling
   [[version endpoint] no-parent-endpoints
    method [:get :post]]
 
@@ -663,8 +658,9 @@
     (is (= {:error "No information is known about report foo"} (json/parse-string body true)))))
 
 (deftest reports-retrieval
-  (let [basic (:basic my-reports)
-        report-hash (:hash (store-example-report! basic (now)))]
-    (testing "report-exists? function"
-      (is (= true (qe/object-exists? :report report-hash)))
-      (is (= false (qe/object-exists? :report "chrissyamphlett"))))))
+  (fixt/with-test-db
+    (let [basic (:basic my-reports)
+          report-hash (:hash (store-example-report! basic (now)))]
+      (testing "report-exists? function"
+        (is (= true (qe/object-exists? :report report-hash)))
+        (is (= false (qe/object-exists? :report "chrissyamphlett")))))))

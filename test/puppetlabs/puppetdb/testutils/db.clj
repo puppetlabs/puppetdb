@@ -3,6 +3,7 @@
             [clojure.string :as str]
             [environ.core :refer [env]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
             [puppetlabs.puppetdb.testutils :refer [pprint-str]]))
 
 (defn valid-sql-id? [id]
@@ -41,6 +42,14 @@
      :user (get-in test-env [:admin :name])
      :password (get-in test-env [:admin :password])}))
 
+(defn db-user-config
+  [database]
+  {:classname "org.postgresql.Driver"
+   :subprotocol "postgresql"
+   :subname (format "//%s:%s/%s" (:host test-env) (:port test-env) database)
+   :user (get-in test-env [:user :name])
+   :password (get-in test-env [:user :password])})
+
 (defn subname->validated-db-name [subname]
   (let [sep (.lastIndexOf subname "/")]
     (assert (pos? sep))
@@ -48,21 +57,32 @@
       (assert (valid-sql-id? name))
       name)))
 
+(def ^:private templates-created (atom false))
+
+(defn- ensure-pdb-db-templates-exist []
+  (locking ensure-pdb-db-templates-exist
+    (when-not @templates-created
+      (jdbc/with-db-connection (db-admin-config)
+        (let [conn (doto (:connection (jdbc/db)) (.setAutoCommit true))
+              ex (fn [cmd] (-> conn .createStatement (.execute cmd)))]
+          (ex (format "drop database if exists pdb_test_template"))
+          (ex (format "create database pdb_test_template"))))
+      (let [cfg (db-user-config "pdb_test_template")]
+        (jdbc/with-db-connection cfg
+          (migrate! cfg)))
+      (reset! templates-created true))))
+
 (def ^:private test-db-counter (atom 0))
 
 (defn create-temp-db []
+  (ensure-pdb-db-templates-exist)
   (let [n (swap! test-db-counter inc)
         db-name (str "pdb_test_" n)]
     (jdbc/with-db-connection (db-admin-config)
       (jdbc/do-commands-outside-txn
        (format "drop database if exists %s" db-name)
-       (format "create database %s" db-name)))
-    {:classname "org.postgresql.Driver"
-     :subprotocol "postgresql"
-     :subname (format "//%s:%s/%s"
-                      (:host test-env) (:port test-env) db-name)
-     :user (get-in test-env [:user :name])
-     :password (get-in test-env [:user :password])}))
+       (format "create database %s template pdb_test_template" db-name)))
+    (db-user-config db-name)))
 
 (def ^:dynamic *db-spec* nil)
 

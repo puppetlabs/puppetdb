@@ -5,10 +5,10 @@
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.testutils :as tu]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils :refer [get-request paged-results
-                                                   deftestseq]]
+            [puppetlabs.puppetdb.testutils :refer [get-request paged-results]]
             [puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response
+            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
+                                                        query-response
                                                         ordered-query-result
                                                         vector-param]]
             [flatland.ordered.map :as omap]))
@@ -17,8 +17,6 @@
 (def v4-environments-endpoint "/v4/environments/DEV/resources")
 
 (def endpoints [[:v4 v4-endpoint]])
-
-(use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
 
 (defn is-response-equal
   "Test if the HTTP request is a success, and if the result is equal
@@ -38,7 +36,7 @@ to the result of the form supplied to this method."
       (json/parse-string true)
       set))
 
-(deftestseq resource-endpoint-tests
+(deftest-http-app resource-endpoint-tests
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -126,7 +124,7 @@ to the result of the form supplied to this method."
                               [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{bar1}]]]
         (is-response-equal (query-response method endpoint query) result)))))
 
-(deftestseq environments-resource-endpoint
+(deftest-http-app environments-resource-endpoint
   [[version endpoint] endpoints
    method [:get :post]]
   (let [{:keys [foo1 bar1 foo2 bar2] :as results} (store-example-resources)
@@ -165,7 +163,7 @@ to the result of the form supplied to this method."
                               [["=" ["parameter" "acl"] ["john:rwx" "fred:rwx"]] #{bar1}]]]
         (is-response-equal (query-response method prod-endpoint query) result)))))
 
-(deftestseq query-sourcefile-sourceline
+(deftest-http-app query-sourcefile-sourceline
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -202,7 +200,7 @@ to the result of the form supplied to this method."
             result #{bar2}]
         (is-response-equal (query-response method endpoint query) result)))))
 
-(deftestseq resource-query-paging
+(deftest-http-app resource-query-paging
   [[version endpoint] endpoints
    method [:get :post]]
   (testing "supports paging via include_total"
@@ -220,7 +218,7 @@ to the result of the form supplied to this method."
             (is (= (set (vals expected))
                    (set results)))))))))
 
-(deftestseq resource-query-result-ordering
+(deftest-http-app resource-query-result-ordering
   [[version endpoint] endpoints
    method [:get :post]]
   (let [{:keys [foo1 foo2 bar1 bar2] :as expected} (store-example-resources)]
@@ -232,7 +230,7 @@ to the result of the form supplied to this method."
         (is (= http/status-ok (:status response)))
         (is (= actual [bar2 bar1 foo2 foo1]))))))
 
-(deftestseq query-environments
+(deftest-http-app query-environments
   [[version endpoint] endpoints
    method [:get :post]]
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
@@ -249,7 +247,7 @@ to the result of the form supplied to this method."
       (are [query] (is (= (query-result (query-response method endpoint query)) #{foo1 foo2 bar1 bar2}))
            ["not" ["=" "environment" "null"]]))))
 
-(deftestseq query-with-projection
+(deftest-http-app query-with-projection
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -268,7 +266,7 @@ to the result of the form supplied to this method."
            #{{:type "File" :count 1}
              {:type "Notify" :count 1}}))))
 
-(deftestseq paging-results
+(deftest-http-app paging-results
   [[version endpoint] endpoints
    method [:get :post]]
   (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
@@ -302,7 +300,7 @@ to the result of the form supplied to this method."
                                               :offset offset})]
             (is (= actual expected))))))))
 
-(deftestseq query-null-environments
+(deftest-http-app query-null-environments
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -324,7 +322,7 @@ to the result of the form supplied to this method."
                       ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
                       #"Can't extract unknown 'resources' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
 
-(deftestseq invalid-queries
+(deftest-http-app invalid-queries
   [[version endpoint] endpoints
    method [:get :post]]
 

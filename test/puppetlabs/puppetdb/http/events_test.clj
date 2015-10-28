@@ -10,25 +10,22 @@
             [clojure.set :as clj-set]
             [clj-time.coerce :refer [to-string to-long to-timestamp]]
             [puppetlabs.puppetdb.testutils :refer [get-request
-                                                   paged-results
-                                                   deftestseq]]
+                                                   paged-results]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            enumerated-resource-events-map]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response
+            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
+                                                        query-response
                                                         vector-param
                                                         query-result]]
             [clojure.walk :refer [stringify-keys]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
-            [puppetlabs.puppetdb.fixtures
-             :refer [*app* with-http-app call-with-test-db]]))
+            [puppetlabs.puppetdb.fixtures :refer [*app*]]))
 
 (def endpoints [[:v4 "/v4/events"]
                 [:v4 "/v4/environments/DEV/events"]])
 
 (def content-type-json http/json-response-content-type)
-
-(use-fixtures :each call-with-test-db with-http-app)
 
 (defn parse-result
   "Stringify (if needed) then parse the response"
@@ -66,7 +63,7 @@
   ;; tests.
   (map #(kitchensink/maptrans {[:old_value :new_value] stringify-keys} %) events))
 
-(deftestseq query-by-report
+(deftest-http-app query-by-report
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -202,7 +199,7 @@
           (is (= (:status response) http/status-bad-request))
           (is (re-find #"Unrecognized column 'resource-title' specified in :order_by" body)))))))
 
-(deftestseq query-distinct-resources
+(deftest-http-app query-distinct-resources
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -282,7 +279,7 @@
                                    munge-event-values)]
         (is (= response expected))))))
 
-(deftestseq query-by-puppet-report-timestamp
+(deftest-http-app query-by-puppet-report-timestamp
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -320,7 +317,7 @@
                                     munge-event-values)]
         (is (= response expected))))))
 
-(deftestseq query-by-report-receive-timestamp
+(deftest-http-app query-by-report-receive-timestamp
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -422,7 +419,7 @@
        :certname "basic.catalogs.com"
        :message nil}})))
 
-(deftestseq valid-subqueries
+(deftest-http-app valid-subqueries
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -464,7 +461,7 @@
                                                                                 ["=" "type" "Class"]]]]
                  #"Can't match on unknown 'events' fields: 'nothing', 'nothing2' for 'in'.*Acceptable fields are.*")))
 
-(deftestseq invalid-subqueries
+(deftest-http-app invalid-subqueries
   [[version endpoint] endpoints
    method  [:get :post]]
 
@@ -489,7 +486,7 @@
                    ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
                    #"Can't extract unknown 'events' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
 
-(deftestseq invalid-queries
+(deftest-http-app invalid-queries
   [[version endpoint] endpoints
    method  [:get :post]]
 
@@ -508,7 +505,7 @@
                  ["~" "certname" "[]"]
                  #".*invalid regular expression: brackets.*not balanced")))
 
-(deftestseq pg-invalid-regexps
+(deftest-http-app pg-invalid-regexps
   [[version endpoint] endpoints
    method  [:get :post]]
 

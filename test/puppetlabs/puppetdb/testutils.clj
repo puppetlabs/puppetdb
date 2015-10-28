@@ -20,6 +20,14 @@
 
 (def c-t "application/json")
 
+(defmacro dotestseq [bindings & body]
+  (if-not (seq bindings)
+    `(do ~@body)
+    (let [case-versions (remove keyword? (take-nth 2 bindings))]
+      `(doseq ~bindings
+         (testing (str "Testing case " '~case-versions)
+           ~@body)))))
+
 (defn drop-table!
   "Drops a table from the database.  Expects to be called from within a db binding.
   Exercise extreme caution when calling this function!"
@@ -297,27 +305,6 @@
                  :uuid
                  java.util.UUID/fromString)))
 
-(defmacro wrap-with-testing
-  "If `version` is bound in this context, wrap the form in a testing
-   macro to indicate the version being tested"
-  [body]
-  `(if ~(contains? &env 'version)
-     (testing (str "Testing version " ~'version)
-       ~@body)
-     (do ~@body)))
-
-(defmacro doverseq
-  "Loose wrapper around `doseq` to support testing multiple versions of commands. Will run
-   the test fixtures around each tested version and if `version` is chosen as the let bound
-   variable to hold the current version being tested, with wrap it in a (testing...) block
-   indicating the version being tested"
-  [seq-exprs & body]
-  `(let [each-fixture# (join-fixtures (:clojure.test/each-fixtures (meta ~*ns*)))]
-     (doseq ~seq-exprs
-       (each-fixture#
-        (fn []
-          (wrap-with-testing ~body))))))
-
 (defn parse-result
   "Stringify (if needed) then parse the response"
   [body]
@@ -327,13 +314,6 @@
       (json/parse-string (slurp body) true))
     (catch Throwable e
       body)))
-
-(defmacro deftestseq
-  "Def test wrapper around a doverseq."
-  [name seq-exprs & body]
-  (when *load-tests*
-    `(def ~(vary-meta name assoc :test `(fn [] (doverseq ~seq-exprs ~@body)))
-       (fn [] (test-var (var ~name))))))
 
 (defn strip-hash
   [xs]

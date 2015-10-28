@@ -5,18 +5,15 @@
             [puppetlabs.puppetdb.scf.storage :as storage]
             [puppetlabs.puppetdb.query-eng :as eng]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils :refer [get-request deftestseq]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response
+            [puppetlabs.puppetdb.testutils :refer [get-request ]]
+            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
+                                                        query-response
                                                         query-result]]
             [puppetlabs.puppetdb.testutils.nodes :as tu-nodes]))
 
-(use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
-
 (def endpoints [[:v4 "/v4/environments"]])
 
-;; TESTS
-
-(deftestseq test-all-environments
+(deftest-http-app test-all-environments
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -45,7 +42,7 @@
                                   slurp
                                   (json/parse-string true)))))))))))
 
-(deftestseq test-query-environment
+(deftest-http-app test-query-environment
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -64,7 +61,7 @@
                   :body
                   (json/parse-string true))))))))
 
-(deftestseq environment-queries
+(deftest-http-app environment-queries
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -168,7 +165,7 @@
                           [:v4 "/v4/environments/foo/reports"]
                           [:v4 "/v4/environments/foo/resources"]])
 
-(deftestseq unknown-parent-handling
+(deftest-http-app unknown-parent-handling
   [[version endpoint] no-parent-endpoints
    method [:get :post]]
 

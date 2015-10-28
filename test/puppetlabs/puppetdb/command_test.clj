@@ -14,8 +14,9 @@
             [puppetlabs.puppetdb.command :refer :all]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.reports :as reports]
-            [puppetlabs.puppetdb.testutils :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer [*db* call-with-test-db]]
+            [puppetlabs.puppetdb.testutils
+             :refer [args-supplied call-counter dotestseq times-called]]
+            [puppetlabs.puppetdb.fixtures :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
@@ -34,8 +35,6 @@
             [puppetlabs.kitchensink.core :as ks])
   (:import [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
-
-(use-fixtures :each call-with-test-db)
 
 (deftest command-parsing
   (testing "Command parsing"
@@ -230,11 +229,11 @@
   [:v7])
 
 (deftest replace-catalog-test
-  (doverseq [version catalog-versions
-             :let [raw-command {:command (command-names :replace-catalog)
-                            :version 7
-                            :payload (-> (get-in wire-catalogs [7 :empty])
-                                         (assoc :producer_timestamp (now)))}]]
+  (dotestseq [version catalog-versions
+              :let [raw-command {:command (command-names :replace-catalog)
+                                 :version 7
+                                 :payload (-> (get-in wire-catalogs [7 :empty])
+                                              (assoc :producer_timestamp (now)))}]]
     (testing (str (command-names :replace-catalog) " " version)
       (let [certname (get-in raw-command [:payload :certname])
             catalog-hash (shash/catalog-similarity-hash
@@ -245,7 +244,7 @@
             tomorrow     (to-timestamp (+ (System/currentTimeMillis) one-day))]
 
         (testing "with no catalog should store the catalog"
-          (with-fixtures
+          (with-test-db
             (test-msg-handler command publish discard-dir
               (is (= [(with-env {:certname certname})]
                      (query-to-vec "SELECT certname, environment_id FROM catalogs")))
@@ -253,18 +252,18 @@
               (is (empty? (fs/list-dir discard-dir))))))
 
         (testing "with code-id should store the catalog"
-          (with-fixtures
+          (with-test-db
             (test-msg-handler (-> raw-command
                                   (assoc-in [:payload :code_id] "my_git_sha1")
                                   stringify-payload)
-                              publish discard-dir
-                              (is (= [(with-env {:certname certname :code_id "my_git_sha1"})]
-                                     (query-to-vec "SELECT certname, code_id, environment_id FROM catalogs")))
-                              (is (= 0 (times-called publish)))
-                              (is (empty? (fs/list-dir discard-dir))))))
+              publish discard-dir
+              (is (= [(with-env {:certname certname :code_id "my_git_sha1"})]
+                     (query-to-vec "SELECT certname, code_id, environment_id FROM catalogs")))
+              (is (= 0 (times-called publish)))
+              (is (empty? (fs/list-dir discard-dir))))))
 
         (testing "with an existing catalog should replace the catalog"
-          (with-fixtures
+          (with-test-db
             (is (= (query-to-vec "SELECT certname FROM catalogs")
                    []))
             (jdbc/insert! :certnames {:certname certname})
@@ -284,14 +283,14 @@
 
         (let [command (assoc command :payload "bad stuff")]
           (testing "with a bad payload should discard the message"
-            (with-fixtures
+            (with-test-db
               (test-msg-handler command publish discard-dir
                 (is (empty? (query-to-vec "SELECT * FROM catalogs")))
                 (is (= 0 (times-called publish)))
                 (is (seq (fs/list-dir discard-dir)))))))
 
         (testing "with a newer catalog should ignore the message"
-          (with-fixtures
+          (with-test-db
             (jdbc/insert! :certnames {:certname certname})
             (jdbc/insert! :catalogs
                           {:id 1
@@ -311,7 +310,7 @@
 
 
         (testing "should reactivate the node if it was deactivated before the message"
-          (with-fixtures
+          (with-test-db
             (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
             (test-msg-handler command publish discard-dir
               (is (= [{:certname certname :deactivated nil}]
@@ -323,16 +322,17 @@
               (is (empty? (fs/list-dir discard-dir))))))
 
         (testing "should store the catalog if the node was deactivated after the message"
-          (scf-store/delete-certname! certname)
-          (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
-          (test-msg-handler command publish discard-dir
-            (is (= [{:certname certname :deactivated tomorrow}]
-                   (query-to-vec "SELECT certname,deactivated FROM certnames")))
-            (is (= [{:certname certname :catalog catalog-hash}]
-                   (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
-                                         (sutils/sql-hash-as-str "hash")))))
-            (is (= 0 (times-called publish)))
-            (is (empty? (fs/list-dir discard-dir)))))))))
+          (with-test-db
+            (scf-store/delete-certname! certname)
+            (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
+            (test-msg-handler command publish discard-dir
+              (is (= [{:certname certname :deactivated tomorrow}]
+                     (query-to-vec "SELECT certname,deactivated FROM certnames")))
+              (is (= [{:certname certname :catalog catalog-hash}]
+                     (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                           (sutils/sql-hash-as-str "hash")))))
+              (is (= 0 (times-called publish)))
+              (is (empty? (fs/list-dir discard-dir))))))))))
 
 ;; If there are messages in the user's MQ when they upgrade, we could
 ;; potentially have commands of an unsupported format that need to be
@@ -340,12 +340,12 @@
 ;; need to test that those commands will be processed properly
 (deftest replace-catalog-with-v6
   (testing "catalog wireformat v6"
-    (let [command {:command (command-names :replace-catalog)
-                   :version 6
-                   :payload (get-in wire-catalogs [6 :empty])}
-          certname (get-in command [:payload :certname])
-          cmd-producer-timestamp (get-in command [:payload :producer_timestamp])]
-      (with-fixtures
+    (with-test-db
+      (let [command {:command (command-names :replace-catalog)
+                     :version 6
+                     :payload (get-in wire-catalogs [6 :empty])}
+            certname (get-in command [:payload :certname])
+            cmd-producer-timestamp (get-in command [:payload :producer_timestamp])]
         (test-msg-handler command publish discard-dir
 
           ;;names in v5 are hyphenated, this check ensures we're sending a v5 catalog
@@ -363,12 +363,12 @@
 
 (deftest replace-catalog-with-v5
   (testing "catalog wireformat v5"
-    (let [command {:command (command-names :replace-catalog)
-                   :version 5
-                   :payload (get-in wire-catalogs [5 :empty])}
-          certname (get-in command [:payload :name])
-          cmd-producer-timestamp (get-in command [:payload :producer-timestamp])]
-      (with-fixtures
+    (with-test-db
+      (let [command {:command (command-names :replace-catalog)
+                     :version 5
+                     :payload (get-in wire-catalogs [5 :empty])}
+            certname (get-in command [:payload :name])
+            cmd-producer-timestamp (get-in command [:payload :producer-timestamp])]
         (test-msg-handler command publish discard-dir
 
           ;;names in v5 are hyphenated, this check ensures we're sending a v5 catalog
@@ -385,13 +385,13 @@
                  (to-timestamp cmd-producer-timestamp))))))))
 
 (deftest replace-catalog-with-v4
-  (let [command {:command (command-names :replace-catalog)
-                 :version 4
-                 :payload (get-in wire-catalogs [4 :empty])}
-        certname (get-in command [:payload :name])
-        cmd-producer-timestamp (get-in command [:payload :producer-timestamp])
-        recent-time (-> 1 seconds ago)]
-    (with-fixtures
+  (with-test-db
+    (let [command {:command (command-names :replace-catalog)
+                   :version 4
+                   :payload (get-in wire-catalogs [4 :empty])}
+          certname (get-in command [:payload :name])
+          cmd-producer-timestamp (get-in command [:payload :producer-timestamp])
+          recent-time (-> 1 seconds ago)]
       (test-msg-handler command publish discard-dir
         (is (false? (contains? (:payload command) :producer-timestamp)))
         (is (= [(with-env {:certname certname})]
@@ -425,96 +425,100 @@
   (get-in wire-catalogs [7 :basic]))
 
 (deftest catalog-with-updated-resource-line
-  (doverseq [version catalog-versions
-             :let [command {:command (command-names :replace-catalog)
-                            :version 7
-                            :payload basic-wire-catalog}
-                   command-1 (stringify-payload command)
-                   command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :line 20)))]]
-    (test-msg-handler command-1 publish discard-dir
-      (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
-        (is (= 10
-               (get-in orig-resources [{:type "File" :title "/etc/foobar"} :line])))
-        (is (= 0 (times-called publish)))
-        (is (empty? (fs/list-dir discard-dir)))
-
-        (test-msg-handler command-2 publish discard-dir
-          (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :line] 20)
-                 (scf-store/catalog-resources
-                  (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+  (dotestseq [version catalog-versions
+              :let [command {:command (command-names :replace-catalog)
+                             :version 7
+                             :payload basic-wire-catalog}
+                    command-1 (stringify-payload command)
+                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :line 20)))]]
+    (with-test-db
+      (test-msg-handler command-1 publish discard-dir
+        (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+          (is (= 10
+                 (get-in orig-resources [{:type "File" :title "/etc/foobar"} :line])))
           (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir))))))))
+          (is (empty? (fs/list-dir discard-dir)))
+
+          (test-msg-handler command-2 publish discard-dir
+            (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :line] 20)
+                   (scf-store/catalog-resources
+                    (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))))))))
 
 (deftest catalog-with-updated-resource-file
-  (doverseq [version catalog-versions
-             :let [command {:command (command-names :replace-catalog)
-                            :version 7
-                            :payload basic-wire-catalog}
-                   command-1 (stringify-payload command)
-                   command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :file "/tmp/not-foo")))]]
-    (test-msg-handler command-1 publish discard-dir
-      (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
-        (is (= "/tmp/foo"
-               (get-in orig-resources [{:type "File" :title "/etc/foobar"} :file])))
-        (is (= 0 (times-called publish)))
-        (is (empty? (fs/list-dir discard-dir)))
-
-        (test-msg-handler command-2 publish discard-dir
-          (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :file] "/tmp/not-foo")
-                 (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+  (dotestseq [version catalog-versions
+              :let [command {:command (command-names :replace-catalog)
+                             :version 7
+                             :payload basic-wire-catalog}
+                    command-1 (stringify-payload command)
+                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :file "/tmp/not-foo")))]]
+    (with-test-db
+      (test-msg-handler command-1 publish discard-dir
+        (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+          (is (= "/tmp/foo"
+                 (get-in orig-resources [{:type "File" :title "/etc/foobar"} :file])))
           (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir))))))))
+          (is (empty? (fs/list-dir discard-dir)))
+
+          (test-msg-handler command-2 publish discard-dir
+            (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :file] "/tmp/not-foo")
+                   (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))))))))
 
 (deftest catalog-with-updated-resource-exported
-  (doverseq [version catalog-versions
-             :let [command {:command (command-names :replace-catalog)
-                            :version 7
-                            :payload basic-wire-catalog}
-                   command-1 (stringify-payload command)
-                   command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :exported true)))]]
-    (test-msg-handler command-1 publish discard-dir
-      (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
-        (is (= false
-               (get-in orig-resources [{:type "File" :title "/etc/foobar"} :exported])))
-        (is (= 0 (times-called publish)))
-        (is (empty? (fs/list-dir discard-dir)))
-
-        (test-msg-handler command-2 publish discard-dir
-          (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :exported] true)
-                 (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+  (dotestseq [version catalog-versions
+              :let [command {:command (command-names :replace-catalog)
+                             :version 7
+                             :payload basic-wire-catalog}
+                    command-1 (stringify-payload command)
+                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :exported true)))]]
+    (with-test-db
+      (test-msg-handler command-1 publish discard-dir
+        (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+          (is (= false
+                 (get-in orig-resources [{:type "File" :title "/etc/foobar"} :exported])))
           (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir))))))))
+          (is (empty? (fs/list-dir discard-dir)))
+
+          (test-msg-handler command-2 publish discard-dir
+            (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :exported] true)
+                   (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))))))))
 
 
 (deftest catalog-with-updated-resource-tags
-  (doverseq [version catalog-versions
-             :let [command {:command (command-names :replace-catalog)
-                            :version 7
-                            :payload basic-wire-catalog}
-                   command-1 (stringify-payload command)
-                   command-2 (stringify-payload
-                              (update-resource version command "File" "/etc/foobar"
-                                               #(-> %(assoc :tags #{"file" "class" "foobar" "foo"})
-                                                    (assoc :line 20))))]]
-    (test-msg-handler command-1 publish discard-dir
-      (let [orig-resources (scf-store/catalog-resources
-                            (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
-        (is (= #{"file" "class" "foobar"}
-               (get-in orig-resources [{:type "File" :title "/etc/foobar"} :tags])))
-        (is (= 10
-               (get-in orig-resources [{:type "File" :title "/etc/foobar"} :line])))
-        (is (= 0 (times-called publish)))
-        (is (empty? (fs/list-dir discard-dir)))
-
-        (test-msg-handler command-2 publish discard-dir
-          (is (= (-> orig-resources
-                     (assoc-in [{:type "File" :title "/etc/foobar"} :tags]
-                               #{"file" "class" "foobar" "foo"})
-                     (assoc-in [{:type "File" :title "/etc/foobar"} :line] 20))
-                 (scf-store/catalog-resources (:id (scf-store/catalog-metadata
-                                                    "basic.wire-catalogs.com")))))
+  (dotestseq [version catalog-versions
+              :let [command {:command (command-names :replace-catalog)
+                             :version 7
+                             :payload basic-wire-catalog}
+                    command-1 (stringify-payload command)
+                    command-2 (stringify-payload
+                               (update-resource version command "File" "/etc/foobar"
+                                                #(-> %(assoc :tags #{"file" "class" "foobar" "foo"})
+                                                     (assoc :line 20))))]]
+    (with-test-db
+      (test-msg-handler command-1 publish discard-dir
+        (let [orig-resources (scf-store/catalog-resources
+                              (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+          (is (= #{"file" "class" "foobar"}
+                 (get-in orig-resources [{:type "File" :title "/etc/foobar"} :tags])))
+          (is (= 10
+                 (get-in orig-resources [{:type "File" :title "/etc/foobar"} :line])))
           (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir))))))))
+          (is (empty? (fs/list-dir discard-dir)))
+
+          (test-msg-handler command-2 publish discard-dir
+            (is (= (-> orig-resources
+                       (assoc-in [{:type "File" :title "/etc/foobar"} :tags]
+                                 #{"file" "class" "foobar" "foo"})
+                       (assoc-in [{:type "File" :title "/etc/foobar"} :line] 20))
+                   (scf-store/catalog-resources (:id (scf-store/catalog-metadata
+                                                      "basic.wire-catalogs.com")))))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -541,13 +545,13 @@
       tomorrow  (to-timestamp (+ (System/currentTimeMillis) one-day))]
 
   (deftest replace-facts-no-facts
-    (doverseq [version fact-versions
-               :let [command v4-command]]
-
+    (dotestseq [version fact-versions
+                :let [command v4-command]]
       (testing "should store the facts"
-        (test-msg-handler command publish discard-dir
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
+        (with-test-db
+          (test-msg-handler command publish discard-dir
+            (is (= (query-to-vec
+                    "SELECT fp.path as name,
                           COALESCE(fv.value_string,
                                    cast(fv.value_integer as text),
                                    cast(fv.value_boolean as text),
@@ -560,38 +564,38 @@
                      INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                    WHERE fp.depth = 0
                    ORDER BY name ASC")
-                 [{:certname certname :name "a" :value "1"}
-                  {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
-          (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir)))
-          (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
-            (is (= result [(with-env {:certname certname})])))))))
+                   [{:certname certname :name "a" :value "1"}
+                    {:certname certname :name "b" :value "2"}
+                    {:certname certname :name "c" :value "3"}]))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))
+            (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
+              (is (= result [(with-env {:certname certname})]))))))))
 
   (deftest replace-facts-existing-facts
-    (doverseq [version fact-versions
-               :let [command v4-command]]
+    (dotestseq [version fact-versions
+                :let [command v4-command]]
+      (with-test-db
+        (jdbc/with-db-transaction []
+          (scf-store/ensure-environment "DEV")
+          (scf-store/add-certname! certname)
+          (scf-store/replace-facts! {:certname certname
+                                     :values {"x" "24" "y" "25" "z" "26"}
+                                     :timestamp yesterday
+                                     :producer_timestamp yesterday
+                                     :environment "DEV"}))
 
-      (jdbc/with-db-transaction []
-       (scf-store/ensure-environment "DEV")
-       (scf-store/add-certname! certname)
-       (scf-store/replace-facts! {:certname certname
-                                  :values {"x" "24" "y" "25" "z" "26"}
-                                  :timestamp yesterday
-                                  :producer_timestamp yesterday
-                                  :environment "DEV"}))
+        (testing "should replace the facts"
+          (test-msg-handler command publish discard-dir
+            (let [[result & _] (query-to-vec "SELECT certname,timestamp, environment_id FROM factsets")]
+              (is (= (:certname result)
+                     certname))
+              (is (not= (:timestamp result)
+                        yesterday))
+              (is (= (scf-store/environment-id "DEV") (:environment_id result))))
 
-      (testing "should replace the facts"
-        (test-msg-handler command publish discard-dir
-          (let [[result & _] (query-to-vec "SELECT certname,timestamp, environment_id FROM factsets")]
-            (is (= (:certname result)
-                   certname))
-            (is (not= (:timestamp result)
-                      yesterday))
-            (is (= (scf-store/environment-id "DEV") (:environment_id result))))
-
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
+            (is (= (query-to-vec
+                    "SELECT fp.path as name,
                           COALESCE(fv.value_string,
                                    cast(fv.value_integer as text),
                                    cast(fv.value_boolean as text),
@@ -604,31 +608,31 @@
                      INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                    WHERE fp.depth = 0
                    ORDER BY fp.path ASC")
-                 [{:certname certname :name "a" :value "1"}
-                  {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
-          (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir)))))))
+                   [{:certname certname :name "a" :value "1"}
+                    {:certname certname :name "b" :value "2"}
+                    {:certname certname :name "c" :value "3"}]))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir))))))))
 
   (deftest replace-facts-newer-facts
-    (doverseq [version fact-versions
-               :let [command v4-command]]
+    (dotestseq [version fact-versions
+                :let [command v4-command]]
+      (with-test-db
+        (jdbc/with-db-transaction []
+          (scf-store/ensure-environment "DEV")
+          (scf-store/add-certname! certname)
+          (scf-store/add-facts! {:certname certname
+                                 :values {"x" "24" "y" "25" "z" "26"}
+                                 :timestamp tomorrow
+                                 :producer_timestamp (to-timestamp (now))
+                                 :environment "DEV"}))
 
-      (jdbc/with-db-transaction []
-       (scf-store/ensure-environment "DEV")
-       (scf-store/add-certname! certname)
-       (scf-store/add-facts! {:certname certname
-                              :values {"x" "24" "y" "25" "z" "26"}
-                              :timestamp tomorrow
-                              :producer_timestamp (to-timestamp (now))
-                              :environment "DEV"}))
-
-      (testing "should ignore the message"
-        (test-msg-handler command publish discard-dir
-          (is (= (query-to-vec "SELECT certname,timestamp,environment_id FROM factsets")
-                 [(with-env {:certname certname :timestamp tomorrow})]))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
+        (testing "should ignore the message"
+          (test-msg-handler command publish discard-dir
+            (is (= (query-to-vec "SELECT certname,timestamp,environment_id FROM factsets")
+                   [(with-env {:certname certname :timestamp tomorrow})]))
+            (is (= (query-to-vec
+                    "SELECT fp.path as name,
                           COALESCE(fv.value_string,
                                    cast(fv.value_integer as text),
                                    cast(fv.value_boolean as text),
@@ -641,23 +645,23 @@
                      INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                    WHERE fp.depth = 0
                    ORDER BY name ASC")
-                 [{:certname certname :name "x" :value "24"}
-                  {:certname certname :name "y" :value "25"}
-                  {:certname certname :name "z" :value "26"}]))
-          (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir)))))))
+                   [{:certname certname :name "x" :value "24"}
+                    {:certname certname :name "y" :value "25"}
+                    {:certname certname :name "z" :value "26"}]))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir))))))))
 
   (deftest replace-facts-deactivated-node-facts
-    (doverseq [version fact-versions
-               :let [command v4-command]]
-
-      (testing "should reactivate the node if it was deactivated before the message"
-        (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
-        (test-msg-handler command publish discard-dir
-          (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
-                 [{:certname certname :deactivated nil}]))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
+    (dotestseq [version fact-versions
+                :let [command v4-command]]
+      (with-test-db
+        (testing "should reactivate the node if it was deactivated before the message"
+          (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
+          (test-msg-handler command publish discard-dir
+            (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
+                   [{:certname certname :deactivated nil}]))
+            (is (= (query-to-vec
+                    "SELECT fp.path as name,
                           COALESCE(fv.value_string,
                                    cast(fv.value_integer as text),
                                    cast(fv.value_boolean as text),
@@ -670,20 +674,20 @@
                      INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                    WHERE fp.depth = 0
                    ORDER BY name ASC")
-                 [{:certname certname :name "a" :value "1"}
-                  {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
-          (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir)))))
+                   [{:certname certname :name "a" :value "1"}
+                    {:certname certname :name "b" :value "2"}
+                    {:certname certname :name "c" :value "3"}]))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))))
 
-      (testing "should store the facts if the node was deactivated after the message"
-        (scf-store/delete-certname! certname)
-        (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
-        (test-msg-handler command publish discard-dir
-          (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
-                 [{:certname certname :deactivated tomorrow}]))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
+        (testing "should store the facts if the node was deactivated after the message"
+          (scf-store/delete-certname! certname)
+          (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
+          (test-msg-handler command publish discard-dir
+            (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
+                   [{:certname certname :deactivated tomorrow}]))
+            (is (= (query-to-vec
+                    "SELECT fp.path as name,
                           COALESCE(fv.value_string,
                                    cast(fv.value_integer as text),
                                    cast(fv.value_boolean as text),
@@ -696,32 +700,33 @@
                      INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                    WHERE fp.depth = 0
                    ORDER BY name ASC")
-                 [{:certname certname :name "a" :value "1"}
-                  {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
-          (is (= 0 (times-called publish)))
-          (is (empty? (fs/list-dir discard-dir))))))))
+                   [{:certname certname :name "a" :value "1"}
+                    {:certname certname :name "b" :value "2"}
+                    {:certname certname :name "c" :value "3"}]))
+            (is (= 0 (times-called publish)))
+            (is (empty? (fs/list-dir discard-dir)))))))))
 
 ;;v2 and v3 fact commands are only supported when commands are still
 ;;sitting in the queue from before upgrading
 (deftest replace-facts-with-v3-wire-format
-  (let [certname  "foo.example.com"
-        producer-time (-> (now)
-                          to-timestamp
-                          json/generate-string
-                          json/parse-string
-                          pt/to-timestamp)
-        facts-cmd {:command (command-names :replace-facts)
-                   :version 3
-                   :payload {:name certname
-                             :environment "DEV"
-                             :producer-timestamp producer-time
-                             :values {"a" "1"
-                                      "b" "2"
-                                      "c" "3"}}}]
-    (test-msg-handler facts-cmd publish discard-dir
-      (is (= (query-to-vec
-              "SELECT fp.path as name,
+  (with-test-db
+    (let [certname  "foo.example.com"
+          producer-time (-> (now)
+                            to-timestamp
+                            json/generate-string
+                            json/parse-string
+                            pt/to-timestamp)
+          facts-cmd {:command (command-names :replace-facts)
+                     :version 3
+                     :payload {:name certname
+                               :environment "DEV"
+                               :producer-timestamp producer-time
+                               :values {"a" "1"
+                                        "b" "2"
+                                        "c" "3"}}}]
+      (test-msg-handler facts-cmd publish discard-dir
+        (is (= (query-to-vec
+                "SELECT fp.path as name,
                           COALESCE(fv.value_string,
                                    cast(fv.value_integer as text),
                                    cast(fv.value_boolean as text),
@@ -737,27 +742,28 @@
                      INNER JOIN environments as e on fs.environment_id = e.id
                    WHERE fp.depth = 0
                    ORDER BY name ASC")
-             [{:certname certname :name "a" :value "1" :producer_timestamp producer-time :environment "DEV"}
-              {:certname certname :name "b" :value "2" :producer_timestamp producer-time :environment "DEV"}
-              {:certname certname :name "c" :value "3" :producer_timestamp producer-time :environment "DEV"}]))
-      (is (= 0 (times-called publish)))
-      (is (empty? (fs/list-dir discard-dir)))
-      (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
-        (is (= result [(with-env {:certname certname})]))))))
+               [{:certname certname :name "a" :value "1" :producer_timestamp producer-time :environment "DEV"}
+                {:certname certname :name "b" :value "2" :producer_timestamp producer-time :environment "DEV"}
+                {:certname certname :name "c" :value "3" :producer_timestamp producer-time :environment "DEV"}]))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))
+        (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
+          (is (= result [(with-env {:certname certname})])))))))
 
 (deftest replace-facts-with-v2-wire-format
-  (let [certname  "foo.example.com"
-        before-test-starts-time (-> 1 seconds ago)
-        facts-cmd {:command (command-names :replace-facts)
-                   :version 2
-                   :payload {:name certname
-                             :environment "DEV"
-                             :values {"a" "1"
-                                      "b" "2"
-                                      "c" "3"}}}]
-    (test-msg-handler facts-cmd publish discard-dir
-      (is (= (query-to-vec
-              "SELECT fp.path as name,
+  (with-test-db
+    (let [certname  "foo.example.com"
+          before-test-starts-time (-> 1 seconds ago)
+          facts-cmd {:command (command-names :replace-facts)
+                     :version 2
+                     :payload {:name certname
+                               :environment "DEV"
+                               :values {"a" "1"
+                                        "b" "2"
+                                        "c" "3"}}}]
+      (test-msg-handler facts-cmd publish discard-dir
+        (is (= (query-to-vec
+                "SELECT fp.path as name,
                           COALESCE(fv.value_string,
                                    cast(fv.value_integer as text),
                                    cast(fv.value_boolean as text),
@@ -772,32 +778,33 @@
                      INNER JOIN environments as e on fs.environment_id = e.id
                    WHERE fp.depth = 0
                    ORDER BY name ASC")
-             [{:certname certname :name "a" :value "1" :environment "DEV"}
-              {:certname certname :name "b" :value "2" :environment "DEV"}
-              {:certname certname :name "c" :value "3" :environment "DEV"}]))
+               [{:certname certname :name "a" :value "1" :environment "DEV"}
+                {:certname certname :name "b" :value "2" :environment "DEV"}
+                {:certname certname :name "c" :value "3" :environment "DEV"}]))
 
-      (is (every? (comp #(t/before? before-test-starts-time %)
-                        to-date-time
-                        :producer_timestamp)
-                  (query-to-vec
-                   "SELECT fs.producer_timestamp
+        (is (every? (comp #(t/before? before-test-starts-time %)
+                          to-date-time
+                          :producer_timestamp)
+                    (query-to-vec
+                     "SELECT fs.producer_timestamp
                          FROM factsets fs")))
-      (is (= 0 (times-called publish)))
-      (is (empty? (fs/list-dir discard-dir)))
-      (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
-        (is (= result [(with-env {:certname certname})]))))))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))
+        (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
+          (is (= result [(with-env {:certname certname})])))))))
 
 (deftest replace-facts-bad-payload
   (let [bad-command {:command (command-names :replace-facts)
                      :version 4
                      :payload "bad stuff"}]
-    (doverseq [version fact-versions
-               :let [command bad-command]]
+    (dotestseq [version fact-versions
+                :let [command bad-command]]
       (testing "should discard the message"
-        (test-msg-handler command publish discard-dir
-          (is (empty? (query-to-vec "SELECT * FROM facts")))
-          (is (= 0 (times-called publish)))
-          (is (seq (fs/list-dir discard-dir))))))))
+        (with-test-db
+          (test-msg-handler command publish discard-dir
+            (is (empty? (query-to-vec "SELECT * FROM facts")))
+            (is (= 0 (times-called publish)))
+            (is (seq (fs/list-dir discard-dir)))))))))
 
 (defn extract-error-message
   "Pulls the error message from the publish var of a test-msg-handler"
@@ -814,60 +821,62 @@
 
 (deftest concurrent-fact-updates
   (testing "Should allow only one replace facts update for a given cert at a time"
-    (let [certname "some_certname"
-          facts {:certname certname
-                 :environment "DEV"
-                 :values {"domain" "mydomain.com"
-                          "fqdn" "myhost.mydomain.com"
-                          "hostname" "myhost"
-                          "kernel" "Linux"
-                          "operatingsystem" "Debian"
-                          }
-                 :producer_timestamp (to-timestamp (now))}
-          command   {:command (command-names :replace-facts)
-                     :version 4
-                     :payload facts}
+    (with-test-db
+      (let [certname "some_certname"
+            facts {:certname certname
+                   :environment "DEV"
+                   :values {"domain" "mydomain.com"
+                            "fqdn" "myhost.mydomain.com"
+                            "hostname" "myhost"
+                            "kernel" "Linux"
+                            "operatingsystem" "Debian"
+                            }
+                   :producer_timestamp (to-timestamp (now))}
+            command   {:command (command-names :replace-facts)
+                       :version 4
+                       :payload facts}
 
-          hand-off-queue (java.util.concurrent.SynchronousQueue.)
-          storage-replace-facts! scf-store/update-facts!]
+            hand-off-queue (java.util.concurrent.SynchronousQueue.)
+            storage-replace-facts! scf-store/update-facts!]
 
-      (jdbc/with-db-transaction []
-       (scf-store/add-certname! certname)
-       (scf-store/add-facts! {:certname certname
-                              :values (:values facts)
-                              :timestamp (-> 2 days ago)
-                              :environment nil
-                              :producer_timestamp (-> 2 days ago)}))
+        (jdbc/with-db-transaction []
+          (scf-store/add-certname! certname)
+          (scf-store/add-facts! {:certname certname
+                                 :values (:values facts)
+                                 :timestamp (-> 2 days ago)
+                                 :environment nil
+                                 :producer_timestamp (-> 2 days ago)}))
 
-      (with-redefs [scf-store/update-facts!
-                    (fn [fact-data]
-                      (.put hand-off-queue "got the lock")
-                      (.poll hand-off-queue 5 TimeUnit/SECONDS)
-                      (storage-replace-facts! fact-data))]
-        (let [first-message? (atom false)
-              second-message? (atom false)
-              fut (future
-                    (test-msg-handler command publish discard-dir
-                      (reset! first-message? true)))
+        (with-redefs [scf-store/update-facts!
+                      (fn [fact-data]
+                        (.put hand-off-queue "got the lock")
+                        (.poll hand-off-queue 5 TimeUnit/SECONDS)
+                        (storage-replace-facts! fact-data))]
+          (let [first-message? (atom false)
+                second-message? (atom false)
+                fut (future
+                      (test-msg-handler command publish discard-dir
+                        (reset! first-message? true)))
 
-              _ (.poll hand-off-queue 5 TimeUnit/SECONDS)
+                _ (.poll hand-off-queue 5 TimeUnit/SECONDS)
 
-              new-facts (update-in facts [:values] (fn [values]
-                                                     (-> values
-                                                         (dissoc "kernel")
-                                                         (assoc "newfact2" "here"))))
-              new-facts-cmd {:command (command-names :replace-facts)
-                             :version 4
-                             :payload new-facts}]
+                new-facts (update-in facts [:values]
+                                     (fn [values]
+                                       (-> values
+                                           (dissoc "kernel")
+                                           (assoc "newfact2" "here"))))
+                new-facts-cmd {:command (command-names :replace-facts)
+                               :version 4
+                               :payload new-facts}]
 
-          (test-msg-handler new-facts-cmd publish discard-dir
-            (reset! second-message? true)
-            (is (re-matches
-                 #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
-                 (extract-error-message publish))))
-          @fut
-          (is (true? @first-message?))
-          (is (true? @second-message?)))))))
+            (test-msg-handler new-facts-cmd publish discard-dir
+              (reset! second-message? true)
+              (is (re-matches
+                   #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
+                   (extract-error-message publish))))
+            @fut
+            (is (true? @first-message?))
+            (is (true? @second-message?))))))))
 
 (defn thread-id []
   (.getId (Thread/currentThread)))
@@ -951,174 +960,175 @@
         storage-delete-pending-path-id-orphans!
         scf-store/delete-pending-path-id-orphans!]
 
-    (jdbc/with-db-transaction []
-     (scf-store/add-certname! certname-1)
-     (scf-store/add-certname! certname-2)
-     (scf-store/add-facts! {:certname certname-1
-                            :values (:values facts-1a)
-                            :timestamp (now)
-                            :environment nil
-                            :producer_timestamp (:producer_timestamp facts-1a)})
-     (scf-store/add-facts! {:certname certname-2
-                            :values (:values facts-2a)
-                            :timestamp (now)
-                            :environment nil
-                            :producer_timestamp (:producer_timestamp facts-2a)}))
+    (with-test-db
+      (jdbc/with-db-transaction []
+        (scf-store/add-certname! certname-1)
+        (scf-store/add-certname! certname-2)
+        (scf-store/add-facts! {:certname certname-1
+                               :values (:values facts-1a)
+                               :timestamp (now)
+                               :environment nil
+                               :producer_timestamp (:producer_timestamp facts-1a)})
+        (scf-store/add-facts! {:certname certname-2
+                               :values (:values facts-2a)
+                               :timestamp (now)
+                               :environment nil
+                               :producer_timestamp (:producer_timestamp facts-2a)}))
+      ;; At this point, there will be 4 fact_value rows, 1 for
+      ;; mytimestamp, 1 for the operatingsystem, 2 for domain
+      (with-redefs [scf-store/delete-pending-path-id-orphans!
+                    (fn [& args]
+                      ;; Once this has been called, it will countdown
+                      ;; the latch and block
+                      (.countDown latch)
+                      ;; After the second command has been executed and
+                      ;; it has decremented the latch, the await will no
+                      ;; longer block and both threads will begin
+                      ;; running again
+                      (.await latch)
+                      ;; Execute the normal delete-pending-path-id-orphans!
+                      ;; function (unchanged)
+                      (apply storage-delete-pending-path-id-orphans! args))]
+        (let [first-message? (atom false)
+              second-message? (atom false)
+              fut-1 (future
+                      (test-msg-handler command-1b publish discard-dir
+                        (reset! first-message? true)))
+              fut-2 (future
+                      (test-msg-handler command-2b publish discard-dir
+                        (reset! second-message? true)))]
+          ;; The two commands are being submitted in future, ensure they
+          ;; have both completed before proceeding
+          @fut-2
+          @fut-1
+          ;; At this point there are 6 fact values, the original
+          ;; mytimestamp, the two new mytimestamps, operating system and
+          ;; the two domains
+          (is (true? @first-message?))
+          (is (true? @second-message?))
+          ;; Submit another factset that does NOT include mytimestamp,
+          ;; this disassociates certname-1's fact_value (which is 1b)
+          (test-msg-handler command-1c publish discard-dir
+            (reset! first-message? true))
+          ;; Do the same thing with certname-2. Since the reference to 1b
+          ;; and 2b has been removed, mytimestamp's path is no longer
+          ;; connected to any fact values. The original mytimestamp value
+          ;; of 1 is still in the table. It's now attempting to delete
+          ;; that fact path, when the mytimestamp 1 value is still in
+          ;; there.
+          (test-msg-handler command-2c publish discard-dir
+            (is (not (extract-error-message publish))))
 
-    ;; At this point, there will be 4 fact_value rows, 1 for
-    ;; mytimestamp, 1 for the operatingsystem, 2 for domain
-    (with-redefs [scf-store/delete-pending-path-id-orphans!
-                  (fn [& args]
-                    ;; Once this has been called, it will countdown
-                    ;; the latch and block
-                    (.countDown latch)
-                    ;; After the second command has been executed and
-                    ;; it has decremented the latch, the await will no
-                    ;; longer block and both threads will begin
-                    ;; running again
-                    (.await latch)
-                    ;; Execute the normal delete-pending-path-id-orphans!
-                    ;; function (unchanged)
-                    (apply storage-delete-pending-path-id-orphans! args))]
-      (let [first-message? (atom false)
-            second-message? (atom false)
-            fut-1 (future
-                    (test-msg-handler command-1b publish discard-dir
-                      (reset! first-message? true)))
-            fut-2 (future
-                    (test-msg-handler command-2b publish discard-dir
-                      (reset! second-message? true)))]
-        ;; The two commands are being submitted in future, ensure they
-        ;; have both completed before proceeding
-        @fut-2
-        @fut-1
-        ;; At this point there are 6 fact values, the original
-        ;; mytimestamp, the two new mytimestamps, operating system and
-        ;; the two domains
-        (is (true? @first-message?))
-        (is (true? @second-message?))
-        ;; Submit another factset that does NOT include mytimestamp,
-        ;; this disassociates certname-1's fact_value (which is 1b)
-        (test-msg-handler command-1c publish discard-dir
-          (reset! first-message? true))
-        ;; Do the same thing with certname-2. Since the reference to 1b
-        ;; and 2b has been removed, mytimestamp's path is no longer
-        ;; connected to any fact values. The original mytimestamp value
-        ;; of 1 is still in the table. It's now attempting to delete
-        ;; that fact path, when the mytimestamp 1 value is still in
-        ;; there.
-        (test-msg-handler command-2c publish discard-dir
-          (is (not (extract-error-message publish))))
-
-        ;; Can we see the orphaned value '1', and does the global gc remove it.
-        (is (= 1 (count
-                  (query-to-vec
-                   "select id from fact_values where value_string = '1'"))))
-        (scf-store/garbage-collect! *db*)
-        (is (zero?
-             (count
-              (query-to-vec
-               "select id from fact_values where value_string = '1'"))))))))
+          ;; Can we see the orphaned value '1', and does the global gc remove it.
+          (is (= 1 (count
+                    (query-to-vec
+                     "select id from fact_values where value_string = '1'"))))
+          (scf-store/garbage-collect! *db*)
+          (is (zero?
+               (count
+                (query-to-vec
+                 "select id from fact_values where value_string = '1'")))))))))
 
 (deftest concurrent-catalog-updates
   (testing "Should allow only one replace catalogs update for a given cert at a time"
-    (let [test-catalog (get-in catalogs [:empty])
-          {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
-          nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
-          command {:command (command-names :replace-catalog)
-                   :version 6
-                   :payload (json/generate-string wire-catalog)}
+    (with-test-db
+      (let [test-catalog (get-in catalogs [:empty])
+            {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
+            nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
+            command {:command (command-names :replace-catalog)
+                     :version 6
+                     :payload (json/generate-string wire-catalog)}
 
-          hand-off-queue (java.util.concurrent.SynchronousQueue.)
-          storage-replace-catalog! scf-store/replace-catalog!]
+            hand-off-queue (java.util.concurrent.SynchronousQueue.)
+            storage-replace-catalog! scf-store/replace-catalog!]
 
-      (jdbc/with-db-transaction []
-       (scf-store/add-certname! certname)
-       (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
+        (jdbc/with-db-transaction []
+          (scf-store/add-certname! certname)
+          (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
-      (with-redefs [scf-store/replace-catalog!
-                    (fn [catalog timestamp]
-                      (.put hand-off-queue "got the lock")
-                      (.poll hand-off-queue 5 TimeUnit/SECONDS)
-                      (storage-replace-catalog! catalog timestamp))]
-        (let [first-message? (atom false)
-              second-message? (atom false)
-              fut (future
-                    (test-msg-handler command publish discard-dir
-                      (reset! first-message? true)))
+        (with-redefs [scf-store/replace-catalog!
+                      (fn [catalog timestamp]
+                        (.put hand-off-queue "got the lock")
+                        (.poll hand-off-queue 5 TimeUnit/SECONDS)
+                        (storage-replace-catalog! catalog timestamp))]
+          (let [first-message? (atom false)
+                second-message? (atom false)
+                fut (future
+                      (test-msg-handler command publish discard-dir
+                        (reset! first-message? true)))
 
-              _ (.poll hand-off-queue 5 TimeUnit/SECONDS)
+                _ (.poll hand-off-queue 5 TimeUnit/SECONDS)
 
-              new-wire-catalog (assoc-in wire-catalog [:edges]
-                                         #{{:relationship "contains"
-                                            :target       {:title "Settings" :type "Class"}
-                                            :source       {:title "main" :type "Stage"}}})
-              new-catalog-cmd {:command (command-names :replace-catalog)
-                               :version 6
-                               :payload (json/generate-string new-wire-catalog)}]
+                new-wire-catalog (assoc-in wire-catalog [:edges]
+                                           #{{:relationship "contains"
+                                              :target       {:title "Settings" :type "Class"}
+                                              :source       {:title "main" :type "Stage"}}})
+                new-catalog-cmd {:command (command-names :replace-catalog)
+                                 :version 6
+                                 :payload (json/generate-string new-wire-catalog)}]
 
-          (test-msg-handler new-catalog-cmd publish discard-dir
-            (reset! second-message? true)
-            (is (empty? (fs/list-dir discard-dir)))
-            (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
-                            (extract-error-message publish))))
-          @fut
-          (is (true? @first-message?))
-          (is (true? @second-message?)))))))
+            (test-msg-handler new-catalog-cmd publish discard-dir
+              (reset! second-message? true)
+              (is (empty? (fs/list-dir discard-dir)))
+              (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
+                              (extract-error-message publish))))
+            @fut
+            (is (true? @first-message?))
+            (is (true? @second-message?))))))))
 
 (deftest concurrent-catalog-resource-updates
   (testing "Should allow only one replace catalogs update for a given cert at a time"
-    (let [test-catalog (get-in catalogs [:empty])
-          {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
-          nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
-          command {:command (command-names :replace-catalog)
-                   :version 6
-                   :payload (json/generate-string wire-catalog)}
+    (with-test-db
+      (let [test-catalog (get-in catalogs [:empty])
+            {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
+            nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
+            command {:command (command-names :replace-catalog)
+                     :version 6
+                     :payload (json/generate-string wire-catalog)}
 
-          hand-off-queue (java.util.concurrent.SynchronousQueue.)
-          storage-replace-catalog! scf-store/replace-catalog!]
+            hand-off-queue (java.util.concurrent.SynchronousQueue.)
+            storage-replace-catalog! scf-store/replace-catalog!]
 
-      (jdbc/with-db-transaction []
-       (scf-store/add-certname! certname)
-       (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
+        (jdbc/with-db-transaction []
+          (scf-store/add-certname! certname)
+          (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
-      (with-redefs [scf-store/replace-catalog!
-                    (fn [catalog timestamp]
-                      (.put hand-off-queue "got the lock")
-                      (.poll hand-off-queue 5 TimeUnit/SECONDS)
-                      (storage-replace-catalog! catalog timestamp))]
-        (let [first-message? (atom false)
-              second-message? (atom false)
-              fut (future
-                    (test-msg-handler command publish discard-dir
-                      (reset! first-message? true)))
+        (with-redefs [scf-store/replace-catalog!
+                      (fn [catalog timestamp]
+                        (.put hand-off-queue "got the lock")
+                        (.poll hand-off-queue 5 TimeUnit/SECONDS)
+                        (storage-replace-catalog! catalog timestamp))]
+          (let [first-message? (atom false)
+                second-message? (atom false)
+                fut (future
+                      (test-msg-handler command publish discard-dir
+                        (reset! first-message? true)))
 
-              _ (.poll hand-off-queue 5 TimeUnit/SECONDS)
+                _ (.poll hand-off-queue 5 TimeUnit/SECONDS)
 
-              new-wire-catalog (update wire-catalog :resources
-                                       conj
-                                       {:type       "File"
-                                        :title      "/etc/foobar2"
-                                        :exported   false
-                                        :file       "/tmp/foo2"
-                                        :line       10
-                                        :tags       #{"file" "class" "foobar2"}
-                                        :parameters {:ensure "directory"
-                                                     :group  "root"
-                                                     :user   "root"}})
-              new-catalog-cmd {:command (command-names :replace-catalog)
-                               :version 6
-                               :payload (json/generate-string new-wire-catalog)}]
+                new-wire-catalog (update wire-catalog :resources
+                                         conj
+                                         {:type       "File"
+                                          :title      "/etc/foobar2"
+                                          :exported   false
+                                          :file       "/tmp/foo2"
+                                          :line       10
+                                          :tags       #{"file" "class" "foobar2"}
+                                          :parameters {:ensure "directory"
+                                                       :group  "root"
+                                                       :user   "root"}})
+                new-catalog-cmd {:command (command-names :replace-catalog)
+                                 :version 6
+                                 :payload (json/generate-string new-wire-catalog)}]
 
-          (test-msg-handler new-catalog-cmd publish discard-dir
-            (reset! second-message? true)
-            (is (empty? (fs/list-dir discard-dir)))
-            (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
-                            (extract-error-message publish))))
-          @fut
-          (is (true? @first-message?))
-          (is (true? @second-message?)))))))
-
+            (test-msg-handler new-catalog-cmd publish discard-dir
+              (reset! second-message? true)
+              (is (empty? (fs/list-dir discard-dir)))
+              (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
+                              (extract-error-message publish))))
+            @fut
+            (is (true? @first-message?))
+            (is (true? @second-message?))))))))
 
 (let [cases [{:certname "foo.example.com"
               :command {:command (command-names :deactivate-node)
@@ -1140,60 +1150,63 @@
 
   (deftest deactivate-node-node-active
     (testing "should deactivate the node"
-      (doseq [{:keys [certname command]} cases]
-        (jdbc/insert! :certnames {:certname certname})
-        (test-msg-handler command publish discard-dir
-          (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
-                result  (first results)]
-            (is (= (:certname result) certname))
-            (is (instance? java.sql.Timestamp (:deactivated result)))
-            (is (= 0 (times-called publish)))
-            (is (empty? (fs/list-dir discard-dir)))
-            (jdbc/do-prepared "delete from certnames"))))))
+      (with-test-db
+        (doseq [{:keys [certname command]} cases]
+          (jdbc/insert! :certnames {:certname certname})
+          (test-msg-handler command publish discard-dir
+            (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
+                  result  (first results)]
+              (is (= (:certname result) certname))
+              (is (instance? java.sql.Timestamp (:deactivated result)))
+              (is (= 0 (times-called publish)))
+              (is (empty? (fs/list-dir discard-dir)))
+              (jdbc/do-prepared "delete from certnames")))))))
 
   (deftest deactivate-node-node-inactive
-    (doseq [{:keys [certname command]} cases]
-      (testing "should leave the node alone"
-       (let [one-day   (* 24 60 60 1000)
-             yesterday (to-timestamp (- (System/currentTimeMillis) one-day))
-             command (if (#{1 2} (:version command))
-                       ;; Can't set the :producer_timestamp for the older
-                       ;; versions (so that we can control the deactivation
-                       ;; timestamp).
-                       command
-                       (assoc-in command
-                                 [:payload :producer_timestamp] yesterday))]
-         (jdbc/insert! :certnames
-                       {:certname certname :deactivated yesterday})
-         (test-msg-handler
-           command
-           publish discard-dir
-           (let [[row & rest] (query-to-vec
-                               "SELECT certname,deactivated FROM certnames")]
-             (is (empty? rest))
-             (is (instance? java.sql.Timestamp (:deactivated row)))
-             (if (#{1 2} (:version command))
-               (do
-                 ;; Since we can't control the producer_timestamp.
-                 (is (= certname (:certname row)))
-                 (is (t/after? (from-sql-date (:deactivated row))
-                               (from-sql-date yesterday))))
-               (is (= {:certname certname :deactivated yesterday} row)))
-             (is (= 0 (times-called publish)))
-             (is (empty? (fs/list-dir discard-dir)))
-             (jdbc/do-prepared "delete from certnames")))))))
+    (with-test-db
+      (doseq [{:keys [certname command]} cases]
+        (testing "should leave the node alone"
+          (let [one-day   (* 24 60 60 1000)
+                yesterday (to-timestamp (- (System/currentTimeMillis) one-day))
+                command (if (#{1 2} (:version command))
+                          ;; Can't set the :producer_timestamp for the older
+                          ;; versions (so that we can control the deactivation
+                          ;; timestamp).
+                          command
+                          (assoc-in command
+                                    [:payload :producer_timestamp] yesterday))]
+            (jdbc/insert! :certnames
+                          {:certname certname :deactivated yesterday})
+            (test-msg-handler
+              command
+              publish discard-dir
+              (let [[row & rest] (query-to-vec
+                                  "SELECT certname,deactivated FROM certnames")]
+                (is (empty? rest))
+                (is (instance? java.sql.Timestamp (:deactivated row)))
+                (if (#{1 2} (:version command))
+                  (do
+                    ;; Since we can't control the producer_timestamp.
+                    (is (= certname (:certname row)))
+                    (is (t/after? (from-sql-date (:deactivated row))
+                                  (from-sql-date yesterday))))
+                  (is (= {:certname certname :deactivated yesterday} row)))
+                (is (= 0 (times-called publish)))
+                (is (empty? (fs/list-dir discard-dir)))
+                (jdbc/do-prepared "delete from certnames"))))))))
 
   (deftest deactivate-node-node-missing
     (testing "should add the node and deactivate it"
-      (doseq [{:keys [certname command]} cases]
-        (test-msg-handler command publish discard-dir
-          (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
-                result  (first results)]
-            (is (= (:certname result) certname))
-            (is (instance? java.sql.Timestamp (:deactivated result)))
-            (is (zero? (times-called publish)))
-            (is (empty? (fs/list-dir discard-dir)))
-            (jdbc/do-prepared "delete from certnames")))))))
+      (with-test-db
+        (doseq [{:keys [certname command]} cases]
+          (test-msg-handler command publish discard-dir
+            (let [result (-> "SELECT certname, deactivated FROM certnames"
+                             query-to-vec first)]
+              (is (= (:certname result) certname))
+              (is (instance? java.sql.Timestamp (:deactivated result)))
+              (is (zero? (times-called publish)))
+              (is (empty? (fs/list-dir discard-dir)))
+              (jdbc/do-prepared "delete from certnames"))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -1220,44 +1233,56 @@
         command {:command store-report-name
                  :version 6
                  :payload v6-report}]
-    (test-msg-handler command publish discard-dir
-      (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
-             [(with-env (select-keys v6-report [:certname :configuration_version]))]))
-      (is (= 0 (times-called publish)))
-      (is (empty? (fs/list-dir discard-dir))))))
+    (with-test-db
+      (test-msg-handler command publish discard-dir
+        (is (= [(with-env (select-keys v6-report [:certname :configuration_version]))]
+               (-> (str "select certname, configuration_version, environment_id"
+                        "  from reports")
+                   query-to-vec)))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))))))
 
 (deftest store-v5-report-test
   (let [command {:command store-report-name
                  :version 5
                  :payload v5-report}]
-    (test-msg-handler command publish discard-dir
-      (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
-             [(with-env (select-keys v5-report [:certname :configuration_version]))]))
-      (is (= 0 (times-called publish)))
-      (is (empty? (fs/list-dir discard-dir))))))
+    (with-test-db
+      (test-msg-handler command publish discard-dir
+        (is (= [(with-env (select-keys v5-report [:certname
+                                                  :configuration_version]))]
+               (-> (str "select certname, configuration_version, environment_id"
+                        "  from reports")
+                   query-to-vec)))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))))))
 
 (deftest store-v4-report-test
   (let [command {:command store-report-name
                  :version 4
                  :payload v4-report}
         recent-time (-> 1 seconds ago)]
-    (test-msg-handler command publish discard-dir
-      (is (= [(with-env (utils/dash->underscore-keys
-                         (select-keys v4-report [:certname :configuration-version])))]
-             (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")))
+    (with-test-db
+      (test-msg-handler command publish discard-dir
+        (is (= [(with-env (utils/dash->underscore-keys
+                           (select-keys v4-report
+                                        [:certname :configuration-version])))]
+               (-> (str "select certname, configuration_version, environment_id"
+                        "  from reports")
+                   query-to-vec)))
 
-      ;;Status is present in v4+ (but not in v3)
-      (is (= "unchanged" (-> (query-to-vec "SELECT rs.status FROM reports r inner join report_statuses rs on r.status_id = rs.id")
-                             first
-                             :status)))
+        ;; Status is present in v4+ (but not in v3)
+        (is (= "unchanged" (-> (str "select rs.status from reports r"
+                                    "  inner join report_statuses rs"
+                                    "    on r.status_id = rs.id")
+                               query-to-vec first :status)))
 
-      ;;No producer_timestamp is included in v4, message received time (now) is used intead
-      (is (t/before? recent-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
-                                     first
-                                     :producer_timestamp
-                                     to-date-time)))
-      (is (= 0 (times-called publish)))
-      (is (empty? (fs/list-dir discard-dir))))))
+        ;; No producer_timestamp is included in v4, message received
+        ;; time (now) is used intead
+        (is (t/before? recent-time
+                       (-> "select producer_timestamp from reports"
+                           query-to-vec first :producer_timestamp to-date-time)))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))))))
 
 (deftest store-v3-report-test
   (let [v3-report (dissoc v4-report :status)
@@ -1265,23 +1290,29 @@
         command {:command store-report-name
                  :version 3
                  :payload v3-report}]
-    (test-msg-handler command publish discard-dir
-      (is (= [(with-env (utils/dash->underscore-keys
-                         (select-keys v3-report [:certname :configuration-version])))]
-             (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")))
+    (with-test-db
+      (test-msg-handler command publish discard-dir
+        (is (= [(with-env (utils/dash->underscore-keys
+                           (select-keys v3-report
+                                        [:certname :configuration-version])))]
+               (-> (str "select certname, configuration_version, environment_id"
+                        "  from reports")
+                   query-to-vec)))
 
-      ;;No producer_timestamp is included in v4, message received time (now) is used intead
-      (is (t/before? recent-time (-> (query-to-vec "SELECT producer_timestamp FROM reports")
-                                     first
-                                     :producer_timestamp
-                                     to-date-time)))
+        ;; No producer_timestamp is included in v4, message received
+        ;; time (now) is used intead
+        (is (t/before? recent-time
+                       (-> "select producer_timestamp from reports"
+                           query-to-vec
+                           first
+                           :producer_timestamp
+                           to-date-time)))
 
-      ;;Status is not supported in v3, should be nil
-      (is (nil? (-> (query-to-vec "SELECT status_id FROM reports")
-                    first
-                    :status)))
-      (is (= 0 (times-called publish)))
-      (is (empty? (fs/list-dir discard-dir))))))
+        ;;Status is not supported in v3, should be nil
+        (is (nil? (-> (query-to-vec "SELECT status_id FROM reports")
+                      first :status)))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))))))
 
 (defn- get-config []
   (conf/get-config (get-service svc-utils/*server* :DefaultedConfig)))
@@ -1367,5 +1398,5 @@
 ;; Local Variables:
 ;; mode: clojure
 ;; eval: (define-clojure-indent (test-msg-handler (quote defun))
-;;                              (doverseq (quote defun))))
+;;                              (dotestseq (quote defun)))
 ;; End:

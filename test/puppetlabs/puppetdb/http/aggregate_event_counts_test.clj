@@ -6,17 +6,16 @@
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [clj-time.core :refer [now]]
             [clj-time.coerce :as coerce]
-            [puppetlabs.puppetdb.testutils :refer [assert-success! deftestseq]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response
+            [puppetlabs.puppetdb.testutils :refer [assert-success! ]]
+            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
+                                                        query-response
                                                         query-result
                                                         vector-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]))
 
 (def endpoints [[:v4 "/v4/aggregate-event-counts"]])
 
-(use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
-
-(deftestseq query-aggregate-event-counts
+(deftest-http-app query-aggregate-event-counts
   [[version endpoint] endpoints
    method [:post :get]]
 
@@ -69,7 +68,7 @@
                                   :counts_filter (vector-param method ["<" "successes" 1])})]
       (is (= (first response) expected)))))
 
-(deftestseq query-distinct-event-counts
+(deftest-http-app query-distinct-event-counts
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -95,7 +94,7 @@
          ["<=" "run_start_time" current-time-str]
          ["<=" "run_end_time" current-time-str])))
 
-(deftestseq query-with-environment
+(deftest-http-app query-with-environment
   [[version endpoint] endpoints
    method [:get :post]]
 

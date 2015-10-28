@@ -222,43 +222,42 @@
       (is (zero? (:c (first (query-to-vec "SELECT count(*) as c FROM factsets where hash is null"))))))))
 
 (deftest test-only-hash-field-change
-  (jdbc/with-db-connection *db*
-    (fast-forward-to-migration! 38)
-    (let [before-migration (schema-info-map *db*)]
-      (apply-migration-for-testing! 39)
-
-      (is (= {:index-diff nil,
-              :table-diff [{:left-only [{:nullable? "YES"}],
-                             :right-only [{:nullable? "NO"}]
-                             :same [{:numeric_scale nil,
-                                     :column_default nil,
-                                     :character_octet_length nil,
-                                     :datetime_precision nil,
-                                     :character_maximum_length nil,
-                                     :numeric_precision nil,
-                                     :numeric_precision_radix nil,
-                                     :data_type "bytea",
-                                     :column_name "hash",
-                                     :table_name "factsets"}]}]}
-             (diff-schema-maps before-migration (schema-info-map *db*)))))))
+  (clear-db-for-testing!)
+  (fast-forward-to-migration! 38)
+  (let [before-migration (schema-info-map *db*)]
+    (apply-migration-for-testing! 39)
+    (is (= {:index-diff nil,
+            :table-diff [{:left-only [{:nullable? "YES"}],
+                          :right-only [{:nullable? "NO"}]
+                          :same [{:numeric_scale nil,
+                                  :column_default nil,
+                                  :character_octet_length nil,
+                                  :datetime_precision nil,
+                                  :character_maximum_length nil,
+                                  :numeric_precision nil,
+                                  :numeric_precision_radix nil,
+                                  :data_type "bytea",
+                                  :column_name "hash",
+                                  :table_name "factsets"}]}]}
+           (diff-schema-maps before-migration (schema-info-map *db*))))))
 
 (deftest test-migrate-from-unsupported-version
-  (jdbc/with-db-connection *db*
-    (fast-forward-to-migration! 34)
-    (jdbc/do-commands "DELETE FROM schema_migrations")
-    (record-migration! 33)
-    (is (thrown-with-msg? IllegalStateException
-                          #"Found an old and unuspported database migration.*"
-                          (migrate! *db*)))))
+  (clear-db-for-testing!)
+  (fast-forward-to-migration! 34)
+  (jdbc/do-commands "DELETE FROM schema_migrations")
+  (record-migration! 33)
+  (is (thrown-with-msg? IllegalStateException
+                        #"Found an old and unuspported database migration.*"
+                        (migrate! *db*))))
 
 (deftest test-upgrade-migration
-  (jdbc/with-db-connection *db*
-    ;;This represents a database from a 2.x version of PuppetDB
-    (fast-forward-to-migration! 34)
-    (doseq [migration-num (range 1 34)]
-      (record-migration! migration-num))
-    (let [latest-known-migration (apply max (keys migrations))]
-      (is (= (set (range 35 (inc latest-known-migration)))
-             (ks/keyset (pending-migrations))))
-      (migrate! *db*)
-      (is (empty? (pending-migrations))))))
+  (clear-db-for-testing!)
+  ;;This represents a database from a 2.x version of PuppetDB
+  (fast-forward-to-migration! 34)
+  (doseq [migration-num (range 1 34)]
+    (record-migration! migration-num))
+  (let [latest-known-migration (apply max (keys migrations))]
+    (is (= (set (range 35 (inc latest-known-migration)))
+           (ks/keyset (pending-migrations))))
+    (migrate! *db*)
+    (is (empty? (pending-migrations)))))

@@ -8,8 +8,9 @@
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
-            [puppetlabs.puppetdb.testutils :refer [paged-results deftestseq]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response query-result
+            [puppetlabs.puppetdb.testutils :refer [paged-results ]]
+            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
+                                                        query-response query-result
                                                         vector-param
                                                         ordered-query-result]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
@@ -17,15 +18,13 @@
 
 (def endpoints [[:v4 "/v4/event-counts"]])
 
-(use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
-
 (def example-catalog
   (-> (slurp (resource "puppetlabs/puppetdb/cli/export/tiny-catalog.json"))
       json/parse-string
       keywordize-keys
       (assoc :certname "foo.local")))
 
-(deftestseq query-event-counts
+(deftest-http-app query-event-counts
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -255,7 +254,7 @@
         (is (= (count expected) (count results)))
         (is (= expected results))))))
 
-(deftestseq query-distinct-event-counts
+(deftest-http-app query-distinct-event-counts
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -407,7 +406,7 @@
             :subject_type "resource"
             :subject {:type "Notify" :title "hi"}}})))
 
-(deftestseq query-with-environment
+(deftest-http-app query-with-environment
   [[version endpoint] endpoints
    method [:get :post]]
 

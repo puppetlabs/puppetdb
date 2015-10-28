@@ -69,8 +69,10 @@
     (with-db-info-on-failure-or-drop *db*
       (jdbc/with-db-connection *db*
         (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
-          (migrate! *db*)
           (f))))))
+
+(defmacro with-test-db [& body]
+  `(call-with-test-db (fn [] ~@body)))
 
 (defn without-db-var
   "Binds the java.jdbc dtabase connection to nil. When running a unit
@@ -93,7 +95,7 @@
      (binding [*mq* {:connection connection}]
        (f)))))
 
-(defn with-command-app
+(defn call-with-command-app
   "A fixture to build a Command app and make it available as `*command-app*` within
   tests. This will provide the `*mq*` to the app as a global if it
   is available. Note this means this fixture should be nested _within_
@@ -109,22 +111,21 @@
                             nil)]
      (f))))
 
-(defn with-http-app
-  "A fixture to build an HTTP app and make it available as `*app*` within
-  tests. This will provide the `*db*` and `*mq*` to the app as globals if they
-  are available. Note this means this fixture should be nested _within_
-  `call-with-test-db` or `with-test-mq`."
-  ([f]
-   (with-http-app {} f))
-  ([globals-overrides f]
-   (let [get-shared-globals #(merge {:scf-read-db *db*
-                                     :scf-write-db *db*
-                                     :url-prefix ""}
-                                    globals-overrides)]
-     (binding [*app* (mid/wrap-with-puppetdb-middleware
-                      (server/build-app get-shared-globals)
-                      nil)]
-       (f)))))
+(defn call-with-http-app
+  "Builds an HTTP app and make it available as *app* during the
+  execution of (f)."
+  [f]
+  (let [get-shared-globals (constantly {:scf-read-db *db*
+                                        :scf-write-db *db*
+                                        :url-prefix ""})]
+    (binding [*app* (mid/wrap-with-puppetdb-middleware
+                     (server/build-app get-shared-globals)
+                     nil)]
+      (f))))
+
+(defmacro with-http-app
+  [& body]
+  `(call-with-http-app (fn [] ~@body)))
 
 (defn defaulted-write-db-config
   "Defaults and converts `db-config` from the write database INI

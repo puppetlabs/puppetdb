@@ -5,8 +5,8 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.metrics.core :refer :all]
             [puppetlabs.puppetdb.metrics.server :as server]
-            [puppetlabs.puppetdb.testutils :refer [get-request deftestseq
-                                                   content-type]]))
+            [puppetlabs.puppetdb.testutils
+             :refer [content-type dotestseq get-request]]))
 
 (def api-versions ["/v1"])
 
@@ -33,11 +33,10 @@
   [req]
   (assoc-in req [:headers "accept"] "text/plain"))
 
-(deftestseq metrics-set-handler
-  [version api-versions]
-
-  (let [app (server/build-app nil)
-        mbeans-endpoint (str version "/mbeans")]
+(deftest metrics-set-handler
+  (dotestseq [version api-versions
+              :let [app (server/build-app nil)
+                    mbeans-endpoint (str version "/mbeans")]]
     (testing "Remote metrics endpoint"
       (testing "should return a http/status-not-found for an unknown metric"
         (let [response (app (get-request (str mbeans-endpoint "/does_not_exist")))]
@@ -71,8 +70,8 @@
 
             (doseq [[_ uri] (take 100 api-mbeans)
                     :let [response (app
-                                     (get-request
-                                       (str version uri)))]]
+                                    (get-request
+                                     (str version uri)))]]
               (is (= (:status response)
                      http/status-ok))
               (is (= (content-type response)

@@ -4,13 +4,12 @@
             [puppetlabs.puppetdb.query-eng.engine :refer :all]
             [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx]]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.fixtures :as fixt]
+            [puppetlabs.puppetdb.fixtures :refer [*app* *db* with-test-db]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.testutils :refer [get-request parse-result]]
+            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage-utils :as su]))
-
-(use-fixtures :each fixt/call-with-test-db)
 
 (deftest test-plan-sql
   (are [sql plan] (= sql (plan->sql plan))
@@ -153,81 +152,73 @@
                         #"'foo' is not a queryable object for resources, known queryable objects are.*"
                         (compile-user-query->sql resources-query ["=" "foo" "bar"]))))
 
-(defn fact-names-tests
-  "test that we can modify a query rec. This is a function because the actual
-   test needs to use the with-http-app fixture, which the rest of this ns
-   doesn't require."
-  []
-  (let [version :v4
-        endpoint "/v4/fact-names"
-        facts1 {"domain" "testing.com"
-                "hostname" "foo1"
-                "kernel" "Linux"
-                "operatingsystem" "Debian"
-                "uptime_seconds" "4000"}
-        facts2 {"domain" "testing.com"
-                "hostname" "foo2"
-                "kernel" "Linux"
-                "operatingsystem" "RedHat"
-                "uptime_seconds" "6000"}
-        facts3 {"domain" "testing.com"
-                "hostname" "foo3"
-                "kernel" "Darwin"
-                "operatingsystem" "Darwin"
-                "memorysize" "16.00 GB"}
-        initial-idx @entity-fn-idx]
+(deftest-http-app query-recs-are-swappable
+  [version [:v4]
+   endpoint ["/v4/fact-names"]
+   :let [facts1 {"domain" "testing.com"
+                  "hostname" "foo1"
+                  "kernel" "Linux"
+                  "operatingsystem" "Debian"
+                  "uptime_seconds" "4000"}
+         facts2 {"domain" "testing.com"
+                 "hostname" "foo2"
+                 "kernel" "Linux"
+                 "operatingsystem" "RedHat"
+                 "uptime_seconds" "6000"}
+         facts3 {"domain" "testing.com"
+                 "hostname" "foo3"
+                 "kernel" "Darwin"
+                 "operatingsystem" "Darwin"
+                 "memorysize" "16.00 GB"}
+         initial-idx @entity-fn-idx]]
 
-    (with-transacted-connection fixt/*db*
-      (scf-store/add-certname! "foo1")
-      (scf-store/add-certname! "foo2")
-      (scf-store/add-certname! "foo3")
-      (scf-store/add-facts! {:certname "foo2"
-                             :values facts2
-                             :timestamp (now)
-                             :environment "DEV"
-                             :producer_timestamp (now)})
-      (scf-store/add-facts! {:certname "foo3"
-                             :values facts3
-                             :timestamp (now)
-                             :environment "DEV"
-                             :producer_timestamp (now)})
-      (scf-store/deactivate-node! "foo1")
-      (scf-store/add-facts! {:certname "foo1"
-                             :values  facts1
-                             :timestamp (now)
-                             :environment "DEV"
-                             :producer_timestamp (now)}))
+  (with-transacted-connection *db*
+    (scf-store/add-certname! "foo1")
+    (scf-store/add-certname! "foo2")
+    (scf-store/add-certname! "foo3")
+    (scf-store/add-facts! {:certname "foo2"
+                           :values facts2
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer_timestamp (now)})
+    (scf-store/add-facts! {:certname "foo3"
+                           :values facts3
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer_timestamp (now)})
+    (scf-store/deactivate-node! "foo1")
+    (scf-store/add-facts! {:certname "foo1"
+                           :values  facts1
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer_timestamp (now)}))
 
-    (let [expected-result ["domain" "hostname" "kernel" "memorysize"
-                           "operatingsystem" "uptime_seconds"]]
-      (testing "fact-names behaves normally"
-        (let [request (get-request endpoint)
-              {:keys [status body]} (fixt/*app* request)
-              result (vec (parse-result body))]
-          (is (= status http/status-ok))
-          (is (= result expected-result))))
+  (let [expected-result ["domain" "hostname" "kernel" "memorysize"
+                         "operatingsystem" "uptime_seconds"]]
+    (testing "fact-names behaves normally"
+      (let [request (get-request endpoint)
+            {:keys [status body]} (*app* request)
+            result (vec (parse-result body))]
+        (is (= status http/status-ok))
+        (is (= result expected-result))))
 
-      (testing "query rec is modifiable"
-        (swap! entity-fn-idx assoc-in [:fact-names :munge] (fn [_ _] identity))
+    (testing "query rec is modifiable"
+      (swap! entity-fn-idx assoc-in [:fact-names :munge] (fn [_ _] identity))
 
-        (swap! entity-fn-idx
-               assoc-in [:fact-names :rec :projections "depth"] {:type :integer
-                                                                 :queryable? true
-                                                                 :field :depth})
-        (let [request (get-request endpoint)
-              {:keys [status body]} (fixt/*app* request)
-              result (vec (parse-result body))]
-          (is (= status http/status-ok))
-          (is (= result (map #(hash-map :name % :depth 0) expected-result)))))
+      (swap! entity-fn-idx
+             assoc-in [:fact-names :rec :projections "depth"] {:type :integer
+                                                               :queryable? true
+                                                               :field :depth})
+      (let [request (get-request endpoint)
+            {:keys [status body]} (*app* request)
+            result (vec (parse-result body))]
+        (is (= status http/status-ok))
+        (is (= result (map #(hash-map :name % :depth 0) expected-result)))))
 
-      (reset! entity-fn-idx initial-idx)
-      (testing "fact-names back to normal"
-        (let [request (get-request endpoint)
-              {:keys [status body]} (fixt/*app* request)
-              result (vec (parse-result body))]
-          (is (= status http/status-ok))
-          (is (= result expected-result)))))))
-
-(deftest query-recs-are-swappable
-  (fixt/with-http-app
-    fact-names-tests))
+    (reset! entity-fn-idx initial-idx)
+    (testing "fact-names back to normal"
+      (let [request (get-request endpoint)
+            {:keys [status body]} (*app* request)
+            result (vec (parse-result body))]
+        (is (= status http/status-ok))
+        (is (= result expected-result))))))

@@ -7,14 +7,13 @@
             [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.testutils :refer [get-request post-request
                                                    content-type uuid-in-response?
-                                                   assert-success! deftestseq]]
+                                                   assert-success! ]]
+            [puppetlabs.puppetdb.testutils.http :refer [deftest-command-app]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.mq :as mq]
             [clj-time.format :as time]))
-
-(use-fixtures :each fixt/call-with-test-db fixt/with-test-mq fixt/with-command-app)
 
 (def endpoints [[:v1 "/v1"]])
 
@@ -38,7 +37,7 @@
      :version version
      :payload payload}))
 
-(deftestseq command-endpoint
+(deftest-command-app command-endpoint
   [[version endpoint] endpoints]
 
   (testing "Commands submitted via REST"
@@ -117,7 +116,7 @@
        (time/parse (time/formatters :date-time))
        (time/unparse (time/formatters :date-time))))
 
-(deftestseq receipt-timestamping
+(deftest-command-app receipt-timestamping
   [[version endpoint] endpoints]
 
   (let [good-payload  (form-command "replace facts"
