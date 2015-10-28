@@ -119,11 +119,12 @@
 
 (deftest test-anonymize-leaf-parameter-name
   (testing "should return the same string twice"
-    (is (= (anonymize-leaf-memoize :parameter-name "test string") (anonymize-leaf-memoize :parameter-name "test string"))))
+    (is (= (anonymize-leaf-memoize :parameter-name "test string")
+           (anonymize-leaf-memoize :parameter-name "test string"))))
 
-  (testing "should return a string 10 characters long"
-    (is (string? (anonymize-leaf-memoize :parameter-name "good old string")))
-    (is (= 10 (count (anonymize-leaf-memoize :parameter-name "good old string"))))))
+  (testing "should return a string of equal length"
+    (is (string? (anonymize-leaf-memoize :parameter-name "good old string!")))
+    (is (= 16 (count (anonymize-leaf-memoize :parameter-name "good old string!"))))))
 
 (deftest anonymize-fact-value
   (testing "identical paths with different values should be memoized"
@@ -140,8 +141,8 @@
     (is (= (anonymize-leaf-memoize :parameter-value "test string") (anonymize-leaf-memoize :parameter-value "test string"))))
   (testing "should return the same string twice"
     (is  (=  (anonymize-leaf-memoize :fact-value  {"a" "b"})  (anonymize-leaf-memoize :fact-value  {"a" "b"}))))
-  (testing "should return a string 30 chars long when passed a string"
-    (is (= 30 (count (anonymize-leaf-value "good old string"))))
+  (testing "should return a string of equal length when passed a string"
+    (is (= 15 (count (anonymize-leaf-value "good old string"))))
     (is (string? (anonymize-leaf-value "some string"))))
   (testing "should return a boolean when passed a boolean"
     (is (boolean? (anonymize-leaf-value true))))
@@ -157,9 +158,9 @@
              (sort (map (comp str type) (anonymize-leaf-value mymap))))))))
 
 (deftest test-anonymize-leaf-message
-  (testing "should return a string 50 characters long"
+  (testing "should return a string of equal length"
     (is (string? (anonymize-leaf-memoize :message "good old string")))
-    (is (= 50 (count (anonymize-leaf-memoize :message "good old string"))))))
+    (is (= 15 (count (anonymize-leaf-memoize :message "good old string"))))))
 
 (deftest test-memoized-vector-elements
   (testing "should memoize individual vector elements"
