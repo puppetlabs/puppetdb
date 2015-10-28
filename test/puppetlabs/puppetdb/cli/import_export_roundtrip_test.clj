@@ -73,7 +73,7 @@
                            "--port" (str (:port svc-utils/*base-url*)))))
 
     (svc-utils/call-with-single-quiet-pdb-instance
-     (assoc-in (svc-utils/create-config-and-clear-db!)
+     (assoc-in (svc-utils/create-temp-config)
                [:command-processing :max-frame-size] 1024)
      (fn []
        (is (empty? (get-nodes)))
@@ -91,7 +91,7 @@
 
 (deftest test-max-frame-size
   (svc-utils/call-with-single-quiet-pdb-instance
-   (-> (svc-utils/create-config-and-clear-db!)
+   (-> (svc-utils/create-temp-config)
        (assoc-in [:command-processing :max-frame-size] 1024))
    (fn []
      (is (empty? (get-nodes)))

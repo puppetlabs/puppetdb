@@ -13,8 +13,9 @@
             [clojure.test :refer :all]
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db]]
-            [puppetlabs.puppetdb.testutils.db :refer [schema-info-map diff-schema-maps]]
+            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing!]]
+            [puppetlabs.puppetdb.testutils.db :as tdb
+             :refer [schema-info-map diff-schema-maps]]
             [puppetlabs.kitchensink.core :as ks])
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
@@ -175,6 +176,12 @@
 (deftest migration-in-different-schema
   (jdbc/with-db-connection *db*
     (clear-db-for-testing!)
+    (jdbc/with-db-connection (tdb/db-admin-config)
+      (let [db (tdb/subname->validated-db-name (:subname *db*))
+            user (get-in tdb/test-env [:user :name])]
+        (assert (tdb/valid-sql-id? db))
+        (jdbc/do-commands (format "grant create on database %s to %s"
+                                  db (get-in tdb/test-env [:user :name])))))
     (jdbc/do-commands
      ;; Cleaned up in clear-db-for-testing!
      "CREATE SCHEMA pdbtestschema"

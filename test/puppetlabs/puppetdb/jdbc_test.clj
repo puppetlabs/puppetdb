@@ -1,10 +1,11 @@
 (ns puppetlabs.puppetdb.jdbc-test
   (:require [puppetlabs.puppetdb.jdbc :as subject]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
+            [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.testutils :refer [test-db]]
-            [puppetlabs.puppetdb.testutils.db :refer [antonym-data with-antonym-test-database insert-map *db-spec*]]))
+            [puppetlabs.puppetdb.testutils.db
+             :refer [*db-spec* antonym-data create-temp-db insert-map
+                     with-antonym-test-database]]))
 
 (use-fixtures :each with-antonym-test-database)
 
@@ -90,7 +91,7 @@
 
 (deftest transaction-isolation
   (let [evaled-body? (atom false)
-        db (test-db)]
+        db (create-temp-db)]
 
     (subject/with-transacted-connection' db nil
       (let [conn (:connection (jdbc/db))]

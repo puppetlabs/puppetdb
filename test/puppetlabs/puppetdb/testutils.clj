@@ -20,20 +20,6 @@
 
 (def c-t "application/json")
 
-(def available-postgres-configs
-  [{:classname "org.postgresql.Driver"
-    :subprotocol "postgresql"
-    :subname (env :puppetdb-dbsubname "//127.0.0.1:5432/puppetdb_test")
-    :user (env :puppetdb-dbuser "puppetdb")
-    :password (env :puppetdb-dbpassword "puppetdb")}
-   {:classname "org.postgresql.Driver"
-    :subprotocol "postgresql"
-    :subname (env :puppetdb2-dbsubname "//127.0.0.1:5432/puppetdb2_test")
-    :user (env :puppetdb2-dbuser "puppetdb")
-    :password (env :puppetdb2-dbpassword "puppetdb")}])
-
-(defn test-db [] (first available-postgres-configs))
-
 (defn drop-table!
   "Drops a table from the database.  Expects to be called from within a db binding.
   Exercise extreme caution when calling this function!"
@@ -59,10 +45,6 @@
      (drop-table! table-name))
    (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
      (drop-sequence! sequence-name))))
-
-(defn clean-db-map
-  ([] (clean-db-map (test-db)))
-  ([db-config] (doto db-config clear-db-for-testing!)))
 
 (defmacro without-jmx
   "Disable ActiveMQ's usage of JMX. If you start two AMQ brokers in

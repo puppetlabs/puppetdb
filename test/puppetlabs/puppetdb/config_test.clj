@@ -7,6 +7,7 @@
             [clj-time.core :as time]
             [puppetlabs.trapperkeeper.testutils.logging :as tu-log]
             [puppetlabs.puppetdb.testutils :as tu]
+            [puppetlabs.puppetdb.testutils.db :refer [sample-db-config]]
             [clojure.string :as str]
             [me.raynes.fs :as fs]
             [slingshot.slingshot :refer [throw+ try+]]
@@ -92,8 +93,7 @@
 (deftest garbage-collection
   (let [config-with (fn [base-config]
                       (-> base-config
-                          (update :database merge
-                                  (first tu/available-postgres-configs))
+                          (update :database merge sample-db-config)
                           (configure-section :database
                                              write-database-config-in
                                              write-database-config-out)))]

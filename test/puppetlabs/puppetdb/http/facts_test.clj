@@ -17,14 +17,14 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.testutils :refer [available-postgres-configs
-                                                   clear-db-for-testing!
+            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing!
                                                    get-request
                                                    assert-success!
                                                    paged-results
                                                    paged-results*
                                                    deftestseq
                                                    parse-result]]
+            [puppetlabs.puppetdb.testutils.db :refer [create-temp-db]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
                                                         query-result
                                                         vector-param]]
@@ -620,10 +620,9 @@
   [[version endpoint] facts-endpoints
    method [:get :post]]
 
-  (assert (> (count available-postgres-configs) 1))
-  (let [read-db-config (available-postgres-configs 0)
-        write-db-config (available-postgres-configs 1)
-        config (-> (svc-utils/create-config)
+  (let [read-db-config (create-temp-db)
+        write-db-config (create-temp-db)
+        config (-> (svc-utils/create-temp-config nil)
                    (assoc :read-database read-db-config)
                    (assoc :database write-db-config))
         read-config (-> read-db-config defaulted-read-db-config)

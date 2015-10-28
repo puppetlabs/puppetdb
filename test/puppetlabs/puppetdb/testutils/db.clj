@@ -1,10 +1,68 @@
 (ns puppetlabs.puppetdb.testutils.db
   (:require [clojure.java.jdbc :as sql]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db pprint-str]]
-            [puppetlabs.kitchensink.core :as ks]
             [clojure.string :as str]
-            [clojure.test :refer [assert-expr]]))
+            [environ.core :refer [env]]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.testutils :refer [pprint-str]]))
+
+(defn valid-sql-id? [id]
+  (re-matches #"[a-zA-Z][a-zA-Z0-9_]*" id))
+
+(def test-env
+  (let [user (env :pdb-test-db-user (env :puppetdb-dbuser "pdb_test"))
+        admin (env :pdb-test-db-admin "pdb_test_admin")]
+    ;; Since we're going to use these in raw SQL later (i.e. not via ?).
+    (doseq [[who name] [[:user user] [:admin admin]]]
+      (when-not (valid-sql-id? name)
+        (binding [*out* *err*]
+          (println (format "Invalid test %s name %s" who (pr-str name)))
+          (flush))
+        (System/exit 1)))
+    {:host (env :pdb-test-db-host "127.0.0.1")
+     :port (env :pdb-test-db-port 5432)
+     :user {:name user
+            :password (env :pdb-test-db-user-password "pdb_test")}
+     :admin {:name admin
+             :password (env :pdb-test-db-admin-password "pdb_test_admin")}}))
+
+(def sample-db-config
+  {:classname "org.postgresql.Driver"
+   :subprotocol "postgresql"
+   :subname (env :puppetdb-dbsubname "//127.0.0.1:5432/foo")
+   :user "puppetdb"
+   :password "xyzzy"})
+
+(defn db-admin-config
+  ([] (db-admin-config "template1"))
+  ([database]
+    {:classname "org.postgresql.Driver"
+     :subprotocol "postgresql"
+     :subname (format "//%s:%s/%s" (:host test-env) (:port test-env) database)
+     :user (get-in test-env [:admin :name])
+     :password (get-in test-env [:admin :password])}))
+
+(defn subname->validated-db-name [subname]
+  (let [sep (.lastIndexOf subname "/")]
+    (assert (pos? sep))
+    (let [name (subs subname (inc sep))]
+      (assert (valid-sql-id? name))
+      name)))
+
+(def ^:private test-db-counter (atom 0))
+
+(defn create-temp-db []
+  (let [n (swap! test-db-counter inc)
+        db-name (str "pdb_test_" n)]
+    (jdbc/with-db-connection (db-admin-config)
+      (jdbc/do-commands-outside-txn
+       (format "drop database if exists %s" db-name)
+       (format "create database %s" db-name)))
+    {:classname "org.postgresql.Driver"
+     :subprotocol "postgresql"
+     :subname (format "//%s:%s/%s"
+                      (:host test-env) (:port test-env) db-name)
+     :user (get-in test-env [:user :name])
+     :password (get-in test-env [:user :password])}))
 
 (def ^:dynamic *db-spec* nil)
 
@@ -31,10 +89,9 @@
 
 (defn with-antonym-test-database
   [function]
-  (let [db (test-db)]
+  (let [db (create-temp-db)]
     (binding [*db-spec* db]
       (jdbc/with-db-connection db
-        (clear-db-for-testing!)
         (jdbc/with-db-transaction []
           (jdbc/do-commands
            (sql/create-table-ddl :test

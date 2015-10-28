@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.fixtures
   (:import [java.io ByteArrayInputStream])
   (:require [clojure.java.jdbc :as sql]
+            [clojure.test]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.http.command :as command]
@@ -12,7 +13,8 @@
             [clojure.tools.macro :as tmacro]
             [clojure.test :refer [join-fixtures use-fixtures]]
             [puppetlabs.puppetdb.testutils
-             :refer [clean-db-map with-test-broker without-jmx]]
+             :refer [with-test-broker without-jmx]]
+            [puppetlabs.puppetdb.testutils.db :as tdb]
             [puppetlabs.trapperkeeper.logging :refer [reset-logging]]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
             [puppetlabs.puppetdb.middleware :as mid]))
@@ -26,22 +28,49 @@
   (jdbc/with-db-connection db (migrate! db))
   (jdbc/pooled-datasource (assoc db :read-only? read-only?)))
 
+(defn call-with-db-info-on-failure-or-drop
+  "Calls (f), and then if there are no clojure.tests failures or
+  errors, drops the database, otherwise displays its subname."
+  [db-config f]
+  (let [before @clojure.test/*report-counters*]
+    (try
+      (f)
+      (finally
+        (let [after @clojure.test/*report-counters*]
+          (if (and (= (:error before) (:error after))
+                   (= (:fail before) (:fail after)))
+            (jdbc/with-db-connection (tdb/db-admin-config)
+              (jdbc/do-commands-outside-txn
+               (format "drop database if exists %s"
+                       (tdb/subname->validated-db-name (:subname db-config)))))
+            (clojure.test/with-test-out
+              (println "Leaving test database intact:" (:subname *db*)))))))))
+
+(defmacro with-db-info-on-failure-or-drop
+  "Evaluates body in the context of call-with-db-info-on-failure-or-drop."
+  [db-config & body]  
+  `(call-with-db-info-on-failure-or-drop ~db-config (fn [] ~@body)))
+
 (defn with-db-metadata
   "A fixture to collect DB type and version information before a test."
   [f]
-  (binding [*db* (clean-db-map)]
-    (jdbc/with-db-connection *db*
-      (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
-        (f)))))
+  (binding [*db* (tdb/create-temp-db)] ;; FIXME: do we really want a new DB?
+    (with-db-info-on-failure-or-drop *db*
+      (jdbc/with-db-connection *db*
+        (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
+          (f))))))
 
 (defn call-with-test-db
-  "A fixture to start and migrate a test db before running tests."
+  "Binds *db* to a clean, migrated test database, opens a connection
+  to it, and calls (f).  If there are no clojure.tests failures or
+  errors, drops the database, otherwise displays its subname."
   [f]
-  (binding [*db* (clean-db-map)]
-    (jdbc/with-db-connection *db*
-      (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
-        (migrate! *db*)
-        (f)))))
+  (binding [*db* (tdb/create-temp-db)]
+    (with-db-info-on-failure-or-drop *db*
+      (jdbc/with-db-connection *db*
+        (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
+          (migrate! *db*)
+          (f))))))
 
 (defn without-db-var
   "Binds the java.jdbc dtabase connection to nil. When running a unit

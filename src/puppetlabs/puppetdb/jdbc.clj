@@ -44,6 +44,16 @@
   [transaction? & remainder]
   (apply sql/db-do-prepared *db* transaction? remainder))
 
+(defn do-commands-outside-txn [& commands]
+  (let [conn (:connection *db*)
+        orig (.getAutoCommit conn)]
+    (.setAutoCommit conn true)
+    (try
+      (doseq [c commands]
+        (with-open [s (.createStatement conn)]
+          (.execute s c)))
+      (finally (.setAutoCommit conn orig)))))
+
 (defn insert!
   "Calls clojure.jdbc/insert! after adding (jdbc/db) as the first argument."
   {:arglists '([table row-map :transaction? true :entities identity]
