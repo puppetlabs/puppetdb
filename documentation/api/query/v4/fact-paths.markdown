@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.1 » API » v4 » Querying Fact Paths"
+title: "PuppetDB 3.2 » API » v4 » Querying Fact Paths"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/fact-paths.html"
 ---
