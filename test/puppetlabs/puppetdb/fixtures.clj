@@ -185,26 +185,3 @@
                 :scf-write-db         *db*
                 :product-name         "puppetdb"}
       :body (ByteArrayInputStream. (.getBytes body "utf8"))}))
-
-(defmacro defixture
-  "Defs a var `name` that is the composed fixtures for the ns and then uses those fixtures.
-
-   Example:
-
-     (fixt/defixture super-fixture :each fixt/call-with-test-db fixt/with-http-app)
-
-     Which is equivalent to:
-
-     (use-fixtures :each fixt/call-with-test-db fixt/with-http-app)
-
-     but is also usable individually:
-
-     (super-fixture
-       (fn []
-         ;; --> Do stuff, the drop the database at the end
-       ))"
-  [name & args]
-  (let [[name [each-or-once & fixtures]] (tmacro/name-with-attributes name args)]
-    `(do
-       (def ~name (join-fixtures ~(vec fixtures)))
-       (apply use-fixtures ~each-or-once ~(vec fixtures)))))
