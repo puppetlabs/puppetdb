@@ -215,7 +215,6 @@
 
 (deftest test-only-hash-field-change
   (jdbc/with-db-connection *db*
-    (clear-db-for-testing!)
     (fast-forward-to-migration! 38)
     (let [before-migration (schema-info-map *db*)]
       (apply-migration-for-testing! 39)
@@ -234,3 +233,12 @@
                                      :column_name "hash",
                                      :table_name "factsets"}]}]}
              (diff-schema-maps before-migration (schema-info-map *db*)))))))
+
+(deftest test-migrate-from-unsupported-version
+  (jdbc/with-db-connection *db*
+    (fast-forward-to-migration! 34)
+    (jdbc/do-commands "DELETE FROM schema_migrations")
+    (record-migration! 33)
+    (is (thrown-with-msg? IllegalStateException
+                          #"Found an old and unuspported database migration.*"
+                          (migrate! *db*)))))
