@@ -141,9 +141,11 @@
     (is (= (anonymize-leaf-memoize :parameter-value "test string") (anonymize-leaf-memoize :parameter-value "test string"))))
   (testing "should return the same string twice"
     (is  (=  (anonymize-leaf-memoize :fact-value  {"a" "b"})  (anonymize-leaf-memoize :fact-value  {"a" "b"}))))
-  (testing "should return a string of equal length when passed a string"
+  (testing "should return a string of equal length when passed a string >= 10"
     (is (= 15 (count (anonymize-leaf-value "good old string"))))
     (is (string? (anonymize-leaf-value "some string"))))
+  (testing "should return a string of length 10 when passed a string < 10"
+    (is (= 10 (count (anonymize-leaf-value "hello")))))
   (testing "should return a boolean when passed a boolean"
     (is (boolean? (anonymize-leaf-value true))))
   (testing "should return an integer when passed an integer"

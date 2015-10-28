@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.1 » Release Notes"
+title: "PuppetDB 3.2 » Release Notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
@@ -13,7 +13,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 3.1.0
 -----
 
-PuppetDB 3.1.0 is a backward-compatible feature release that includes
+PuppetDB 3.2.0 is a backward-compatible feature release that includes
 new aggregate operators and a new admin route that improves import/export
 performance.
 

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.1 » Metadata API » v1 » Querying Server Time"
+title: "PuppetDB 3.2 » Metadata API » v1 » Querying Server Time"
 layout: default
 canonical: "/puppetdb/latest/api/meta/v1/server-time.html"
 ---
