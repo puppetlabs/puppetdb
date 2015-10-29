@@ -3,69 +3,41 @@
    [clojure.core.match :as cm]
    [clojure.tools.logging :as log]
    [com.rpl.specter :as sp]
+   [slingshot.slingshot :refer [try+ throw+]]
    [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote!]]
    [puppetlabs.puppetdb.config :as conf]
    [puppetlabs.puppetdb.time :refer [parse-period period?]]
-   [puppetlabs.puppetdb.utils :as utils :refer [throw+-cli-error!]]))
+   [puppetlabs.puppetdb.utils :as utils :refer [throw+-cli-error!]]
+   [puppetlabs.puppetdb.schema :refer [defn-validated]]
+   [schema.core :as s]
+   [schema.coerce :as sc]
+   [puppetlabs.puppetdb.zip :as zip]
+   [clojure.walk :as walk])
+  (:import
+   [org.joda.time Period ReadablePeriod PeriodType DateTime]
+   [java.net URI]))
 
-(defn- coerce-to-hocon-style-config
-  "Convert ini-style configuration structure to hocon-style, or just pass a
-  config through if it's already hocon-style."
-  [sync-config]
-  (cm/match [sync-config]
-    [{:remotes _}]
-    sync-config
+(defn- parse-list [s]
+  (clojure.string/split s #","))
 
-    [({} :guard empty?)]
-    {:remotes []}
+(def sync-config-ini-schema
+  (->
+   {(s/optional-key :server-urls) s/Str
+    (s/optional-key :intervals) s/Str
+    (s/optional-key :allow-unsafe-sync-triggers) s/Bool
+    (s/optional-key :allow-unsafe-cleartext-sync) s/Bool}
+   (s/constrained (fn [{:keys [server-urls intervals]}]
+                    (= (nil? server-urls) (nil? intervals)))
+                  "server_urls and intervals must either both exist or both be absent")
+   (s/constrained (fn [{:keys [server-urls intervals] :as x}]
+                    (if (and server-urls intervals)
+                      (= (count (parse-list server-urls)) (count (parse-list intervals)))
+                      true))
+                  "server_urls and intervals must have the same number of entries")))
 
-    [nil]
-    {:remotes []}
 
-    [({:server_urls server_urls, :intervals intervals} :only [:server_urls :intervals])]
-    (let [server_urls (clojure.string/split server_urls #",")
-          intervals (clojure.string/split intervals #",")]
-      (when-not (= (count server_urls) (count intervals))
-        (throw+-cli-error! "The sync configuration must contain the same number of server_urls and intervals"))
-      {:remotes (map #(hash-map :server_url %1, :interval %2)
-                     server_urls
-                     intervals)})
-
-    [{:server_urls _}]
-    (throw+-cli-error! "When specifying server_urls in the sync config, you must also provide an 'intervals' entry.")
-
-    [{:intervals _}]
-    (throw+-cli-error! "When specifying intervals in the sync config, you must also provide a 'sync_urls' entry.")
-
-    :else
-    (throw+-cli-error! "The [sync] section must contain settings for server_urls and intervals, and no more.")))
-
-(defn- check-sync-config-for-extra-keys! [sync-config]
-  (if (not= [:remotes] (keys sync-config))
-    (throw+-cli-error! "The 'sync' config section may only contain a 'remotes' key.")
-    (do
-     (doseq [remote (:remotes sync-config)]
-       (if (not= #{:server_url :interval} (set (keys remote)))
-         (throw+-cli-error! "Each remote must contain a 'server_url' and 'interval' key, and no more.")))
-     sync-config)))
-
-(defn- try-parse-period [x]
-  (try
-    (parse-period x)
-    (catch Exception _
-      nil)))
-
-(defn- coerce-to-period [x]
-  (cond
-    (period? x) x
-    (string? x) (try-parse-period x)
-    :else nil))
-
-(defn- parse-sync-config-intervals [sync-config]
-  (sp/transform [:remotes sp/ALL :interval]
-                #(or (coerce-to-period %)
-                     (throw+-cli-error! (format "Interval '%s' cannot be parsed as a time period. Did you mean '%ss?'" % %)))
-                sync-config))
+(defn- string->period [s]
+  (if (string? s) (parse-period s) s))
 
 (defn- uri-has-port [uri]
   (not= -1 (.getPort uri)))
@@ -79,37 +51,76 @@
                  (.getQuery uri)
                  (.getFragment uri)))
 
-(defn- set-default-ports
-  "Use port 8081 for all server_urls that haven't specified one."
+(defn- string->uri [s]
+  (let [uri (if (string? s) (URI. s) s)]
+    (if (and (instance? URI uri) (not (uri-has-port uri)))
+      (case (.getScheme uri)
+        "https" (uri-with-port uri 8081)
+        "http" (uri-with-port uri 8080)
+        uri)
+      uri)))
+
+(def sync-config-coercion-matcher
+  {Period string->period
+   URI string->uri})
+
+(def sync-config-schema
+  (-> {:remotes [{:server-url URI
+                  :interval Period}]
+       (s/optional-key :allow-unsafe-sync-triggers) s/Bool
+       (s/optional-key :allow-unsafe-cleartext-sync) s/Bool}
+      (s/constrained (fn [{:keys [remotes allow-unsafe-cleartext-sync]}]
+                       (or allow-unsafe-cleartext-sync
+                           (every? #(= "https" (.getScheme (:server-url %)))
+                                   remotes)))
+                     (str "Only https urls are allowed unless "
+                          "allow_unsafe_cleartext_sync is set"))))
+
+(def sync-config-coercer (sc/coercer! sync-config-schema sync-config-coercion-matcher))
+
+(defn coerce-to-hocon-style-config
+  "Convert ini-style configuration structure to hocon-style, or just pass a
+   config through if it's already hocon-style."
   [sync-config]
-  (sp/transform [:remotes sp/ALL :server_url]
-                (fn [server_url]
-                  (let [uri (java.net.URI. server_url)]
-                    (if (uri-has-port uri)
-                      server_url
-                      (case (.getScheme uri)
-                        "https" (str (uri-with-port uri 8081))
-                        "http"  (str (uri-with-port uri 8080))
-                        server_url))))
-                sync-config))
+  (if (:remotes sync-config)
+    ;; already hocon-style
+    (sync-config-coercer sync-config)
 
-(defn- fixup-remotes [sync-config]
-  (-> sync-config
-      coerce-to-hocon-style-config
-      check-sync-config-for-extra-keys!
-      parse-sync-config-intervals
-      set-default-ports))
+    (-> (s/validate sync-config-ini-schema sync-config)
+        (dissoc :server-urls :intervals)
+        (assoc :remotes (if (and (:server-urls sync-config)
+                                 (:intervals sync-config))
+                          (map #(hash-map :server-url %1, :interval %2)
+                               (parse-list (:server-urls sync-config ))
+                               (parse-list (:intervals sync-config)))
+                          []))
+        sync-config-coercer)))
 
-(defn adjust-for-extensions [config]
-  (update config :sync
-          (fn [prev]
-            (if-let [unsafe? (:allow-unsafe-sync-triggers prev)]
-              (do
-                (log/warn "Allowing unsafe sync triggers")
-                (assoc (fixup-remotes (dissoc prev :allow-unsafe-sync-triggers))
-                       :allow-unsafe-sync-triggers unsafe?))
-              (fixup-remotes prev)))))
+(defn- recursive-underscore->dash-keys
+  [m]
+  (:node (zip/post-order-transform
+          (zip/tree-zipper m)
+          [(fn [node]
+             (when (instance? clojure.lang.MapEntry node)
+               (update node 0 utils/underscores->dashes)))])))
+
+(defn- parse-sync-config [sync-config]
+  (try+
+   (let [parsed-config (-> sync-config
+                           recursive-underscore->dash-keys
+                           coerce-to-hocon-style-config)]
+     (when (:allow-unsafe-sync-triggers parsed-config)
+       (log/warn "Allowing unsafe sync triggers"))
+     (when (:allow-unsafe-cleartext-sync parsed-config)
+       (log/warn "Allowing unsafe cleartext sync"))
+     parsed-config)
+   (catch [:type :schema.core/error] ex
+     (throw+ (merge ex {:type ::utils/cli-error
+                        :message (str "Invalid sync config: " ex)})))))
 
 (def config-service
-  (conf/create-defaulted-config-service (comp adjust-for-extensions
-                                              conf/process-config!)))
+  (conf/create-defaulted-config-service
+   (fn [config]
+     (-> config
+         conf/process-config!
+         (update :sync parse-sync-config)))))

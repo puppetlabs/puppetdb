@@ -27,9 +27,9 @@
   "Given a base server-url, but the query endpoint onto the end of it. Don't do
   this if it looks like one is already there. "
   [^String server-url]
-  (if (.contains server-url "/v4")
+  (if (.contains (str server-url) "/v4")
     server-url
-    (str (with-trailing-slash server-url) "pdb/query/v4")))
+    (str (with-trailing-slash (str server-url)) "pdb/query/v4")))
 
 (defn make-remote-server
   "Create a remote-server structure out the given url, pulling ssl options from
@@ -90,7 +90,7 @@
 (defn validate-trigger-sync
   "Validates `remote-server' as a valid sync target given user config items"
   [allow-unsafe-sync-triggers remotes-config jetty-config remote-server]
-  (let [valid-remotes (map (comp #(make-remote-server % jetty-config) :server_url) remotes-config)]
+  (let [valid-remotes (map (comp #(make-remote-server % jetty-config) :server-url) remotes-config)]
     (or allow-unsafe-sync-triggers
         (ks/seq-contains? valid-remotes remote-server))))
 
@@ -213,10 +213,10 @@
                 jetty-config :jetty} (get-config)
                remotes-config (:remotes sync-config)]
            (if (enable-periodic-sync? remotes-config)
-             (let [{:keys [interval server_url]} (first remotes-config)
-                   remote-server (make-remote-server server_url jetty-config)]
+             (let [{:keys [interval server-url]} (first remotes-config)
+                   remote-server (make-remote-server (str server-url) jetty-config)]
                (try+
-                (maplog [:sync :info] {:remote server_url}
+                (maplog [:sync :info] {:remote (str server-url)}
                         "Performing initial blocking sync from {remote}...")
                 (blocking-sync remote-server query enqueue-command node-ttl (response-mult))
                 (catch [:type ::message-processing-timeout] _

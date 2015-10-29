@@ -117,7 +117,8 @@
               1 (let [url (base-url->str (:server-url (infos 0)))]
                   (assoc (utils/pdb2-sync-config)
                          :sync {:remotes [{:server_url url
-                                           :interval sync-interval}]}))
+                                           :interval sync-interval}]
+                                :allow-unsafe-cleartext-sync true}))
               nil))
           facts-from #(-> % :query-url (svcs/get-factsets (:certname facts)) first)]
       (with-pdbs periodic-sync-configs
