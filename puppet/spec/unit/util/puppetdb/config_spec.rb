@@ -50,8 +50,7 @@ CONF
       it "should use the config value if specified" do
         write_config <<CONF
 [main]
-server = main-server
-port = 1234
+server_urls = https://main-server:1234
 soft_write_failure = true
 CONF
         config = described_class.load
@@ -70,18 +69,18 @@ CONF
       it "should be insensitive to whitespace" do
         write_config <<CONF
 [main]
-  server = main-server
-    port    =  1234
+    server_urls = https://main-server:1234
+        soft_write_failure = true
 CONF
         config = described_class.load
         config.server_urls.should == [URI("https://main-server:1234")]
+        config.soft_write_failure.should be_truthy
       end
 
       it "should accept valid hostnames" do
         write_config <<CONF
 [main]
-server = foo.example-thing.com
-port = 8081
+server_urls = https://foo.example-thing.com:8081
 CONF
 
         config = described_class.load

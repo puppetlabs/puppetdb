@@ -63,10 +63,3 @@ The default value is 30 seconds.
 This setting can let the Puppet master stay partially available during a PuppetDB outage. If set to `true`, Puppet can keep compiling and serving catalogs even if PuppetDB isn't accessible for command submission. (However, any catalogs that need to _query_ exported resources from PuppetDB will still fail.)
 
 The default value is false.
-
-### `server` and `port`
-
-> **Deprecated:** `server_urls` replaces these setting. These settings will be removed in the future.
-
-Hostname and port of the PuppetDB instance. `server_urls` takes precedence if both are defined.
-

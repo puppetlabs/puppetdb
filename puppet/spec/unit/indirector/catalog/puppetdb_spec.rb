@@ -9,8 +9,7 @@ require 'json'
 
 describe Puppet::Resource::Catalog::Puppetdb do
   before :each do
-    Puppet::Util::Puppetdb.stubs(:server).returns 'localhost'
-    Puppet::Util::Puppetdb.stubs(:port).returns 0
+    Puppet::Util::Puppetdb.stubs(:server_urls).returns 'https://localhost:0'
     create_environmentdir("my_environment")
   end
 

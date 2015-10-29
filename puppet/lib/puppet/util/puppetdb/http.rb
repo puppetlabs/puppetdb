@@ -38,9 +38,8 @@ module Puppet::Util::Puppetdb
 
       response = nil
       config = Puppet::Util::Puppetdb.config
-      server_url_config = config.server_url_config?
 
-      for url in Puppet::Util::Puppetdb.config.server_urls
+      for url in config.server_urls
         begin
           route = concat_url_snippets(url.request_uri, path_suffix)
           http = Puppet::Network::HttpPool.http_instance(url.host, url.port)
@@ -51,42 +50,42 @@ module Puppet::Util::Puppetdb
           end
 
           if response.is_a? Net::HTTPServerError
-            Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG if server_url_config}")
+            Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG}")
             response = nil
           elsif response.is_a? Net::HTTPNotFound
             if response.body && response.body.chars.first == "{"
               # If it appears to be json, we've probably gotten an authentic 'not found' message.
-              Puppet.debug("HTTP 404 (probably normal) when connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG if server_url_config}")
+              Puppet.debug("HTTP 404 (probably normal) when connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG}")
               response = :notfound
             else
               # But we can also get 404s when conneting to a puppetdb that's still starting or due to misconfiguration.
-              Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG if server_url_config}")
+              Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG}")
               response = nil
             end
           else
             break
           end
         rescue Timeout::Error => e
-          Puppet.warning("Request to #{url.host} on #{url.port} at route #{route} timed out after #{request_timeout} seconds. #{SERVER_URL_FAIL_MSG if server_url_config}")
+          Puppet.warning("Request to #{url.host} on #{url.port} at route #{route} timed out after #{request_timeout} seconds. #{SERVER_URL_FAIL_MSG}")
 
         rescue SocketError, OpenSSL::SSL::SSLError, SystemCallError, Net::ProtocolError, IOError, Net::HTTPNotFound => e
-          Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{e.message}'. #{SERVER_URL_FAIL_MSG if server_url_config}")
+          Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{e.message}'. #{SERVER_URL_FAIL_MSG}")
 
         rescue Puppet::Util::Puppetdb::InventorySearchError => e
-          Puppet.warning("Could not perform inventory search from PuppetDB at #{url.host}:#{url.port}: '#{e.message}' #{SERVER_URL_FAIL_MSG if server_url_config}")
+          Puppet.warning("Could not perform inventory search from PuppetDB at #{url.host}:#{url.port}: '#{e.message}' #{SERVER_URL_FAIL_MSG}")
 
         rescue Puppet::Util::Puppetdb::CommandSubmissionError => e
           error = "Failed to submit '#{e.context[:command]}' command for '#{e.context[:for_whom]}' to PuppetDB at #{url.host}:#{url.port}: '#{e.message}'."
           if config.soft_write_failure
             Puppet.err error
           else
-            Puppet.warning(error + " #{SERVER_URL_FAIL_MSG if server_url_config}")
+            Puppet.warning(error + " #{SERVER_URL_FAIL_MSG}")
           end
         rescue Puppet::Util::Puppetdb::SoftWriteFailError => e
-          Puppet.warning("Failed to submit '#{e.context[:command]}' command for '#{e.context[:for_whom]}' to PuppetDB at #{url.host}:#{url.port}: '#{e.message}' #{SERVER_URL_FAIL_MSG if server_url_config}")
+          Puppet.warning("Failed to submit '#{e.context[:command]}' command for '#{e.context[:for_whom]}' to PuppetDB at #{url.host}:#{url.port}: '#{e.message}' #{SERVER_URL_FAIL_MSG}")
         rescue Puppet::Error => e
           if e.message =~ /did not match server certificate; expected one of/
-            Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{e.message}'. #{SERVER_URL_FAIL_MSG if server_url_config}")
+            Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{e.message}'. #{SERVER_URL_FAIL_MSG}")
           else
             raise
           end
@@ -94,20 +93,11 @@ module Puppet::Util::Puppetdb
       end
 
       if response.nil? or response == :notfound
-        if server_url_config
-          server_url_strings = Puppet::Util::Puppetdb.config.server_urls.map {|url| url.to_s}.join(', ')
-          if response == :notfound
-            raise NotFoundError, "Failed to find '#{path_suffix}' on any of the following 'server_urls': #{server_url_strings}"
-          else
-            raise Puppet::Error, "Failed to execute '#{path_suffix}' on any of the following 'server_urls': #{server_url_strings}"
-          end
+        server_url_strings = config.server_urls.map {|url| url.to_s}.join(', ')
+        if response == :notfound
+          raise NotFoundError, "Failed to find '#{path_suffix}' on any of the following 'server_urls': #{server_url_strings}"
         else
-          uri = Puppet::Util::Puppetdb.config.server_urls.first
-          if response == :notfound
-            raise NotFoundError, "Failed to find '#{path_suffix}' on server: '#{uri.host}' and port: '#{uri.port}'"
-          else
-            raise Puppet::Error, "Failed to execute '#{path_suffix}' on server: '#{uri.host}' and port: '#{uri.port}'"
-          end
+          raise Puppet::Error, "Failed to execute '#{path_suffix}' on any of the following 'server_urls': #{server_url_strings}"
         end
       end
 
