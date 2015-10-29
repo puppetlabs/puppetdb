@@ -88,7 +88,9 @@
   :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
                  ["snapshots" "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
 
-  :plugins [[lein-release "1.0.5"]]
+  :plugins [[lein-release "1.0.5"]
+            [lein-cloverage "1.0.6" :exclusions [org.clojure/clojure]]]
+
   :lein-release {:scm        :git
                  :deploy-via :lein-deploy}
 
@@ -117,7 +119,9 @@
                                   [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version :classifier "test"]
                                   [org.flatland/ordered "1.5.2"]
                                   [org.clojure/test.check "0.5.9"]
-                                  [environ "1.0.0"]]}
+                                  [environ "1.0.0"]
+                                  [org.clojure/tools.cli "0.3.0"] ; prevents dependency clash caused by lein-cloverage
+                                  [riddley "0.1.7"]]}             ; prevents dependency clash caused by lein-cloverage plugin
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"
