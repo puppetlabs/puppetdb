@@ -10,10 +10,118 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrading]: ./api/query/v4/upgrading-from-v3.html
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 
+3.2.0
+-----
+
+PuppetDB 3.2.0 is a backward-compatible feature release that introduces some new
+API fields and parameters, better UTF-8 handling, a new experimental way of
+performing subqueries and many more enhancements and bug-fixes.
+
+### New Features
+
+* Added Debian 8 (Jessie) packaging support. ([PDB-1797](https://tickets.puppetlabs.com/browse/PDB-1797))
+
+* Support PuppetDB ([query params as POST body](http://docs.puppetlabs.com/puppetdb/3.2/api/query/curl.html#querying-puppetdb-with-post)),
+  to allow for arbitrarily long queries. Previously some clients and proxy servers
+  were truncating or failing on large queries supplied in a GET request.
+  ([PDB-1359](https://tickets.puppetlabs.com/browse/PDB-1359))
+
+* Added new ([`code_id`](http://docs.puppetlabs.com/puppetdb/3.2/api/query/v4/catalogs.html#query-fields))
+  field in preparation for new filesync service.
+  ([PDB-1810](https://tickets.puppetlabs.com/browse/PDB-1810))
+
+* Introduce ([`latest_report_status` and `latest_report_hash`](http://docs.puppetlabs.com/puppetdb/3.2/api/query/v4/nodes.html#query-fields))
+  to the `nodes` entity, as projected from the a nodes latest report.
+  ([PDB-1820](https://tickets.puppetlabs.com/browse/PDB-1820))
+
+* Experimental: ([Implicit subqueries](http://docs.puppetlabs.com/puppetdb/3.2/api/query/v4/operators.html#subquery-implicit-subqueries)
+  now provide a way to perform subqueries on other entities within a query
+  without defining the columns to join on. This only works on relationships
+  that we know up-front, but for most queries this should simplify things.
+  ([PDB-1924](https://tickets.puppetlabs.com/browse/PDB-1924))
+
+### Enhancements
+
+* You can now disable garbage collection on a single node by setting
+  ([`gc-interval`](http://docs.puppetlabs.com/puppetdb/3.2/configure.html#gc-interval))
+  to zero. This allows users who are running a cluster of PuppetDB instances to
+  force this to run on nodes of their choosing.
+  ([PDB-154](https://tickets.puppetlabs.com/browse/PDB-154))
+
+* Improve and reduce the number of UTF-8 warnings for storage of new data.
+
+  Prior to this work, any non-ASCII character found in a catalog would
+  be replaced by /ufffd and a warning would be issued saying it found an
+  invalid character. The code now takes into account the force_encoding
+  done by to_pson and attempts to force_encode it back to UTF-8. For most
+  cases this should be sufficient.
+
+  There are times when binary data can appear in a catalog. In this case,
+  we have characters that we can't represent in UTF-8. For this we
+  continue to give users a warning. This warning now includes the command
+  being submitted and the node the command is for. If users have debug
+  logging enabled, context is given around where this bad character data
+  occurred. Up to 100 characters before/after this bad data is included in
+  the Puppet debug log. ([PDB-135](https://tickets.puppetlabs.com/browse/PDB-135))
+
+* Support `extract` with no sub-expression. ([PDB-1459](https://tickets.puppetlabs.com/browse/PDB-1459))
+
+* Benchmark tool now shows command rate for live feedback. ([PDB-1963](https://tickets.puppetlabs.com/browse/PDB-1963))
+
+### Bug Fixes and Maintenance
+
+* Anonymize path and value independently for structured facts. ([PDB-1614](https://tickets.puppetlabs.com/browse/PDB-1614))
+
+* Introduce tests on benchmark tooling to ensure we don't introduce regressions. ([PDB-1627](https://tickets.puppetlabs.com/browse/PDB-1627))
+
+* Convert anonymization tests to integration tests in clojure. ([PDB-1698](https://tickets.puppetlabs.com/browse/PDB-1698))
+
+* Convert to using new `java.jdbc` namespace from deprecated one for storage code. ([PDB-1738](https://tickets.puppetlabs.com/browse/PDB-1738))
+
+* Convert to using new `java.jdbc` namespace from deprecated one for query code. ([PDB-1739](https://tickets.puppetlabs.com/browse/PDB-1739))
+
+* Cannot parse `max-frame-size` during command processing. ([PDB-1848](https://tickets.puppetlabs.com/browse/PDB-1848))
+
+* Created defaulted configuration service. ([PDB-1902](https://tickets.puppetlabs.com/browse/PDB-1902))
+
+* Increase JVM PermGen maximum for JDK 7. ([PDB-1959](https://tickets.puppetlabs.com/browse/PDB-1959))
+
+* Updating 6554 or more fact values at once would produce a prepared statement
+  with more parameters than can be represented with a 16-bit integer, which is the
+  maximum allowed by the PostgreSQL JDBC driver. These updates will now occur in
+  batches of 6000, so the limit should not be reached.
+  ([PDB-2003](https://tickets.puppetlabs.com/browse/PDB-2003))
+
+* Munging a catalog with :undef failed. ([PDB-2007](https://tickets.puppetlabs.com/browse/PDB-2007))
+
+* Schema validation error on insert-facts-pv-pairs!. ([PDB-2034](https://tickets.puppetlabs.com/browse/PDB-2034))
+
+* Stop comparing hashes for fact equality queries. ([PDB-2064](https://tickets.puppetlabs.com/browse/PDB-2064))
+
+* Fix invalid routes, so they return a proper 404 code. ([PDB-2096](https://tickets.puppetlabs.com/browse/PDB-2096))
+
+### Deprecations
+
+* Deprecate `catalog-hash-conflict-debugging`. ([PDB-1932](https://tickets.puppetlabs.com/browse/PDB-1932))
+
+* Anonymization now works on export, as opposed to being a standalone CLI tool.
+  This old behaviour is now deprecated. ([PDB-1943](https://tickets.puppetlabs.com/browse/PDB-1943))
+
+### Documentation Updates
+
+* Fix pathing for KahaDB recovery advice for new AIO pathing ([PDB-1962](https://tickets.puppetlabs.com/browse/PDB-1962))
+
+* Fix benchmark execution docs. ([PDB-1966](https://tickets.puppetlabs.com/browse/PDB-1966))
+
+### Contributors
+
+Andrew Roetker, Ken Barber, Nick Fagerlund, Rob Browing, Russell Mull,
+Ryan Senior, Tim Skirvin, Wayne Warren and Wyatt Alt.
+
 3.1.0
 -----
 
-PuppetDB 3.2.0 is a backward-compatible feature release that includes
+PuppetDB 3.1.0 is a backward-compatible feature release that includes
 new aggregate operators and a new admin route that improves import/export
 performance.
 
