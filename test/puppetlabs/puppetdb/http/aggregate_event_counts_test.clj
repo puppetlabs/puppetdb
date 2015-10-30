@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.http.aggregate-event-counts-test
   (:require [puppetlabs.puppetdb.http :as http]
             [cheshire.core :as json]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [clj-time.core :refer [now]]

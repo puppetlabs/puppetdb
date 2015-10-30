@@ -8,6 +8,7 @@
             [puppetlabs.puppetdb.catalogs :as catalog]
             [puppetlabs.puppetdb.examples.reports :as report-examples]
             [puppetlabs.puppetdb.scf.hash :as shash]
+            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
             [clj-time.format :as tfmt]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
@@ -16,7 +17,6 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils
              :refer [args-supplied call-counter dotestseq times-called]]
-            [puppetlabs.puppetdb.fixtures :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]

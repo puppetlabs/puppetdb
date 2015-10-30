@@ -6,7 +6,6 @@
             [puppetlabs.puppetdb.testutils.db :refer [create-temp-db]]
             [puppetlabs.puppetdb.testutils.log
              :refer [notable-pdb-event? with-log-suppressed-unless-notable]]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]

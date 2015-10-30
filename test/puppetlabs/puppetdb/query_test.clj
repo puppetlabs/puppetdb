@@ -3,9 +3,10 @@
             [puppetlabs.puppetdb.query :as q]
             [clojure.test :refer :all]
             [puppetlabs.kitchensink.core :refer [excludes?]]
-            [puppetlabs.puppetdb.testutils.db :refer [antonym-data with-antonym-test-database]]))
+            [puppetlabs.puppetdb.testutils.db
+             :refer [antonym-data call-with-antonym-test-database]]))
 
-(use-fixtures :each with-antonym-test-database)
+(use-fixtures :each call-with-antonym-test-database)
 
 (defn execute-query
   [query paging-options]

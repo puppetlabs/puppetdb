@@ -1,11 +1,10 @@
 (ns puppetlabs.puppetdb.http.environments-test
   (:require [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as storage]
             [puppetlabs.puppetdb.query-eng :as eng]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils :refer [get-request ]]
+            [puppetlabs.puppetdb.testutils.db :refer [without-db-var]]
             [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
                                                         query-response
                                                         query-result]]
@@ -24,14 +23,14 @@
     (doseq [env ["foo" "bar" "baz"]]
       (storage/ensure-environment env))
 
-    (fixt/without-db-var
+    (without-db-var
      (fn []
        (is (= #{{:name "foo"}
                 {:name "bar"}
                 {:name "baz"}}
               (query-result method endpoint)))))
 
-    (fixt/without-db-var
+    (without-db-var
      (fn []
        (let [res (query-response method endpoint)]
          (is (= #{{:name "foo"}
@@ -47,14 +46,14 @@
    method [:get :post]]
 
   (testing "without environments"
-    (fixt/without-db-var
+    (without-db-var
      (fn []
        (is (= 404 (:status (query-response method (str endpoint "/foo"))))))))
 
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
       (storage/ensure-environment env))
-    (fixt/without-db-var
+    (without-db-var
      (fn []
        (is (= {:name "foo"}
               (-> (query-response method (str endpoint "/foo"))

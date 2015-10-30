@@ -10,24 +10,28 @@
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.examples :refer :all]
-            [puppetlabs.puppetdb.fixtures
-             :refer [*app* *db*
-                     defaulted-read-db-config defaulted-write-db-config
-                     init-db]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing!
-                                                   get-request
-                                                   assert-success!
-                                                   paged-results
-                                                   paged-results*
-                                                   parse-result]]
-            [puppetlabs.puppetdb.testutils.db :refer [create-temp-db]]
-            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
-                                                        query-response
-                                                        query-result
-                                                        vector-param]]
+            [puppetlabs.puppetdb.testutils
+             :refer [get-request
+                     assert-success!
+                     paged-results
+                     paged-results*
+                     parse-result]]
+            [puppetlabs.puppetdb.testutils.db
+             :refer [*db*
+                     clear-db-for-testing!
+                     init-db
+                     create-temp-db
+                     defaulted-read-db-config
+                     defaulted-write-db-config]]
+            [puppetlabs.puppetdb.testutils.http
+             :refer [*app*
+                     deftest-http-app
+                     query-response
+                     query-result
+                     vector-param]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.kitchensink.core :as ks]
@@ -257,7 +261,6 @@
 (deftest-http-app invalid-projections
   [[version endpoint] facts-endpoints
    method [:get :post]]
-
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
       (let [{:keys [status body]} (query-response method endpoint query)]

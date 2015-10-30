@@ -4,12 +4,11 @@
   (:require [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.mq :refer :all :as mq]
             [puppetlabs.puppetdb.testutils :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer [with-test-logging-silenced]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [slingshot.test]))
 
-(use-fixtures :each with-test-logging-silenced)
+(use-fixtures :each call-with-test-logging-silenced)
 
 (deftest delay-calc
   (testing "calculation of message delays"

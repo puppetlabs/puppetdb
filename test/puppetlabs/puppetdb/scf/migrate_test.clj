@@ -2,7 +2,6 @@
   (:require [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.scf.migrate :as migrate]
             [puppetlabs.puppetdb.scf.storage :as store]
-            [puppetlabs.puppetdb.fixtures :refer [with-db-metadata *db*]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
              :refer [db-serialize]]
             [cheshire.core :as json]
@@ -13,14 +12,14 @@
             [clojure.test :refer :all]
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing!]]
             [puppetlabs.puppetdb.testutils.db :as tdb
-             :refer [schema-info-map diff-schema-maps]]
+             :refer [*db* clear-db-for-testing!
+                     schema-info-map diff-schema-maps]]
             [puppetlabs.kitchensink.core :as ks])
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
 
-(use-fixtures :each with-db-metadata)
+(use-fixtures :each tdb/with-db-metadata)
 
 (defn apply-migration-for-testing!
   [i]

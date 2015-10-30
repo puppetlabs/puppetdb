@@ -13,14 +13,15 @@
                                                    paged-results]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            enumerated-resource-events-map]]
-            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
-                                                        query-response
-                                                        vector-param
-                                                        query-result]]
+            [puppetlabs.puppetdb.testutils.http
+             :refer [*app*
+                     deftest-http-app
+                     query-response
+                     vector-param
+                     query-result]]
             [clojure.walk :refer [stringify-keys]]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.examples.reports :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer [*app*]]))
+            [puppetlabs.puppetdb.examples.reports :refer :all]))
 
 (def endpoints [[:v4 "/v4/events"]
                 [:v4 "/v4/environments/DEV/events"]])

@@ -11,18 +11,20 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.http :as http :refer [status-bad-request]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils
              :refer [assert-success! get-request paged-results]]
-            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
-                                                        query-response
-                                                        query-result
-                                                        ordered-query-result
-                                                        vector-param]]
+            [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
+            [puppetlabs.puppetdb.testutils.http
+             :refer [*app*
+                     deftest-http-app
+                     query-response
+                     query-result
+                     ordered-query-result
+                     vector-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
                                                            munge-reports-for-comparison]]))
 
@@ -147,7 +149,7 @@
                             ["with" true]]]
       (testing (str "should support paging through reports " label " counts")
         (let [results       (paged-results
-                             {:app-fn  fixt/*app*
+                             {:app-fn  *app*
                               :path    endpoint
                               :query   ["=" "certname" (:certname basic1)]
                               :limit   1
@@ -658,7 +660,7 @@
     (is (= {:error "No information is known about report foo"} (json/parse-string body true)))))
 
 (deftest reports-retrieval
-  (fixt/with-test-db
+  (with-test-db
     (let [basic (:basic my-reports)
           report-hash (:hash (store-example-report! basic (now)))]
       (testing "report-exists? function"

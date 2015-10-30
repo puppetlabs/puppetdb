@@ -11,6 +11,7 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :as tu]
+            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [metrics.histograms :refer [sample histogram]]
             [schema.core :as s]
             [puppetlabs.trapperkeeper.testutils.logging :as pllog]
@@ -25,8 +26,7 @@
             [clojure.math.combinatorics :refer [combinations subsets]]
             [clj-time.core :refer [ago from-now now days]]
             [clj-time.coerce :refer [to-timestamp to-string]]
-            [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.fixtures :refer [*db* with-test-db]]))
+            [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]))
 
 (def reference-time "2014-10-28T20:26:21.727Z")
 (def previous-time "2014-10-26T20:26:21.727Z")

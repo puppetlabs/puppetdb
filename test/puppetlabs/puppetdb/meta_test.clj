@@ -7,8 +7,8 @@
             [puppetlabs.puppetdb.testutils
              :refer [assert-success! dotestseq get-request]]
             [puppetlabs.puppetdb.meta :as meta]
-            [puppetlabs.puppetdb.fixtures :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.meta.version :as version]
+            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
             [puppetlabs.puppetdb.middleware :as mid]))
 

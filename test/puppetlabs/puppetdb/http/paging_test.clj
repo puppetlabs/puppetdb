@@ -2,9 +2,8 @@
   (:require [puppetlabs.puppetdb.http :as http]
             [cheshire.core :as json]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer [*app*]]
             [puppetlabs.puppetdb.testutils :refer [get-request]]
-            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app]]))
+            [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]))
 
 (def versions [:v4])
 

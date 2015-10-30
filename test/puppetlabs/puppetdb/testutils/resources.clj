@@ -2,12 +2,12 @@
   (:require [clojure.java.jdbc :as sql]
             [clj-time.core :refer [now]]
             [clj-time.coerce :refer [to-timestamp]]
-            [puppetlabs.puppetdb.fixtures :refer [*db*]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage
              :refer [add-facts! ensure-environment]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
-             :refer [db-serialize to-jdbc-varchar-array]]))
+             :refer [db-serialize to-jdbc-varchar-array]]
+            [puppetlabs.puppetdb.testutils.db :refer [*db*]]))
 
 (defn store-example-resources
   ([] (store-example-resources true))

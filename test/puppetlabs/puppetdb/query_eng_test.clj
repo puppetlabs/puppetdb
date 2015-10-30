@@ -4,10 +4,10 @@
             [puppetlabs.puppetdb.query-eng.engine :refer :all]
             [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx]]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.fixtures :refer [*app* *db* with-test-db]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.testutils :refer [get-request parse-result]]
-            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app]]
+            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage-utils :as su]))
 

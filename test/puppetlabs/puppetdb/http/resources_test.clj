@@ -2,15 +2,16 @@
   (:require [cheshire.core :as json]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.testutils :as tu]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [get-request paged-results]]
             [puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]
-            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
-                                                        query-response
-                                                        ordered-query-result
-                                                        vector-param]]
+            [puppetlabs.puppetdb.testutils.http
+             :refer [*app*
+                     deftest-http-app
+                     query-response
+                     ordered-query-result
+                     vector-param]]
             [flatland.ordered.map :as omap]))
 
 (def v4-endpoint "/v4/resources")
@@ -209,7 +210,7 @@ to the result of the form supplied to this method."
                               ["with" true]]]
         (testing (str "should support paging through nodes " label " counts")
           (let [results (paged-results
-                         {:app-fn  fixt/*app*
+                         {:app-fn  *app*
                           :path    endpoint
                           :limit   2
                           :total   (count expected)

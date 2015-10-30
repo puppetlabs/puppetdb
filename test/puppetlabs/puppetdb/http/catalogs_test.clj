@@ -4,7 +4,6 @@
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.catalogs :as catalogs]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils :refer [get-request strip-hash]]

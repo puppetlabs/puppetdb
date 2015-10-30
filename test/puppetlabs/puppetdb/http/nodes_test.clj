@@ -1,15 +1,16 @@
 (ns puppetlabs.puppetdb.http.nodes-test
   (:require [cheshire.core :as json]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
             [puppetlabs.kitchensink.core :refer [keyset]]
             [puppetlabs.puppetdb.testutils :refer [paged-results]]
-            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
-                                                        ordered-query-result
-                                                        query-result
-                                                        vector-param
-                                                        query-response]]
+            [puppetlabs.puppetdb.testutils.http
+             :refer [*app*
+                     deftest-http-app
+                     ordered-query-result
+                     query-result
+                     vector-param
+                     query-response]]
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
             [flatland.ordered.map :as omap]))
 
@@ -403,7 +404,7 @@
                             ["with" true]]]
       (testing (str endpoint " should support paging through nodes " label " counts")
         (let [results (paged-results method
-                       {:app-fn  fixt/*app*
+                       {:app-fn  *app*
                         :path    endpoint
                         :limit   1
                         :total   (count expected)

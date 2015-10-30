@@ -11,11 +11,10 @@
             [puppetlabs.puppetdb.testutils.cli
              :refer [get-nodes get-catalogs get-factsets get-reports munge-tar-map
                      example-catalog example-report example-facts example-certname]]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [slingshot.slingshot :refer [throw+ try+]]
             [slingshot.test]))
 
-(use-fixtures :each fixt/with-test-logging-silenced)
+(use-fixtures :each tu/call-with-test-logging-silenced)
 
 (deftest test-basic-roundtrip
   (let [export-out-file (.getPath (tu/temp-file "export-test" ".tar.gz"))]

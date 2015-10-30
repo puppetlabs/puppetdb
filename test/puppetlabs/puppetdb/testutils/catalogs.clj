@@ -6,7 +6,7 @@
             [clj-time.core :refer [now]]
             [clj-time.coerce :refer [to-string]]
             [schema.core :as s]
-            [puppetlabs.puppetdb.fixtures :refer [*db*]]
+            [puppetlabs.puppetdb.testutils.db :refer [*db*]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.catalogs :refer [catalog-version]]))
