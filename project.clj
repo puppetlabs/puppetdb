@@ -50,7 +50,8 @@
                       :plugins [[puppetlabs/lein-ezbake "0.3.18"
                                 :exclusions [org.clojure/clojure]]]
                       :version ~pe-pdb-version
-                      :name "pe-puppetdb"}}
+                      :name "pe-puppetdb"}
+             :ci {:plugins [[lein-pprint "1.1.1"]]}}
   :lein-release {:scm :git, :deploy-via :lein-deploy}
 
   :jvm-opts ~pdb-jvm-opts
