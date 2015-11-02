@@ -141,15 +141,6 @@
   [db-config & body]
   `(call-with-db-info-on-failure-or-drop ~db-config (fn [] ~@body)))
 
-(defn with-db-metadata
-  "A fixture to collect DB type and version information before a test."
-  [f]
-  (binding [*db* (create-temp-db)] ;; FIXME: do we really want a new DB?
-    (with-db-info-on-failure-or-drop *db*
-      (jdbc/with-db-connection *db*
-        (with-redefs [sutils/db-metadata (delay (sutils/db-metadata-fn))]
-          (f))))))
-
 (defn call-with-test-db
   "Binds *db* to a clean, migrated test database, opens a connection
   to it, and calls (f).  If there are no clojure.tests failures or

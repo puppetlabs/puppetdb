@@ -19,7 +19,7 @@
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
 
-(use-fixtures :each tdb/with-db-metadata)
+(use-fixtures :each tdb/call-with-test-db)
 
 (defn apply-migration-for-testing!
   [i]
