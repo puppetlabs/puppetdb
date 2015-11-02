@@ -18,9 +18,9 @@
                             (let [{db :scf-read-db url-prefix :url-prefix} globals
                                   query (json/generate-string ["=" "hash" hash])]
                               (query-eng/produce-streaming-body :report-resources :v4 query {} db url-prefix)))
-                          (mid/wrap-with-parent-check :v4 :report hash))))
-      mid/verify-accepts-json
-      (mid/wrap-with-globals get-shared-globals)
+                          (mid/wrap-with-parent-check :v4 :report hash)
+                          mid/verify-accepts-json
+                          (mid/wrap-with-globals get-shared-globals))))
       vector))
 
 (defn report-resources-query
