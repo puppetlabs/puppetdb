@@ -8,6 +8,7 @@ canonical: "/puppetdb/latest/puppetdb_connection.html"
 [connect_to_puppetdb]: ./connect_puppet_master.html
 [confdir]: /puppet/latest/reference/dirs_confdir.html
 [puppetdb_conf]: ./connect_puppet_master.html#edit-puppetdb\.conf
+[ha_guide]: ./ha_guide.html
 
 The `puppetdb.conf` file contains the hostname and port of the [PuppetDB][puppetdb_root] server. It is only used if you are using PuppetDB and have [connected your Puppet master to it][connect_to_puppetdb].
 
@@ -48,9 +49,19 @@ You can use a comma separated list of URLs if there are multiple PuppetDB instan
 
     server_urls = https://puppetdb1.example.com:8081,https://puppetdb2.example.com:8081
 
+The default value is `https://puppetdb:8081`.
+
 The PuppetDB terminus will always attempt to connect to the first PuppetDB instance specified (listed above as puppetdb1). If a server-side exception occurs, or the request takes too long (see [`server_url_timeout`](#server_url_timeout)), the PuppetDB terminus will attempt the same operation on the next instance in the list.
 
-The default value is https://puppetdb:8081
+### `submit_only_server_urls`
+
+This setting allows you specify PuppetDB instances to which commands should be sent, but which shouldn't ever be queried for data needed during a Puppet run. It uses the same format as `server_urls`. For example:
+
+    submit_only_server_urls = https://puppetdb-submit-only.example.com:8081
+
+If a server is listed in `submit_only_server_urls`, it shouldn't be listed in `server_urls`; the two lists should be disjoint.
+
+Successful command submission to the PuppetDB instances in this list *do* count towards the `min_successful_submissions` setting, so you should consider incrementing that if you use this setting.
 
 ### `server_url_timeout`
 
@@ -63,3 +74,33 @@ The default value is 30 seconds.
 This setting can let the Puppet master stay partially available during a PuppetDB outage. If set to `true`, Puppet can keep compiling and serving catalogs even if PuppetDB isn't accessible for command submission. (However, any catalogs that need to _query_ exported resources from PuppetDB will still fail.)
 
 The default value is false.
+
+### High Availability configuration
+
+These settings are designed for use in a high-availability deployment of PuppetDB, available in Puppet Enterprise. While they may appear to work in other configurations, their use is discouraged. In particular, absent the synchronization support in Puppet Enterprise, multiple PuppetDB instances can easily diverge from each other due to normal transient network issues. See the [PuppetDB HA Configuration Guide][ha_guide] for detailed configuration information.
+
+#### `sticky_read_failover`
+
+*PE-only*
+
+When using multiple `server_urls`, this flag can be set to `true` to cause queries to be made to the last PuppetDB instance that was successfully contacted. 
+
+The default value is `false`.
+
+#### `command_broadcast`
+
+*PE-only*
+
+When using multiple `server_urls`, this flag can be set to `true` to cause commands to be sent to all configured PuppetDB instances.
+
+The default value is `false`.
+
+#### `min_successful_submissions`
+
+*PE-only*
+
+When writing data (submitting commands) to PuppetDB, this is the minimum number of machines to which the command must be successfully sent to consider the write successful. If the configured number of machines cannot be reached, Puppet runs will fail.
+
+The default value is 1, which should be appropriate for most single- or dual-PuppetDB deployments.
+
+This setting must be used in conjunction with `command_broadcast`.

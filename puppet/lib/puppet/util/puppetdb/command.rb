@@ -58,7 +58,7 @@ class Puppet::Util::Puppetdb::Command
 
     begin
       response = profile("Submit command HTTP post", [:puppetdb, :command, :submit]) do
-        Http.action("#{CommandsUrl}?checksum=#{checksum}") do |http_instance, path|
+        Http.action("#{CommandsUrl}?checksum=#{checksum}", :command) do |http_instance, path|
           http_instance.post(path, payload, headers)
         end
       end
