@@ -1,8 +1,8 @@
 language: clojure
 lein: lein2
 sudo: false
-install:
-    - bash ./ext/travisci/install.sh ~/.lein/profiles.clj
+# By running 'true' it forces travis-ci to skip its own installation steps
+install: true
 jdk:
     - oraclejdk8
 notifications:

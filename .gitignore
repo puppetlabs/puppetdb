@@ -18,3 +18,5 @@ Vagrantfile
 *.tar.gz
 .blimpy.d
 version
+# Ignore checkout dirs created by ext/travisci/test.sh
+checkouts

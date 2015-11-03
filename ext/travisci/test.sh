@@ -9,7 +9,7 @@ LEIN="${1:-lein2}"
 # :arg1 is the dependency project whose version we want to grab from project.clj
 get_dep_version() {
   local REGEX="puppetlabs\/puppetdb\s*\"([[:alnum:]]|\-|\.)+\"[[:space:]]*\]"
-  echo "$($LEIN pprint :dependencies | egrep $REGEX | cut -d\" -f2)"
+  echo "$($LEIN with-profile ci pprint :dependencies | egrep "${REGEX}" | cut -d\" -f2)"
 }
 
 rm -rf checkouts && mkdir checkouts
@@ -26,7 +26,8 @@ git clone https://github.com/puppetlabs/puppetdb
 depversion="$(get_dep_version 'puppetdb')"
 pushd 'puppetdb'
 
-tag="$(git tag -l \"${depversion?}\")"
+# Warning: the inner quotes here are valid, and shouldn't require escaping
+tag="$(git tag -l "${depversion?}")"
 if test -n "${tag?}"
 then
     git checkout "$depversion"
