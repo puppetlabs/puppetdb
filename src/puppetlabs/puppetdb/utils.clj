@@ -8,7 +8,6 @@
             [clojure.set :as set]
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.java.io :as io]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.walk :as walk]
             [slingshot.slingshot :refer [try+ throw+]]
@@ -310,3 +309,8 @@
   (sp/transform [sp/ALL]
                 #(update % 0 underscores->dashes)
                 m))
+
+(defmacro with-timeout [timeout-ms default & body]
+  `(let [f# (future (do ~@body))
+         result# (deref f# ~timeout-ms ~default)]
+     result#))

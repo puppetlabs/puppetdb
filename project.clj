@@ -39,7 +39,6 @@
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/tools.logging "0.3.1"]
                  [puppetlabs/tools.namespace "0.2.4.1"]
-                 [puppetlabs/jdbc-util "0.1.4" :exclusions [org.postgresql/postgresql]]
                  [clj-stacktrace "0.2.8"]
                  [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
                  [clj-time "0.9.0"]
