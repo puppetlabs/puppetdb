@@ -52,6 +52,14 @@
                    (when (seq new-children)
                      (into (empty node) (reverse new-children)))))
 
+  clojure.lang.MapEntry
+  (-branch? [_] true)
+  (-children [x] (seq x))
+  (-make-node [node new-kv]
+    (if new-kv
+      (clojure.lang.MapEntry. (first new-kv) (second new-kv))
+      node))
+
   Object
   (-branch? [_] false)
   (-children [_] nil)

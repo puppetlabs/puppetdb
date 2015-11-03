@@ -127,3 +127,10 @@
             [6 7 8]]
            state))
     (is (= node tree))))
+
+(deftest test-map-traversal
+  (is (= {2 {2 {2 "foo"}}})
+      (post-order-transform (tree-zipper {1 {1 {1 "foo"}}})
+                            [(fn [node]
+                               (when (instance? clojure.lang.MapEntry node)
+                                 (update node 0 inc)))])))
