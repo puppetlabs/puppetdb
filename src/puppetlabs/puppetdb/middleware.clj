@@ -91,12 +91,26 @@
         response
         (assoc response :body (http/default-body req response))))))
 
+(defn wrap-pretty-printing-opts
+  [app]
+  (fn [{:keys [params] :as req}]
+    (let [pretty (get params "pretty" "false")]
+      (if-not (or (= "false" pretty)
+                  (= "true" pretty))
+        (http/error-response (str "Parameter 'pretty' must be either 'true' or 'false' not '"
+                                  pretty
+                                  "'"))
+        (let [new-req (-> req
+                          (update :params dissoc "pretty")
+                          (assoc-in [:globals :pretty-print] (= "true" pretty)))]
+          (app new-req))))))
+
 (defn wrap-with-globals
   "Ring middleware that adds a :globals attribute to each request that
   contains a map of the current shared-global settings."
   [app get-shared-globals]
   (fn [req]
-    (let [new-req (assoc req :globals (get-shared-globals))]
+    (let [new-req (update req :globals merge (get-shared-globals))]
       (app new-req))))
 
 (defn wrap-with-paging-options
@@ -303,6 +317,7 @@
   "Default middleware for puppetdb webservers."
   [app cert-whitelist]
   (-> app
+      wrap-pretty-printing-opts
       wrap-params
       (wrap-with-authorization cert-whitelist)
       wrap-with-certificate-cn

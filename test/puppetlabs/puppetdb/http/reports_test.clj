@@ -84,14 +84,13 @@
     (testing "logs projected"
       (is (= (query-result method endpoint ["extract" "logs"
                                             ["=" "certname" (:certname basic)]])
-             #{{:logs {:href (utils/as-path "/v4/reports" report-hash "logs")
+             #{{:logs {:href (format "/pdb/query/v4/reports/%s/logs" report-hash)
                        :data (get-in basic [:logs :data])}}})))
 
     (testing "metrics projected"
       (is (= (query-result method endpoint ["extract" "metrics"
                                             ["=" "certname" (:certname basic)]])
-             #{{:metrics {:href (utils/as-path "/v4/reports" report-hash
-                                               "metrics")
+             #{{:metrics {:href (format "/pdb/query/v4/reports/%s/metrics" report-hash)
                           :data (get-in basic [:metrics :data])}}})))
 
     (testing "one projected column with a not"

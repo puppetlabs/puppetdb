@@ -1,4 +1,5 @@
 (ns puppetlabs.puppetdb.query-eng
+  (:import [org.postgresql.util PGobject])
   (:require [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -7,17 +8,13 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
-            [puppetlabs.puppetdb.query.catalogs :as catalogs]
             [puppetlabs.puppetdb.query.edges :as edges]
             [puppetlabs.puppetdb.query.events :as events]
             [puppetlabs.puppetdb.query.event-counts :as event-counts]
             [puppetlabs.puppetdb.query.facts :as facts]
-            [puppetlabs.puppetdb.query.factsets :as factsets]
             [puppetlabs.puppetdb.query.fact-contents :as fact-contents]
-            [puppetlabs.puppetdb.query.reports :as reports]
-            [puppetlabs.puppetdb.query.report-data :as report-data]
             [puppetlabs.puppetdb.query.resources :as resources]
-            [puppetlabs.puppetdb.scf.storage-utils :as su]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.query-eng.engine :as eng]
             [schema.core :as s]))
@@ -36,9 +33,9 @@
                   :rec eng/fact-paths-query}
      :fact-names {:munge facts/munge-name-result-rows
                   :rec eng/fact-names-query}
-     :factsets {:munge factsets/munge-result-rows
+     :factsets {:munge (constantly identity)
                 :rec eng/factsets-query}
-     :catalogs {:munge catalogs/munge-result-rows
+     :catalogs {:munge (constantly identity)
                 :rec eng/catalog-query}
      :nodes {:munge (constantly identity)
              :rec eng/nodes-query}
@@ -48,11 +45,11 @@
               :rec eng/report-events-query}
      :edges {:munge edges/munge-result-rows
              :rec eng/edges-query}
-     :reports {:munge reports/munge-result-rows
+     :reports {:munge (constantly identity)
                :rec eng/reports-query}
-     :report-metrics {:munge (report-data/munge-result-rows :metrics)
+     :report-metrics {:munge (constantly (comp :metrics first))
                       :rec eng/report-metrics-query}
-     :report-logs {:munge (report-data/munge-result-rows :logs)
+     :report-logs {:munge (constantly (comp :logs first))
                    :rec eng/report-logs-query}
      :resources {:munge resources/munge-result-rows
                  :rec eng/resources-query}}))
@@ -122,7 +119,7 @@
    the query results. query-map is a clojure map of the form
    {:query ['=','certname','foo'] :order_by [{'field':'foo'}]...}
    If the query can't be parsed, a 400 is returned."
-  [entity version query-map db url-prefix]
+  [entity version query-map db url-prefix pretty-print]
   (let [query (:query query-map)
         query-options (dissoc query-map :query)]
     (try
@@ -136,8 +133,9 @@
                      buffer
                      (try (jdbc/with-transacted-connection db
                             (jdbc/with-query-results-cursor
-                              results-query (comp #(http/stream-json % buffer)
-                                                  #(do (first %) (deliver query-error nil) %)
+                              results-query (comp #(http/stream-json % buffer pretty-print)
+                                                  #(do (when-not (instance? PGobject %)
+                                                         (first %)) (deliver query-error nil) %)
                                                   munge-fn)))
                           (catch java.sql.SQLException e
                             (deliver query-error e))))]
@@ -176,7 +174,7 @@
                            WHERE certname=? "
                     :report (str "SELECT 1
                                   FROM reports
-                                  WHERE " (su/sql-hash-as-str "hash") "=?
+                                  WHERE " (sutils/sql-hash-as-str "hash") "=?
                                   LIMIT 1")
                     :environment "SELECT 1
                                   FROM environments

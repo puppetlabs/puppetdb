@@ -2,6 +2,7 @@
   (:require [clj-time.core :refer [now]]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.anonymizer :as anon]
             [puppetlabs.puppetdb.archive :as archive]
@@ -58,11 +59,14 @@
 
 (def export-info
   {:catalogs {:query->wire-fn catalogs/catalogs-query->wire-v7
-              :anonymize-fn anon/anonymize-catalog}
+              :anonymize-fn anon/anonymize-catalog
+              :json-encoded-fields [:edges :resources]}
    :reports {:query->wire-fn reports/reports-query->wire-v6
-             :anonymize-fn anon/anonymize-report}
+             :anonymize-fn anon/anonymize-report
+             :json-encoded-fields [:metrics :logs :resource_events]}
    :factsets {:query->wire-fn factsets/factsets-query->wire-v4
-              :anonymize-fn anon/anonymize-facts}})
+              :anonymize-fn anon/anonymize-facts
+              :json-encoded-fields [:facts]}})
 
 (defn maybe-anonymize [anonymize-fn anon-config data]
   (if (not= anon-config ::not-found)
@@ -75,12 +79,16 @@
   (doseq [entry entries]
     (utils/add-tar-entry tar-writer entry)))
 
+(defn decode-json-children [entity json-encoded-fields]
+  (kitchensink/mapvals sutils/parse-db-json json-encoded-fields entity))
+
 (defn export!*
   [tar-writer query-fn anonymize-profile]
   (let [anon-config (get anon/anon-profiles anonymize-profile ::not-found)]
-    (doseq [[entity {:keys [query->wire-fn anonymize-fn]}] export-info
+    (doseq [[entity {:keys [json-encoded-fields query->wire-fn anonymize-fn]}] export-info
             :let [query-callback-fn (fn [rows]
                                       (->> rows
+                                           (map #(decode-json-children % json-encoded-fields))
                                            query->wire-fn
                                            (maybe-anonymize anonymize-fn anon-config)
                                            (export-data->tar-items entity)

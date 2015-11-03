@@ -190,9 +190,11 @@
 (defn stream-json
   "Serializes the supplied sequence to `buffer`, which is a `Writer`
   object."
-  [coll buffer]
+  [coll buffer pretty-print]
   {:pre [(instance? Writer buffer)]}
-  (json/generate-pretty-stream coll buffer))
+  (if pretty-print
+    (json/generate-pretty-stream coll buffer)
+    (json/generate-stream coll buffer)))
 
 (defmacro streamed-response
   "Evaluates `body` in a thread, with a local variable (`writer-var`)
