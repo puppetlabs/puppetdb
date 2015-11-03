@@ -60,14 +60,13 @@ System Requirements
 
 ### \*nix Server with JDK 1.7+ (Debian) or JDK 1.8+ (RHEL-derived)
 
-#### Standard Install: RHEL, CentOS, Debian, Ubuntu, or Fedora
+#### Standard Install: RHEL, CentOS, Debian, and Ubuntu
 
 Puppet Labs provides packages and a Puppet module for PuppetDB which simplify setup of its SSL certificates and init scripts. These packages are available for the following operating systems:
 
 * Red Hat Enterprise Linux 6.6+ and 7 (and any derived distro that includes Java 1.8)
-* Debian 7 (Wheezy)
+* Debian 7 (Wheezy) and 8 (Jessie)
 * Ubuntu 12.04 LTS, 14.04 LTS
-* Fedora 21
 
 [See here for instructions for installing via the PuppetDB puppet module.][install_via_module]
 
