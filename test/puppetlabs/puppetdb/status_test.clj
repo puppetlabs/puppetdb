@@ -8,8 +8,23 @@
 
 (deftest status-test
   (testing "status returns as expected on normal operation"
-    (svc-utils/call-with-puppetdb-instance
-      (fn []
+    (svc-utils/with-puppetdb-instance
+      (let [{:keys [body] :as pdb-resp} (-> svc-utils/*base-url*
+                                            (assoc :prefix "/status/v1/services")
+                                            base-url->str-with-prefix
+                                            client/get)
+            pdb-status (:puppetdb-status (json/parse-string body true))]
+        (tu/assert-success! pdb-resp)
+        (is (= "running" (:state pdb-status)))
+        (is (= {:maintenance_mode? false
+                :read_db_up? true
+                :write_db_up? true
+                :queue_depth 0}
+               (:status pdb-status))))))
+
+  (testing "status returns as expected when in maintenance mode"
+    (with-redefs [puppetlabs.puppetdb.pdb-routing/maint-mode? (constantly true)]
+      (svc-utils/with-puppetdb-instance
         (let [{:keys [body] :as pdb-resp} (-> svc-utils/*base-url*
                                               (assoc :prefix "/status/v1/services")
                                               base-url->str-with-prefix
@@ -17,23 +32,8 @@
               pdb-status (:puppetdb-status (json/parse-string body true))]
           (tu/assert-success! pdb-resp)
           (is (= "running" (:state pdb-status)))
-          (is (= {:maintenance_mode? false
+          (is (= {:maintenance_mode? true
                   :read_db_up? true
-                  :write_db_up? true}
-                 (:status pdb-status)))))))
-
-  (testing "status returns as expected when in maintenance mode"
-    (with-redefs [puppetlabs.puppetdb.pdb-routing/maint-mode? (constantly true)]
-      (svc-utils/call-with-puppetdb-instance
-        (fn []
-          (let [{:keys [body] :as pdb-resp} (-> svc-utils/*base-url*
-                                                (assoc :prefix "/status/v1/services")
-                                                base-url->str-with-prefix
-                                                client/get)
-                pdb-status (:puppetdb-status (json/parse-string body true))]
-            (tu/assert-success! pdb-resp)
-            (is (= "running" (:state pdb-status)))
-            (is (= {:maintenance_mode? true
-                    :read_db_up? true
-                    :write_db_up? true}
-                   (:status pdb-status)))))))))
+                  :write_db_up? true
+                  :queue_depth 0}
+                 (:status pdb-status))))))))

@@ -28,7 +28,8 @@ following:
          "status": {
              "maintenance_mode?": false,
              "read_db_up?": true,
-             "write_db_up?": true
+             "write_db_up?": true,
+             "queue_depth": 0
          }
     }
 
@@ -39,7 +40,8 @@ following:
 * `status`:
     * `maintenance_mode?`: indicates whether PuppetDB is in maintenance mode.
     PuppetDB enters maintenance mode at startup and exits it after completing any
-    pending migrations. While in maintenance mode PuppetDB will not respond to
-    queries.
+    pending migrations and initial data synchronization (when using HA).
+    While in maintenance mode PuppetDB will not respond to queries.
     * `read_db_up?`: indicates whether the read database is responding to queries
     * `write_db_up?`: indicates whether the write database is responding to queries
+    * `queue_depth`: depth of the command queue

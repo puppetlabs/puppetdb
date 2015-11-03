@@ -2,15 +2,19 @@
   (:require [puppetlabs.trapperkeeper.core :as tk]
             [compojure.core :as compojure]
             [compojure.route :as route]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.trapperkeeper.services :as tksvc]
+            [puppetlabs.puppetdb.mq :as mq]
             [ring.middleware.resource :refer [resource-request]]
             [ring.util.request :as rreq]
-            [puppetlabs.jdbc-util.core :refer [db-up?]]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [ring.util.response :as rr]
             [puppetlabs.puppetdb.meta :as meta]
             [puppetlabs.trapperkeeper.services.status.status-core :as status-core]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.http.command :as cmd]
+            [clj-http.client :as client]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.http.server :as server]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.config :as conf]
@@ -112,19 +116,24 @@
                                                            query
                                                            enqueue-raw-command
                                                            response-pub)))
+
           (enable-maint-mode)
           (register-status "puppetdb-status"
                            (status-core/get-artifact-version "puppetlabs" "puppetdb")
                            1
                            (fn [level]
                              (let [globals (shared-globals)
-                                   read-db-up? (db-up? (:scf-read-db globals))
-                                   write-db-up? (db-up? (:scf-write-db globals))
+                                   queue-depth (->> [:command-processing :mq :endpoint]
+                                                    (get-in config)
+                                                    (mq/queue-size "localhost"))
+                                   read-db-up? (sutils/db-up? (:scf-read-db globals))
+                                   write-db-up? (sutils/db-up? (:scf-write-db globals))
                                    state (if (and read-db-up? write-db-up?)
                                            :running
                                            :error)]
                                {:state state
                                 :status {:maintenance_mode? (maint-mode?)
+                                         :queue_depth queue-depth
                                          :read_db_up? read-db-up?
                                          :write_db_up? write-db-up?}}))))
         context)
