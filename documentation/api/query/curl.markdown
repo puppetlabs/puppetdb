@@ -82,6 +82,13 @@ If you do this with an endpoint that accepts `GET` requests, **you must also use
     curl -G http://localhost:8080/pdb/query/v4/nodes \
       --data-urlencode 'query=["=", ["node", "active"], true]'
 
+## Pretty querying of PuppetDB
+
+Currently PuppetDB returns prettified JSON by default in our query endpoints. On
+a handful of our endpoints our storage of certain types of data as JSON means
+that its more performant to return unprettified JSON by default. We will still
+provide means for prettifying responses via a config options and url-parameter.
+
 ## Querying PuppetDB with POST
 
 PuppetDB supports querying by POST, which is useful for particularly large
