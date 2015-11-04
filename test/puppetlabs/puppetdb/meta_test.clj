@@ -28,9 +28,9 @@
   ([request config-overrides shared-globals-overrides]
    (let [app (mid/wrap-with-puppetdb-middleware
               (meta/build-app (fn [] shared-globals-overrides)
-                              {:globals (merge {:product-name "puppetdb"
-                                                :update-server "FOO"}
-                                               config-overrides)})
+                              {:global (merge {:product-name "puppetdb"
+                                               :update-server "FOO"}
+                                              config-overrides)})
               nil)]
      (app request))))
 
@@ -43,6 +43,7 @@
                     "link" "http://docs.puppetlabs.com/puppetdb/100.0/release_notes.html"
                     "version" "100.0.0"})
                  version/version (constantly "99.0.0")]
+
     (testing "should return 'newer'->true if product is not specified"
       (let [response (-> (get-request (str endpoint "/version/latest"))
                          with-meta-app
@@ -53,6 +54,7 @@
              true :newer
              "100.0.0" :version
              "http://docs.puppetlabs.com/puppetdb/100.0/release_notes.html" :link)))
+
     (testing "should return 'newer'->true if product is 'puppetdb"
       (let [response (-> (get-request (str endpoint "/version/latest"))
                          (with-meta-app {:product-name "puppetdb"})
@@ -62,6 +64,7 @@
              true :newer
              "100.0.0" :version
              "http://docs.puppetlabs.com/puppetdb/100.0/release_notes.html" :link)))
+
     (testing "should return 'newer'->false if product is 'pe-puppetdb"
       ;; it should *always* return false for pe-puppetdb
       ;; because
@@ -74,19 +77,16 @@
                                         (get response response-key))
              false :newer
              "99.0.0" :version
-             nil :link)))))
+             nil :link)))
 
-(deftestseq test-latest-version
-  [[version endpoint] endpoints]
-
-  (testing "shouldn't log HTTP errors hitting update server at INFO"
-    (with-log-output logz
-      (let [response (-> (get-request (str endpoint "/version/latest"))
-                         (with-meta-app
-                           {:update-server "http://known.invalid.domain"}
-                           {:scf-read-db fixt/*db*}))
-            log-levels-emitted (set (map second @logz))]
-        (is (nil? (log-levels-emitted :info)))))))
+    (testing "shouldn't log HTTP errors hitting update server at INFO"
+      (with-log-output logz
+        (let [response (-> (get-request (str endpoint "/version/latest"))
+                           (with-meta-app
+                             {:update-server "http://known.invalid.domain"}
+                             {:scf-read-db fixt/*db*}))
+              log-levels-emitted (set (map second @logz))]
+          (is (nil? (log-levels-emitted :info))))))))
 
 (deftestseq server-time-response
   [[version endpoint] endpoints]
