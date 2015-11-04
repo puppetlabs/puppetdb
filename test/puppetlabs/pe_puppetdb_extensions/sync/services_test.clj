@@ -1,5 +1,6 @@
 (ns puppetlabs.pe-puppetdb-extensions.sync.services-test
-  (:import [org.joda.time Period])
+  (:import [org.joda.time Period]
+           [java.net URI])
   (:require [puppetlabs.pe-puppetdb-extensions.sync.services :refer :all]
             [clojure.test :refer :all]
             [slingshot.test :refer :all]
@@ -11,12 +12,12 @@
 (deftest enable-periodic-sync?-test
   (testing "Happy case"
     (is (= true (enable-periodic-sync?
-                 [{:server_url "http://foo.bar:8080", :interval (-> 12 seconds)}]))))
+                 [{:server-url (URI. "http://foo.bar:8080"), :interval (-> 12 seconds)}]))))
 
   (testing "Disable sync cases"
     (are [remote-config] (= false (enable-periodic-sync? remote-config))
-      [{:server_url "http://foo.bar:8080", :interval (-> 0 seconds)}]
-      [{:server_url "http://foo.bar:8080"}]
+      [{:server-url (URI. "http://foo.bar:8080"), :interval (-> 0 seconds)}]
+      [{:server-url (URI. "http://foo.bar:8080")}]
       []
       nil))
 
@@ -29,7 +30,7 @@
 (deftest validate-trigger-sync-test
   (let [allow-unsafe-sync-triggers false
         jetty-config {}
-        remotes-config [{:server_url "http://foo.bar:8080", :interval (parse-period "120s")}]]
+        remotes-config [{:server-url (URI. "http://foo.bar:8080"), :interval (parse-period "120s")}]]
     (is (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config {:url "http://foo.bar:8080/pdb/query/v4"}))
     (is (not (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config {:url "http://baz.buzz:8080/pdb/query/v4"})))))
 
