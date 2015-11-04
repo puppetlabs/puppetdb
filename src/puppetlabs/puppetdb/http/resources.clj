@@ -12,7 +12,7 @@
                   identity)
         handlers (cons handler optional-handlers)
         param-spec {:optional paging/query-params}
-        query-route #(apply (partial http-q/query-route :resources version param-spec) %)]
+        query-route (partial http-q/query-route-from "resources" version param-spec)]
     (app
       []
       (query-route handlers)

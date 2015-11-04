@@ -492,7 +492,8 @@
    (mid/wrap-with-puppetdb-middleware
     (server/build-app #(hash-map :scf-read-db read-db
                                  :scf-write-db write-db
-                                 :product-name "puppetdb"))
+                                 :product-name "puppetdb"
+                                 :url-prefix "/pdb"))
     nil)))
 
 (deftest-http-app fact-queries
@@ -1406,11 +1407,21 @@
     ;; Facts subqueries
     ;;;;;;;;;;;;;;
 
-    ;; In format
+    ;; In: select_facts
     ["extract" "certname"
      ["in" "certname"
       ["extract" "certname"
        ["select_facts"
+        ["and"
+         ["=" "name" "uptime_seconds"]
+         ["=" "value" "4000"]]]]]]
+    #{{:certname "foo1"}}
+
+    ;; In: from facts
+    ["extract" "certname"
+     ["in" "certname"
+      ["from" "facts"
+       ["extract" "certname"
         ["and"
          ["=" "name" "uptime_seconds"]
          ["=" "value" "4000"]]]]]]
@@ -1428,11 +1439,21 @@
     ;; Fact content subqueries
     ;;;;;;;;;;;;;
 
-    ;; In format
+    ;; In: select_fact_contents
     ["extract" "certname"
      ["in" "certname"
       ["extract" "certname"
        ["select_fact_contents"
+        ["and"
+         ["=" "name" "uptime_seconds"]
+         ["=" "value" "4000"]]]]]]
+    #{{:certname "foo1"}}
+
+    ;; In: from fact_contents
+    ["extract" "certname"
+     ["in" "certname"
+      ["from" "fact_contents"
+       ["extract" "certname"
         ["and"
          ["=" "name" "uptime_seconds"]
          ["=" "value" "4000"]]]]]]

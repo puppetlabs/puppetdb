@@ -58,9 +58,8 @@
   ([version query]
    (query-resource-events version query {}))
   ([version query query-options]
-   (eng/stream-query-result :events
-                            version
-                            query
+   (eng/stream-query-result version
+                            ["from" "events" query]
                             query-options
-                            *db*
-                            "")))
+                            {:scf-read-db *db*
+                             :url-prefix "/pdb"})))

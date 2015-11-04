@@ -41,20 +41,8 @@ The available query endpoints are documented in the pages linked below.
 
 This is the current stable API.
 
-* [Nodes Endpoint](./query/v4/nodes.html)
-* [Environments Endpoint](./query/v4/environments.html)
-* [Factsets Endpoint](./query/v4/factsets.html)
-* [Facts Endpoint](./query/v4/facts.html)
-* [Fact-Names Endpoint](./query/v4/fact-names.html)
-* [Fact-Paths Endpoint](./query/v4/fact-paths.html)
-* [Fact-Contents Endpoint](./query/v4/fact-contents.html)
-* [Catalogs Endpoint](./query/v4/catalogs.html)
-* [Edges Endpoint](./query/v4/edges.html)
-* [Resources Endpoint](./query/v4/resources.html)
-* [Reports Endpoint](./query/v4/reports.html)
-* [Events Endpoint](./query/v4/events.html)
-* [Event Counts Endpoint](./query/v4/event-counts.html)
-* [Aggregate Event Counts Endpoint](./query/v4/aggregate-event-counts.html)
+* [Root Endpoint](./query/v4/index.html)
+* [Entity Endpoints](./query/v4/entities.html)
 * [Metrics Endpoint](./metrics/v1/mbeans.html)
 * [Server Time Endpoint](./meta/v1/server-time.html)
 * [Version Endpoint](./meta/v1/version.html)

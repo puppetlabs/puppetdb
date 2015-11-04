@@ -283,3 +283,17 @@
   "Produce a json 400 response with an :error key holding message."
   [message]
   (json-response {:error message} status-bad-request))
+
+(defn deprecated-app
+  "Add an X-Deprecation warning for deprecated endpoints"
+  [app msg request]
+  (let [result (app request)]
+    (log/warn msg)
+    (rr/header result "X-Deprecation" msg)))
+
+(defn experimental-warning
+  "Add a Warning: header for experimental endpoints"
+  [app msg request]
+  (let [result (app request)]
+    (log/warn msg)
+    (rr/header result "Warning" msg)))

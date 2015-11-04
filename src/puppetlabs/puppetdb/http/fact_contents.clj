@@ -9,8 +9,8 @@
   (let [param-spec {:optional paging/query-params}]
     (app
       []
-      (http-q/query-route :fact-contents version param-spec
-                          http-q/restrict-query-to-active-nodes))))
+      (http-q/query-route-from "fact_contents" version param-spec
+                               [http-q/restrict-query-to-active-nodes]))))
 
 (defn fact-contents-app
   [version]

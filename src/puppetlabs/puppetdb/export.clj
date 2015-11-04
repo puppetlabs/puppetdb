@@ -45,9 +45,9 @@
   [entity datum]
   (let [file-suffix
         (case entity
-          :factsets ["facts" (str (:certname datum) ".json")]
-          :catalogs ["catalogs" (str (:certname datum) ".json")]
-          :reports ["reports" (export-report-filename datum)])]
+          "factsets" ["facts" (str (:certname datum) ".json")]
+          "catalogs" ["catalogs" (str (:certname datum) ".json")]
+          "reports" ["reports" (export-report-filename datum)])]
     {:file-suffix file-suffix
      :contents (if (= entity :reports)
                  (-> datum (dissoc :hash) json/generate-pretty-string)
@@ -58,13 +58,13 @@
   (map #(export-datum->tar-item entity %) data))
 
 (def export-info
-  {:catalogs {:query->wire-fn catalogs/catalogs-query->wire-v7
+  {"catalogs" {:query->wire-fn catalogs/catalogs-query->wire-v7
               :anonymize-fn anon/anonymize-catalog
               :json-encoded-fields [:edges :resources]}
-   :reports {:query->wire-fn reports/reports-query->wire-v6
+   "reports" {:query->wire-fn reports/reports-query->wire-v6
              :anonymize-fn anon/anonymize-report
              :json-encoded-fields [:metrics :logs :resource_events]}
-   :factsets {:query->wire-fn factsets/factsets-query->wire-v4
+   "factsets" {:query->wire-fn factsets/factsets-query->wire-v4
               :anonymize-fn anon/anonymize-facts
               :json-encoded-fields [:facts]}})
 
@@ -93,7 +93,7 @@
                                            (maybe-anonymize anonymize-fn anon-config)
                                            (export-data->tar-items entity)
                                            (add-tar-entries tar-writer)))]]
-      (query-fn entity query-api-version nil nil query-callback-fn))))
+      (query-fn query-api-version ["from" entity] nil query-callback-fn))))
 
 (defn export!
   ([outfile query-fn] (export! outfile query-fn nil))

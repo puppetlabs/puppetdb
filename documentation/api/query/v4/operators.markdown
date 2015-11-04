@@ -4,6 +4,7 @@ layout: default
 canonical: "/puppetdb/latest/api/query/v4/operators.html"
 ---
 
+[root]: ./index.html
 [catalogs]: ./catalogs.html
 [edges]: ./edges.html
 [environments]: ./environments.html
@@ -15,6 +16,7 @@ canonical: "/puppetdb/latest/api/query/v4/operators.html"
 [query]: ./query.html
 [reports]: ./reports.html
 [resources]: ./resources.html
+[entities]: ./entities.html
 
 PuppetDB's [query strings][query] can use several common operators.
 
@@ -176,6 +178,32 @@ To get the average uptime for your nodes,
 
     ["extract", [["function", "avg", "value"]], ["=", "name", "uptime_seconds"]]
 
+## Context Operators
+
+*Note:* Context setting support is new and experimental. Setting the context at
+the top of the query is only supported on the [root] endpoint.
+
+Setting context in a query allows you to choose the entity you are querying
+on. This augments the endpoint support we have today, whereby the endpoint
+decides the context. For example `/pdb/query/v4/nodes` sets the context of the query
+to `nodes`.
+
+
+### `from`
+
+The `from` operator allows one to choose the [entity][entities] that you want to query and
+provide an optional query clause for filtering those results. This operator can
+be used at the top-level context of a query like so:
+
+    ["from", "nodes", ["=", "certname", "myserver"]]
+
+The `from` operator can also be used in a subquery for setting the context when
+using the [`in` operator](#subquery-operators).
+
+When querying a particular endpoint, such as `/pdb/query/v4/nodes` the endpoint provides
+the context for the query. While querying the [root] endpoint requires specifying a
+context explicitly.
+
 ## Subquery Operators
 
 Subqueries allow you to correlate data from multiple sources or multiple
@@ -197,20 +225,10 @@ related entity and the query to use:
 
     ["subquery", "<ENTITY>", <SUBQUERY STATEMENT>]
 
-The entity is a mapping to the particular endpoint or data type you desire, however not
-all entities are supported from all endpoints, as not every relationship makes sense.
-Consult the endpoint document for details on what implicit relationships are supported:
-
-* [`catalogs`][catalogs]
-* [`edges`][edges]
-* [`environments`][environments]
-* [`events`][events]
-* [`facts`][facts]
-* [`fact_contents`][fact-contents]
-* [`fact_paths`][fact-paths]
-* [`nodes`][nodes]
-* [`reports`][reports]
-* [`resources`][resources]
+The [`<ENTITY>`][entities] is the particular entity you are subquerying on, however not
+all entities are implicitly relatable to all other entities, as not every relationship makes sense.
+Consult the documentation for the chosen [`<ENTITY>`][entities] for details on what
+implicit relationships are supported.
 
 Internal to PuppetDB, we keep a mapping of how different entities relate to each
 other, and so no other data beyond the entity is needed in this case. This is
@@ -247,9 +265,15 @@ mapped internally. For these more advanced subqueries, you need to specify exact
 a subquery should join on. This is where an explicit subquery can be useful.
 
 Explicit subqueries are unlike the other operators listed above. They always appear
-together in the following form:
+together in one of the following forms:
 
     ["in", ["<FIELDS>"], ["extract", ["<FIELDS>"], <SUBQUERY STATEMENT>] ]
+
+The second new methodology uses `from` to set the context, and now looks like this:
+
+    ["in", ["<FIELDS>"], ["from", <ENTITY>, ["extract", ["<FIELDS>"], <SUBQUERY>] ] ]
+
+*Note:* This new format is experimental and may change or be removed in the future.
 
 That is:
 
@@ -275,21 +299,37 @@ An `in` statement constitutes a full query string, which can be used alone or as
 
 "In" statements are **non-transitive** and take two arguments:
 
-* The first argument **must** consist of one or more **fields** for the endpoint **being queried.**. This is a string or vector of strings.
-* The second argument **must** be an **`extract` statement,** which acts as a list of possible values for the fields.
+* The first argument **must** consist of one or more **fields** for the endpoint or entity **being queried.**. This is a string or vector of strings.
+* The second argument **must** be either:
+** an **`extract` statement,** which acts as a list of fields to extract during the subquery for matching against the **fields** in the `in` clause.
+** a **`from` statement,** which sets the context, and allows for an extract statement to be provided. *Note:* this syntax is new and experimental.
 
-**Matches if:** the field values are included in the list of values created by the `extract` statement.
+**Matches if:** the field values are included in the list of values created by the `extract` or `from` statement.
+
+#### `from`
+
+*Note:* the use of `from` in a subquery is experimental. It may change or be removed in the future.
+
+This statement works like the top-level [`from`](#context-operators) operator, and expects an [entity][entities] as the first argument and an optional query in the second
+argument, however when used within an `in` clause an `extract` statement is expected to choose the fields like so:
+
+    ["in", "certname",
+     ["from", "facts",
+      ["extract", "certname",
+       [<QUERY>]]]]
 
 #### `extract`
 
 "Extract" statements are **non-transitive** and take two arguments:
 
 * The first argument **must** be a valid set of **fields** for the endpoint **being subqueried** (see second argument). This is a string or vector of strings.
-* The second argument **must** be a **subquery statement.**
+* The second argument:
+** **must** contain a **subquery statement**
+** or when used with the new `from` operator, **may** contain an optional query.
 
 As the second argument of an `in` statement, an `extract` statement acts as a list of possible values. This list is compiled by extracting the value of the requested field from every result of the subquery.
 
-#### Subquery Statements
+#### `select_<ENTITY>` Subquery Statements
 
 A subquery statement **does not** constitute a full query string. It may only be used as the second argument of an `extract` statement.
 
@@ -299,8 +339,6 @@ Subquery statements are **non-transitive** and take two arguments:
 * The second argument **must** be a **full query string** that makes sense for the endpoint being subqueried.
 
 As the second argument of an `extract` statement, a subquery statement acts as a collection of PuppetDB objects. Each of the objects returned by the subquery has many fields; the `extract` statement takes the value of one field from each of those objects, and passes that list of values to the `in` statement that contains it.
-
-#### Available Subqueries
 
 Each subquery acts as a normal query to one of the PuppetDB endpoints. For info on constructing useful queries, see the docs page for the endpoint matching the subquery:
 
@@ -395,3 +433,50 @@ For the previous query, we also allow the shorthand
     ["=", ["node", "active"], true]
 
 and its counterpart with `false`.
+
+#### Explicit Subquery Examples (New Experimental Format)
+
+*Note:* The new syntax is experimental and may change or be removed.
+
+The new format re-orders the precedence of the context selection and the extraction
+so the format has changed. For example, a query such as this:
+
+    ["and",
+      ["=", "name", "ipaddress"],
+      ["in", "certname",
+        ["extract", "certname",
+          ["select_resources",
+            ["and",
+              ["=", "type", "Class"],
+              ["=", "title", "Apache"]]]]]]
+
+Will now look like this:
+
+    ["and",
+      ["=", "name", "ipaddress"],
+      ["in", "certname",
+        ["from", "resources",
+          ["extract", "certname",
+            ["and",
+              ["=", "type", "Class"],
+              ["=", "title", "Apache"]]]]]]
+
+Executing this query on the `/facts` endpoint would filter for `uptime_hours` for all nodes with
+`facts_environment` set to `production`:
+
+    ["and",
+      ["=", "name", "uptime_hours"],
+      ["in", "certname",
+        ["from", "nodes",
+          ["extract", "certname",
+            ["=", "facts_environment", "production"]]]]]
+
+To find node information for a host that has a macaddress of `aa:bb:cc:dd:ee:00` as
+its first macaddress on the interface `eth0`, you could use this query on `/nodes`:
+
+    ["in", "certname",
+      ["from", "fact_contents",
+        ["extract", "certname",
+          ["and",
+            ["=", "path", ["networking", "eth0", "macaddresses", 0]],
+            ["=", "value", "aa:bb:cc:dd:ee:00"]]]]]

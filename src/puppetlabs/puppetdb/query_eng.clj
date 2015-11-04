@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.query-eng
   (:import [org.postgresql.util PGobject])
-  (:require [clojure.java.jdbc :as sql]
+  (:require [clojure.core.match :as cm]
+            [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.paging :as paging]
@@ -16,6 +17,7 @@
             [puppetlabs.puppetdb.query.resources :as resources]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.query-eng.engine :as eng]
             [schema.core :as s]))
 
@@ -56,7 +58,9 @@
 
 (defn get-munge
   [entity]
-  (get-in @entity-fn-idx [entity :munge]))
+  (if-let [munge-result (get-in @entity-fn-idx [entity :munge])]
+    munge-result
+    (throw (IllegalArgumentException. (format "Invalid entity '%s' in query" (utils/dashes->underscores (name entity)))))))
 
 (defn orderable-columns
   [query-rec]
@@ -101,55 +105,75 @@
 
       (munge-fn version url-prefix))))
 
-(defn stream-query-result
+(def query-options-schema
+  {:scf-read-db s/Any
+   :url-prefix String
+   (s/optional-key :warn-experimental) Boolean
+   (s/optional-key :pretty-print) Boolean})
+
+(pls/defn-validated stream-query-result
   "Given a query, and database connection, return a Ring response with the query
    results."
-  ([entity version query paging-options db url-prefix]
+  ([version query paging-options options]
    ;; We default to doall because tests need this for the most part
-   (stream-query-result entity version query paging-options db url-prefix doall))
-  ([entity version query paging-options db url-prefix row-fn]
-   (let [munge-fn (get-munge-fn entity version paging-options url-prefix)]
-     (jdbc/with-transacted-connection db
+   (stream-query-result version query paging-options options doall))
+  ([version :- s/Keyword
+    query
+    paging-options
+    options :- query-options-schema
+    row-fn]
+   (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print]
+          :or {warn-experimental true
+               pretty-print false}} options
+         {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)
+         munge-fn (get-munge-fn entity version paging-options url-prefix)]
+     (jdbc/with-transacted-connection scf-read-db
        (let [{:keys [results-query]}
-             (query->sql query entity version paging-options)]
+             (query->sql remaining-query entity version paging-options)]
          (jdbc/with-query-results-cursor results-query (comp row-fn munge-fn)))))))
 
-(defn produce-streaming-body
+(pls/defn-validated produce-streaming-body
   "Given a query, and database connection, return a Ring response with
    the query results. query-map is a clojure map of the form
    {:query ['=','certname','foo'] :order_by [{'field':'foo'}]...}
    If the query can't be parsed, a 400 is returned."
-  [entity version query-map db url-prefix pretty-print]
-  (let [query (:query query-map)
-        query-options (dissoc query-map :query)]
+  [version :- s/Keyword
+   query-map
+   options :- query-options-schema]
+  (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print]
+         :or {warn-experimental true
+              pretty-print false}} options
+        query (:query query-map)
+        query-options (dissoc query-map :query)
+        {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)]
     (try
-      (jdbc/with-transacted-connection db
+      (jdbc/with-transacted-connection scf-read-db
         (let [munge-fn (get-munge-fn entity version query-options url-prefix)
-              {:keys [results-query count-query]} (-> query
+              {:keys [results-query count-query]} (-> remaining-query
                                                       json/coerce-from-json
                                                       (query->sql entity version query-options))
               query-error (promise)
               resp (http/streamed-response
-                     buffer
-                     (try (jdbc/with-transacted-connection db
-                            (jdbc/with-query-results-cursor
-                              results-query (comp #(http/stream-json % buffer pretty-print)
-                                                  #(do (when-not (instance? PGobject %)
-                                                         (first %)) (deliver query-error nil) %)
-                                                  munge-fn)))
-                          (catch java.sql.SQLException e
-                            (deliver query-error e))))]
+                    buffer
+                    (try (jdbc/with-transacted-connection scf-read-db
+                           (jdbc/with-query-results-cursor
+                             results-query (comp #(http/stream-json % buffer pretty-print)
+                                                 #(do (when-not (instance? PGobject %)
+                                                        (first %)) (deliver query-error nil) %)
+                                                 munge-fn)))
+                         (catch java.sql.SQLException e
+                           (deliver query-error e))))]
           (if @query-error
             (throw @query-error)
             (cond-> (http/json-response* resp)
-              count-query (http/add-headers {:count (jdbc/get-result-count count-query)})))))
+                    count-query (http/add-headers {:count (jdbc/get-result-count count-query)})))))
       (catch com.fasterxml.jackson.core.JsonParseException e
-        (log/errorf e (str "Error executing query '%s' for entity '%s' "
+        (log/errorf e (str "Error executing query '%s'"
                            "with query-options '%s'. Returning a 400 error code.")
                     (name entity) query query-options)
         (http/error-response e))
       (catch IllegalArgumentException e
-        (log/errorf e (str "Error executing query '%s' for entity '%s' "
+        (log/errorf e (str "Error executing query '%s'"
                            "with query-options '%s'. Returning a 400 error code.")
                     (name entity) query query-options)
         (http/error-response e))

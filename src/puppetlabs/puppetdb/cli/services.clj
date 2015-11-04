@@ -291,7 +291,7 @@
 (defprotocol PuppetDBServer
   (shared-globals [this])
   (set-url-prefix [this url-prefix])
-  (query [this query-obj version query-expr paging-options row-callback-fn]
+  (query [this version query-expr paging-options row-callback-fn]
     "Call `row-callback-fn' for matching rows.  The `paging-options' should
     be a map containing :order_by, :offset, and/or :limit."))
 
@@ -318,10 +318,12 @@
                               (format "Attempt to set url-prefix to %s when it's already been set to %s" url-prefix @old-url-prefix)))))
   (shared-globals [this]
                   (:shared-globals (service-context this)))
-  (query [this query-obj version query-expr paging-options row-callback-fn]
-         (let [{db :scf-read-db} (get (service-context this) :shared-globals)
-               url-prefix @(get (service-context this) :url-prefix)]
-           (qeng/stream-query-result query-obj version query-expr paging-options db url-prefix row-callback-fn))))
+  (query [this version query-expr paging-options row-callback-fn]
+         (let [sc (service-context this)
+               query-options (-> (get sc :shared-globals)
+                                 (select-keys [:scf-read-db :warn-experimental])
+                                 (assoc :url-prefix @(get sc :url-prefix)))]
+           (qeng/stream-query-result version query-expr paging-options query-options row-callback-fn))))
 
 (def ^{:arglists `([& args])
        :doc "Starts PuppetDB as a service via Trapperkeeper.  Aguments

@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.http.v4
-  (:require [puppetlabs.puppetdb.http.aggregate-event-counts :as aec]
+  (:require [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.http.aggregate-event-counts :as aec]
             [puppetlabs.puppetdb.http.event-counts :as ec]
             [puppetlabs.puppetdb.http.catalogs :as catalogs]
             [puppetlabs.puppetdb.http.reports :as reports]
@@ -13,12 +14,24 @@
             [puppetlabs.puppetdb.http.resources :as resources]
             [puppetlabs.puppetdb.http.nodes :as nodes]
             [puppetlabs.puppetdb.http.environments :as envs]
+            [puppetlabs.puppetdb.http.index :as index]
             [net.cgrand.moustache :as moustache]))
 
 (def version :v4)
 
+(defn experimental-index-app
+  [version]
+  (fn [request]
+    (http/experimental-warning
+     (index/index-app version)
+     "The root endpoint is experimental"
+     request)))
+
 (def v4-app
   (moustache/app
+   []
+   {:any (experimental-index-app version)}
+
    ["facts" &]
    {:any (facts/facts-app version)}
 

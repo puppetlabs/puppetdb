@@ -138,10 +138,19 @@
       ;; Fact subqueries
       ;;;;;;;;;;;;
 
-      ;; In format
+      ;; In: select_facts
       ["in" "certname"
        ["extract" "certname"
         ["select_facts"
+         ["and"
+          ["=" "name" "operatingsystem"]
+          ["=" "value" "Debian"]]]]]
+      [db web1 web2]
+
+      ;; In: from facts
+      ["in" "certname"
+       ["from" "facts"
+        ["extract" "certname"
          ["and"
           ["=" "name" "operatingsystem"]
           ["=" "value" "Debian"]]]]]
@@ -158,10 +167,19 @@
       ;; Fact_contents subqueries
       ;;;;;;;;;;;
 
-      ;; In format
+      ;; In: select_facts
       ["in" "certname"
        ["extract" "certname"
         ["select_fact_contents"
+         ["and"
+          ["=" "name" "operatingsystem"]
+          ["=" "value" "Debian"]]]]]
+      [db web1 web2]
+
+      ;; In: from facts
+      ["in" "certname"
+       ["from" "fact_contents"
+        ["extract" "certname"
          ["and"
           ["=" "name" "operatingsystem"]
           ["=" "value" "Debian"]]]]]
@@ -178,10 +196,23 @@
       ;; Nodes with a class matching their hostname
       ;;;;;;;;;;;;;
 
-      ;; In format
+      ;; In: select_<entity>
       ["in" "certname"
        ["extract" "certname"
         ["select_facts"
+         ["and"
+          ["=" "name" "hostname"]
+          ["in" "value"
+           ["extract" "title"
+            ["select_resources"
+             ["and"
+              ["=" "type" "Class"]]]]]]]]]
+      [web1]
+
+      ;; In: from <entity>
+      ["in" "certname"
+       ["from" "facts"
+        ["extract" "certname"
          ["and"
           ["=" "name" "hostname"]
           ["in" "value"
@@ -206,7 +237,7 @@
       ;; Nodes with matching select-resources for file/line
       ;;;;;;;;;;;;
 
-      ;; In format
+      ;; In: select_resources
       ["in" "certname"
        ["extract" "certname"
         ["select_resources"
@@ -215,11 +246,14 @@
           ["=" "line" 1]]]]]
       [db puppet web1]
 
+      ;; In: from resources
       ["in" "certname"
-       ["extract" "certname"
-        ["select_resources"
-         ["=" "certname" web1]]]]
-      [web1]
+       ["from" "resources"
+        ["extract" "certname"
+         ["and"
+          ["=" "file" "/etc/puppet/modules/settings/manifests/init.pp"]
+          ["=" "line" 1]]]]]
+      [db puppet web1]
 
       ;; Implicit subquery
       ["subquery" "resources"
@@ -232,10 +266,17 @@
       ;; Reports subquery
       ;;;;;;;;;;;;
 
-      ;; In format
+      ;; In: select_reports
       ["in" "certname"
        ["extract" "certname"
         ["select_reports"
+         ["=" "certname" db]]]]
+      [db]
+
+      ;; In: from reports
+      ["in" "certname"
+       ["from" "reports"
+        ["extract" "certname"
          ["=" "certname" db]]]]
       [db]
 
@@ -248,10 +289,17 @@
       ;; Catalogs subquery
       ;;;;;;;;;;;;;;
 
-      ;; In format
+      ;; In: select_catalogs
       ["in" "certname"
        ["extract" "certname"
         ["select_catalogs"
+         ["=" "certname" web1]]]]
+      [web1]
+
+      ;; In: from catalogs
+      ["in" "certname"
+       ["from" "catalogs"
+        ["extract" "certname"
          ["=" "certname" web1]]]]
       [web1]
 
@@ -264,10 +312,17 @@
       ;; Factsets subquery
       ;;;;;;;;;;;;;;
 
-      ;; In format
+      ;; In: select_factsets
       ["in" "certname"
        ["extract" "certname"
         ["select_factsets"
+         ["=" "certname" web2]]]]
+      [web2]
+
+      ;; In: from factsets
+      ["in" "certname"
+       ["from" "factsets"
+        ["extract" "certname"
          ["=" "certname" web2]]]]
       [web2]
 
@@ -280,10 +335,17 @@
       ;; Events subquery
       ;;;;;;;;;;;;;
 
-      ;; In format
+      ;; In: select_events
       ["in" "certname"
        ["extract" "certname"
         ["select_events"
+         ["=" "certname" db]]]]
+      [db]
+
+      ;; In: from events
+      ["in" "certname"
+       ["from" "events"
+        ["extract" "certname"
          ["=" "certname" db]]]]
       [db]
 
@@ -296,10 +358,17 @@
       ;; Resource subquery
       ;;;;;;;;;;;;;
 
-      ;; In format
+      ;; In: select_resources
       ["in" "certname"
        ["extract" "certname"
         ["select_resources"
+         ["=" "certname" web1]]]]
+      [web1]
+
+      ;; In: from resources
+      ["in" "certname"
+       ["from" "resources"
+        ["extract" "certname"
          ["=" "certname" web1]]]]
       [web1]
 

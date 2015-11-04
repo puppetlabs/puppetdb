@@ -15,7 +15,6 @@
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.query.paging :refer [parse-limit' parse-offset' parse-order-by']]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.utils :refer [update-when]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -45,9 +44,6 @@
 (def param-spec-schema
   {(s/optional-key :optional) [s/Str]
    (s/optional-key :required) [s/Str]})
-
-(def experimental-entities
-  #{:event-counts :aggregate-event-counts})
 
 (defn- are-queries-different?
   [req1 req2]
@@ -179,6 +175,19 @@
   (restrict-query ["=" "title" title]
                   req))
 
+(defn wrap-with-from
+  "Wrap a query in a from, using the entity and any provided query"
+  [entity query]
+  (if query
+    ["from" entity query]
+    ["from" entity]))
+
+(pls/defn-validated restrict-query-to-entity
+  "Restrict the query to a particular entity, by wrapping the query in a from."
+  [entity :- String
+   req]
+  (update-in req [:puppetdb-query :query] #(wrap-with-from entity %)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion/validation of query parameters
 
@@ -290,31 +299,23 @@
        (IllegalArgumentException.
          "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
 
-(defn warn-experimental
-  [entity warn-experimental]
-  (when (and warn-experimental
-             (contains? experimental-entities entity))
-    (log/warn (format
-                "The %s endpoint is experimental and may be altered or removed in the future."
-                (name entity)))))
-
 (defn query-route
-  "Returns a route for querying PuppetDB that supports the standard
-   paging parameters. Also accepts GETs and POSTs. Composes
-   `optional-handlers` with the middleware function that executes the
-   query."
-  [entity version param-spec & optional-handlers]
-  (let [handlers (or optional-handlers [identity])]
-    (app
-      (extract-query param-spec)
-      (apply comp
-             (fn [{:keys [params globals puppetdb-query]}]
-               (warn-experimental entity (:warn-experimental globals))
-               (produce-streaming-body
-                 entity
-                 version
-                 (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-                 (:scf-read-db globals)
-                 (:url-prefix globals)
-                 (:pretty-print globals)))
-             optional-handlers))))
+  [version param-spec optional-handlers]
+  (app
+   (extract-query param-spec)
+   (apply comp
+          (fn [{:keys [params globals puppetdb-query]}]
+            (produce-streaming-body version
+                                    (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                                    (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental])))
+          optional-handlers)))
+
+(defn query-route-from
+  "Convenience wrapper for query-route, which automatically wraps the query in a
+  `from` to set context."
+  ([entity version param-spec]
+   (query-route-from entity version param-spec [identity]))
+  ([entity version param-spec optional-handlers]
+   (let [handlers (cons (partial restrict-query-to-entity entity)
+                        optional-handlers)]
+     (query-route version param-spec handlers))))

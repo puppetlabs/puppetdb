@@ -14,27 +14,25 @@
    paging parameters. Also accepts GETs and POSTs. Composes
    `optional-handlers` with the middleware function that executes the
    query."
-  [entity version param-spec & optional-handlers]
+  [version param-spec & optional-handlers]
   (app
-    (http-q/extract-query param-spec)
-    (apply comp
-           (fn [{:keys [params globals puppetdb-query]}]
-             (let [puppetdb-query (assoc-when puppetdb-query :order_by [[:name :ascending]])]
-               (produce-streaming-body
-                 entity
-                 version
-                 (http-q/validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-                 (:scf-read-db globals)
-                 (:url-prefix globals)
-                 (:pretty-print globals))))
-           optional-handlers)))
+   (http-q/extract-query param-spec)
+   (apply comp
+          (fn [{:keys [params globals puppetdb-query]}]
+            (let [puppetdb-query (assoc-when puppetdb-query :order_by [[:name :ascending]])]
+              (produce-streaming-body
+               version
+               (http-q/validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+               (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental]))))
+          (partial http-q/restrict-query-to-entity "fact_names")
+          optional-handlers)))
 
 (defn routes
   [version]
   (let [param-spec {:optional paging/query-params}]
     (app
       []
-      (query-route :fact-names version param-spec identity))))
+      (query-route version param-spec identity))))
 
 (defn fact-names-app
   [version]
