@@ -107,7 +107,7 @@
            {:certname "host2.localdomain"}}
 
          ["extract" ["edges"] ["=" "certname" "host2.localdomain"]]
-         #{{:edges (merge {:href "/v4/catalogs/host2.localdomain/edges"}
+         #{{:edges (merge {:href "/pdb/query/v4/catalogs/host2.localdomain/edges"}
                           {:data [{:source_type "Apt::Pin"
                                    :source_title "puppetlabs"
                                    :target_type "File"

@@ -82,6 +82,18 @@ If you do this with an endpoint that accepts `GET` requests, **you must also use
     curl -G http://localhost:8080/pdb/query/v4/nodes \
       --data-urlencode 'query=["=", ["node", "active"], true]'
 
+## Pretty querying of PuppetDB
+
+PuppetDB returns unprettified JSON by default. PuppetDB provides the option of
+prettifying your JSON responses with the `pretty` parameter. This parameter
+accepts a boolean (`true` or `false`) value to indicicate whether the response
+should be pretty-printed. Be aware pretty printing comes at the cost of
+performance on some of our endpoints, such as `/v4/catalogs`, `/v4/reports` and
+`/v4/factsets`, due to the storage of some of their data as JSON/JSONB in PostgreSQL.
+
+    curl -X POST http://localhost:8080/pdb/query/v4/nodes \
+        --data-urlencode 'pretty=true'
+
 ## Querying PuppetDB with POST
 
 PuppetDB supports querying by POST, which is useful for particularly large

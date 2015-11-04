@@ -44,6 +44,14 @@
        su/sql-hash-as-str
        hcore/raw))
 
+(defn hsql-hash-as-href
+  [entity parent child]
+  (hcore/raw (str "format("
+                  (str "'/pdb/query/v4/" (name parent) "/%s/" (name child) "'")
+                  ", "
+                  entity
+                  ")")))
+
 (defn hsql-uuid-as-str
   [column-keyword]
   (-> column-keyword name (str "::text") hcore/raw))
@@ -338,8 +346,8 @@
   used for digging into the logs for a specific report."
   (map->Query {:projections {"logs" {:type :json
                                      :queryable? false
-                                     :field (h/coalesce
-                                             :logs (h/scast :logs_json :jsonb))}
+                                     :field (h/coalesce :logs
+                                                        (h/scast :logs_json :jsonb))}
                              "hash" {:type :string
                                      :queryable? true
                                      :query-only? true
@@ -356,10 +364,8 @@
   used for digging into the metrics for a specific report."
   (map->Query {:projections {"metrics" {:type :json
                                         :queryable? false
-                                        :field (h/coalesce
-                                                :reports.metrics
-                                                (h/scast :reports.metrics_json
-                                                         :jsonb))}
+                                        :field (h/coalesce :reports.metrics
+                                                           (h/scast :reports.metrics_json :jsonb))}
                              "hash" {:type :string
                                      :queryable? true
                                      :query-only? true
@@ -403,18 +409,17 @@
                  :queryable? false
                  :field {:select [(h/row-to-json :t)]
                          :from [[{:select
-                                  [[(h/coalesce :metrics
-                                                (h/scast :metrics_json :jsonb))
-                                    :data]
-                                           [(hsql-hash-as-str :hash) :href]]} :t]]}
+                                  [[(h/coalesce :metrics (h/scast :metrics_json :jsonb)) :data]
+                                   [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :metrics)
+                                    :href]]} :t]]}
                  :expandable? true}
       "logs" {:type :json
               :queryable? false
               :field {:select [(h/row-to-json :t)]
-                      :from [[{:select [[(h/coalesce :logs (h/scast :logs_json
-                                                                    :jsonb))
-                                         :data]
-                                        [(hsql-hash-as-str :hash) :href]]} :t]]}
+                      :from [[{:select
+                               [[(h/coalesce :logs (h/scast :logs_json :jsonb)) :data]
+                                [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :logs)
+                                 :href]]} :t]]}
               :expandable? true}
       "receive_time"    {:type :timestamp
                          :queryable? true
@@ -438,13 +443,22 @@
                          :queryable? false
                          :expandable? true
                          :field {:select [(h/row-to-json :event_data)]
-                                 :from [[{:select [[(json-agg-row :t) :data]
-                                                   [(hsql-hash-as-str :hash) :href]]
-                                          :from [[{:select [:re.status
-                                                            :re.timestamp
-                                                            :re.resource_type :re.resource_title :re.property
-                                                            :re.new_value :re.old_value :re.message
-                                                            :re.file :re.line :re.containment_path :re.containing_class]
+                                 :from [[{:select
+                                          [[(json-agg-row :t) :data]
+                                           [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :events) :href]]
+                                          :from [[{:select
+                                                   [:re.status
+                                                    :re.timestamp
+                                                    :re.resource_type
+                                                    :re.resource_title
+                                                    :re.property
+                                                    (h/scast :re.new_value :jsonb)
+                                                    (h/scast :re.old_value :jsonb)
+                                                    :re.message
+                                                    :re.file
+                                                    :re.line
+                                                    :re.containment_path
+                                                    :re.containing_class]
                                                    :from [[:resource_events :re]]
                                                    :where [:= :reports.id :re.report_id]} :t]]}
                                          :event_data]]}}}
@@ -499,10 +513,10 @@
                    :expandable? true
                    :field {:select [(h/row-to-json :resource_data)]
                            :from [[{:select [[(json-agg-row :t) :data]
-                                             [:c.certname :href]]
+                                             [(hsql-hash-as-href "c.certname" :catalogs :resources) :href]]
                                     :from [[{:select [[(hsql-hash-as-str :cr.resource) :resource]
                                                       :cr.type :cr.title :cr.tags :cr.exported :cr.file :cr.line
-                                                      [(keyword "rpc.parameters::json") :parameters]]
+                                                      [(h/scast :rpc.parameters :json) :parameters]]
                                              :from [[:catalog_resources :cr]]
                                              :join [[:resource_params_cache :rpc]
                                                     [:= :rpc.resource :cr.resource]]
@@ -514,7 +528,7 @@
                :expandable? true
                :field {:select [(h/row-to-json :edge_data)]
                        :from [[{:select [[(json-agg-row :t) :data]
-                                         [:c.certname :href]]
+                                         [(hsql-hash-as-href "c.certname" :catalogs :edges) :href]]
                                 :from [[{:select [[:sources.type :source_type] [:sources.title :source_title]
                                                   [:targets.type :target_type] [:targets.title :target_title]
                                                   [:edges.type :relationship]]
@@ -626,9 +640,9 @@
                              "line" {:type :number
                                      :queryable? true
                                      :field :line}
-                             "parameters" {:type :string
+                             "parameters" {:type :json
                                            :queryable? true
-                                           :field :rpc.parameters}}
+                                           :field (h/scast :rpc.parameters :json)}}
 
                :selection {:from [[:catalog_resources :resources]]
                            :join [[:catalogs :c]
@@ -787,8 +801,8 @@
                :expandable? true
                :field {:select [(h/row-to-json :facts_data)]
                        :from [[{:select [[(json-agg-row :t) :data]
-                                         [:factsets.certname :href]]
-                                :from [[{:select [:fp.name :fv.value]
+                                         [(hsql-hash-as-href "factsets.certname" :factsets :facts) :href]]
+                                :from [[{:select [:fp.name (h/scast :fv.value :jsonb)]
                                          :from [[:facts :f]]
                                          :join [[:fact_values :fv] [:= :fv.id :f.fact_value_id]
                                                 [:fact_paths :fp] [:= :fp.id :f.fact_path_id]

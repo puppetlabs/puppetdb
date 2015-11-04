@@ -25,7 +25,8 @@
                  version
                  (http-q/validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
                  (:scf-read-db globals)
-                 (:url-prefix globals))))
+                 (:url-prefix globals)
+                 (:pretty-print globals))))
            optional-handlers)))
 
 (defn routes

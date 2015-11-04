@@ -17,9 +17,11 @@
   (app
     []
     (fn [{:keys [globals]}]
-      (let [{db :scf-read-db url-prefix :url-prefix} globals
+      (let [{db :scf-read-db
+             url-prefix :url-prefix
+             pretty-print :pretty-print} globals
             query (json/generate-string ["=" "hash" hash])]
-        (produce-streaming-body entity version {:query query} db url-prefix)))))
+        (produce-streaming-body entity version {:query query} db url-prefix pretty-print)))))
 
 (defn routes
   [version optional-handlers]

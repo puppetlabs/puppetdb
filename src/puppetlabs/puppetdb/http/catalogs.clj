@@ -5,6 +5,8 @@
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.http.edges :as edges]
             [puppetlabs.puppetdb.http.resources :as resources]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [schema.core :as s]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
@@ -23,7 +25,8 @@
                                           db
                                           url-prefix))]
     (if catalog
-      (http/json-response (s/validate catalogs/catalog-query-schema catalog))
+      (http/json-response (s/validate catalogs/catalog-query-schema
+                                      (kitchensink/mapvals sutils/parse-db-json [:edges :resources] catalog)))
       (http/status-not-found-response "catalog" node))))
 
 (defn routes

@@ -10,18 +10,32 @@
 
    This namespace when 'required' will also setup some common JSON encoders
    globally, so you can avoid doing this for each call."
-  (:require [cheshire.generate :as generate]
-            [cheshire.core :as core]
+  (:import [com.fasterxml.jackson.core JsonGenerator]
+           [org.postgresql.util PGobject]
+           [java.io Writer])
+  (:require [cheshire.core :as core]
+            [cheshire.generate :as generate]
             [clj-time.coerce :as coerce]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clojure.set :as set]))
 
+;; Alias coerce/to-string to avoid reflection
+(def ^String to-string coerce/to-string)
 (defn add-common-json-encoders!*
   "Non-memoize version of add-common-json-encoders!"
   []
   (generate/add-encoder
+   org.postgresql.util.PGobject
+   (fn [^PGobject data ^JsonGenerator jsonGenerator]
+     ;; The .getPrettyPrinter method on the Jackson jsonGenerator will return
+     ;; nil if `:pretty` is not set as a cheshire option
+     (if (.getPrettyPrinter jsonGenerator)
+       (generate/encode-map (core/parse-string (.getValue data)) jsonGenerator)
+       (.writeRawValue jsonGenerator (.getValue data)))))
+  (generate/add-encoder
    org.joda.time.DateTime
-   (fn [data jsonGenerator]
-     (.writeString jsonGenerator (coerce/to-string data)))))
+   (fn [data ^JsonGenerator jsonGenerator]
+     (.writeString jsonGenerator (to-string data)))))
 
 (def
   ^{:doc "Registers some common encoders for cheshire JSON encoding.
@@ -96,10 +110,14 @@
    :else
    obj))
 
+
+;; Alias (apply io/writer ...) to avoid reflection
+(defn ^Writer writer [f options]
+  (apply io/writer f options))
 (defn spit-json
   "Similar to clojure.core/spit, but writes the Clojure
    datastructure as JSON to `f`"
   [f obj & options]
-  (with-open [writer (apply io/writer f options)]
+  (with-open [writer (writer f options)]
     (generate-pretty-stream obj writer))
   nil)

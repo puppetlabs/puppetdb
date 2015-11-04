@@ -1118,7 +1118,7 @@
   [version]
   (map (comp munge-factset-response
              #(utils/assoc-when % "timestamp" reference-time "producer_timestamp" reference-time))
-       [{"facts" {"href" (str "/" (name version) "/factsets/foo1/facts")
+       [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo1/facts")
                   "data" [{"name" "domain"
                            "value" "testing.com"}
                           {"name" "uptime_seconds"
@@ -1132,7 +1132,7 @@
          "certname" "foo1"
          "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}
 
-        {"facts" {"href" (str "/" (name version) "/factsets/foo2/facts")
+        {"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
                   "data" [{"name" "uptime_seconds"
                            "value" "6000"}
                           {"name" "domain"
@@ -1146,7 +1146,7 @@
          "producer_timestamp" "2013-01-01T00:00:00.000Z"
          "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}
 
-        {"facts" {"href" (str "/" (name version) "/factsets/foo3/facts")
+        {"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo3/facts")
                   "data" [{"name" "domain"
                            "value" "testing.com"}
                           {"name" "operatingsystem"
@@ -1285,7 +1285,7 @@
                          queries)]
       (is (= (munge-factset-response (into {} (first responses)))
              (munge-factset-response
-              {"facts" {"href" (str "/" (name version) "/factsets/foo1/facts")
+              {"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo1/facts")
                         "data" [{"name" "domain"
                                  "value" "testing.com"}
                                 {"name" "my_structured_fact"
@@ -1307,7 +1307,7 @@
                "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"})))
       (is (= (munge-factsets-response (into [] (second responses)))
              (map munge-factset-response
-                  [{"facts" {"href" (str "/" (name version) "/factsets/foo1/facts")
+                  [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo1/facts")
                              "data" [{"name" "my_structured_fact"
                                       "value"
                                       {"a" 1
@@ -1328,7 +1328,7 @@
                     "certname" "foo1"
                     "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}
 
-                   {"facts" {"href" (str "/" (name version) "/factsets/foo2/facts")
+                   {"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
                              "data" [{"name" "my_structured_fact"
                                       "value"
                                       {"a" 1
@@ -1348,7 +1348,7 @@
 
       (is (= (munge-factsets-response (into [] (nth responses 2)))
              (map munge-factset-response
-                  [{"facts" {"href" (str "/" (name version) "/factsets/foo2/facts")
+                  [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
                              "data" [{"name" "my_structured_fact"
                                       "value"
                                       {"a" 1
@@ -1367,7 +1367,7 @@
                     "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}])))
       (is (= (munge-factsets-response (into [] (nth responses 3)))
              (map munge-factset-response
-                  [{"facts" {"href" (str "/" (name version) "/factsets/foo2/facts")
+                  [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
                              "data" [{"name" "my_structured_fact"
                                       "value"
                                       {"a" 1
@@ -1463,7 +1463,7 @@
                                  {"name" "domain", "value" "testing.com"}
                                  {"name" "test#~delimiter" "value" "foo"}
                                  {"name" "uptime_seconds" "value" "4000"}}
-                        "href" "/v4/factsets/foo1/facts"}
+                        "href" "/pdb/query/v4/factsets/foo1/facts"}
                "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"
                "producer_timestamp" "2014-10-28T20:26:21.727Z"
                "timestamp" "2014-10-28T20:26:21.727Z"}))))))
