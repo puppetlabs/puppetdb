@@ -6,7 +6,7 @@
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [clojure.java.io :refer [file]]
             [clj-http.client :as client]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils]
+            [puppetlabs.puppetdb.utils :refer [base-url->str-with-prefix]]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.dashboard :as dtu]))
 
@@ -19,6 +19,9 @@
 (deftest root-dashboard-routing
   (svc-utils/call-with-single-quiet-pdb-instance
    (fn []
-     (let [root-resp (client/get (dtu/dashboard-base-url->str (assoc svc-utils/*base-url* :prefix "/")))]
+     (let [root-resp (-> svc-utils/*base-url*
+                         (assoc :prefix "/")
+                         base-url->str-with-prefix
+                         client/get)]
        (tu/assert-success! root-resp)
        (is (dtu/dashboard-page? root-resp))))))

@@ -300,6 +300,7 @@
 (defn add-web-routing-service-config
   [config-data]
   (let [default-web-router-service {:puppetlabs.puppetdb.metrics/metrics-service "/metrics"
+                                    :puppetlabs.trapperkeeper.services.status.status-service/status-service "/status"
                                     :puppetlabs.puppetdb.pdb-routing/pdb-routing-service "/pdb"}
         bootstrap-cfg (-> (find-bootstrap-config config-data)
                           slurp

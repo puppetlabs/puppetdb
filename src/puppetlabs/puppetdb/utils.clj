@@ -8,7 +8,6 @@
             [clojure.set :as set]
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.java.io :as io]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.walk :as walk]
             [slingshot.slingshot :refer [try+ throw+]]
@@ -181,6 +180,12 @@
   (-> (URL. protocol host port "")
       .toURI .toASCIIString))
 
+(defn base-url->str-with-prefix
+  [{:keys [protocol host port prefix] :as base-url}]
+  (-> (java.net.URL. protocol host port prefix)
+      .toURI
+      .toASCIIString))
+
 (defn describe-bad-base-url
   "If a problem is detected with `base-url`, returns a string
   describing the issue. For example {:host \"x:y\" ...}."
@@ -304,3 +309,8 @@
   (sp/transform [sp/ALL]
                 #(update % 0 underscores->dashes)
                 m))
+
+(defmacro with-timeout [timeout-ms default & body]
+  `(let [f# (future (do ~@body))
+         result# (deref f# ~timeout-ms ~default)]
+     result#))
