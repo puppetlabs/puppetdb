@@ -77,6 +77,12 @@
   [sequence-name]
   (jdbc/do-commands (format "DROP SEQUENCE IF EXISTS %s" sequence-name)))
 
+(defn drop-function!
+  "Drops a function from the database.  Expects to be called from within a db binding.
+  Exercise extreme caution when calling this function!"
+  [function-name]
+  (jdbc/do-commands (format "DROP FUNCTION IF EXISTS %s CASCADE" function-name)))
+
 (defn clear-db-for-testing!
   "Completely clears the database specified by config (or the current
   database), dropping all puppetdb tables and other objects that exist
@@ -89,7 +95,9 @@
    (doseq [table-name (cons "test" (sutils/sql-current-connection-table-names))]
      (drop-table! table-name))
    (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
-     (drop-sequence! sequence-name))))
+     (drop-sequence! sequence-name))
+   (doseq [function-name (sutils/sql-current-connection-function-names)]
+          (drop-function! function-name))))
 
 (def ^:private pdb-test-id (env :pdb-test-id))
 
@@ -115,6 +123,10 @@
         (jdbc/do-commands-outside-txn
          (format "drop database if exists %s" template-name)
          (format "create database %s" template-name)))
+      (jdbc/with-db-connection (db-admin-config template-name)
+        (jdbc/do-commands-outside-txn
+         "create extension pg_trgm"
+         "create extension pgcrypto"))
       (let [cfg (db-user-config template-name)]
         (jdbc/with-db-connection cfg
           (migrate! cfg)))

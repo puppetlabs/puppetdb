@@ -16,7 +16,8 @@
             [puppetlabs.puppetdb.testutils.db :as tdb
              :refer [*db* clear-db-for-testing!
                      schema-info-map diff-schema-maps]]
-            [puppetlabs.kitchensink.core :as ks])
+            [puppetlabs.kitchensink.core :as ks]
+            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]])
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
 
@@ -377,3 +378,21 @@
            (ks/keyset (pending-migrations))))
     (migrate! *db*)
     (is (empty? (pending-migrations)))))
+
+(deftest md5-agg-test
+  (with-test-db
+    (jdbc/with-db-connection *db*
+      (testing "dual_md5 function"
+        (is (= [{:encode "187ef4436122d1cc2f40dc2b92f0eba0"}]
+               (query-to-vec "select encode(dual_md5('a', 'b'), 'hex')"))))
+
+      (testing "md5_agg custom aggregator"
+        ;; this hash is different from the above because it starts by executing
+        ;; dual_md5(0::bytea, 'a'::bytea)
+        (is (= [{:encode "bdef73571a96923bdc6b78b5345377d3"}]
+               (query-to-vec
+                (str "select encode(md5_agg(val), 'hex') "
+                     "from (values (1, 'a'::bytea), (1, 'b'::bytea)) x(gid, val) "
+                     "group by gid"))))))))
+
+
