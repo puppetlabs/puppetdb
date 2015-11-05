@@ -235,11 +235,11 @@ fi
 
 set -e
 
-mycertname=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint  certname`
+mycertname=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint  certname`
 
-orig_public_file=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint  hostcert`
-orig_private_file=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint hostprivkey`
-orig_ca_file=`puppet master --confdir=$agent_confdir --vardir=$agent_vardir --configprint localcacert`
+orig_public_file=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint  hostcert`
+orig_private_file=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint hostprivkey`
+orig_ca_file=`puppet agent --confdir=$agent_confdir --vardir=$agent_vardir --configprint localcacert`
 
 ssl_dir=${puppetdb_confdir}/ssl
 
