@@ -451,6 +451,22 @@
       (binding [*out* *err*] (flush)) (flush)
       (System/exit 1))))
 
+(defn previous-migrations
+  "Returns the list of migration numbers that existed before the
+  current known set. These migrations can't be upgraded from, but are
+  recognized and shouldn't cause errors if they are present"
+  [known-migrations]
+  (range 1 (first known-migrations)))
+
+(defn unrecognized-migrations
+  "Returns a set of migrations, likely created by a future version of
+  PuppetDB"
+  [applied-migrations known-migrations]
+  (->> known-migrations
+       previous-migrations
+       (into known-migrations)
+       (difference applied-migrations)))
+
 (defn migrate!
   "Migrates database to the latest schema version. Does nothing if
   database is already at the latest schema version.  Requires a
@@ -469,7 +485,7 @@
                            " As an example, users wanting to upgrade from 2.x to 4.x should first upgrade to 3.x.")
                       latest-applied-migration))))
 
-    (when-let [unexpected (first (difference applied-migration-versions known-migrations))]
+    (when-let [unexpected (first (unrecognized-migrations applied-migration-versions known-migrations))]
       (throw (IllegalStateException.
               (format "Your PuppetDB database contains a schema migration numbered %d, but this version of PuppetDB does not recognize that version."
                       unexpected))))

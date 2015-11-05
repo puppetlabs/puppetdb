@@ -14,7 +14,8 @@
             [clojure.set :refer :all]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.testutils :refer [clear-db-for-testing! test-db]]
-            [puppetlabs.puppetdb.testutils.db :refer [schema-info-map diff-schema-maps]])
+            [puppetlabs.puppetdb.testutils.db :refer [schema-info-map diff-schema-maps]]
+            [puppetlabs.kitchensink.core :as ks])
   (:import [java.sql SQLIntegrityConstraintViolationException]
            [org.postgresql.util PSQLException]))
 
@@ -242,3 +243,15 @@
     (is (thrown-with-msg? IllegalStateException
                           #"Found an old and unuspported database migration.*"
                           (migrate! *db*)))))
+
+(deftest test-upgrade-migration
+  (jdbc/with-db-connection *db*
+    ;;This represents a database from a 2.x version of PuppetDB
+    (fast-forward-to-migration! 34)
+    (doseq [migration-num (range 1 34)]
+      (record-migration! migration-num))
+    (let [latest-known-migration (apply max (keys migrations))]
+      (is (= (set (range 35 (inc latest-known-migration)))
+             (ks/keyset (pending-migrations))))
+      (migrate! *db*)
+      (is (empty? (pending-migrations))))))
