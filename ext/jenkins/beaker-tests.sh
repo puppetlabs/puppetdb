@@ -25,6 +25,7 @@ export PUPPETDB_PACKAGE_REPO_HOST="puppetdb-prerelease.s3.amazonaws.com"
 export PUPPETDB_PACKAGE_REPO_URL="http://puppetdb-prerelease.s3.amazonaws.com/puppetdb/${PACKAGE_BUILD_VERSION}"
 export PUPPETDB_PACKAGE_BUILD_VERSION=$PACKAGE_BUILD_VERSION
 export BEAKER_CONFIG=$LAYOUT
+export INSTALL_MODE=$INSTALL_TYPE
 
 set -x
 # Now run our tests
