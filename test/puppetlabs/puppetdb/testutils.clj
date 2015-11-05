@@ -81,6 +81,10 @@
      (binding [*mq* {:connection connection}]
        (f)))))
 
+(defmacro with-alt-mq [mq-name & body]
+  `(with-redefs [default-mq-endpoint ~mq-name]
+     (do ~@body)))
+
 (defn call-counter
   "Returns a method that just tracks how many times it's called, and
   with what arguments. That information is stored in metadata for the

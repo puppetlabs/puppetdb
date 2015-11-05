@@ -155,6 +155,14 @@
 (defmacro with-test-db [& body]
   `(call-with-test-db (fn [] ~@body)))
 
+(defn call-with-test-dbs [n f]
+  "Calls (f db-config ...) with n db-config arguments, each
+  representing a database created and protected by with-test-db."
+  (if (pos? n)
+    (with-test-db
+      (call-with-test-dbs (dec n) (partial f *db*)))
+    (f)))
+
 (defn without-db-var
   "Binds the java.jdbc dtabase connection to nil. When running a unit
    test using `call-with-test-db`, jint/*db* will be bound. If the routes
