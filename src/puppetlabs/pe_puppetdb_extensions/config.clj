@@ -82,10 +82,15 @@
   "Convert ini-style configuration structure to hocon-style, or just pass a
    config through if it's already hocon-style."
   [sync-config]
-  (if (:remotes sync-config)
+  (cond
+    (nil? sync-config)
+    {:remotes []}
+
+    (:remotes sync-config)
     ;; already hocon-style
     (sync-config-coercer sync-config)
 
+    :else
     (-> (s/validate sync-config-ini-schema sync-config)
         (dissoc :server-urls :intervals)
         (assoc :remotes (if (and (:server-urls sync-config)
