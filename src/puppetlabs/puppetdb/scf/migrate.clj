@@ -402,6 +402,44 @@
     "CREATE UNIQUE INDEX factsets_hash_expr_idx ON factsets(trim(leading '\\x' from hash::text))"
     "ALTER TABLE factsets DROP CONSTRAINT factsets_hash_key"))
 
+(defn add-support-for-historical-catalogs []
+  (jdbc/do-commands
+   "ALTER TABLE certnames RENAME TO certnames_tmp"
+   "ALTER TABLE catalog_resources RENAME TO catalog_resources_tmp"
+   ;; CREATE certnames and catalog_resources transform tables
+   "CREATE TABLE catalog_resources (LIKE catalog_resources_tmp INCLUDING ALL)"
+   "CREATE TABLE certnames (LIKE certnames_tmp INCLUDING ALL)"
+   "ALTER TABLE catalog_resources DROP COLUMN catalog_id"
+   "ALTER TABLE catalog_resources ADD COLUMN certname_id BIGINT NOT NULL REFERENCES certnames(id);"
+   "ALTER TABLE catalog_resources ADD PRIMARY KEY (certname_id, type, title)"
+   "ALTER TABLE certnames ADD COLUMN latest_catalog_id BIGINT NOT NULL REFERENCES catalogs(id);"
+
+   (str "INSERT INTO certnames"
+        "  (latest_catalog_id, id, certname, latest_report_id, deactivated, expired)"
+        "  SELECT catalogs.id, c.id, c.certname, c.latest_report_id, c.deactivated, c.expired"
+        "  FROM certnames_tmp c"
+        "  LEFT JOIN catalogs ON catalogs.certname = c.certname")
+
+   (str "INSERT INTO catalog_resources"
+        "  (certname_id, resource, tags, type, title, exported, file, line)"
+        "  SELECT certnames_tmp.id, cr.resource, cr.tags, cr.type, cr.title, cr.exported, cr.file, cr.line"
+        "  FROM catalog_resources_tmp cr"
+        "  LEFT JOIN catalogs ON catalogs.id = cr.catalog_id"
+        "  LEFT JOIN certnames_tmp ON certnames_tmp.certname = catalogs.certname")
+
+   "DROP TABLE catalog_resources_tmp"
+
+   ;; REPLACE certnames
+   "ALTER TABLE catalogs DROP CONSTRAINT catalogs_certname_fkey"
+   "ALTER TABLE factsets DROP CONSTRAINT factsets_certname_fk"
+   "ALTER TABLE reports DROP CONSTRAINT reports_certname_fkey"
+   "ALTER TABLE edges DROP CONSTRAINT edges_certname_fkey"
+   "ALTER TABLE catalogs ADD CONSTRAINT catalogs_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"
+   "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON UPDATE CASCADE ON DELETE CASCADE"
+   "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"
+   "ALTER TABLE edges ADD CONSTRAINT edges_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"
+   "DROP TABLE certnames_tmp"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {34 init-through-3-0-0
@@ -413,7 +451,9 @@
    37 add-jsonb-columns-for-metrics-and-logs
    38 add-code-id-to-catalogs
    39 add-expression-indexes-for-bytea-queries
-   40 factset-hash-field-not-nullable})
+   40 factset-hash-field-not-nullable
+   41 add-support-for-historical-catalogs
+   })
 
 (def desired-schema-version (apply max (keys migrations)))
 

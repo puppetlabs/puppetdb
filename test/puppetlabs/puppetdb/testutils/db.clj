@@ -2,6 +2,7 @@
   (:require [clojure.java.jdbc :as sql]
             [clojure.string :as str]
             [environ.core :refer [env]]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
@@ -300,6 +301,16 @@ WHERE NOT nspname LIKE 'pg%';")
                                 :is_functional :functional?
                                 :is_primary :primary?})))
 
+(defn query-indexes
+  "Returns the list of all PuppetDB created indexes, sorted by table,
+  then the name of the index"
+  [db]
+  (jdbc/with-db-connection db
+    (let [indexes (sort-by (juxt :table :index_keys)
+                           (map db->index-map (jdbc/query-to-vec indexes-sql)))]
+      (kitchensink/mapvals first
+                           (group-by (juxt :table :index_keys) indexes)))))
+
 (def table-column-sql
   "SELECT c.table_name,
           c.column_name,
@@ -316,14 +327,6 @@ WHERE NOT nspname LIKE 'pg%';")
         inner join information_schema.columns c on t.table_name = c.table_name
    where t.table_schema = 'public';")
 
-(defn query-indexes
-  "Returns the list of all PuppetDB created indexes, sorted by table,
-  then the name of the index"
-  [db]
-  (jdbc/with-db-connection db
-    (sort-by (juxt :table :index)
-             (map db->index-map (jdbc/query-to-vec indexes-sql)))))
-
 (defn db->table-map
   "Converts the metadata column names to something more natural in Clojure"
   [row]
@@ -336,7 +339,8 @@ WHERE NOT nspname LIKE 'pg%';")
   (jdbc/with-db-connection db
     (let [tables (sort-by (juxt :table_name :column_name)
                           (map db->table-map (jdbc/query-to-vec table-column-sql)))]
-      (group-by (juxt :table_name :column_name) tables))))
+      (kitchensink/mapvals first
+                           (group-by (juxt :table_name :column_name) tables)))))
 
 (defn schema-info-map [db-props]
   {:indexes (query-indexes db-props)
@@ -344,42 +348,28 @@ WHERE NOT nspname LIKE 'pg%';")
 
 (defn diff' [left right]
   (let [[left-only right-only same] (clojure.data/diff left right)]
-    {:left-only left-only
-     :right-only right-only
-     :same same}))
+    (when (or left-only right-only)
+      {:left-only left-only
+       :right-only right-only
+       :same same})))
 
-(defn diff-table-maps [table-map-1 table-map-2]
-  (let [table-names (set (concat (keys table-map-1) (keys table-map-2)))]
-    (keep (fn [table-name]
-            (let [{:keys [left-only right-only same]} (diff' (get table-map-1 table-name)
-                                                             (get table-map-2 table-name))]
-              (when (or left-only right-only)
-                {:left-only (vec (remove nil? left-only))
-                 :right-only (vec (remove nil? right-only))
-                 :same (vec (remove nil? same))})))
-          table-names)))
+(defn diff-schema-data [left right]
+  (->> (concat (keys left) (keys right))
+       (into (sorted-set))
+       (keep (fn [data-map-key]
+               (diff' (get left data-map-key)
+                      (get right data-map-key))))))
 
 (defn diff-schema-maps [left right]
-  (let [index-diff (diff' (:indexes left) (:indexes right))
-        table-diffs (diff-table-maps (:tables left) (:tables right))]
-    {:index-diff (when (or (:left-only index-diff) (:right-only index-diff))
-                   (mapv (fn [left-item right-item same-item]
-                           {:left-only left-item
-                            :right-only right-item
-                            :same same-item})
-                         (:left-only index-diff) (:right-only index-diff) (:same index-diff)))
-     :table-diff (when (seq table-diffs)
-                   table-diffs)}))
+  (let [index-diff (diff-schema-data (:indexes left) (:indexes right))
+        table-diffs (diff-schema-data (:tables left) (:tables right))]
+    {:index-diff (seq index-diff)
+     :table-diff (seq table-diffs)}))
 
 (defn output-table-diffs [diff-list]
   (str/join "\n\n------------------------------\n\n"
-            (remove nil?
-                    (map (fn [{:keys [left-only right-only same]}]
-                           (when (or left-only right-only)
-                             (apply str ["Left Only:\n"
-                                         (pprint-str left-only)
-                                         "\nRight Only:\n"
-                                         (pprint-str right-only)
-                                         (str "\nSame:\n")
-                                         (pprint-str same)])))
-                         diff-list))))
+            (map (fn [{:keys [left-only right-only same]}]
+                   (str "Left Only:\n" (pprint-str left-only)
+                        "\nRight Only:\n" (pprint-str right-only)
+                        "\nSame:\n" (pprint-str same)))
+                 diff-list)))

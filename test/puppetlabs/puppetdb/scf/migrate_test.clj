@@ -226,19 +226,79 @@
   (let [before-migration (schema-info-map *db*)]
     (apply-migration-for-testing! 40)
     (is (= {:index-diff nil,
-            :table-diff [{:left-only [{:nullable? "YES"}],
-                          :right-only [{:nullable? "NO"}]
-                          :same [{:numeric_scale nil,
-                                  :column_default nil,
-                                  :character_octet_length nil,
-                                  :datetime_precision nil,
-                                  :character_maximum_length nil,
-                                  :numeric_precision nil,
-                                  :numeric_precision_radix nil,
-                                  :data_type "bytea",
-                                  :column_name "hash",
-                                  :table_name "factsets"}]}]}
+            :table-diff [{:left-only {:nullable? "YES"}
+                          :right-only {:nullable? "NO"}
+                          :same {:numeric_scale nil
+                                 :column_default nil
+                                 :character_octet_length nil
+                                 :datetime_precision nil
+                                 :character_maximum_length nil
+                                 :numeric_precision nil
+                                 :numeric_precision_radix nil
+                                 :data_type "bytea"
+                                 :column_name "hash"
+                                 :table_name "factsets"}}]}
+
            (diff-schema-maps before-migration (schema-info-map *db*))))))
+
+(deftest test-adding-historical-catalogs-support-migration
+  (jdbc/with-db-connection *db*
+    (fast-forward-to-migration! 39)
+    (let [before-migration (schema-info-map *db*)]
+      (apply-migration-for-testing! 40)
+      (let [schema-diff (diff-schema-maps before-migration (schema-info-map *db*))]
+        (is (= [{:same nil :right-only nil
+                 :left-only {:numeric_scale 0 :column_default nil
+                             :character_octet_length nil :datetime_precision nil
+                             :nullable? "NO" :character_maximum_length nil
+                             :numeric_precision 64 :numeric_precision_radix 2
+                             :data_type "bigint" :column_name "catalog_id"
+                             :table_name "catalog_resources"}}
+                {:same nil :left-only nil
+                 :right-only {:numeric_scale 0 :column_default nil
+                              :character_octet_length nil :datetime_precision nil
+                              :nullable? "NO" :character_maximum_length nil
+                              :numeric_precision 64 :numeric_precision_radix 2
+                              :data_type "bigint" :column_name "certname_id"
+                              :table_name "catalog_resources"}}
+                {:left-only nil :same nil
+                 :right-only {:numeric_scale 0 :column_default nil
+                              :character_octet_length nil :datetime_precision nil
+                              :nullable? "NO" :character_maximum_length nil
+                              :numeric_precision 64 :numeric_precision_radix 2,
+                              :data_type "bigint" :column_name "latest_catalog_id"
+                              :table_name "certnames"}}]
+               (:table-diff schema-diff)))
+
+        (is (= #{{:left-only {:index "idx_catalog_resources_exported_true"}
+                  :right-only {:index "catalog_resources_exported_idx"}}
+                 {:left-only {:index "idx_catalog_resources_resource"}
+                  :right-only {:index "catalog_resources_resource_idx"}}
+                 {:left-only {:index "idx_catalog_resources_type"}
+                  :right-only {:index "catalog_resources_type_idx"}}
+                 {:left-only {:index "idx_catalog_resources_type_title"}
+                  :right-only {:index "catalog_resources_type_title_idx"}}
+                 {:left-only {:index "certnames_transform_certname_key"}
+                  :right-only {:index "certnames_certname_key"}}
+                 {:left-only {:index "certnames_transform_pkey"}
+                  :right-only {:index "certnames_pkey"}}
+                 {:right-only nil
+                  :left-only {:schema "public"
+                              :table "catalog_resources" :index "catalog_resources_pkey"
+                              :index_keys ["catalog_id" "type" "title"]
+                              :type "btree" :unique? true
+                              :functional? false :is_partial false
+                              :primary? true :user "puppetdb"}}
+                 {:right-only {:schema "public" :table "catalog_resources"
+                               :index "catalog_resources_pkey1"
+                               :index_keys ["certname_id" "type" "title"]
+                               :type "btree" :unique? true
+                               :functional? false :is_partial false
+                               :primary? true :user "puppetdb"}
+                  :left-only nil}}
+               (->> (:index-diff schema-diff)
+                    (map #(dissoc % :same))
+                    set)))))))
 
 (deftest test-migrate-from-unsupported-version
   (clear-db-for-testing!)
