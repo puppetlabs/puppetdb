@@ -7,7 +7,10 @@
             [clojure.test.check.properties :as prop]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote!]]
-            [puppetlabs.pe-puppetdb-extensions.sync.sync-test-utils :refer [default-pdb-configs with-pdbs start-sync]]
+            [puppetlabs.pe-puppetdb-extensions.sync.sync-test-utils
+             :refer [start-sync]]
+            [puppetlabs.pe-puppetdb-extensions.testutils
+             :refer [sync-config with-ext-instances]]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.client :refer [submit-command-via-http!]]
             [puppetlabs.puppetdb.examples :as examples]
@@ -244,31 +247,30 @@
 (def ^:private convergence-trials-run (atom 0))
 
 (defn- run-convergence-test [commands]
-  (with-pdbs (default-pdb-configs 2)
-    (fn [pdb1 pdb2]
-      (let [pdb1-url (base-url->str (:server-url pdb1))
-            pdb2-url (base-url->str (:server-url pdb2))]
-        (swap! convergence-trials-run inc)
-        (binding [*out* *err*]
-          (print (format "\rTrial %d/%d"
-                         @convergence-trials-run convergence-test-count))
-          (flush))
-        (do ;; svcs/with-log-level :sync :debug
-          (doseq [cmd commands]
-            (exec-convergence-cmd pdb1 pdb2 cmd))
-          (wait-for-processing pdb1)
-          (wait-for-processing pdb2)
-          ;; Verify sync - all commands should have been executed
-          ;;(semlog/logp [:sync :info] "===== All commands should be finished")
-          (sync-directly! pdb1 pdb2-url)
-          (wait-for-processing pdb1)
-          ;;(semlog/logp [:sync :info] "===== PDB1 synced")
-          (sync-directly! pdb2 pdb1-url)
-          (wait-for-processing pdb2)
-          ;;(semlog/logp [:sync :info] "===== PDB2 synced")
-          (let [s1 (check-sync :to-x pdb1 pdb2-url commands)
-                s2 (check-sync :to-y pdb2 pdb1-url commands)]
-            (and s1 s2)))))))
+  (with-ext-instances [pdb1 (sync-config nil) pdb2 (sync-config nil)]
+    (let [pdb1-url (base-url->str (:server-url pdb1))
+          pdb2-url (base-url->str (:server-url pdb2))]
+      (swap! convergence-trials-run inc)
+      (binding [*out* *err*]
+        (print (format "Trial %d/%d\r"
+                       @convergence-trials-run convergence-test-count))
+        (flush))
+      (do ;; svcs/with-log-level :sync :debug
+        (doseq [cmd commands]
+          (exec-convergence-cmd pdb1 pdb2 cmd))
+        (wait-for-processing pdb1)
+        (wait-for-processing pdb2)
+        ;; Verify sync - all commands should have been executed
+        ;;(semlog/logp [:sync :info] "===== All commands should be finished")
+        (sync-directly! pdb1 pdb2-url)
+        (wait-for-processing pdb1)
+        ;;(semlog/logp [:sync :info] "===== PDB1 synced")
+        (sync-directly! pdb2 pdb1-url)
+        (wait-for-processing pdb2)
+        ;;(semlog/logp [:sync :info] "===== PDB2 synced")
+        (let [s1 (check-sync :to-x pdb1 pdb2-url commands)
+              s2 (check-sync :to-y pdb2 pdb1-url commands)]
+          (and s1 s2))))))
 
 (defspec convergence convergence-test-count
   ;; Given the cycle time and the number of possible test
