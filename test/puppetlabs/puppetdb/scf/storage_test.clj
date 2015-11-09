@@ -484,8 +484,8 @@
 
       (testing "properly associated with the host"
         (is (= (query-to-vec ["SELECT c.certname, cr.type, cr.title
-                                 FROM catalog_resources cr, catalogs c
-                                 WHERE c.id=cr.catalog_id
+                                 FROM catalog_resources cr, certnames c
+                                 WHERE c.id=cr.certname_id
                                  ORDER BY cr.type, cr.title"])
                [{:certname certname :type "Class" :title "foobar"}
                 {:certname certname :type "File"  :title "/etc/foobar"}
@@ -671,7 +671,7 @@
   (testing "should be removed when deleted"
     (add-certname! certname)
     (let [hash (add-catalog! catalog)]
-      (delete-catalog! hash))
+      (delete-catalog! certname))
 
     (is (= (query-to-vec ["SELECT * FROM catalog_resources"])
            []))))
@@ -692,20 +692,20 @@
     (let [hash1 (add-catalog! catalog)
           ;; Store the same catalog for a different host
           hash2 (add-catalog! (assoc catalog :certname "myhost2.mydomain.com"))]
-      (delete-catalog! hash1))
+      (delete-catalog! certname))
 
     ;; myhost should still be present in the database
-    (is (= (query-to-vec ["SELECT certname FROM certnames ORDER BY certname"])
-           [{:certname certname} {:certname "myhost2.mydomain.com"}]))
+    (is (= [{:certname certname} {:certname "myhost2.mydomain.com"}]
+           (query-to-vec ["SELECT certname FROM certnames ORDER BY certname"])))
 
     ;; myhost1 should not have any catalogs associated with it
     ;; anymore
-    (is (= (query-to-vec ["SELECT certname FROM catalogs"])
-           [{:certname "myhost2.mydomain.com"}]))
+    (is (= [{:certname "myhost2.mydomain.com"}]
+           (query-to-vec ["SELECT certname FROM catalogs"])))
 
     ;; All the other resources should still be there
-    (is (= (query-to-vec ["SELECT COUNT(*) as c FROM catalog_resources"])
-           [{:c 3}]))))
+    (is (= [{:c 3}]
+           (query-to-vec ["SELECT COUNT(*) as c FROM catalog_resources"])))))
 
 (deftest-db fact-delete-should-prune-paths-and-values
   (add-certname! certname)
@@ -735,7 +735,7 @@
   (testing "when deleted but no GC should leave params"
     (add-certname! certname)
     (let [hash1 (add-catalog! catalog)]
-      (delete-catalog! hash1))
+      (delete-catalog! certname))
 
     ;; All the params should still be there
     (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resource_params"])
@@ -759,7 +759,7 @@
     ;; Add a catalog with an environment
     (let [catalog (assoc catalog :environment "ENV1")
           hash1 (add-catalog! catalog)]
-      (delete-catalog! hash1))
+      (delete-catalog! certname))
 
     ;; Add a report with an environment
     (let [timestamp     (now)
@@ -871,7 +871,9 @@
                  {:type "File" :title "/etc/foobar"}
                  {:type "File" :title "/etc/foobar/baz"}}
                (set (query-to-vec "SELECT cr.type, cr.title
-                                   FROM catalogs c INNER JOIN catalog_resources cr ON c.id = cr.catalog_id
+                                   FROM catalogs c
+                                   INNER JOIN certnames ON certnames.latest_catalog_id = certnames.id
+                                   INNER JOIN catalog_resources cr ON certnames.id = cr.certname_id
                                    WHERE c.certname=?" certname))))
 
         (tu/with-wrapped-fn-args [inserts sql/insert!
@@ -892,7 +894,7 @@
                      (table-args @inserts)))
           (is (= [:catalogs]
                  (table-args @updates)))
-          (is (= [[:catalog_resources ["catalog_id = ? and type = ? and title = ?"
+          #_(is (= [[:catalog_resources ["catalog_id = ? and type = ? and title = ?"
                                        (-> @updates first (#(nth % 3)) second)
                                        "File" "/etc/foobar"]]]
                  (remove-edge-changes (map rest @deletes)))))
@@ -901,7 +903,9 @@
                  {:type "File" :title "/etc/foobar2"}
                  {:type "File" :title "/etc/foobar/baz"}}
                (set (query-to-vec "SELECT cr.type, cr.title
-                                   FROM catalogs c INNER JOIN catalog_resources cr ON c.id = cr.catalog_id
+                                   FROM catalogs c
+                                   INNER JOIN certnames ON certnames.certname = c.certname
+                                   INNER JOIN catalog_resources cr ON cr.certname_id = certnames.id
                                    WHERE c.certname=?" certname))))
 
         (let [results (query-to-vec
@@ -926,7 +930,7 @@
     (add-certname! certname)
     (add-catalog! catalog old-date)
 
-    (is (= 3 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname)))))
+    (is (= 3 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname)))))
 
     (tu/with-wrapped-fn-args [inserts sql/insert!
                               updates sql/update!
@@ -949,7 +953,7 @@
       (is (= [:catalogs] (table-args @updates)))
       (is (empty? @deletes)))
 
-    (is (= 4 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname)))))))
+    (is (= 4 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname)))))))
 
 (deftest-db change-line-resource-metadata
   (add-certname! certname)
@@ -959,7 +963,7 @@
     (is (= #{{:line nil}
              {:line 10}
              {:line 20}}
-           (set (query-to-vec "SELECT line FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname))))
+           (set (query-to-vec "SELECT line FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname))))
 
     (add-catalog! (update-in catalog [:resources]
                              (fn [resources]
@@ -968,7 +972,7 @@
     (is (= [{:line 1000}
             {:line 1000}
             {:line 1000}]
-           (query-to-vec "SELECT line FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname)))))
+           (query-to-vec "SELECT line FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname)))))
 
 (deftest-db change-exported-resource-metadata
   (add-certname! certname)
@@ -981,7 +985,7 @@
               :title "/etc/foobar"}
              {:exported false
               :title "/etc/foobar/baz"}}
-           (set (query-to-vec "SELECT title, exported FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname))))
+           (set (query-to-vec "SELECT title, exported FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname))))
 
     (add-catalog! (update-in catalog [:resources]
                              (fn [resources]
@@ -994,7 +998,7 @@
               :title "/etc/foobar"}
              {:exported true
               :title "/etc/foobar/baz"}}
-           (set (query-to-vec "SELECT title, exported FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname))))))
+           (set (query-to-vec "SELECT title, exported FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname))))))
 
 (deftest-db change-file-resource-metadata
   (add-certname! certname)
@@ -1007,7 +1011,7 @@
               :file "/tmp/foo"}
              {:title "/etc/foobar/baz"
               :file "/tmp/bar"}}
-           (set (query-to-vec "SELECT title, file FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname))))
+           (set (query-to-vec "SELECT title, file FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname))))
 
     (add-catalog! (update-in catalog [:resources]
                              (fn [resources]
@@ -1019,7 +1023,7 @@
               :file "/tmp/foo.pp"}
              {:title "/etc/foobar/baz"
               :file "/tmp/foo.pp"}}
-           (set (query-to-vec "SELECT title, file FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname))))))
+           (set (query-to-vec "SELECT title, file FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname))))))
 
 (defn tags->set
   "Converts tags from a vector to a set"
@@ -1041,7 +1045,7 @@
            {:title "/etc/foobar/baz"
             :tags #{"file" "class" "foobar"}
             :line 20}}
-         (-> (query-to-vec "SELECT title, tags, line FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname)
+         (-> (query-to-vec "SELECT title, tags, line FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname)
              jdbc/convert-result-arrays
              tags->set
              set)))
@@ -1060,7 +1064,7 @@
            {:title "/etc/foobar/baz"
             :line 20
             :tags #{"file" "class" "foobar"}}}
-         (-> (query-to-vec "SELECT title, tags, line FROM catalog_resources WHERE catalog_id = (select id from catalogs where certname = ?)" certname)
+         (-> (query-to-vec "SELECT title, tags, line FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname)
              jdbc/convert-result-arrays
              tags->set
              set))))
@@ -1083,8 +1087,8 @@
     (add-certname! certname)
     (add-catalog! catalog-with-extra-resource old-date)
 
-    (let [catalog-id (:id (first (query-to-vec "SELECT id from catalogs where certname=?" certname)))]
-      (is (= 4 (count (query-to-vec "SELECT * from catalog_resources where catalog_id = ?" catalog-id))))
+    (let [certname-id (:id (first (query-to-vec "SELECT id from certnames where certname=?" certname)))]
+      (is (= 4 (count (query-to-vec "SELECT * from catalog_resources where certname_id = ?" certname-id))))
 
       (tu/with-wrapped-fn-args [inserts sql/insert!
                                 updates sql/update!
@@ -1097,7 +1101,7 @@
 
       (let [catalog-results (query-to-vec "SELECT timestamp from catalogs where certname=?" certname)
             {:keys [timestamp]} (first catalog-results)
-            resources (set (query-to-vec "SELECT type, title from catalog_resources where catalog_id = ?" catalog-id))]
+            resources (set (query-to-vec "SELECT type, title from catalog_resources where certname_id = ?" certname-id))]
 
         (is (= 1 (count catalog-results)))
         (is (= 3 (count resources)))
@@ -1108,8 +1112,8 @@
 (defn foobar-params []
   (jdbc/query-with-resultset
    ["SELECT p.name AS k, p.value AS v
-       FROM catalog_resources cr, catalogs c, resource_params p
-       WHERE cr.catalog_id = c.id AND cr.resource = p.resource AND certname=?
+       FROM catalog_resources cr, certnames c, resource_params p
+       WHERE cr.certname_id = c.id AND cr.resource = p.resource AND c.certname=?
          AND cr.type=? AND cr.title=?"
     (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
    (fn [rs]
@@ -1122,8 +1126,8 @@
 (defn foobar-params-cache []
   (jdbc/query-with-resultset
    ["SELECT rpc.parameters as params
-       FROM catalog_resources cr, catalogs c, resource_params_cache rpc
-       WHERE cr.catalog_id = c.id AND cr.resource = rpc.resource AND certname=?
+       FROM catalog_resources cr, certnames c, resource_params_cache rpc
+       WHERE cr.certname_id = c.id AND cr.resource = rpc.resource AND c.certname=?
          AND cr.type=? AND cr.title=?"
     (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]
    #(-> (sql/result-set-seq %)
@@ -1134,8 +1138,8 @@
 (defn foobar-param-hash []
   (jdbc/query-with-resultset
    [(format "SELECT %s AS hash
-               FROM catalog_resources cr, catalogs c
-               WHERE cr.catalog_id = c.id AND certname=? AND cr.type=?
+               FROM catalog_resources cr, certnames c
+               WHERE cr.certname_id = c.id AND c.certname=? AND cr.type=?
                  AND cr.title=?"
             (sutils/sql-hash-as-str "cr.resource"))
     (get-in catalogs [:basic :certname]) "File" "/etc/foobar"]

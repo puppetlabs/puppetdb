@@ -334,12 +334,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog updates/changes
 
-(defn catalog-metadata
+(defn latest-catalog-metadata
   "Returns the id and hash of certname's catalog"
   [certname]
   {:pre [certname]}
   (jdbc/query-with-resultset
-   [(format "SELECT id, %s AS hash FROM catalogs WHERE certname=?"
+   [(format (str "SELECT certnames.latest_catalog_id AS catalog_id,"
+                 " certnames.id AS certname_id, %s AS catalog_hash, catalogs.producer_timestamp"
+                 " FROM certnames "
+                 " LEFT JOIN catalogs ON catalogs.id = certnames.latest_catalog_id"
+                 " WHERE certnames.certname=?")
             (sutils/sql-hash-as-str "catalogs.hash"))
     certname]
    (comp first sql/result-set-seq)))
@@ -399,13 +403,13 @@
 ;;should be changed to the correct schema
 (pls/defn-validated catalog-resources
   "Returns the resource hashes keyed by resource reference"
-  [catalog-id :- Number]
+  [certname-id :- Number]
   (jdbc/query-with-resultset
    [(format "SELECT type, title, tags, exported, file, line, %s
                AS resource
                FROM catalog_resources
-               WHERE catalog_id = ?"
-            (sutils/sql-hash-as-str "resource")) catalog-id]
+               WHERE certname_id = ?"
+            (sutils/sql-hash-as-str "resource")) certname-id]
    (fn [rs]
      (let [rss (sql/result-set-seq rs)]
        (zipmap (map #(select-keys % [:type :title]) rss)
@@ -466,7 +470,7 @@
 
 (pls/defn-validated insert-catalog-resources!
   "Returns a function that accepts a seq of ref keys to insert"
-  [catalog-id :- Number
+  [certname-id :- Number
    refs-to-hashes :- {resource-ref-schema String}
    refs-to-resources :- resource-ref->resource-schema]
   (fn [refs-to-insert]
@@ -479,7 +483,7 @@
      (map (fn [resource-ref]
             (let [{:keys [type title exported parameters tags file line] :as resource} (get refs-to-resources resource-ref)]
               (convert-tags-array
-               {:catalog_id catalog-id
+               {:certname_id certname-id
                 :resource (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
                 :type type
                 :title title
@@ -491,7 +495,7 @@
 
 (pls/defn-validated delete-catalog-resources!
   "Returns a function accepts old catalog resources that should be deleted."
-  [catalog-id :- Number]
+  [certname-id :- Number]
   (fn [refs-to-delete]
     {:pre [(every? resource-ref? refs-to-delete)]}
 
@@ -499,8 +503,8 @@
 
     (doseq [{:keys [type title]} refs-to-delete]
       (jdbc/delete! :catalog_resources
-                    ["catalog_id = ? and type = ? and title = ?"
-                     catalog-id type title]))))
+                    ["certname_id = ? and type = ? and title = ?"
+                     certname-id type title]))))
 
 (s/defn basic-diff
   "Basic diffing that returns only the keys/values of `right` whose values don't match those of `left`.
@@ -534,7 +538,7 @@
 
 (pls/defn-validated update-catalog-resources!
   "Returns a function accepting keys that were the same from the old resources and the new resources."
-  [catalog-id :- Number
+  [certname-id :- Number
    refs-to-hashes :- {resource-ref-schema String}
    refs-to-resources
    old-resources]
@@ -550,8 +554,8 @@
       (doseq [[{:keys [type title]} updated-cols] updated-resources]
         (jdbc/update! :catalog_resources
                       (convert-tags-array updated-cols)
-                      ["catalog_id = ? and type = ? and title = ?"
-                       catalog-id type title])))))
+                      ["certname_id = ? and type = ? and title = ?"
+                       certname-id type title])))))
 
 (defn strip-params
   "Remove params from the resource as it is stored (and hashed) separately
@@ -561,18 +565,18 @@
 
 (pls/defn-validated add-resources!
   "Persist the given resource and associate it with the given catalog."
-  [catalog-id :- Number
+  [certname-id :- Number
    refs-to-resources :- resource-ref->resource-schema
    refs-to-hashes :- {resource-ref-schema String}]
-  (let [old-resources (catalog-resources catalog-id)
+  (let [old-resources (catalog-resources certname-id)
         diffable-resources (kitchensink/mapvals strip-params refs-to-resources)]
     (jdbc/with-db-transaction []
      (add-params! refs-to-resources refs-to-hashes)
      (utils/diff-fn old-resources
                     diffable-resources
-                    (delete-catalog-resources! catalog-id)
-                    (insert-catalog-resources! catalog-id refs-to-hashes diffable-resources)
-                    (update-catalog-resources! catalog-id refs-to-hashes diffable-resources old-resources)))))
+                    (delete-catalog-resources! certname-id)
+                    (insert-catalog-resources! certname-id refs-to-hashes diffable-resources)
+                    (update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)))))
 
 (pls/defn-validated catalog-edges-map
   "Return all edges for a given catalog id as a map"
@@ -658,9 +662,9 @@
                    #(delete-edges! certname %)
                    identity)))
 
-(pls/defn-validated update-catalog-hash-match
-  "When a new incoming catalog has the same hash as an existing catalog, update performance-metrics
-   and the transaction id for the new catalog"
+(pls/defn-validated update-existing-catalog
+  "When a new incoming catalog has the same hash as an existing catalog, update
+   performance-metrics and the transaction id for the new catalog"
   [catalog-id :- Number
    hash :- String
    catalog :- catalog-schema
@@ -671,17 +675,19 @@
 
 (pls/defn-validated update-catalog-associations!
   "Adds/updates/deletes the edges and resources for the given certname"
-  [catalog-id :- Number
+  [certname-id :- Number
    {:keys [resources edges certname]} :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}]
   (time! (:add-resources performance-metrics)
-         (add-resources! catalog-id resources refs-to-hashes))
+         (add-resources! certname-id resources refs-to-hashes))
   (time! (:add-edges performance-metrics)
          (replace-edges! certname edges refs-to-hashes)))
 
-(pls/defn-validated update-catalog-hash-miss
-  "New catalogs for a given certname needs to have their metadata, resources and edges updated."
-  [catalog-id :- Number
+(pls/defn-validated replace-existing-catalog
+  "New catalogs for a given certname needs to have their metadata, resources and
+  edges updated."
+  [certname-id :- Number
+   catalog-id :- Number
    hash :- String
    catalog :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}
@@ -691,54 +697,59 @@
 
   (time! (:catalog-hash-miss performance-metrics)
          (update-catalog-metadata! catalog-id hash catalog received-timestamp)
-         (update-catalog-associations! catalog-id catalog refs-to-hashes)))
+         (update-catalog-associations! certname-id catalog refs-to-hashes)))
 
 (pls/defn-validated add-new-catalog
   "Creates new catalog metadata and adds the proper associations for the edges and resources"
-  [hash :- String
+  [certname-id :- Number
+   hash :- String
    catalog :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}
    received-timestamp :- pls/Timestamp]
   (inc! (:updated-catalog performance-metrics))
   (time! (:add-new-catalog performance-metrics)
          (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
-           (update-catalog-associations! catalog-id catalog refs-to-hashes))))
+           (jdbc/update! :certnames {:latest_catalog_id catalog-id} ["id=?" certname-id])
+           (update-catalog-associations! certname-id catalog refs-to-hashes))))
 
 (pls/defn-validated add-catalog!
   "Persist the supplied catalog in the database, returning its
    similarity hash."
   ([catalog :- catalog-schema]
    (add-catalog! catalog (now)))
-  ([{:keys [api_version resources edges certname] :as catalog} :- catalog-schema
+  ([{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
     received-timestamp :- pls/Timestamp]
 
-   (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
-                               (reduce-kv (fn [acc k v]
-                                            (assoc acc k (shash/resource-identity-hash v)))
-                                          {} resources))
-         hash (time! (:catalog-hash performance-metrics)
+   (let [hash (time! (:catalog-hash performance-metrics)
                      (shash/catalog-similarity-hash catalog))
-         {id :id
-          stored-hash :hash} (catalog-metadata certname)]
+         {catalog-id :catalog_id
+          stored-hash :catalog_hash
+          certname-id :certname_id
+          latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
 
      (jdbc/with-db-transaction []
-      (cond
-       (nil? id)
-       (add-new-catalog hash catalog refs-to-hashes received-timestamp)
-
-       (= stored-hash hash)
-       (update-catalog-hash-match id hash catalog received-timestamp)
-
-       :else
-       (update-catalog-hash-miss id hash catalog refs-to-hashes received-timestamp)))
-
+       (cond
+         (some-> latest-producer-timestamp
+                 (.after (to-timestamp producer_timestamp)))
+         (log/warnf "Not replacing catalog for certname %s because local data is newer." certname)
+         (= stored-hash hash)
+         (update-existing-catalog catalog-id hash catalog received-timestamp)
+         :else
+         (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
+                                     (kitchensink/mapvals shash/resource-identity-hash resources))]
+           (if (nil? catalog-id)
+             (add-new-catalog certname-id hash catalog refs-to-hashes received-timestamp)
+             (replace-existing-catalog certname-id catalog-id hash catalog refs-to-hashes received-timestamp)))))
      hash)))
 
 (defn delete-catalog!
-  "Remove the catalog identified by the following hash"
-  [catalog-hash]
-  (jdbc/delete! :catalogs [(str (sutils/sql-hash-as-str "hash") "=?")
-                           catalog-hash]))
+  "Remove the catalog for a given certname.
+  Note that this function is only used in tests."
+  [certname]
+  (jdbc/with-db-transaction []
+    (jdbc/update! :certnames {:latest_catalog_id nil} ["certname=?" certname])
+    (jdbc/delete! :catalog_resources ["certname_id=(select id from certnames where certname=?)" certname])
+    (jdbc/delete! :catalogs ["certname=?" certname])))
 
 (defn catalog-hash-for-certname
   "Returns the hash for the `certname` catalog"
@@ -1292,7 +1303,7 @@
   `time`."
   [certname :- String
    producer-timestamp :- pls/Timestamp]
-  (have-record-produced-after? :catalogs certname producer-timestamp))
+  )
 
 (pls/defn-validated replace-catalog!
   "Given a catalog, replace the current catalog, if any, for its

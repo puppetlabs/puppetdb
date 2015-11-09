@@ -158,10 +158,7 @@
         {producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
-      ;; Only store a catalog if its producer_timestamp is <= the existing catalog's.
-      (if-not (scf-storage/catalog-newer-than? certname producer-timestamp)
-        (scf-storage/replace-catalog! catalog received-timestamp)
-        (log/warnf "Not replacing catalog for certname %s because local data is newer." certname)))
+      (scf-storage/replace-catalog! catalog received-timestamp))
     (log/infof "[%s] [%s] %s" id (command-names :replace-catalog) certname)))
 
 (defn replace-catalog [{:keys [payload annotations version] :as command} db]

@@ -264,7 +264,7 @@
                 {:left-only nil :same nil
                  :right-only {:numeric_scale 0 :column_default nil
                               :character_octet_length nil :datetime_precision nil
-                              :nullable? "NO" :character_maximum_length nil
+                              :nullable? "YES" :character_maximum_length nil
                               :numeric_precision 64 :numeric_precision_radix 2,
                               :data_type "bigint" :column_name "latest_catalog_id"
                               :table_name "certnames"}}]

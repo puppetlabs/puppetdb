@@ -17,8 +17,8 @@
 
       (testing "should only count current resources"
         (jdbc/insert! :certnames
-                      {:certname "h1"}
-                      {:certname "h2"})
+                      {:certname "h1" :id 1}
+                      {:certname "h2" :id 2})
 
         (deactivate-node! "h2")
 
@@ -30,6 +30,8 @@
                        :api_version 1 :catalog_version "1"
                        :certname "h2" :producer_timestamp (to-timestamp (now))})
 
+        (jdbc/update! :certnames {:latest_catalog_id 1} ["certname=?" "h1"])
+        (jdbc/update! :certnames {:latest_catalog_id 2} ["certname=?" "h2"])
         (jdbc/insert!
          :resource_params_cache
          {:resource (sutils/munge-hash-for-storage "01") :parameters nil}
@@ -38,11 +40,11 @@
 
         (jdbc/insert!
          :catalog_resources
-         {:catalog_id 1 :resource (sutils/munge-hash-for-storage "01") :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
+         {:certname_id 1 :resource (sutils/munge-hash-for-storage "01") :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
          ;; c2's resource shouldn'sutils/munge-hash-for-storage t be counted, as they don't correspond to an active node
-         {:catalog_id 2 :resource (sutils/munge-hash-for-storage "01") :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
-         {:catalog_id 1 :resource (sutils/munge-hash-for-storage "02") :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
-         {:catalog_id 1 :resource (sutils/munge-hash-for-storage "03") :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
+         {:certname_id 2 :resource (sutils/munge-hash-for-storage "01") :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
+         {:certname_id 1 :resource (sutils/munge-hash-for-storage "02") :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
+         {:certname_id 1 :resource (sutils/munge-hash-for-storage "03") :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
 
         (is (= 3 (pop/num-resources))))
 
@@ -75,8 +77,8 @@
 
       (testing "should equal (total-unique) / total"
         (jdbc/insert! :certnames
-                      {:certname "h1"}
-                      {:certname "h2"})
+                      {:certname "h1" :id 1}
+                      {:certname "h2" :id 2})
 
         (jdbc/insert!
          :catalogs
@@ -93,12 +95,14 @@
          {:resource (sutils/munge-hash-for-storage "02") :parameters nil}
          {:resource (sutils/munge-hash-for-storage "03") :parameters nil})
 
+        (jdbc/update! :certnames {:latest_catalog_id 1} ["certname=?" "h1"])
+        (jdbc/update! :certnames {:latest_catalog_id 2} ["certname=?" "h2"])
         (jdbc/insert!
          :catalog_resources
-         {:catalog_id 1 :resource  (sutils/munge-hash-for-storage "01") :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
-         {:catalog_id 2 :resource  (sutils/munge-hash-for-storage "01") :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
-         {:catalog_id 1 :resource  (sutils/munge-hash-for-storage "02") :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
-         {:catalog_id 1 :resource  (sutils/munge-hash-for-storage "03") :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
+         {:certname_id 1 :resource  (sutils/munge-hash-for-storage "01") :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
+         {:certname_id 2 :resource  (sutils/munge-hash-for-storage "01") :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
+         {:certname_id 1 :resource  (sutils/munge-hash-for-storage "02") :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
+         {:certname_id 1 :resource  (sutils/munge-hash-for-storage "03") :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
 
         (let [total  4
               unique 3

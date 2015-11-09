@@ -410,9 +410,9 @@
    "CREATE TABLE catalog_resources (LIKE catalog_resources_tmp INCLUDING ALL)"
    "CREATE TABLE certnames (LIKE certnames_tmp INCLUDING ALL)"
    "ALTER TABLE catalog_resources DROP COLUMN catalog_id"
-   "ALTER TABLE catalog_resources ADD COLUMN certname_id BIGINT NOT NULL REFERENCES certnames(id);"
+   "ALTER TABLE catalog_resources ADD COLUMN certname_id BIGINT NOT NULL REFERENCES certnames(id) ON DELETE CASCADE"
    "ALTER TABLE catalog_resources ADD PRIMARY KEY (certname_id, type, title)"
-   "ALTER TABLE certnames ADD COLUMN latest_catalog_id BIGINT NOT NULL REFERENCES catalogs(id);"
+   "ALTER TABLE certnames ADD COLUMN latest_catalog_id BIGINT REFERENCES catalogs(id) ON DELETE SET NULL"
 
    (str "INSERT INTO certnames"
         "  (latest_catalog_id, id, certname, latest_report_id, deactivated, expired)"
@@ -438,7 +438,10 @@
    "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON UPDATE CASCADE ON DELETE CASCADE"
    "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"
    "ALTER TABLE edges ADD CONSTRAINT edges_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(certname) ON DELETE CASCADE"
-   "DROP TABLE certnames_tmp"))
+   "DROP TABLE certnames_tmp"
+
+   "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL"
+   "ALTER TABLE catalog_resources ADD CONSTRAINT catalog_resources_resource_fkey FOREIGN KEY (resource) REFERENCES resource_params_cache(resource) ON DELETE CASCADE"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
