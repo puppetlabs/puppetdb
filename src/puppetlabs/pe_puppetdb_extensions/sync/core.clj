@@ -59,16 +59,28 @@
   ["or" ["=" ["node" "active"] true]
         ["=" ["node" "active"] false]])
 
+;; for reports summary sync:
+;; - If there's a 'bucketed summary query uri', then go do that query
+;;   - how to do it locally?
+;; - compare the bucket queries, use that go generate a seq of time ranges
+;; - convert those time ranges into query condition (DNF)
+;; - Add the time range query condition to the streaming summary query
+;;   - don't we already have code to do this somewhere?
+;;   - For an entity w/o the bucketed query, don't add anything
+
 (def sync-configs
   [{:entity :reports
+
+    :bucketed-summary-query-uri "/pdb/sync/v1/reports-summary"
+
     ;; On each side of the sync, we use this query to get
     ;; information about the identity of each record and a
     ;; hash of its content.
-    :record-hashes-query {:version :v4
-                          :query ["extract" ["hash" "certname" "producer_timestamp"]
-                                  ["and" ["null?" "start_time" false]
-                                         include-inactive-nodes-criteria]]
-                          :order {:order_by [[:certname :ascending] [:producer_timestamp :ascending]]}}
+    :summary-query {:version :v4
+                    :query ["extract" ["hash" "certname" "producer_timestamp"]
+                            ["and" ["null?" "start_time" false]
+                             include-inactive-nodes-criteria]]
+                    :order {:order_by [[:certname :ascending] [:producer_timestamp :ascending]]}}
 
     ;; The above query is done on each side of the sync; the
     ;; two are joined on the result of this function
@@ -76,7 +88,7 @@
 
     ;; When pulling a record from a remote machine, use the value at this key to
     ;; identify it; This should be part of the result you get with
-    ;; `record-hashes-query` above.
+    ;; `summary-query` above.
     :record-fetch-key :hash
 
     ;; If the same record exists on both sides, the result of
@@ -92,10 +104,10 @@
                      :version 6}}
 
    {:entity :factsets
-    :record-hashes-query {:version :v4
-                          :query ["extract" ["hash" "certname" "producer_timestamp"]
-                                            include-inactive-nodes-criteria]
-                          :order {:order_by [[:certname :ascending]]}}
+    :summary-query {:version :v4
+                    :query ["extract" ["hash" "certname" "producer_timestamp"]
+                            include-inactive-nodes-criteria]
+                    :order {:order_by [[:certname :ascending]]}}
     :record-id-fn :certname
     :record-fetch-key :certname
     :record-ordering-fn (juxt :producer_timestamp :hash)
@@ -108,10 +120,10 @@
                      :version 4}}
 
    {:entity :catalogs
-    :record-hashes-query {:version :v4
-                          :query ["extract" ["hash" "certname" "producer_timestamp"]
-                                            include-inactive-nodes-criteria]
-                          :order {:order_by [[:certname :ascending]]}}
+    :summary-query {:version :v4
+                    :query ["extract" ["hash" "certname" "producer_timestamp"]
+                            include-inactive-nodes-criteria]
+                    :order {:order_by [[:certname :ascending]]}}
     :record-id-fn :certname
     :record-fetch-key :certname
     :record-ordering-fn (juxt :producer_timestamp :hash)
@@ -123,9 +135,9 @@
                      :version 7}}
 
    {:entity :nodes
-    :record-hashes-query {:version :v4
-                          :query include-inactive-nodes-criteria
-                          :order {:order_by [[:certname :ascending]]}}
+    :summary-query {:version :v4
+                    :query include-inactive-nodes-criteria
+                    :order {:order_by [[:certname :ascending]]}}
     :record-id-fn :certname
     :record-fetch-key :certname
     :record-ordering-fn :deactivated
@@ -369,8 +381,8 @@
   "Perform the summary query at `remote-server`, as specified in
   `sync-config`. Returns a stream which must be closed."
   [remote-server sync-config]
-  (let [{:keys [entity record-hashes-query]} sync-config
-        {:keys [version query order]} record-hashes-query
+  (let [{:keys [entity summary-query]} sync-config
+        {:keys [version query order]} summary-query
         entity-name (name entity)
         error-message-fn (fn [status body]
                            (format "Error querying %s for record summaries (%s). Received HTTP status code %s with the error message '%s'"
@@ -411,9 +423,9 @@
                                         (json/parse-stream true)))
               remote-host-404? #(and (= ::remote-host-error (get % :type))
                                      (= 404 (get-in % [:error-response :status])))
-              {:keys [record-hashes-query record-id-fn
+              {:keys [summary-query record-id-fn
                       record-ordering-fn]} sync-config
-              {:keys [version query order]} record-hashes-query
+              {:keys [version query order]} summary-query
               incoming-records #(records-to-fetch record-id-fn record-ordering-fn
                                                   % remote-sync-data now node-ttl)
               maybe-deactivate! #(set-local-deactivation-status! % submit-command-fn)
