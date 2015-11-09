@@ -22,17 +22,17 @@
             [puppetlabs.pe-puppetdb-extensions.reports
              :refer [reports-resources-routes turn-on-unchanged-resources!]]))
 
-(defn pe-routes [get-config get-shared-globals query enqueue-command response-mult]
+(defn pe-routes [get-config get-shared-globals query bucketed-summary-query enqueue-command response-mult]
   (map #(apply wrap-with-context %)
        (partition 2
-                  ["/sync" (sync-svcs/sync-app get-config query enqueue-command response-mult get-shared-globals)
+                  ["/sync" (sync-svcs/sync-app get-config query bucketed-summary-query enqueue-command response-mult get-shared-globals)
                    "/ext" (pe-server/build-app query)])))
 
 (tk/defservice pe-routing-service
   [[:WebroutingService add-ring-handler get-route]
    [:PuppetDBServer shared-globals query set-url-prefix]
    [:DefaultedConfig get-config]
-   [:PuppetDBSync]
+   [:PuppetDBSync bucketed-summary-query]
    [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub response-mult]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]]
   (init [this context]
@@ -55,7 +55,7 @@
                                              enqueue-raw-command
                                              response-pub)
                             (pe-routes get-config shared-with-prefix
-                                       query enqueue-command (response-mult))
+                                       query bucketed-summary-query enqueue-command (response-mult))
                             [(route/not-found "Not Found")]))))
         (enable-maint-mode)
         context)

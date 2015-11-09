@@ -402,7 +402,7 @@
   it doesn't exist locally, download it over http and place it in the
   queue with `submit-command-fn`.  Return false if any records
   failed."
-  [query-fn submit-command-fn remote-server sync-config now node-ttl]
+  [query-fn bucketed-summary-query-fn submit-command-fn remote-server sync-config now node-ttl]
   (let [entity (:entity sync-config)
         entity-name (name entity)
         stats (atom {:transferred 0 :failed 0})]
@@ -466,15 +466,18 @@
   `query-fn` to query PuppetDB in process and `submit-command-fn` when
   new data is found."
   ([query-fn
+    bucketed-summary-query-fn
     submit-command-fn
     remote-server :- remote-server-schema
     node-ttl :- Period]
    (sync-from-remote! query-fn
+                      bucketed-summary-query-fn
                       submit-command-fn
                       remote-server
                       node-ttl
                       nil))
   ([query-fn
+    bucketed-summary-query-fn
     submit-command-fn
     remote-server :- remote-server-schema
     node-ttl :- Period
@@ -490,6 +493,7 @@
          (let [result (apply merge-with +
                              (for [sync-config sync-configs]
                                (pull-records-from-remote! query-fn
+                                                          bucketed-summary-query-fn
                                                           submit-command-fn
                                                           remote-server
                                                           sync-config
