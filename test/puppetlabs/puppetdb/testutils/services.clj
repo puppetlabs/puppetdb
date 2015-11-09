@@ -123,13 +123,15 @@
 (defn pdb-cmd-url []
   (assoc *base-url* :prefix "/pdb/cmd" :version :v1))
 
-(defn get-json [base-url suffix & [opts]]
+(defn get-url [base-url suffix & [opts]]
   (let [opts (or opts {:throw-exceptions true
                        :throw-entire-message? true})]
     (-> (str (base-url->str base-url) suffix)
         (client/get opts)
-        :body
-        (json/parse-string true))))
+        :body)))
+
+(defn get-json [base-url suffix & [opts]]
+  (json/parse-string (get-url base-url suffix opts) true))
 
 (defn get-reports [base-url certname]
   (get-json base-url "/reports"
