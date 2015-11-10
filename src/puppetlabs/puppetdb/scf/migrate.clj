@@ -441,7 +441,14 @@
    "DROP TABLE certnames_tmp"
 
    "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey FOREIGN KEY (latest_report_id) REFERENCES reports(id) ON DELETE SET NULL"
-   "ALTER TABLE catalog_resources ADD CONSTRAINT catalog_resources_resource_fkey FOREIGN KEY (resource) REFERENCES resource_params_cache(resource) ON DELETE CASCADE"))
+   "ALTER TABLE catalog_resources ADD CONSTRAINT catalog_resources_resource_fkey FOREIGN KEY (resource) REFERENCES resource_params_cache(resource) ON DELETE CASCADE"
+
+   "ALTER TABLE catalogs DROP CONSTRAINT catalogs_certname_key"
+   "ALTER TABLE catalogs DROP CONSTRAINT catalogs_hash_key"
+   "ALTER TABLE catalogs ADD COLUMN edges JSONB DEFAULT NULL"
+   "ALTER TABLE catalogs ADD COLUMN resources JSONB DEFAULT NULL"
+   "ALTER TABLE catalogs ADD COLUMN catalog_uuid UUID DEFAULT NULL"
+   "ALTER TABLE reports ADD COLUMN catalog_uuid UUID DEFAULT NULL"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."

@@ -348,12 +348,16 @@
     certname]
    (comp first sql/result-set-seq)))
 
+(def store-catalogs-historically? (atom false))
+
 (pls/defn-validated catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
   [hash
-   {:keys [version code_id transaction_uuid environment producer_timestamp]} :- catalog-schema
+   {:keys [edges resources version code_id transaction_uuid environment producer_timestamp]} :- catalog-schema
    received-timestamp :- pls/Timestamp]
   {:hash (sutils/munge-hash-for-storage hash)
+   :edges (when @store-catalogs-historically? (sutils/munge-jsonb-for-storage edges))
+   :resources (when @store-catalogs-historically? (sutils/munge-jsonb-for-storage resources))
    :catalog_version  version
    :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
    :timestamp (to-timestamp received-timestamp)
@@ -597,7 +601,7 @@
   "Delete edges for a given certname.
 
   Edges must be either nil or a collection of lists containing each element
-  of an edge, eg:
+  of an edge, e.g.:
 
     [[<source> <target> <type>] ...]"
   [certname :- String
@@ -713,34 +717,61 @@
            (update-catalog-associations! certname-id catalog refs-to-hashes))))
 
 (pls/defn-validated add-catalog!
+  [{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
+   received-timestamp :- pls/Timestamp]
+  (time! (:replace-catalog performance-metrics)
+         (jdbc/with-db-transaction []
+           (let [hash (time! (:catalog-hash performance-metrics)
+                             (shash/catalog-similarity-hash catalog))
+                 {certname-id :certname_id
+                  latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
+             (inc! (:updated-catalog performance-metrics))
+             (time! (:add-new-catalog performance-metrics)
+                    (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
+
+                      (when-not (some-> latest-producer-timestamp
+                                        (.after (to-timestamp producer_timestamp)))
+                        (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
+                                                    (kitchensink/mapvals shash/resource-identity-hash resources))]
+                          (jdbc/update! :certnames {:latest_catalog_id catalog-id} ["id=?" certname-id])
+                          (update-catalog-associations! certname-id catalog refs-to-hashes)))))
+             hash))))
+
+(pls/defn-validated replace-catalog!
   "Persist the supplied catalog in the database, returning its
    similarity hash."
   ([catalog :- catalog-schema]
-   (add-catalog! catalog (now)))
+   (replace-catalog! catalog (now)))
   ([{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
     received-timestamp :- pls/Timestamp]
+   (time! (:replace-catalog performance-metrics)
+          (jdbc/with-db-transaction []
+            (let [hash (time! (:catalog-hash performance-metrics)
+                              (shash/catalog-similarity-hash catalog))
+                  {catalog-id :catalog_id
+                   stored-hash :catalog_hash
+                   certname-id :certname_id
+                   latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
+              (cond
+                (some-> latest-producer-timestamp
+                        (.after (to-timestamp producer_timestamp)))
+                (log/warnf "Not replacing catalog for certname %s because local data is newer." certname)
+                (= stored-hash hash)
+                (update-existing-catalog catalog-id hash catalog received-timestamp)
+                :else
+                (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
+                                            (kitchensink/mapvals shash/resource-identity-hash resources))]
+                  (if (nil? catalog-id)
+                    (add-new-catalog certname-id hash catalog refs-to-hashes received-timestamp)
+                    (replace-existing-catalog certname-id catalog-id hash catalog refs-to-hashes received-timestamp))))
+              hash)))))
 
-   (let [hash (time! (:catalog-hash performance-metrics)
-                     (shash/catalog-similarity-hash catalog))
-         {catalog-id :catalog_id
-          stored-hash :catalog_hash
-          certname-id :certname_id
-          latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
+(pls/defn-validated store-catalog! [catalog :- catalog-schema
+                                    received-timestamp :- pls/Timestamp]
+  (if @store-catalogs-historically?
+    (add-catalog! catalog received-timestamp)
+    (replace-catalog! catalog received-timestamp)))
 
-     (jdbc/with-db-transaction []
-       (cond
-         (some-> latest-producer-timestamp
-                 (.after (to-timestamp producer_timestamp)))
-         (log/warnf "Not replacing catalog for certname %s because local data is newer." certname)
-         (= stored-hash hash)
-         (update-existing-catalog catalog-id hash catalog received-timestamp)
-         :else
-         (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
-                                     (kitchensink/mapvals shash/resource-identity-hash resources))]
-           (if (nil? catalog-id)
-             (add-new-catalog certname-id hash catalog refs-to-hashes received-timestamp)
-             (replace-existing-catalog certname-id catalog-id hash catalog refs-to-hashes received-timestamp)))))
-     hash)))
 
 (defn delete-catalog!
   "Remove the catalog for a given certname.
@@ -1212,6 +1243,21 @@
   {:pre [(kitchensink/datetime? time)]}
   (jdbc/delete! :reports ["producer_timestamp < ?" (to-timestamp time)]))
 
+(defn delete-old-unassociated-catalogs!
+  [time]
+  {:pre [(kitchensink/datetime? time)]}
+  (when @store-catalogs-historically?
+    (jdbc/delete! :catalogs [(str "catalogs.producer_timestamp < ?"
+                                  "AND NOT EXISTS (SELECT 1 FROM"
+                                  "                (SELECT catalog_uuid FROM"
+                                  "                 (SELECT certname, MAX(producer_timestamp) as max"
+                                  "                  FROM reports GROUP BY certname) x"
+                                  "                 JOIN reports on x.certname = reports.certname "
+                                  "                      AND x.max = reports.producer_timestamp) oldest_node_reports"
+                                  "                 WHERE catalogs.catalog_uuid = oldest_node_reports.catalog_uuid)"
+                                  " AND NOT EXISTS (SELECT 1 FROM certnames WHERE catalogs.id = certnames.latest_catalog_id)")
+                             (to-timestamp time)])))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database support/deprecation
 
@@ -1304,15 +1350,6 @@
   [certname :- String
    producer-timestamp :- pls/Timestamp]
   )
-
-(pls/defn-validated replace-catalog!
-  "Given a catalog, replace the current catalog, if any, for its
-  associated host with the supplied one."
-  [catalog :- catalog-schema
-   received-timestamp :- pls/Timestamp]
-  (time! (:replace-catalog performance-metrics)
-         (jdbc/with-db-transaction []
-           (add-catalog! catalog received-timestamp))))
 
 (pls/defn-validated replace-facts!
   "Updates the facts of an existing node, if the facts are newer than the current set of facts.
