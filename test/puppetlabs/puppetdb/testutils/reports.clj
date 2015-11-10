@@ -1,12 +1,12 @@
 (ns puppetlabs.puppetdb.testutils.reports
   (:require [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.hash :as shash]
+            [puppetlabs.puppetdb.testutils.db :refer [*db*]]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query-eng :as eng]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clj-time.coerce :as time-coerce]
             [clojure.walk :refer [keywordize-keys]]
@@ -29,7 +29,7 @@
                             version
                             ["=" "hash" hash]
                             {}
-                            fixt/*db*
+                            *db*
                             "")))
 
 (defn store-example-report!

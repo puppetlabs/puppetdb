@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.events
   (:require [puppetlabs.puppetdb.query-eng :as eng]
-            [puppetlabs.puppetdb.fixtures :as fixt]
+            [puppetlabs.puppetdb.testutils.db :refer [*db*]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
@@ -62,5 +62,5 @@
                             version
                             query
                             query-options
-                            fixt/*db*
+                            *db*
                             "")))

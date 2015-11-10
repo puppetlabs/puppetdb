@@ -2,10 +2,8 @@
   (:require [puppetlabs.puppetdb.http :as http]
             [cheshire.core :as json]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer :all]
-            [puppetlabs.puppetdb.testutils :refer [get-request deftestseq]]))
-
-(use-fixtures :each with-test-db with-http-app)
+            [puppetlabs.puppetdb.testutils :refer [get-request]]
+            [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]))
 
 (def versions [:v4])
 
@@ -16,7 +14,7 @@
             "nodes"
             "reports"])
 
-(deftestseq paging-options
+(deftest-http-app paging-options
   [version versions
    type types
    :let [endpoint (str "/" (name version) "/" type)]]

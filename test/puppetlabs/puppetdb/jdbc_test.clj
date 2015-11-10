@@ -1,12 +1,13 @@
 (ns puppetlabs.puppetdb.jdbc-test
   (:require [puppetlabs.puppetdb.jdbc :as subject]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.testutils :refer [test-db]]
-            [puppetlabs.puppetdb.testutils.db :refer [antonym-data with-antonym-test-database insert-map *db-spec*]]))
+            [puppetlabs.puppetdb.testutils.db
+             :refer [*db-spec* antonym-data create-temp-db insert-map
+                     defaulted-read-db-config
+                     defaulted-write-db-config
+                     call-with-antonym-test-database]]))
 
-(use-fixtures :each with-antonym-test-database)
+(use-fixtures :each call-with-antonym-test-database)
 
 (defn- full-sql-exception-msg [ex]
   (apply str (take-while identity (iterate #(.getNextException %) ex))))
@@ -16,13 +17,13 @@
   (testing "can construct pool with numeric usernames and passwords"
     (let [pool (-> *db-spec*
                    (assoc :username "1234" :password "1234")
-                   fixt/defaulted-write-db-config
+                   defaulted-write-db-config
                    subject/pooled-datasource)]
       (.close (:datasource pool))))
 
   (testing "writes not allowed on read-only pools"
     (let [write-pool (-> *db-spec*
-                         fixt/defaulted-write-db-config
+                         defaulted-write-db-config
                          subject/pooled-datasource)]
       (with-open [_ (:datasource write-pool)]
         (subject/with-transacted-connection write-pool
@@ -31,7 +32,7 @@
                  (subject/query-to-vec
                   "SELECT value FROM test WHERE key='foo'"))))))
     (let [read-pool (-> (assoc *db-spec* :read-only? true)
-                        fixt/defaulted-read-db-config
+                        defaulted-read-db-config
                         subject/pooled-datasource)]
       (with-open [_ (:datasource read-pool)]
         (subject/with-transacted-connection read-pool
@@ -90,10 +91,10 @@
 
 (deftest transaction-isolation
   (let [evaled-body? (atom false)
-        db (test-db)]
+        db (create-temp-db)]
 
     (subject/with-transacted-connection' db nil
-      (let [conn (:connection (jdbc/db))]
+      (let [conn (:connection (subject/db))]
         (is (false? (.getAutoCommit conn)))
         (is (= java.sql.Connection/TRANSACTION_READ_COMMITTED
                (.getTransactionIsolation conn)))
@@ -103,7 +104,7 @@
 
     (are [isolation-level isolation-level-kwd]
       (subject/with-transacted-connection' db isolation-level-kwd
-        (let [conn (:connection (jdbc/db))]
+        (let [conn (:connection (subject/db))]
           (= isolation-level (.getTransactionIsolation conn))))
 
       java.sql.Connection/TRANSACTION_REPEATABLE_READ :repeatable-read

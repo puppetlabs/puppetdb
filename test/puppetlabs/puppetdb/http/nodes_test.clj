@@ -1,23 +1,20 @@
 (ns puppetlabs.puppetdb.http.nodes-test
   (:require [cheshire.core :as json]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
             [puppetlabs.kitchensink.core :refer [keyset]]
-            [puppetlabs.puppetdb.testutils :refer [paged-results
-                                                   deftestseq]]
-            [puppetlabs.puppetdb.testutils.http :refer [ordered-query-result
-                                                        query-result
-                                                        vector-param
-                                                        query-response]]
+            [puppetlabs.puppetdb.testutils :refer [paged-results]]
+            [puppetlabs.puppetdb.testutils.http
+             :refer [*app*
+                     deftest-http-app
+                     ordered-query-result
+                     query-result
+                     vector-param
+                     query-response]]
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
             [flatland.ordered.map :as omap]))
 
 (def endpoints [[:v4 "/v4/nodes"]])
-
-(use-fixtures :each fixt/with-test-db fixt/with-http-app)
-
-;; HELPERS
 
 (defn status-for-node
   "Returns status information for the given `node-name`"
@@ -53,9 +50,7 @@
 
     (is (= status http/status-ok))))
 
-;; TESTS
-
-(deftestseq node-queries
+(deftest-http-app node-queries
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -123,7 +118,7 @@
       (is-query-result' ["~" ["fact" "ipaddress"] "192.168.1.11\\d"] [db puppet])
       (is-query-result' ["~" ["fact" "hostname"] "web\\d"] [web1 web2]))))
 
-(deftestseq test-string-coercion-fail
+(deftest-http-app test-string-coercion-fail
   [[version endpoint] endpoints
    method [:get :post]]
   (store-example-nodes)
@@ -131,7 +126,7 @@
     (is (= 400 status))
     (is (re-find #"not allowed on value '12000'" body))))
 
-(deftestseq node-subqueries
+(deftest-http-app node-subqueries
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -330,7 +325,7 @@
           (is (= status http/status-bad-request))
           (is (re-find msg body)))))))
 
-(deftestseq paging-results
+(deftest-http-app paging-results
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -409,7 +404,7 @@
                             ["with" true]]]
       (testing (str endpoint " should support paging through nodes " label " counts")
         (let [results (paged-results method
-                       {:app-fn  fixt/*app*
+                       {:app-fn  *app*
                         :path    endpoint
                         :limit   1
                         :total   (count expected)
@@ -421,7 +416,7 @@
           (is (= (set (vals expected))
                  (set (map :certname results)))))))))
 
-(deftestseq node-timestamp-queries
+(deftest-http-app node-timestamp-queries
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -454,7 +449,7 @@
      ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
      #"Can't extract unknown 'nodes' fields: 'nothing', 'nothing2'.*Acceptable fields are.*"))
 
-(deftestseq invalid-projections
+(deftest-http-app invalid-projections
   [[version endpoint] endpoints
    method [:get :post]
    [query msg] invalid-projection-queries]
@@ -472,7 +467,7 @@
                   ["~" "certname" "[]"]
                   #".*invalid regular expression: brackets.*not balanced")))
 
-(deftestseq pg-invalid-regexps
+(deftest-http-app pg-invalid-regexps
   [[version endpoint] endpoints
    method [:get :post]
    [query msg] (get pg-versioned-invalid-regexps endpoint)]
@@ -484,7 +479,7 @@
 (def no-parent-endpoints [[:v4 "/v4/nodes/foo/facts"]
                           [:v4 "/v4/nodes/foo/resources"]])
 
-(deftestseq unknown-parent-handling
+(deftest-http-app unknown-parent-handling
   [[version endpoint] no-parent-endpoints
    method [:get :post]]
   (let [{:keys [status body] :as result} (query-response method endpoint)]

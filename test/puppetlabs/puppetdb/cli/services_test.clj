@@ -133,7 +133,7 @@
         cert-config {:ssl-cert "test-resources/localhost.pem"
                      :ssl-key "test-resources/localhost.key"
                      :ssl-ca-cert "test-resources/ca.pem"}
-        config (-> (svc-utils/create-config-and-clear-db!)
+        config (-> (svc-utils/create-temp-config)
                    (assoc :jetty (merge cert-config
                                         {:ssl-port 0
                                          :ssl-host "0.0.0.0"

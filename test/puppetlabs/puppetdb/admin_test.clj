@@ -8,7 +8,6 @@
             [puppetlabs.puppetdb.cli.import :as cli-import]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.testutils.catalogs :as tuc]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
@@ -18,7 +17,7 @@
             [puppetlabs.puppetdb.testutils.tar :refer [tar->map]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]))
 
-(use-fixtures :each fixt/with-test-logging-silenced)
+(use-fixtures :each tu/call-with-test-logging-silenced)
 
 (deftest test-basic-roundtrip
   (let [export-out-file (tu/temp-file "export-test" ".tar.gz")]

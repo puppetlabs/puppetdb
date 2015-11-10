@@ -10,21 +10,28 @@
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.examples :refer :all]
-            [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.testutils :refer [available-postgres-configs
-                                                   clear-db-for-testing!
-                                                   get-request
-                                                   assert-success!
-                                                   paged-results
-                                                   paged-results*
-                                                   deftestseq
-                                                   parse-result]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response
-                                                        query-result
-                                                        vector-param]]
+            [puppetlabs.puppetdb.testutils
+             :refer [get-request
+                     assert-success!
+                     paged-results
+                     paged-results*
+                     parse-result]]
+            [puppetlabs.puppetdb.testutils.db
+             :refer [*db*
+                     clear-db-for-testing!
+                     init-db
+                     create-temp-db
+                     defaulted-read-db-config
+                     defaulted-write-db-config]]
+            [puppetlabs.puppetdb.testutils.http
+             :refer [*app*
+                     deftest-http-app
+                     query-response
+                     query-result
+                     vector-param]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.kitchensink.core :as ks]
@@ -39,8 +46,6 @@
 (def factsets-endpoints [[:v4 "/v4/factsets"]])
 
 (def fact-contents-endpoints [[:v4 "/v4/fact-contents"]])
-
-(use-fixtures :each with-test-db with-http-app)
 
 (def c-t http/json-response-content-type)
 (def reference-time "2014-10-28T20:26:21.727Z")
@@ -253,10 +258,9 @@
                 ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
                 #"Can't extract unknown 'facts' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
 
-(deftestseq invalid-projections
+(deftest-http-app invalid-projections
   [[version endpoint] facts-endpoints
    method [:get :post]]
-
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
       (let [{:keys [status body]} (query-response method endpoint query)]
@@ -272,7 +276,7 @@
                   ["~" "certname" "[]"]
                   #".*invalid regular expression: brackets.*not balanced")))
 
-(deftestseq pg-invalid-regexps
+(deftest-http-app pg-invalid-regexps
   [[version endpoint] facts-endpoints
    method [:get :post]]
 
@@ -491,7 +495,7 @@
                                  :product-name "puppetdb"))
     nil)))
 
-(deftestseq fact-queries
+(deftest-http-app fact-queries
   [[version endpoint] facts-endpoints
    method [:get :post]]
 
@@ -571,7 +575,7 @@
           (is (= status http/status-bad-request))
           (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
 
-(deftestseq fact-subqueries
+(deftest-http-app fact-subqueries
   [[version endpoint] facts-endpoints
    method [:get :post]]
 
@@ -613,14 +617,13 @@
           (is (= body msg))
           (is (= status http/status-bad-request)))))))
 
-(deftestseq ^{:hsqldb false} two-database-fact-query-config
+(deftest-http-app ^{:hsqldb false} two-database-fact-query-config
   [[version endpoint] facts-endpoints
    method [:get :post]]
 
-  (assert (> (count available-postgres-configs) 1))
-  (let [read-db-config (available-postgres-configs 0)
-        write-db-config (available-postgres-configs 1)
-        config (-> (svc-utils/create-config)
+  (let [read-db-config (create-temp-db)
+        write-db-config (create-temp-db)
+        config (-> (svc-utils/create-temp-config nil)
                    (assoc :read-database read-db-config)
                    (assoc :database write-db-config))
         read-config (-> read-db-config defaulted-read-db-config)
@@ -692,7 +695,7 @@
     :total   total
     :include_total include_total}))
 
-(deftestseq fact-query-paging
+(deftest-http-app fact-query-paging
   [[version endpoint] facts-endpoints
    method [:get :post]]
 
@@ -774,7 +777,7 @@
   ([endpoint query paging-options]
    (:results (raw-query-endpoint endpoint query paging-options))))
 
-(deftestseq paging-results
+(deftest-http-app paging-results
   [[version endpoint] facts-endpoints
    method [:get :post]]
 
@@ -908,7 +911,7 @@
                                                   (vector-param method
                                                                [{"field" "value" "order" "ASC"}])})))))))))
 
-(deftestseq facts-environment-paging
+(deftest-http-app facts-environment-paging
   [[version endpoint] facts-endpoints
    method [:get :post]
    :when (not= endpoint v4-facts-environment)]
@@ -968,7 +971,7 @@
                                          expected
                                          version)))))))
 
-(deftestseq fact-environment-queries
+(deftest-http-app fact-environment-queries
   [[version endpoint] facts-endpoints
    method [:get :post]
    :when (not #(re-find #"environment" endpoint))]
@@ -1158,7 +1161,7 @@
          "certname" "foo3"
          "hash" "f1122885dd4393bd1b786751384728bd1ca97bab"}]))
 
-(deftestseq factset-paging-results
+(deftest-http-app factset-paging-results
   [[version endpoint] factsets-endpoints
    method [:get :post]]
   (let [factset-count 3]
@@ -1256,7 +1259,7 @@
                                                          method endpoint nil params))))]
             (is (= (munge-factsets-response actual) (map #(nth (factset-results version) %) expected-order)))))))))
 
-(deftestseq factset-queries
+(deftest-http-app factset-queries
   [[version endpoint] factsets-endpoints
    method [:get :post]]
   (populate-for-structured-tests reference-time)
@@ -1388,7 +1391,7 @@
              [{"certname" "foo1"
                "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}])))))
 
-(deftestseq factset-subqueries
+(deftest-http-app factset-subqueries
   [[version endpoint] factsets-endpoints
    method [:get :post]]
 
@@ -1442,7 +1445,7 @@
        ["=" "value" "4000"]]]]
     #{{:certname "foo1"}}))
 
-(deftestseq factset-single-response
+(deftest-http-app factset-single-response
   [[version endpoint] factsets-endpoints
    method [:get :post]]
   (populate-for-structured-tests reference-time)
@@ -1585,7 +1588,7 @@
       ["group_by" "environment"]]
      [{:environment "DEV" :max "uptime_seconds"}]}))
 
-(deftestseq structured-fact-queries
+(deftest-http-app structured-fact-queries
   [[version endpoint] facts-endpoints
    method [:get :post]]
   (let [facts1 {"my_structured_fact" {"a" 1
@@ -1678,7 +1681,7 @@
                            query)))))))))
 
 ;; FACT-CONTENTS TESTS
-(deftestseq fact-contents-result-munging
+(deftest-http-app fact-contents-result-munging
   [[version endpoint] fact-contents-endpoints
    method [:get :post]]
   (let [facts1 {"\"foo" "bar"
@@ -1704,7 +1707,7 @@
         slurp
         json/parse-string)))
 
-(deftestseq fact-contents-queries
+(deftest-http-app fact-contents-queries
   [[version endpoint] fact-contents-endpoints
    method [:get :post]]
   (populate-for-structured-tests reference-time)
@@ -1827,7 +1830,7 @@
 
 (def no-parent-endpoints [[:v4 "/v4/factsets/foo/facts"]])
 
-(deftestseq unknown-parent-handling
+(deftest-http-app unknown-parent-handling
   [[version endpoint] no-parent-endpoints
    method [:get :post]]
 

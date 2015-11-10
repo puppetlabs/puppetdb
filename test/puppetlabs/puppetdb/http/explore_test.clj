@@ -5,11 +5,10 @@
             [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.testutils :refer [assert-success! get-request]]
+            [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
+            [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
             [puppetlabs.puppetdb.examples :refer :all]))
-
-(use-fixtures :each with-test-db with-http-app)
 
 (def c-t http/json-response-content-type)
 
@@ -37,7 +36,8 @@
        (is (= c-t (get-in response# [:headers "Content-Type"])))
        (do ~@the-body))))
 
-(deftest test-exploration
+(deftest-http-app test-exploration
+  []
   (let [catalog (:basic catalogs)
         facts   {"kernel"          "Linux"
                  "operatingsystem" "Debian"}

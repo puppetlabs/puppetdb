@@ -13,7 +13,7 @@
   (tu/with-coordinated-fn run-purge-nodes puppetlabs.puppetdb.cli.services/purge-nodes!
     (tu/with-coordinated-fn run-expire-nodes puppetlabs.puppetdb.cli.services/auto-expire-nodes!
       (svc-utils/call-with-puppetdb-instance
-       (-> (svc-utils/create-config-and-clear-db!)
+       (-> (svc-utils/create-temp-config)
            (assoc-in [:database :node-ttl] "1s")
            (assoc-in [:database :node-purge-ttl] "1s"))
        (fn []
@@ -40,7 +40,7 @@
 (deftest test-zero-gc-interval
   (with-redefs [puppetlabs.puppetdb.cli.services/purge-nodes! (tu/mock-fn)]
     (svc-utils/call-with-puppetdb-instance
-     (-> (svc-utils/create-config-and-clear-db!)
+     (-> (svc-utils/create-temp-config)
          (assoc-in [:database :node-ttl] "0s")
          (assoc-in [:database :report-ttl] "0s")
          (assoc-in [:database :node-purge-ttl] "1s")
@@ -54,7 +54,7 @@
     (with-redefs [puppetlabs.puppetdb.cli.services/purge-nodes! (tu/mock-fn)
                   puppetlabs.puppetdb.cli.services/compress-dlo! (tu/mock-fn)]
       (svc-utils/call-with-puppetdb-instance
-       (-> (svc-utils/create-config-and-clear-db!)
+       (-> (svc-utils/create-temp-config)
            (assoc-in [:database :gc-interval] 0)
            (assoc-in [:database :dlo-compression-interval] 1))
        (fn []
@@ -65,7 +65,7 @@
     (with-redefs [puppetlabs.puppetdb.cli.services/purge-nodes! (tu/mock-fn)
                   puppetlabs.puppetdb.cli.services/compress-dlo! (tu/mock-fn)]
       (svc-utils/call-with-puppetdb-instance
-       (-> (svc-utils/create-config-and-clear-db!)
+       (-> (svc-utils/create-temp-config)
            (assoc-in [:database :gc-interval] 0))
        (fn []
          (Thread/sleep 500)

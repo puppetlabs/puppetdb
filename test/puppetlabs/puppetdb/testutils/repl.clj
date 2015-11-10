@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.testutils.repl
   (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [puppetlabs.puppetdb.testutils :as testutils]
             [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.cli.services :as svcs]

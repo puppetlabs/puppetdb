@@ -94,9 +94,22 @@ This will let you develop on PuppetDB and see your changes by simply editing the
 
 A sample config file is provided in the root of the source repo:  `config.sample.ini`. You can also provide a conf.d-style directory instead of a flat config file.
 
-Other useful commands for developers:
+In order to run the local test suite, you will first need to have a
+PostgreSQL instance [configured][configure_postgres], and then you
+will need to create the test users:
 
-* `lein test` to run the test suite
+    $ createuser -DRSP pdb_test
+    $ createuser -dRSP pdb_test_admin
+
+You will also need to set the following environment variables if the
+default values aren't appropriate:
+
+  * PDB\_TEST\_DB\_HOST (defaults to localhost)
+  * PDB\_TEST\_DB\_PORT (defaults to 5432)
+  * PDB\_TEST\_DB\_USER (defaults to pdb\_test)
+  * PDB\_TEST\_DB\_PASSWORD (defaults to pdb\_test)
+  * PDB\_TEST\_DB\_ADMIN (defaults to pdb\_test\_admin)
+  * PDB\_TEST\_DB\_ADMIN\_PASSWORD (defaults to pdb\_test\_admin)
 
 Step 3: Configure Database
 -----

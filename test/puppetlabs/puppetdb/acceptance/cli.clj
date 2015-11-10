@@ -12,8 +12,7 @@
             [puppetlabs.puppetdb.testutils.cli
              :refer [get-nodes get-catalogs get-factsets get-reports munge-tar-map
                      example-catalog example-report example-facts example-certname]]
-            [puppetlabs.puppetdb.testutils.tar :refer [tar->map]]
-            [puppetlabs.puppetdb.fixtures :as fixt]))
+            [puppetlabs.puppetdb.testutils.tar :refer [tar->map]]))
 
 (deftest test-anonymized-export-roundtrip
   (doseq [profile (keys anon/anon-profiles)]

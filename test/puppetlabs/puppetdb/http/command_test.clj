@@ -4,17 +4,19 @@
             [puppetlabs.puppetdb.http.command :refer [min-supported-commands
                                                       valid-commands-str]]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.fixtures :as fixt]
-            [puppetlabs.puppetdb.testutils :refer [get-request post-request
-                                                   content-type uuid-in-response?
-                                                   assert-success! deftestseq]]
+            [puppetlabs.puppetdb.testutils
+             :refer [*command-app*
+                     *mq*
+                     get-request post-request
+                     content-type uuid-in-response?
+                     assert-success! ]]
+            [puppetlabs.puppetdb.testutils.http
+             :refer [deftest-command-app internal-request]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.mq :as mq]
             [clj-time.format :as time]))
-
-(use-fixtures :each fixt/with-test-db fixt/with-test-mq fixt/with-command-app)
 
 (def endpoints [[:v1 "/v1"]])
 
@@ -38,7 +40,7 @@
      :version version
      :payload payload}))
 
-(deftestseq command-endpoint
+(deftest-command-app command-endpoint
   [[version endpoint] endpoints]
 
   (testing "Commands submitted via REST"
@@ -48,10 +50,10 @@
                                   (get min-supported-commands "replace facts")
                                   "{}")
             checksum (kitchensink/utf8-string->sha1 payload)
-            req (fixt/internal-request {"payload" payload "checksum" checksum})
-            response (fixt/*command-app* (post-request* endpoint
-                                                        {"checksum" checksum}
-                                                        payload))]
+            req (internal-request {"payload" payload "checksum" checksum})
+            response (*command-app* (post-request* endpoint
+                                                   {"checksum" checksum}
+                                                   payload))]
         (assert-success! response)
 
         (is (= (content-type response)
@@ -59,7 +61,7 @@
         (is (uuid-in-response? response))))
 
     (testing "should return status-bad-request when missing payload"
-      (let [response (fixt/*command-app* (post-request* endpoint nil nil))]
+      (let [response (*command-app* (post-request* endpoint nil nil))]
         (is (= (:status response)
                http/status-bad-request))))
 
@@ -67,23 +69,23 @@
       (let [payload (form-command "deactivate node"
                                   (get min-supported-commands "deactivate node")
                                   "{}")
-            response (fixt/*command-app* (post-request* endpoint nil payload))]
+            response (*command-app* (post-request* endpoint nil payload))]
         (assert-success! response)))
 
     (testing "should return 400 when checksums don't match"
-      (let [response (fixt/*command-app* (post-request* endpoint
-                                                {"checksum" "something bad"}
-                                                "Testing"))]
+      (let [response (*command-app* (post-request* endpoint
+                                                   {"checksum" "something bad"}
+                                                   "Testing"))]
         (is (= (:status response)
                http/status-bad-request))))
 
     (testing "should 400 when the command is invalid"
       (let [invalid-command (form-command "foo" 100 "{}")
             invalid-checksum (kitchensink/utf8-string->sha1 invalid-command)
-            {:keys [status body]} (fixt/*command-app*
-                                    (post-request* endpoint
-                                                   {"checksum" invalid-checksum}
-                                                   invalid-command))]
+            {:keys [status body]} (*command-app*
+                                   (post-request* endpoint
+                                                  {"checksum" invalid-checksum}
+                                                  invalid-command))]
         (is (= status
                http/status-bad-request))
 
@@ -97,10 +99,10 @@
                                                (dec min-supported-version)
                                                "{}")
             misversioned-checksum (kitchensink/utf8-string->sha1 misversioned-command)
-            {:keys [status body]} (fixt/*command-app*
-                                    (post-request* endpoint
-                                                   {"checksum" misversioned-checksum}
-                                                   misversioned-command))]
+            {:keys [status body]} (*command-app*
+                                   (post-request* endpoint
+                                                  {"checksum" misversioned-checksum}
+                                                  misversioned-command))]
 
         (is (= status
                http/status-bad-request))
@@ -117,7 +119,7 @@
        (time/parse (time/formatters :date-time))
        (time/unparse (time/formatters :date-time))))
 
-(deftestseq receipt-timestamping
+(deftest-command-app receipt-timestamping
   [[version endpoint] endpoints]
 
   (let [good-payload  (form-command "replace facts"
@@ -126,10 +128,10 @@
         good-checksum (kitchensink/utf8-string->sha1 good-payload)
         request       (fn [payload checksum]
                         (post-request* endpoint {"checksum" checksum} payload))]
-    (fixt/*command-app* (request good-payload good-checksum))
+    (*command-app* (request good-payload good-checksum))
 
     (let [[good-msg] (mq/bounded-drain-into-vec!
-                       (:connection fixt/*mq*)
+                       (:connection *mq*)
                        conf/default-mq-endpoint
                        1)
           good-command (json/parse-string (:body good-msg) true)]

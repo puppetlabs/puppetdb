@@ -504,10 +504,8 @@
         (assert (not (:connection db-connection-pool)))
         (jdbc/with-db-connection db-connection-pool
           (log/info "Analyzing database")
-          (sql-or-die (fn []
-                        (-> (doto (:connection (jdbc/db)) (.setAutoCommit true))
-                            .createStatement
-                            (.execute "vacuum (analyze, verbose)"))))))
+          (sql-or-die
+           (fn [] (jdbc/do-commands-outside-txn "vacuum (analyze, verbose)")))))
       (log/info "There are no pending migrations"))))
 
 ;; SPECIAL INDEX HANDLING

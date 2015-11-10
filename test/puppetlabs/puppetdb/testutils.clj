@@ -1,13 +1,21 @@
 (ns puppetlabs.puppetdb.testutils
-  (:import (org.apache.activemq.broker BrokerService))
-  (:require [puppetlabs.puppetdb.mq :as mq]
+  (:import [java.io ByteArrayInputStream]
+           [org.apache.activemq.broker BrokerService])
+  (:require [puppetlabs.puppetdb.config :refer [default-mq-endpoint]]
+            [puppetlabs.puppetdb.command :as dispatch]
+            [puppetlabs.puppetdb.middleware
+             :refer [wrap-with-puppetdb-middleware]]
+            [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.http.command :refer [command-app]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [clojure.string :as string]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
             [me.raynes.fs :as fs]
-            [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
+            [puppetlabs.trapperkeeper.logging :refer [reset-logging]]
+            [puppetlabs.trapperkeeper.testutils.logging
+             :refer [with-log-output with-test-logging]]
             [slingshot.slingshot :refer [throw+]]
             [ring.mock.request :as mock]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -20,49 +28,13 @@
 
 (def c-t "application/json")
 
-(def available-postgres-configs
-  [{:classname "org.postgresql.Driver"
-    :subprotocol "postgresql"
-    :subname (env :puppetdb-dbsubname "//127.0.0.1:5432/puppetdb_test")
-    :user (env :puppetdb-dbuser "puppetdb")
-    :password (env :puppetdb-dbpassword "puppetdb")}
-   {:classname "org.postgresql.Driver"
-    :subprotocol "postgresql"
-    :subname (env :puppetdb2-dbsubname "//127.0.0.1:5432/puppetdb2_test")
-    :user (env :puppetdb2-dbuser "puppetdb")
-    :password (env :puppetdb2-dbpassword "puppetdb")}])
-
-(defn test-db [] (first available-postgres-configs))
-
-(defn drop-table!
-  "Drops a table from the database.  Expects to be called from within a db binding.
-  Exercise extreme caution when calling this function!"
-  [table-name]
-  (jdbc/do-commands (format "DROP TABLE IF EXISTS %s CASCADE" table-name)))
-
-(defn drop-sequence!
-  "Drops a sequence from the database.  Expects to be called from within a db binding.
-  Exercise extreme caution when calling this function!"
-  [sequence-name]
-  (jdbc/do-commands (format "DROP SEQUENCE IF EXISTS %s" sequence-name)))
-
-(defn clear-db-for-testing!
-  "Completely clears the database specified by config (or the current
-  database), dropping all puppetdb tables and other objects that exist
-  within it. Expects to be called from within a db binding.  You
-  Exercise extreme caution when calling this function!"
-  ([config]
-   (jdbc/with-db-connection config (clear-db-for-testing!)))
-  ([]
-   (jdbc/do-commands "DROP SCHEMA IF EXISTS pdbtestschema CASCADE")
-   (doseq [table-name (cons "test" (sutils/sql-current-connection-table-names))]
-     (drop-table! table-name))
-   (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
-     (drop-sequence! sequence-name))))
-
-(defn clean-db-map
-  ([] (clean-db-map (test-db)))
-  ([db-config] (doto db-config clear-db-for-testing!)))
+(defmacro dotestseq [bindings & body]
+  (if-not (seq bindings)
+    `(do ~@body)
+    (let [case-versions (remove keyword? (take-nth 2 bindings))]
+      `(doseq ~bindings
+         (testing (str "Testing case " '~case-versions)
+           ~@body)))))
 
 (defmacro without-jmx
   "Disable ActiveMQ's usage of JMX. If you start two AMQ brokers in
@@ -97,6 +69,21 @@
          (finally
            (mq/stop-broker! broker#)
            (fs/delete-dir dir#))))))
+
+(def ^:dynamic *mq* nil)
+
+(defn call-with-test-mq
+  "Calls f after starting an embedded MQ broker that will be available
+  for the duration of the call via *mq*.  JMX will be disabled."
+  [f]
+  (without-jmx
+   (with-test-broker "test" connection
+     (binding [*mq* {:connection connection}]
+       (f)))))
+
+(defmacro with-alt-mq [mq-name & body]
+  `(with-redefs [default-mq-endpoint ~mq-name]
+     (do ~@body)))
 
 (defn call-counter
   "Returns a method that just tracks how many times it's called, and
@@ -315,27 +302,6 @@
                  :uuid
                  java.util.UUID/fromString)))
 
-(defmacro wrap-with-testing
-  "If `version` is bound in this context, wrap the form in a testing
-   macro to indicate the version being tested"
-  [body]
-  `(if ~(contains? &env 'version)
-     (testing (str "Testing version " ~'version)
-       ~@body)
-     (do ~@body)))
-
-(defmacro doverseq
-  "Loose wrapper around `doseq` to support testing multiple versions of commands. Will run
-   the test fixtures around each tested version and if `version` is chosen as the let bound
-   variable to hold the current version being tested, with wrap it in a (testing...) block
-   indicating the version being tested"
-  [seq-exprs & body]
-  `(let [each-fixture# (join-fixtures (:clojure.test/each-fixtures (meta ~*ns*)))]
-     (doseq ~seq-exprs
-       (each-fixture#
-        (fn []
-          (wrap-with-testing ~body))))))
-
 (defn parse-result
   "Stringify (if needed) then parse the response"
   [body]
@@ -345,13 +311,6 @@
       (json/parse-string (slurp body) true))
     (catch Throwable e
       body)))
-
-(defmacro deftestseq
-  "Def test wrapper around a doverseq."
-  [name seq-exprs & body]
-  (when *load-tests*
-    `(def ~(vary-meta name assoc :test `(fn [] (doverseq ~seq-exprs ~@body)))
-       (fn [] (test-var (var ~name))))))
 
 (defn strip-hash
   [xs]
@@ -454,3 +413,30 @@
   "Pprints `x` to a string and returns that string"
   [x]
   (with-out-str (clojure.pprint/pprint x)))
+
+(defn call-with-test-logging-silenced
+  "A fixture to temporarily redirect all logging output to an atom, rather than
+  to the usual ConsoleAppender.  Useful for tests that are intentionally triggering
+  error conditions, to prevent them from cluttering up the test output with log
+  messages."
+  [f]
+  (reset-logging)
+  (with-test-logging
+    (f)))
+
+(def ^:dynamic *command-app* nil)
+
+(defn call-with-command-app
+  "A fixture to build a Command app and make it available as
+  *command-app* within tests. This call should be nested within
+  with-test-mq."
+  ([f]
+   (binding [*command-app* (wrap-with-puppetdb-middleware
+                            (command-app
+                             (fn [] {})
+                             (partial #'dispatch/do-enqueue-raw-command
+                                      (:connection *mq*)
+                                      default-mq-endpoint)
+                             (fn [] nil))
+                            nil)]
+     (f))))

@@ -2,12 +2,13 @@
   (:require [cheshire.core :as json]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.testutils :refer [paged-results deftestseq
+            [puppetlabs.puppetdb.testutils :refer [paged-results
                                                    parse-result]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response
+            [puppetlabs.puppetdb.testutils.db :refer [*db*]]
+            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
+                                                        query-response
                                                         query-result
                                                         vector-param]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]))
@@ -16,9 +17,7 @@
 
 (def fact-path-endpoints [[:v4 "/v4/fact-paths"]])
 
-(use-fixtures :each fixt/with-test-db fixt/with-http-app)
-
-(deftestseq fact-names-endpoint-tests
+(deftest-http-app fact-names-endpoint-tests
   [[version endpoint] fact-name-endpoints
    method [:get :post]]
 
@@ -43,7 +42,7 @@
         (is (= status http/status-ok))
         (is (empty? result))))
 
-    (with-transacted-connection fixt/*db*
+    (with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
@@ -104,7 +103,7 @@
               result (parse-result body)]
           (is (= result [(first expected-result)])))))))
 
-(deftestseq fact-paths-endpoint-tests
+(deftest-http-app fact-paths-endpoint-tests
   [[version endpoint] fact-path-endpoints
    method [:get :post]]
 
@@ -140,7 +139,7 @@
         (is (= status http/status-ok))
         (is (empty? result))))
 
-    (with-transacted-connection fixt/*db*
+    (with-transacted-connection *db*
       (scf-store/add-certname! "foo1")
       (scf-store/add-certname! "foo2")
       (scf-store/add-certname! "foo3")
