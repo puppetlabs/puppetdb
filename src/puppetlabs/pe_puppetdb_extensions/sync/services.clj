@@ -193,13 +193,14 @@
                        "FROM reports "
                        "GROUP BY date_trunc('hour', producer_timestamp AT TIME ZONE 'UTC')"))]
         (->> rows
-             (map (fn [{:keys [hour hash]}] [hour hash]))
+             (map (fn [{:keys [hour hash]}] [(to-date-time hour) hash]))
              (into {}))))))
 
 (defn -bucketed-summary-query [entity scf-read-db]
   (case entity
     :reports (bucketed-reports-summary-query scf-read-db)
     (throw (ex-info "No bucketed summary query for given entity" {:entity entity}))))
+
 (defn sync-app
   "Top level route for PuppetDB sync"
   [get-config query-fn bucketed-summary-query-fn enqueue-command-fn response-mult get-shared-globals]
@@ -215,7 +216,7 @@
     (routes
      (GET "/v1/reports-summary" []
           (let [summary-map (bucketed-reports-summary-query (:scf-read-db (get-shared-globals)))]
-            (http/json-response (ks/mapkeys json/format-jdbc-timestamp summary-map))))
+            (http/json-response (ks/mapkeys str summary-map))))
 
      (POST "/v1/trigger-sync" {:keys [body params] :as request}
            (let [sync-request (json/parse-string (slurp body) true)

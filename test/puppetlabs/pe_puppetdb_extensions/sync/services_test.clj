@@ -11,8 +11,9 @@
             [puppetlabs.puppetdb.examples.reports :as report-examples]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
-             :refer [with-puppetdb-instance blocking-command-post]]
-            [puppetlabs.puppetdb.testutils.services :as svcs]))
+             :refer [with-ext-instances blocking-command-post]]
+            [puppetlabs.puppetdb.testutils.services :as svcs]
+            [puppetlabs.puppetdb.cheshire :as json]))
 
 (deftest enable-periodic-sync?-test
   (testing "Happy case"
@@ -80,11 +81,11 @@
 
 (deftest test-reports-summary-query
   (testing "no reports"
-    (with-puppetdb-instance (utils/pdb1-sync-config)
+    (with-ext-instances [pdb (utils/sync-config nil)]
       (is (= {} (svcs/get-json (utils/sync-url) "/reports-summary")))))
 
   (testing "two reports"
-   (with-puppetdb-instance (utils/pdb1-sync-config)
+    (with-ext-instances [pdb (utils/sync-config nil)]
      (let [report (assoc (:basic report-examples/reports)
                          :producer_timestamp "2014-01-01T08:05:00.000Z")
            report2 (assoc (:basic2 report-examples/reports)

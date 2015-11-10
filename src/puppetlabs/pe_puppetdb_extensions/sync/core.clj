@@ -8,7 +8,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [cheshire.core :as cheshire]
             [clj-time.core :as t]
-            [clj-time.coerce :as tc :refer [to-timestamp from-sql-date]]
+            [clj-time.coerce :as tc :refer [to-timestamp from-sql-date to-date-time]]
             [clj-time.format :as tf]
             [clojure.tools.logging :as log]
             [slingshot.slingshot :refer [try+ throw+]]
@@ -21,9 +21,9 @@
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [schema.core :as s]
             [puppetlabs.kitchensink.core :as ks]
-            [clojure.core.async :as async]))
+            [clojure.core.async :as async]
+            [puppetlabs.puppetdb.http.query :as http-q]))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; How to sync each entity
 
 (def report-key (juxt :certname :producer_timestamp))
@@ -59,19 +59,17 @@
   ["or" ["=" ["node" "active"] true]
         ["=" ["node" "active"] false]])
 
-;; for reports summary sync:
-;; - If there's a 'bucketed summary query uri', then go do that query
-;;   - how to do it locally?
-;; - compare the bucket queries, use that go generate a seq of time ranges
-;; - convert those time ranges into query condition (DNF)
-;; - Add the time range query condition to the streaming summary query
-;;   - don't we already have code to do this somewhere?
-;;   - For an entity w/o the bucketed query, don't add anything
-
 (def sync-configs
   [{:entity :reports
 
-    :bucketed-summary-query-uri "/pdb/sync/v1/reports-summary"
+    ;; The first step of entity sync is to request a short summary of the
+    ;; records present on the remote system, buckted by hour, with a hash of the
+    ;; contents of the bucket. This will be compared with the same query against
+    ;; the local database and used to request the full record listing for only
+    ;; the time spans which differ between the two machines.
+    ;;
+    ;; This path is relative to the 'query' endpoint. (/pdb/query/v4)
+    :bucketed-summary-query-path "../../sync/v1/reports-summary"
 
     ;; On each side of the sync, we use this query to get
     ;; information about the identity of each record and a
@@ -143,7 +141,6 @@
     :record-ordering-fn :deactivated
     :clean-up-record-fn identity}])
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utils
 
 (defn is-error-status? [status-code]
@@ -210,7 +207,6 @@
       (events/failed-request!)
       (throw e))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Data format transformations
 
 (defn order-by-clause-to-wire-format
@@ -252,7 +248,115 @@
   [record]
   (dissoc record :hash :receive_time :timestamp))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Join functions
+
+(defn outer-join-unique-sorted-seqs
+  "Outer join two seqs, `xs` and `ys`, that are sorted and unique under
+  `id-fn`. Returns a lazy seq of vectors `([x1 y1] [x2 y2] [x3 nil] [nil y4] ...)`"
+  [id-fn xs ys]
+  (lazy-seq
+   (when (or (seq xs) (seq ys))
+     (let [x (first xs)
+           y (first ys)
+           id-comparison (and x y (compare (id-fn x) (id-fn y)))
+           result (cond
+                    (nil? y) [x nil]              ; xs is empty
+                    (nil? x) [nil y]              ; ys is empty
+                    (neg? id-comparison) [x nil]  ; not equal, and x goes first
+                    (zero? id-comparison) [x y]
+                    (pos? id-comparison) [nil y]) ; not equal, and y goes first
+           [result-x result-y] result]
+       (cons result (outer-join-unique-sorted-seqs id-fn
+                                                   (if result-x (rest xs) xs)
+                                                   (if result-y (rest ys) ys)))))))
+
+(defn right-join-unique-sorted-seqs [id-fn xs ys]
+  (->> (outer-join-unique-sorted-seqs id-fn xs ys)
+       (filter second)))
+
+;;; Bucketed summary
+
+(defn remote-bucketed-summary-query
+  "Perform the bucketed summary query at `remote-server`, as specified in
+  `sync-config`. "
+  [remote-server sync-config]
+  (let [{path :bucketed-summary-query-path entity :entity} sync-config
+        error-message-fn (fn [status body]
+                           (format (str "Error performing bucketed summary query at "
+                                        "%s. Received HTTP status code %s with the "
+                                        "error message '%s'")
+                                   (url-on-remote-server remote-server path) status (slurp body)))]
+    (with-open [body (:body (http-get remote-server path {:throw-entire-message true
+                                                          :as :stream}
+                                      error-message-fn))
+                body-reader (clojure.java.io/reader body)]
+      (ks/mapkeys to-date-time
+                  (json/parse-stream body-reader)))))
+
+(defn diff-bucketed-summaries
+  "Given two bucketed summary maps of the form {bucket-start-timestamp content-hash},
+  return a seq of timestamps whose hashes differ or which are only present in
+  remote."
+  [local remote]
+  (let [local (sort-by key local)
+        remote (sort-by key remote)]
+    (->> (right-join-unique-sorted-seqs key local remote)
+         (keep (fn [[local [bucket-timestamp remote-hash]]]
+                 (let [local-hash (and local (second local))]
+                   (when (not= local-hash remote-hash)
+                     bucket-timestamp)))))))
+
+(defn normalize-time-stamp
+  "Given a timestamp in some unknown format that clj-time understands, convert
+  it to Joda time and to UTC."
+  [ts]
+  (-> ts
+      to-date-time
+      (t/to-time-zone (t/time-zone-for-offset 0))))
+
+(defn timestamp-to-enumerable-hour
+  "Convert a timestamp to an integer such that:
+   - All timestamps within the same UTC clock hour map to the same integer.
+   - Timestamps within adjacent UTC clock hours map to adjacent integers."
+  [ts]
+  (+ (* (- (t/year ts) 1970) 24 365)
+     (* (.getDayOfYear ts) 24)
+     (t/hour ts)))
+
+(defn group-by-consecutive-hours
+  "Given a seq of timestamps which are at the top of the hour (UTC), return a
+  seq of [first-hour-timestamp last-hour-timestamp] ranges that represent groups
+  of consecutive hours."
+  [timestamps]
+  (->> timestamps
+       sort
+       distinct
+       (map normalize-time-stamp)
+       (map (fn [ts] [(timestamp-to-enumerable-hour ts) ts]))
+       (reduce (fn [[current-hour-num groups] [hour-num ts]]
+                 [hour-num (if (and current-hour-num
+                                    (= 1 (- hour-num current-hour-num)))
+                             (update groups (dec (count groups))
+                                     conj ts)
+                             (conj groups [ts]))])
+               [nil '[]])
+       second))
+
+(defn query-condition-for-buckets
+  "Generate a condition clause for a PuppetDB query that limits the query to the
+  hourly buckets given in timestamps."
+  [timestamps]
+  (let [conditions (->> timestamps
+                        group-by-consecutive-hours
+                        (map (fn [sorted-ts-group]
+                               (let [start (first sorted-ts-group)
+                                     end (.plusHours (last sorted-ts-group) 1)]
+                                 ["and"
+                                  [">=" "producer_timestamp" (.toString start)]
+                                  ["<" "producer_timestamp" (.toString end)]]))))]
+    (when (seq conditions)
+      (apply vector "or" conditions))))
+
 ;;; Pull from remote instance
 
 (defn query-record-and-transfer!
@@ -270,7 +374,7 @@
         query ["and" ["=" (name record-fetch-key) record-fetch-val]
                include-inactive-nodes-criteria]
         qerr-msg (fn [status body]
-                   (str "unable to ask " remote-server " for " entity-name
+                   (str "unable to ask " (:url remote-server) " for " entity-name
                         " using query " query "; received "
                         (pr-str {:status status :body body})))]
     (with-sync-events {:context (merge {:phase "record"
@@ -321,30 +425,6 @@
                          {:certname certname :producer_timestamp deactivated})
       true)))
 
-(defn outer-join-unique-sorted-seqs
-  "Outer join two seqs, `xs` and `ys`, that are sorted and unique under
-  `id-fn`. Returns a lazy seq of vectors `([x1 y1] [x2 y2] [x3 nil] [nil y4] ...)`"
-  [id-fn xs ys]
-  (lazy-seq
-   (when (or (seq xs) (seq ys))
-     (let [x (first xs)
-           y (first ys)
-           id-comparison (and x y (compare (id-fn x) (id-fn y)))
-           result (cond
-                    (nil? y) [x nil]              ; xs is empty
-                    (nil? x) [nil y]              ; ys is empty
-                    (neg? id-comparison) [x nil]  ; not equal, and x goes first
-                    (zero? id-comparison) [x y]
-                    (pos? id-comparison) [nil y]) ; not equal, and y goes first
-           [result-x result-y] result]
-       (cons result (outer-join-unique-sorted-seqs id-fn
-                                                   (if result-x (rest xs) xs)
-                                                   (if result-y (rest ys) ys)))))))
-
-(defn right-join-unique-sorted-seqs [id-fn xs ys]
-  (->> (outer-join-unique-sorted-seqs id-fn xs ys)
-       (filter second)))
-
 (defn would-be-expired-locally?
   "If this record existed locally, would it be expired according to our local
   node-ttl settings?"
@@ -377,7 +457,7 @@
       (utils/update-when [:producer_timestamp] to-timestamp)
       (utils/update-when [:deactivated] to-timestamp)))
 
-(defn streamed-summary-query
+(defn remote-streamed-summary-query
   "Perform the summary query at `remote-server`, as specified in
   `sync-config`. Returns a stream which must be closed."
   [remote-server sync-config]
@@ -416,35 +496,47 @@
                        :finished [:info "  --> transferred {entity} ({transferred}) from {remote} in {elapsed} ms"]
                        :error [:warn (str "  *** transferred {entity} ({transferred}) from {remote};"
                                           " stopped after {failed} failures in {elapsed} ms")]}
-      (with-open [summary-stream (streamed-summary-query remote-server sync-config)]
-        (let [remote-sync-data (map parse-time-fields
-                                    (-> summary-stream
-                                        clojure.java.io/reader
-                                        (json/parse-stream true)))
-              remote-host-404? #(and (= ::remote-host-error (get % :type))
-                                     (= 404 (get-in % [:error-response :status])))
-              {:keys [summary-query record-id-fn
-                      record-ordering-fn]} sync-config
-              {:keys [version query order]} summary-query
-              incoming-records #(records-to-fetch record-id-fn record-ordering-fn
-                                                  % remote-sync-data now node-ttl)
-              maybe-deactivate! #(set-local-deactivation-status! % submit-command-fn)
-              query-and-transfer! #(query-record-and-transfer!
-                                    remote-server % submit-command-fn sync-config)]
-          (query-fn version ["from" entity-name query] order
-                    (fn [local-sync-data]
-                      (doseq [record (incoming-records local-sync-data)]
-                        (try+
-                          (if (= entity :nodes)
-                            (when (maybe-deactivate! record)
-                              (swap! stats update-in [:transferred] inc))
-                            (do
-                              (query-and-transfer! record)
-                              (swap! stats update-in [:transferred] inc)))
-                          (catch (remote-host-404? %) _
-                            (swap! stats update-in [:failed] inc))))))
-          @stats)))))
-
+      (let [have-bucketed-summary-query (boolean (:bucketed-summary-query-path sync-config))
+            extra-query-condition (when have-bucketed-summary-query
+                                    (let [remote (remote-bucketed-summary-query remote-server sync-config)
+                                          local (bucketed-summary-query-fn entity)
+                                          buckets-to-pull (diff-bucketed-summaries local remote)]
+                                      (when (seq buckets-to-pull)
+                                        (query-condition-for-buckets buckets-to-pull))))
+            sync-config (update-in sync-config [:summary-query :query]
+                                   (fn [q] (if extra-query-condition
+                                             (http-q/add-criteria extra-query-condition q)
+                                             q)))]
+        ;; extra-query-condition will be nil if both bucketed summaries were the same
+        (when (or extra-query-condition (not have-bucketed-summary-query))
+          (with-open [summary-stream (remote-streamed-summary-query remote-server sync-config)]
+            (let [remote-sync-data (map parse-time-fields
+                                        (-> summary-stream
+                                            clojure.java.io/reader
+                                            (json/parse-stream true)))
+                  remote-host-404? #(and (= ::remote-host-error (get % :type))
+                                         (= 404 (get-in % [:error-response :status])))
+                  {:keys [summary-query record-id-fn
+                          record-ordering-fn]} sync-config
+                  {:keys [version query order]} summary-query
+                  incoming-records #(records-to-fetch record-id-fn record-ordering-fn
+                                                      % remote-sync-data now node-ttl)
+                  maybe-deactivate! #(set-local-deactivation-status! % submit-command-fn)
+                  query-and-transfer! #(query-record-and-transfer!
+                                        remote-server % submit-command-fn sync-config)]
+              (query-fn version ["from" entity-name query] order
+                        (fn [local-sync-data]
+                          (doseq [record (incoming-records local-sync-data)]
+                            (try+
+                             (if (= entity :nodes)
+                               (when (maybe-deactivate! record)
+                                 (swap! stats update-in [:transferred] inc))
+                               (do
+                                 (query-and-transfer! record)
+                                 (swap! stats update-in [:transferred] inc)))
+                             (catch (remote-host-404? %) _
+                               (swap! stats update-in [:failed] inc)))))))))
+        @stats))))
 
 (defn wrap-submit-command-fn
   "Wrap the given submit-command-fn to first generate a uuid for the command,
