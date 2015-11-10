@@ -13,7 +13,7 @@ PuppetDB manual smoke testing guide
    * wheezy:
         
         ```sh
-        vagrant init puppetlabs/ubuntu-14.04-64-nocm && vagrant up 
+        vagrant init puppetlabs/debian-7.8-64-nocm && vagrant up 
         vagrant ssh
         sudo bash
         ```
