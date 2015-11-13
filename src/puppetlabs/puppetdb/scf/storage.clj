@@ -335,7 +335,8 @@
 ;;; Catalog updates/changes
 
 (defn latest-catalog-metadata
-  "Returns the id and hash of certname's catalog"
+  "Returns the id, hash, certname_id and producer_timestamp of certname's
+  catalog."
   [certname]
   {:pre [certname]}
   (jdbc/query-with-resultset
@@ -355,20 +356,21 @@
   [hash
    {:keys [edges resources version code_id transaction_uuid environment producer_timestamp]} :- catalog-schema
    received-timestamp :- pls/Timestamp]
-  {:hash (sutils/munge-hash-for-storage hash)
-   :edges (when @store-catalogs-historically? (sutils/munge-jsonb-for-storage edges))
-   :resources (when @store-catalogs-historically? (sutils/munge-jsonb-for-storage (vals resources)))
-   :catalog_version  version
-   :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
-   :timestamp (to-timestamp received-timestamp)
-   :code_id code_id
-   :environment_id (ensure-environment environment)
-   :producer_timestamp (to-timestamp producer_timestamp)
-   :api_version 1})
+  (let [historical-catalogs? @store-catalogs-historically?]
+    {:hash (sutils/munge-hash-for-storage hash)
+     :edges (when historical-catalogs? (sutils/munge-jsonb-for-storage edges))
+     :resources (when historical-catalogs? (sutils/munge-jsonb-for-storage (vals resources)))
+     :catalog_version  version
+     :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
+     :timestamp (to-timestamp received-timestamp)
+     :code_id code_id
+     :environment_id (ensure-environment environment)
+     :producer_timestamp (to-timestamp producer_timestamp)
+     :api_version 1}))
 
 (pls/defn-validated update-catalog-metadata!
   "Given some catalog metadata, update the db"
-  [id :- Number
+  [id :- Long
    hash :- String
    catalog :- catalog-schema
    received-timestamp :- pls/Timestamp]
@@ -407,7 +409,7 @@
 ;;should be changed to the correct schema
 (pls/defn-validated catalog-resources
   "Returns the resource hashes keyed by resource reference"
-  [certname-id :- Number]
+  [certname-id :- Long]
   (jdbc/query-with-resultset
    [(format "SELECT type, title, tags, exported, file, line, %s
                AS resource
@@ -474,7 +476,7 @@
 
 (pls/defn-validated insert-catalog-resources!
   "Returns a function that accepts a seq of ref keys to insert"
-  [certname-id :- Number
+  [certname-id :- Long
    refs-to-hashes :- {resource-ref-schema String}
    refs-to-resources :- resource-ref->resource-schema]
   (fn [refs-to-insert]
@@ -499,7 +501,7 @@
 
 (pls/defn-validated delete-catalog-resources!
   "Returns a function accepts old catalog resources that should be deleted."
-  [certname-id :- Number]
+  [certname-id :- Long]
   (fn [refs-to-delete]
     {:pre [(every? resource-ref? refs-to-delete)]}
 
@@ -542,7 +544,7 @@
 
 (pls/defn-validated update-catalog-resources!
   "Returns a function accepting keys that were the same from the old resources and the new resources."
-  [certname-id :- Number
+  [certname-id :- Long
    refs-to-hashes :- {resource-ref-schema String}
    refs-to-resources
    old-resources]
@@ -569,7 +571,7 @@
 
 (pls/defn-validated add-resources!
   "Persist the given resource and associate it with the given catalog."
-  [certname-id :- Number
+  [certname-id :- Long
    refs-to-resources :- resource-ref->resource-schema
    refs-to-hashes :- {resource-ref-schema String}]
   (let [old-resources (catalog-resources certname-id)
@@ -669,7 +671,7 @@
 (pls/defn-validated update-existing-catalog
   "When a new incoming catalog has the same hash as an existing catalog, update
    performance-metrics and the transaction id for the new catalog"
-  [catalog-id :- Number
+  [catalog-id :- Long
    hash :- String
    catalog :- catalog-schema
    received-timestamp :- pls/Timestamp]
@@ -679,7 +681,7 @@
 
 (pls/defn-validated update-catalog-associations!
   "Adds/updates/deletes the edges and resources for the given certname"
-  [certname-id :- Number
+  [certname-id :- Long
    {:keys [resources edges certname]} :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}]
   (time! (:add-resources performance-metrics)
@@ -690,8 +692,8 @@
 (pls/defn-validated replace-existing-catalog
   "New catalogs for a given certname needs to have their metadata, resources and
   edges updated."
-  [certname-id :- Number
-   catalog-id :- Number
+  [certname-id :- Long
+   catalog-id :- Long
    hash :- String
    catalog :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}
@@ -705,7 +707,7 @@
 
 (pls/defn-validated add-new-catalog
   "Creates new catalog metadata and adds the proper associations for the edges and resources"
-  [certname-id :- Number
+  [certname-id :- Long
    hash :- String
    catalog :- catalog-schema
    refs-to-hashes :- {resource-ref-schema String}
@@ -717,6 +719,8 @@
            (update-catalog-associations! certname-id catalog refs-to-hashes))))
 
 (pls/defn-validated add-catalog!
+  "Persist the supplied catalog in the database, returning its
+   similarity hash."
   [{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
    received-timestamp :- pls/Timestamp]
   (time! (:replace-catalog performance-metrics)
@@ -756,8 +760,10 @@
                 (some-> latest-producer-timestamp
                         (.after (to-timestamp producer_timestamp)))
                 (log/warnf "Not replacing catalog for certname %s because local data is newer." certname)
+
                 (= stored-hash hash)
                 (update-existing-catalog catalog-id hash catalog received-timestamp)
+
                 :else
                 (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
                                             (kitchensink/mapvals shash/resource-identity-hash resources))]
@@ -766,8 +772,14 @@
                     (replace-existing-catalog certname-id catalog-id hash catalog refs-to-hashes received-timestamp))))
               hash)))))
 
-(pls/defn-validated store-catalog! [catalog :- catalog-schema
-                                    received-timestamp :- pls/Timestamp]
+(pls/defn-validated store-catalog!
+  "Persist the supplied catalog in the database, returning its similarity hash.
+   On PE we alter the atom 'store-catalogs-historically' to be true and we will
+   store the catalog in database alongside the other catalogs for the node. On
+   FOSS we will not store historical catalogs and will replace the existing
+   catalog for node."
+  [catalog :- catalog-schema
+   received-timestamp :- pls/Timestamp]
   (if @store-catalogs-historically?
     (add-catalog! catalog received-timestamp)
     (replace-catalog! catalog received-timestamp)))
@@ -1247,16 +1259,20 @@
   [time]
   {:pre [(kitchensink/datetime? time)]}
   (when @store-catalogs-historically?
-    (jdbc/delete! :catalogs [(str "catalogs.producer_timestamp < ?"
-                                  "AND NOT EXISTS (SELECT 1 FROM"
-                                  "                (SELECT catalog_uuid FROM"
-                                  "                 (SELECT certname, MAX(producer_timestamp) as max"
-                                  "                  FROM reports GROUP BY certname) x"
-                                  "                 JOIN reports on x.certname = reports.certname "
-                                  "                      AND x.max = reports.producer_timestamp) oldest_node_reports"
-                                  "                 WHERE catalogs.catalog_uuid = oldest_node_reports.catalog_uuid)"
-                                  " AND NOT EXISTS (SELECT 1 FROM certnames WHERE catalogs.id = certnames.latest_catalog_id)")
-                             (to-timestamp time)])))
+    (let [time (to-timestamp time)]
+      (try (jdbc/do-prepared
+        (str "DELETE FROM catalogs oc "
+             "       WHERE oc.producer_timestamp < ? "
+             "       AND NOT EXISTS (SELECT 1 FROM catalogs c "
+             "                       JOIN reports r ON c.catalog_uuid = r.catalog_uuid "
+             "                       WHERE c.producer_timestamp < ? AND oc.id = c.id)"
+             "       AND NOT EXISTS (SELECT 1 from catalogs c "
+             "                       JOIN certnames lc ON c.id = lc.latest_catalog_id "
+             "                       WHERE c.id = oc.id AND c.producer_timestamp < ?)")
+        [time time time])
+           (catch Exception e
+             (prn (.getNextException e)))
+           ))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database support/deprecation
