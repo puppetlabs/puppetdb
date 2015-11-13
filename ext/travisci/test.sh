@@ -1,22 +1,26 @@
 #!/bin/bash
 
+set -ueo pipefail
 set -x
-set -e
+
+ulimit -u 4096
 
 LEIN="${1:-lein2}"
+top="$(pwd)"
 
 # get_dep_version
 # :arg1 is the dependency project whose version we want to grab from project.clj
 get_dep_version() {
   local REGEX="puppetlabs\/puppetdb\s*\"([[:alnum:]]|\-|\.)+\"[[:space:]]*\]"
-  echo "$($LEIN with-profile ci pprint :dependencies | egrep "${REGEX}" | cut -d\" -f2)"
+  echo "$("$LEIN" with-profile ci pprint :dependencies | egrep "${REGEX}" | cut -d\" -f2)"
 }
 
-rm -rf checkouts && mkdir checkouts
+rm -rf checkouts
+mkdir checkouts
 
 # Clone each dependency locally into the ./checkouts directory so we can install
 # from source into the local ~/.m2/repository
-pushd checkouts
+cd checkouts
 
 git clone https://github.com/puppetlabs/puppetdb
 
@@ -24,7 +28,7 @@ git clone https://github.com/puppetlabs/puppetdb
 # the dependency version. If we can't find it, default to a branch of
 # the same name as the current branch
 depversion="$(get_dep_version 'puppetdb')"
-pushd 'puppetdb'
+cd puppetdb
 
 # Warning: the inner quotes here are valid, and shouldn't require escaping
 tag="$(git tag -l "${depversion?}")"
@@ -34,19 +38,22 @@ then
 else
     git checkout "$TRAVIS_BRANCH"
 fi
-$LEIN install
-popd
+"$LEIN" install
 
-popd
+cd "$top"
 
-ulimit -u 4096
-psql -c 'create database puppetdb_test;' -U postgres
-psql -c 'create database puppetdb2_test;' -U postgres
-PUPPETDB_DBTYPE=postgres \
-PUPPETDB_DBUSER=postgres \
-PUPPETDB_DBSUBNAME=//127.0.0.1:5432/puppetdb_test \
-PUPPETDB_DBPASSWORD= \
-PUPPETDB2_DBUSER=postgres \
-PUPPETDB2_DBSUBNAME=//127.0.0.1:5432/puppetdb2_test \
-PUPPETDB2_DBPASSWORD= \
-$LEIN test
+pgdir="$(pwd)/test-resources/var/pg"
+readonly pgdir
+
+export PGHOST=127.0.0.1
+export PGPORT=5432
+
+checkouts/puppetdb/ext/bin/setup-pdb-pg "$pgdir"
+
+pdb-env()
+{
+  "$top/checkouts/puppetdb/ext/bin/pdb-test-env" "$pgdir" "$@"
+}
+
+java -version
+pdb-env "$LEIN" test
