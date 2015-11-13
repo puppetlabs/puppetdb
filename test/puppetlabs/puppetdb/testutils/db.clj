@@ -107,6 +107,7 @@
 (def ^:private test-db-counter (atom 0))
 
 (defn create-temp-db []
+  "Creates a temporary test database.  Prefer with-test-db, etc."
   (ensure-pdb-db-templates-exist)
   (let [n (swap! test-db-counter inc)
         db-name (str "pdb_test_" n)]
@@ -117,6 +118,18 @@
     (db-user-config db-name)))
 
 (def ^:dynamic *db* nil)
+
+(defn- disconnect-db-user [db user]
+  "Forcibly disconnects all connections from the specified user to the
+  named db.  Requires that the current DB session has sufficient
+  authorization."
+  (jdbc/query-to-vec
+   [(str "select pg_terminate_backend (pg_stat_activity.pid)"
+         "  from pg_stat_activity"
+         "  where pg_stat_activity.datname = ?"
+         "    and pg_stat_activity.usename = ?")
+    db
+    user]))
 
 (defn call-with-db-info-on-failure-or-drop
   "Calls (f), and then if there are no clojure.tests failures or
@@ -129,10 +142,18 @@
         (let [after @clojure.test/*report-counters*]
           (if (and (= (:error before) (:error after))
                    (= (:fail before) (:fail after)))
-            (jdbc/with-db-connection (db-admin-config)
-              (jdbc/do-commands-outside-txn
-               (format "drop database if exists %s"
-                       (subname->validated-db-name (:subname db-config)))))
+            (let [db-name (subname->validated-db-name (:subname db-config))]
+              (jdbc/with-db-connection (db-admin-config)
+                (jdbc/do-commands
+                 (format "alter database \"%s\" with connection limit 0" db-name)))
+              (let [config (db-user-config "template1")]
+                (jdbc/with-db-connection config
+                  ;; We'll need this until we can upgrade bonecp (0.8.0
+                  ;; appears to fix the problem).
+                  (disconnect-db-user db-name (:user config))))
+              (jdbc/with-db-connection (db-admin-config)
+                (jdbc/do-commands-outside-txn
+                 (format "drop database if exists %s" db-name))))
             (clojure.test/with-test-out
               (println "Leaving test database intact:" (:subname *db*)))))))))
 
@@ -191,8 +212,6 @@
                   conf/database-config-out
                   db-config))
 
-(def ^:dynamic *db-spec* nil)
-
 (def antonym-data {"absence"    "presence"
                    "abundant"   "scarce"
                    "accept"     "refuse"
@@ -216,16 +235,14 @@
 
 (defn call-with-antonym-test-database
   [function]
-  (let [db (create-temp-db)]
-    (binding [*db-spec* db]
-      (jdbc/with-db-connection db
-        (jdbc/with-db-transaction []
-          (jdbc/do-commands
-           (sql/create-table-ddl :test
-                                 [:key "VARCHAR(256)" "PRIMARY KEY"]
-                                 [:value "VARCHAR(256)" "NOT NULL"]))
-          (insert-map antonym-data))
-        (function)))))
+  (with-test-db
+    (jdbc/with-db-transaction []
+      (jdbc/do-commands
+       (sql/create-table-ddl :test
+                             [:key "VARCHAR(256)" "PRIMARY KEY"]
+                             [:value "VARCHAR(256)" "NOT NULL"]))
+      (insert-map antonym-data))
+    (function)))
 
 (def indexes-sql
   "SELECT
