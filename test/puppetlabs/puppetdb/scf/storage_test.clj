@@ -466,7 +466,17 @@
     (store-catalog! (assoc catalog :producer_timestamp (-> 2 days ago)) (now))
     (is (= [{:count 1}]
            (query-to-vec [(str "SELECT COUNT(*) FROM catalogs WHERE resources IS NOT NULL"
-                               " AND edges IS NOT NULL")]))))
+                               " AND edges IS NOT NULL")])))
+    (is (= (set (map #(update % :relationship name)
+                     (:edges catalog)))
+           (->> (query-to-vec [(str "SELECT edges FROM catalogs")])
+                (mapcat (comp sutils/parse-db-json :edges))
+                set)))
+    (is (= (set (vals (:resources catalog)))
+           (->> (query-to-vec [(str "SELECT resources FROM catalogs")])
+                (mapcat (comp sutils/parse-db-json :resources))
+                (map #(update % :tags set))
+                set))))
 
   (testing "stores a second catalog"
     (store-catalog! (assoc catalog :producer_timestamp current-time) (now))
@@ -480,7 +490,19 @@
     (is (= [{:producer_timestamp (to-timestamp current-time)}]
            (query-to-vec [(str "SELECT catalogs.producer_timestamp FROM certnames"
                                " JOIN catalogs ON catalogs.id = certnames.latest_catalog_id"
-                               " WHERE certnames.certname = 'basic.catalogs.com'")])))))
+                               " WHERE certnames.certname = 'basic.catalogs.com'")]))))
+
+  (testing "garbage collection deletes old catalogs"
+    (jdbc/with-transacted-connection *db*
+      (delete-old-unassociated-catalogs! (-> 1 days ago)))
+    (is (= [{:count 1}]
+           (query-to-vec ["SELECT COUNT(*) FROM catalogs"]))))
+
+  (testing "garbage collection leaves the newest catalogs"
+    (jdbc/with-transacted-connection *db*
+      (delete-old-unassociated-catalogs! (now)))
+    (is (= [{:count 1}]
+           (query-to-vec ["SELECT COUNT(*) FROM catalogs"])))))
 
 (deftest-db catalog-persistence
   (testing "Persisted catalogs"

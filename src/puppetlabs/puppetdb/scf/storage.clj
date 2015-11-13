@@ -357,7 +357,7 @@
    received-timestamp :- pls/Timestamp]
   {:hash (sutils/munge-hash-for-storage hash)
    :edges (when @store-catalogs-historically? (sutils/munge-jsonb-for-storage edges))
-   :resources (when @store-catalogs-historically? (sutils/munge-jsonb-for-storage resources))
+   :resources (when @store-catalogs-historically? (sutils/munge-jsonb-for-storage (vals resources)))
    :catalog_version  version
    :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
    :timestamp (to-timestamp received-timestamp)
