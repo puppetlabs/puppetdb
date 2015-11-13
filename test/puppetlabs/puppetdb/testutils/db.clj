@@ -131,6 +131,23 @@
     db
     user]))
 
+(defn- drop-test-db [db-config]
+  (let [db-name (subname->validated-db-name (:subname db-config))]
+    (jdbc/with-db-connection (db-admin-config)
+      (jdbc/do-commands
+       (format "alter database \"%s\" with connection limit 0" db-name)))
+    (let [config (db-user-config "template1")]
+      (jdbc/with-db-connection config
+        ;; We'll need this until we can upgrade bonecp (0.8.0
+        ;; appears to fix the problem).
+        (disconnect-db-user db-name (:user config))))
+    (jdbc/with-db-connection (db-admin-config)
+      (jdbc/do-commands-outside-txn
+       (format "drop database if exists %s" db-name)))))
+
+(def preserve-test-db-on-failure
+  (boolean (re-matches #"yes|true|1" (env :pdb-test-keep-db-on-fail ""))))
+
 (defn call-with-db-info-on-failure-or-drop
   "Calls (f), and then if there are no clojure.tests failures or
   errors, drops the database, otherwise displays its subname."
@@ -139,23 +156,14 @@
     (try
       (f)
       (finally
-        (let [after @clojure.test/*report-counters*]
-          (if (and (= (:error before) (:error after))
-                   (= (:fail before) (:fail after)))
-            (let [db-name (subname->validated-db-name (:subname db-config))]
-              (jdbc/with-db-connection (db-admin-config)
-                (jdbc/do-commands
-                 (format "alter database \"%s\" with connection limit 0" db-name)))
-              (let [config (db-user-config "template1")]
-                (jdbc/with-db-connection config
-                  ;; We'll need this until we can upgrade bonecp (0.8.0
-                  ;; appears to fix the problem).
-                  (disconnect-db-user db-name (:user config))))
-              (jdbc/with-db-connection (db-admin-config)
-                (jdbc/do-commands-outside-txn
-                 (format "drop database if exists %s" db-name))))
-            (clojure.test/with-test-out
-              (println "Leaving test database intact:" (:subname *db*)))))))))
+        (if-not preserve-test-db-on-failure
+          (drop-test-db db-config)
+          (let [after @clojure.test/*report-counters*]
+            (if (and (= (:error before) (:error after))
+                     (= (:fail before) (:fail after)))
+              (drop-test-db db-config)
+              (clojure.test/with-test-out
+                (println "Leaving test database intact:" (:subname *db*))))))))))
 
 (defmacro with-db-info-on-failure-or-drop
   "Evaluates body in the context of call-with-db-info-on-failure-or-drop."
