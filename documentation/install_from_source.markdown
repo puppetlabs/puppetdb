@@ -111,6 +111,15 @@ default values aren't appropriate:
   * PDB\_TEST\_DB\_ADMIN (defaults to pdb\_test\_admin)
   * PDB\_TEST\_DB\_ADMIN\_PASSWORD (defaults to pdb\_test\_admin)
 
+Then you can run the test suite:
+
+    $ lein test
+
+And if you'd like to preserve the temporary test databases on failure,
+you can set PDB\_TEST\_PRESERVE\_DB\_ON\_FAIL to true:
+
+    $ PDB\_TEST\_KEEP\_DB\_ON\_FAIL=true lein test
+
 Step 3: Configure Database
 -----
 

@@ -6,6 +6,7 @@
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :refer :all]
+            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils.cli :refer [get-factsets]]
             [puppetlabs.puppetdb.command :refer [enqueue-command]]
             [puppetlabs.puppetdb.utils :as utils]
@@ -132,23 +133,23 @@
   (let [whitelist-file (temp-file "whitelist-log-reject")
         cert-config {:ssl-cert "test-resources/localhost.pem"
                      :ssl-key "test-resources/localhost.key"
-                     :ssl-ca-cert "test-resources/ca.pem"}
-        config (-> (svc-utils/create-temp-config)
-                   (assoc :jetty (merge cert-config
-                                        {:ssl-port 0
-                                         :ssl-host "0.0.0.0"
-                                         :ssl-protocols "TLSv1,TLSv1.1"}))
-                   (assoc-in [:puppetdb :certificate-whitelist] (str whitelist-file)))]
+                     :ssl-ca-cert "test-resources/ca.pem"}]
     (spit whitelist-file whitelisted-host)
-
-    (svc-utils/call-with-puppetdb-instance
-     config
-     (fn []
-       (pl-http/get (str (utils/base-url->str (assoc *base-url* :version :v4))
-                         "/facts")
-                    (merge cert-config
-                           {:headers {"accept" "application/json"}
-                            :as :text}))))))
+    (with-test-db
+      (svc-utils/call-with-puppetdb-instance
+       (-> (svc-utils/create-temp-config)
+           (assoc :database *db*)
+           (assoc :jetty (merge cert-config
+                                {:ssl-port 0
+                                 :ssl-host "0.0.0.0"
+                                 :ssl-protocols "TLSv1,TLSv1.1"}))
+           (assoc-in [:puppetdb :certificate-whitelist] (str whitelist-file)))
+       (fn []
+         (pl-http/get (str (utils/base-url->str (assoc *base-url* :version :v4))
+                           "/facts")
+                      (merge cert-config
+                             {:headers {"accept" "application/json"}
+                              :as :text})))))))
 
 (deftest cert-whitelists
   (testing "hosts not in whitelist should be forbidden"

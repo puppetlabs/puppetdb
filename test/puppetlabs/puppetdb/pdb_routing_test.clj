@@ -38,39 +38,37 @@
                           :baz 3}})
 
 (deftest top-level-routes
-  (svc-utils/call-with-puppetdb-instance
-   (fn []
-     (let [pdb-resp (-> svc-utils/*base-url*
-                        (assoc :prefix "/pdb")
-                        utils/base-url->str-with-prefix
-                        client/get)]
-       (tu/assert-success! pdb-resp)
-       (is (dtu/dashboard-page? pdb-resp))
+  (svc-utils/with-puppetdb-instance
+    (let [pdb-resp (-> svc-utils/*base-url*
+                       (assoc :prefix "/pdb")
+                       utils/base-url->str-with-prefix
+                       client/get)]
+      (tu/assert-success! pdb-resp)
+      (is (dtu/dashboard-page? pdb-resp))
 
-       (is (-> (query-server-time svc-utils/*base-url*)
-               (get-in [:body :server_time])
-               time/from-string))
+      (is (-> (query-server-time svc-utils/*base-url*)
+              (get-in [:body :server_time])
+              time/from-string))
 
-       (let [resp (export svc-utils/*base-url*)]
-         (tu/assert-success! resp)
-         (is (.contains (get-in resp [:headers "Content-Disposition"]) "puppetdb-export"))
-         (is (:body resp)))))))
+      (let [resp (export svc-utils/*base-url*)]
+        (tu/assert-success! resp)
+        (is (.contains (get-in resp [:headers "Content-Disposition"]) "puppetdb-export"))
+        (is (:body resp))))))
 
 (deftest maintenance-mode
-  (svc-utils/call-with-puppetdb-instance
-   (fn []
-     (let [maint-mode-service (tk-app/get-service svc-utils/*server* :MaintenanceMode)]
-       (is (= 200 (:status (submit-facts (svc-utils/pdb-cmd-url) test-facts))))
-       (is (= #{"foo" "bar" "baz"}
-              (-> (query-fact-names svc-utils/*base-url*)
-                  :body
-                  set)))
-       (enable-maint-mode maint-mode-service)
-       (is (= (:status (query-fact-names svc-utils/*base-url*))
-              503))
+  (svc-utils/with-puppetdb-instance
+    (let [maint-mode-service (tk-app/get-service svc-utils/*server* :MaintenanceMode)]
+      (is (= 200 (:status (submit-facts (svc-utils/pdb-cmd-url) test-facts))))
+      (is (= #{"foo" "bar" "baz"}
+             (-> (query-fact-names svc-utils/*base-url*)
+                 :body
+                 set)))
+      (enable-maint-mode maint-mode-service)
+      (is (= (:status (query-fact-names svc-utils/*base-url*))
+             503))
 
-       (disable-maint-mode maint-mode-service)
-       (is (= #{"foo" "bar" "baz"}
-              (-> (query-fact-names svc-utils/*base-url*)
-                  :body
-                  set)))))))
+      (disable-maint-mode maint-mode-service)
+      (is (= #{"foo" "bar" "baz"}
+             (-> (query-fact-names svc-utils/*base-url*)
+                 :body
+                 set))))))
