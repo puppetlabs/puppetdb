@@ -90,19 +90,28 @@
    (doseq [sequence-name (cons "test" (sutils/sql-current-connection-sequence-names))]
      (drop-sequence! sequence-name))))
 
-(def ^:private templates-created (atom false))
+(def ^:private pdb-test-id (env :pdb-test-id))
+
+(def ^:private template-name (if pdb-test-id
+                               (do
+                                 (assert (valid-sql-id? pdb-test-id))
+                                 (str "pdb_test_" pdb-test-id "_template"))
+                               "pdb_test_template"))
+
+(def ^:private template-created (atom false))
 
 (defn- ensure-pdb-db-templates-exist []
   (locking ensure-pdb-db-templates-exist
-    (when-not @templates-created
+    (when-not @template-created
+      (assert (valid-sql-id? template-name))
       (jdbc/with-db-connection (db-admin-config)
         (jdbc/do-commands-outside-txn
-         (format "drop database if exists pdb_test_template")
-         (format "create database pdb_test_template")))
-      (let [cfg (db-user-config "pdb_test_template")]
+         (format "drop database if exists %s" template-name)
+         (format "create database %s" template-name)))
+      (let [cfg (db-user-config template-name)]
         (jdbc/with-db-connection cfg
           (migrate! cfg)))
-      (reset! templates-created true))))
+      (reset! template-created true))))
 
 (def ^:private test-db-counter (atom 0))
 
@@ -110,11 +119,14 @@
   "Creates a temporary test database.  Prefer with-test-db, etc."
   (ensure-pdb-db-templates-exist)
   (let [n (swap! test-db-counter inc)
-        db-name (str "pdb_test_" n)]
+        db-name (if-not pdb-test-id
+                  (str "pdb_test_" n)
+                  (str "pdb_test_" pdb-test-id "_" n))]
+    (assert (valid-sql-id? db-name))
     (jdbc/with-db-connection (db-admin-config)
       (jdbc/do-commands-outside-txn
        (format "drop database if exists %s" db-name)
-       (format "create database %s template pdb_test_template" db-name)))
+       (format "create database %s template %s" db-name template-name)))
     (db-user-config db-name)))
 
 (def ^:dynamic *db* nil)
