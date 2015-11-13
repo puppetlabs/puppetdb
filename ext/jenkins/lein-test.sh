@@ -21,6 +21,10 @@ export PDB_TEST_DB_ADMIN=puppetdb
 export PDB_TEST_DB_USER_PASSWORD=puppetdb137
 export PDB_TEST_DB_ADMIN_PASSWORD=puppetdb137
 
+PDB_TEST_ID="${PUPPETDB_BRANCH}_${BUILD_ID}_${BUILD_NUMBER}_${JDK}"
+PDB_TEST_ID="$(echo "$PDB_TEST_ID" | perl -pe 's/[^a-zA-Z0-9_]/_/gmo')"
+declare -rx PDB_TEST_ID
+
 lein --version
 lein clean
 exec lein test
