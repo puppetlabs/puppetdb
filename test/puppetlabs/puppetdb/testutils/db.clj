@@ -92,11 +92,12 @@
 
 (def ^:private pdb-test-id (env :pdb-test-id))
 
-(def ^:private template-name (if pdb-test-id
-                               (do
-                                 (assert (valid-sql-id? pdb-test-id))
-                                 (str "pdb_test_" pdb-test-id "_template"))
-                               "pdb_test_template"))
+(def ^:private template-name
+  (if pdb-test-id
+    (let [name (str "pdb_test_" pdb-test-id "_template")]
+      (assert (valid-sql-id? name))
+      name)
+    "pdb_test_template"))
 
 (def ^:private template-created (atom false))
 
