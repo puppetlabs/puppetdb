@@ -105,6 +105,11 @@
   (locking ensure-pdb-db-templates-exist
     (when-not @template-created
       (assert (valid-sql-id? template-name))
+      (.addShutdownHook
+       (Runtime/getRuntime)
+       (Thread. #(jdbc/with-db-connection (db-admin-config)
+                   (jdbc/do-commands-outside-txn
+                    (format "drop database if exists %s" template-name)))))
       (jdbc/with-db-connection (db-admin-config)
         (jdbc/do-commands-outside-txn
          (format "drop database if exists %s" template-name)
