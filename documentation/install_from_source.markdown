@@ -99,7 +99,7 @@ PostgreSQL instance [configured][configure_postgres], and then you
 will need to create the test users:
 
     $ createuser -DRSP pdb_test
-    $ createuser -dRSP pdb_test_admin
+    $ createuser -dRsP pdb_test_admin
 
 You will also need to set the following environment variables if the
 default values aren't appropriate:
