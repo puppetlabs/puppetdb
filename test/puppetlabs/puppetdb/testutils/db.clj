@@ -125,8 +125,8 @@
          (format "create database %s" template-name)))
       (jdbc/with-db-connection (db-admin-config template-name)
         (jdbc/do-commands-outside-txn
-         "create extension pg_trgm"
-         "create extension pgcrypto"))
+         "create extension if not exists pg_trgm"
+         "create extension if not exists pgcrypto"))
       (let [cfg (db-user-config template-name)]
         (jdbc/with-db-connection cfg
           (migrate! cfg)))
