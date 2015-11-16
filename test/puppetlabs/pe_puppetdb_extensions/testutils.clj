@@ -1,5 +1,7 @@
 (ns puppetlabs.pe-puppetdb-extensions.testutils
-  (:require [puppetlabs.trapperkeeper.core :refer [defservice]]
+  (:require [clojure.test :refer [deftest]]
+            [puppetlabs.trapperkeeper.app :refer [get-service]]
+            [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [service-context service-id]]
             [puppetlabs.pe-puppetdb-extensions.config :as extconf]
             [puppetlabs.pe-puppetdb-extensions.sync.services :refer [puppetdb-sync-service]]
@@ -7,12 +9,17 @@
             [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [compojure.core :refer [context POST routes ANY]]
+            [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.config :as pdbconf]
+            [puppetlabs.puppetdb.testutils
+             :refer [temp-dir with-alt-mq without-jmx]]
+            [puppetlabs.puppetdb.testutils.db
+             :refer [*db* call-with-test-dbs]]
+            [puppetlabs.puppetdb.testutils.log
+             :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [ring.middleware.params :refer [wrap-params]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
-            [puppetlabs.puppetdb.testutils
-             :refer [available-postgres-configs clean-db-map temp-dir]]
             [puppetlabs.puppetdb.cheshire :as json]
             [environ.core :refer [env]]
             [clj-http.client :as http])
@@ -51,34 +58,6 @@
 (def sync-url-prefix (str pdb-prefix "/sync"))
 (def stub-url-prefix "/stub")
 
-(defn clean-pdb1-db-map [] (clean-db-map (first available-postgres-configs)))
-(defn clean-pdb2-db-map [] (clean-db-map (second available-postgres-configs)))
-
-(defn sync-config
-  "Returns a default TK config setup for sync testing. PuppetDB is
-  hosted at /pdb, and the sync service at /sync. Takes an optional
-  `stub-handler` parameter, a ring handler that will be hosted under
-  '/stub'."
-  [stub-handler]
-  (-> (svcs/create-config)
-      (assoc-in [:sync :allow-unsafe-sync-triggers] true)
-      (assoc-in [:sync :allow-unsafe-cleartext-sync] true)
-      (assoc :stub-server-service {:handler stub-handler}
-             :web-router-service  {:puppetlabs.pe-puppetdb-extensions.sync.pe-routing/pe-routing-service pdb-prefix
-                                   :puppetlabs.pe-puppetdb-extensions.testutils/stub-server-service stub-url-prefix})))
-
-(defn pdb1-sync-config
-  ([] (pdb1-sync-config nil))
-  ([stub-handler]
-   (-> (sync-config stub-handler)
-       (assoc :database (clean-pdb1-db-map)))))
-
-(defn pdb2-sync-config
-  ([] (pdb2-sync-config nil))
-  ([stub-handler]
-   (-> (sync-config stub-handler)
-       (assoc :database (clean-pdb2-db-map)))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; URL helper functions for inside a with-puppetdb-instance block
 (defn pdb-query-url []
@@ -112,6 +91,107 @@
 
 (defn trigger-sync-url-str []
   (str (base-url->str (sync-url)) "/trigger-sync"))
+
+
+(defn sync-config
+  "Returns a default TK config setup for sync testing. PuppetDB is
+  hosted at /pdb, and the sync service at /sync. Takes an optional
+  `stub-handler` parameter, a ring handler that will be hosted under
+  '/stub'."
+  [stub-handler]
+  (-> (svcs/create-temp-config)
+      (assoc-in [:sync :allow-unsafe-sync-triggers] true)
+      (assoc-in [:sync :allow-unsafe-cleartext-sync] true)
+      (assoc :stub-server-service {:handler stub-handler}
+             :web-router-service
+             {:puppetlabs.pe-puppetdb-extensions.sync.pe-routing/pe-routing-service pdb-prefix
+              :puppetlabs.pe-puppetdb-extensions.testutils/stub-server-service stub-url-prefix})))
+
+(defn call-with-pdbs
+  "Repeatedly calls (gen-config [previously-started-instance-info...])
+  and starts a pdb instance for each returned config.  When gen-config
+  returns false, calls (f instance-1-info instance-2-info...), and
+  cleans up all of the instances after the call.  Suppresses the log
+  unless something \"notable\" happens."
+  [gen-config f]
+  (letfn [(spawn-pdbs [running-instances]
+            (if-let [config (gen-config running-instances)]
+              (let [mq-name (str "puppetlabs.puppetdb.commands-"
+                                 (inc (count running-instances)))]
+                (with-alt-mq mq-name
+                  (with-puppetdb-instance config
+                    (spawn-pdbs (conj running-instances
+                                      (let [db (-> svcs/*server*
+                                                   (get-service :PuppetDBServer)
+                                                   service-context
+                                                   :shared-globals
+                                                   :scf-write-db)]
+                                        {:mq-name mq-name
+                                         :config config
+                                         :server svcs/*server*
+                                         :db db
+                                         :query-fn (partial cli-svcs/query
+                                                            (get-service
+                                                             svcs/*server*
+                                                             :PuppetDBServer))
+                                         :server-url svcs/*base-url*
+                                         :query-url (pdb-query-url)
+                                         :command-url (pdb-cmd-url)
+                                         :sync-url (sync-url)}))))))
+              (apply f running-instances)))]
+    (with-log-suppressed-unless-notable notable-pdb-event?
+      (without-jmx
+       (spawn-pdbs [])))))
+
+(defn call-with-related-ext-instances
+  "Creates a PuppetDB extensions instance for each config in configs,
+  and then calls (f instance-1-info instance-2-info ...).  Each
+  instance will have a clean test database provided by with-test-dbs,
+  and if a config-filter is provided, (config-filter config
+  running-instances-info) will be called before starting each instance, and
+  must return the desired config for the instance under construction."
+  [configs config-filter f]
+  (call-with-test-dbs
+   (count configs)
+   (fn [& dbs]
+     (call-with-pdbs
+      (fn [running-instances]
+        (let [i (count running-instances)]
+          (when (< i (count configs))
+            (let [cfg (assoc (configs i)
+                             :database (merge (nth dbs i)
+                                              (:database (configs i))))]
+              (if config-filter
+                (config-filter cfg running-instances)
+                cfg)))))
+      f))))
+
+(defmacro with-related-ext-instances
+  "instance-bindings => [name config ...]
+
+  Evaluates body with a PuppetDB extensions instance for each config
+  bound to the corresponding name.  Each instance will have a clean
+  test database provided by with-test-dbs, and if a config-filter is
+  provided, then (config-filter config
+  previously-started-instances-info) will be called before starting
+  each instance, and must return the desired config for the instance
+  under construction."
+  [instance-bindings config-filter & body]
+  (let [names (take-nth 2 instance-bindings)]
+    (assert (even? (count instance-bindings)))
+    `(let [configs# [~@(take-nth 2 (rest instance-bindings))]]
+       (call-with-related-ext-instances configs# ~config-filter
+         (fn [~@names]
+           ~@body)))))
+
+(defmacro with-ext-instances
+  "instance-bindings => [name config ...]
+
+  Evaluates body with a PuppetDB extensions instance for each config
+  bound to each name.  Each instance will have a clean test database
+  provided by with-test-dbs."
+  [instance-bindings & body]
+  `(with-related-ext-instances ~instance-bindings nil ~@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; General utility functions

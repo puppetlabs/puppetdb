@@ -3,18 +3,19 @@
   (:require [clojure.test :refer :all :exclude [report]]
             [clj-time.core :as t]
             [puppetlabs.pe-puppetdb-extensions.sync.core :as sync-core]
-            [puppetlabs.pe-puppetdb-extensions.sync.sync-test-utils :refer [with-alt-mq]]
-            [puppetlabs.pe-puppetdb-extensions.testutils :as utils :refer [with-puppetdb-instance blocking-command-post]]
+            [puppetlabs.pe-puppetdb-extensions.testutils :as utils
+             :refer [blocking-command-post with-puppetdb-instance]]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.random :refer [random-string]]
-            [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
-            [puppetlabs.puppetdb.testutils :refer [without-jmx]]
+            [puppetlabs.puppetdb.testutils :refer [with-alt-mq without-jmx]]
+            [puppetlabs.puppetdb.testutils.db :refer [call-with-test-dbs]]
+            [puppetlabs.puppetdb.testutils.log
+             :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.time :refer [parse-period]]
-            [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.app :refer [get-service]]))
 
 ;;; Sync stream comparison tests
@@ -82,18 +83,26 @@
 ;;; Tests for the test infrastructure
 
 (deftest two-instance-test
-  (without-jmx
-   (with-alt-mq "puppetlabs.puppetdb.commands-1"
-     (let [config-1 (utils/pdb1-sync-config)
-           config-2 (utils/pdb2-sync-config)]
-       (with-log-suppressed-unless-notable notable-pdb-event?
-        (with-puppetdb-instance config-1
-          (let [report (reports/report-query->wire-v6 (:basic reports))
-                query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))]
-            (blocking-command-post (utils/pdb-cmd-url) "store report" 6 report)
-            (is (not (empty? (svcs/get-reports (utils/pdb-query-url) (:certname report)))))
-
-            (with-alt-mq "puppetlabs.puppetdb.commands-2"
-              (with-puppetdb-instance config-2
-                (blocking-command-post (utils/pdb-cmd-url) "store report" 6 report)
-                (is (not (empty? (svcs/get-reports (utils/pdb-query-url) (:certname report))))))))))))))
+  (call-with-test-dbs 2
+    (fn [db1 db2]
+      (without-jmx
+       (with-alt-mq "puppetlabs.puppetdb.commands-1"
+         (let [config-1 (assoc (utils/sync-config nil) :database db1)
+               config-2 (assoc (utils/sync-config nil) :database db2)]
+           (with-log-suppressed-unless-notable notable-pdb-event?
+             (with-puppetdb-instance config-1
+               (let [report (reports/report-query->wire-v6 (:basic reports))
+                     query-fn (partial cli-svcs/query
+                                       (get-service svcs/*server*
+                                                    :PuppetDBServer))]
+                 (blocking-command-post (utils/pdb-cmd-url)
+                                        "store report" 6 report)
+                 (is (not (empty? (svcs/get-reports (utils/pdb-query-url)
+                                                    (:certname report)))))
+                 (with-alt-mq "puppetlabs.puppetdb.commands-2"
+                   (with-puppetdb-instance config-2
+                     (blocking-command-post (utils/pdb-cmd-url)
+                                            "store report" 6 report)
+                     (is (not (empty? (svcs/get-reports
+                                       (utils/pdb-query-url)
+                                       (:certname report))))))))))))))))

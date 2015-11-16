@@ -4,20 +4,17 @@
             [compojure.core :refer [routes GET context]]
             [puppetlabs.http.client.sync :as http]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as services]
-            [puppetlabs.pe-puppetdb-extensions.testutils :as utils
-             :refer [with-puppetdb-instance index-by json-response blocking-command-post]]
+            [puppetlabs.pe-puppetdb-extensions.testutils
+             :refer [index-by json-response blocking-command-post]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
-            [puppetlabs.puppetdb.testutils :refer [without-jmx]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
             [puppetlabs.trapperkeeper.app :as tk-app]
-            [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.services :refer [service-context]]))
 
 ;;; Test data
@@ -45,10 +42,6 @@
     (if f
       (f)
       (throw (Exception. (str "Couldn't find a test fn attached to var " (:name meta)))))))
-
-(defmacro with-alt-mq [mq-name & body]
-  `(with-redefs [puppetlabs.puppetdb.config/default-mq-endpoint ~mq-name]
-     (do ~@body)))
 
 (defn logging-query-handler
   "Build a handler to stub certain query results. This can handle two kinds of
@@ -130,43 +123,3 @@
 
 (defn without-timestamp [record]
   (dissoc record :timestamp))
-
-(defn with-pdbs
-  "Repeatedly call (gen-config [previously-started-instance-info...])
-  and start a pdb instance for each returned config.  When gen-config
-  returns false, call (f instance-1-info instance-2-info...).
-  Suppress the log unless something \"notable\" happens."
-  [gen-config f]
-  (letfn [(spawn-pdbs [infos]
-            (if-let [config (gen-config infos)]
-              (let [mq-name (str "puppetlabs.puppetdb.commands-"
-                                 (inc (count infos)))]
-                (with-alt-mq mq-name
-                  (with-puppetdb-instance config
-                    (spawn-pdbs (conj infos
-                                      (let [db (-> svcs/*server*
-                                                   (get-service :PuppetDBServer)
-                                                   service-context
-                                                   :shared-globals
-                                                   :scf-write-db)]
-                                        {:mq-name mq-name
-                                         :config config
-                                         :server svcs/*server*
-                                         :db db
-                                         :query-fn (partial cli-svcs/query (tk-app/get-service svcs/*server* :PuppetDBServer))
-                                         :server-url svcs/*base-url*
-                                         :query-url (utils/pdb-query-url)
-                                         :command-url (utils/pdb-cmd-url)
-                                         :sync-url (utils/sync-url)}))))))
-              (apply f infos)))]
-    (with-log-suppressed-unless-notable notable-pdb-event?
-      (without-jmx
-       (spawn-pdbs [])))))
-
-(defn default-pdb-configs [_]
-  (fn [infos]
-    (let [num-configs-so-far (count infos)]
-      (case num-configs-so-far
-        0 (utils/pdb1-sync-config)
-        1 (utils/pdb2-sync-config)
-        nil))))
