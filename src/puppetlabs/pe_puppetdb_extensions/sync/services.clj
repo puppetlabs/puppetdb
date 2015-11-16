@@ -53,7 +53,7 @@
              (maplog [:sync :error] ex
                             {:remote url :phase "sync"}
                             (format err url))
-             (log/error ex err url)
+             (log/errorf ex err url)
              {:status 200 :body (format err url)}))
          (finally (swap! currently-syncing (constantly false))))
     (let [err "Refusing to sync from %s. Sync already in progress."
