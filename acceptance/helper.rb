@@ -753,6 +753,7 @@ EOS
       when :debian
         if options[:type] == 'aio' then
           on host, "apt-get install -y puppet-agent"
+          on( host, puppet('resource', 'host', 'updates.puppetlabs.com', 'ensure=present', "ip=127.0.0.1") )
           on host, "apt-get install -y puppetserver"
         else
           on host, "apt-get install -y puppet puppetmaster-common"
@@ -764,6 +765,7 @@ EOS
         if options[:type] == 'aio' then
           on host, "yum install -y java-1.7.0-openjdk"
           on host, "yum install -y puppet-agent"
+          on( host, puppet('resource', 'host', 'updates.puppetlabs.com', 'ensure=present', "ip=127.0.0.1") )
           on host, "yum install -y puppetserver"
         else
           on host, "yum install -y puppet"
