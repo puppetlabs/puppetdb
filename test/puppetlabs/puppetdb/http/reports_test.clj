@@ -83,13 +83,13 @@
     (testing "logs projected"
       (is (= (query-result method endpoint ["extract" "logs"
                                             ["=" "certname" (:certname basic)]])
-             #{{:logs (merge {:href (utils/as-path "/v4/reports" report-hash "logs")}
+             #{{:logs (merge {:href (sutils/as-path "/v4/reports" report-hash "logs")}
                              (when (sutils/postgres?) {:data (get-in basic [:logs :data])}))}})))
 
     (testing "metrics projected"
       (is (= (query-result method endpoint ["extract" "metrics"
                                             ["=" "certname" (:certname basic)]])
-             #{{:metrics (merge {:href (utils/as-path "/v4/reports" report-hash "metrics")}
+             #{{:metrics (merge {:href (sutils/as-path "/v4/reports" report-hash "metrics")}
                                 (when (sutils/postgres?) {:data (get-in basic [:metrics :data])}))}})))
 
     (testing "one projected column with a not"

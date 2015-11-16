@@ -8,7 +8,6 @@
             [clojure.set :as set]
             [puppetlabs.puppetdb.archive :as archive]
             [clojure.java.io :as io]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.walk :as walk]
             [slingshot.slingshot :refer [try+ throw+]]
@@ -185,6 +184,12 @@
   (-> (URL. protocol host port "")
       .toURI .toASCIIString))
 
+(defn base-url->str-with-prefix
+  [{:keys [protocol host port prefix] :as base-url}]
+  (-> (java.net.URL. protocol host port prefix)
+      .toURI
+      .toASCIIString))
+
 (defn describe-bad-base-url
   "If a problem is detected with `base-url`, returns a string
   describing the issue. For example {:host \"x:y\" ...}."
@@ -271,25 +276,25 @@
                (assoc acc (schema.core/required-key (puppetlabs.puppetdb.utils/kwd->str k)) v))
              {} kwd-schema))
 
-(defn as-path
-  "Create a url path from arguments. Does not append a slash to the beginning
-   or end. Example:
-   (as-path '/v4' 'facts' "
-  [root & path]
-  (apply str root "/" (string/join "/" path)))
-
-(pls/defn-validated child->expansion
-  "Convert child to the expanded format."
-  [data :- (s/maybe (s/either PGobject s/Str))
-   parent :- s/Keyword
-   child :- s/Keyword
-   url-prefix :- s/Str]
-  (let [to-href #(as-path url-prefix (name parent) % (name child))]
-    (if (string? data)
-      ;; if it's a string it's just an identifier
-      {:href (to-href data)}
-      (-> (sutils/parse-db-json data)
-          (update :href to-href)))))
+;(defn as-path
+;  "Create a url path from arguments. Does not append a slash to the beginning
+;   or end. Example:
+;   (as-path '/v4' 'facts' "
+;  [root & path]
+;  (apply str root "/" (string/join "/" path)))
+;
+;(pls/defn-validated child->expansion
+;  "Convert child to the expanded format."
+;  [data :- (s/maybe (s/either PGobject s/Str))
+;   parent :- s/Keyword
+;   child :- s/Keyword
+;   url-prefix :- s/Str]
+;  (let [to-href #(as-path url-prefix (name parent) % (name child))]
+;    (if (string? data)
+;      ;; if it's a string it's just an identifier
+;      {:href (to-href data)}
+;      (-> (sutils/parse-db-json data)
+;          (update :href to-href)))))
 
 (defn hsql?
   "given a db-spec style database object, determine if hsqldb is being used."
@@ -339,3 +344,8 @@
   (sp/transform [sp/ALL]
                 #(update % 0 underscores->dashes)
                 m))
+
+(defmacro with-timeout [timeout-ms default & body]
+  `(let [f# (future (do ~@body))
+         result# (deref f# ~timeout-ms ~default)]
+     result#))

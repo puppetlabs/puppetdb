@@ -5,6 +5,7 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.scf.storage-utils :as su]
             [schema.core :as s]))
 
 ;; MUNGE
@@ -21,10 +22,10 @@
   [base-url :- s/Str]
   (fn [row]
     (-> row
-        (utils/update-when [:resource_events] utils/child->expansion :reports :events base-url)
+        (utils/update-when [:resource_events] su/child->expansion :reports :events base-url)
         (utils/update-when [:resource_events :data] (partial map rtj->event))
-        (utils/update-when [:metrics] utils/child->expansion :reports :metrics base-url)
-        (utils/update-when [:logs] utils/child->expansion :reports :logs base-url))))
+        (utils/update-when [:metrics] su/child->expansion :reports :metrics base-url)
+        (utils/update-when [:logs] su/child->expansion :reports :logs base-url))))
 
 (pls/defn-validated munge-result-rows
   "Reassemble report rows from the database into the final expected format."
