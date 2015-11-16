@@ -3,6 +3,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.scf.storage-utils :as su]
             [schema.core :as s]))
 
 ;; MUNGE
@@ -12,12 +13,12 @@
   [base-url :- s/Str]
   (fn [row]
     (-> row
-        (utils/update-when [:facts] utils/child->expansion :factsets :facts base-url)
+        (utils/update-when [:facts] su/child->expansion :factsets :facts base-url)
         (utils/update-when [:facts :data] (partial map #(update % :value json/parse-string))))))
 
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
   [version :- s/Keyword
    url-prefix :- s/Str]
-  (let [base-url (utils/as-path url-prefix (name version))]
+  (let [base-url (su/as-path url-prefix (name version))]
     (partial map (row->factset base-url))))

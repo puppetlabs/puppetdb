@@ -276,25 +276,25 @@
                (assoc acc (schema.core/required-key (puppetlabs.puppetdb.utils/kwd->str k)) v))
              {} kwd-schema))
 
-(defn as-path
-  "Create a url path from arguments. Does not append a slash to the beginning
-   or end. Example:
-   (as-path '/v4' 'facts' "
-  [root & path]
-  (apply str root "/" (string/join "/" path)))
-
-(pls/defn-validated child->expansion
-  "Convert child to the expanded format."
-  [data :- (s/maybe (s/either PGobject s/Str))
-   parent :- s/Keyword
-   child :- s/Keyword
-   url-prefix :- s/Str]
-  (let [to-href #(as-path url-prefix (name parent) % (name child))]
-    (if (string? data)
-      ;; if it's a string it's just an identifier
-      {:href (to-href data)}
-      (-> (sutils/parse-db-json data)
-          (update :href to-href)))))
+;(defn as-path
+;  "Create a url path from arguments. Does not append a slash to the beginning
+;   or end. Example:
+;   (as-path '/v4' 'facts' "
+;  [root & path]
+;  (apply str root "/" (string/join "/" path)))
+;
+;(pls/defn-validated child->expansion
+;  "Convert child to the expanded format."
+;  [data :- (s/maybe (s/either PGobject s/Str))
+;   parent :- s/Keyword
+;   child :- s/Keyword
+;   url-prefix :- s/Str]
+;  (let [to-href #(as-path url-prefix (name parent) % (name child))]
+;    (if (string? data)
+;      ;; if it's a string it's just an identifier
+;      {:href (to-href data)}
+;      (-> (sutils/parse-db-json data)
+;          (update :href to-href)))))
 
 (defn hsql?
   "given a db-spec style database object, determine if hsqldb is being used."

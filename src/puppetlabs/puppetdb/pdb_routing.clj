@@ -128,11 +128,13 @@
                                                     (mq/queue-size "localhost"))
                                    read-db-up? (sutils/db-up? (:scf-read-db globals))
                                    write-db-up? (sutils/db-up? (:scf-write-db globals))
-                                   state (if (and read-db-up? write-db-up?)
-                                           :running
-                                           :error)]
+                                   maintenance-mode? (maint-mode?)
+                                   state (cond
+                                           maintenance-mode? :starting
+                                           (and read-db-up? write-db-up?) :running
+                                           :else :error)]
                                {:state state
-                                :status {:maintenance_mode? (maint-mode?)
+                                :status {:maintenance_mode? maintenance-mode?
                                          :queue_depth queue-depth
                                          :read_db_up? read-db-up?
                                          :write_db_up? write-db-up?}}))))

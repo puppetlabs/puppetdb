@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.scf.storage-utils
   (:require [clojure.java.jdbc :as sql]
             [honeysql.core :as hcore]
+            [clojure.string :as string]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -352,3 +353,23 @@ must be supplied as the value to be matched."
              (= answer 42))
            (catch Exception _
              false)))))
+
+(defn as-path
+  "Create a url path from arguments. Does not append a slash to the beginning
+   or end. Example:
+   (as-path '/v4' 'facts' "
+  [root & path]
+  (apply str root "/" (string/join "/" path)))
+
+(pls/defn-validated child->expansion
+  "Convert child to the expanded format."
+  [data :- (s/maybe (s/either PGobject s/Str))
+   parent :- s/Keyword
+   child :- s/Keyword
+   url-prefix :- s/Str]
+  (let [to-href #(as-path url-prefix (name parent) % (name child))]
+    (if (string? data)
+      ;; if it's a string it's just an identifier
+      {:href (to-href data)}
+      (-> (parse-db-json data)
+          (update :href to-href)))))
