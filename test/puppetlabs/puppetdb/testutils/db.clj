@@ -37,7 +37,7 @@
    :password "xyzzy"})
 
 (defn db-admin-config
-  ([] (db-admin-config "template1"))
+  ([] (db-admin-config "postgres"))
   ([database]
     {:classname "org.postgresql.Driver"
      :subprotocol "postgresql"
@@ -149,7 +149,7 @@
     (jdbc/with-db-connection (db-admin-config)
       (jdbc/do-commands
        (format "alter database \"%s\" with connection limit 0" db-name)))
-    (let [config (db-user-config "template1")]
+    (let [config (db-user-config "postgres")]
       (jdbc/with-db-connection config
         ;; We'll need this until we can upgrade bonecp (0.8.0
         ;; appears to fix the problem).
