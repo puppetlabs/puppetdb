@@ -7,16 +7,14 @@ step "Install development build of PuppetDB on the PuppetDB server" do
       Log.notify("Install puppetdb from source")
       Log.error database
 
-      if (test_config[:database] == :postgres)
-        install_postgres(database)
-      end
+      install_postgres(database)
       install_puppetdb_via_rake(database)
       start_puppetdb(database)
       install_puppetdb_termini_via_rake(master, database)
     when :package
       Log.notify("Installing puppetdb from package; install mode: '#{test_config[:install_mode].inspect}'")
 
-      install_puppetdb(database, test_config[:database])
+      install_puppetdb(database)
 
       if test_config[:validate_package_version]
         validate_package_version(database)

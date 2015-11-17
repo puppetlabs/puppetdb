@@ -29,10 +29,6 @@ module PuppetDBExtensions
                          [:install, :upgrade], "install mode",
                          "INSTALL_MODE", :install)
 
-    database =
-        get_option_value(options[:puppetdb_database],
-            [:postgres, :embedded], "database", "PUPPETDB_DATABASE", :postgres)
-
     validate_package_version =
         get_option_value(options[:puppetdb_validate_package_version],
             [:true, :false], "'validate package version'",
@@ -108,7 +104,6 @@ module PuppetDBExtensions
       :os_families => os_families,
       :install_type => install_type,
       :install_mode => install_mode,
-      :database => database,
       :validate_package_version => validate_package_version == :true,
       :expected_rpm_version => expected_rpm_version,
       :expected_deb_version => expected_deb_version,
@@ -302,26 +297,18 @@ module PuppetDBExtensions
     end
   end
 
-  def install_puppetdb(host, db, version=nil)
-    embedded_path = '/opt/puppetlabs/server/data/puppetdb/db/db'
+  def install_puppetdb(host, version=nil)
     puppetdb_manifest = <<-EOS
     class { 'puppetdb::globals':
       version => '#{get_package_version(host, version)}'
     }
     class { 'puppetdb::server':
-      database               => '#{db}',
-      database_embedded_path => '#{embedded_path}',
-      manage_firewall        => false,
+      manage_firewall => false,
     }
+    #{postgres_manifest}
+    Postgresql::Server::Db['puppetdb'] -> Class['puppetdb::server']
     EOS
-    if db == :postgres
-      manifest = append_postgres_manifest(host, puppetdb_manifest)
-      manifest += "\nPostgresql::Server::Db['puppetdb'] -> Class['puppetdb::server']"
-      apply_manifest_on(host, manifest)
-    else
-      manifest = puppetdb_manifest
-      apply_manifest_on(host, manifest)
-    end
+    apply_manifest_on(host, puppetdb_manifest)
     print_ini_files(host)
     sleep_until_started(host)
   end
@@ -390,9 +377,8 @@ module PuppetDBExtensions
     CGI.escape(Time.rfc2822(result.stdout).iso8601)
   end
 
-  def append_postgres_manifest(host, input_manifest)
+  def postgres_manifest
     manifest = <<-EOS
-      #{input_manifest}
       # get the pg server up and running
       class { 'postgresql::globals':
           manage_package_repo => true,
@@ -414,19 +400,17 @@ module PuppetDBExtensions
 
   def install_postgres(host)
     Beaker::Log.notify "Installing postgres on #{host}"
-
-    manifest = append_postgres_manifest(host, "")
-    apply_manifest_on(host, manifest)
+    apply_manifest_on(host, postgres_manifest)
   end
 
   # Restart postgresql using Puppet, by notifying the postgresql::server::service
   # class, which should cause the service to restart.
   def restart_postgres(host)
-    notify_manifest = <<-EOS
+    manifest = <<-EOS
       notify { 'restarting postgresql': }~>
       Class['postgresql::server::service']
+      #{postgres_manifest}
     EOS
-    manifest = append_postgres_manifest(host, notify_manifest)
     apply_manifest_on(host, manifest)
   end
 
@@ -454,10 +438,7 @@ module PuppetDBExtensions
     install_from_ezbake host
 
     step "Configure database.ini file" do
-      manifest = "
-        class { 'puppetdb::server::database_ini':
-          database =>  '#{PuppetDBExtensions.config[:database]}',
-        }"
+      manifest = "class { 'puppetdb::server::database_ini': }"
 
       apply_manifest_on(host, manifest)
     end
@@ -616,19 +597,12 @@ EOS
   end
 
   def clear_database(host)
-    case PuppetDBExtensions.config[:database]
-      when :postgres
-        if host.is_pe?
-          on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/dropdb pe-puppetdb"'
-        else
-          on host, 'su postgres -c "dropdb puppetdb"'
-        end
-        install_postgres(host)
-      when :embedded
-        on host, "rm -rf #{puppetdb_vardir(host)}/db"
-      else
-        raise ArgumentError, "Unsupported database: '#{PuppetDBExtensions.config[:database]}'"
+    if host.is_pe?
+      on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/dropdb pe-puppetdb"'
+    else
+      on host, 'su postgres -c "dropdb puppetdb"'
     end
+    install_postgres(host)
   end
 
   ############################################################################
@@ -744,170 +718,20 @@ EOS
   # End Object diff functions
   ##############################################################################
 
-  def install_puppet_from_package
-    os_families = test_config[:os_families]
-    hosts.each do |host|
-      os = os_families[host.name]
+  def install_puppet_conf(host)
+    confdir = host.puppet['confdir']
+    puppetconf = File.join(confdir, 'puppet.conf')
+    on host, "mkdir -p #{confdir}"
 
-      case os
-      when :debian
-        if options[:type] == 'aio' then
-          on host, "apt-get install -y puppet-agent"
-          on( host, puppet('resource', 'host', 'updates.puppetlabs.com', 'ensure=present', "ip=127.0.0.1") )
-          on host, "apt-get install -y puppetserver"
-        else
-          on host, "apt-get install -y puppet puppetmaster-common"
-        end
-      # Puppet 3.7.4 is broken on fedora, pinning to 3.7.3 until it's fixed
-      when :fedora
-        on host, "yum install -y puppet-3.7.3"
-      when :redhat
-        if options[:type] == 'aio' then
-          on host, "yum install -y java-1.7.0-openjdk"
-          on host, "yum install -y puppet-agent"
-          on( host, puppet('resource', 'host', 'updates.puppetlabs.com', 'ensure=present', "ip=127.0.0.1") )
-          on host, "yum install -y puppetserver"
-        else
-          on host, "yum install -y puppet"
-        end
-      else
-        raise ArgumentError, "Unsupported OS '#{os}'"
-      end
-    end
-  end
+    hostname = on(host, 'facter hostname').stdout.strip
+    fqdn = on(host, 'facter fqdn').stdout.strip
 
-  # This helper has been grabbed from beaker, and overriden with the opts
-  # component so I can add a new 'refspec' functionality to allow a custom
-  # refspec if required.
-  #
-  # Once this methodology is confirmed we should merge it back upstream.
-  def install_from_git(host, path, repository, opts = {})
-    name   = repository[:name]
-    repo   = repository[:path]
-    rev    = repository[:rev]
-
-    target = "#{path}/#{name}"
-
-    step "Clone #{repo} if needed" do
-      on host, "test -d #{path} || mkdir -p #{path}"
-      on host, "test -d #{target} || git clone #{repo} #{target}"
-    end
-
-    step "Update #{name} and check out revision #{rev}" do
-      commands = ["cd #{target}",
-                  "remote rm origin",
-                  "remote add origin #{repo}",
-                  "fetch origin #{opts[:refspec]}",
-                  "clean -fdx",
-                  "checkout -f #{rev}"]
-      on host, commands.join(" && git ")
-    end
-
-    step "Install #{name} on the system" do
-      # The solaris ruby IPS package has bindir set to /usr/ruby/1.8/bin.
-      # However, this is not the path to which we want to deliver our
-      # binaries. So if we are using solaris, we have to pass the bin and
-      # sbin directories to the install.rb
-      install_opts = ''
-      install_opts = '--bindir=/usr/bin --sbindir=/usr/sbin' if
-        host['platform'].include? 'solaris'
-
-        on host,  "cd #{target} && " +
-                  "if [ -f install.rb ]; then " +
-                  "ruby ./install.rb #{install_opts}; " +
-                  "else true; fi"
-    end
-  end
-
-  def install_puppet_from_source
-    os_families = test_config[:os_families]
-
-    extend Beaker::DSL::InstallUtils
-
-    source_path = Beaker::DSL::InstallUtils::SourcePath
-    git_uri     = Beaker::DSL::InstallUtils::GitURI
-    github_sig  = Beaker::DSL::InstallUtils::GitHubSig
-
-    tmp_repositories = []
-
-    repos = Hash[*test_config.select {|k, v| k =~ /^repo_/}.flatten].values
-
-    repos.each do |uri|
-      raise(ArgumentError, "#{uri} is not recognized.") unless(uri =~ git_uri)
-      tmp_repositories << extract_repo_info_from(uri)
-    end
-
-    repositories = order_packages(tmp_repositories)
-
-    hosts.each_with_index do |host, index|
-      os = os_families[host.name]
-
-      case os
-      when :redhat, :fedora
-        on host, "yum install -y git-core ruby"
-      when :debian
-        on host, "apt-get install -y git ruby"
-      else
-        raise "OS #{os} not supported"
-      end
-
-      on host, "echo #{github_sig} >> $HOME/.ssh/known_hosts"
-
-      repositories.each do |repository|
-        step "Install #{repository[:name]}"
-        install_from_git host, source_path, repository,
-          :refspec => '+refs/pull/*:refs/remotes/origin/pr/*'
-      end
-
-      on host, "getent group puppet || groupadd puppet"
-      on host, "getent passwd puppet || useradd puppet -g puppet -G puppet"
-      on host, "mkdir -p /var/run/puppet"
-      on host, "chown puppet:puppet /var/run/puppet"
-    end
-  end
-
-  def install_puppet_conf
-    hosts.each do |host|
-      confdir = host.puppet['confdir']
-      puppetconf = File.join(confdir, 'puppet.conf')
-
-      on host, "mkdir -p #{confdir}"
-
-      conf = IniFile.new
-      conf['agent'] = {
-        'server' => master,
-      }
-      if options[:is_puppetserver] then
-        pidfile = '/var/run/puppetlabs/puppetserver/puppetserver.pid'
-      else
-        pidfile = master.puppet('master')['pidfile']
-      end
-      conf['master'] = {
-        'pidfile' => pidfile,
-      }
-      if options[:type] == 'aio' then
-        hostname = fact_on(host, "hostname")
-        fqdn = fact_on(host, "fqdn")
-        conf['master']['dns_alt_names']="puppet,#{hostname},#{fqdn},#{host.hostname}"
-      end
-      create_remote_file host, puppetconf, conf.to_s
-    end
-  end
-
-  def install_puppet
-    # If our :install_type is :pe then the harness has already installed puppet.
-    case test_config[:install_type]
-    when :package
-      install_puppet_from_package
-      install_puppet_conf
-    when :git
-      if test_config[:repo_puppet] then
-        install_puppet_from_source
-      else
-        install_puppet_from_package
-      end
-      install_puppet_conf
-    end
+    lay_down_new_puppet_conf(host,
+                             {"main" => { "dns_alt_names" => "puppet,#{hostname},#{fqdn}",
+                                          "verbose" => true },
+                              "master" => {"trace" => true},
+                              "agent" => { "server" => master }},
+                             confdir)
   end
 
   def create_remote_site_pp(host, manifest)
@@ -934,6 +758,28 @@ PP
     on host, "chmod -R +rX #{testdir}"
     on host, "chown -R #{master.puppet['user']}:#{master.puppet['user']} #{testdir}"
     remote_path
+  end
+
+  def puppetserver_initialize_ssl
+    hostname = on(master, 'facter hostname').stdout.strip
+    fqdn = on(master, 'facter fqdn').stdout.strip
+
+    step "Server: Start Puppet Server"
+    old_retries = master['master-start-curl-retries']
+    master['master-start-curl-retries'] = 300
+    with_puppet_running_on(master, {"master" => {"trace" => true},
+                                    "main" => { "autosign" => true,
+                                                "dns_alt_names" => "puppet,#{hostname},#{fqdn}",
+                                                "verbose" => true,
+                                                "daemonize" => true }}) do
+
+      hosts.each do |host|
+        step "Agents: Run agent --test first time to gen CSR"
+        on host, puppet("agent --test --server #{master}"), :acceptable_exit_codes => [0]
+      end
+
+    end
+    master['master-start-curl-retries'] = old_retries
   end
 
   def run_agents_with_new_site_pp(host, manifest, env_vars = {}, extra_cli_args = "")
