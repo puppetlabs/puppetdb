@@ -50,9 +50,9 @@ trap "rm -f '$tmp_cmds'" EXIT
 echo -n "alter role pdb_test with password '" > "$tmp_cmds"
 cat pass >> "$tmp_cmds"
 echo "';" >> "$tmp_cmds"
-psql -f "$tmp_cmds" template1
+psql -f "$tmp_cmds" postgres
 
 echo -n "alter role pdb_test_admin with password '" > "$tmp_cmds"
 cat pass-admin >> "$tmp_cmds"
 echo "';" >> "$tmp_cmds"
-psql -f "$tmp_cmds" template1
+psql -f "$tmp_cmds" postgres
