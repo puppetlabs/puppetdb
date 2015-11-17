@@ -242,9 +242,10 @@
 (defn db-up?
   [db-spec]
   (utils/with-timeout 1000 false
-    (jdbc/with-transacted-connection db-spec
-      (try (let [select-42 "SELECT (a - b) AS answer FROM (VALUES ((7 * 7), 7)) AS x(a, b)"
-                 [{:keys [answer]}] (jdbc/query [select-42])]
-             (= answer 42))
-           (catch Exception _
-             false)))))
+    (try
+      (jdbc/with-transacted-connection db-spec
+        (let [select-42 "SELECT (a - b) AS answer FROM (VALUES ((7 * 7), 7)) AS x(a, b)"
+              [{:keys [answer]}] (jdbc/query [select-42])]
+          (= answer 42)))
+      (catch Exception _
+        false))))

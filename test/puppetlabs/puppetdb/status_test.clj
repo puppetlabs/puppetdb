@@ -25,13 +25,13 @@
   (testing "status returns as expected when in maintenance mode"
     (with-redefs [puppetlabs.puppetdb.pdb-routing/maint-mode? (constantly true)]
       (svc-utils/with-puppetdb-instance
-        (let [{:keys [body] :as pdb-resp} (-> svc-utils/*base-url*
-                                              (assoc :prefix "/status/v1/services")
-                                              base-url->str-with-prefix
-                                              client/get)
+        (let [{:keys [body status]} (-> svc-utils/*base-url*
+                                        (assoc :prefix "/status/v1/services")
+                                        base-url->str-with-prefix
+                                        (client/get {:throw-exceptions false}))
               pdb-status (:puppetdb-status (json/parse-string body true))]
-          (tu/assert-success! pdb-resp)
-          (is (= "running" (:state pdb-status)))
+          (is (= 503 status))
+          (is (= "starting" (:state pdb-status)))
           (is (= {:maintenance_mode? true
                   :read_db_up? true
                   :write_db_up? true
