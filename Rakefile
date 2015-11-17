@@ -4,7 +4,7 @@ RAKE_ROOT = File.dirname(__FILE__)
 
 def run_beaker(test_files)
   config = ENV["BEAKER_CONFIG"] || "ec2-west-dev"
-  options = ENV["BEAKER_OPTIONS"] || "postgres"
+  options = ENV["BEAKER_OPTIONS"] || "acceptance/options/postgres.rb"
   preserve_hosts = ENV["BEAKER_PRESERVE_HOSTS"] || "never"
   no_provision = ENV["BEAKER_NO_PROVISION"] == "true" ? true : false
   color = ENV["BEAKER_COLOR"] == "false" ? false : true
@@ -17,7 +17,7 @@ def run_beaker(test_files)
      "--type #{type} " +
      "--debug " +
      "--tests " + test_files + " " +
-     "--options-file 'acceptance/options/#{options}.rb' " +
+     "--options-file " + options + " " +
      "--root-keys " +
      "--preserve-hosts #{preserve_hosts}"
 
