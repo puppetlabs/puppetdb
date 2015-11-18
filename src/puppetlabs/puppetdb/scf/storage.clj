@@ -340,10 +340,11 @@
   [certname]
   {:pre [certname]}
   (jdbc/query-with-resultset
-   [(format (str "SELECT certnames.latest_catalog_id AS catalog_id,"
-                 " certnames.id AS certname_id, %s AS catalog_hash, catalogs.producer_timestamp"
-                 " FROM certnames "
-                 " LEFT JOIN catalogs ON catalogs.id = certnames.latest_catalog_id"
+   [(format (str "SELECT latest_catalogs.catalog_id, latest_catalogs.certname_id, "
+                 " %s AS catalog_hash, catalogs.producer_timestamp"
+                 " FROM latest_catalogs "
+                 " LEFT JOIN certnames ON certnames.id = latest_catalogs.certname_id"
+                 " LEFT JOIN catalogs ON catalogs.id = latest_catalogs.catalog_id"
                  " WHERE certnames.certname=?")
             (sutils/sql-hash-as-str "catalogs.hash"))
     certname]
@@ -715,7 +716,7 @@
   (inc! (:updated-catalog performance-metrics))
   (time! (:add-new-catalog performance-metrics)
          (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
-           (jdbc/update! :certnames {:latest_catalog_id catalog-id} ["id=?" certname-id])
+           (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id])
            (update-catalog-associations! certname-id catalog refs-to-hashes))))
 
 (pls/defn-validated add-catalog!
@@ -737,7 +738,7 @@
                                         (.after (to-timestamp producer_timestamp)))
                         (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
                                                     (kitchensink/mapvals shash/resource-identity-hash resources))]
-                          (jdbc/update! :certnames {:latest_catalog_id catalog-id} ["id=?" certname-id])
+                          (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id])
                           (update-catalog-associations! certname-id catalog refs-to-hashes)))))
              hash))))
 
@@ -784,15 +785,6 @@
     (add-catalog! catalog received-timestamp)
     (replace-catalog! catalog received-timestamp)))
 
-
-(defn delete-catalog!
-  "Remove the catalog for a given certname.
-  Note that this function is only used in tests."
-  [certname]
-  (jdbc/with-db-transaction []
-    (jdbc/update! :certnames {:latest_catalog_id nil} ["certname=?" certname])
-    (jdbc/delete! :catalog_resources ["certname_id=(select id from certnames where certname=?)" certname])
-    (jdbc/delete! :catalogs ["certname=?" certname])))
 
 (defn catalog-hash-for-certname
   "Returns the hash for the `certname` catalog"
@@ -1260,19 +1252,16 @@
   {:pre [(kitchensink/datetime? time)]}
   (when @store-catalogs-historically?
     (let [time (to-timestamp time)]
-      (try (jdbc/do-prepared
-        (str "DELETE FROM catalogs oc "
-             "       WHERE oc.producer_timestamp < ? "
-             "       AND NOT EXISTS (SELECT 1 FROM catalogs c "
-             "                       JOIN reports r ON c.catalog_uuid = r.catalog_uuid "
-             "                       WHERE c.producer_timestamp < ? AND oc.id = c.id)"
-             "       AND NOT EXISTS (SELECT 1 from catalogs c "
-             "                       JOIN certnames lc ON c.id = lc.latest_catalog_id "
-             "                       WHERE c.id = oc.id AND c.producer_timestamp < ?)")
-        [time time time])
-           (catch Exception e
-             (prn (.getNextException e)))
-           ))))
+      (jdbc/do-prepared
+       (str "DELETE FROM catalogs oc "
+            "       WHERE oc.producer_timestamp < ? "
+            "       AND NOT EXISTS (SELECT 1 FROM catalogs c "
+            "                       JOIN reports r ON c.catalog_uuid = r.catalog_uuid "
+            "                       WHERE c.producer_timestamp < ? AND oc.id = c.id)"
+            "       AND NOT EXISTS (SELECT 1 from catalogs c "
+            "                       JOIN latest_catalogs lc ON c.id = lc.catalog_id "
+            "                       WHERE c.id = oc.id AND c.producer_timestamp < ?)")
+       [time time time]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database support/deprecation
@@ -1291,7 +1280,9 @@
 (pls/defn-validated add-certname!
   "Add the given host to the db"
   [certname :- String]
-  (jdbc/insert! :certnames {:certname certname}))
+  (jdbc/with-db-transaction []
+    (let [certname-id (:id (first (jdbc/insert! :certnames {:certname certname})))]
+      (jdbc/insert! :latest_catalogs {:certname_id certname-id}))))
 
 (defn timestamp-of-newest-record [entity certname]
   (let [query {:select [:producer_timestamp]

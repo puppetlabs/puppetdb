@@ -64,8 +64,8 @@
                     :environment "DEV"
                     :producer_timestamp (to-timestamp (now))})
 
-       (jdbc/update! :certnames {:latest_catalog_id 1} ["certname=?" "one.local"])
-       (jdbc/update! :certnames {:latest_catalog_id 2} ["certname=?" "two.local"])
+       (jdbc/insert! :latest_catalogs {:catalog_id 1 :certname_id 1})
+       (jdbc/insert! :latest_catalogs {:catalog_id 2 :certname_id 2})
        (jdbc/insert!
         :catalog_resources
         {:certname_id 1 :resource (sutils/munge-hash-for-storage "01")

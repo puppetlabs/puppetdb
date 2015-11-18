@@ -30,8 +30,8 @@
                        :api_version 1 :catalog_version "1"
                        :certname "h2" :producer_timestamp (to-timestamp (now))})
 
-        (jdbc/update! :certnames {:latest_catalog_id 1} ["certname=?" "h1"])
-        (jdbc/update! :certnames {:latest_catalog_id 2} ["certname=?" "h2"])
+        (jdbc/insert! :latest_catalogs {:catalog_id 1 :certname_id 1})
+        (jdbc/insert! :latest_catalogs {:catalog_id 2 :certname_id 2})
         (jdbc/insert!
          :resource_params_cache
          {:resource (sutils/munge-hash-for-storage "01") :parameters nil}
@@ -95,8 +95,8 @@
          {:resource (sutils/munge-hash-for-storage "02") :parameters nil}
          {:resource (sutils/munge-hash-for-storage "03") :parameters nil})
 
-        (jdbc/update! :certnames {:latest_catalog_id 1} ["certname=?" "h1"])
-        (jdbc/update! :certnames {:latest_catalog_id 2} ["certname=?" "h2"])
+        (jdbc/insert! :latest_catalogs {:catalog_id 1 :certname_id 1})
+        (jdbc/insert! :latest_catalogs {:catalog_id 2 :certname_id 2})
         (jdbc/insert!
          :catalog_resources
          {:certname_id 1 :resource  (sutils/munge-hash-for-storage "01") :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}

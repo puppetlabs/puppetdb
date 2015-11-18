@@ -287,8 +287,15 @@
                                  :character_octet_length nil :datetime_precision nil
                                  :nullable? "YES" :character_maximum_length nil
                                  :numeric_precision 64 :numeric_precision_radix 2
-                                 :data_type "bigint" :column_name "latest_catalog_id"
-                                 :table_name "certnames"}}
+                                 :data_type "bigint" :column_name "catalog_id"
+                                 :table_name "latest_catalogs"}}
+                   {:left-only nil :same nil
+                    :right-only {:numeric_scale 0 :column_default nil
+                                 :character_octet_length nil :datetime_precision nil
+                                 :nullable? "NO" :character_maximum_length nil
+                                 :numeric_precision 64 :numeric_precision_radix 2
+                                 :data_type "bigint" :column_name "certname_id"
+                                 :table_name "latest_catalogs"}}
                    {:left-only nil :same nil
                     :right-only {:numeric_scale nil :column_default nil
                                  :character_octet_length nil :datetime_precision nil
@@ -306,10 +313,18 @@
                 :right-only {:index "catalog_resources_type_idx"}}
                {:left-only {:index "idx_catalog_resources_type_title"}
                 :right-only {:index "catalog_resources_type_title_idx"}}
-               {:left-only {:index "certnames_transform_certname_key"}
-                :right-only {:index "certnames_certname_key"}}
-               {:left-only {:index "certnames_transform_pkey"}
-                :right-only {:index "certnames_pkey"}}
+               {:left-only nil
+                :right-only {:schema "public" :table "reports"
+                             :index "reports_catalog_uuid" :index_keys ["catalog_uuid"]
+                             :type "btree" :unique? false
+                             :functional? false :is_partial false
+                             :primary? false}}
+               {:left-only nil
+                :right-only {:schema "public" :table "latest_catalogs"
+                             :index "latest_catalogs_pkey" :index_keys ["certname_id"]
+                             :type "btree" :unique? true
+                             :functional? false :is_partial false
+                             :primary? true}}
                {:left-only {:schema "public" :table "catalogs"
                             :index "catalogs_certname_key" :index_keys ["certname"]
                             :type "btree" :unique? true

@@ -489,7 +489,8 @@
            (query-to-vec ["SELECT COUNT(*) FROM catalogs"])))
     (is (= [{:producer_timestamp (to-timestamp current-time)}]
            (query-to-vec [(str "SELECT catalogs.producer_timestamp FROM certnames"
-                               " JOIN catalogs ON catalogs.id = certnames.latest_catalog_id"
+                               " JOIN latest_catalogs ON certnames.id = latest_catalogs.certname_id"
+                               " JOIN catalogs ON catalogs.id = latest_catalogs.catalog_id"
                                " WHERE certnames.certname = 'basic.catalogs.com'")]))))
 
   (testing "garbage collection deletes old catalogs"
@@ -703,56 +704,6 @@
       (is (= 2 (- (.count (:duplicate-catalog performance-metrics)) prev-dupe-num)))
       (is (= 1 (- (.count (:updated-catalog performance-metrics)) prev-new-num))))))
 
-(deftest-db catalog-manual-deletion
-  (testing "should noop if replaced by themselves after using manual deletion"
-    (add-certname! certname)
-    (replace-catalog! catalog)
-    (delete-catalog! certname)
-    (replace-catalog! catalog)
-
-    (is (= (query-to-vec ["SELECT certname FROM certnames"])
-           [{:certname certname}]))))
-
-(deftest-db catalog-deletion-verify
-  (testing "should be removed when deleted"
-    (add-certname! certname)
-    (let [hash (replace-catalog! catalog)]
-      (delete-catalog! certname))
-
-    (is (= (query-to-vec ["SELECT * FROM catalog_resources"])
-           []))))
-
-(deftest-db catalog-deletion-certnames
-  (testing "when deleted, should leave certnames alone"
-    (add-certname! certname)
-    (replace-catalog! catalog)
-    (delete-catalog! certname)
-
-    (is (= (query-to-vec ["SELECT certname FROM certnames"])
-           [{:certname certname}]))))
-
-(deftest-db catalog-deletion-otherhosts
-  (testing "when deleted, should leave other hosts' resources alone"
-    (add-certname! certname)
-    (add-certname! "myhost2.mydomain.com")
-    (let [hash1 (replace-catalog! catalog)
-          ;; Store the same catalog for a different host
-          hash2 (replace-catalog! (assoc catalog :certname "myhost2.mydomain.com"))]
-      (delete-catalog! certname))
-
-    ;; myhost should still be present in the database
-    (is (= [{:certname certname} {:certname "myhost2.mydomain.com"}]
-           (query-to-vec ["SELECT certname FROM certnames ORDER BY certname"])))
-
-    ;; myhost1 should not have any catalogs associated with it
-    ;; anymore
-    (is (= [{:certname "myhost2.mydomain.com"}]
-           (query-to-vec ["SELECT certname FROM catalogs"])))
-
-    ;; All the other resources should still be there
-    (is (= [{:c 3}]
-           (query-to-vec ["SELECT COUNT(*) as c FROM catalog_resources"])))))
-
 (deftest-db fact-delete-should-prune-paths-and-values
   (add-certname! certname)
 
@@ -776,69 +727,6 @@
     (delete-certname-facts! certname)
     (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 0))
     (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 0))))
-
-(deftest-db catalog-delete-with-gc-params
-  (testing "when deleted but no GC should leave params"
-    (add-certname! certname)
-    (let [hash1 (replace-catalog! catalog)]
-      (delete-catalog! certname))
-
-    ;; All the params should still be there
-    (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resource_params"])
-           [{:c 7}]))
-    (is (= (query-to-vec ["SELECT COUNT(*) as c FROM resource_params_cache"])
-           [{:c 3}])))
-
-  (testing "when GC'ed, should leave no dangling params"
-    (garbage-collect! *db*)
-
-    ;; And now they are gone
-    (is (= (query-to-vec ["SELECT * FROM resource_params"])
-           []))
-    (is (= (query-to-vec ["SELECT * FROM resource_params_cache"])
-           []))))
-
-(deftest-db catalog-delete-with-gc-environments
-  (testing "when deleted but no GC should leave environments"
-    (add-certname! certname)
-
-    ;; Add a catalog with an environment
-    (let [catalog (assoc catalog :environment "ENV1")
-          hash1 (replace-catalog! catalog)]
-      (delete-catalog! certname))
-
-    ;; Add a report with an environment
-    (let [timestamp     (now)
-          report        (-> (:basic reports)
-                            (assoc :environment "ENV2")
-                            (assoc :end_time (to-string (-> 5 days ago)))
-                            (assoc :producer_timestamp (to-string (-> 4 days ago))))
-          report-hash   (shash/report-identity-hash report)
-          certname      (:certname report)]
-      (store-example-report! report timestamp)
-      (delete-reports-older-than! (-> 2 days ago)))
-
-    ;; Add some facts
-    (let [facts {"domain" "mydomain.com"
-                 "fqdn" "myhost.mydomain.com"
-                 "hostname" "myhost"
-                 "kernel" "Linux"
-                 "operatingsystem" "Debian"}]
-      (add-facts! {:certname certname
-                   :values facts
-                   :timestamp (-> 2 days ago)
-                   :environment "ENV3"
-                   :producer_timestamp (-> 2 days ago)})
-      (delete-certname-facts! certname))
-
-    (is (= (query-to-vec ["SELECT COUNT(*) as c FROM environments"])
-           [{:c 3}])))
-
-  (testing "when GC should leave no dangling environments"
-    (garbage-collect! *db*)
-
-    (is (= (query-to-vec ["SELECT * FROM environments"])
-           []))))
 
 (deftest-db delete-with-gc-report-statuses
   (add-certname! certname)
@@ -918,8 +806,8 @@
                  {:type "File" :title "/etc/foobar/baz"}}
                (set (query-to-vec "SELECT cr.type, cr.title
                                    FROM catalogs c
-                                   INNER JOIN certnames ON certnames.latest_catalog_id = certnames.id
-                                   INNER JOIN catalog_resources cr ON certnames.id = cr.certname_id
+                                   INNER JOIN latest_catalogs ON latest_catalogs.catalog_id = c.id
+                                   INNER JOIN catalog_resources cr ON latest_catalogs.certname_id = cr.certname_id
                                    WHERE c.certname=?" certname))))
 
         (tu/with-wrapped-fn-args [inserts sql/insert!

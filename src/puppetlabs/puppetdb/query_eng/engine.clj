@@ -520,7 +520,7 @@
                                              :from [[:catalog_resources :cr]]
                                              :join [[:resource_params_cache :rpc]
                                                     [:= :rpc.resource :cr.resource]]
-                                             :where [:= :cr.certname_id :certnames.id]}
+                                             :where [:= :cr.certname_id :latest_catalogs.certname_id]}
                                             :t]]}
                                    :resource_data]]}}
       "edges" {:type :json
@@ -536,19 +536,19 @@
                                          :join [[:catalog_resources :sources]
                                                 [:and
                                                  [:= :edges.source :sources.resource]
-                                                 [:= :sources.certname_id :certnames.id]]
+                                                 [:= :sources.certname_id :latest_catalogs.certname_id]]
 
                                                 [:catalog_resources :targets]
                                                 [:and
                                                  [:= :edges.target :targets.resource]
-                                                 [:= :targets.certname_id :certnames.id]]]
+                                                 [:= :targets.certname_id :latest_catalogs.certname_id]]]
                                          :where [:= :edges.certname :c.certname]}
                                         :t]]}
                                :edge_data]]}}}
 
-     :selection {:from [:certnames]
+     :selection {:from [:latest_catalogs]
                  :join [[:catalogs :c]
-                        [:= :certnames.latest_catalog_id :c.id]]
+                        [:= :latest_catalogs.catalog_id :c.id]]
                  :left-join [[:environments :e]
                              [:= :c.environment_id :e.id]]}
 
@@ -647,10 +647,10 @@
                                            :field (h/scast :rpc.parameters :json)}}
 
                :selection {:from [[:catalog_resources :resources]]
-                           :join [:certnames
-                                  [:= :certnames.id :resources.certname_id]
+                           :join [:latest_catalogs
+                                  [:= :latest_catalogs.certname_id :resources.certname_id]
                                   [:catalogs :c]
-                                  [:= :certnames.latest_catalog_id :c.id]]
+                                  [:= :latest_catalogs.catalog_id :c.id]]
                            :left-join [[:environments :e]
                                        [:= :c.environment_id :e.id]
 
