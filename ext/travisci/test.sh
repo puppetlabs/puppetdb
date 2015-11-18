@@ -5,6 +5,10 @@ set -x
 
 ulimit -u 4096
 
+pushd ..
+git clone https://github.com/puppetlabs/pe-puppetdb-extensions.git
+popd
+
 run-unit-tests()
 (
   pgdir="$(pwd)/test-resources/var/pg"
@@ -13,6 +17,9 @@ run-unit-tests()
   export PGHOST=127.0.0.1
   export PGPORT=5432
   ext/bin/setup-pdb-pg "$pgdir"
+  ext/bin/pdb-test-env "$pgdir" lein2 test
+  cd ..
+  cd pe-puppetdb-extensions
   ext/bin/pdb-test-env "$pgdir" lein2 test
 )
 

@@ -19,6 +19,9 @@ matrix:
     - jdk: oraclejdk7
       env: PDB_TEST_LANG=ruby
 
+before_install:
+- echo -e "machine github.com\n  login puppetlabs-ca\n  password $CI_USER_PASSWORD" >> ~/.netrc
+
 script: ext/travisci/test.sh
 
 notifications:
