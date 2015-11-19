@@ -18,8 +18,8 @@ export PDB_TEST_DB_PORT="$pgport"
 # For now, just conflate the normal test and admin users.
 export PDB_TEST_DB_USER=pdb_test
 export PDB_TEST_DB_ADMIN=pdb_test_admin
-export PDB_TEST_DB_USER_PASSWORD=optuwaeg6ujzo
-export PDB_TEST_DB_ADMIN_PASSWORD=daroniwu54ot
+export PDB_TEST_DB_USER_PASSWORD=daroniwu54ot
+export PDB_TEST_DB_ADMIN_PASSWORD=optuwaeg6ujzo
 
 PDB_TEST_ID="$(ruby -e "require 'securerandom';  print SecureRandom.uuid")"
 PDB_TEST_ID="$(echo -n "$PDB_TEST_ID" | perl -pe 's/[^a-zA-Z0-9_]/_/gmo')"
