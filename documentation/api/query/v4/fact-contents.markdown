@@ -35,7 +35,7 @@ With the fact-contents endpoint you can query data at a specific location in
 the tree using the `path` field, and then either analyze or filter on the
 `value` of that node.
 
-### `/pdb/query/v4/fact-contents`
+## `/pdb/query/v4/fact-contents`
 
 This will return all fact contents that match the given query.
 
@@ -49,7 +49,7 @@ This will return all fact contents that match the given query.
 
 See [the Operators page.](./operators.html)
 
-### Query Fields
+## Query Fields
 
 * `certname` (string): the certname associated with the factset
 * `environment` (string): the environment associated with the parent fact
@@ -67,7 +67,7 @@ implicit subqueries. For more information consult the documentation for [subquer
 * [`factsets`][factsets]: The factset where a fact-content occurs.
 * [`nodes`][nodes]: The node where a fact-content occurs.
 
-### Response Format
+## Response Format
 
 Successful responses will be in `application/json`. Errors will be returned as
 non-JSON string.
