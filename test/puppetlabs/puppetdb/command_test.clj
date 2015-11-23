@@ -310,9 +310,7 @@
 
         (testing "should reactivate the node if it was deactivated before the message"
           (with-test-db
-            (let [certname-id (:id (first (jdbc/insert! :certnames
-                                                        {:certname certname :deactivated yesterday})))]
-              (jdbc/insert! :latest_catalogs {:certname_id certname-id}))
+            (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
             (test-msg-handler command publish discard-dir
               (is (= [{:certname certname :deactivated nil}]
                      (query-to-vec "SELECT certname,deactivated FROM certnames")))
@@ -325,9 +323,7 @@
           (testing "should store the catalog if the node was deactivated after the message"
             (with-test-db
               (scf-store/delete-certname! certname)
-              (let [certname-id (:id (first (jdbc/insert! :certnames
-                                                          {:certname certname :deactivated tomorrow})))]
-                (jdbc/insert! :latest_catalogs {:certname_id certname-id}))
+              (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
               (test-msg-handler command publish discard-dir
                                 (is (= [{:certname certname :deactivated tomorrow}]
                                        (query-to-vec "SELECT certname,deactivated FROM certnames")))

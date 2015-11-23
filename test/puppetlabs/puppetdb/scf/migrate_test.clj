@@ -244,9 +244,9 @@
 
 (deftest test-adding-historical-catalogs-support-migration
   (clear-db-for-testing!)
-  (fast-forward-to-migration! 39)
+  (fast-forward-to-migration! 40)
   (let [before-migration (schema-info-map *db*)]
-    (apply-migration-for-testing! 40)
+    (apply-migration-for-testing! 41)
     (let [schema-diff (diff-schema-maps before-migration (schema-info-map *db*))]
       (is (= (set [{:same nil :right-only nil
                     :left-only {:numeric_scale 0 :column_default nil
@@ -285,7 +285,7 @@
                    {:left-only nil :same nil
                     :right-only {:numeric_scale 0 :column_default nil
                                  :character_octet_length nil :datetime_precision nil
-                                 :nullable? "YES" :character_maximum_length nil
+                                 :nullable? "NO" :character_maximum_length nil
                                  :numeric_precision 64 :numeric_precision_radix 2
                                  :data_type "bigint" :column_name "catalog_id"
                                  :table_name "latest_catalogs"}}
@@ -313,9 +313,19 @@
                 :right-only {:index "catalog_resources_type_idx"}}
                {:left-only {:index "idx_catalog_resources_type_title"}
                 :right-only {:index "catalog_resources_type_title_idx"}}
+               {:left-only {:unique? true :index "catalogs_certname_key"}
+                :right-only {:unique? false :index "catalogs_certname_idx"}}
+               {:left-only nil
+                :right-only {:schema "public" :table "latest_catalogs"
+                             :index "latest_catalogs_catalog_id_key" :index_keys ["catalog_id"]
+                             :type "btree" :unique? true
+                             :functional? false :is_partial false
+                             :primary? false}}
+               ;; For the `catalog_hash_expr_idx`
+               {:left-only {:unique? true} :right-only {:unique? false}}
                {:left-only nil
                 :right-only {:schema "public" :table "reports"
-                             :index "reports_catalog_uuid" :index_keys ["catalog_uuid"]
+                             :index "reports_catalog_uuid_idx" :index_keys ["catalog_uuid"]
                              :type "btree" :unique? false
                              :functional? false :is_partial false
                              :primary? false}}
@@ -325,17 +335,6 @@
                              :type "btree" :unique? true
                              :functional? false :is_partial false
                              :primary? true}}
-               {:left-only {:schema "public" :table "catalogs"
-                            :index "catalogs_certname_key" :index_keys ["certname"]
-                            :type "btree" :unique? true
-                            :functional? false :is_partial false
-                            :primary? false}
-                :right-only nil}
-               {:left-only {:schema "public" :table "catalogs" :index "catalogs_hash_key"
-                            :index_keys ["hash"] :type "btree" :unique? true
-                            :functional? false :is_partial false
-                            :primary? false}
-                :right-only nil}
                {:right-only nil
                 :left-only {:schema "public"
                             :table "catalog_resources" :index "catalog_resources_pkey"
@@ -349,7 +348,9 @@
                              :type "btree" :unique? true
                              :functional? false :is_partial false
                              :primary? true}
-                :left-only nil}}
+                :left-only nil}
+               {:left-only {:index "resources_hash_expr_idx"}
+                :right-only {:index "catalog_resources_ltrim_idx"}}}
              (->> (:index-diff schema-diff)
                   (map #(kitchensink/mapvals (fn [idx]
                                                (dissoc idx :user)) %))

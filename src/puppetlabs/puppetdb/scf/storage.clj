@@ -340,10 +340,10 @@
   [certname]
   {:pre [certname]}
   (jdbc/query-with-resultset
-   [(format (str "SELECT latest_catalogs.catalog_id, latest_catalogs.certname_id, "
+   [(format (str "SELECT catalogs.id AS catalog_id, certnames.id AS certname_id, "
                  " %s AS catalog_hash, catalogs.producer_timestamp"
-                 " FROM latest_catalogs "
-                 " LEFT JOIN certnames ON certnames.id = latest_catalogs.certname_id"
+                 " FROM certnames "
+                 " LEFT JOIN latest_catalogs ON certnames.id = latest_catalogs.certname_id"
                  " LEFT JOIN catalogs ON catalogs.id = latest_catalogs.catalog_id"
                  " WHERE certnames.certname=?")
             (sutils/sql-hash-as-str "catalogs.hash"))
@@ -716,7 +716,7 @@
   (inc! (:updated-catalog performance-metrics))
   (time! (:add-new-catalog performance-metrics)
          (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
-           (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id])
+           (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
            (update-catalog-associations! certname-id catalog refs-to-hashes))))
 
 (pls/defn-validated add-catalog!
@@ -738,7 +738,9 @@
                                         (.after (to-timestamp producer_timestamp)))
                         (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
                                                     (kitchensink/mapvals shash/resource-identity-hash resources))]
-                          (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id])
+                          (if-not latest-producer-timestamp
+                            (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
+                            (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id]))
                           (update-catalog-associations! certname-id catalog refs-to-hashes)))))
              hash))))
 
@@ -1280,9 +1282,7 @@
 (pls/defn-validated add-certname!
   "Add the given host to the db"
   [certname :- String]
-  (jdbc/with-db-transaction []
-    (let [certname-id (:id (first (jdbc/insert! :certnames {:certname certname})))]
-      (jdbc/insert! :latest_catalogs {:certname_id certname-id}))))
+  (jdbc/insert! :certnames {:certname certname}))
 
 (defn timestamp-of-newest-record [entity certname]
   (let [query {:select [:producer_timestamp]
@@ -1350,13 +1350,6 @@
     (jdbc/do-prepared "UPDATE certnames SET expired = ?
                          WHERE certname=? AND expired IS NULL"
                       [timestamp certname])))
-
-(pls/defn-validated catalog-newer-than?
-  "Returns true if the most current catalog for `certname` is more recent than
-  `time`."
-  [certname :- String
-   producer-timestamp :- pls/Timestamp]
-  )
 
 (pls/defn-validated replace-facts!
   "Updates the facts of an existing node, if the facts are newer than the current set of facts.

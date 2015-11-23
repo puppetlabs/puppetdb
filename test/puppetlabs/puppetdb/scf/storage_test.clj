@@ -487,6 +487,7 @@
     (store-catalog! (assoc catalog :producer_timestamp (-> 1 days ago)) (now))
     (is (= [{:count 3}]
            (query-to-vec ["SELECT COUNT(*) FROM catalogs"])))
+
     (is (= [{:producer_timestamp (to-timestamp current-time)}]
            (query-to-vec [(str "SELECT catalogs.producer_timestamp FROM certnames"
                                " JOIN latest_catalogs ON certnames.id = latest_catalogs.certname_id"
@@ -828,7 +829,7 @@
                      (table-args @inserts)))
           (is (= [:catalogs]
                  (table-args @updates)))
-          #_(is (= [[:catalog_resources ["catalog_id = ? and type = ? and title = ?"
+          (is (= [[:catalog_resources ["certname_id = ? and type = ? and title = ?"
                                        (-> @updates first (#(nth % 3)) second)
                                        "File" "/etc/foobar"]]]
                  (remove-edge-changes (map rest @deletes)))))
