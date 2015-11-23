@@ -106,7 +106,7 @@
   (:node (zip/post-order-transform
           (zip/tree-zipper m)
           [(fn [node]
-             (when (instance? clojure.lang.MapEntry node)
+             (when (map-entry? node)
                (update node 0 utils/underscores->dashes)))])))
 
 (defn- parse-sync-config [sync-config]
