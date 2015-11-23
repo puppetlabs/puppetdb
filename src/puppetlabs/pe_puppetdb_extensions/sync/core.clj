@@ -28,14 +28,6 @@
 
 (def report-key (juxt :certname :producer_timestamp))
 
-(defn clean-up-resource-event
-  "The resource events we get back from a query have a lot of derived fields;
-  only keep the ones we can re-submit."
-  [resource-event]
-  (select-keys resource-event
-               [:status :timestamp :resource_type :resource_title :property
-                :new_value :old_value :message :file :line :containment_path]))
-
 (defn clean-up-edge [edge]
   {:source {:type (:source_type edge)
             :title (:source_title edge)}
