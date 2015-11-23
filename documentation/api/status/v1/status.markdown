@@ -36,7 +36,10 @@ following:
 * `detail_level`: info is currently the only level
 * `service_status_version`: version of the status API
 * `service_version`: version of PuppetDB
-* `state`: "running" if read and write databases are up, "error" if down
+* `state`: short description of PuppetDB's current state:
+    * "starting" if PuppetDB is in maintenance mode
+    * "running" if not in maintenance mode and read and write databases are up
+    * "error" if the read or write databases are down.
 * `status`:
     * `maintenance_mode?`: indicates whether PuppetDB is in maintenance mode.
     PuppetDB enters maintenance mode at startup and exits it after completing any
@@ -44,4 +47,5 @@ following:
     While in maintenance mode PuppetDB will not respond to queries.
     * `read_db_up?`: indicates whether the read database is responding to queries
     * `write_db_up?`: indicates whether the write database is responding to queries
-    * `queue_depth`: depth of the command queue
+    * `queue_depth`: depth of the command queue. If the queue is not yet
+      initialized, this field will be null.
