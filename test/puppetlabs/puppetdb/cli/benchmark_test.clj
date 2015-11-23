@@ -4,6 +4,11 @@
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.client :as client]
             [puppetlabs.trapperkeeper.config :as config]
+            [puppetlabs.puppetdb.testutils.services :as svc-utils]
+            [puppetlabs.puppetdb.testutils :as tu]
+            [puppetlabs.puppetdb.cli.export :as cli-export]
+            [puppetlabs.puppetdb.testutils.cli :refer [get-nodes example-catalog
+                                                       example-report example-facts]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as ks]
             [slingshot.test]
@@ -67,6 +72,25 @@
                                  "--numhosts" "2"
                                  "--nummsgs" "3")]
     (is (= 18 (count submitted)))))
+
+(deftest archive-flag-works
+  (let [export-out-file (.getPath (tu/temp-file "benchmark-test" ".tar.gz"))]
+    (svc-utils/call-with-single-quiet-pdb-instance
+     (fn []
+       (is (empty? (get-nodes)))
+
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 7 example-catalog)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 6 example-report)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace facts" 4 example-facts)
+       (#'cli-export/-main "--outfile" export-out-file
+                           "--host" (:host svc-utils/*base-url*)
+                           "--port" (str (:port svc-utils/*base-url*)))))
+    (let [submitted (run-benchmark {}
+                                   "--config" "anything.ini"
+                                   "--numhosts" "2"
+                                   "--nummsgs" "3"
+                                   "--archive" export-out-file)]
+      (is (= 18 (count submitted))))))
 
 (deftest consecutive-reports-are-distinct
   (let [submitted (run-benchmark {}
