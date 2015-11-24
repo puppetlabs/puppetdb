@@ -277,3 +277,40 @@
         (with-log-output logz
           (is (string? (authorizer-fn {:ssl-client-cn "badguy"})))
           (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
+
+(deftest test-fail-when-payload-too-large
+  (let [middleware-fn (fail-when-payload-too-large identity)
+        max-mem (-> (Runtime/getRuntime) .maxMemory)
+        test-file (.getAbsolutePath (temp-file "whitelist-log-reject"))]
+
+
+    (spit test-file "foo")
+
+    (testing "should fail on large request bodies"
+      (let [post-req {:headers {"content-length" (-> (Runtime/getRuntime) .maxMemory str)}
+                      :request-method :post
+                      ;; The body of the HTTP request is also an InputStream
+                      ;; using a FileInputStream as it's easier to test and
+                      ;; ensure that the stream is closed properly
+                      :body (java.io.FileInputStream. test-file)}]
+
+        (is (number? (.available (:body post-req))))
+        (is (= {:status 413
+                :headers {}
+                :body "POST body too large"}
+               (middleware-fn post-req)))
+
+        ;; calling .available on a closed FileInputStream with throw
+        ;; IOException
+        (is (thrown-with-msg? java.io.IOException
+                              #"Stream Closed"
+                              (.available (:body post-req))))))
+    (testing "should have no affect on small content"
+      (let [post-req {:headers {"content-length" "10"}
+                      :request-method :post
+                      :body "foo"}
+            get-req {:headers {"content-length" "10"}
+                     :request-method :get
+                     :query-params {"foo" "bar"}}]
+        (is (= post-req (middleware-fn post-req)))
+        (is (= get-req (middleware-fn get-req)))))))
