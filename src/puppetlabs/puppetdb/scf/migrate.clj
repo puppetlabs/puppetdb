@@ -381,6 +381,29 @@
    "UPDATE factsets SET hash=md5(factsets.id::text)::bytea WHERE hash is NULL"
    "ALTER TABLE factsets ALTER COLUMN hash SET NOT NULL"))
 
+(defn add-expression-indexes-for-bytea-queries
+  []
+  (if (sutils/postgres?)
+    (jdbc/do-commands
+      "CREATE UNIQUE INDEX reports_hash_expr_idx ON reports(trim(leading '\\x' from hash::text))"
+      "ALTER TABLE REPORTS DROP CONSTRAINT reports_hash_key"
+      "DROP INDEX reports_transaction_uuid_idx"
+      "CREATE INDEX reports_tx_uuid_expr_idx ON reports(CAST(transaction_uuid AS text))"
+
+      ;; leave the existing resources/rpc indices for resources-query join
+      "CREATE INDEX resources_hash_expr_idx ON catalog_resources(trim(leading '\\x' from resource::text))"
+      "CREATE INDEX rpc_hash_expr_idx ON resource_params_cache(trim(leading '\\x' from resource::text))"
+      "CREATE INDEX resource_params_hash_expr_idx ON resource_params(trim(leading '\\x' from resource::text))"
+
+      "CREATE UNIQUE INDEX catalogs_hash_expr_idx ON catalogs(trim(leading '\\x' from hash::text))"
+      "ALTER TABLE catalogs DROP CONSTRAINT catalogs_hash_key"
+      "DROP INDEX idx_catalogs_transaction_uuid"
+      "CREATE INDEX catalogs_tx_uuid_expr_idx ON catalogs(CAST(transaction_uuid AS text))"
+
+      "CREATE UNIQUE INDEX factsets_hash_expr_idx ON factsets(trim(leading '\\x' from hash::text))"
+      "ALTER TABLE factsets DROP CONSTRAINT factsets_hash_key")
+    nil))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {34 init-through-3-0-0
@@ -391,8 +414,8 @@
    36 rename-environments-name-to-environment
    37 add-jsonb-columns-for-metrics-and-logs
    38 add-code-id-to-catalogs
-   39 factset-hash-field-not-nullable
-   })
+   39 add-expression-indexes-for-bytea-queries
+   40 factset-hash-field-not-nullable})
 
 (def desired-schema-version (apply max (keys migrations)))
 
