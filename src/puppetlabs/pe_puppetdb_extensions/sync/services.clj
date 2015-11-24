@@ -279,9 +279,11 @@
                   ;; Something is very wrong if we hit this timeout; rethrow the
                   ;; exception to crash the server.
                   (throw+))
+                ;; any other exception is basically ok; just log a warning and
+                ;; keep on going.
+                (catch [] ex
+                  (log/warn ex "Could not perform initial sync"))
                 (catch Exception ex
-                  ;; any other exception is basically ok; just log a warning and
-                  ;; keep on going.
                   (log/warn ex "Could not perform initial sync")))
                (assoc context
                       :scheduled-sync
