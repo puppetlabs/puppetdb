@@ -32,7 +32,7 @@
   ;; requires lein 2.2.0+.
   :pedantic? :abort
 
-  :dependencies [[org.clojure/clojure "1.7.0"]
+  :dependencies [[org.clojure/clojure "1.8.0-RC2"]
                  [cheshire "5.4.0"]
                  [org.clojure/core.match "0.2.2"]
                  [org.clojure/math.combinatorics "0.0.4"]
@@ -67,8 +67,8 @@
                  ;; WebAPI support libraries.
                  [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
                  [compojure "1.3.3"]
-                 [clj-http "1.0.1"]
-                 [ring/ring-core "1.3.2" :exclusions [javax.servlet/servlet-api]]
+                 [clj-http "2.0.0"]
+                 [ring/ring-core "1.4.0" :exclusions [javax.servlet/servlet-api]]
                  [org.apache.commons/commons-compress "1.8"]
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
@@ -123,7 +123,7 @@
                                   [org.clojure/test.check "0.5.9"]
                                   [environ "1.0.0"]
                                   [org.clojure/tools.cli "0.3.0"] ; prevents dependency clash caused by lein-cloverage
-                                  [riddley "0.1.7"]]}             ; prevents dependency clash caused by lein-cloverage plugin
+                                  [riddley "0.1.10"]]}
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"

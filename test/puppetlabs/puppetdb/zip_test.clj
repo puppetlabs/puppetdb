@@ -132,5 +132,5 @@
   (is (= {2 {2 {2 "foo"}}}
          (:node (post-order-transform (tree-zipper {1 {1 {1 "foo"}}})
                                       [(fn [node]
-                                         (when (instance? clojure.lang.MapEntry node)
+                                         (when (map-entry? node)
                                            (update node 0 inc)))])))))
