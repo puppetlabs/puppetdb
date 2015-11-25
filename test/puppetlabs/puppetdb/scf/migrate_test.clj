@@ -195,7 +195,7 @@
 (deftest test-hash-field-not-nullable
   (jdbc/with-db-connection *db*
     (clear-db-for-testing!)
-    (fast-forward-to-migration! 38)
+    (fast-forward-to-migration! 39)
 
     (let [factset-template {:timestamp (to-timestamp (now))
                             :environment_id (store/ensure-environment "prod")
@@ -216,15 +216,15 @@
 
       (is (= 2 (:c (first (query-to-vec "SELECT count(*) as c FROM factsets where hash is null")))))
 
-      (apply-migration-for-testing! 39)
+      (apply-migration-for-testing! 40)
 
       (is (zero? (:c (first (query-to-vec "SELECT count(*) as c FROM factsets where hash is null"))))))))
 
 (deftest test-only-hash-field-change
   (clear-db-for-testing!)
-  (fast-forward-to-migration! 38)
+  (fast-forward-to-migration! 39)
   (let [before-migration (schema-info-map *db*)]
-    (apply-migration-for-testing! 39)
+    (apply-migration-for-testing! 40)
     (is (= {:index-diff nil,
             :table-diff [{:left-only [{:nullable? "YES"}],
                           :right-only [{:nullable? "NO"}]
