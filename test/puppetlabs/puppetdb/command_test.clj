@@ -266,13 +266,13 @@
           (with-test-db
             (is (= (query-to-vec "SELECT certname FROM catalogs")
                    []))
-            (jdbc/insert! :certnames {:certname certname})
-            (jdbc/insert! :catalogs
-                          {:hash (sutils/munge-hash-for-storage "00")
-                           :api_version 1
-                           :catalog_version "foo"
-                           :certname certname
-                           :producer_timestamp (to-timestamp (-> 1 days ago))})
+            (let [certname-id (:id (first (jdbc/insert! :certnames {:certname certname})))
+                  id (:id (first (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "00")
+                                                          :api_version 1
+                                                          :catalog_version "foo"
+                                                          :certname certname
+                                                          :producer_timestamp (to-timestamp (-> 1 days ago))})))]
+              (jdbc/insert! :latest_catalogs {:catalog_id id :certname_id certname-id}))
 
             (test-msg-handler command publish discard-dir
               (is (= [(with-env {:certname certname :catalog catalog-hash})]
@@ -291,15 +291,14 @@
 
         (testing "with a newer catalog should ignore the message"
           (with-test-db
-            (jdbc/insert! :certnames {:certname certname})
-            (jdbc/insert! :catalogs
-                          {:id 1
-                           :hash (sutils/munge-hash-for-storage "ab")
-                           :api_version 1
-                           :catalog_version "foo"
-                           :certname certname
-                           :timestamp tomorrow
-                           :producer_timestamp (to-timestamp (now))})
+            (let [certname-id (:id (first (jdbc/insert! :certnames {:certname certname})))
+                  id (:id (first (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "ab")
+                                                          :api_version 1
+                                                          :catalog_version "foo"
+                                                          :certname certname
+                                                          :timestamp tomorrow
+                                                          :producer_timestamp (to-timestamp (now))})))]
+              (jdbc/insert! :latest_catalogs {:catalog_id id :certname_id certname-id}))
 
             (test-msg-handler command publish discard-dir
               (is (= [{:certname certname :catalog "ab"}]
@@ -319,20 +318,20 @@
                      (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
                                            (sutils/sql-hash-as-str "hash")))))
               (is (= 0 (times-called publish)))
-              (is (empty? (fs/list-dir discard-dir))))))
+              (is (empty? (fs/list-dir discard-dir)))))
 
-        (testing "should store the catalog if the node was deactivated after the message"
-          (with-test-db
-            (scf-store/delete-certname! certname)
-            (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
-            (test-msg-handler command publish discard-dir
-              (is (= [{:certname certname :deactivated tomorrow}]
-                     (query-to-vec "SELECT certname,deactivated FROM certnames")))
-              (is (= [{:certname certname :catalog catalog-hash}]
-                     (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
-                                           (sutils/sql-hash-as-str "hash")))))
-              (is (= 0 (times-called publish)))
-              (is (empty? (fs/list-dir discard-dir))))))))))
+          (testing "should store the catalog if the node was deactivated after the message"
+            (with-test-db
+              (scf-store/delete-certname! certname)
+              (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
+              (test-msg-handler command publish discard-dir
+                                (is (= [{:certname certname :deactivated tomorrow}]
+                                       (query-to-vec "SELECT certname,deactivated FROM certnames")))
+                                (is (= [{:certname certname :catalog catalog-hash}]
+                                       (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                                             (sutils/sql-hash-as-str "hash")))))
+                                (is (= 0 (times-called publish)))
+                                (is (empty? (fs/list-dir discard-dir)))))))))))
 
 ;; If there are messages in the user's MQ when they upgrade, we could
 ;; potentially have commands of an unsupported format that need to be
@@ -430,10 +429,14 @@
                              :version 7
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
-                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :line 20)))]]
+                    command-2 (stringify-payload
+                               (update-resource version command "File" "/etc/foobar"
+                                                #(assoc % :line 20)))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
-        (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+        (let [orig-resources (scf-store/catalog-resources (:certname_id
+                                                           (scf-store/latest-catalog-metadata
+                                                            "basic.wire-catalogs.com")))]
           (is (= 10
                  (get-in orig-resources [{:type "File" :title "/etc/foobar"} :line])))
           (is (= 0 (times-called publish)))
@@ -441,8 +444,9 @@
 
           (test-msg-handler command-2 publish discard-dir
             (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :line] 20)
-                   (scf-store/catalog-resources
-                    (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+                   (scf-store/catalog-resources (:certname_id
+                                                 (scf-store/latest-catalog-metadata
+                                                  "basic.wire-catalogs.com")))))
             (is (= 0 (times-called publish)))
             (is (empty? (fs/list-dir discard-dir)))))))))
 
@@ -452,10 +456,14 @@
                              :version 7
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
-                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :file "/tmp/not-foo")))]]
+                    command-2 (stringify-payload
+                               (update-resource version command "File" "/etc/foobar"
+                                                #(assoc % :file "/tmp/not-foo")))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
-        (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+        (let [orig-resources (scf-store/catalog-resources (:certname_id
+                                                           (scf-store/latest-catalog-metadata
+                                                            "basic.wire-catalogs.com")))]
           (is (= "/tmp/foo"
                  (get-in orig-resources [{:type "File" :title "/etc/foobar"} :file])))
           (is (= 0 (times-called publish)))
@@ -463,7 +471,9 @@
 
           (test-msg-handler command-2 publish discard-dir
             (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :file] "/tmp/not-foo")
-                   (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
+                   (scf-store/catalog-resources (:certname_id
+                                                 (scf-store/latest-catalog-metadata
+                                                  "basic.wire-catalogs.com")))))
             (is (= 0 (times-called publish)))
             (is (empty? (fs/list-dir discard-dir)))))))))
 
@@ -473,10 +483,14 @@
                              :version 7
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
-                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :exported true)))]]
+                    command-2 (stringify-payload
+                               (update-resource version command "File" "/etc/foobar"
+                                                #(assoc % :exported true)))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
-        (let [orig-resources (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+        (let [orig-resources (scf-store/catalog-resources (:certname_id
+                                                           (scf-store/latest-catalog-metadata
+                                                            "basic.wire-catalogs.com")))]
           (is (= false
                  (get-in orig-resources [{:type "File" :title "/etc/foobar"} :exported])))
           (is (= 0 (times-called publish)))
@@ -484,10 +498,9 @@
 
           (test-msg-handler command-2 publish discard-dir
             (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :exported] true)
-                   (scf-store/catalog-resources (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))))
-            (is (= 0 (times-called publish)))
-            (is (empty? (fs/list-dir discard-dir)))))))))
-
+                   (scf-store/catalog-resources (:certname_id
+                                                 (scf-store/latest-catalog-metadata
+                                                  "basic.wire-catalogs.com")))))))))))
 
 (deftest catalog-with-updated-resource-tags
   (dotestseq [version catalog-versions
@@ -501,8 +514,9 @@
                                                      (assoc :line 20))))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
-        (let [orig-resources (scf-store/catalog-resources
-                              (:id (scf-store/catalog-metadata "basic.wire-catalogs.com")))]
+        (let [orig-resources (scf-store/catalog-resources (:certname_id
+                                                           (scf-store/latest-catalog-metadata
+                                                            "basic.wire-catalogs.com")))]
           (is (= #{"file" "class" "foobar"}
                  (get-in orig-resources [{:type "File" :title "/etc/foobar"} :tags])))
           (is (= 10
@@ -515,10 +529,9 @@
                        (assoc-in [{:type "File" :title "/etc/foobar"} :tags]
                                  #{"file" "class" "foobar" "foo"})
                        (assoc-in [{:type "File" :title "/etc/foobar"} :line] 20))
-                   (scf-store/catalog-resources (:id (scf-store/catalog-metadata
-                                                      "basic.wire-catalogs.com")))))
-            (is (= 0 (times-called publish)))
-            (is (empty? (fs/list-dir discard-dir)))))))))
+                   (scf-store/catalog-resources (:certname_id
+                                                 (scf-store/latest-catalog-metadata
+                                                  "basic.wire-catalogs.com")))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

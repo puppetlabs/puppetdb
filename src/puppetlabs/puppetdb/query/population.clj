@@ -13,10 +13,9 @@
 ;;; Query library
 
 (def ^:private from-all-resources-and-their-nodes
-  (hcore/build :from [:catalogs :catalog_resources :certnames]
-               :merge-where [:and
-                             [:= :catalogs.id :catalog_resources.catalog_id]
-                             [:= :certnames.certname :catalogs.certname]]))
+  (hcore/build :from [:certnames]
+               :join [:catalogs [:= :certnames.certname :catalogs.certname]
+                      :catalog_resources [:= :certnames.id :catalog_resources.certname_id]]))
 
 (defn- where-nodes-are-active [q]
   (hh/merge-where q [:and

@@ -383,12 +383,13 @@
   {:post [(valid-jdbc-query? %)]}
   (let [{:keys [where params]} (compile-term ops query)
         sql (format "SELECT %s
-                       FROM (SELECT %s as catalog, e.environment, catalog_id, resource,
+                       FROM (SELECT %s as catalog, e.environment, certnames.certname, resource,
                                     type, title, tags, exported, file, line
-                             FROM catalog_resources cr, catalogs c LEFT OUTER JOIN environments e
-                                  on c.environment_id = e.id
-                             WHERE c.id = cr.catalog_id) AS catalog_resources
-                       JOIN catalogs ON catalog_resources.catalog_id = catalogs.id
+                             FROM catalog_resources cr
+                             INNER JOIN certnames ON certnames.id = cr.certname_id
+                             INNER JOIN catalogs c ON c.certname = certnames.certname
+                             LEFT OUTER JOIN environments e ON c.environment_id = e.id) AS catalog_resources
+                       JOIN catalogs ON catalog_resources.certname = catalogs.certname
                      WHERE %s"
                     (column-map->sql resource-columns)
                     (sutils/sql-hash-as-str "c.hash")

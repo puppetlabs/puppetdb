@@ -402,6 +402,43 @@
     "CREATE UNIQUE INDEX factsets_hash_expr_idx ON factsets(trim(leading '\\x' from hash::text))"
     "ALTER TABLE factsets DROP CONSTRAINT factsets_hash_key"))
 
+(defn add-support-for-historical-catalogs []
+  (jdbc/do-commands
+   "ALTER TABLE catalog_resources RENAME TO catalog_resources_tmp"
+   ;; CREATE certnames and catalog_resources transform tables
+   "CREATE TABLE catalog_resources (LIKE catalog_resources_tmp INCLUDING ALL)"
+   "CREATE TABLE latest_catalogs (catalog_id BIGINT NOT NULL UNIQUE REFERENCES catalogs(id) ON DELETE CASCADE, certname_id BIGINT PRIMARY KEY REFERENCES certnames(id) ON DELETE CASCADE)"
+   "ALTER TABLE catalog_resources DROP COLUMN catalog_id"
+   "ALTER TABLE catalog_resources ADD COLUMN certname_id BIGINT NOT NULL REFERENCES certnames(id) ON DELETE CASCADE"
+   "ALTER TABLE catalog_resources ADD PRIMARY KEY (certname_id, type, title)"
+
+   (str "INSERT INTO latest_catalogs"
+        "  (catalog_id, certname_id)"
+        "  SELECT catalogs.id, certnames.id"
+        "  FROM certnames"
+        "  INNER JOIN catalogs ON catalogs.certname = certnames.certname")
+
+   (str "INSERT INTO catalog_resources"
+        "  (certname_id, resource, tags, type, title, exported, file, line)"
+        "  SELECT latest_catalogs.certname_id, cr.resource, cr.tags, cr.type, cr.title, cr.exported, cr.file, cr.line"
+        "  FROM catalog_resources_tmp cr"
+        "  INNER JOIN latest_catalogs ON cr.catalog_id = latest_catalogs.catalog_id")
+
+   "DROP TABLE catalog_resources_tmp"
+
+   "ALTER TABLE catalog_resources ADD CONSTRAINT catalog_resources_resource_fkey FOREIGN KEY (resource) REFERENCES resource_params_cache(resource) ON DELETE CASCADE"
+
+   "ALTER TABLE catalogs DROP CONSTRAINT catalogs_certname_key"
+   "DROP INDEX catalogs_hash_expr_idx"
+   "ALTER TABLE catalogs ADD COLUMN edges JSONB DEFAULT NULL"
+   "ALTER TABLE catalogs ADD COLUMN resources JSONB DEFAULT NULL"
+   "ALTER TABLE catalogs ADD COLUMN catalog_uuid UUID DEFAULT NULL"
+   "ALTER TABLE reports ADD COLUMN catalog_uuid UUID DEFAULT NULL"
+
+   "CREATE INDEX reports_catalog_uuid_idx ON reports (catalog_uuid)"
+   "CREATE INDEX catalogs_hash_expr_idx ON catalogs(trim(leading '\\x' from hash::text))"
+   "CREATE INDEX catalogs_certname_idx ON catalogs (certname)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {34 init-through-3-0-0
@@ -413,7 +450,8 @@
    37 add-jsonb-columns-for-metrics-and-logs
    38 add-code-id-to-catalogs
    39 add-expression-indexes-for-bytea-queries
-   40 factset-hash-field-not-nullable})
+   40 factset-hash-field-not-nullable
+   41 add-support-for-historical-catalogs})
 
 (def desired-schema-version (apply max (keys migrations)))
 
