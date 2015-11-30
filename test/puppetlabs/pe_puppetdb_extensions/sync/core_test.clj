@@ -86,26 +86,6 @@
     (is (= [#inst "2014-01-02" #inst "2014-01-03"]
            (sync-core/diff-bucketed-summaries local remote)))))
 
-(deftest group-by-consecutive-hours-test
-  (let [[a b c d e f g h]
-        (map to-date-time
-             ["2014-12-31T22"
-              "2014-12-31T23"
-              "2015-01-01T00"
-              "2015-01-01T01"
-              "2015-01-01T02"
-              "2015-01-01T03"
-              "2015-01-01T04"
-              "2015-01-01T05"])]
-   (testing "two groups"
-     (is (= [[c d e] [g h]]
-            (sync-core/group-by-consecutive-hours [c d e g h]))))
-
-   (testing "across year end"
-     (is (= [[a b c d e f]]
-            (sync-core/group-by-consecutive-hours [a b c d e f]))))))
-
-
 ;;; Tests for the test infrastructure
 
 (deftest two-instance-test

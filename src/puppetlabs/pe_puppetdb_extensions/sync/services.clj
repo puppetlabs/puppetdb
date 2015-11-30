@@ -8,6 +8,7 @@
             [puppetlabs.puppetdb.time :refer [to-millis periods-equal? parse-period period?]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote! with-trailing-slash]]
+            [puppetlabs.pe-puppetdb-extensions.sync.bucketed-summary :as bucketed-summary]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [get-service]]
             [puppetlabs.puppetdb.utils :as utils :refer [throw+-cli-error!]]
@@ -22,7 +23,7 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]))
 
 (defprotocol PuppetDBSync
-  (bucketed-summary-query [this entity]))
+  (bucketed-summary-query [this entity timespans]))
 
 (def currently-syncing (atom false))
 
@@ -161,46 +162,6 @@
         (async/close! submitted-commands-chan)
         (async/untap response-mult processed-commands-chan)))))
 
-(defn bucketed-reports-summary-query [scf-read-db]
-  (jdbc/with-db-connection scf-read-db
-    (jdbc/with-db-transaction []
-      ;; We need to do a little time zone dance here to get the output to be a
-      ;; timestamptz.
-      ;;
-      ;; 1) In order to make an index that this query can use, all the grouping
-      ;;    must be done in an explicit timezone (UTC here).
-      ;;
-      ;; 2) date_trunc returns a plain timestamp; we want it to be a timestamptz
-      ;;    in UTC
-      ;;
-      ;; 3) The only way to convert a timestamp to a timestamptz is to call "AT
-      ;;    TIME ZONE 'UTC'"; this interprets the timestamp as being in the
-      ;;    current time zone, does whatever offset is required to get to the
-      ;;    target, and gives you a timestamptz with the shifted time and the
-      ;;    target timezone. (This is the *outer* "AT TIME ZONE 'UTC'" in the
-      ;;    "SELECT" clause)
-      ;;
-      ;; 4) So, we need to set the timezone to UTC for this transaction. (that's
-      ;;    the "LOCAL" bit)
-      (jdbc/do-commands "SET LOCAL TIMEZONE TO 'UTC'")
-      (let [rows (jdbc/query-to-vec
-                  (str "SELECT date_trunc('hour', producer_timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' "
-                       "         AS hour, "
-                       "       encode(md5_agg((date_part('epoch', timezone('UTC', producer_timestamp)) || certname)::bytea "
-                       "                       order by (date_part('epoch', timezone('UTC', producer_timestamp)) || certname)::bytea), "
-                       "              'hex') "
-                       "         AS hash "
-                       "FROM reports "
-                       "GROUP BY date_trunc('hour', producer_timestamp AT TIME ZONE 'UTC')"))]
-        (->> rows
-             (map (fn [{:keys [hour hash]}] [(to-date-time hour) hash]))
-             (into {}))))))
-
-(defn -bucketed-summary-query [entity scf-read-db]
-  (case entity
-    :reports (bucketed-reports-summary-query scf-read-db)
-    (throw (ex-info "No bucketed summary query for given entity" {:entity entity}))))
-
 (defn sync-app
   "Top level route for PuppetDB sync"
   [get-config query-fn bucketed-summary-query-fn enqueue-command-fn response-mult get-shared-globals]
@@ -215,7 +176,7 @@
                                   jetty-config)]
     (routes
      (GET "/v1/reports-summary" []
-          (let [summary-map (bucketed-reports-summary-query (:scf-read-db (get-shared-globals)))]
+          (let [summary-map (bucketed-summary/bucketed-summary-query (:scf-read-db (get-shared-globals)) :reports nil)]
             (http/json-response (ks/mapkeys str summary-map))))
 
      (POST "/v1/trigger-sync" {:keys [body params] :as request}
@@ -301,5 +262,7 @@
           (log/info "Stopped pe-puppetdb sync"))
         context)
 
-  (bucketed-summary-query [this entity]
-                          (-bucketed-summary-query entity (:scf-read-db (shared-globals)))))
+  (bucketed-summary-query [this entity timespans]
+    (bucketed-summary/bucketed-summary-query (:scf-read-db (shared-globals))
+                                             entity
+                                             timespans)))

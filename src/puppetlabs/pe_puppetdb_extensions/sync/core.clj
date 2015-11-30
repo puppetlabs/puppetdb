@@ -22,7 +22,8 @@
             [schema.core :as s]
             [puppetlabs.kitchensink.core :as ks]
             [clojure.core.async :as async]
-            [puppetlabs.puppetdb.http.query :as http-q]))
+            [puppetlabs.puppetdb.http.query :as http-q]
+            [puppetlabs.pe-puppetdb-extensions.sync.bucketed-summary :refer [pdb-query-condition-for-buckets]]))
 
 ;;; How to sync each entity
 
@@ -55,10 +56,10 @@
   [{:entity :reports
 
     ;; The first step of entity sync is to request a short summary of the
-    ;; records present on the remote system, buckted by hour, with a hash of the
-    ;; contents of the bucket. This will be compared with the same query against
-    ;; the local database and used to request the full record listing for only
-    ;; the time spans which differ between the two machines.
+    ;; records present on the remote system, bucketed by hour, with a hash of
+    ;; the contents of the bucket. This will be compared with the same query
+    ;; against the local database and used to request the full record listing
+    ;; for only the time spans which differ between the two machines.
     ;;
     ;; This path is relative to the 'query' endpoint. (/pdb/query/v4)
     :bucketed-summary-query-path "../../sync/v1/reports-summary"
@@ -298,56 +299,20 @@
                    (when (not= local-hash remote-hash)
                      bucket-timestamp)))))))
 
-(defn normalize-time-stamp
-  "Given a timestamp in some unknown format that clj-time understands, convert
-  it to Joda time and to UTC."
-  [ts]
-  (-> ts
-      to-date-time
-      (t/to-time-zone (t/time-zone-for-offset 0))))
+(defn run-and-compare-bucketed-summary-queries [sync-config remote-server bucketed-summary-query-fn]
+  (when (:bucketed-summary-query-path sync-config)
+    (let [remote (remote-bucketed-summary-query remote-server sync-config)
+          local (bucketed-summary-query-fn (:entity sync-config) nil)]
+      (diff-bucketed-summaries local remote))))
 
-(defn timestamp-to-enumerable-hour
-  "Convert a timestamp to an integer such that:
-   - All timestamps within the same UTC clock hour map to the same integer.
-   - Timestamps within adjacent UTC clock hours map to adjacent integers."
-  [ts]
-  (+ (* (- (t/year ts) 1970) 24 365)
-     (* (.getDayOfYear ts) 24)
-     (t/hour ts)))
-
-(defn group-by-consecutive-hours
-  "Given a seq of timestamps which are at the top of the hour (UTC), return a
-  seq of [first-hour-timestamp last-hour-timestamp] ranges that represent groups
-  of consecutive hours."
-  [timestamps]
-  (->> timestamps
-       sort
-       distinct
-       (map normalize-time-stamp)
-       (map (fn [ts] [(timestamp-to-enumerable-hour ts) ts]))
-       (reduce (fn [[current-hour-num groups] [hour-num ts]]
-                 [hour-num (if (and current-hour-num
-                                    (= 1 (- hour-num current-hour-num)))
-                             (update groups (dec (count groups))
-                                     conj ts)
-                             (conj groups [ts]))])
-               [nil '[]])
-       second))
-
-(defn query-condition-for-buckets
-  "Generate a condition clause for a PuppetDB query that limits the query to the
-  hourly buckets given in timestamps."
-  [timestamps]
-  (let [conditions (->> timestamps
-                        group-by-consecutive-hours
-                        (map (fn [sorted-ts-group]
-                               (let [start (first sorted-ts-group)
-                                     end (.plusHours (last sorted-ts-group) 1)]
-                                 ["and"
-                                  [">=" "producer_timestamp" (.toString start)]
-                                  ["<" "producer_timestamp" (.toString end)]]))))]
-    (when (seq conditions)
-      (apply vector "or" conditions))))
+(defn update-summary-query-with-bucket-timespans [sync-config buckets-which-differ]
+  (if buckets-which-differ
+    (let [extra-query-condition (pdb-query-condition-for-buckets buckets-which-differ)]
+      (update-in sync-config [:summary-query :query]
+                 (fn [q] (if extra-query-condition
+                           (http-q/add-criteria extra-query-condition q)
+                           q))))
+    sync-config))
 
 ;;; Pull from remote instance
 
@@ -366,7 +331,7 @@
         query ["and" ["=" (name record-fetch-key) record-fetch-val]
                include-inactive-nodes-criteria]
         qerr-msg (fn [status body]
-                   (str "unable to ask " (:url remote-server) " for " entity-name
+                   (str "unable to request " entity-name " from " (:url remote-server)
                         " using query " query "; received "
                         (pr-str {:status status :body body})))]
     (with-sync-events {:context (merge {:phase "record"
@@ -488,19 +453,16 @@
                        :finished [:info "  --> transferred {entity} ({transferred}) from {remote} in {elapsed} ms"]
                        :error [:warn (str "  *** transferred {entity} ({transferred}) from {remote};"
                                           " stopped after {failed} failures in {elapsed} ms")]}
-      (let [have-bucketed-summary-query (boolean (:bucketed-summary-query-path sync-config))
-            extra-query-condition (when have-bucketed-summary-query
-                                    (let [remote (remote-bucketed-summary-query remote-server sync-config)
-                                          local (bucketed-summary-query-fn entity)
-                                          buckets-to-pull (diff-bucketed-summaries local remote)]
-                                      (when (seq buckets-to-pull)
-                                        (query-condition-for-buckets buckets-to-pull))))
-            sync-config (update-in sync-config [:summary-query :query]
-                                   (fn [q] (if extra-query-condition
-                                             (http-q/add-criteria extra-query-condition q)
-                                             q)))]
-        ;; extra-query-condition will be nil if both bucketed summaries were the same
-        (when (or extra-query-condition (not have-bucketed-summary-query))
+      (let [buckets-which-differ (run-and-compare-bucketed-summary-queries sync-config remote-server bucketed-summary-query-fn)
+            sync-config (update-summary-query-with-bucket-timespans sync-config buckets-which-differ)
+            need-to-do-detailed-summary-query (if (:bucketed-summary-query-path sync-config)
+                                                ;; if we did a bucketed summary  query, we can
+                                                ;; quit outright if there were no differences
+                                                (not= buckets-which-differ [])
+                                                ;; if there was no bucketed summary, always
+                                                ;; do the detailed summary
+                                                true)]
+        (when need-to-do-detailed-summary-query
           (with-open [summary-stream (remote-streamed-summary-query remote-server sync-config)]
             (let [remote-sync-data (map parse-time-fields
                                         (-> summary-stream
