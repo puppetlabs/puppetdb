@@ -76,7 +76,9 @@
                              (partial #'dispatch/do-enqueue-raw-command
                                       (:connection *mq*)
                                       conf/default-mq-endpoint)
-                             (fn [] nil))
+                             (fn [] nil)
+                             false
+                             nil)
                             nil)]
      (f))))
 

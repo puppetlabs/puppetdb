@@ -6,8 +6,7 @@
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.v4 :refer [v4-app]]
-            [puppetlabs.puppetdb.middleware :refer
-             [wrap-with-puppetdb-middleware wrap-with-globals wrap-with-metrics]]
+            [puppetlabs.puppetdb.middleware :refer [wrap-with-globals wrap-with-metrics]]
             [net.cgrand.moustache :refer [app]]
             [ring.util.response :as rr]))
 

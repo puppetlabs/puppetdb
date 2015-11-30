@@ -339,3 +339,15 @@
   (sp/transform [sp/ALL]
                 #(update % 0 underscores->dashes)
                 m))
+
+(def ^:const one-megabyte (* 1024 1024))
+
+(defn bytes->mb
+  "Converts bytes to megabytes"
+  [num-bytes]
+  (double (/ num-bytes one-megabyte)))
+
+(defn mb->bytes
+  "Converts megabytes to bytes"
+  [mb]
+  (* one-megabyte mb))

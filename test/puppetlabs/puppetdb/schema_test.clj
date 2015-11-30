@@ -255,4 +255,9 @@
                                         :taf :foo
                                         :baz-nil nil
                                         :bog-nil nil
-                                        :taf-nil nil}))))))
+                                        :taf-nil nil})))))
+
+  (testing "conversion from double to integer"
+    (let [schema {:foo Long}]
+      (is (= {:foo 10}
+             (convert-to-schema schema {:foo 10.0}))))))

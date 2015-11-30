@@ -110,10 +110,11 @@
 ;; return functions that accept a ring request map
 
 (defn command-app
-  [get-shared-globals enqueue-fn get-response-pub]
+  [get-shared-globals enqueue-fn get-response-pub reject-large-commands? max-command-size]
   (-> (moustache/app
        ["v1" &] {:any (enqueue-command-handler enqueue-fn get-response-pub)})
       validate-command-version
+      (mid/fail-when-payload-too-large reject-large-commands? max-command-size)
       mid/verify-accepts-json
       mid/verify-checksum
       (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"]})

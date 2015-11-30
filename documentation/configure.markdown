@@ -288,7 +288,7 @@ system will receive any commands.
 Any PuppetDB instance which receives commands must perform periodic maintenance
 on the message queue. This setting controls the interval at which that process
 is performed. By default, it is equal to `gc-interval` (60 minutes if not specified).
-You may wish to set this explicitly if you are using a zero `gc-interval`. 
+You may wish to set this explicitly if you are using a zero `gc-interval`.
 
 ### `node-ttl`
 
@@ -500,6 +500,25 @@ This setting sets the maximum amount of space in megabytes that PuppetDB's Activ
 
 This setting sets the maximum frame size for persisted activemq messages
 supplied in bytes.  Default value is 209715200 (i.e 200 MB).
+
+### `reject-large-commands`
+
+This is a boolean that enables rejecting (returning an HTTP 413 error)
+commands that are too large to process. An example of this would be a
+catalog that is too large and would cause PuppetDB to run out of
+memory. This setting can be used along with `max-command-size`.
+
+This setting is false by default.
+
+### `max-command-size`
+
+This is a floating point number that specifies (in megabytes) which
+commands are "too large" to process by PuppetDB. By default this
+setting is a fraction of the total heap space but can be specified
+manually for users that want to support larger catalog sizes. This
+setting has no affect when `reject-large-commands` is set to
+false.
+
 
 `[jetty]` (HTTP) Settings
 -----
