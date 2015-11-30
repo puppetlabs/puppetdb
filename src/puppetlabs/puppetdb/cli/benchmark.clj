@@ -303,9 +303,9 @@
                            archive/read-entry-content
                            json/parse-string)]
       (condp re-find (.getName entry)
-        #"catalogs.*\\.json$" (update acc :catalogs conj parsed-entry)
-        #"reports.*\\.json$" (update acc :reports conj parsed-entry)
-        #"facts.*\\.json$" (update acc :facts conj parsed-entry)
+        #"catalogs.*\.json$" (update acc :catalogs conj parsed-entry)
+        #"reports.*\.json$" (update acc :reports conj parsed-entry)
+        #"facts.*\.json$" (update acc :facts conj parsed-entry)
         acc))))
 
 (def default-data-paths
