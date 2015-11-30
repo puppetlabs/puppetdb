@@ -39,6 +39,7 @@
 
   :profiles {:dev {:resource-paths ["test-resources"]
                    :dependencies [[org.flatland/ordered "1.5.2"]
+                                  [org.clojure/test.check "0.5.9"]
                                   [ring-mock "0.1.5"]
                                   [puppetlabs/puppetdb ~pdb-version :classifier "test"]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
