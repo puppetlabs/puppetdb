@@ -143,8 +143,8 @@
               (str "Unable to start broker in " (str (pr-str dir) ".")
                    " This is probably due to KahaDB corruption"
                    " or version incompatibility after a PuppetDB downgrade"
-                   " (see \"KahaDB Corruption\" in the PuppetDB manual)."))
-             e))))
+                   " (see \"KahaDB Corruption\" in the PuppetDB manual).")
+              e)))))
 
 (defn extract-headers
   "Creates a map of custom headers included in `message`, currently only
