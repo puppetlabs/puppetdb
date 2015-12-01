@@ -10,6 +10,42 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrading]: ./api/query/v4/upgrading-from-v3.html
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 
+3.2.2
+-----
+
+PuppetDB 3.2.2 is a bugfix release that should improve query
+performance for some fields, and changes ssl-setup to not depend on
+the `puppet master` command.
+
+### Bug Fixes and Maintenance
+
+* Equality queries on some fields (some that are implemented via
+  bytea) should be notably more efficient.
+  ([PDB-2206](https://tickets.puppetlabs.com/browse/PDB-2206))
+
+* The ssl-setup command will now consult `puppet agent` for the
+  certname rather that `puppet master`.
+  ([PDB-2100](https://tickets.puppetlabs.com/browse/PDB-2100))
+
+* Fedora 21 has been removed from the list of supported platforms.
+
+* The benchmark tool's -A/--archive argument has been fixed.  It was
+  ignoring the archive entries.
+  ([PDB-2112](https://tickets.puppetlabs.com/browse/PDB-2112))
+
+* The instructions for building from source have been updated to
+  reflect the use of [EZBake](https://github.com/puppetlabs/ezbake).
+  ([PDB-2058](https://tickets.puppetlabs.com/browse/PDB-2058))
+
+### Contributors
+Andrew Roetker, Ken Barber, Morgan Haskel, Rob Braden, Russell Mull,
+Ryan Senior, Wayne Warren, and Wyatt Alt
+
+3.2.1
+-----
+
+PuppetDB 3.2.1 was not publicly released.
+
 3.2.0
 -----
 
