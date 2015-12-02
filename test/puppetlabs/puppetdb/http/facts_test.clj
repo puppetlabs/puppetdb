@@ -557,7 +557,9 @@
       (testing "well-formed queries"
         (doseq [[query result] (versioned-well-formed-tests version)]
           (testing (format "Query %s" query)
-            (let [request (get-request endpoint (json/generate-string query))
+            (let [request (if query
+                            (get-request endpoint (json/generate-string query))
+                            (get-request endpoint))
                   {:keys [status body headers]} (*app* request)]
               (is (= status http/status-ok))
               (is (= (headers "Content-Type") c-t))

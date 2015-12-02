@@ -1,0 +1,154 @@
+(* PQL experimental EBNF specification
+
+   This file is the formal specification used by our parsing library that defines
+   the PQL grammar for translation to the AST query language.
+
+   This file is used by Mark Engelberg's 'Instaparse' parser in clojure, and
+   follows its own form of EBNF, so is not strictly 'EBNF' but an augmentation. *)
+
+(* Note: the following features are awaiting PDB AST changes first, but
+   generally have support within PDB in one form or another:
+
+   - order by
+   - limit, offset
+   - include_total
+
+   Also, the following items need fundamental changes to PDB first:
+
+   - descending into hashes, like facts & resource parameters conveniently
+   - modifying child data returned (ie. document aware projection)
+   - multi-in support for arrays *)
+
+(* Top level query, this is the entry point for queries *)
+<query> = [<whitespace>], from, [<whitespace>];
+
+(* From - Setting context and providing filtering and projection *)
+from = entity, [[<whitespace>], extract], [<whitespace>], where;
+
+(* Extract - projection *)
+extract = <lbracket>, [<whitespace>], [extractfields], [<whitespace>], <rbracket>;
+<extractfields> = fieldlist;
+
+(* Filtering *)
+<where> = <lbrace>, [<whitespace>], [expression], [<whitespace>], [modifier], [<whitespace>], <rbrace>;
+
+(* Static list of entity types *)
+<entity> = 'facts' |
+           'reports' |
+           'catalogs' |
+           'resources' |
+           'nodes' |
+           'environments' |
+           'factsets' |
+           'fact_paths' |
+           'fact_contents' |
+           'edges' |
+           'events';
+
+(* Expressions
+
+   This structure preserves precedence rules after parsing, so for reference the number
+   after expr is the order of precedence. One should be careful when modifying
+   this structure, and ensure that precedence rules continue to be kept. *)
+<expression> = expr-or;
+expr-or      = expr-and { <whitespace>, or, <whitespace>, expr-or };
+expr-and     = expr-not { <whitespace>, and, <whitespace>, expr-and };
+expr-not     = ( not, [<whitespace>], expr-not ) | expr-rest;
+<expr-rest>  = ( <lparens>, expression, <rparens> ) | condexpression | condexpnull | subquery;
+
+(* Implicit subqueries *)
+subquery = entity, [<whitespace>], where;
+
+(* Conditional expression *)
+condexpression  = (condexpregexp | condexpregexparray | condexpnumber | condexpmatch | condexpin);
+<condexpregexp> = field, [<whitespace>], condregexp, [<whitespace>], valueregexp;
+<condexpregexparray> = field, [<whitespace>], condregexparray, [<whitespace>], valueregexparray;
+<condexpnumber> = field, [<whitespace>], condnumber, [<whitespace>], valuenumber;
+<condexpmatch>  = field, [<whitespace>], condmatch, [<whitespace>], valuematch;
+<condexpin>     = (field | groupedfieldlist), [<whitespace>], condin, [<whitespace>], valuein;
+
+(* Special is null/is not null expression *)
+condexpnull   = field, [<whitespace>], (condisnull | condisnotnull);
+condisnull    = <'is null'>;
+condisnotnull = <'is not null'>;
+
+(* Conditional expression parts *)
+groupedfieldlist = <lbracket>, [<whitespace>], fieldlist, [<whitespace>], <rbracket>;
+<fieldlist>      = (field | function), [ [<whitespace>], <','>, [<whitespace>], fieldlist ];
+function         = functionname, [<whitespace>], groupedarglist;
+<functionname>   = 'count' | 'avg' | 'sum' | 'min' | 'max';
+
+groupedarglist = <lparens>, [<whitespace>], [arglist], [<whitespace>], <rparens>;
+<arglist>      = field, [ [<whitespace>], <','>, [<whitespace>], arglist ];
+
+(* Represents a field from an entity *)
+<field> = #'[a-zA-Z_]+';
+
+<condregexp>      = '~';
+<condregexparray> = '~>';
+<condnumber>      = '>=' | '<=' | '<' | '>';
+<condmatch>       = '=';
+<condin>          = 'in';
+
+<valueregexp>      = string;
+<valueregexparray> = groupedregexplist;
+<valuenumber>      = integer | real;
+<valuematch>       = string | integer | real | boolean;
+<valuein>          = query | groupedliterallist;
+
+groupedregexplist = <lbracket>, [<whitespace>], regexplist, [<whitespace>], <rbracket>;
+<regexplist>      = string, [ [<whitespace>], <','>, [<whitespace>], regexplist ];
+
+groupedliterallist = <lbracket>, [<whitespace>], literallist, [<whitespace>], <rbracket>;
+<literallist>      = literal, [ [<whitespace>], <','>, [<whitespace>], literallist ];
+<literal>          = string | integer | real | boolean;
+
+(* Boolean operators *)
+<and> = <'and'>;
+<or>  = <'or'>;
+not   = <'!'>;
+
+(* Basic strings
+
+   Here we differentiate between double quoted and single quoted
+   strings so we can determine how to strip escapes later on. *)
+<string> = dqstring | sqstring;
+dqstring = (<doublequote>, stringwithoutdoublequotes, <doublequote>);
+<stringwithoutdoublequotes> = #'(?:[^"\\]|\\.)*';
+<doublequote> = "\"";
+
+sqstring = (<singlequote>, stringwithoutsinglequotes, <singlequote>);
+<stringwithoutsinglequotes> = #'(?:[^\'\\]|\\.)*';
+<singlequote> = "'";
+
+(* Modifiers *)
+<modifier> = groupby;
+groupby  = <'group by '>, fieldlist;
+
+(* Parens *)
+<lparens> = '(';
+<rparens> = ')';
+
+(* Braces *)
+<lbrace> = '{';
+<rbrace> = '}';
+
+(* Bracket *)
+<lbracket> = '[';
+<rbracket> = ']';
+
+(* Booleans *)
+boolean = true | false;
+true = <"true">;
+false = <"false">;
+
+(* Numbers *)
+integer    = [negative], digits;
+real       = [negative], digits, ".", digits, [exp];
+exp        = <"E" | "e">, [negative | positive], digits;
+<digits>   = #"[0-9]+";
+<negative> = "-";
+<positive> = "+";
+
+(* Whitespace *)
+<whitespace> = #'\s+';

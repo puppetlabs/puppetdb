@@ -4,25 +4,14 @@ title: "PuppetDB 3.2: API curl tips"
 canonical: "/puppetdb/latest/api/query/curl.html"
 ---
 
-[Facts]: ./v4/facts.html
-[Nodes]: ./v4/nodes.html
-[fact-names]: ./v4/fact-names.html
-[Resources]: ./v4/resources.html
-[Metrics]: ./v4/metrics.html
 [curl]: http://curl.haxx.se/docs/manpage.html
 [dashboard]: ../../maintain_and_tune.html#monitor-the-performance-dashboard
 [whitelist]: ../../configure.html#certificate-whitelist
-
+[entities]: ./v4/entities.html
 
 You can use [`curl`][curl] to directly interact with PuppetDB's REST API. This is useful for testing, prototyping, and quickly fetching arbitrary data.
 
-The instructions below are simplified. For full usage details, see [the curl man page][curl]. For additional examples, please see the user guides for the individual REST endpoints:
-
-* [facts][]
-* [fact-names][]
-* [nodes][]
-* [resources][]
-* [metrics][]
+The instructions below are simplified. For full usage details, see [the curl man page][curl]. For additional examples, please see the user guides for the individual [query REST endpoints][entities], or the other REST API services available.
 
 ## Using `curl` From `localhost` (non-SSL/HTTP)
 

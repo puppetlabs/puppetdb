@@ -6,7 +6,8 @@ canonical: "/puppetdb/latest/api/ext/v1/resource-graphs.html"
 
 [paging]: ../../query/v4/paging.html
 [query]: ../../query/v4/query.html
-[subqueries]: ../../query/v4/operators.html#subquery-operators
+[subqueries]: ../../query/v4/ast.html#subquery-operators
+[ast]: ../../query/v4/ast.html
 [environments]: ../../query/v4/environments.html
 [nodes]: ../../query/v4/nodes.html
 [statuses]: /puppet/latest/reference/format_report.html#puppettransactionreport
@@ -34,7 +35,7 @@ If a query parameter is not provided, all results will be returned.
 
 ### Query Operators
 
-See [the Operators page.](../../query/v4/operators.html)
+See [the AST query language page][ast].
 
 ### Query Fields
 

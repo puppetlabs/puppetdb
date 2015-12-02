@@ -35,7 +35,7 @@
    (apply cmdi/context "/v4"
           (map (fn [[route-str handler]]
                  (cmdi/context route-str (handler :v4)))
-               {"" handlers/experimental-index-routes
+               {"" handlers/experimental-root-routes
                 "/facts" handlers/facts-routes
                 "/edges" handlers/edge-routes
                 "/factsets" handlers/factset-routes

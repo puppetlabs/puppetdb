@@ -162,7 +162,7 @@ Each change below is marked with the corresponding release version.
 #### Features affecting all endpoints
 
 * (3.0) Extract is available as a top-level query operator, useful for selecting only
-  certain fields from a response. See the [documentation on the extract operator](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/operators.html#extract) for more information.
+  certain fields from a response. See the [documentation on the extract operator](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/ast.html#extract) for more information.
 
 * (2.2.0) The `in` and `extract` operators have been changed to accept multiple fields,
   allowing more concise subquerying as explained [here](https://github.com/puppetlabs/puppetdb/pull/1053).
@@ -197,11 +197,11 @@ Each change below is marked with the corresponding release version.
 
 * (2.2.0) The new `select_fact_contents` subquery operator allows for filtering the
   results of other endpoints based on detailed queries about structured fact
-  values. This is exhibited on the bottom of the [subquery examples documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/operators.html#subquery-examples).
+  values. This is exhibited on the bottom of the [subquery examples documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/ast.html#subquery-examples).
 
 * (2.2.0) We have added the regexp array match operator `~>` for querying fact paths on
-  the `fact-contents` or `fact-paths endpoints`. This is documented with the other [operators](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/operators.html#regexp-array-match).
-  An example of usage is given at the bottom of the [subquery examples page](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/operators.html#subquery-examples).
+  the `fact-contents` or `fact-paths endpoints`. This is documented with the other [operators](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/ast.html#regexp-array-match).
+  An example of usage is given at the bottom of the [subquery examples page](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/ast.html#subquery-examples).
 
 * (3.0) We have added the `group_by` and `function` operators, as well as
-  support for the `count` function. For more information, see the [operators documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/operators.html#function).
+  support for the `count` function. For more information, see the [operators documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/ast.html#function).

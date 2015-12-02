@@ -53,14 +53,13 @@
    route-param-key :- s/Keyword]
   (cmdi/wrap-routes route #(parent-check % version entity route-param-key)))
 
-(pls/defn-validated experimental-index-routes :- bidi-schema/RoutePair
+(pls/defn-validated experimental-root-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query
-   {:optional paging/query-params
-    :required ["query"]}
-   (cmdi/ANY "" []
-             (-> (http-q/query-handler version)
-                 (http/experimental-warning "The root endpoint is experimental")))))
+  (cmdi/ANY "" []
+            (-> (http-q/query-handler version)
+                (http-q/extract-query-pql {:optional paging/query-params
+                                           :required ["query"]})
+                (http/experimental-warning "The root endpoint is experimental"))))
 
 (defn narrow-globals
   "Reduces the number of globals to limit their reach in the codebase"

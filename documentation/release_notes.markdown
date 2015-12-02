@@ -1219,35 +1219,35 @@ Ryan Senior, and Wyatt Alt
 #### Documentation
 
 * The documentation for the `<=` and `>=`
-  [operators](./api/query/v2/operators.html) has been fixed (the
+  [operators](http://docs.puppetlabs.com/puppetdb/2.3/api/query/v2/operators.html) has been fixed (the
   descriptions were incorrectly reversed).
 
 * The firewall and SELinux requirements have been documented
-  [here](./connect_puppet_master.html).
+  [here](http://docs.puppetlabs.com/puppetdb/2.3/connect_puppet_master.html).
   ([PDB-137](https://tickets.puppetlabs.com/browse/PDB-137))
 
 * Broken links have been fixed in the
-  [connection](./connect_puppet_master.html) and [commands](./api/command/v1/commands.html)
+  [connection](http://docs.puppetlabs.com/puppetdb/2.3/connect_puppet_master.html) and [commands](./api/command/v1/commands.html)
   documentation.
 
 * A missing `-L` option has been added to a curl invocation
-  [here](./install_from_souce.html).
+  [here](http://docs.puppetlabs.com/puppetdb/2.3/install_from_souce.html).
 
 * An incorrect reference to "Java" has been changed to "JVM" in the
-  [configuration](./configure.html) documentation.
+  [configuration](http://docs.puppetlabs.com/puppetdb/2.32.3/configure.html) documentation.
 
 * The relationship between "MQ depth" and "Command Queue depth" has
-  been clarified in the [tuning and maintenance](./maintain_and_tune.html)
+  been clarified in the [tuning and maintenance](http://docs.puppetlabs.com/puppetdb/2.3/maintain_and_tune.html)
   documentation.
 
 * An example that uses curl with SSL to communicate with Puppet
-  Enterprise has been added to the [curl](./api/query/curl.html)
+  Enterprise has been added to the [curl](http://docs.puppetlabs.com/puppetdb/2.3/api/query/curl.html)
   documentation.
 
 * Some minor edits have been made to the
-  [fact-contents](./api/query/v4/fact-contents.html),
-  [connection](./connect_puppet_master.html), and
-  [KahaDB Corruption](./trouble_kahadb_corruption.html) documentation.
+  [fact-contents](http://docs.puppetlabs.com/puppetdb/2.3/api/query/v4/fact-contents.html),
+  [connection](http://docs.puppetlabs.com/puppetdb/2.3/connect_puppet_master.html), and
+  [KahaDB Corruption](http://docs.puppetlabs.com/puppetdb/2.3/trouble_kahadb_corruption.html) documentation.
 
 #### Testing
 
@@ -1578,20 +1578,20 @@ Brian Cain, Eric Timmerman, Justin Holguin, Ken Barber, Nick Fagerlund, Ryan Sen
 
 #### New endpoints
 
-* [/v4/fact-contents](./api/query/v4/fact-contents.html)
+* [/v4/fact-contents](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/fact-contents.html)
 
     This end-point provides a new view on fact data, with structure in mind. It provides a way to
     traverse a structured facts paths and their values to search for and retrieve data contained deep within hashes,
     arrays and combinations there-of.
 
-* [/v4/fact-paths](./api/query/v4/fact-paths.html)
+* [/v4/fact-paths](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/fact-paths.html)
 
     To aid with client application autocompletion and ahead-of-time fact schema layout this endpoint
     will provide the client with a full list of potential fact paths and their value types. This data
     is primarily used by user agents that wish to perhaps confine input via a form, or provide some
     level of autocompletion advice for a user typing a fact search.
 
-* [/v4/factsets](./api/query/v4/factsets.html)
+* [/v4/factsets](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/factsets.html)
 
     This endpoint has been created to facilitate retrieval of factsets submitted
     for a node. With structured facts support, this includes preserving the type of the fact
@@ -1603,19 +1603,19 @@ Brian Cain, Eric Timmerman, Justin Holguin, Ken Barber, Nick Fagerlund, Ryan Sen
 
 #### Changes to endpoints
 
-* [/v4/facts](./api/query/v4/facts)
+* [/v4/facts](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/facts)
 
     This endpoint is now capable of returning structured facts. Facts that contain hashes, arrays, floats, integers,
     booleans, strings (and combinations thereof) will be preserved when stored and able to now be returned via this
     endpoint.
 
-* [/v3/facts](./api/query/v3/facts)
+* [/v3/facts](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v3/facts)
 
     This endpoint will return JSON stringified structured facts to preserve backwards compatibility.
 
 #### Operators
 
-* [`in` and `extract` (version 4)](./api/query/v4/operators.html#in)
+* [`in` and `extract` (version 4)](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/operators.html#in)
 
     We have modified the v4 IN and EXTRACT operators to accept multiple fields at once.
     This allows the following...
@@ -1633,11 +1633,11 @@ Brian Cain, Eric Timmerman, Justin Holguin, Ken Barber, Nick Fagerlund, Ryan Sen
     This was made to allow users to combine the `fact-contents` endpoint with the `facts` endpoint to combine the power
     of hierachical searching and aggregate results.
 
-* [`~>` (version 4)](./api/query/v4/operators.html#regexp-array-match)
+* [`~>` (version 4)](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/operators.html#regexp-array-match)
 
     This new operator was designed for the `path` field type to allow for matching a path
     against an array of regular expressions. The only endpoints that contains such fields today
-    are [/v4/fact-contents](./api/query/v4/fact-contents.html) and [/v4/fact-paths](./api/query/v4/fact-paths).
+    are [/v4/fact-contents](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/fact-contents.html) and [/v4/fact-paths](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/fact-paths).
 
 #### Commands
 
@@ -1646,8 +1646,8 @@ For `replace facts` we have also added the ability to pass any JSON object as th
 
 Due to these two changes, we have cut new versions of these commands for this release:
 
-* [`replace catalog` version 5](./api/wire_format/catalog_format_v5.html)
-* [`replace facts` version 3](./api/wire_format/facts_format_v3.html)
+* [`replace catalog` version 5](http://docs.puppetlabs.com/puppetdb/2.2/api/wire_format/catalog_format_v5.html)
+* [`replace facts` version 3](http://docs.puppetlabs.com/puppetdb/2.2/api/wire_format/facts_format_v3.html)
 
 The older versions of the commands are immediately deprecated.
 

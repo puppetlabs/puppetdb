@@ -7,7 +7,8 @@ canonical: "/puppetdb/latest/api/query/v4/edges.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
-[subqueries]: ./operators.html#subquery-operators
+[subqueries]: ./ast.html#subquery-operators
+[ast]: ./ast.html
 [catalogs]: ./catalogs.html
 [nodes]: ./nodes.html
 [resources]: ./resources.html
@@ -30,7 +31,7 @@ supported operators and fields. For general info about queries, see
 
 ### Query operators
 
-See [the query operators page](./operators.html)
+See [the AST query language page][ast].
 
 ### Query fields
 

@@ -7,7 +7,7 @@ canonical: "/puppetdb/latest/api/query/v4/environments.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
-[subqueries]: ./operators.html#subquery-operators
+[subqueries]: ./ast.html#subquery-operators
 [factsets]: ./factsets.html
 [reports]: ./reports.html
 [catalogs]: ./catalogs.html
@@ -33,7 +33,7 @@ This will return all environments known to PuppetDB.
 
 ### Query operators
 
-See [the available operators page](./operators.html)
+See [the AST query language page](./ast.html)
 
 ### Query fields
 

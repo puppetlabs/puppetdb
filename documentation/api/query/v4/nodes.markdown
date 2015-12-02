@@ -10,7 +10,8 @@ canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 [paging]: ./paging.html
 [query]: ./query.html
 [8601]: http://en.wikipedia.org/wiki/ISO_8601
-[subqueries]: ./operators.html#subquery-operators
+[subqueries]: ./ast.html#subquery-operators
+[ast]: ./ast.html
 [factsets]: ./factsets.html
 [reports]: ./reports.html
 [catalogs]: ./catalogs.html
@@ -37,7 +38,7 @@ To query for the latest fact/catalog/report timestamp submitted by 'example.loca
 
 ### Query operators
 
-See [the query operators page.](./operators.html)
+See [the AST query language page][ast].
 
 ### Query fields
 
