@@ -967,4 +967,12 @@ PP
 end
 
 # oh dear.
-Beaker::TestCase.send(:include, PuppetDBExtensions)
+module Beaker
+  module DSL
+    def self.register(helper_module)
+      include helper_module
+    end
+  end
+end
+
+Beaker::DSL.register(PuppetDBExtensions)
