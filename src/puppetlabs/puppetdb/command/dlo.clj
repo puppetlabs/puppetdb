@@ -8,15 +8,14 @@
             [me.raynes.fs :as fs]
             [clojure.java.io :refer [file make-parents]]
             [clj-time.core :refer [ago after?]]
-            [metrics.gauges :refer [gauge]]
+            [puppetlabs.puppetdb.metrics.core :as metrics]
+            [metrics.gauges :refer [gauge-fn]]
             [metrics.meters :refer [meter mark!]]
             [metrics.timers :refer [timer time!]]
             [puppetlabs.puppetdb.time :refer [period?]]))
 
-;; This is pinned for JMX, for backwards compatibility with old namespace
-(def ns-str "puppetlabs.puppetdb.command.dlo")
-
 (def metrics (atom {}))
+(def dlo-metrics-registry (get-in metrics/metrics-registries [:dlo :registry]))
 
 (defn- subdirectories
   "Returns the list of subdirectories of the DLO `dir`."
@@ -56,32 +55,43 @@
   (->> (archives subdir)
        (map #(fs/base-name % ".tgz"))
        (map #(time-format/parse (time-format/formatters :date-time) %))
-       (sort)
-       (last)))
+       sort
+       last))
 
 (defn create-metrics-for-dlo!
   "Creates the standard set of global metrics."
   [dir]
   (when-not (:global @metrics)
-    (swap! metrics assoc-in [:global :compression] (timer [ns-str "global" "compression"]))
-    (swap! metrics assoc-in [:global :compression-failures] (meter [ns-str "global" "compression-failures"] "failures/s"))
-    (swap! metrics assoc-in [:global :filesize] (gauge [ns-str "global" "filesize"] (FileUtils/sizeOf dir)))
-    (swap! metrics assoc-in [:global :messages] (gauge [ns-str "global" "messages"] (count (mapcat messages (subdirectories dir)))))
-    (swap! metrics assoc-in [:global :archives] (gauge [ns-str "global" "archives"] (count (mapcat archives (subdirectories dir)))))))
+    (swap! metrics assoc-in [:global :compression] (timer dlo-metrics-registry ["global" "compression"]))
+    (swap! metrics assoc-in [:global :compression-failures]
+           (meter dlo-metrics-registry ["global" "compression-failures"]))
+    (gauge-fn dlo-metrics-registry ["global" "filesize"]
+              (fn [] (FileUtils/sizeOf dir)))
+    (gauge-fn dlo-metrics-registry ["global" "messages"]
+              (fn [] (count (mapcat messages (subdirectories dir)))))
+    (gauge-fn dlo-metrics-registry ["global" "archives"]
+              (fn [] (count (mapcat archives (subdirectories dir)))))
+    nil))
 
 (defn- create-metrics-for-subdir!
   "Creates the standard set of metrics for the given `subdir`, using its
   basename as the identifier for its metrics."
   [subdir]
-  (let [subdir-name (fs/base-name subdir)
-        prefix [ns-str subdir-name]]
+  (let [subdir-name (fs/base-name subdir)]
     (when-not (get @metrics subdir-name)
-      (swap! metrics assoc-in [subdir-name :compression] (timer (conj prefix "compression")))
-      (swap! metrics assoc-in [subdir-name :compression-failures] (meter (conj prefix "compression-failures") "failures/s"))
-      (swap! metrics assoc-in [subdir-name :filesize] (gauge (conj prefix "filesize") (FileUtils/sizeOf subdir)))
-      (swap! metrics assoc-in [subdir-name :messages] (gauge (conj prefix "messages") (count (messages subdir))))
-      (swap! metrics assoc-in [subdir-name :archives] (gauge (conj prefix "archives") (count (archives subdir))))
-      (swap! metrics assoc-in [subdir-name :last-archived] (gauge (conj prefix "archives") (last-archived subdir))))))
+      (swap! metrics assoc-in [subdir-name :compression]
+             (timer dlo-metrics-registry [subdir-name "compression"]))
+      (swap! metrics assoc-in [subdir-name :compression-failures]
+             (meter dlo-metrics-registry [subdir-name "compression-failures"]))
+      (gauge-fn dlo-metrics-registry [subdir-name "filesize"]
+                (fn [] (FileUtils/sizeOf subdir)))
+      (gauge-fn dlo-metrics-registry [subdir-name "messages"]
+                (fn [] (count (messages subdir))))
+      (gauge-fn dlo-metrics-registry [subdir-name "archives"]
+                (fn [] (count (archives subdir))))
+      (gauge-fn dlo-metrics-registry [subdir-name "last-archived"]
+                (fn [] (last-archived subdir)))
+      nil)))
 
 (defn- global-metric
   "Returns the global metric corresponding to `metric`."

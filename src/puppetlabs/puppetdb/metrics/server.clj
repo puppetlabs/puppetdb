@@ -1,15 +1,25 @@
 (ns puppetlabs.puppetdb.metrics.server
-  (:require [puppetlabs.puppetdb.metrics.core :as metrics]
+  (:require [clojure.string :as str]
             [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.middleware :refer [wrap-with-puppetdb-middleware]]))
+            [puppetlabs.puppetdb.http :as http]
+            [clojure.string :as str]
+            [puppetlabs.puppetdb.metrics.core :as metrics]
+            [puppetlabs.puppetdb.middleware :as mid]))
 
 (def v1-app
   (app
-    []
-    {:get metrics/list-mbeans}
+   []
+   {:get (fn [_] (http/json-response
+                  (metrics/mbean-names)))}
 
-    [& names]
-    {:get (app (metrics/mbean names))}))
+   [& names]
+   ;; Convert the given / separated mbean name from a shortened
+   ;; 'commands' type to the longer form needed by the metrics beans.
+   {:get (fn [_] (let [name (str/join "/" names)
+                       mbean (metrics/get-mbean name)]
+                   (if mbean
+                     (http/json-response mbean)
+                     (http/status-not-found-response "mbean" name))))}))
 
 (def routes
   (app
@@ -25,4 +35,6 @@
   should be a message describing the reason that access was denied."
   [cert-whitelist]
   (-> routes
-      (wrap-with-puppetdb-middleware cert-whitelist)))
+      mid/verify-accepts-json
+      mid/validate-no-query-params
+      (mid/wrap-with-puppetdb-middleware cert-whitelist)))

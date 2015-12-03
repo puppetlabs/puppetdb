@@ -358,37 +358,41 @@
   functions.
 
   Times out after 30 seconds and throws org.postgresql.util.PSQLException"
-  [{:keys [subprotocol subname
-           user username password
-           connection-timeout
-           conn-max-age
-           conn-lifetime
-           read-only?
-           pool-name]
-    :as db-spec}]
-  (let [conn-lifetime-ms (some-> conn-max-age pl-time/to-millis)
-        conn-max-age-ms (some-> conn-lifetime pl-time/to-millis)
-        config (HikariConfig.)]
-    (doto config
-      (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
-      (.setAutoCommit false)
-      (.setInitializationFailFast false))
-    (some->> pool-name (.setPoolName config))
-    (some->> connection-timeout (.setConnectionTimeout config))
-    (when (and conn-max-age-ms conn-lifetime-ms (> conn-max-age-ms conn-lifetime-ms))
-      (some->> conn-max-age-ms (.setIdleTimeout config)))
-    (some->> conn-lifetime-ms (.setMaxLifetime config))
-    (some->> read-only? (.setReadOnly config))
-    (some->> (or user username) str (.setUsername config))
-    (some->> password str (.setPassword config))
-    (HikariDataSource. config)))
+  ([db-spec] (make-connection-pool db-spec nil))
+  ([{:keys [subprotocol subname
+            user username password
+            connection-timeout
+            conn-max-age
+            conn-lifetime
+            read-only?
+            pool-name]
+     :as db-spec}
+    metrics-registry]
+   (let [conn-lifetime-ms (some-> conn-max-age pl-time/to-millis)
+         conn-max-age-ms (some-> conn-lifetime pl-time/to-millis)
+         config (HikariConfig.)]
+     (doto config
+       (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
+       (.setAutoCommit false)
+       (.setInitializationFailFast false))
+     (some->> pool-name (.setPoolName config))
+     (some->> connection-timeout (.setConnectionTimeout config))
+     (when (and conn-max-age-ms conn-lifetime-ms (> conn-max-age-ms conn-lifetime-ms))
+       (some->> conn-max-age-ms (.setIdleTimeout config)))
+     (some->> conn-lifetime-ms (.setMaxLifetime config))
+     (some->> read-only? (.setReadOnly config))
+     (some->> (or user username) str (.setUsername config))
+     (some->> password str (.setPassword config))
+     (some->> metrics-registry (.setMetricRegistry config))
+     (HikariDataSource. config))))
 
 (defn pooled-datasource
   "Given a database connection attribute map, return a JDBC datasource
   compatible with clojure.java.jdbc that is backed by a connection
   pool."
-  [options]
-  {:datasource (make-connection-pool options)})
+  ([options] (pooled-datasource options nil))
+  ([options metrics-registry]
+   {:datasource (make-connection-pool options metrics-registry)}))
 
 (defn in-clause
   "Create a prepared statement in clause, with a ? for every item in coll"

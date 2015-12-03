@@ -37,8 +37,9 @@
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [clj-time.core :refer [now]]
+            [puppetlabs.puppetdb.metrics.core :as metrics]
             [metrics.counters :refer [counter inc! value]]
-            [metrics.gauges :refer [gauge]]
+            [metrics.gauges :refer [gauge-fn]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec]]
@@ -108,8 +109,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Metrics
 
-;; This is pinned to the old namespace for backwards compatibility
-(def ns-str "puppetlabs.puppetdb.scf.storage")
+(def storage-metrics-registry (get-in metrics/metrics-registries [:storage :registry]))
 
 ;; ## Performance metrics
 ;;
@@ -167,35 +167,35 @@
 ;;
 (def performance-metrics
   {
-   :add-resources      (timer [ns-str "default" "add-resources"])
-   :add-edges          (timer [ns-str "default" "add-edges"])
+   :add-resources      (timer storage-metrics-registry ["add-resources"])
+   :add-edges          (timer storage-metrics-registry ["add-edges"])
 
-   :resource-hashes    (timer [ns-str "default" "resource-hashes"])
-   :catalog-hash       (timer [ns-str "default" "catalog-hash"])
-   :add-new-catalog    (timer [ns-str "default" "new-catalog-time"])
-   :catalog-hash-match (timer [ns-str "default" "catalog-hash-match-time"])
-   :catalog-hash-miss  (timer [ns-str "default" "catalog-hash-miss-time"])
-   :replace-catalog    (timer [ns-str "default" "replace-catalog-time"])
+   :resource-hashes    (timer storage-metrics-registry ["resource-hashes"])
+   :catalog-hash       (timer storage-metrics-registry ["catalog-hash"])
+   :add-new-catalog    (timer storage-metrics-registry ["new-catalog-time"])
+   :catalog-hash-match (timer storage-metrics-registry ["catalog-hash-match-time"])
+   :catalog-hash-miss  (timer storage-metrics-registry ["catalog-hash-miss-time"])
+   :replace-catalog    (timer storage-metrics-registry ["replace-catalog-time"])
 
-   :gc                 (timer [ns-str "default" "gc-time"])
-   :gc-catalogs        (timer [ns-str "default" "gc-catalogs-time"])
-   :gc-params          (timer [ns-str "default" "gc-params-time"])
-   :gc-environments    (timer [ns-str "default" "gc-environments-time"])
-   :gc-report-statuses (timer [ns-str "default" "gc-report-statuses"])
-   :gc-fact-paths  (timer  [ns-str "default" "gc-fact-paths"])
+   :gc                 (timer storage-metrics-registry ["gc-time"])
+   :gc-catalogs        (timer storage-metrics-registry ["gc-catalogs-time"])
+   :gc-params          (timer storage-metrics-registry ["gc-params-time"])
+   :gc-environments    (timer storage-metrics-registry ["gc-environments-time"])
+   :gc-report-statuses (timer storage-metrics-registry ["gc-report-statuses"])
+   :gc-fact-paths  (timer storage-metrics-registry ["gc-fact-paths"])
 
-   :updated-catalog    (counter [ns-str "default" "new-catalogs"])
-   :duplicate-catalog  (counter [ns-str "default" "duplicate-catalogs"])
-   :duplicate-pct      (gauge [ns-str "default" "duplicate-pct"]
-                              (let [dupes (value (:duplicate-catalog performance-metrics))
-                                    new   (value (:updated-catalog performance-metrics))]
-                                (float (kitchensink/quotient dupes (+ dupes new)))))
-   :catalog-volatility (histogram [ns-str "default" "catalog-volitilty"])
+   :updated-catalog    (counter storage-metrics-registry ["new-catalogs"])
+   :duplicate-catalog  (counter storage-metrics-registry ["duplicate-catalogs"])
+   :duplicate-pct      (gauge-fn storage-metrics-registry ["duplicate-pct"]
+                                 (fn []
+                                   (let [dupes (value (:duplicate-catalog performance-metrics))
+                                         new   (value (:updated-catalog performance-metrics))]
+                                     (float (kitchensink/quotient dupes (+ dupes new))))))
+   :catalog-volatility (histogram storage-metrics-registry ["catalog-volitilty"])
 
-   :replace-facts     (timer [ns-str "default" "replace-facts-time"])
+   :replace-facts     (timer storage-metrics-registry ["replace-facts-time"])
 
-   :store-report      (timer [ns-str "default" "store-report-time"])
-   })
+   :store-report      (timer storage-metrics-registry ["store-report-time"])})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Certname querying/deleting
