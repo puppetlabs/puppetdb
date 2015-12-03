@@ -41,7 +41,7 @@ echo '# hostname:port:database:username:password' > pgpass
 echo "*:*:*:pdb_test_admin:$admin_passwd" >> pgpass
 echo "*:*:*:pdb_test:$passwd" >> pgpass
 
-createuser -dERS pdb_test_admin
+createuser -dERs pdb_test_admin
 createuser -DERS pdb_test
 
 tmp_cmds="$(mktemp ./tmp-cmds-XXXXXX)"

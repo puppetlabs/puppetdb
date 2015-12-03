@@ -439,6 +439,27 @@
    "CREATE INDEX catalogs_hash_expr_idx ON catalogs(trim(leading '\\x' from hash::text))"
    "CREATE INDEX catalogs_certname_idx ON catalogs (certname)"))
 
+(defn add-indexes-for-reports-summary-query
+  []
+  (jdbc/do-commands
+   "CREATE FUNCTION dual_md5(BYTEA, BYTEA) RETURNS bytea AS $$
+      BEGIN
+        RETURN digest($1 || $2, 'md5');
+      END;
+    $$ LANGUAGE plpgsql"
+   "CREATE AGGREGATE md5_agg (BYTEA)
+    (
+      sfunc = dual_md5,
+      stype = bytea,
+      initcond = '\\x00'
+    )"
+   "CREATE INDEX idx_reports_producer_timestamp_by_hour_certname ON reports
+    (
+      date_trunc('hour', timezone('UTC', producer_timestamp)),
+      producer_timestamp,
+      certname
+    )"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {34 init-through-3-0-0
@@ -451,7 +472,8 @@
    38 add-code-id-to-catalogs
    39 add-expression-indexes-for-bytea-queries
    40 factset-hash-field-not-nullable
-   41 add-support-for-historical-catalogs})
+   41 add-support-for-historical-catalogs
+   42 add-indexes-for-reports-summary-query})
 
 (def desired-schema-version (apply max (keys migrations)))
 
