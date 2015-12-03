@@ -57,9 +57,9 @@ Responses return a JSON Object mapping strings to (strings/numbers/booleans).
 
 ### Database metrics
 
-* `com.jolbox.bonecp:type=BoneCP`: Database connection pool
-  metrics. How long it takes to get a free connection, average
-  execution times, number of free connections, etc.
+* See
+  [the HikariCP documentation](https://github.com/brettwooldridge/HikariCP/wiki/Dropwizard-Metrics)
+  for the metric names and descriptions.
 
 ### Command-processing metrics
 

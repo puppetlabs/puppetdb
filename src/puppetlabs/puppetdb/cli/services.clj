@@ -211,9 +211,7 @@
   (with-open [init-db-pool (jdbc/make-connection-pool
                             (assoc write-db-config
                                    ;; Block waiting to grab a connection
-                                   :connection-timeout 0
-                                   ;; Only allocate connections when needed
-                                   :pool-availability-threshold 0))]
+                                   :connection-timeout 0))]
     (let [db-pool-map {:datasource init-db-pool}]
       (initialize-schema db-pool-map config))))
 

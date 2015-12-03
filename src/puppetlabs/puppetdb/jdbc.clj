@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.jdbc
   "Database utilities"
-  (:import (com.jolbox.bonecp BoneCPDataSource BoneCPConfig)
+  (:import (com.zaxxer.hikari HikariDataSource HikariConfig)
            (java.util.concurrent TimeUnit))
   (:require [clojure.java.jdbc :as sql]
             [clojure.string :as string]
@@ -8,7 +8,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.string :as str]
             [puppetlabs.puppetdb.time :as pl-time]
-            [puppetlabs.puppetdb.jdbc.internal :refer :all]
+            [puppetlabs.puppetdb.jdbc.internal :refer [limit-result-set!]]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
             [clojure.math.numeric-tower :as math]))
@@ -360,44 +360,32 @@
            (throw e)))))))
 
 (defn make-connection-pool
-  "Create a new database connection pool"
-  [{:keys [classname subprotocol subname user username password
-           partition-conn-min partition-conn-max partition-count
-           stats log-statements log-slow-statements statements-cache-size
-           conn-max-age conn-lifetime conn-keep-alive read-only?
-           connection-timeout pool-availability-threshold]
-    :as db}]
-  (let [;; Load the database driver class explicitly, to avoid jar load ordering
-        ;; issues.
-        _ (Class/forName classname)
-        log-slow-statements-duration (pl-time/to-seconds log-slow-statements)
-        config          (doto (new BoneCPConfig)
-                          (.setDefaultAutoCommit false)
-                          (.setLazyInit true)
-                          (.setMinConnectionsPerPartition partition-conn-min)
-                          (.setMaxConnectionsPerPartition partition-conn-max)
-                          (.setPartitionCount partition-count)
-                          (.setConnectionTestStatement "begin; select 1; commit;")
-                          (.setStatisticsEnabled stats)
-                          (.setIdleMaxAgeInMinutes (pl-time/to-minutes conn-max-age))
-                          (.setIdleConnectionTestPeriodInMinutes (pl-time/to-minutes conn-keep-alive))
-                          ;; paste the URL back together from parts.
-                          (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
-                          (.setConnectionHook (connection-hook log-statements log-slow-statements-duration))
-                          (.setStatementsCacheSize statements-cache-size)
-                          (.setDefaultReadOnly read-only?)
-                          (.setConnectionTimeoutInMs connection-timeout))
-        user (or user username)]
-    ;; configurable without default
-    (some->> user str (.setUsername config))
-    (some->> password str (.setPassword config))
-    (some->> pool-availability-threshold (.setPoolAvailabilityThreshold config))
-    (some->> log-statements (.setLogStatementsEnabled config))
-    (when conn-lifetime (.setMaxConnectionAge config (pl-time/to-minutes conn-lifetime) TimeUnit/MINUTES))
+  "Given a DB spec map containing :subprotocol, :subname, :user, and :password
+  keys, return a pooled DB spec map (one containing just the :datasource key
+  with a pooled DataSource object as the value). The returned pooled DB spec
+  can be passed directly as the first argument to clojure.java.jdbc's
+  functions.
 
-    (.setQueryExecuteTimeLimit config log-slow-statements-duration (TimeUnit/SECONDS))
-    ;; ...aaand, create the pool.
-    (BoneCPDataSource. config)))
+  Times out after 30 seconds and throws org.postgresql.util.PSQLException"
+  [{:keys [subprotocol subname
+           user username password
+           connection-timeout
+           conn-max-age
+           conn-lifetime
+           read-only?]
+    :as db-spec}]
+  (let [config (HikariConfig.)]
+    (doto config
+      (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
+      (.setAutoCommit false)
+      (.setInitializationFailFast false))
+    (some->> connection-timeout (.setConnectionTimeout config))
+    (some->> conn-max-age pl-time/to-millis (.setIdleTimeout config))
+    (some->> conn-lifetime pl-time/to-millis (.setMaxLifetime config))
+    (some->> read-only? (.setReadOnly config))
+    (some->> (or user username) str (.setUsername config))
+    (some->> password str (.setPassword config))
+    (HikariDataSource. config)))
 
 (defn pooled-datasource
   "Given a database connection attribute map, return a JDBC datasource
