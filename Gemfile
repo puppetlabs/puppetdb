@@ -58,7 +58,7 @@ group :acceptance do
     gem 'beaker', *location_for(beaker_version)
   else
     # use the pinned version
-    gem 'beaker', '2.29.1'
+    gem 'beaker', '~> 2.30.1'
   end
   # This forces google-api-client to not download retirable 2.0.0 which lacks
   # ruby 1.9.x support.
