@@ -284,16 +284,8 @@
                       [(f)]
                       ;; Catch connection errors, and retry for some of them.
                       ;; cf. PostgreSQL docs: Appendix A. PostgreSQL Error Codes
-                      (catch java.sql.SQLException e
-                        ;; This includes org.postgresql.util.PSQLException
-                        (let [sqlstate (.getSQLState e)]
-                          (case sqlstate
-                            ;; The connection does not exist
-                            "08003" (retry-sql-or-fail r current e)
-                            ;; PostgreSQL was restarted
-                            "57P01" (retry-sql-or-fail r current e)
-                            ;; All other errors are not retried
-                            (throw e)))))]
+                      (catch java.sql.SQLTransientConnectionException e
+                        (retry-sql-or-fail r current e)))]
       (result 0)
       (recur (dec r) (inc current)))))
 
@@ -372,16 +364,21 @@
            connection-timeout
            conn-max-age
            conn-lifetime
-           read-only?]
+           read-only?
+           pool-name]
     :as db-spec}]
-  (let [config (HikariConfig.)]
+  (let [conn-lifetime-ms (some-> conn-max-age pl-time/to-millis)
+        conn-max-age-ms (some-> conn-lifetime pl-time/to-millis)
+        config (HikariConfig.)]
     (doto config
       (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
       (.setAutoCommit false)
       (.setInitializationFailFast false))
+    (some->> pool-name (.setPoolName config))
     (some->> connection-timeout (.setConnectionTimeout config))
-    (some->> conn-max-age pl-time/to-millis (.setIdleTimeout config))
-    (some->> conn-lifetime pl-time/to-millis (.setMaxLifetime config))
+    (when (and conn-max-age-ms conn-lifetime-ms (> conn-max-age-ms conn-lifetime-ms))
+      (some->> conn-max-age-ms (.setIdleTimeout config)))
+    (some->> conn-lifetime-ms (.setMaxLifetime config))
     (some->> read-only? (.setReadOnly config))
     (some->> (or user username) str (.setUsername config))
     (some->> password str (.setPassword config))

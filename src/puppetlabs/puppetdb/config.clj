@@ -54,6 +54,7 @@
      :conn-max-age (pls/defaulted-maybe s/Int 60)
      :conn-keep-alive (pls/defaulted-maybe s/Int 45)
      :conn-lifetime (s/maybe s/Int)
+     :maximum-pool-size (pls/defaulted-maybe s/Int 10)
      :classname (pls/defaulted-maybe String "org.postgresql.Driver")
      :subprotocol (pls/defaulted-maybe String "postgresql")
      :subname (s/maybe String)
@@ -96,6 +97,7 @@
    :log-statements Boolean
    :statements-cache-size s/Int
    :connection-timeout s/Int
+   :maximum-pool-size s/Int
    (s/optional-key :conn-lifetime) (s/maybe Minutes)
    (s/optional-key :username) String
    (s/optional-key :user) String

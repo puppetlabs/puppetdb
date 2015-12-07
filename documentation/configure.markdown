@@ -305,17 +305,6 @@ runs every `gc-interval` minutes.
 
 If unset, the default value is 14 days.
 
-### `classname`
-
-This sets the JDBC class to use.  It should be
-`org.postgresql.Driver`, which is the default.  You should not need to
-change it.
-
-### `subprotocol`
-
-This should be `postgresql`, which is the default.  You should not
-need to change it.
-
 ### `subname`
 
 This describes where to find the database. It should be something like
@@ -332,23 +321,26 @@ This is the username to use when connecting. Only used with PostgreSQL.
 
 This is the password to use when connecting. Only used with PostgreSQL.
 
-### `log-slow-statements`
+### `maximum-pool-size`
 
-This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note PuppetDB does not interrupt slow queries; it simply reports them after they complete.
+From the HikariCP documentation:
 
-The default value is 10 seconds. A value of 0 will disable logging of slow queries.
+> This property controls the maximum size that the pool is allowed to reach,
+> including both idle and in-use connections. Basically this value will
+> determine the maximum number of actual connections to the database backend. A
+> reasonable value for this is best determined by your execution environment.
+
+When the pool reaches this size, and no idle connections are available, attempts
+to get a connection will wait for `connection-timeout` milliseconds before timing
+out.
+
+The default value is 10.
 
 ### `conn-max-age`
 
 The maximum time (in minutes), for a pooled connection to remain unused before it is closed off.
 
 If not supplied, we default to 60 minutes.
-
-### `conn-keep-alive`
-
-This sets the time (in minutes), for a connection to remain idle before sending a test query to the DB. This is useful to prevent a DB from timing out connections on its end.
-
-If not supplied, we default to 45 minutes.
 
 ### `conn-lifetime`
 
@@ -360,7 +352,47 @@ If not supplied, we won't terminate connections based on their age alone.
 
 The maximum time to wait (in milliseconds) to acquire a connection from the pool of database connections. If not supplied, defaults to 1000.
 
+## Deprecated settings
+
+### `classname`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
+This sets the JDBC class to use.  It should be
+`org.postgresql.Driver`, which is the default.  You should not need to
+change it.
+
+### `subprotocol`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
+This should be `postgresql`, which is the default.  You should not
+need to change it.
+
+### `log-slow-statements`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
+This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note PuppetDB does not interrupt slow queries; it simply reports them after they complete.
+
+The default value is 10 seconds. A value of 0 will disable logging of slow queries.
+
+### `conn-keep-alive`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
+This sets the time (in minutes), for a connection to remain idle before sending a test query to the DB. This is useful to prevent a DB from timing out connections on its end.
+
+If not supplied, we default to 45 minutes.
+
 ###`statements-cache-size`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
 
 This setting defines how many prepared statements are cached automatically. For a large amount of dynamic queries this number could be increased to increase performance, at the cost of memory consumption and database resources.
 
@@ -390,14 +422,6 @@ The main difference in the config file is that you must be sure to add `?ssl=tru
 
     subname = //<HOST>:<PORT>/<DATABASE>?ssl=true
 
-### `classname`
-
-This sets the JDBC class to use. This should be `org.postgresql.Driver`.
-
-### `subprotocol`
-
-Set this to `postgresql`.
-
 ### `subname`
 
 This describes where to find the database. Set this to:
@@ -413,23 +437,26 @@ This is the username to use when connecting.
 
 This is the password to use when connecting.
 
-### `log-slow-statements`
+### `maximum-pool-size`
 
-This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note PuppetDB does not interrupt slow queries; it simply reports them after they complete.
+From the HikariCP documentation:
 
-The default value is 10 seconds. A value of 0 will disable logging of slow queries.
+> This property controls the maximum size that the pool is allowed to reach,
+> including both idle and in-use connections. Basically this value will
+> determine the maximum number of actual connections to the database backend. A
+> reasonable value for this is best determined by your execution environment.
+
+When the pool reaches this size, and no idle connections are available, attempts
+to get a connection will wait for `connection-timeout` milliseconds before timing
+out.
+
+The default value is 10.
 
 ### `conn-max-age`
 
 The maximum time (in minutes), for a pooled connection to remain unused before it is closed off.
 
 If not supplied, we default to 60 minutes.
-
-### `conn-keep-alive`
-
-This sets the time (in minutes), for a connection to remain idle before sending a test query to the DB. This is useful to prevent a DB from timing out connections on its end.
-
-If not supplied, we default to 45 minutes.
 
 ### `conn-lifetime`
 
@@ -440,6 +467,53 @@ If not supplied, we won't terminate connections based on their age alone.
 ### `connection-timeout`
 
 The maximum time to wait (in milliseconds) to acquire a connection from the pool of database connections. If not supplied, defaults to 500.
+
+## Deprecated settings
+
+### `classname`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
+This sets the JDBC class to use.  It should be
+`org.postgresql.Driver`, which is the default.  You should not need to
+change it.
+
+### `subprotocol`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
+This should be `postgresql`, which is the default.  You should not
+need to change it.
+
+
+### `log-slow-statements`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
+This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note PuppetDB does not interrupt slow queries; it simply reports them after they complete.
+
+The default value is 10 seconds. A value of 0 will disable logging of slow queries.
+
+### `conn-keep-alive`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
+This sets the time (in minutes), for a connection to remain idle before sending a test query to the DB. This is useful to prevent a DB from timing out connections on its end.
+
+If not supplied, we default to 45 minutes.
+
+###`statements-cache-size`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
+This setting defines how many prepared statements are cached automatically. For a large amount of dynamic queries this number could be increased to increase performance, at the cost of memory consumption and database resources.
+
+If not supplied, we default to 1000.
 
 
 `[command-processing]` Settings
