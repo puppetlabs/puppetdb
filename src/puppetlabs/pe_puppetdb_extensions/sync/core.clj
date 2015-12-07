@@ -302,7 +302,7 @@
 (defn run-and-compare-bucketed-summary-queries [sync-config remote-server bucketed-summary-query-fn]
   (when (:bucketed-summary-query-path sync-config)
     (let [remote (remote-bucketed-summary-query remote-server sync-config)
-          local (bucketed-summary-query-fn (:entity sync-config) nil)]
+          local (bucketed-summary-query-fn (:entity sync-config))]
       (diff-bucketed-summaries local remote))))
 
 (defn update-summary-query-with-bucket-timespans [sync-config buckets-which-differ]

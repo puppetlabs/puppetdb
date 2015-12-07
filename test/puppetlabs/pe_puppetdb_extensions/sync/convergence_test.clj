@@ -181,7 +181,7 @@
         globals (cli-svcs/shared-globals pdb-service)
         scf-read-db (:scf-read-db globals)]
     (sync-from-remote! (partial cli-svcs/query pdb-service)
-                       (partial bucketed-summary/bucketed-summary-query scf-read-db)
+                       (partial services/bucketed-summary-query sync-service)
                        (partial dispatch/enqueue-command dispatcher)
                        {:url remote-url}
                        Period/ZERO)))

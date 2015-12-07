@@ -10,7 +10,7 @@
             [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote! with-trailing-slash]]
             [puppetlabs.pe-puppetdb-extensions.sync.bucketed-summary :as bucketed-summary]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
-            [puppetlabs.trapperkeeper.services :refer [get-service]]
+            [puppetlabs.trapperkeeper.services :refer [get-service service-context]]
             [puppetlabs.puppetdb.utils :as utils :refer [throw+-cli-error!]]
             [compojure.core :refer [routes GET POST] :as compojure]
             [schema.core :as s]
@@ -23,7 +23,7 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]))
 
 (defprotocol PuppetDBSync
-  (bucketed-summary-query [this entity timespans]))
+  (bucketed-summary-query [this entity]))
 
 (def currently-syncing (atom false))
 
@@ -176,7 +176,7 @@
                                   jetty-config)]
     (routes
      (GET "/v1/reports-summary" []
-          (let [summary-map (bucketed-summary/bucketed-summary-query (:scf-read-db (get-shared-globals)) :reports nil)]
+          (let [summary-map (bucketed-summary-query-fn :reports)]
             (http/json-response (ks/mapkeys str summary-map))))
 
      (POST "/v1/trigger-sync" {:keys [body params] :as request}
@@ -206,6 +206,16 @@
                  :else
                  (sync-with! remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl))))))))
 
+(defn start-bucketed-summary-cache-invalidation-job [response-mult cache-atom]
+  (let [processed-commands-chan (async/chan)]
+    (async/tap response-mult processed-commands-chan)
+    (async/go-loop []
+      (when-let [processed-command (async/<!! processed-commands-chan)]
+        (bucketed-summary/invalidate-cache-for-command cache-atom processed-command)
+        (recur)))
+    #(do (async/untap response-mult processed-commands-chan)
+         (async/close! processed-commands-chan))))
+
 (defservice puppetdb-sync-service
   PuppetDBSync
   [[:DefaultedConfig get-config]
@@ -216,8 +226,15 @@
          (let [{{node-ttl :node-ttl} :database
                 sync-config :sync
                 jetty-config :jetty} (get-config)
-               remotes-config (:remotes sync-config)]
-
+               remotes-config (:remotes sync-config)
+               response-mult (response-mult)
+               cache-atom (atom {})
+               context (assoc context
+                              :bucketed-summary-cache-atom
+                              cache-atom
+                              :cache-invalidation-job-stop-fn
+                              (start-bucketed-summary-cache-invalidation-job response-mult
+                                                                         cache-atom))]
            (jdbc/with-db-connection (:scf-read-db (shared-globals))
              (when-not (sutils/pg-extension? "pgcrypto")
                (throw+-cli-error!
@@ -234,8 +251,11 @@
                (try+
                 (maplog [:sync :info] {:remote (str server-url)}
                         "Performing initial blocking sync from {remote}...")
-                (blocking-sync remote-server query (partial bucketed-summary-query this)
-                               enqueue-command node-ttl (response-mult))
+                (blocking-sync remote-server query
+                               (partial bucketed-summary/bucketed-summary-query
+                                        (:scf-read-db (shared-globals))
+                                        cache-atom)
+                               enqueue-command node-ttl response-mult)
                 (catch [:type ::message-processing-timeout] _
                   ;; Something is very wrong if we hit this timeout; rethrow the
                   ;; exception to crash the server.
@@ -260,9 +280,13 @@
           (log/info "Stopping pe-puppetdb sync")
           (atat/stop s)
           (log/info "Stopped pe-puppetdb sync"))
-        context)
+        (when-let [stop-fn (:cache-invalidation-job-stop-fn context)]
+          (stop-fn))
+        (dissoc context
+                :scheduled-sync
+                :cache-invalidation-job-stop-fn))
 
-  (bucketed-summary-query [this entity timespans]
+  (bucketed-summary-query [this entity]
     (bucketed-summary/bucketed-summary-query (:scf-read-db (shared-globals))
-                                             entity
-                                             timespans)))
+                                             (:bucketed-summary-cache-atom (service-context this))
+                                             entity)))
