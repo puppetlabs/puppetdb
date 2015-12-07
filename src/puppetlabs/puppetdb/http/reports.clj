@@ -17,32 +17,29 @@
   (app
     []
     (fn [{:keys [globals]}]
-      (let [{db :scf-read-db
-             url-prefix :url-prefix
-             pretty-print :pretty-print} globals
-            query (json/generate-string ["=" "hash" hash])]
-        (produce-streaming-body entity version {:query query} db url-prefix pretty-print)))))
+      (let [query ["from" entity ["=" "hash" hash]]]
+        (produce-streaming-body version {:query query}
+                                (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental]))))))
 
 (defn routes
   [version optional-handlers]
-  (let [param-spec {:optional paging/query-params}
-        query-route #(apply (partial http-q/query-route :reports version param-spec) %)]
+  (let [param-spec {:optional paging/query-params}]
     (app
       []
-      (query-route optional-handlers)
+      (http-q/query-route-from "reports" version param-spec optional-handlers)
 
       [hash "events" &]
       (-> (e/events-app version (partial http-q/restrict-query-to-report hash))
           (wrap-with-parent-check version :report hash))
 
       [hash "metrics" &]
-      (-> (report-data-responder version :report-metrics hash)
+      (-> (report-data-responder version "report_metrics" hash)
           validate-no-query-params
           verify-accepts-json
           (wrap-with-parent-check version :report hash))
 
       [hash "logs" &]
-      (-> (report-data-responder version :report-logs hash)
+      (-> (report-data-responder version "report_logs" hash)
           validate-no-query-params
           verify-accepts-json
           (wrap-with-parent-check version :report hash)))))

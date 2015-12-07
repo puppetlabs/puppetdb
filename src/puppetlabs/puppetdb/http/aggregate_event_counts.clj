@@ -8,12 +8,10 @@
   (let [param-spec {:required ["summarize_by"]
                     :optional ["query" "counts_filter" "count_by"
                                "distinct_resources" "distinct_start_time"
-                               "distinct_end_time"]}
-        query-route #(apply (partial http-q/query-route :aggregate-event-counts
-                                     version param-spec) %)]
+                               "distinct_end_time"]}]
     (app
       []
-      (query-route optional-handlers))))
+      (http-q/query-route-from "aggregate_event_counts" version param-spec optional-handlers))))
 
 (defn aggregate-event-counts-app
   "Ring app for querying for aggregated summary information about resource events."

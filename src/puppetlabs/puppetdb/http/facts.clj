@@ -2,8 +2,7 @@
   (:require [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.query.paging :as paging]
             [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
-                                                    wrap-with-paging-options]]))
+            [puppetlabs.puppetdb.middleware :refer [wrap-with-paging-options]]))
 
 (defn routes
   [version restrict-to-active-nodes optional-handlers]
@@ -12,7 +11,7 @@
                   identity)
         handlers (cons handler optional-handlers)
         param-spec {:optional paging/query-params}
-        query-route #(apply (partial http-q/query-route :facts version param-spec) %)]
+        query-route (partial http-q/query-route-from "facts" version param-spec)]
   (app
     []
     (query-route handlers)

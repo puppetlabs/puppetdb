@@ -595,11 +595,19 @@
     ;; Event subqueries
     ;;;;;;;;;;;;;;;
 
-    ;; In format
+    ;; In: select_events
     ["extract" "certname"
      ["in" "hash"
       ["extract" "report"
        ["select_events"
+        ["=" "file" "bar"]]]]]
+    #{{:certname "foo.local"}}
+
+    ;; In: from events
+    ["extract" "certname"
+     ["in" "hash"
+      ["from" "events"
+       ["extract" "report"
         ["=" "file" "bar"]]]]]
     #{{:certname "foo.local"}}
 

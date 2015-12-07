@@ -16,14 +16,12 @@
 
 (defn catalog-status
   "Produce a response body for a request to retrieve the catalog for `node`."
-  [api-version node db url-prefix]
+  [api-version node options]
   (let [catalog (first
-                 (eng/stream-query-result :catalogs
-                                          api-version
-                                          ["=" "certname" node]
+                 (eng/stream-query-result api-version
+                                          ["from" "catalogs" ["=" "certname" node]]
                                           {}
-                                          db
-                                          url-prefix))]
+                                          options))]
     (if catalog
       (http/json-response (s/validate catalogs/catalog-query-schema
                                       (kitchensink/mapvals sutils/parse-db-json [:edges :resources] catalog)))
@@ -31,16 +29,15 @@
 
 (defn routes
   [version optional-handlers]
-  (let [param-spec {:optional paging/query-params}
-        query-route #(apply (partial http-q/query-route :catalogs version param-spec) %)]
+  (let [param-spec {:optional paging/query-params}]
   (app
     []
-    (query-route optional-handlers)
+    (http-q/query-route-from "catalogs" version param-spec optional-handlers)
 
     [node]
     (fn [{:keys [globals]}]
-      (catalog-status version node (:scf-read-db globals)
-                      (str (:url-prefix globals))))
+      (catalog-status version node
+                      (select-keys globals [:scf-read-db :url-prefix :warn-experimental])))
 
     [node "edges" &]
     (-> (edges/edges-app version false (partial http-q/restrict-query-to-node node))

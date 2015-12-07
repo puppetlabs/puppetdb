@@ -11,11 +11,10 @@
                     :optional (concat ["counts_filter" "count_by"
                                        "distinct_resources" "distinct_start_time"
                                        "distinct_end_time"]
-                                      paging/query-params)}
-        query-route #(apply (partial http-q/query-route :event-counts version param-spec) %)]
+                                      paging/query-params)}]
     (app
       []
-      (query-route optional-handlers))))
+      (http-q/query-route-from "event_counts" version param-spec optional-handlers))))
 
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."

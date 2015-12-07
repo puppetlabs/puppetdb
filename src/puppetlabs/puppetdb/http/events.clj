@@ -11,11 +11,10 @@
                                  "distinct_resources"
                                  "distinct_start_time"
                                  "distinct_end_time"]
-                                paging/query-params)}
-        query-route #(apply (partial http-q/query-route :events version param-spec) %)]
+                                paging/query-params)}]
     (app
       []
-      (query-route optional-handlers))))
+      (http-q/query-route-from "events" version param-spec optional-handlers))))
 
 (defn events-app
   "Ring app for querying events"

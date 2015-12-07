@@ -25,12 +25,11 @@
    :post [(or (nil? %)
               (map? %))]}
   (first
-   (eng/stream-query-result :reports
-                            version
-                            ["=" "hash" hash]
+   (eng/stream-query-result version
+                            ["from" "reports" ["=" "hash" hash]]
                             {}
-                            *db*
-                            "")))
+                            {:scf-read-db *db*
+                             :url-prefix "/pdb"})))
 
 (defn store-example-report!
   "Store an example report (from examples/report.clj) for use in tests.  Params:

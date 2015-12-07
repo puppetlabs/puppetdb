@@ -11,18 +11,6 @@
             [net.cgrand.moustache :refer [app]]
             [ring.util.response :as rr]))
 
-(defn deprecated-app
-  [app msg request]
-  (let [result (app request)]
-    (log/warn msg)
-    (rr/header result "X-Deprecation" msg)))
-
-(defn experimental-warning
-  [app msg request]
-  (let [result (app request)]
-    (log/warn msg)
-    (rr/header result "Warning" msg)))
-
 (defn- refuse-retired-api
   [version]
   (constantly

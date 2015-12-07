@@ -158,11 +158,20 @@
     ;; Resources
     ;;;;;;;;;;
 
-    ;; In syntax
+    ;; In syntax: select_resources
     ["extract" "certname"
      ["in" "certname"
       ["extract" "certname"
        ["select_resources"
+        ["=" "type" "Apt::Pin"]]]]]
+    #{{:certname "myhost.localdomain"}
+      {:certname "host2.localdomain"}}
+
+    ;; In syntax: from
+    ["extract" "certname"
+     ["in" "certname"
+      ["from" "resources"
+       ["extract" "certname"
         ["=" "type" "Apt::Pin"]]]]]
     #{{:certname "myhost.localdomain"}
       {:certname "host2.localdomain"}}
@@ -178,11 +187,20 @@
     ;; Edges subqueries
     ;;;;;;;;;
 
-    ;; In operator
+    ;; In operator: select_edges
     ["extract" "certname"
      ["in" "certname"
       ["extract" "certname"
        ["select_edges"
+        ["=" "target_type" "File"]]]]]
+    #{{:certname "host2.localdomain"}
+      {:certname "myhost.localdomain"}}
+
+    ;; In operator: from edges
+    ["extract" "certname"
+     ["in" "certname"
+      ["from" "edges"
+       ["extract" "certname"
         ["=" "target_type" "File"]]]]]
     #{{:certname "host2.localdomain"}
       {:certname "myhost.localdomain"}}

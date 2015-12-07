@@ -212,15 +212,24 @@
 
     (testing "subqueries"
       (are [query expected]
-          (is (= expected
-                 (query-result method endpoint query)))
+        (is (= expected
+               (query-result method endpoint query)))
 
+        ;; In: select_fact_contents
         ["in" "path"
          ["extract" "path"
           ["select_fact_contents"
            ["=" "path" ["kernel"]]]]]
         #{{:path ["kernel"] :type "string"}}
 
+        ;; In: from fact_contents
+        ["in" "path"
+         ["from" "fact_contents"
+          ["extract" "path"
+           ["=" "path" ["kernel"]]]]]
+        #{{:path ["kernel"] :type "string"}}
+
+        ;; Subquery syntax
         ["subquery" "fact_contents"
          ["=" "path" ["kernel"]]]
         #{{:path ["kernel"] :type "string"}}))))

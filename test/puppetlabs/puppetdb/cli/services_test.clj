@@ -33,12 +33,12 @@
         (is (= 1 (count (logs-matching #"Skipping update check on Puppet Enterprise" @log-output))))))))
 
 (defn- check-service-query
-  [endpoint version q pagination check-result]
+  [version q pagination check-result]
   (let [pdb-service (get-service svc-utils/*server* :PuppetDBServer)
         results (atom nil)
         before-slurp? (atom nil)
         after-slurp? (atom nil)]
-    (query pdb-service endpoint version q pagination
+    (query pdb-service version q pagination
            (fn [result-set]
              ;; We evaluate the first element from lazy-seq just to check if DB query was successful or not
              ;; so we have to ensure the first element and the rest have been realized, not just the first
@@ -65,7 +65,7 @@
       @(block-until-results 100 (first (get-factsets "foo.local")))
 
       (check-service-query
-       :facts :v4 ["=" "certname" "foo.local"]
+       :v4 ["from" "facts" ["=" "certname" "foo.local"]]
        nil
        (fn [result]
          (is (= #{{:value "the baz",
@@ -101,7 +101,7 @@
           (let [expected (take limit
                                (drop offset (if (= order :ascending) exp rexp)))]
             (check-service-query
-             :facts :v4 ["=" "certname" "foo.local"]
+             :v4 ["from" "facts" ["=" "certname" "foo.local"]]
              {:order_by [[:name order]]
               :offset offset
               :limit limit}

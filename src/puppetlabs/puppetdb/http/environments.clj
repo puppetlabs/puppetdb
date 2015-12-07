@@ -15,14 +15,12 @@
 
 (defn environment-status
   "Produce a response body for a single environment."
-  [api-version environment db]
+  [api-version environment options]
   (let [status (first
-                (eng/stream-query-result :environments
-                                         api-version
-                                         ["=" "name" environment]
+                (eng/stream-query-result api-version
+                                         ["from" "environments" ["=" "name" environment]]
                                          {}
-                                         db
-                                         ""))]
+                                         options))]
     (if status
       (http/json-response status)
       (http/status-not-found-response "environment" environment))))
@@ -32,11 +30,12 @@
   (let [param-spec {:optional paging/query-params}]
     (app
       []
-      (http-q/query-route :environments version param-spec)
+      (http-q/query-route-from "environments" version param-spec)
 
       [environment]
       (-> (fn [{:keys [globals]}]
-            (environment-status version environment (:scf-read-db globals)))
+            (environment-status version environment
+                                (select-keys globals [:scf-read-db :warn-experimental :url-prefix])))
           ;; Being a singular item, querying and pagination don't really make
           ;; sense here
           (validate-query-params {}))

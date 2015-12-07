@@ -86,10 +86,19 @@
          ;; Basic facts subquery examples
          ;;;;;;;;;;;;
 
-         ;; In syntax
+         ;; In syntax: select_facts
          ["in" "name"
           ["extract" "environment"
            ["select_facts"
+            ["and"
+             ["=" "name" "operatingsystem"]
+             ["=" "value" "Debian"]]]]]
+         #{{:name "DEV"}}
+
+         ;; In syntax: from
+         ["in" "name"
+          ["from" "facts"
+           ["extract" "environment"
             ["and"
              ["=" "name" "operatingsystem"]
              ["=" "value" "Debian"]]]]]
@@ -106,11 +115,23 @@
          ;; Not-wrapped subquery syntax
          ;;;;;;;;;;;;;
 
-         ;; In syntax
+         ;; In syntax: select_facts
          ["not"
           ["in" "name"
            ["extract" "environment"
             ["select_facts"
+             ["and"
+              ["=" "name" "operatingsystem"]
+              ["=" "value" "Debian"]]]]]]
+         #{{:name "foo"}
+           {:name "bar"}
+           {:name "baz"}}
+
+         ;; In syntax: from
+         ["not"
+          ["in" "name"
+           ["from" "facts"
+            ["extract" "environment"
              ["and"
               ["=" "name" "operatingsystem"]
               ["=" "value" "Debian"]]]]]]
@@ -132,7 +153,7 @@
          ;; Complex subquery example
          ;;;;;;;;
 
-         ;; In syntax
+         ;; In syntax: select_<entity>
          ["in" "name"
           ["extract" "environment"
            ["select_facts"
@@ -143,6 +164,19 @@
                ["select_resources"
                 ["=" "type" "Class"]]]]]]]]
          #{{:name "DEV"}}
+
+         ;; In syntax: from
+         ["in" "name"
+          ["from" "facts"
+           ["extract" "environment"
+            ["and"
+             ["=" "name" "hostname"]
+             ["in" "value"
+              ["from" "resources"
+               ["extract" "title"
+                ["=" "type" "Class"]]]]]]]]
+         #{{:name "DEV"}}
+
 
          ;; Note: fact/resource comparison isn't a natural
          ;; join, so there is no implicit syntax here.

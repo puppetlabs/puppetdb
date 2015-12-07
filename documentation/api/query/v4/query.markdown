@@ -6,12 +6,13 @@ canonical: "/puppetdb/latest/api/query/v4/query.html"
 
 [prefix]: http://en.wikipedia.org/wiki/Polish_notation
 [jetty]: ../../../configure.html#jetty-http-settings
-[index]: ../../index.html
 [urlencode]: http://en.wikipedia.org/wiki/Percent-encoding
 [operators]: ./operators.html
 [tutorial]: ../tutorial.html
 [curl]: ../curl.html
 [paging]: ./paging.html
+[entities]: ./entities.html
+[root]: ./index.html
 
 ## Summary
 
@@ -35,6 +36,12 @@ That is, most queries will look like a GET request to a URL that resembles the f
 
     https://puppetdb:8081/pdb/query/v4/<ENDPOINT>?query=<QUERY STRING>
 
+Alternatively, you can provide the entity context instead of using the `<ENDPOINT>` suffix with the following:
+
+    https://puppetdb:8081/pdb/query/v4?query=<QUERY STRING>
+
+Consult the [root] endpoint documentation for more details.
+
 ### API URLs
 
 API URLs generally look like this:
@@ -49,13 +56,13 @@ After the `/pdb/query/` prefix, the first part of an API URL is the
 **API version,** written as `v4`, etc. This section describes version
 4 of the API, so every URL will begin with `/pdb/query/v4`.
 
-### Endpoints
+### Entity Endpoints
 
-After the version, URLs are organized into a number of **endpoints.**
+After the version, URLs are organized into a number of **endpoints.** that express the entity you wish to query on.
 
-Conceptually, an endpoint represents a reservoir of some type of PuppetDB object. Each version of the PuppetDB API defines a set number of endpoints.
+Conceptually, an entity endpoint represents a PuppetDB entity. Each version of the PuppetDB API defines a set number of endpoints.
 
-See the [API index][index] for a list of the available endpoints. Each endpoint may have additional sub-endpoints under it; these are generally just shortcuts for the most common types of query, so that you can write terser and simpler query strings.
+See the [entities documentation][entities] for a list of the available endpoints. Each endpoint may have additional sub-endpoints under it; these are generally just shortcuts for the most common types of query, so that you can write terser and simpler query strings.
 
 ### URL Parameters
 

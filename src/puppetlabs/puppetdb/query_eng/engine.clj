@@ -1238,6 +1238,26 @@
                  (user-node->plan-node (user-query->logical-obj subquery-name)
                                        (first subquery-expression)))))))
 
+(defn extract-expression?
+  "Returns true if expr is an extract expression"
+  [expr]
+  (let [f (first expr)]
+    (and (str f) (= f "extract"))))
+
+(defn create-from-node
+  "Create an explicit subquery declaration to mimic the select_<entity>
+  syntax."
+  [entity expr]
+  (let [query-rec (user-query->logical-obj (str "select_" (utils/dashes->underscores entity)))]
+    (if (extract-expression? expr)
+      (let [[extract columns remaining-expr] expr
+            column-list (utils/vector-maybe columns)]
+        (assoc query-rec
+          :projected-fields column-list
+          :where (user-node->plan-node query-rec remaining-expr)))
+      (assoc query-rec
+        :where (user-node->plan-node query-rec expr)))))
+
 (pls/defn-validated columns->fields :- [(s/cond-pre s/Keyword SqlCall SqlRaw)]
   "Convert a list of columns to their true SQL field names."
   [query-rec
@@ -1343,6 +1363,11 @@
             (map->InExpression {:column (columns->fields query-rec (utils/vector-maybe column))
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
 
+            ;; This provides the from capability to replace the select_<entity> syntax from an
+            ;; explicit subquery.
+            [["from" entity expr]]
+            (create-from-node entity expr)
+
             [["extract" column]]
             (let [[fargs cols] (strip-function-calls column)
                   call (replace-numeric-args fargs)
@@ -1417,6 +1442,16 @@
   (fn [node state]
     (when (vec? node)
       (cm/match [node]
+                [["from" entity query]]
+                (let [query (push-down-context (user-query->logical-obj (str "select_" entity)) query)
+                      nested-qc (:query-context (meta query))]
+                  {:node (vary-meta ["from" entity
+                                     (vary-meta query
+                                                assoc :query-context nested-qc)]
+                                    assoc :query-context nested-qc)
+                   :state state
+                   :cut true})
+
                 [["extract" column
                   [(subquery-name :guard (set (keys user-name->query-rec-name))) subquery-expression]]]
                 (let [subquery-expr (push-down-context (user-query->logical-obj subquery-name) subquery-expression)
@@ -1542,6 +1577,39 @@
       (throw (IllegalArgumentException. (string/join \newline errors))))
 
     annotated-query))
+
+;; Top-level parsing
+
+(def experimental-entities
+  #{:event-counts :aggregate-event-counts})
+
+(defn warn-experimental
+  "Show a warning if the endpoint is experimental."
+  [entity]
+  (when (contains? experimental-entities entity)
+    (log/warn (format
+                "The %s entity is experimental and may be altered or removed in the future."
+                (name entity)))))
+
+(defn parse-query-context
+  "Parses a top-level query with a 'from', validates it and returns the entity and remaining-query in
+  a map."
+  [version query warn]
+  (cm/match
+   query
+   ["from" (entity-str :guard #(string? %)) & remaining-query]
+   (let [remaining-query (cm/match
+                          remaining-query
+                          [(q :guard #(vector? %))] q
+                          [] []
+                          :else (throw (IllegalArgumentException. "Your `from` query accepts an optional query only as a second argument. Check your query and try again.")))
+         entity (keyword (utils/underscores->dashes entity-str))]
+     (when warn
+       (warn-experimental entity))
+     {:remaining-query remaining-query
+      :entity entity})
+
+   :else (throw (IllegalArgumentException. (format "Your initial query must be of the form: [\"from\",<entity>,(<optional-query>)]. Check your query and try again.")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

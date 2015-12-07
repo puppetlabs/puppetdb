@@ -13,14 +13,12 @@
 
 (defn node-status
   "Produce a response body for a single environment."
-  [api-version node db url-prefix]
+  [api-version node options]
   (let [status (first
-                (eng/stream-query-result :nodes
-                                         api-version
-                                         ["=" "certname" node]
+                (eng/stream-query-result api-version
+                                         ["from" "nodes" ["=" "certname" node]]
                                          {}
-                                         db
-                                         url-prefix))]
+                                         options))]
     (if status
       (http/json-response status)
       (http/status-not-found-response "node" node))))
@@ -30,14 +28,14 @@
   (let [param-spec {:optional paging/query-params}]
     (app
       []
-      (http-q/query-route :nodes version param-spec http-q/restrict-query-to-active-nodes)
+      (http-q/query-route-from "nodes" version param-spec
+                               [http-q/restrict-query-to-active-nodes])
 
       [node]
       (-> (fn [{:keys [globals]}]
             (node-status version
                          node
-                         (:scf-read-db globals)
-                         (:url-prefix globals)))
+                         (select-keys globals [:scf-read-db :url-prefix :warn-experimental])))
           ;; Being a singular item, querying and pagination don't really make
           ;; sense here
           (validate-query-params {}))
