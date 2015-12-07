@@ -11,6 +11,8 @@ canonical: "/puppetdb/latest/api/query/v4/factsets.html"
 [subqueries]: ./operators.html#subquery-operators
 [facts]: ./facts.html
 [fact-contents]: ./fact_contents.html
+[environments]: ./environments.html
+[nodes]: ./nodes.html
 
 You can query factsets by making an HTTP request to the `/factsets` endpoint.
 
