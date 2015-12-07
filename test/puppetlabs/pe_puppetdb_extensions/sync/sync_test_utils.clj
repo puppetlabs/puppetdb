@@ -18,7 +18,9 @@
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
-            [puppetlabs.trapperkeeper.services :refer [service-context]]))
+            [puppetlabs.trapperkeeper.services :refer [service-context]]
+            [slingshot.slingshot :refer [throw+]]))
+
 
 ;;; Test data
 
@@ -96,8 +98,8 @@
                               :body (json/generate-string {:remote_host_path source-pdb-url})
                               :query-params {"secondsToWaitForCompletion" "5"}
                               :as :text})]
-    (if (>= (:status response) 400)
-      (throw (ex-info "Failed to perform blocking sync" {:response response})))))
+    (when (>= (:status response) 400)
+      (throw+ response "Failed to perform blocking sync"))))
 
 
 ;;; End to end test utils
