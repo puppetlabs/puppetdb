@@ -14,13 +14,10 @@
   (-> (compojure/routes
        (compojure/GET "/query/v4/reports/:hash/resources" [hash]
                       (-> (fn [{:keys [globals]}]
-                            (let [{:keys [scf-read-db url-prefix pretty-print]} globals
-                                  query (json/generate-string ["=" "hash" hash])]
-                              (query-eng/produce-streaming-body :report-resources :v4
+                            (let [query ["from" "report_resources" ["=" "hash" hash]]]
+                              (query-eng/produce-streaming-body :v4
                                                                 {:query query}
-                                                                scf-read-db
-                                                                url-prefix
-                                                                pretty-print)))
+                                                                (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental]))))
                           (mid/wrap-with-parent-check :v4 :report hash)
                           mid/verify-accepts-json
                           (mid/wrap-with-globals get-shared-globals))))

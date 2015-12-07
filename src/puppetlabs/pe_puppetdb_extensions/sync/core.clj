@@ -419,7 +419,7 @@
               maybe-deactivate! #(set-local-deactivation-status! % submit-command-fn)
               query-and-transfer! #(query-record-and-transfer!
                                     remote-server % submit-command-fn sync-config)]
-          (query-fn entity version query order
+          (query-fn version ["from" entity-name query] order
                     (fn [local-sync-data]
                       (doseq [record (incoming-records local-sync-data)]
                         (try+
