@@ -219,7 +219,7 @@ two entities are related, although functionally they can produce the same result
 
 #### Implicit Subquery Examples
 
-A query string like the following on the [nodes][`nodes`] endpoint will return the list
+A query string like the following on the [`nodes`][nodes] endpoint will return the list
 of all nodes with the `Package[Tomcat]` resource in their catalog, and a certname starting
 with `web1`:
 
@@ -231,7 +231,7 @@ with `web1`:
           ["=", "title", "Tomcat"]]]]
 
 If you wanted to display the entire `networking` fact, if the hosts interfaces uses a certain mac address
-you can do the following on the [facts][`facts`] endpoint:
+you can do the following on the [`facts`][facts] endpoint:
 
     ["and",
       ["=", "name", "networking"],
