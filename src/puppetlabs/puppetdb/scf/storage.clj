@@ -948,50 +948,49 @@
 
 (defn existing-row-ids
   "Returns a map from value to id for each value that's already in the
-   named database column.
-   `column-transform` is used to modify the sql for the values"
-  [table column values column-transform java-type sql-type]
+   named database column."
+  [table column values]
   (into {}
         (for [{:keys [value id]}
               (if (sutils/postgres?)
-                (query-to-vec
-                  (format
-                    "WITH values AS (SELECT unnest(?) as vals)
-                     SELECT %s AS value, id FROM %s
-                     INNER JOIN values ON values.vals = %s.%s"
-                    (column-transform column) (name table) (name table) column)
-                  (sutils/array-to-param sql-type java-type values))
+                (query-to-vec (format
+                               "WITH values AS (SELECT unnest(?) as vals)
+                                SELECT %s AS value, id FROM %s
+                                INNER JOIN values ON values.vals = %s"
+                               column table column)
+                              (sutils/array-to-param "text" String values))
                 (apply query-to-vec
                        (format "SELECT %s AS value, id FROM %s WHERE %s %s"
-                               (column-transform column) (name table) column (jdbc/in-clause values))
+                               column table column (jdbc/in-clause values))
                        values))]
           [value id])))
 
 (defn realize-records!
   "Inserts the records (maps) into the named table and returns them
   with their new :id values."
-  [table records]
+  [table munge-fn records]
   (when (seq records)
-    (map #(assoc %2 :id %1)
-         (map :id (apply jdbc/insert! table records))
-         records)))
+    (map #(assoc %1 :id %2)
+         records
+         (->> records
+              (map munge-fn)
+              (apply jdbc/insert! table)
+              (map :id)))))
 
 (defn realize-paths!
   "Ensures that all paths exist in the database and returns a map of
   paths to ids."
   [pathstrs]
   (if-let [pathstrs (seq pathstrs)]
-    (let [existing-path-ids (existing-row-ids :fact_paths "path" pathstrs identity
-                                              String "text")
+    (let [existing-path-ids (existing-row-ids "fact_paths"
+                                              "path" pathstrs)
           missing-db-paths (set/difference (set pathstrs)
                                            (set (keys existing-path-ids)))]
-      (merge existing-path-ids
-             (into {}
-                   (map #(vector (:path %) (:id %))
-                        (realize-records!
-                         :fact_paths
-                         (map (comp facts/path->pathmap facts/string-to-factpath)
-                              missing-db-paths))))))
+      (into existing-path-ids
+            (->> missing-db-paths
+                 (map (comp facts/path->pathmap facts/string-to-factpath))
+                 (realize-records! :fact_paths identity)
+                 (map #(vector (:path %) (:id %))))))
     {}))
 
 (defn realize-values!
@@ -1000,21 +999,16 @@
   [valuemaps]
   (if-let [valuemaps (seq valuemaps)]
     (let [vhashes (map :value_hash valuemaps)
-          existing-vhash-ids (existing-row-ids :fact_values "value_hash"
-                                               (map sutils/munge-hash-for-storage vhashes)
-                                               sutils/sql-hash-as-str
-                                               PGobject "bytea")
+          existing-vhash-ids (existing-row-ids "fact_values"
+                                               (sutils/sql-hash-as-str "value_hash") vhashes)
           missing-vhashes (set/difference (set vhashes)
                                           (set (keys existing-vhash-ids)))]
-      (merge existing-vhash-ids
-             (into {}
-                   (map #(vector (sutils/parse-db-hash (:value_hash %)) (:id %))
-                        (realize-records!
-                         :fact_values
-                         (->> valuemaps
-                              (filter (comp missing-vhashes :value_hash))
-                              set
-                              (map #(update-in % [:value_hash] sutils/munge-hash-for-storage))))))))
+      (into existing-vhash-ids
+            (->> valuemaps
+                 (filter (comp missing-vhashes :value_hash))
+                 distinct
+                 (realize-records! :fact_values #(update % :value_hash sutils/munge-hash-for-storage))
+                 (map #(vector (:value_hash %) (:id %))))))
     {}))
 
 (pls/defn-validated add-facts!

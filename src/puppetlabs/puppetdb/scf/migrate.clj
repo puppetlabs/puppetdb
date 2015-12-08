@@ -1488,6 +1488,24 @@
       "ALTER TABLE factsets DROP CONSTRAINT factsets_hash_key")
     nil))
 
+
+(defn fix-bytea-expression-indexes-to-use-encode
+  []
+  (if (sutils/postgres?)
+    (jdbc/do-commands
+     "DROP INDEX reports_hash_expr_idx"
+     "CREATE UNIQUE INDEX reports_hash_expr_idx ON reports(encode(hash::bytea, 'hex'))"
+     "DROP INDEX resources_hash_expr_idx"
+     "CREATE INDEX resources_hash_expr_idx ON catalog_resources(encode(resource::bytea, 'hex'))"
+     "DROP INDEX rpc_hash_expr_idx"
+     "CREATE INDEX rpc_hash_expr_idx ON resource_params_cache(encode(resource::bytea, 'hex'))"
+     "DROP INDEX resource_params_hash_expr_idx"
+     "CREATE INDEX resource_params_hash_expr_idx ON resource_params(encode(resource::bytea, 'hex'))"
+     "DROP INDEX catalogs_hash_expr_idx"
+     "CREATE UNIQUE INDEX catalogs_hash_expr_idx ON catalogs(encode(hash::bytea, 'hex'))"
+     "DROP INDEX factsets_hash_expr_idx"
+     "CREATE UNIQUE INDEX factsets_hash_expr_idx ON factsets(encode(hash::bytea, 'hex'))")))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1531,7 +1549,8 @@
    36 rename-environments-name-to-environment
    37 add-jsonb-columns-for-metrics-and-logs
    38 add-code-id-to-catalogs
-   39 add-expression-indexes-for-bytea-queries})
+   39 add-expression-indexes-for-bytea-queries
+   40 fix-bytea-expression-indexes-to-use-encode})
 
 (def desired-schema-version (apply max (keys migrations)))
 
