@@ -3,6 +3,8 @@
 set -e
 set -x
 
+(top -b -n 1 | head 5) || true
+
 DBNAME=$(echo "puppetdb_${PUPPETDB_BRANCH}_${BUILD_ID}_${BUILD_NUMBER}_${PUPPETDB_DBTYPE}_${JDK}" | tr - _)
 DBUSER="puppetdb"
 DBHOST="fixture-pg94.delivery.puppetlabs.net"
