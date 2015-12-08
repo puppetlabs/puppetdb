@@ -20,10 +20,6 @@ export BEAKER_project=PuppetDB
 export BEAKER_department=eso-dept
 export BEAKER_PRESERVE_HOSTS=onfail
 
-if [ "$PUPPETDB_DBTYPE" = "hsqldb" ] ;then
-  export BEAKER_OPTIONS="acceptance/options/embedded_db.rb"
-fi
-
 # S3 params
 export PUPPETDB_PACKAGE_REPO_HOST="puppetdb-prerelease.s3.amazonaws.com"
 export PUPPETDB_PACKAGE_REPO_URL="http://puppetdb-prerelease.s3.amazonaws.com/puppetdb/${PACKAGE_BUILD_VERSION}"
