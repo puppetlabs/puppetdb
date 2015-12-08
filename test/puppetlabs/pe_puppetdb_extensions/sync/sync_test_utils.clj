@@ -19,7 +19,9 @@
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.services :refer [service-context]]
-            [slingshot.slingshot :refer [throw+]]))
+            [slingshot.slingshot :refer [throw+]]
+            [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]))
 
 
 ;;; Test data
@@ -92,6 +94,11 @@
              :body (json/generate-string {:remote_host_path source-pdb-url})
              :as :text}))
 
+(defn pprint-str [x]
+  (with-open [writer (java.io.StringWriter.)]
+    (pprint x writer)
+    (.toString writer)))
+
 (defn perform-sync [source-pdb-url dest-sync-url]
   (let [response (http/post dest-sync-url
                              {:headers {"content-type" "application/json"}
@@ -99,6 +106,7 @@
                               :query-params {"secondsToWaitForCompletion" "5"}
                               :as :text})]
     (when (>= (:status response) 400)
+      (log/errorf "Failed to perform blocking sync, response is:\n %s" (pprint-str response))
       (throw+ response "Failed to perform blocking sync"))))
 
 
