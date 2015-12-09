@@ -103,7 +103,7 @@
   (let [response (http/post dest-sync-url
                              {:headers {"content-type" "application/json"}
                               :body (json/generate-string {:remote_host_path source-pdb-url})
-                              :query-params {"secondsToWaitForCompletion" "5"}
+                              :query-params {"secondsToWaitForCompletion" "15"}
                               :as :text})]
     (when (>= (:status response) 400)
       (log/errorf "Failed to perform blocking sync, response is:\n %s" (pprint-str response))
