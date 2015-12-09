@@ -12,7 +12,7 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
-            [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
+            [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.testutils :refer [without-jmx]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
@@ -23,6 +23,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]))
 
+(defn notable-pdb-event? [event] true)
 
 ;;; Test data
 

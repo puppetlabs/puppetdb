@@ -19,7 +19,7 @@
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.test-protocols :refer [called?]]
             [puppetlabs.puppetdb.testutils :refer [mock-fn]]
-            [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
+            [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.trapperkeeper.app :as tk-app]
@@ -30,6 +30,8 @@
 ;;; a sync command. We serve requests back to PDB-X with a mock so we can
 ;;; check the right ones were made. Finally, we check that PDB-Y has the right data
 ;;; after sync.
+
+(defn notable-pdb-event? [event] true)
 
 (deftest pull-reports-test
   (let [report-1 (-> reports :basic reports/report-query->wire-v6)
