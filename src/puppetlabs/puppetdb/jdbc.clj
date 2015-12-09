@@ -112,8 +112,7 @@
   [q]
   (and
    (vector? q)
-   (string? (first q))
-   (every? (complement coll?) (rest q))))
+   (string? (first q))))
 
 (def valid-results-query-schema
   "Schema type for compiled query-eng queries"

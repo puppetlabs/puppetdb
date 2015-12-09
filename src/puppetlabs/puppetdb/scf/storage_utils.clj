@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.scf.storage-utils
   (:require [clojure.java.jdbc :as sql]
             [honeysql.core :as hcore]
+            [clojure.string :as str]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -187,9 +188,14 @@
   "Returns SQL for performing a regexp match against the contents of
   an array. If any of the array's items match the supplied regexp,
   then that satisfies the match."
-  [orig-table _ column]
+  [column]
   (hcore/raw
    (format "EXISTS(SELECT 1 FROM UNNEST(%s) WHERE UNNEST ~ ?)" (name column))))
+
+(defn sql-in-array
+  [column]
+  (hcore/raw
+   (format "EXISTS(SELECT 1 from UNNEST(?) WHERE unnest = %s)" (name column))))
 
 (defn db-serialize
   "Serialize `value` into a form appropriate for querying against a

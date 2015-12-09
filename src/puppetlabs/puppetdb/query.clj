@@ -473,9 +473,7 @@
   (match [path]
          ["tag"]
          {:where (h/sqlraw->str
-                   (sql-regexp-array-match "catalog_resources"
-                                           "catalog_resources"
-                                           "tags"))
+                   (sql-regexp-array-match "tags"))
           :params [value]}
 
          ;; node join.

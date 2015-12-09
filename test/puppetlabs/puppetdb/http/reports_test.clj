@@ -108,6 +108,20 @@
                                             ["group_by" "status"]])
              #{{:status "unchanged", :sum 8}})))
 
+    (testing "using the `in`-`array` operator"
+      (is (= (query-result method endpoint ["extract" [["function" "count"] "status" "certname"]
+                                            ["in" "certname" ["array" ["bar.local" "foo.local"]]]
+                                            ["group_by" "status" "certname"]])
+             #{{:certname "bar.local" :status "unchanged" :count 1}
+               {:certname "foo.local" :status "unchanged" :count 1}}))
+      (is (= (query-result method endpoint ["extract" [["function" "count"] "status" "certname"]
+                                            ["or"
+                                             ["in" "status" ["array" ["unchanged"]]]
+                                             ["in" "certname" ["array" ["baz.local"]]]]
+                                            ["group_by" "status" "certname"]])
+             #{{:certname "bar.local" :status "unchanged" :count 1}
+               {:certname "foo.local" :status "unchanged" :count 1}})))
+
     (testing "projected aggregate function call with two column groupings"
       (is (= (query-result method endpoint ["extract" [["function" "count"] "status" "certname"]
                                             ["~" "certname" ".*"]

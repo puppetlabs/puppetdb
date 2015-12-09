@@ -151,8 +151,8 @@
   (testcat/replace-catalog (json/generate-string catalog2))
 
   (are [query expected]
-      (is (= (query-result method endpoint query {} strip-hash)
-             expected))
+      (= expected
+         (query-result method endpoint query {} strip-hash))
 
     ;;;;;;;;;;
     ;; Resources
@@ -164,6 +164,14 @@
       ["extract" "certname"
        ["select_resources"
         ["=" "type" "Apt::Pin"]]]]]
+    #{{:certname "myhost.localdomain"}
+      {:certname "host2.localdomain"}}
+
+    ["extract" "certname"
+     ["in" "certname"
+      ["extract" "certname"
+       ["select_resources"
+        ["in" "type" ["array" ["Apt::Pin"]]]]]]]
     #{{:certname "myhost.localdomain"}
       {:certname "host2.localdomain"}}
 
@@ -180,6 +188,12 @@
     ["extract" "certname"
      ["subquery" "resources"
       ["=" "type" "Apt::Pin"]]]
+    #{{:certname "myhost.localdomain"}
+      {:certname "host2.localdomain"}}
+
+    ["extract" "certname"
+     ["subquery" "resources"
+      ["in" "type" ["array" ["Apt::Pin"]]]]]
     #{{:certname "myhost.localdomain"}
       {:certname "host2.localdomain"}}
 
@@ -209,6 +223,12 @@
     ["extract" "certname"
      ["subquery" "edges"
       ["=" "target_type" "File"]]]
+    #{{:certname "host2.localdomain"}
+      {:certname "myhost.localdomain"}}
+
+    ["extract" "certname"
+     ["subquery" "edges"
+      ["in" "target_type" ["array" ["File"]]]]]
     #{{:certname "host2.localdomain"}
       {:certname "myhost.localdomain"}}))
 
