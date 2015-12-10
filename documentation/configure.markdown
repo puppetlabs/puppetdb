@@ -512,12 +512,11 @@ This setting is false by default.
 
 ### `max-command-size`
 
-This is a floating point number that specifies (in megabytes) which
-commands are "too large" to process by PuppetDB. By default this
-setting is a fraction of the total heap space but can be specified
-manually for users that want to support larger catalog sizes. This
-setting has no affect when `reject-large-commands` is set to
-false.
+This is an integer that specifies (in bytes) which commands are "too
+large" to process by PuppetDB. By default this setting is a fraction
+of the total heap space but can be specified manually for users that
+want to support larger catalog sizes. This setting has no affect when
+`reject-large-commands` is set to false.
 
 
 `[jetty]` (HTTP) Settings

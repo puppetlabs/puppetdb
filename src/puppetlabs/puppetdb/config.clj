@@ -135,7 +135,7 @@
   (-> (Runtime/getRuntime)
       .maxMemory
       (/ 205)
-      double))
+      long))
 
 (def command-processing-in
   "Schema for incoming command processing config (user defined) - currently incomplete"
@@ -145,7 +145,7 @@
      :store-usage s/Int
      :max-frame-size (pls/defaulted-maybe s/Int 209715200)
      :temp-usage s/Int
-     :max-command-size (pls/defaulted-maybe s/Num (default-max-command-size))
+     :max-command-size (pls/defaulted-maybe s/Int (default-max-command-size))
      :reject-large-commands (pls/defaulted-maybe String "false")}))
 
 (def command-processing-out
@@ -153,7 +153,7 @@
   {:dlo-compression-threshold Period
    :threads s/Int
    :max-frame-size s/Int
-   :max-command-size Long
+   :max-command-size s/Int
    :reject-large-commands s/Bool
    (s/optional-key :store-usage) s/Int
    (s/optional-key :temp-usage) s/Int})
@@ -212,8 +212,6 @@
        (pls/defaulted-data section-schema-in)
        (pls/convert-to-schema section-schema-out)))
 
-
-
 (defn configure-section
   [config section section-schema-in section-schema-out]
   (->> (get config section {})
@@ -240,13 +238,9 @@
        (s/validate puppetdb-config-in)
        (assoc config :puppetdb)))
 
-(defn configure-command-processing [config]
-  (let [cmd-proc-config (get config :command-processing {})]
-    (->> (utils/update-when cmd-proc-config [:max-command-size] utils/mb->bytes)
-         (convert-section-config command-processing-in
-                                 command-processing-out)
-         (s/validate command-processing-out)
-         (assoc config :command-processing))))
+(defn configure-command-processing
+  [config]
+  (configure-section config :command-processing command-processing-in command-processing-out))
 
 (defn convert-config
   "Given a `config` map (created from the user defined config), validate, default and convert it

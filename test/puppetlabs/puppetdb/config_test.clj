@@ -244,12 +244,12 @@
   (testing "enabled but with default size"
     (let [default-config (:command-processing (configure-command-processing {:command-processing {:reject-large-commands "true"}}))]
       (is (true? (:reject-large-commands default-config)))
-      (is (= (long (default-max-command-size))
+      (is (= (default-max-command-size)
              (:max-command-size default-config)))))
 
-    (testing "enabled with included max size"
-      (let [default-config (:command-processing (configure-command-processing {:command-processing {:reject-large-commands "true"
-                                                                                                    :max-command-size 2.5}}))]
+  (testing "enabled with included max size"
+    (let [default-config (:command-processing (configure-command-processing {:command-processing {:reject-large-commands "true"
+                                                                                                  :max-command-size 25000}}))]
       (is (true? (:reject-large-commands default-config)))
-      (is (= 2621440
+      (is (= 25000
              (:max-command-size default-config))))))

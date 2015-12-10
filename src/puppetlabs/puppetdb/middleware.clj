@@ -327,9 +327,9 @@
                  reject-large-commands?
                  (> length-in-bytes max-command-size))
           (do
-            (log/warnf "content-length of command is %.2f MB and is larger than the maximum allowed command size of %.2f MB"
-                       (utils/bytes->mb length-in-bytes)
-                       (utils/bytes->mb max-command-size))
+            (log/warnf "content-length of command is %s bytes and is larger than the maximum allowed command size of %s bytes"
+                       length-in-bytes
+                       max-command-size)
             (consume-and-close (:body req) length-in-bytes)
             {:status 413
              :headers {}
