@@ -20,7 +20,7 @@
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.test-protocols :refer [called?]]
             [puppetlabs.puppetdb.testutils :refer [mock-fn]]
-            [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
+            [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.services :as svcs :refer [get-json]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
@@ -31,7 +31,9 @@
 ;;; check the right ones were made. Finally, we check that PDB-Y has the right data
 ;;; after sync.
 
-(deftest pull-reports-test  
+(defn notable-pdb-event? [event] true)
+
+(deftest pull-reports-test
   (let [report-1 (-> reports :basic reports/report-query->wire-v6)
         report-2 (assoc report-1 :certname "bar.local")
         pdb-x-queries (atom [])

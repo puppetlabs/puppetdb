@@ -11,11 +11,15 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
-            [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
+            [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
             [puppetlabs.trapperkeeper.app :as tk-app]
-            [puppetlabs.trapperkeeper.services :refer [service-context]]))
+            [slingshot.slingshot :refer [throw+]]
+            [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]))
+
+(defn notable-pdb-event? [event] true)
 
 ;;; Test data
 
@@ -83,14 +87,20 @@
              :body (json/generate-string {:remote_host_path source-pdb-url})
              :as :text}))
 
+(defn pprint-str [x]
+  (with-open [writer (java.io.StringWriter.)]
+    (pprint x writer)
+    (.toString writer)))
+
 (defn perform-sync [source-pdb-url dest-sync-url]
   (let [response (http/post dest-sync-url
                              {:headers {"content-type" "application/json"}
                               :body (json/generate-string {:remote_host_path source-pdb-url})
-                              :query-params {"secondsToWaitForCompletion" "5"}
+                              :query-params {"secondsToWaitForCompletion" "15"}
                               :as :text})]
-    (if (>= (:status response) 400)
-      (throw (ex-info "Failed to perform blocking sync" {:response response})))))
+    (when (>= (:status response) 400)
+      (log/errorf "Failed to perform blocking sync, response is:\n %s" (pprint-str response))
+      (throw+ response "Failed to perform blocking sync"))))
 
 
 ;;; End to end test utils
