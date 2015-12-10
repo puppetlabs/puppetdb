@@ -208,14 +208,20 @@
   being fully started when PuppetDB starts. This connection pool will
   be opened and closed within the body of this function."
   [write-db-config config]
-  (with-open [init-db-pool (jdbc/make-connection-pool
-                            (assoc write-db-config
-                                   ;; Block waiting to grab a connection
-                                   :connection-timeout 0
-                                   ;; Only allocate connections when needed
-                                   :pool-availability-threshold 0))]
-    (let [db-pool-map {:datasource init-db-pool}]
-      (initialize-schema db-pool-map config))))
+  (loop [db-spec (assoc write-db-config
+                        ;; Block waiting to grab a connection
+                        :connection-timeout 15000
+                        :pool-name "PDBMigrationsPool")]
+    (if-let [result
+             (try
+               (with-open [init-db-pool (jdbc/make-connection-pool db-spec)]
+                 (let [db-pool-map {:datasource init-db-pool}]
+                   (initialize-schema db-pool-map config)
+                   ::success))
+               (catch java.sql.SQLTransientConnectionException e
+                 (log/error e "Error while attempting to create connection pool")))]
+      result
+      (recur db-spec))))
 
 (defn start-puppetdb
   [context config service get-registered-endpoints]
@@ -232,8 +238,8 @@
         {:keys [dlo-compression-threshold]} command-processing
         {:keys [disable-update-checking]} puppetdb
 
-        write-db (jdbc/pooled-datasource database)
-        read-db (jdbc/pooled-datasource (assoc read-database :read-only? true))
+        write-db (jdbc/pooled-datasource (assoc database :pool-name "PDBWritePool"))
+        read-db (jdbc/pooled-datasource (assoc read-database :read-only? true :pool-name "PDBReadPool"))
         discard-dir (io/file (conf/mq-discard-dir config))]
 
     (when-let [v (version/version)]

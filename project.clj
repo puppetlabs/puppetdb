@@ -53,9 +53,9 @@
                  [slingshot "0.12.2"]
 
                  ;; Database connectivity
-                 [com.jolbox/bonecp "0.7.1.RELEASE" :exclusions [org.slf4j/slf4j-api]]
+                 [com.zaxxer/HikariCP "2.4.1"]
                  [org.clojure/java.jdbc "0.3.7"]
-                 [org.postgresql/postgresql "9.2-1003-jdbc4"]
+                 [org.postgresql/postgresql "9.4-1206-jdbc4"]
 
                  ;; MQ connectivity
                  [org.apache.activemq/activemq-broker "5.11.1"]

@@ -2,56 +2,7 @@
   "JDBC helper functions
 
    *External code should not call any of these functions directly, as they are*
-   *subject to change without notice.*"
-  (:import (com.jolbox.bonecp.hooks AbstractConnectionHook ConnectionState)
-           (com.jolbox.bonecp PreparedStatementHandle))
-  (:require [clojure.tools.logging :as log]
-            [clojure.string :as str]))
-
-(defn query-param->str
-  "Helper method for converting a single parameter from a prepared statement
-  to a human-eradable string, including the java type of the param value."
-  [param]
-  (let [val (.getValue param)]
-    (format "(%s - %s)"
-            (if (string? val) (str "'" val "'") val)
-            (pr-str (type val)))))
-
-(defn query-params->str
-  "Helper method for converting a list of parameters from a prepared statement
-  to a human-readable string.  Our current connection pool library does not
-  make these available unless we've enabled SQL statement logging, so we have
-  to check first to see whether that is enabled.  If it's not, we print out
-  a message letting the user know how they can enable it."
-  [log-statements? params]
-  (if log-statements?
-    (format "Query Params: %s"
-            (str/join ", " (map query-param->str params)))
-    (str "(Query params unavailable: to enable logging of query params, please set "
-         "'log-statements' to true in the [database] section of your config file.)")))
-
-(defn on-query-execute-time-limit-exceeded
-  "Called *after* a query completes, if the elapsed time of a query exceeds
-   the configure timeout."
-  [conn stmt sql params time-elapsed log-statements? query-execution-limit]
-  (log/warnf (str "Query slower than %ss threshold:  "
-                  "actual execution time: %.4f seconds; Query: %s; "
-                  (query-params->str log-statements? params))
-             query-execution-limit
-             (/ time-elapsed 1000000000.0)
-             sql))
-
-(defn connection-hook
-  "Helper method for building up a `ConnectionHook` for our connection pool.
-  Currently only defines behavior for `onQueryExecuteTimeLimitExceeded`, which
-  is called for slow queries.  There are several other hooks available that we
-  could provide handlers for in the future."
-  [log-statements? query-execution-limit]
-  (proxy [AbstractConnectionHook] []
-    (onQueryExecuteTimeLimitExceeded
-      [conn stmt sql params time-elapsed]
-      (on-query-execute-time-limit-exceeded conn stmt sql params time-elapsed
-                                            log-statements? query-execution-limit))))
+   *subject to change without notice.*")
 
 (defn limit-exception
   "Helper method; simply throws an exception with a message explaining

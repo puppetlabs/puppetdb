@@ -54,6 +54,7 @@
      :conn-max-age (pls/defaulted-maybe s/Int 60)
      :conn-keep-alive (pls/defaulted-maybe s/Int 45)
      :conn-lifetime (s/maybe s/Int)
+     :maximum-pool-size (pls/defaulted-maybe s/Int 10)
      :classname (pls/defaulted-maybe String "org.postgresql.Driver")
      :subprotocol (pls/defaulted-maybe String "postgresql")
      :subname (s/maybe String)
@@ -68,7 +69,7 @@
      :stats (pls/defaulted-maybe String "true")
      :log-statements (pls/defaulted-maybe String "true")
      :statements-cache-size (pls/defaulted-maybe s/Int 1000)
-     :connection-timeout (pls/defaulted-maybe s/Int 500)}))
+     :connection-timeout (pls/defaulted-maybe s/Int 3000)}))
 
 (def write-database-config-in
   "Includes the common database config params, also the write-db specific ones"
@@ -78,8 +79,7 @@
             :dlo-compression-interval s/Int
             :report-ttl (pls/defaulted-maybe String "14d")
             :node-purge-ttl (pls/defaulted-maybe String "0s")
-            :node-ttl (pls/defaulted-maybe String "0s")
-            :connection-timeout (pls/defaulted-maybe s/Int 1000)})))
+            :node-ttl (pls/defaulted-maybe String "0s")})))
 
 (def database-config-out
   "Schema for parsed/processed database config"
@@ -97,6 +97,7 @@
    :log-statements Boolean
    :statements-cache-size s/Int
    :connection-timeout s/Int
+   :maximum-pool-size s/Int
    (s/optional-key :conn-lifetime) (s/maybe Minutes)
    (s/optional-key :username) String
    (s/optional-key :user) String
