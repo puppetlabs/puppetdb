@@ -306,6 +306,8 @@ An `in` statement constitutes a full query string, which can be used alone or as
    the subquery for matching against the **fields** in the `in` clause.
 ** a **`from` statement,** which sets the context, and allows for an extract
    statement to be provided. *Note:* this syntax is new and experimental.
+** an **`array` statement,** which acts as a list of values to match against the
+   **field** in the `in` clause.
 
 **Matches if:** the field values are included in the list of values created by the `extract` or `from` statement.
 
@@ -332,8 +334,8 @@ which is equivalent to the following query:
      ["=","certname","bar.local"],
      ["=","certname","baz.local"]]
 
-The in operator support much of the same syntax as the `=` operator. For
-example, the following query on the `/nodes` endpoint is valid:
+The `in`-`array` operators support much of the same syntax as the `=` operator.
+For example, the following query on the `/nodes` endpoint is valid:
 
     ["in", ["fact", "uptime_seconds"], 
      ["array",

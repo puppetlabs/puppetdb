@@ -114,6 +114,12 @@
                                             ["group_by" "status" "certname"]])
              #{{:certname "bar.local" :status "unchanged" :count 1}
                {:certname "foo.local" :status "unchanged" :count 1}}))
+      (is (= (query-result method endpoint ["extract" ["hash"]
+                                            ["in" "hash"
+                                             ["array" ["572d1e89a4075170938f4e960b26d8f63ad705f8"
+                                                       "b437558374bf9d6e21cb880c22409f42f743de9b"]]]])
+             #{{:hash "572d1e89a4075170938f4e960b26d8f63ad705f8"}
+               {:hash "b437558374bf9d6e21cb880c22409f42f743de9b"}}))
       (is (= (query-result method endpoint ["extract" [["function" "count"] "status" "certname"]
                                             ["or"
                                              ["in" "status" ["array" ["unchanged"]]]

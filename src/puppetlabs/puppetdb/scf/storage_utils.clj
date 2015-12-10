@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.scf.storage-utils
   (:require [clojure.java.jdbc :as sql]
             [honeysql.core :as hcore]
+            [honeysql.format :as hfmt]
             [clojure.string :as str]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.honeysql :as h]
@@ -195,7 +196,7 @@
 (defn sql-in-array
   [column]
   (hcore/raw
-   (format "EXISTS(SELECT 1 from UNNEST(?) WHERE unnest = %s)" (name column))))
+   (format "%s = ANY(?)" (first (hfmt/format column)))))
 
 (defn db-serialize
   "Serialize `value` into a form appropriate for querying against a

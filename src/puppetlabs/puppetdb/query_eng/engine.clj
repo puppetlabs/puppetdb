@@ -1108,7 +1108,6 @@
                   ["=" "name" fact-name]
                   clause]]]])
 
-
             [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
             (if-not (number? fact-value)
               (throw (IllegalArgumentException. (format "Operator '%s' not allowed on value '%s'" op fact-value)))
@@ -1583,8 +1582,16 @@
                 {:node node
                  :state (conj state column-validation-message)}))
 
-            [["in" _ ["array" _]]]
-            nil
+            [["in" field ["array" _]]]
+            (let [{:keys [alias] :as query-context} (:query-context (meta node))
+                  qfields (queryable-fields query-context)]
+              (when-not (or (vec? field) (contains? (set qfields) field))
+                {:node node
+                 :state (conj state
+                              (format "'%s' is not a queryable object for %s, %s" field alias
+                                      (if (empty? qfields)
+                                        (format "%s has no queryable objects" alias)
+                                        (format "known queryable objects are %s" (json/generate-string qfields)))))}))
 
             [["in" field & _]]
             (let [query-context (:query-context (meta node))
