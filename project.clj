@@ -58,9 +58,9 @@
                  [org.postgresql/postgresql "9.2-1003-jdbc4"]
 
                  ;; MQ connectivity
-                 [org.apache.activemq/activemq-broker "5.11.1"]
-                 [org.apache.activemq/activemq-kahadb-store "5.11.1"]
-                 [org.apache.activemq/activemq-pool "5.11.1"]
+                 [org.apache.activemq/activemq-broker "5.13.0"]
+                 [org.apache.activemq/activemq-kahadb-store "5.13.0"]
+                 [org.apache.activemq/activemq-pool "5.13.0"]
 
                  ;; bridge to allow some spring/activemq stuff to log over slf4j
                  [org.slf4j/jcl-over-slf4j "1.7.10"]
