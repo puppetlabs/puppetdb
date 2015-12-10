@@ -12,7 +12,7 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
-            [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
+            [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.testutils :refer [without-jmx]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
@@ -23,6 +23,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]))
 
+(defn notable-pdb-event? [event] true)
 
 ;;; Test data
 
@@ -103,7 +104,7 @@
   (let [response (http/post dest-sync-url
                              {:headers {"content-type" "application/json"}
                               :body (json/generate-string {:remote_host_path source-pdb-url})
-                              :query-params {"secondsToWaitForCompletion" "5"}
+                              :query-params {"secondsToWaitForCompletion" "15"}
                               :as :text})]
     (when (>= (:status response) 400)
       (log/errorf "Failed to perform blocking sync, response is:\n %s" (pprint-str response))
