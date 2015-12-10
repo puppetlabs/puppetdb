@@ -85,10 +85,6 @@ in your hash; the environment variable names are the same but uppercased
   the latest release packages, then start puppetdb, then upgrade to the new package
   built from development source code.
 
-* `:puppetdb_database` (`PUPPETDB_DATABASE`) : This determines which database
-  backend the tests will be run against.  Legal options are `:postgres` and
-  `:embedded`.
-
 * `:puppetdb_validate_package_version` (`PUPPETDB_VALIDATE_PACKAGE_VERSION`) :
   This boolean determines whether or not we attempt to verify that the installed
   package version matches what we expect.  This is mostly useful in CI, to make
