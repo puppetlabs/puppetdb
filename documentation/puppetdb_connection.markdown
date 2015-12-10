@@ -64,7 +64,20 @@ This setting can let the Puppet master stay partially available during a PuppetD
 
 The default value is false.
 
-### `server` and `port`
+### `include_unchanged_resources` (PE only)
+
+> **Warning:** This setting is intended for use only in Puppet Enterprise (PE).
+> Using this setting with a PE PuppetDB package will only result in degraded
+> PuppetDB performance and PuppetDB will not store the unchanged resources data.
+
+This setting tells the PuppetDB terminus whether or not it should include
+unchanged resources data in a report when sending it to PuppetDB. If you do not
+want to store information about unchanged resources in a report, set this value
+to `false`.
+
+The default value in PE is `true`.
+
+### `server` and `port` (Deprecated)
 
 > **Deprecated:** `server_urls` replaces these setting. These settings will be removed in the future.
 
