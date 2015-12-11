@@ -126,6 +126,17 @@
    command processors"
   (half-the-cores*))
 
+(defn default-max-command-size
+  "Returns the max command size relative to the current max heap. This
+  number was reached through testing of large catalogs and 1/205 was
+  the largest catalog that could be processed without GC or out of
+  memory errors"
+  []
+  (-> (Runtime/getRuntime)
+      .maxMemory
+      (/ 205)
+      long))
+
 (def command-processing-in
   "Schema for incoming command processing config (user defined) - currently incomplete"
   (all-optional
@@ -133,13 +144,17 @@
      :threads (pls/defaulted-maybe s/Int half-the-cores)
      :store-usage s/Int
      :max-frame-size (pls/defaulted-maybe s/Int 209715200)
-     :temp-usage s/Int}))
+     :temp-usage s/Int
+     :max-command-size (pls/defaulted-maybe s/Int (default-max-command-size))
+     :reject-large-commands (pls/defaulted-maybe String "false")}))
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"
   {:dlo-compression-threshold Period
    :threads s/Int
    :max-frame-size s/Int
+   :max-command-size s/Int
+   :reject-large-commands s/Bool
    (s/optional-key :store-usage) s/Int
    (s/optional-key :temp-usage) s/Int})
 
@@ -223,6 +238,10 @@
        (s/validate puppetdb-config-in)
        (assoc config :puppetdb)))
 
+(defn configure-command-processing
+  [config]
+  (configure-section config :command-processing command-processing-in command-processing-out))
+
 (defn convert-config
   "Given a `config` map (created from the user defined config), validate, default and convert it
    to the internal Clojure format that PuppetDB expects"
@@ -231,7 +250,7 @@
       (configure-section :database write-database-config-in write-database-config-out)
       (update :database #(utils/assoc-when % :dlo-compression-interval (:gc-interval %)))
       configure-read-db
-      (configure-section :command-processing command-processing-in command-processing-out)
+      configure-command-processing
       configure-puppetdb))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -417,6 +436,14 @@
   "Returns the desired number of MQ listener threads."
   [config]
   (get-in config [:command-processing :threads]))
+
+(defn reject-large-commands?
+  [config]
+  (get-in config [:command-processing :reject-large-commands]))
+
+(defn max-command-size
+  [config]
+  (get-in config [:command-processing :max-command-size]))
 
 (defn mq-dir [config]
   (str (io/file (get-in config [:global :vardir]) "mq")))
