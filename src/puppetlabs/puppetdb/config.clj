@@ -147,7 +147,7 @@
      :max-frame-size (pls/defaulted-maybe s/Int 209715200)
      :temp-usage s/Int
      :max-command-size (pls/defaulted-maybe s/Int (default-max-command-size))
-     :reject-large-commands (pls/defaulted-maybe String "false")}))
+     :reject-large-commands (pls/defaulted-maybe String "true")}))
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"
