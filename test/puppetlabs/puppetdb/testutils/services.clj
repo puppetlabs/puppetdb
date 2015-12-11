@@ -143,13 +143,15 @@
       (fn []
         ~@body))))
 
+(def ^:dynamic *notable-log-event?* notable-pdb-event?)
+
 (defn call-with-single-quiet-pdb-instance
   "Calls the call-with-puppetdb-instance with args after suppressing
   all log events.  If there's an error or worse, prints the log to
   *err*.  Should not be nested, nor nested with calls to
   with-log-suppressed-unless-notable."
   [& args]
-  (with-log-suppressed-unless-notable notable-pdb-event?
+  (with-log-suppressed-unless-notable *notable-log-event?*
     (apply call-with-puppetdb-instance args)))
 
 (defmacro with-single-quiet-pdb-instance
