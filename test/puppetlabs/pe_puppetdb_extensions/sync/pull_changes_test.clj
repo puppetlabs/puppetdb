@@ -19,7 +19,8 @@
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.test-protocols :refer [called?]]
             [puppetlabs.puppetdb.testutils :refer [mock-fn]]
-            [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable]]
+            [puppetlabs.puppetdb.testutils.log
+             :refer [with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.trapperkeeper.app :as tk-app]
@@ -31,7 +32,12 @@
 ;;; check the right ones were made. Finally, we check that PDB-Y has the right data
 ;;; after sync.
 
-(defn notable-pdb-event? [event] true)
+(defn notable-pull-changes-event? [event] true)
+
+(use-fixtures :once
+  (fn [f]
+    (binding [svcs/*notable-log-event?* notable-pull-changes-event?]
+      (f))))
 
 (deftest pull-reports-test
   (let [report-1 (-> reports :basic reports/report-query->wire-v6)
@@ -39,7 +45,7 @@
         pdb-x-queries (atom [])
         stub-data-atom (atom [])
         stub-handler (logging-query-handler "/pdb-x/v4/reports" pdb-x-queries stub-data-atom :hash)]
-    (with-log-suppressed-unless-notable notable-pdb-event?
+    (with-log-suppressed-unless-notable notable-pull-changes-event?
       (with-puppetdb-instance (utils/pdb1-sync-config stub-handler)
         ;; store two reports in PDB Y
         (blocking-command-post (utils/pdb-cmd-url) "store report" 6 report-1)
@@ -74,7 +80,7 @@
   (let [pdb-x-queries (atom [])
         stub-data-atom (atom [])
         stub-handler (logging-query-handler "/pdb-x/v4/factsets" pdb-x-queries stub-data-atom :certname)]
-    (with-log-suppressed-unless-notable notable-pdb-event?
+    (with-log-suppressed-unless-notable notable-pull-changes-event?
       (with-puppetdb-instance (utils/pdb1-sync-config stub-handler)
        ;; store factsets in PDB Y
        (doseq [c (map char (range (int \a) (int \g)))]
@@ -144,7 +150,7 @@
         stub-data-atom (atom [])
         stub-handler (logging-query-handler "/pdb-x/v4/catalogs" pdb-x-queries stub-data-atom :certname)]
 
-    (with-log-suppressed-unless-notable notable-pdb-event?
+    (with-log-suppressed-unless-notable notable-pull-changes-event?
       (with-puppetdb-instance (utils/pdb1-sync-config stub-handler)
        ;; store catalogs in PDB Y
        (doseq [c (map char (range (int \a) (int \g)))]
@@ -252,7 +258,7 @@
                        "/pdb-x/v4/catalogs" pdb-x-queries stub-data-atom :certname)]
 
     (testing "overlapping sync"
-      (with-log-suppressed-unless-notable notable-pdb-event?
+      (with-log-suppressed-unless-notable notable-pull-changes-event?
         (with-puppetdb-instance (utils/pdb1-sync-config stub-handler)
           (let [remote-url (utils/stub-url-str "/pdb-x/v4")]
             (is (contains?
