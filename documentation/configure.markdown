@@ -655,7 +655,7 @@ commands that are too large to process. An example of this would be a
 catalog that is too large and would cause PuppetDB to run out of
 memory. This setting can be used along with `max-command-size`.
 
-This setting is false by default.
+This setting is true by default.
 
 ### `max-command-size`
 

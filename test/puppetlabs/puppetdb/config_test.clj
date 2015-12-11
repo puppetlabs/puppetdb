@@ -201,9 +201,9 @@
                  (warn-retirements {:database {param "foo"}}))))))))
 
 (deftest test-default-max-command-size
-  (testing "default is disabled"
+  (testing "default is enabled"
     (let [default-config (:command-processing (configure-command-processing {}))]
-      (is (false? (:reject-large-commands default-config)))
+      (is (true? (:reject-large-commands default-config)))
       (is (= (long (default-max-command-size))
              (:max-command-size default-config)))))
 
