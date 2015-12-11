@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » Resource Statuses **PE FEATURE**"
+title: "PuppetDB 3.2 » Resource Statuses (PE Only)"
 layout: default
 canonical: "/puppetdb/latest/resource_statuses.html"
 ---
@@ -7,7 +7,7 @@ canonical: "/puppetdb/latest/resource_statuses.html"
 [reports]: ./api/query/v4/reports.html
 [terminus]: ./puppetdb_connection.markdown#include_unchanged_resources
 
-## Resource Statuses **PE FEATURE**
+## Resource Statuses (PE Only)
 
 PE PuppetDB stores unchanged resources from a Puppet report and surfaces that
 information via the [`/reports`][reports] endpoint via a new `resources` field.
