@@ -45,7 +45,10 @@
           ;; The remaining get-shared-globals args are for wrap-with-globals.
           ["/meta" (meta/build-app meta-cfg defaulted-config)
            "/cmd" (cmd/command-app get-shared-globals
-                                   enqueue-raw-command-fn get-response-pub)
+                                   enqueue-raw-command-fn
+                                   get-response-pub
+                                   (conf/reject-large-commands? defaulted-config)
+                                   (conf/max-command-size defaulted-config))
            "/query" (server/build-app get-shared-globals)
            "/admin" (admin/build-app enqueue-command-fn query-fn)
            (route/not-found "Not Found")]))))

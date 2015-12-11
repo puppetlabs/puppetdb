@@ -102,9 +102,16 @@ is of the form:
       "configuration_version": <catalog identifier>,
       "certname": <node name>,
       "resource_events": <expanded resource events>,
+      "resources" : <expanded resources (PE only)>
       "metrics" : <expanded metrics>,
       "logs" : <expanded logs>
     }
+
+> **Note: The `resources` field is Puppet Enterprise (PE) only**
+>
+> The response format in PE contains an additional field, `resources`, which
+> contains all the resource statuses for the Puppet run corresponding to the
+> `report`, both changed and unchanged resources.
 
 The `<expanded resource events>` object is of the following form:
 
@@ -124,6 +131,36 @@ The `<expanded resource events>` object is of the following form:
         "containment_path": <containment heirarchy of resource within catalog>
       } ... ]
     }
+
+The `<expanded resources>` object is of the following form:
+
+    {
+      "href": <url>,
+      "data": [ {
+        "timestamp": <timestamp (from agent) at which event occurred>,
+        "resource_type": <type of resource event occurred on>,
+        "resource_title": <title of resource event occurred on>,
+        "containment_path": <containment heirarchy of resource within catalog>
+        "skipped" : <boolean for whether or not the resource was skipped>, 
+        "events" : [<event> ...]
+      } ... ]
+    }
+
+where an `<event>` object is of the form:
+
+    {
+            "timestamp": <timestamp (from agent) at which event occurred>,
+            "property": <property/parameter of resource on which event occurred>,
+            "new_value": <new value for resource property>,
+            "old_value": <old value of resource property>,
+            "status": <status of event (`success`, `failure`, or `noop`)>,
+            "message": <description of what happened during event>
+    }
+
+> **Note: On `resources` versus `resource_events`**
+>
+> Unchanged resources are accessed through the `resources` field, the
+> `resource_events` field does not contain this information.
 
 The `<expanded metrics>` object is as follows:
 
@@ -258,6 +295,42 @@ Query for all reports:
       }
     } ]
 
+You can retrieve the `resources` field as part of the data from the `reports`
+endpoint or using the child data endpoint.
+
+For example, the following query finds for all resources (changed and unchanged)
+for a report with hash `32c821673e647b0650717db467abc51d9949fd9a`:
+
+> **Note: The following is for PE only**
+
+    curl -G http://localhost:8080/pdb/query/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/resources
+
+    [
+       {
+          "file":"/home/wyatt/.puppet/manifests/site.pp",
+          "line":7,
+          "resource_title":"hiloo",
+          "timestamp":"2015-02-19T16:23:10.768Z",
+          "containment_path":[
+             "Stage[main]",
+             "Main",
+             "Notify[hiloo]"
+          ],
+          "resource_type":"Notify",
+          "message":"defined 'message' as 'hi world'",
+          "skipped":false,
+          "events":[
+             {
+                "property":"message",
+                "old_value":"absent",
+                "new_value":"hi world",
+                "status":"success",
+                "timestamp":"2015-02-19T16:23:10.768Z"
+             }
+          ]
+       }
+    ]
+
 ## Get counts of reports by grouped by status
 
     curl -X GET http://localhost:8080/pdb/query/v4/reports \
@@ -305,3 +378,4 @@ this route.
 This query endpoint supports paged results via the common PuppetDB paging
 URL parameters.  For more information, please see the documentation
 on [paging][paging].
+

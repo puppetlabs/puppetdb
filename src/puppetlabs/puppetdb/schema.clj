@@ -117,7 +117,8 @@
     org.joda.time.Period (comp pl-time/parse-period str)
     org.joda.time.Days (comp time/days coerce-to-int)
     org.joda.time.Seconds (comp time/seconds coerce-to-int)
-    Boolean (comp #(Boolean/valueOf %) str)}))
+    Boolean (comp #(Boolean/valueOf %) str)
+    Long long}))
 
 (defn convert-to-schema
   "Convert `data` to the format specified by `schema`"

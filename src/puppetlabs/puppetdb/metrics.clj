@@ -2,16 +2,17 @@
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.metrics.server :as server]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
-            [compojure.core :as compojure]))
+            [compojure.core :as compojure]
+            [puppetlabs.puppetdb.config :as conf]))
 
 (defservice metrics-service
   [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-route]]
 
   (start [this context]
-         (let [app (->> (get-in (get-config) [:puppetdb :certificate-whitelist])
-                        server/build-app
-                        (compojure/context (get-route this) []))]
+         (let [defaulted-config (get-config)]
            (log/info "Starting metrics server")
-           (add-ring-handler this app)
+           (->> (server/build-app (get-in defaulted-config [:puppetdb :certificate-whitelist]))
+                (compojure/context (get-route this) [])
+                (add-ring-handler this))
            context)))

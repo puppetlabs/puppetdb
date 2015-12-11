@@ -437,6 +437,8 @@
                              (partial #'dispatch/do-enqueue-raw-command
                                       (:connection *mq*)
                                       default-mq-endpoint)
-                             (fn [] nil))
+                             (fn [] nil)
+                             false
+                             nil)
                             nil)]
      (f))))

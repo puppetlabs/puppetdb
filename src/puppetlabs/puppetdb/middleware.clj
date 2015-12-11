@@ -16,7 +16,8 @@
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [metrics.timers :refer [timer time!]]
             [metrics.meters :refer [meter mark!]]
-            [clojure.walk :refer [keywordize-keys]]))
+            [clojure.walk :refer [keywordize-keys]]
+            [puppetlabs.puppetdb.utils :as utils]))
 
 (defn wrap-with-debug-logging
   "Ring middleware that logs incoming HTTP request URIs (at DEBUG level) as
@@ -312,6 +313,43 @@
         (if-let [payload (params "payload")]
           (app (assoc req :body-string payload))
           (http/error-response (str "Missing required parameter 'payload'")))))))
+
+(defn consume-and-close
+  "Consume all data from input stream and then close"
+  [^java.io.InputStream req-stream content-length]
+  (with-open [s req-stream]
+    (loop []
+      (when-not (= -1 (.read s))
+        (.skip s content-length)
+        (recur)))))
+
+(defn fail-when-payload-too-large
+  "Middlware that will return a 413 failure when the content-length of
+  a POST is too large (more than `max-command-size`). Acts as a noop
+  when it is less or `reject-large-commands? is false"
+  [app reject-large-commands? max-command-size]
+  (fn [req]
+    (if (= :post (:request-method req))
+      (let [length-in-bytes (request/content-length req)]
+
+        (if length-in-bytes
+          (log/infof "Processing command with a content-length of %s bytes" length-in-bytes )
+          (log/warn (str "No content length found for POST. "
+                         "POST bodies that are too large could cause memory-related failures.")))
+
+        (if (and length-in-bytes
+                 reject-large-commands?
+                 (> length-in-bytes max-command-size))
+          (do
+            (log/warnf "content-length of command is %s bytes and is larger than the maximum allowed command size of %s bytes"
+                       length-in-bytes
+                       max-command-size)
+            (consume-and-close (:body req) length-in-bytes)
+            {:status 413
+             :headers {}
+             :body "Command rejected due to size exceeding max-command-size"})
+          (app req)))
+      (app req))))
 
 (defn wrap-with-puppetdb-middleware
   "Default middleware for puppetdb webservers."

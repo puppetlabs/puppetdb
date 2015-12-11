@@ -75,7 +75,20 @@ This setting can let the Puppet master stay partially available during a PuppetD
 
 The default value is false.
 
-### High Availability configuration
+### `include_unchanged_resources` (PE only)
+
+> **Warning:** This setting is intended for use only in Puppet Enterprise (PE).
+> Using this setting with a PE PuppetDB package will only result in degraded
+> PuppetDB performance and PuppetDB will not store the unchanged resources data.
+
+This setting tells the PuppetDB terminus whether or not it should include
+unchanged resources data in a report when sending it to PuppetDB. If you do not
+want to store information about unchanged resources in a report, set this value
+to `false`.
+
+The default value in PE is `true`.
+
+### High Availability configuration (PE Only)
 
 These settings are designed for use in a high-availability deployment of PuppetDB, available in Puppet Enterprise. While they may appear to work in other configurations, their use is discouraged. In particular, absent the synchronization support in Puppet Enterprise, multiple PuppetDB instances can easily diverge from each other due to normal transient network issues. See the [PuppetDB HA Configuration Guide][ha_guide] for detailed configuration information.
 
