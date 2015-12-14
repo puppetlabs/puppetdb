@@ -278,7 +278,7 @@ must be supplied as the value to be matched."
 (defn sql-hash-as-str
   [column]
   (if (postgres?)
-    (format "trim(leading '\\x' from %s::text)" column)
+    (format "encode(%s::bytea, 'hex')" column)
     column))
 
 (defn sql-uuid-as-str
