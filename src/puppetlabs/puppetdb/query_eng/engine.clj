@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.query-eng.engine
   (:require [clojure.core.match :as cm]
-            [clojure.string :as string]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [honeysql.core :as hcore]
             [honeysql.helpers :as hsql]
@@ -25,8 +25,9 @@
 (defrecord Query [projections selection source-table alias where
                   subquery? entity call group-by])
 (defrecord BinaryExpression [operator column value])
+(defrecord InArrayExpression [table column value])
 (defrecord RegexExpression [column value])
-(defrecord ArrayRegexExpression [table alias column value])
+(defrecord ArrayRegexExpression [column value])
 (defrecord NullExpression [column null?])
 (defrecord ArrayBinaryExpression [column value])
 (defrecord InExpression [column subquery])
@@ -218,11 +219,11 @@
                              "environment" {:type :string
                                             :queryable? true
                                             :field :env.environment}
-                             "value_integer" {:type :number
+                             "value_integer" {:type :integer
                                               :query-only? true
                                               :queryable? false
                                               :field :fv.value_integer}
-                             "value_float" {:type :number
+                             "value_float" {:type :float
                                             :query-only? true
                                             :queryable? false
                                             :field :fv.value_float}
@@ -291,11 +292,11 @@
                              "environment" {:type :string
                                             :queryable? true
                                             :field :env.environment}
-                             "value_integer" {:type :number
+                             "value_integer" {:type :integer
                                               :queryable? false
                                               :field :fv.value_integer
                                               :query-only? true}
-                             "value_float" {:type :number
+                             "value_float" {:type :float
                                             :queryable? false
                                             :field :fv.value_float
                                             :query-only? true}
@@ -390,7 +391,7 @@
       "puppet_version"  {:type :string
                          :queryable? true
                          :field :reports.puppet_version}
-      "report_format"   {:type :number
+      "report_format"   {:type :integer
                          :queryable? true
                          :field :reports.report_format}
       "configuration_version" {:type :string
@@ -639,7 +640,7 @@
                              "file" {:type :string
                                      :queryable? true
                                      :field :file}
-                             "line" {:type :number
+                             "line" {:type :integer
                                      :queryable? true
                                      :field :line}
                              "parameters" {:type :json
@@ -716,7 +717,7 @@
                              "file" {:type :string
                                      :queryable? true
                                      :field :file}
-                             "line" {:type :number
+                             "line" {:type :integer
                                      :queryable? true
                                      :field :line}
                              "containment_path" {:type :array
@@ -937,6 +938,10 @@
                     (utils/vector-maybe (:column expr))
                     (utils/vector-maybe (:value expr)))))
 
+  InArrayExpression
+  (-plan->sql [expr]
+    (su/sql-in-array (:column expr)))
+
   ArrayBinaryExpression
   (-plan->sql [expr]
     (su/sql-array-query-string (:column expr)))
@@ -947,7 +952,7 @@
 
   ArrayRegexExpression
   (-plan->sql [expr]
-    (su/sql-regexp-array-match (:table expr) (:alias expr) (:column expr)))
+    (su/sql-regexp-array-match (:column expr)))
 
   NullExpression
   (-plan->sql [expr]
@@ -982,6 +987,7 @@
   [node]
   (or (instance? BinaryExpression node)
       (instance? RegexExpression node)
+      (instance? InArrayExpression node)
       (instance? ArrayBinaryExpression node)
       (instance? ArrayRegexExpression node)))
 
@@ -1080,6 +1086,28 @@
                   ["=" "name" fact-name]
                   [op value-column fact-value]]]]])
 
+            [["in" ["fact" fact-name] ["array" fact-values]]]
+            (let [clause (cond
+                           (every? string? fact-values)
+                           ["in" "value_string" ["array" fact-values]]
+
+                           (every? ks/boolean? fact-values)
+                           ["in" "value_boolean" ["array" fact-values]]
+
+                           (every? number? fact-values)
+                           ["or"
+                            ["in" "value_float" ["array" fact-values]]
+                            ["in" "value_integer" ["array" fact-values]]]
+
+                           :else (throw (IllegalArgumentException.
+                                         "All values in 'array' must be the same type.")))]
+              ["in" "certname"
+               ["extract" "certname"
+                ["select_facts"
+                 ["and"
+                  ["=" "name" fact-name]
+                  clause]]]])
+
             [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
             (if-not (number? fact-value)
               (throw (IllegalArgumentException. (format "Operator '%s' not allowed on value '%s'" op fact-value)))
@@ -1131,7 +1159,7 @@
             ["null?" (utils/dashes->underscores field) true]
 
             [[op "tag" array-value]]
-            [op "tags" (string/lower-case array-value)]
+            [op "tags" (str/lower-case array-value)]
 
             :else nil))
 
@@ -1162,7 +1190,8 @@
 
               [["=" field value]]
               (let [col-type (get-in query-context [:projections field :type])]
-                (when (and (= :number col-type) (string? value))
+                (when (and (or (= :integer col-type)
+                               (= :float col-type)) (string? value))
                   (throw
                     (IllegalArgumentException.
                       (format "Argument \"%s\" is incompatible with numeric field \"%s\"."
@@ -1171,7 +1200,7 @@
               [[(:or ">" ">=" "<" "<=") field _]]
               (let [col-type (get-in query-context [:projections field :type])]
                 (when-not (or (vec? field)
-                              (contains? #{:number :timestamp :multi}
+                              (contains? #{:float :integer :timestamp :multi}
                                          col-type))
                   (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field)))))
 
@@ -1277,7 +1306,7 @@
 
 (defn replace-numeric-args
   [fargs]
-  (mapv #(string/replace % #"value" "COALESCE(value_integer,value_float)") fargs))
+  (mapv #(str/replace % #"value" "COALESCE(value_integer,value_float)") fargs))
 
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
@@ -1295,11 +1324,6 @@
                (map->ArrayBinaryExpression {:column field
                                             :value value})
 
-               :number
-               (map->BinaryExpression {:operator :=
-                                       :column field
-                                       :value value})
-
                :path
                (map->BinaryExpression {:operator :=
                                        :column field
@@ -1309,9 +1333,46 @@
                                        :column field
                                        :value value})))
 
+            [["in" column ["array" value]]]
+            (let [{:keys [type field]} (get-in query-rec [:projections column])]
+              (when-not (coll? value)
+                (throw (IllegalArgumentException. "Operator 'array' requires a vector argument")))
+              (case type
+                :array
+                (throw (IllegalArgumentException. "Operator 'in'...'array' is not supported on array types"))
+
+                :timestamp
+                (map->InArrayExpression {:column field
+                                         :value (su/array-to-param "timestamp"
+                                                                   java.sql.Timestamp
+                                                                   (map to-timestamp value))})
+
+                :float
+                (map->InArrayExpression {:column field
+                                         :value (su/array-to-param "float4"
+                                                                   java.lang.Double
+                                                                   (map double value))})
+                :integer
+                (map->InArrayExpression {:column field
+                                         :value (su/array-to-param "bigint"
+                                                                   java.lang.Integer
+                                                                   (map int value))})
+
+                :path
+                (map->InArrayExpression {:column field
+                                         :value (su/array-to-param "text"
+                                                                   String
+                                                                   (map facts/factpath-to-string value))})
+
+                (map->InArrayExpression {:column field
+                                         :value (su/array-to-param "text"
+                                                                   String
+                                                                   (map str value))})))
+
             [[(op :guard #{">" "<" ">=" "<="}) column value]]
             (let [{:keys [type field]} (get-in query-rec [:projections column])]
-              (if (or (= :timestamp type) (and (= :number type) (number? value)))
+              (if (or (= :timestamp type) (and (or (= :float type)
+                                                   (= :integer type)) (number? value)))
                 (map->BinaryExpression {:operator (keyword op)
                                         :column field
                                         :value  (if (= :timestamp type)
@@ -1331,9 +1392,7 @@
             (let [{:keys [type field]} (get-in query-rec [:projections column])]
               (case type
                 :array
-                (map->ArrayRegexExpression {:table (:source-table query-rec)
-                                            :alias (:alias query-rec)
-                                            :column field
+                (map->ArrayRegexExpression {:column field
                                             :value value})
 
                 :multi
@@ -1431,7 +1490,7 @@
               error-action
               query-name
               (if (> (count invalid-fields) 1) "fields:" "field")
-              (string/join "', '" invalid-fields)
+              (str/join "', '" invalid-fields)
               (if (empty? error-context) "" (str " " error-context))
               (json/generate-string allowed-fields)))))
 
@@ -1523,6 +1582,17 @@
                 {:node node
                  :state (conj state column-validation-message)}))
 
+            [["in" field ["array" _]]]
+            (let [{:keys [alias] :as query-context} (:query-context (meta node))
+                  qfields (queryable-fields query-context)]
+              (when-not (or (vec? field) (contains? (set qfields) field))
+                {:node node
+                 :state (conj state
+                              (format "'%s' is not a queryable object for %s, %s" field alias
+                                      (if (empty? qfields)
+                                        (format "%s has no queryable objects" alias)
+                                        (format "known queryable objects are %s" (json/generate-string qfields)))))}))
+
             [["in" field & _]]
             (let [query-context (:query-context (meta node))
                   column-validation-message (validate-query-operation-fields
@@ -1546,19 +1616,19 @@
              :state state}
             :else {:node node :state state}))
 
-(pls/defn-validated op-to-string
-  "Convert an operator to a lowercase string or vector of such."
-  [op]
-  (if (vector? op)
-    (mapv string/lower-case op)
-    (string/lower-case op)))
+(defn valid-operator?
+  [operator]
+  (or (contains? #{"from" "in" "extract" "subquery" "and"
+                   "or" "not" "function" "group_by" "null?"} operator)
+      (contains? binary-operators operator)
+      (contains? (ks/keyset user-name->query-rec-name) operator)))
 
 (defn ops-to-lower
   "Lower cases operators (such as and/or)."
   [node state]
   (cm/match [node]
-            [[op & stmt-rest]]
-            {:node (with-meta (vec (cons (op-to-string op) stmt-rest))
+            [[(op :guard (comp valid-operator? str/lower-case)) & stmt-rest]]
+            {:node (with-meta (vec (apply vector (str/lower-case op) stmt-rest))
                               (meta node))
              :state state}
             :else {:node node :state state}))
@@ -1574,7 +1644,7 @@
                                               validate-query-fields
                                               dashes-to-underscores ops-to-lower])]
     (when (seq errors)
-      (throw (IllegalArgumentException. (string/join \newline errors))))
+      (throw (IllegalArgumentException. (str/join \newline errors))))
 
     annotated-query))
 

@@ -299,19 +299,59 @@ An `in` statement constitutes a full query string, which can be used alone or as
 
 "In" statements are **non-transitive** and take two arguments:
 
-* The first argument **must** consist of one or more **fields** for the endpoint or entity **being queried.**. This is a string or vector of strings.
+* The first argument **must** consist of one or more **fields** for the endpoint
+  or entity **being queried.**. This is a string or vector of strings.
 * The second argument **must** be either:
-** an **`extract` statement,** which acts as a list of fields to extract during the subquery for matching against the **fields** in the `in` clause.
-** a **`from` statement,** which sets the context, and allows for an extract statement to be provided. *Note:* this syntax is new and experimental.
+** an **`extract` statement,** which acts as a list of fields to extract during
+   the subquery for matching against the **fields** in the `in` clause.
+** a **`from` statement,** which sets the context, and allows for an extract
+   statement to be provided. *Note:* this syntax is new and experimental.
+** an **`array` statement,** which acts as a list of values to match against the
+   **field** in the `in` clause.
 
 **Matches if:** the field values are included in the list of values created by the `extract` or `from` statement.
 
+##### `array`
+
+An `in` statement also accepts an `array` statement as a second argument.
+
+"Array" statements take a single vector argument of values to match the first
+argument of `in` against.
+
+The following query filters for the nodes, `foo.local`, `bar.local`, and
+`baz.local`:
+
+    ["in", "certname",
+     ["array",
+      ["foo.local",
+       "bar.local",
+       "baz.local"]]]
+
+which is equivalent to the following query:
+
+    ["or",
+     ["=","certname","foo.local"],
+     ["=","certname","bar.local"],
+     ["=","certname","baz.local"]]
+
+The `in`-`array` operators support much of the same syntax as the `=` operator.
+For example, the following query on the `/nodes` endpoint is valid:
+
+    ["in", ["fact", "uptime_seconds"], 
+     ["array",
+      [20000.0,
+       150.0,
+       300000]]]
+
 #### `from`
 
-*Note:* the use of `from` in a subquery is experimental. It may change or be removed in the future.
+*Note:* the use of `from` in a subquery is experimental. It may change or be
+ removed in the future.
 
-This statement works like the top-level [`from`](#context-operators) operator, and expects an [entity][entities] as the first argument and an optional query in the second
-argument, however when used within an `in` clause an `extract` statement is expected to choose the fields like so:
+This statement works like the top-level [`from`](#context-operators) operator,
+and expects an [entity][entities] as the first argument and an optional query in
+the second argument, however when used within an `in` clause an `extract`
+statement is expected to choose the fields like so:
 
     ["in", "certname",
      ["from", "facts",
@@ -322,12 +362,16 @@ argument, however when used within an `in` clause an `extract` statement is expe
 
 "Extract" statements are **non-transitive** and take two arguments:
 
-* The first argument **must** be a valid set of **fields** for the endpoint **being subqueried** (see second argument). This is a string or vector of strings.
+* The first argument **must** be a valid set of **fields** for the endpoint
+  **being subqueried** (see second argument). This is a string or vector of
+  strings.
 * The second argument:
 ** **must** contain a **subquery statement**
 ** or when used with the new `from` operator, **may** contain an optional query.
 
-As the second argument of an `in` statement, an `extract` statement acts as a list of possible values. This list is compiled by extracting the value of the requested field from every result of the subquery.
+As the second argument of an `in` statement, an `extract` statement acts as a
+list of possible values. This list is compiled by extracting the value of the
+requested field from every result of the subquery.
 
 #### `select_<ENTITY>` Subquery Statements
 
