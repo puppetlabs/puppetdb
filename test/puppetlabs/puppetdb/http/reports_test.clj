@@ -95,13 +95,14 @@
                                             ["not" ["=" "certname" (:certname basic)]]])
              #{{:hash bar-report-hash}})))
 
-    (testing "projected aggregate count call"
-      (is (= (query-result method endpoint ["extract" [["function" "count"] "status"]
-                                            ["~" "certname" ".*"]
-                                            ["group_by" "status"]])
-             #{{:status "unchanged", :count 2}})))
-
     (testing "projected aggregate sum call"
+      (is (= (query-result method endpoint ["extract" ["status"]
+                                            ["group_by" "status"]])
+             #{{:status "unchanged"}}))
+      (is (= (query-result method endpoint ["extract"
+                                            [["function" "sum" "report_format"] "status"]
+                                            ["group_by" "status"]])
+             #{{:status "unchanged", :sum 8}}))
       (is (= (query-result method endpoint ["extract"
                                             [["function" "sum" "report_format"] "status"]
                                             ["~" "certname" ".*"]

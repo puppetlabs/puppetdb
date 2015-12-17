@@ -412,16 +412,14 @@
                          :from [[{:select
                                   [[(h/coalesce :metrics (h/scast :metrics_json :jsonb)) :data]
                                    [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :metrics)
-                                    :href]]} :t]]}
-                 :expandable? true}
+                                    :href]]} :t]]}}
       "logs" {:type :json
               :queryable? false
               :field {:select [(h/row-to-json :t)]
                       :from [[{:select
                                [[(h/coalesce :logs (h/scast :logs_json :jsonb)) :data]
                                 [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :logs)
-                                 :href]]} :t]]}
-              :expandable? true}
+                                 :href]]} :t]]}}
       "receive_time"    {:type :timestamp
                          :queryable? true
                          :field :reports.receive_time}
@@ -442,7 +440,6 @@
                           :query-only? true}
       "resource_events" {:type :json
                          :queryable? false
-                         :expandable? true
                          :field {:select [(h/row-to-json :event_data)]
                                  :from [[{:select
                                           [[(json-agg-row :t) :data]
@@ -511,7 +508,6 @@
                             :field :c.producer_timestamp}
       "resources" {:type :json
                    :queryable? false
-                   :expandable? true
                    :field {:select [(h/row-to-json :resource_data)]
                            :from [[{:select [[(json-agg-row :t) :data]
                                              [(hsql-hash-as-href "c.certname" :catalogs :resources) :href]]
@@ -526,7 +522,6 @@
                                    :resource_data]]}}
       "edges" {:type :json
                :queryable? false
-               :expandable? true
                :field {:select [(h/row-to-json :edge_data)]
                        :from [[{:select [[(json-agg-row :t) :data]
                                          [(hsql-hash-as-href "c.certname" :catalogs :edges) :href]]
@@ -803,7 +798,6 @@
                    :field :timestamp}
       "facts" {:type :json
                :queryable? true
-               :expandable? true
                :field {:select [(h/row-to-json :facts_data)]
                        :from [[{:select [[(json-agg-row :t) :data]
                                          [(hsql-hash-as-href "factsets.certname" :factsets :facts) :href]]
@@ -1434,12 +1428,12 @@
                                         (not (empty? call)) (assoc :call call))]
               (create-extract-node query-rec-with-call cols nil))
 
-            [["extract" columns ["group_by" & clauses]]]
-            (let [[fargs cols] (strip-function-calls columns)]
-              (-> query-rec
-                  (assoc :call (replace-numeric-args fargs))
-                  (assoc :group-by clauses)
-                  (create-extract-node cols nil)))
+            [["extract" column ["group_by" & clauses]]]
+            (let [[fargs cols] (strip-function-calls column)
+                  call (replace-numeric-args fargs)
+                  query-rec-with-call (cond-> (assoc query-rec :group-by clauses)
+                                        (not (empty? call)) (assoc :call call))]
+              (create-extract-node query-rec-with-call cols nil))
 
             [["extract" column expr]]
             (let [[fargs cols] (strip-function-calls column)
@@ -1448,12 +1442,12 @@
                                         (not (empty? call)) (assoc :call call))]
               (create-extract-node query-rec-with-call cols expr))
 
-            [["extract" columns expr ["group_by" & clauses]]]
-            (let [[fargs cols] (strip-function-calls columns)]
-              (-> query-rec
-                  (assoc :call (replace-numeric-args fargs))
-                  (assoc :group-by clauses)
-                  (create-extract-node cols expr)))
+            [["extract" column expr ["group_by" & clauses]]]
+            (let [[fargs cols] (strip-function-calls column)
+                  call (replace-numeric-args fargs)
+                  query-rec-with-call (cond-> (assoc query-rec :group-by clauses)
+                                        (not (empty? call)) (assoc :call call))]
+              (create-extract-node query-rec-with-call cols expr))
 
             :else nil))
 
