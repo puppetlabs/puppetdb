@@ -6,7 +6,10 @@
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.v4 :refer [v4-app]]
-            [puppetlabs.puppetdb.middleware :refer [wrap-with-globals wrap-with-metrics]]
+            [puppetlabs.puppetdb.middleware :refer [wrap-with-globals
+                                                    wrap-with-metrics
+                                                    wrap-with-illegal-argument-catch
+                                                    verify-accepts-json]]
             [net.cgrand.moustache :refer [app]]
             [ring.util.response :as rr]))
 
@@ -33,5 +36,7 @@
    should be a message describing the reason that access was denied."
   [get-shared-globals]
   (-> routes
+      wrap-with-illegal-argument-catch
+      verify-accepts-json
       (wrap-with-metrics (atom {}) http/leading-uris)
       (wrap-with-globals get-shared-globals)))

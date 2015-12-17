@@ -5,9 +5,7 @@
             [puppetlabs.puppetdb.http.resources :as r]
             [puppetlabs.puppetdb.http.query :as http-q]
             [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
-                                                    validate-query-params
-                                                    wrap-with-paging-options
+            [puppetlabs.puppetdb.middleware :refer [validate-query-params
                                                     wrap-with-parent-check]]
             [puppetlabs.puppetdb.http :as http]))
 
@@ -23,33 +21,27 @@
       (http/json-response status)
       (http/status-not-found-response "node" node))))
 
-(defn routes
+(defn node-app
   [version]
   (let [param-spec {:optional paging/query-params}]
     (app
-      []
-      (http-q/query-route-from "nodes" version param-spec
-                               [http-q/restrict-query-to-active-nodes])
+     []
+     (http-q/query-route-from "nodes" version param-spec
+                              [http-q/restrict-query-to-active-nodes])
 
-      [node]
-      (-> (fn [{:keys [globals]}]
-            (node-status version
-                         node
-                         (select-keys globals [:scf-read-db :url-prefix :warn-experimental])))
-          ;; Being a singular item, querying and pagination don't really make
-          ;; sense here
-          (validate-query-params {}))
+     [node]
+     (-> (fn [{:keys [globals]}]
+           (node-status version
+                        node
+                        (select-keys globals [:scf-read-db :url-prefix :warn-experimental])))
+         ;; Being a singular item, querying and pagination don't really make
+         ;; sense here
+         (validate-query-params {}))
 
-      [node "facts" &]
-      (-> (f/facts-app version true (partial http-q/restrict-query-to-node node))
-          (wrap-with-parent-check version :node node))
+     [node "facts" &]
+     (-> (f/facts-app version true (partial http-q/restrict-query-to-node node))
+         (wrap-with-parent-check version :node node))
 
-      [node "resources" &]
-      (-> (r/resources-app version true (partial http-q/restrict-query-to-node node))
-          (wrap-with-parent-check version :node node)))))
-
-(defn node-app
-  [version]
-  (-> (routes version)
-    verify-accepts-json
-    wrap-with-paging-options))
+     [node "resources" &]
+     (-> (r/resources-app version true (partial http-q/restrict-query-to-node node))
+         (wrap-with-parent-check version :node node)))))

@@ -5,9 +5,7 @@
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.http.events :as e]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
-                                                    validate-no-query-params
-                                                    wrap-with-paging-options
+            [puppetlabs.puppetdb.middleware :refer [validate-no-query-params
                                                     wrap-with-parent-check]]))
 
 (defn report-data-responder
@@ -19,32 +17,28 @@
     (fn [{:keys [globals]}]
       (let [query ["from" entity ["=" "hash" hash]]]
         (produce-streaming-body version {:query query}
-                                (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental]))))))
-
-(defn routes
-  [version optional-handlers]
-  (let [param-spec {:optional paging/query-params}]
-    (app
-      []
-      (http-q/query-route-from "reports" version param-spec optional-handlers)
-
-      [hash "events" &]
-      (-> (e/events-app version (partial http-q/restrict-query-to-report hash))
-          (wrap-with-parent-check version :report hash))
-
-      [hash "metrics" &]
-      (-> (report-data-responder version "report_metrics" hash)
-          validate-no-query-params
-          verify-accepts-json
-          (wrap-with-parent-check version :report hash))
-
-      [hash "logs" &]
-      (-> (report-data-responder version "report_logs" hash)
-          validate-no-query-params
-          verify-accepts-json
-          (wrap-with-parent-check version :report hash)))))
+                                (select-keys globals [:scf-read-db
+                                                      :url-prefix
+                                                      :pretty-print
+                                                      :warn-experimental]))))))
 
 (defn reports-app
   [version & optional-handlers]
-  (-> (routes version optional-handlers)
-      wrap-with-paging-options))
+  (let [param-spec {:optional paging/query-params}]
+    (app
+     []
+     (http-q/query-route-from "reports" version param-spec optional-handlers)
+
+     [hash "events" &]
+     (-> (e/events-app version (partial http-q/restrict-query-to-report hash))
+         (wrap-with-parent-check version :report hash))
+
+     [hash "metrics" &]
+     (-> (report-data-responder version "report_metrics" hash)
+         validate-no-query-params
+         (wrap-with-parent-check version :report hash))
+
+     [hash "logs" &]
+     (-> (report-data-responder version "report_logs" hash)
+         validate-no-query-params
+         (wrap-with-parent-check version :report hash)))))
