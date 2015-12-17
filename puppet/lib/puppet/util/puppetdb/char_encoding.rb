@@ -34,11 +34,6 @@ module CharEncoding
   DEFAULT_INVALID_CHAR = "\ufffd"
 
   # @api private
-  def self.all_indexes_of_char(str, char)
-    (0..str.length).find_all{ |i| str[i] == char}
-  end
-
-  # @api private
   #
   # Takes an array and returns a sub-array without the last element
   #
@@ -104,13 +99,13 @@ module CharEncoding
   # @param error_context_str information about where this string came from for use in error messages
   # @return String
   def self.warn_if_invalid_chars(str, error_context_str)
-    bad_char_indexes = all_indexes_of_char(str, DEFAULT_INVALID_CHAR)
-    if bad_char_indexes.empty?
+    first_bad_char_index = str.index(DEFAULT_INVALID_CHAR)
+    if first_bad_char_index.nil?
       str
     else
       Puppet.warning "#{error_context_str} ignoring invalid UTF-8 byte sequences in data to be sent to PuppetDB, see debug logging for more info"
       if Puppet.settings[:log_level] == "debug"
-        Puppet.debug error_context_str + "\n" + error_char_context(str, bad_char_indexes).join("\n")
+        Puppet.debug error_context_str + "\n" + error_char_context(str, [first_bad_char_index]).join("\n")
       end
 
       str

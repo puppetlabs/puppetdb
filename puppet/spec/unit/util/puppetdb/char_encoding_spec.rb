@@ -89,10 +89,6 @@ describe Puppet::Util::Puppetdb::CharEncoding do
   end
 
   describe "on ruby >= 1.9" do
-    it "finds all index of a given character" do
-      described_class.all_indexes_of_char("a\u2192b\u2192c\u2192d\u2192", "\u2192").should == [1, 3, 5, 7]
-      described_class.all_indexes_of_char("abcd", "\u2192").should == []
-    end
 
     it "should collapse consecutive integers into ranges" do
       described_class.collapse_ranges((1..5).to_a).should == [1..5]
