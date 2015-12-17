@@ -229,10 +229,18 @@ If not supplied, PuppetDB uses standard HTTPS without any additional
 authorization. All HTTPS clients must still supply valid, verifiable
 SSL client certificates.
 
+### `include-historical-catalogs` (PE only)
+
+> **Warning:** This setting is intended for use only in Puppet Enterprise (PE).
+> This this setting will be ignored without a PE PuppetDB package.
+
+Setting this to `false` disables the storage of historical catalogs. Defaults to
+`true`.
+
 ### `disable-update-checking`
 
-Optional.  Setting this to `true` disables checking for updated
-versions of PuppetDB.  Defaults to `false`.
+Setting this to `true` disables checking for updated versions of PuppetDB.
+Defaults to `false`.
 
 
 `[database]` Settings
