@@ -319,7 +319,7 @@
       (let [length-in-bytes (request/content-length req)]
 
         (if length-in-bytes
-          (log/infof "Processing command with a content-length of %s bytes" length-in-bytes )
+          (log/debugf "Processing command with a content-length of %s bytes" length-in-bytes)
           (log/warn (str "No content length found for POST. "
                          "POST bodies that are too large could cause memory-related failures.")))
 
