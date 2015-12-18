@@ -186,27 +186,21 @@ describe Puppet::Util::Puppetdb::CharEncoding do
   end
 
   describe "on ruby > 1.8", :if => RUBY_VERSION !~ /^1.8/ do
-    it "finds all index of a given character" do
-      described_class.all_indexes_of_char("a\u2192b\u2192c\u2192d\u2192", "\u2192").should == [1, 3, 5, 7]
-      described_class.all_indexes_of_char("abcd", "\u2192").should == []
-    end
-
-    it "should collapse consecutive integers into ranges" do
-      described_class.collapse_ranges((1..5).to_a).should == [1..5]
-      described_class.collapse_ranges([]).should == []
-      described_class.collapse_ranges([1,2,3,5,7,8,9]).should == [1..3, 5..5, 7..9]
+    it "finds first change of character" do
+      described_class.first_invalid_char_range("123\ufffd\ufffd\ufffd\ufffd123123123\ufffd\ufffd").should == Range.new(3,6)
+      described_class.first_invalid_char_range("1234567").should == nil
+      described_class.first_invalid_char_range("123\ufffd4567").should == Range.new(3,3)
     end
 
     it "gives error context around each bad character" do
-      described_class.error_char_context("abc\ufffddef", [3]).should ==
-        ["'abc' followed by 1 invalid/undefined bytes then 'def'"]
+      described_class.error_char_context("abc\ufffddef", 3..3).should ==
+        "'abc' followed by 1 invalid/undefined bytes then 'def'"
 
-      described_class.error_char_context("abc\ufffd\ufffd\ufffd\ufffddef", [3,4,5,6]).should ==
-        ["'abc' followed by 4 invalid/undefined bytes then 'def'"]
+      described_class.error_char_context("abc\ufffd\ufffd\ufffd\ufffddef", 3..6).should ==
+        "'abc' followed by 4 invalid/undefined bytes then 'def'"
 
-      described_class.error_char_context("abc\ufffddef\ufffdg", [3, 7]).should ==
-        ["'abc' followed by 1 invalid/undefined bytes then 'def'",
-         "'def' followed by 1 invalid/undefined bytes then 'g'"]
+      described_class.error_char_context("abc\ufffddef\ufffdg", 3..3).should ==
+        "'abc' followed by 1 invalid/undefined bytes then 'def'"
     end
   end
 end
