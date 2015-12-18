@@ -155,7 +155,7 @@
    :threads s/Int
    :max-frame-size s/Int
    :max-command-size s/Int
-   :reject-large-commands s/Bool
+   :reject-large-commands Boolean
    (s/optional-key :store-usage) s/Int
    (s/optional-key :temp-usage) s/Int})
 
@@ -163,11 +163,14 @@
   "Schema for validating the incoming [puppetdb] block"
   (all-optional
     {:certificate-whitelist s/Str
+     ;; The `include-historical-catalogs` setting is only used by `pe-puppetdb`
+     :include-historical-catalogs (pls/defaulted-maybe String "true")
      :disable-update-checking (pls/defaulted-maybe String "false")}))
 
 (def puppetdb-config-out
   "Schema for validating the parsed/processed [puppetdb] block"
   {(s/optional-key :certificate-whitelist) s/Str
+   :include-historical-catalogs Boolean
    :disable-update-checking Boolean})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -218,9 +221,7 @@
 (defn configure-puppetdb
   "Validates the [puppetdb] section of the config"
   [{:keys [puppetdb] :as config :or {puppetdb {}}}]
-  (->> puppetdb
-       (s/validate puppetdb-config-in)
-       (assoc config :puppetdb)))
+  (configure-section config :puppetdb puppetdb-config-in puppetdb-config-out))
 
 (defn configure-command-processing
   [config]

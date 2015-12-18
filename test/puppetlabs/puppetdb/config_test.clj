@@ -15,22 +15,27 @@
 
 (deftest puppetdb-configuration
   (testing "puppetdb-configuration"
-    (let [configure-puppetdb (fn [config] (configure-section config :puppetdb puppetdb-config-in puppetdb-config-out))]
-      (testing "should convert disable-update-checking value to boolean, if it is specified"
-        (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "true"}})]
-          (is (= (get-in config [:puppetdb :disable-update-checking]) true)))
-        (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "false"}})]
-          (is (= (get-in config [:puppetdb :disable-update-checking]) false)))
-        (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "some-string"}})]
-          (is (= (get-in config [:puppetdb :disable-update-checking]) false))))
+    (testing "should convert disable-update-checking value to boolean, if it is specified"
+      (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "true"}})]
+        (is (= (get-in config [:puppetdb :disable-update-checking]) true)))
+      (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "false"}})]
+        (is (= (get-in config [:puppetdb :disable-update-checking]) false)))
+      (let [config (configure-puppetdb {:puppetdb {:disable-update-checking "some-string"}})]
+        (is (= (get-in config [:puppetdb :disable-update-checking]) false))))
 
-      (testing "should throw exception if disable-update-checking cannot be converted to boolean"
-        (is (thrown? clojure.lang.ExceptionInfo
-                     (configure-puppetdb {:puppetdb {:disable-update-checking 1337}}))))
+    (testing "should throw exception if disable-update-checking cannot be converted to boolean"
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (configure-puppetdb {:puppetdb {:disable-update-checking 1337}}))))
 
-      (testing "disable-update-checking should default to 'false' if left unspecified"
-        (let [config (configure-puppetdb {})]
-          (is (= (get-in config [:puppetdb :disable-update-checking]) false)))))))
+    (testing "should allow for `pe-puppetdb`'s include-historical-catalogs setting"
+      (let [config (configure-puppetdb {})]
+        (is (= (get-in config [:puppetdb :include-historical-catalogs]) true)))
+      (let [config (configure-puppetdb {:puppetdb {:include-historical-catalogs "false"}})]
+        (is (= (get-in config [:puppetdb :include-historical-catalogs]) false))))
+
+    (testing "disable-update-checking should default to 'false' if left unspecified"
+      (let [config (configure-puppetdb {})]
+        (is (= (get-in config [:puppetdb :disable-update-checking]) false))))))
 
 (deftest commandproc-configuration
   (let [configure-command-params (fn [config] (configure-section config :command-processing command-processing-in command-processing-out))]
