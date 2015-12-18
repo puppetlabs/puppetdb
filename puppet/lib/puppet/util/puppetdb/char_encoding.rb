@@ -32,66 +32,48 @@ module CharEncoding
   Utf8ReplacementChar = [ 0xEF, 0xBF, 0xBD ].pack("c*")
 
   DEFAULT_INVALID_CHAR = "\ufffd"
-
-  # @api private
-  def self.all_indexes_of_char(str, char)
-    (0..str.length).find_all{ |i| str[i] == char}
-  end
+  NOT_INVALID_REGEX = Regexp.new( "[^" + DEFAULT_INVALID_CHAR + "]" )
 
   # @api private
   #
-  # Takes an array and returns a sub-array without the last element
+  # Finds the beginning and ending index of the first block of invalid
+  # characters.
   #
-  # @return [Object]
-  def self.drop_last(array)
-    array[0..-2]
-  end
+  # @param str string to scan for invalid characters
+  # @return Range
+  def self.first_invalid_char_range(str)
+    begin_bad_chars_idx = str.index(DEFAULT_INVALID_CHAR)
 
-  # @api private
-  #
-  # Takes an array of increasing integers and collapses the sequential
-  # integers into ranges
-  #
-  # @param index_array an array of sorted integers
-  # @return [Range]
-  def self.collapse_ranges(index_array)
-    ranges = index_array.each.inject([]) do |spans, n|
-      if spans.empty? || spans.last.end != n - 1
-        spans << Range.new(n, n)
-      else
-        drop_last(spans) << Range.new(spans.last.begin,n)
-      end
+    if begin_bad_chars_idx
+      first_good_char = str.index(NOT_INVALID_REGEX, begin_bad_chars_idx)
+      Range.new(begin_bad_chars_idx, (first_good_char || str.length) - 1)
+    else
+      nil
     end
   end
 
   # @api private
   #
-  # Scans the string s with bad characters found at bad_char_indexes
-  # and returns an array of messages that give some context around the
-  # bad characters. This will give up to 100 characters prior to the
-  # bad character and 100 after. It will return fewer if it's at the
-  # beginning of a string or if another bad character appears before
-  # reaching the 100 characters
+  # Scans the string str with invalid characters found at
+  # bad_char_range and returns a message that give some context around
+  # the bad characters. This will give up to 100 characters prior to
+  # the bad character and 100 after. It will return fewer if it's at
+  # the beginning of a string or if another bad character appears
+  # before reaching the 100 characters
   #
   # @param str string coming from to_pson, likely a command to be submitted to PDB
-  # @param bad_char_indexes an array of indexes into the string where invalid characters were found
-  # @return [String]
-  def self.error_char_context(str, bad_char_indexes)
-    bad_char_ranges = collapse_ranges(bad_char_indexes)
-    bad_char_ranges.each_with_index.inject([]) do |state, (r, index)|
-      gap = r.to_a.length
+  # @param bad_char_range a range indicating a block of invalid characters
+  # @return String
+  def self.error_char_context(str, bad_char_range)
+    
+    gap = bad_char_range.to_a.length
 
-      prev_bad_char_end = bad_char_ranges[index-1].end + 1 if index > 0
-      next_bad_char_begin = bad_char_ranges[index+1].begin - 1 if index < bad_char_ranges.length - 1
+    start_char = [0, bad_char_range.begin-100].max
+    end_char = [str.index(DEFAULT_INVALID_CHAR, bad_char_range.end+1) || str.length, bad_char_range.end+100].min
+    prefix = str[start_char..bad_char_range.begin-1]
+    suffix = str[bad_char_range.end+1..end_char-1]
 
-      start_char = [prev_bad_char_end || 0, r.begin-100].max
-      end_char = [next_bad_char_begin || str.length - 1, r.end+100].min
-      x = [next_bad_char_begin || str.length, r.end+100, str.length]
-      prefix = str[start_char..r.begin-1]
-      suffix = str[r.end+1..end_char]
-
-      state << "'#{prefix}' followed by #{gap} invalid/undefined bytes then '#{suffix}'"
-    end
+    "'#{prefix}' followed by #{gap} invalid/undefined bytes then '#{suffix}'"
   end
 
   # @api private
@@ -104,13 +86,14 @@ module CharEncoding
   # @param error_context_str information about where this string came from for use in error messages
   # @return String
   def self.warn_if_invalid_chars(str, error_context_str)
-    bad_char_indexes = all_indexes_of_char(str, DEFAULT_INVALID_CHAR)
-    if bad_char_indexes.empty?
+
+    if str.index(DEFAULT_INVALID_CHAR).nil?
       str
     else
       Puppet.warning "#{error_context_str} ignoring invalid UTF-8 byte sequences in data to be sent to PuppetDB, see debug logging for more info"
+
       if Puppet.settings[:log_level] == "debug"
-        Puppet.debug error_context_str + "\n" + error_char_context(str, bad_char_indexes).join("\n")
+        Puppet.debug error_context_str + "\n" + error_char_context(str, first_invalid_char_range(str))
       end
 
       str
