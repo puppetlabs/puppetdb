@@ -114,24 +114,11 @@
     (let [new-req (update req :globals merge (get-shared-globals))]
       (app new-req))))
 
-(defn wrap-with-paging-options
-  "Ring middleware that will add to each request a :paging-options attribute:
-  a map optionally containing :limit, :offset, and :order_by keys used to
-  implement result paging for the query.  The value for :order_by will be
-  a list of maps, containing information about the fields to order the result
-  by.  Each order_by map contains a key :field, and an optional key :order
-  (whose value may be either 'asc' or 'desc', and defaults to 'asc')."
+(defn wrap-with-illegal-argument-catch
   [app]
-  (fn [{:keys [params] :as req}]
+  (fn [req]
     (try
-      (app (assoc req :paging-options
-                  (-> params
-                      (select-keys ["limit" "offset" "order_by" "include_total"])
-                      keywordize-keys
-                      paging/parse-limit
-                      paging/parse-offset
-                      paging/parse-count
-                      paging/parse-order-by)))
+      (app req)
       (catch IllegalArgumentException e
         (http/error-response e)))))
 

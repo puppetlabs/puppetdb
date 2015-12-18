@@ -8,7 +8,6 @@
 (def versions [:v4])
 
 (def types ["events"
-            "event-counts"
             "fact-names"
             "facts"
             "nodes"

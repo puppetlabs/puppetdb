@@ -13,7 +13,10 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.query.paging :refer [parse-limit' parse-offset' parse-order-by']]
+            [puppetlabs.puppetdb.query.paging :refer [parse-limit
+                                                      parse-offset
+                                                      parse-order-by
+                                                      parse-order-by-json]]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.utils :refer [update-when]]))
 
@@ -226,9 +229,9 @@
   (-> (or full-query {})
       (validate-query-params param-spec)
       keywordize-keys
-      (update-when [:order_by] parse-order-by')
-      (update-when [:limit] parse-limit')
-      (update-when [:offset] parse-offset')
+      (update-when [:order_by] parse-order-by)
+      (update-when [:limit] parse-limit)
+      (update-when [:offset] parse-offset)
       (update-when [:include_total] coerce-to-boolean)
       (update-when [:distinct_resources] coerce-to-boolean)))
 
@@ -237,7 +240,7 @@
   [{:keys [params] :as req}]
   (-> params
       (update-when ["query"] json/parse-strict-string true)
-      (update-when ["order_by"] json/parse-strict-string true)
+      (update-when ["order_by"] parse-order-by-json)
       (update-when ["counts_filter"] json/parse-strict-string true)
       keywordize-keys))
 

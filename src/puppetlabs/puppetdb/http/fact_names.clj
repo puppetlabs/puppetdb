@@ -5,9 +5,7 @@
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
-                                                    validate-query-params
-                                                    wrap-with-paging-options]]))
+            [puppetlabs.puppetdb.middleware :refer [validate-query-params]]))
 
 (defn query-route
   "Returns a route for querying PuppetDB that supports the standard
@@ -27,15 +25,9 @@
           (partial http-q/restrict-query-to-entity "fact_names")
           optional-handlers)))
 
-(defn routes
+(defn fact-names-app
   [version]
   (let [param-spec {:optional paging/query-params}]
     (app
-      []
-      (query-route version param-spec identity))))
-
-(defn fact-names-app
-  [version]
-  (-> (routes version)
-      verify-accepts-json
-      wrap-with-paging-options))
+     []
+     (query-route version param-spec identity))))
