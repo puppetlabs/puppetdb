@@ -15,61 +15,31 @@
             [puppetlabs.puppetdb.http.nodes :as nodes]
             [puppetlabs.puppetdb.http.environments :as envs]
             [puppetlabs.puppetdb.http.index :as index]
-            [net.cgrand.moustache :as moustache]))
+            [bidi.bidi :as bidi]
+            [bidi.ring :as bring]
+            [puppetlabs.puppetdb.http.query :as http-q]))
 
 (def version :v4)
 
 (defn experimental-index-app
   [version]
-  (fn [request]
-    (http/experimental-warning
-     (index/index-app version)
-     "The root endpoint is experimental"
-     request)))
+  (bring/wrap-middleware (index/index-app version)
+                         (fn [app]
+                           (partial http/experimental-warning app  "The root endpoint is experimental"))))
 
 (def v4-app
-  (moustache/app
-   []
-   {:any (experimental-index-app version)}
-
-   ["facts" &]
-   {:any (facts/facts-app version)}
-
-   ["edges" &]
-   {:any (edges/edges-app version)}
-
-   ["factsets" &]
-   {:any  (factsets/factset-app version)}
-
-   ["fact-names" &]
-   {:any (fact-names/fact-names-app version)}
-
-   ["fact-contents" &]
-   {:any (fact-contents/fact-contents-app version)}
-
-   ["fact-paths" &]
-   {:any (fact-paths/fact-paths-app version)}
-
-   ["nodes" &]
-   {:any (nodes/node-app version)}
-
-   ["environments" &]
-   {:any (envs/environments-app version)}
-
-   ["resources" &]
-   {:any (resources/resources-app version)}
-
-   ["catalogs" &]
-   {:any (catalogs/catalog-app version)}
-
-   ["events" &]
-   {:any (events/events-app version)}
-
-   ["event-counts" &]
-   {:any (ec/event-counts-app version)}
-
-   ["aggregate-event-counts" &]
-   {:any (aec/aggregate-event-counts-app version)}
-
-   ["reports" &]
-   {:any (reports/reports-app version)}))
+  {"" (experimental-index-app version)
+   "/facts" (facts/facts-app version)
+   "/edges" (edges/edges-app version)
+   "/factsets" (factsets/factset-app version)
+   "/fact-names" (fact-names/fact-names-app version)
+   "/fact-contents" (fact-contents/fact-contents-app version)
+   "/fact-paths" (fact-paths/fact-paths-app version)
+   "/nodes" (nodes/node-app version)
+   "/environments" (envs/environments-app version)
+   "/resources" (resources/resources-app version)
+   "/catalogs" (catalogs/catalog-app version)
+   "/events" (events/events-app version)
+   "/event-counts" (ec/event-counts-app version)
+   "/aggregate-event-counts" (aec/aggregate-event-counts-app version)
+   "/reports" (reports/reports-app version)})

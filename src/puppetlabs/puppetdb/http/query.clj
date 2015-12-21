@@ -9,7 +9,6 @@
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [clojure.set :as set]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [net.cgrand.moustache :refer [app]]
             [schema.core :as s]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.schema :as pls]
@@ -18,7 +17,8 @@
                                                       parse-order-by
                                                       parse-order-by-json]]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [puppetlabs.puppetdb.utils :refer [update-when]]))
+            [puppetlabs.puppetdb.utils :refer [update-when]]
+            [bidi.ring :as bring]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -116,6 +116,14 @@
     (restrict-query ["=" ["node" "active"] true] req)))
 
 
+(defn restrict-query-to-node'
+  "Restrict the query parameter of the supplied request so that it
+   only returns results for the supplied node"
+  [req]
+  {:pre  [(string? (get-in req [:route-params :node]))]
+   :post [(are-queries-different? req %)]}
+  (restrict-query ["=" "certname" (get-in req [:route-params :node])] req))
+
 (defn restrict-query-to-node
   "Restrict the query parameter of the supplied request so that it
    only returns results for the supplied node"
@@ -124,6 +132,15 @@
    :post [(are-queries-different? req %)]}
   (restrict-query ["=" "certname" node] req))
 
+(defn restrict-query-to-report'
+  "Restrict the query parameter of the supplied request so that it
+   only returns results for the supplied active node"
+  [req]
+  {:pre  [(get-in req [:route-params :hash])]
+   :post [(are-queries-different? req %)]}
+  (restrict-query ["=" "report" (get-in req [:route-params :hash])]
+                  req))
+
 (defn restrict-query-to-report
   "Restrict the query parameter of the supplied request so that it
    only returns results for the supplied active node"
@@ -131,6 +148,15 @@
   {:pre  [(string? hash)]
    :post [(are-queries-different? req %)]}
   (restrict-query ["=" "report" hash]
+                  req))
+
+(defn restrict-query-to-environment'
+  "Restrict the query parameter of the supplied request so that it
+   only returns results for the supplied environment"
+  [req]
+  {:pre  [(string? (get-in req [:route-params :environment]))]
+   :post [(are-queries-different? req %)]}
+  (restrict-query ["=" "environment" (get-in req [:route-params :environment])]
                   req))
 
 (defn restrict-query-to-environment
@@ -175,6 +201,7 @@
   [title req]
   {:pre  [(string? title)]
    :post [(are-queries-different? req %)]}
+  (println "title" title)
   (restrict-query ["=" "title" title]
                   req))
 
@@ -260,7 +287,14 @@
      :get (get-req->query req)
      :post (post-req->query req)
      (throw (IllegalArgumentException. "PuppetDB queries must be made via GET/POST")))
-    param-spec))
+   param-spec))
+
+(defn extract-query'
+  "Query handler that converts the incoming request (GET or POST)
+  parameters/body to a pdb query map"
+  [param-spec]
+  (fn [{:keys [request-method body params puppetdb-query] :as req}]
+    (assoc req :puppetdb-query (create-query-map req param-spec))))
 
 (defn extract-query
   "Query handler that converts the incoming request (GET or POST)
@@ -302,7 +336,30 @@
        (IllegalArgumentException.
          "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
 
-(defn query-route
+(defn query-route'
+  [version param-spec optional-handlers]
+  (apply comp
+         (fn [{:keys [params globals puppetdb-query]}]
+           (produce-streaming-body version
+                                   (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                                   (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental])))
+         (concat 
+          optional-handlers
+          [(extract-query' param-spec)])))
+
+(defn query-route-from'
+  "Convenience wrapper for query-route, which automatically wraps the query in a
+  `from` to set context."
+  ([entity version param-spec]
+   (query-route-from' entity version param-spec [identity]))
+  ([entity version param-spec optional-handlers]
+   (let [handlers (cons (partial restrict-query-to-entity entity)
+                        optional-handlers)]
+     (query-route' version param-spec handlers))))
+
+
+
+#_(defn query-route
   [version param-spec optional-handlers]
   (app
    (extract-query param-spec)
@@ -313,7 +370,7 @@
                                     (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental])))
           optional-handlers)))
 
-(defn query-route-from
+#_(defn query-route-from
   "Convenience wrapper for query-route, which automatically wraps the query in a
   `from` to set context."
   ([entity version param-spec]

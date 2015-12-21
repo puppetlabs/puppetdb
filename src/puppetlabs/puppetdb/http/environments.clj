@@ -7,9 +7,9 @@
             [puppetlabs.puppetdb.http.resources :as r]
             [puppetlabs.puppetdb.http.events :as ev]
             [puppetlabs.puppetdb.http.reports :as rp]
-            [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.middleware :refer [validate-query-params
-                                                    wrap-with-parent-check]]))
+                                                    wrap-with-parent-check]]
+            [bidi.ring :as bring]))
 
 (defn environment-status
   "Produce a response body for a single environment."
@@ -26,30 +26,34 @@
 (defn environments-app
   [version & optional-handlers]
   (let [param-spec {:optional paging/query-params}]
-    (app
-     []
-     (http-q/query-route-from "environments" version param-spec)
+    {"" (http-q/query-route-from' "environments" version param-spec)
 
-     [environment]
-     (-> (fn [{:keys [globals]}]
-           (environment-status version environment
-                               (select-keys globals [:scf-read-db :warn-experimental :url-prefix])))
-         ;; Being a singular item, querying and pagination don't really make
-         ;; sense here
-         (validate-query-params {}))
+     ["/" :environment]
+     (bring/wrap-middleware {"" (fn [{:keys [globals route-params]}]
+                                  (environment-status version (:environment route-params)
+                                                      (select-keys globals [:scf-read-db :warn-experimental :url-prefix])))}
+                            (fn [app] (validate-query-params app {})))
 
-     [environment "facts" &]
-     (-> (f/facts-app version true (partial http-q/restrict-query-to-environment environment))
-         (wrap-with-parent-check version :environment environment))
+     ["/" :environment "/facts"]
+     (bring/wrap-middleware {"" (f/facts-app version true http-q/restrict-query-to-environment')}
+                            (fn [app]
+                              (fn [{:keys [route-params] :as req}]
+                                ((wrap-with-parent-check app version :environment (:environment route-params)) req))))
 
-     [environment "resources" &]
-     (-> (r/resources-app version true (partial http-q/restrict-query-to-environment environment))
-         (wrap-with-parent-check version :environment environment))
+     ["/" :environment "/resources"]
+     (bring/wrap-middleware {"" (r/resources-app version true http-q/restrict-query-to-environment')}
+                            (fn [app]
+                              (fn [{:keys [route-params] :as req}]
+                                ((wrap-with-parent-check app version :environment (:environment route-params)) req))))
 
-     [environment "events" &]
-     (-> (ev/events-app version (partial http-q/restrict-query-to-environment environment))
-         (wrap-with-parent-check version :environment environment))
+     ["/" :environment "/events"]
+     (bring/wrap-middleware {"" (ev/events-app version http-q/restrict-query-to-environment')}
+                            (fn [app]
+                              (fn [{:keys [route-params] :as req}]
+                                ((wrap-with-parent-check app version :environment (:environment route-params)) req))))
 
-     [environment "reports" &]
-     (-> (rp/reports-app version (partial http-q/restrict-query-to-environment environment))
-         (wrap-with-parent-check version :environment environment)))))
+     ["/" :environment "/reports"]
+     (bring/wrap-middleware {"" (rp/reports-app version http-q/restrict-query-to-environment')}
+                            (fn [app]
+                              (fn [{:keys [route-params] :as req}]
+                                ((wrap-with-parent-check app version :environment (:environment route-params)) req))))}))

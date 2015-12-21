@@ -4,10 +4,12 @@
             [puppetlabs.puppetdb.http.facts :as f]
             [puppetlabs.puppetdb.http.resources :as r]
             [puppetlabs.puppetdb.http.query :as http-q]
-            [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.middleware :refer [validate-query-params
-                                                    wrap-with-parent-check]]
-            [puppetlabs.puppetdb.http :as http]))
+                                                    wrap-with-parent-check
+                                                    wrap-with-parent-check']]
+            [puppetlabs.puppetdb.http :as http]
+            [bidi.bidi :as bidi]
+            [bidi.ring :as bring]))
 
 (defn node-status
   "Produce a response body for a single environment."
@@ -24,24 +26,18 @@
 (defn node-app
   [version]
   (let [param-spec {:optional paging/query-params}]
-    (app
-     []
-     (http-q/query-route-from "nodes" version param-spec
-                              [http-q/restrict-query-to-active-nodes])
-
-     [node]
-     (-> (fn [{:keys [globals]}]
-           (node-status version
-                        node
-                        (select-keys globals [:scf-read-db :url-prefix :warn-experimental])))
-         ;; Being a singular item, querying and pagination don't really make
-         ;; sense here
-         (validate-query-params {}))
-
-     [node "facts" &]
-     (-> (f/facts-app version true (partial http-q/restrict-query-to-node node))
-         (wrap-with-parent-check version :node node))
-
-     [node "resources" &]
-     (-> (r/resources-app version true (partial http-q/restrict-query-to-node node))
-         (wrap-with-parent-check version :node node)))))
+    {"" (http-q/query-route-from' "nodes" version param-spec
+                                  [http-q/restrict-query-to-active-nodes])
+     ["/" :node] (-> (fn [{:keys [globals route-params]}]
+                   (node-status version
+                                (:node route-params)
+                                (select-keys globals [:scf-read-db :url-prefix :warn-experimental])))
+                 ;; Being a singular item, querying and pagination don't really make
+                 ;; sense here
+                 (validate-query-params {})) 
+     ["/" :node "/facts"]
+     (bring/wrap-middleware (f/facts-app version true http-q/restrict-query-to-node')
+                            (fn [app] (wrap-with-parent-check' app version :node)))
+     ["/" :node "/resources"]
+     (bring/wrap-middleware (r/resources-app version true http-q/restrict-query-to-node')
+                            (fn [app] (wrap-with-parent-check' app version :node)))}))

@@ -9,8 +9,8 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [schema.core :as s]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.middleware :refer [wrap-with-parent-check]]
-            [net.cgrand.moustache :refer [app]]))
+            [puppetlabs.puppetdb.middleware :refer [wrap-with-parent-check wrap-with-parent-check']]
+            [bidi.ring :as bring]))
 
 (defn catalog-status
   "Produce a response body for a request to retrieve the catalog for `node`."
@@ -28,19 +28,13 @@
 (defn catalog-app
   [version & optional-handlers]
   (let [param-spec {:optional paging/query-params}]
-    (app
-     []
-     (http-q/query-route-from "catalogs" version param-spec optional-handlers)
-
-     [node]
-     (fn [{:keys [globals]}]
-       (catalog-status version node
-                       (select-keys globals [:scf-read-db :url-prefix :warn-experimental])))
-
-     [node "edges" &]
-     (-> (edges/edges-app version false (partial http-q/restrict-query-to-node node))
-         (wrap-with-parent-check version :catalog node))
-
-     [node "resources" &]
-     (-> (resources/resources-app version false (partial http-q/restrict-query-to-node node))
-         (wrap-with-parent-check version :catalog node)))))
+    {"" (http-q/query-route-from' "catalogs" version param-spec optional-handlers)
+     ["/" :node] (fn [{:keys [globals route-params]}]
+               (catalog-status version (:node route-params)
+                               (select-keys globals [:scf-read-db :url-prefix :warn-experimental])))
+     ["/" :node "/edges"]
+     (bring/wrap-middleware (edges/edges-app version false http-q/restrict-query-to-node')
+                            (fn [app] (wrap-with-parent-check' app version :catalog)))
+     ["/" :node "/resources"]
+     (bring/wrap-middleware (resources/resources-app version false http-q/restrict-query-to-node')
+                            (fn [app] (wrap-with-parent-check' app version :catalog)))}))

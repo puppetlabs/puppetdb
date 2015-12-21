@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.meta
   (:require [clojure.tools.logging :as log]
-            [net.cgrand.moustache :as moustache]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.middleware
              :refer [verify-accepts-json wrap-with-globals validate-no-query-params]]
@@ -10,7 +9,9 @@
             [slingshot.slingshot :refer [try+]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.meta.version :as v]
-            [puppetlabs.puppetdb.config :as conf]))
+            [puppetlabs.puppetdb.config :as conf]
+            [bidi.bidi :as bidi]
+            [bidi.ring :as bring]))
 
 (defn current-version-fn
   "Returns a function that always returns a JSON object with the running
@@ -50,18 +51,12 @@
           (http/error-response
            (format "Error when checking for latest version: %s" e)))))))
 
-(defn version-routes
-  [get-shared-globals config]
-  (moustache/app [""] (current-version-fn (v/version))
-                 ["latest"] (latest-version-fn get-shared-globals config)))
-
-(def server-time-routes
-  (moustache/app [""] (fn [_] (http/json-response {:server_time (now)}))))
-
 (defn routes
   [get-shared-globals config]
-  (moustache/app ["v1" "version" &] {:any (version-routes get-shared-globals config)}
-                 ["v1" "server-time" &] {:any server-time-routes}))
+  (let [route-data ["/v1" {"/version" {"" (current-version-fn (v/version))
+                                       "/latest" (latest-version-fn get-shared-globals config)}
+                           "/server-time" (fn [_] (http/json-response {:server_time (now)}))}]]
+    (bring/make-handler route-data identity)))
 
 (defn build-app
   [get-shared-globals config]

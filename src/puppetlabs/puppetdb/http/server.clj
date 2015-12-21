@@ -9,9 +9,11 @@
             [puppetlabs.puppetdb.middleware :refer [wrap-with-globals
                                                     wrap-with-metrics
                                                     wrap-with-illegal-argument-catch
-                                                    verify-accepts-json]]
-            [net.cgrand.moustache :refer [app]]
-            [ring.util.response :as rr]))
+                                                    verify-accepts-json
+                                                    make-pdb-handler]]
+            [ring.util.response :as rr]
+            [bidi.bidi :as bidi]
+            [bidi.ring :as bring]))
 
 (defn- refuse-retired-api
   [version]
@@ -21,11 +23,10 @@
     404)))
 
 (def routes
-  (app
-    ["v4" &] {:any v4-app}
-    ["v1" &] {:any (refuse-retired-api "v1")}
-    ["v2" &] {:any (refuse-retired-api "v2")}
-    ["v3" &] {:any (refuse-retired-api "v3")}))
+  ["" {"/v1" [[true (refuse-retired-api "v1")]]
+       "/v2" [[true (refuse-retired-api "v2")]]
+       "/v3" [[true (refuse-retired-api "v3")]]
+       "/v4" v4-app}])
 
 (defn build-app
   "Generates a Ring application that handles PuppetDB requests.
@@ -35,8 +36,10 @@
    if authorize returns :authorized.  Otherwise, the return value
    should be a message describing the reason that access was denied."
   [get-shared-globals]
-  (-> routes
-      wrap-with-illegal-argument-catch
-      verify-accepts-json
-      (wrap-with-metrics (atom {}) http/leading-uris)
-      (wrap-with-globals get-shared-globals)))
+  (fn [req]
+    (let [handler (-> (make-pdb-handler routes identity)
+                      wrap-with-illegal-argument-catch
+                      verify-accepts-json
+                      (wrap-with-metrics (atom {}) http/leading-uris)
+                      (wrap-with-globals get-shared-globals))]
+      (handler req))))

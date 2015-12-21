@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.http.facts
   (:require [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [net.cgrand.moustache :refer [app]]))
+            [bidi.ring :as bring]))
 
 (defn facts-app
   ([version] (facts-app version true))
@@ -11,16 +11,18 @@
                    identity)
          handlers (cons handler optional-handlers)
          param-spec {:optional paging/query-params}
-         query-route (partial http-q/query-route-from "facts" version param-spec)]
-     (app
-      []
+         query-route (partial http-q/query-route-from' "facts" version param-spec)]
+     {"" 
       (query-route handlers)
 
-      [fact value &]
+      ["/" :fact "/" :value]
       (query-route (concat handlers
-                           [(partial http-q/restrict-fact-query-to-name fact)
-                            (partial http-q/restrict-fact-query-to-value value)]))
+                           [(fn [{:keys [route-params] :as req}]
+                              (http-q/restrict-fact-query-to-name (:fact route-params) req))
+                            (fn [{:keys [route-params] :as req}]
+                              (http-q/restrict-fact-query-to-value (:value route-params) req))]))
 
-      [fact &]
+      ["/" :fact]
       (query-route (concat handlers
-                           [(partial http-q/restrict-fact-query-to-name fact)]))))))
+                           [(fn [{:keys [route-params] :as req}]
+                              (http-q/restrict-fact-query-to-name (:fact route-params) req))]))})))

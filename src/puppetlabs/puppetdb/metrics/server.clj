@@ -1,30 +1,24 @@
 (ns puppetlabs.puppetdb.metrics.server
   (:require [clojure.string :as str]
-            [net.cgrand.moustache :refer [app]]
+            [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.http :as http]
-            [clojure.string :as str]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.middleware :as mid]))
 
-(def v1-app
-  (app
-   []
-   {:get (fn [_] (http/json-response
-                  (metrics/mbean-names)))}
-
-   [& names]
-   ;; Convert the given / separated mbean name from a shortened
-   ;; 'commands' type to the longer form needed by the metrics beans.
-   {:get (fn [_] (let [name (str/join "/" names)
-                       mbean (metrics/get-mbean name)]
-                   (if mbean
-                     (http/json-response mbean)
-                     (http/status-not-found-response "mbean" name))))}))
-
 (def routes
-  (app
-   ["v1" "mbeans" &]
-   {:any v1-app}))
+  (cmdi/routes
+   (cmdi/context "/v1/mbeans"
+                 (cmdi/ANY "" []
+                           (fn [req]
+                             (http/json-response
+                              (metrics/mbean-names))))
+                 (cmdi/ANY ["/" [#".*" :names]] []
+                           (fn [{:keys [route-params] :as req}]
+                             (let [name (java.net.URLDecoder/decode (:names route-params))
+                                   mbean (metrics/get-mbean name)]
+                               (if mbean
+                                 (http/json-response mbean)
+                                 (http/status-not-found-response "mbean" name))))))))
 
 (defn build-app
   "Generates a Ring application that handles metrics requests.
@@ -35,6 +29,8 @@
   should be a message describing the reason that access was denied."
   [cert-whitelist]
   (-> routes
+      mid/make-pdb-handler 
       mid/verify-accepts-json
       mid/validate-no-query-params
       (mid/wrap-with-puppetdb-middleware cert-whitelist)))
+

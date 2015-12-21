@@ -152,7 +152,10 @@
   (let [report-hash (:hash (store-example-report! (:basic reports) (now)))
         basic (assoc (:basic reports) :hash report-hash)
         get-data (fn [hash field]
-                   (query-result method (format "/v4/reports/%s/%s" hash field)))]
+                   (let [res (query-result method (format "/v4/reports/%s/%s" hash field))]
+                     (println "res")
+                     (clojure.pprint/pprint res)
+                     res))]
     (testing (format "%s endpoint returns the proper data" (name field))
       (is (= (get-data report-hash (name field))
              (-> basic field :data set))))))

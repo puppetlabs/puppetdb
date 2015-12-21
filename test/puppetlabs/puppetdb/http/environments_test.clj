@@ -211,6 +211,8 @@
     (is (= false (eng/object-exists? :environment "ussr"))))
 
   (let [{:keys [status body]} (query-response method endpoint)]
+    (println "just got the following body:")
+    (clojure.pprint/pprint body)
     (is (= status http/status-not-found))
     (is (= {:error "No information is known about environment foo"}
            (json/parse-string body true)))))
