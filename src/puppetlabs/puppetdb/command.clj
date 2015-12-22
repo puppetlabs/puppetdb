@@ -310,7 +310,10 @@
      id (command uuid)."))
 
 (defn make-cmd-processed-message [cmd ex]
-  (merge {:id (-> cmd :annotations :id)}
+  (merge {:id (-> cmd :annotations :id)
+          :command (:command cmd)
+          :version (:version cmd)
+          :producer-timestamp (-> cmd :payload :producer_timestamp)}
          (when ex {:exception ex})))
 
 (defn process-command-and-respond! [cmd db response-pub-chan stats-atom]
