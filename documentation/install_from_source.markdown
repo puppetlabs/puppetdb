@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » Installing PuppetDB from Source"
+title: "PuppetDB 3.2: Installing PuppetDB from source"
 layout: default
 canonical: "/puppetdb/latest/install_from_source.html"
 ---
@@ -11,13 +11,13 @@ canonical: "/puppetdb/latest/install_from_source.html"
 [packages]: ./install_from_packages.html
 [migrating]: ./migrate.html
 
-> **Note:** If you are running Puppet Enterprise 3.0 or later, PuppetDB is already installed as part of PE. You do not need to install it separately.
+> **Note:** If you are running Puppet Enterprise version 3.0 or later, you do not need to install PuppetDB, as it is already installed as part of PE.
 
-This page describes how to install PuppetDB from source code, or alternatively how to run it directly from source without installing.
+This page describes how to install PuppetDB from source code, and how to run PuppetDB directly from source without installing.
 
-If possible, we recommend installing PuppetDB [with the puppetlabs-puppetdb module][module] or [from packages][packages]; either approach will be easier. However, if you are testing a new version, developing PuppetDB, or installing it on a system not supported with official packages, you will need to install it from source.
+If possible, we recommend installing PuppetDB [with the puppetlabs-puppetdb module][module] or [from packages][packages]; either approach will be easier than installing from source. However, if you are testing a new version, developing PuppetDB, or installing it on a system not supported with official packages, you will need to install PuppetDB from source.
 
-Step 1: Install Prerequisites
+Step 1: Installation prerequisites
 -----
 
 Use your system's package tools to ensure that the following prerequisites are installed:
@@ -30,7 +30,7 @@ Use your system's package tools to ensure that the following prerequisites are i
 * Git (for checking out the source code)
 * Rake (version 0.9.6 or higher)
 
-Step 2, Option A: Install from Source
+Step 2, option A: Install from source
 -----
 
 Install Leiningen:
@@ -60,7 +60,7 @@ Now unpack the tarball to prepare for installation:
     $ tar -xzf puppetdb-*.tar.gz
     $ cd puppetdb-*
 
-Now to perform a full installation of the service and the termini code (usually when running PuppetDB on the same host as the Puppet Server):
+To perform a full installation of the service and the PuppetDB-termini code (usually the best choice when running PuppetDB on the same host as the Puppet Server):
 
     $ sudo bash install.sh all
 
@@ -68,15 +68,15 @@ Otherwise, for service only:
 
     $ sudo bash install.sh service
 
-And for terminus code only:
+Or for terminus code only:
 
     $ sudo bash install.sh termini
 
-Step 2, Option B: Run Directly from Source
+Step 2, option B: Run directly from source
 -----
 
 While installing from source is useful for simply running a development version
-for testing, for development it's better to be able to run *directly* from
+for testing, for development it's better to be able to run **directly** from
 source, without any installation step.
 
 Run the following commands:
@@ -92,11 +92,10 @@ This will let you develop on PuppetDB and see your changes by simply editing the
 
     $ lein run services -c /path/to/config.ini
 
-A sample config file is provided in the root of the source repo:  `config.sample.ini`. You can also provide a conf.d-style directory instead of a flat config file.
+A sample config file is provided in the root of the source repo: `config.sample.ini`. You can also provide a conf.d-style directory instead of a flat config file.
 
 In order to run the local test suite, you will first need to have a
-PostgreSQL instance [configured][configure_postgres], and then you
-will need to create the test users:
+PostgreSQL instance [configured][configure_postgres], and will need to create the test users:
 
     $ createuser -DRSP pdb_test
     $ createuser -dRsP pdb_test_admin
@@ -120,14 +119,14 @@ you can set PDB\_TEST\_PRESERVE\_DB\_ON\_FAIL to true:
 
     $ PDB\_TEST\_KEEP\_DB\_ON\_FAIL=true lein test
 
-Step 3: Configure Database
+Step 3: Configure a database
 -----
 
 In most cases you should [set up a PostgreSQL server and configure PuppetDB to use it][configure_postgres]. You may also need to [adjust the maximum heap size][configure_heap].
 
-You can change PuppetDB's database at any time while the service is shutdown, but note that changing the database does not migrate PuppetDB's data, so the new database will be empty.
+You can change PuppetDB's database at any time while the service is shut down, but note that changing the database does not migrate PuppetDB's data, so the new database will be empty.
 
-Step 4: Start the PuppetDB Service
+Step 4: Start the PuppetDB service
 -----
 
 If you _installed_ PuppetDB from source, you can start PuppetDB by running the following:
