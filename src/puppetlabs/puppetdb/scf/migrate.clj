@@ -1575,9 +1575,11 @@
           results (jdbc/with-db-transaction []  (query-to-vec query))]
       (apply sorted-set (map :version results)))
     (catch java.sql.SQLException e
-      (let [message (.getMessage e)]
-        (if (or (re-find #"object not found: SCHEMA_MIGRATIONS" message)
-                (re-find #"\"schema_migrations\" does not exist" message))
+      (let [message (.getMessage e)
+            sql-state (.getSQLState e)]
+        (if (and (or (= sql-state "42P01") ; postgresql: undefined_table
+                     (= sql-state "42501")) ; hsqldb: user lacks privilege or object not found
+                 (re-find #"(?i)schema_migrations" message))
           (sorted-set)
           (throw e))))))
 
