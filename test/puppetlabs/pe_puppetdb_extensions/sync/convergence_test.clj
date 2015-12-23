@@ -21,7 +21,9 @@
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
-            [puppetlabs.trapperkeeper.app :refer [get-service]])
+            [puppetlabs.trapperkeeper.app :refer [get-service]]
+            [puppetlabs.pe-puppetdb-extensions.sync.services :as services]
+            [puppetlabs.pe-puppetdb-extensions.sync.bucketed-summary :as bucketed-summary] )
   (:import
    [org.joda.time Period DateTime]))
 
@@ -174,8 +176,12 @@
 (defn- sync-directly! [pdb remote-url]
   (let [server (:server pdb)
         pdb-service (get-service server :PuppetDBServer)
-        dispatcher (get-service server :PuppetDBCommandDispatcher)]
+        sync-service (get-service server :PuppetDBSync)
+        dispatcher (get-service server :PuppetDBCommandDispatcher)
+        globals (cli-svcs/shared-globals pdb-service)
+        scf-read-db (:scf-read-db globals)]
     (sync-from-remote! (partial cli-svcs/query pdb-service)
+                       (partial bucketed-summary/bucketed-summary-query scf-read-db)
                        (partial dispatch/enqueue-command dispatcher)
                        {:url remote-url}
                        Period/ZERO)))

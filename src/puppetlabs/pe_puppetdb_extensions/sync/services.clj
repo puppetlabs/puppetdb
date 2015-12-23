@@ -8,16 +8,22 @@
             [puppetlabs.puppetdb.time :refer [to-millis periods-equal? parse-period period?]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote! with-trailing-slash]]
+            [puppetlabs.pe-puppetdb-extensions.sync.bucketed-summary :as bucketed-summary]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [get-service]]
             [puppetlabs.puppetdb.utils :as utils :refer [throw+-cli-error!]]
-            [compojure.core :refer [routes POST] :as compojure]
+            [compojure.core :refer [routes GET POST] :as compojure]
             [schema.core :as s]
             [clj-time.coerce :refer [to-date-time]]
             [slingshot.slingshot :refer [throw+ try+]]
             [com.rpl.specter :as sp]
             [clojure.core.async :as async]
-            [puppetlabs.puppetdb.http :as http]))
+            [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]))
+
+(defprotocol PuppetDBSync
+  (bucketed-summary-query [this entity timespans]))
 
 (def currently-syncing (atom false))
 
@@ -38,9 +44,9 @@
   (-> (select-keys jetty-config [:ssl-cert :ssl-key :ssl-ca-cert])
       (assoc :url (query-endpoint server-url))))
 
-(defn- sync-with! [remote-server query-fn enqueue-command-fn node-ttl]
+(defn- sync-with! [remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl]
   (if (compare-and-set! currently-syncing false true)
-    (try (sync-from-remote! query-fn enqueue-command-fn remote-server node-ttl)
+    (try (sync-from-remote! query-fn bucketed-summary-query-fn enqueue-command-fn remote-server node-ttl)
          {:status 200 :body "success"}
          (catch Exception ex
            (let [err "Remote sync from %s failed"
@@ -48,7 +54,7 @@
              (maplog [:sync :error] ex
                             {:remote url :phase "sync"}
                             (format err url))
-             (log/error ex err url)
+             (log/errorf ex err url)
              {:status 200 :body (format err url)}))
          (finally (swap! currently-syncing (constantly false))))
     (let [err "Refusing to sync from %s. Sync already in progress."
@@ -130,14 +136,14 @@
 
                   :priority true))))
 
-(defn blocking-sync [remote-server query-fn enqueue-command-fn node-ttl response-mult]
+(defn blocking-sync [remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl response-mult]
   (let [remote-url (:url remote-server)
         submitted-commands-chan (async/chan)
         processed-commands-chan (async/chan 10000)
         _ (async/tap response-mult processed-commands-chan)
         finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)]
     (try
-      (sync-from-remote! query-fn enqueue-command-fn remote-server node-ttl submitted-commands-chan)
+      (sync-from-remote! query-fn bucketed-summary-query-fn enqueue-command-fn remote-server node-ttl submitted-commands-chan)
       (async/close! submitted-commands-chan)
       (maplog [:sync :info] {:remote remote-url}
               "Done submitting local commands for blocking sync. Waiting for commands to finish processing...")
@@ -158,7 +164,7 @@
 
 (defn sync-app
   "Top level route for PuppetDB sync"
-  [get-config query-fn enqueue-command-fn response-mult]
+  [get-config query-fn bucketed-summary-query-fn enqueue-command-fn response-mult get-shared-globals]
   (let [{{node-ttl :node-ttl} :database
          sync-config :sync
          jetty-config :jetty} (get-config)
@@ -169,6 +175,10 @@
                                   remotes-config
                                   jetty-config)]
     (routes
+     (GET "/v1/reports-summary" []
+          (let [summary-map (bucketed-summary/bucketed-summary-query (:scf-read-db (get-shared-globals)) :reports nil)]
+            (http/json-response (ks/mapkeys str summary-map))))
+
      (POST "/v1/trigger-sync" {:keys [body params] :as request}
            (let [sync-request (json/parse-string (slurp body) true)
                  remote-url (:remote_host_path sync-request)
@@ -187,19 +197,14 @@
                    (maplog [:sync :info] {:remote (:url remote-server)}
                            "Performing blocking sync with timeout of %s ms" completion-timeout-ms)
                    (async/alt!!
-                     (async/go (blocking-sync remote-server query-fn enqueue-command-fn node-ttl response-mult))
+                     (async/go (blocking-sync remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl response-mult))
                      (http/json-response {:timed_out false} 200)
 
                      (async/timeout completion-timeout-ms)
                      (http/json-response {:timed_out true} 503)))
 
                  :else
-                 (sync-with! remote-server query-fn enqueue-command-fn node-ttl))))))))
-
-(defprotocol PuppetDBSync
-  ;;Marker protocol to allow services to depend on the
-  ;;puppetdb-sync-service below
-  )
+                 (sync-with! remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl))))))))
 
 (defservice puppetdb-sync-service
   PuppetDBSync
@@ -212,26 +217,40 @@
                 sync-config :sync
                 jetty-config :jetty} (get-config)
                remotes-config (:remotes sync-config)]
+
+           (jdbc/with-db-connection (:scf-read-db (shared-globals))
+             (when-not (sutils/pg-extension? "pgcrypto")
+               (throw+-cli-error!
+                (str "Missing PostgreSQL extension `pgcrypto`\n\n"
+                     "Puppet Enterprise requires the pgcrypto extension to be installed. \n"
+                     "Run the command:\n\n"
+                     "    CREATE EXTENSION pgcrypto;\n\n"
+                     "as the database super user on the PuppetDB database install it,\n"
+                     "then restart PuppetDB.\n"))))
+
            (if (enable-periodic-sync? remotes-config)
              (let [{:keys [interval server-url]} (first remotes-config)
                    remote-server (make-remote-server (str server-url) jetty-config)]
                (try+
                 (maplog [:sync :info] {:remote (str server-url)}
                         "Performing initial blocking sync from {remote}...")
-                (blocking-sync remote-server query enqueue-command node-ttl (response-mult))
+                (blocking-sync remote-server query (partial bucketed-summary-query this)
+                               enqueue-command node-ttl (response-mult))
                 (catch [:type ::message-processing-timeout] _
                   ;; Something is very wrong if we hit this timeout; rethrow the
                   ;; exception to crash the server.
                   (throw+))
+                ;; any other exception is basically ok; just log a warning and
+                ;; keep on going.
+                (catch [] ex
+                  (log/warn ex "Could not perform initial sync"))
                 (catch Exception ex
-                  ;; any other exception is basically ok; just log a warning and
-                  ;; keep on going.
                   (log/warn ex "Could not perform initial sync")))
                (assoc context
                       :scheduled-sync
                       (atat/interspaced (to-millis interval)
                                         #(sync-with! remote-server
-                                                     query enqueue-command
+                                                     query (partial bucketed-summary-query this) enqueue-command
                                                      node-ttl)
                                         (atat/mk-pool))))
              context)))
@@ -241,4 +260,9 @@
           (log/info "Stopping pe-puppetdb sync")
           (atat/stop s)
           (log/info "Stopped pe-puppetdb sync"))
-        context))
+        context)
+
+  (bucketed-summary-query [this entity timespans]
+    (bucketed-summary/bucketed-summary-query (:scf-read-db (shared-globals))
+                                             entity
+                                             timespans)))

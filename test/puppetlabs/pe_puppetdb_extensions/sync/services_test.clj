@@ -7,7 +7,13 @@
             [clj-time.core :refer [seconds]]
             [puppetlabs.puppetdb.time :refer [period? periods-equal? parse-period]]
             [clojure.core.async :as async]
-            [puppetlabs.kitchensink.core :as ks]))
+            [puppetlabs.kitchensink.core :as ks]
+            [puppetlabs.puppetdb.examples.reports :as report-examples]
+            [puppetlabs.puppetdb.reports :as reports]
+            [puppetlabs.pe-puppetdb-extensions.testutils :as utils
+             :refer [with-ext-instances blocking-command-post]]
+            [puppetlabs.puppetdb.testutils.services :as svcs]
+            [puppetlabs.puppetdb.cheshire :as json]))
 
 (deftest enable-periodic-sync?-test
   (testing "Happy case"
@@ -72,3 +78,21 @@
       (async/>!! submitted-commands-chan {:id cmd-1})
       (async/close! processed-commands-chan)
       (is (= :shutting-down (async/<!! finished-sync))))))
+
+(deftest test-reports-summary-query
+  (testing "no reports"
+    (with-ext-instances [pdb (utils/sync-config nil)]
+      (is (= {} (svcs/get-json (utils/sync-url) "/reports-summary")))))
+
+  (testing "two reports"
+    (with-ext-instances [pdb (utils/sync-config nil)]
+     (let [report (assoc (:basic report-examples/reports)
+                         :producer_timestamp "2014-01-01T08:05:00.000Z")
+           report2 (assoc (:basic2 report-examples/reports)
+                          :producer_timestamp "2014-01-01T09:01:00.000Z")]
+       (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report))
+       (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report2))
+       (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
+             expected {"2014-01-01T08:00:00.000Z" "ff9fd7a2c2459280c30632d3390345b5"
+                       "2014-01-01T09:00:00.000Z" "ee94b04f27d6f844bcac35cffe841d93"}]
+         (is (= expected actual)))))))

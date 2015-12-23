@@ -60,26 +60,28 @@
   All queries are logged to `requests-atom`."
   [path requests-atom stub-data-atom record-identity-key]
   (routes (GET path {query-params :query-params}
-               (let [stub-data @stub-data-atom
-                     stub-data-index (index-by record-identity-key stub-data)
-                     summary-data (map #(select-keys % [:certname :hash :producer_timestamp]) stub-data)]
-                 (when-let [query (vec (json/parse-string (query-params "query")))]
-                   (swap! requests-atom conj query)
-                   (cond
-                     (= "extract" (first query))
-                     (json-response summary-data)
+            (let [stub-data @stub-data-atom
+                  stub-data-index (index-by record-identity-key stub-data)
+                  summary-data (map #(select-keys % [:certname :hash :producer_timestamp]) stub-data)]
+              (when-let [query (vec (json/parse-string (query-params "query")))]
+                (swap! requests-atom conj query)
+                (cond
+                  (= "extract" (first query))
+                  (json-response summary-data)
 
-                     (and (= "and") (first query)
-                          (= ["=" (name record-identity-key)] (take 2 (second query))))
-                     (let [[_ [_ _ record-hash]] query]
-                       (json-response [(get stub-data-index record-hash)]))))))
+                  (and (= "and") (first query)
+                       (= ["=" (name record-identity-key)] (take 2 (second query))))
+                  (let [[_ [_ _ record-hash]] query]
+                    (json-response [(get stub-data-index record-hash)]))))))
 
           ;; fallback routes, for data that wasn't explicitly stubbed
-          (context "/pdb-x/v4" []
-                   (GET "/reports" [] (json-response []))
-                   (GET "/factsets" [] (json-response []))
-                   (GET "/catalogs" [] (json-response []))
-                   (GET "/nodes" [] (json-response [])))))
+          (GET "/pdb-x/sync/v1/reports-summary" []
+            (json-response {}))
+          (context "/pdb-x/query/v4" []
+            (GET "/reports" [] (json-response []))
+            (GET "/factsets" [] (json-response []))
+            (GET "/catalogs" [] (json-response []))
+            (GET "/nodes" [] (json-response [])))))
 
 (defn trigger-sync [source-pdb-url dest-sync-url]
  (http/post dest-sync-url

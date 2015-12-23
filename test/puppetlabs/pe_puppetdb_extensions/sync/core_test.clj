@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [sync])
   (:require [clojure.test :refer :all :exclude [report]]
             [clj-time.core :as t]
+            [clj-time.coerce :refer [to-date-time]]
             [puppetlabs.pe-puppetdb-extensions.sync.core :as sync-core]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [blocking-command-post with-puppetdb-instance]]
@@ -79,6 +80,11 @@
                                               (t/now)
                                               (parse-period "0s"))))))))
 
+(deftest diff-bucketed-summaries-test
+  (let [local  {#inst "2014-01-01" "123", #inst "2014-01-02" "2345", #inst "2014-12-31" "34ab"}
+        remote {#inst "2014-01-01" "123", #inst "2014-01-02" "abcd", #inst "2014-01-03" "a123"}]
+    (is (= [#inst "2014-01-02" #inst "2014-01-03"]
+           (sync-core/diff-bucketed-summaries local remote)))))
 
 ;;; Tests for the test infrastructure
 

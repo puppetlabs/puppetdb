@@ -8,7 +8,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [cheshire.core :as cheshire]
             [clj-time.core :as t]
-            [clj-time.coerce :as tc :refer [to-timestamp from-sql-date]]
+            [clj-time.coerce :as tc :refer [to-timestamp from-sql-date to-date-time]]
             [clj-time.format :as tf]
             [clojure.tools.logging :as log]
             [slingshot.slingshot :refer [try+ throw+]]
@@ -21,20 +21,13 @@
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [schema.core :as s]
             [puppetlabs.kitchensink.core :as ks]
-            [clojure.core.async :as async]))
+            [clojure.core.async :as async]
+            [puppetlabs.puppetdb.http.query :as http-q]
+            [puppetlabs.pe-puppetdb-extensions.sync.bucketed-summary :refer [pdb-query-condition-for-buckets]]))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; How to sync each entity
 
 (def report-key (juxt :certname :producer_timestamp))
-
-(defn clean-up-resource-event
-  "The resource events we get back from a query have a lot of derived fields;
-  only keep the ones we can re-submit."
-  [resource-event]
-  (select-keys resource-event
-               [:status :timestamp :resource_type :resource_title :property
-                :new_value :old_value :message :file :line :containment_path]))
 
 (defn clean-up-edge [edge]
   {:source {:type (:source_type edge)
@@ -61,14 +54,24 @@
 
 (def sync-configs
   [{:entity :reports
+
+    ;; The first step of entity sync is to request a short summary of the
+    ;; records present on the remote system, bucketed by hour, with a hash of
+    ;; the contents of the bucket. This will be compared with the same query
+    ;; against the local database and used to request the full record listing
+    ;; for only the time spans which differ between the two machines.
+    ;;
+    ;; This path is relative to the 'query' endpoint. (/pdb/query/v4)
+    :bucketed-summary-query-path "../../sync/v1/reports-summary"
+
     ;; On each side of the sync, we use this query to get
     ;; information about the identity of each record and a
     ;; hash of its content.
-    :record-hashes-query {:version :v4
-                          :query ["extract" ["hash" "certname" "producer_timestamp"]
-                                  ["and" ["null?" "start_time" false]
-                                         include-inactive-nodes-criteria]]
-                          :order {:order_by [[:certname :ascending] [:producer_timestamp :ascending]]}}
+    :summary-query {:version :v4
+                    :query ["extract" ["hash" "certname" "producer_timestamp"]
+                            ["and" ["null?" "start_time" false]
+                             include-inactive-nodes-criteria]]
+                    :order {:order_by [[:certname :ascending] [:producer_timestamp :ascending]]}}
 
     ;; The above query is done on each side of the sync; the
     ;; two are joined on the result of this function
@@ -76,7 +79,7 @@
 
     ;; When pulling a record from a remote machine, use the value at this key to
     ;; identify it; This should be part of the result you get with
-    ;; `record-hashes-query` above.
+    ;; `summary-query` above.
     :record-fetch-key :hash
 
     ;; If the same record exists on both sides, the result of
@@ -92,10 +95,10 @@
                      :version 6}}
 
    {:entity :factsets
-    :record-hashes-query {:version :v4
-                          :query ["extract" ["hash" "certname" "producer_timestamp"]
-                                            include-inactive-nodes-criteria]
-                          :order {:order_by [[:certname :ascending]]}}
+    :summary-query {:version :v4
+                    :query ["extract" ["hash" "certname" "producer_timestamp"]
+                            include-inactive-nodes-criteria]
+                    :order {:order_by [[:certname :ascending]]}}
     :record-id-fn :certname
     :record-fetch-key :certname
     :record-ordering-fn (juxt :producer_timestamp :hash)
@@ -108,10 +111,10 @@
                      :version 4}}
 
    {:entity :catalogs
-    :record-hashes-query {:version :v4
-                          :query ["extract" ["hash" "certname" "producer_timestamp"]
-                                            include-inactive-nodes-criteria]
-                          :order {:order_by [[:certname :ascending]]}}
+    :summary-query {:version :v4
+                    :query ["extract" ["hash" "certname" "producer_timestamp"]
+                            include-inactive-nodes-criteria]
+                    :order {:order_by [[:certname :ascending]]}}
     :record-id-fn :certname
     :record-fetch-key :certname
     :record-ordering-fn (juxt :producer_timestamp :hash)
@@ -123,15 +126,14 @@
                      :version 7}}
 
    {:entity :nodes
-    :record-hashes-query {:version :v4
-                          :query include-inactive-nodes-criteria
-                          :order {:order_by [[:certname :ascending]]}}
+    :summary-query {:version :v4
+                    :query include-inactive-nodes-criteria
+                    :order {:order_by [[:certname :ascending]]}}
     :record-id-fn :certname
     :record-fetch-key :certname
     :record-ordering-fn :deactivated
     :clean-up-record-fn identity}])
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utils
 
 (defn is-error-status? [status-code]
@@ -198,7 +200,6 @@
       (events/failed-request!)
       (throw e))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Data format transformations
 
 (defn order-by-clause-to-wire-format
@@ -240,7 +241,79 @@
   [record]
   (dissoc record :hash :receive_time :timestamp))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Join functions
+
+(defn outer-join-unique-sorted-seqs
+  "Outer join two seqs, `xs` and `ys`, that are sorted and unique under
+  `id-fn`. Returns a lazy seq of vectors `([x1 y1] [x2 y2] [x3 nil] [nil y4] ...)`"
+  [id-fn xs ys]
+  (lazy-seq
+   (when (or (seq xs) (seq ys))
+     (let [x (first xs)
+           y (first ys)
+           id-comparison (and x y (compare (id-fn x) (id-fn y)))
+           result (cond
+                    (nil? y) [x nil]              ; xs is empty
+                    (nil? x) [nil y]              ; ys is empty
+                    (neg? id-comparison) [x nil]  ; not equal, and x goes first
+                    (zero? id-comparison) [x y]
+                    (pos? id-comparison) [nil y]) ; not equal, and y goes first
+           [result-x result-y] result]
+       (cons result (outer-join-unique-sorted-seqs id-fn
+                                                   (if result-x (rest xs) xs)
+                                                   (if result-y (rest ys) ys)))))))
+
+(defn right-join-unique-sorted-seqs [id-fn xs ys]
+  (->> (outer-join-unique-sorted-seqs id-fn xs ys)
+       (filter second)))
+
+;;; Bucketed summary
+
+(defn remote-bucketed-summary-query
+  "Perform the bucketed summary query at `remote-server`, as specified in
+  `sync-config`. "
+  [remote-server sync-config]
+  (let [{path :bucketed-summary-query-path entity :entity} sync-config
+        error-message-fn (fn [status body]
+                           (format (str "Error performing bucketed summary query at "
+                                        "%s. Received HTTP status code %s with the "
+                                        "error message '%s'")
+                                   (url-on-remote-server remote-server path) status (slurp body)))]
+    (with-open [body (:body (http-get remote-server path {:throw-entire-message true
+                                                          :as :stream}
+                                      error-message-fn))
+                body-reader (clojure.java.io/reader body)]
+      (ks/mapkeys to-date-time
+                  (json/parse-stream body-reader)))))
+
+(defn diff-bucketed-summaries
+  "Given two bucketed summary maps of the form {bucket-start-timestamp content-hash},
+  return a seq of timestamps whose hashes differ or which are only present in
+  remote."
+  [local remote]
+  (let [local (sort-by key local)
+        remote (sort-by key remote)]
+    (->> (right-join-unique-sorted-seqs key local remote)
+         (keep (fn [[local [bucket-timestamp remote-hash]]]
+                 (let [local-hash (and local (second local))]
+                   (when (not= local-hash remote-hash)
+                     bucket-timestamp)))))))
+
+(defn run-and-compare-bucketed-summary-queries [sync-config remote-server bucketed-summary-query-fn]
+  (when (:bucketed-summary-query-path sync-config)
+    (let [remote (remote-bucketed-summary-query remote-server sync-config)
+          local (bucketed-summary-query-fn (:entity sync-config) nil)]
+      (diff-bucketed-summaries local remote))))
+
+(defn update-summary-query-with-bucket-timespans [sync-config buckets-which-differ]
+  (if buckets-which-differ
+    (let [extra-query-condition (pdb-query-condition-for-buckets buckets-which-differ)]
+      (update-in sync-config [:summary-query :query]
+                 (fn [q] (if extra-query-condition
+                           (http-q/add-criteria extra-query-condition q)
+                           q))))
+    sync-config))
+
 ;;; Pull from remote instance
 
 (defn query-record-and-transfer!
@@ -258,7 +331,7 @@
         query ["and" ["=" (name record-fetch-key) record-fetch-val]
                include-inactive-nodes-criteria]
         qerr-msg (fn [status body]
-                   (str "unable to ask " remote-server " for " entity-name
+                   (str "unable to request " entity-name " from " (:url remote-server)
                         " using query " query "; received "
                         (pr-str {:status status :body body})))]
     (with-sync-events {:context (merge {:phase "record"
@@ -309,30 +382,6 @@
                          {:certname certname :producer_timestamp deactivated})
       true)))
 
-(defn outer-join-unique-sorted-seqs
-  "Outer join two seqs, `xs` and `ys`, that are sorted and unique under
-  `id-fn`. Returns a lazy seq of vectors `([x1 y1] [x2 y2] [x3 nil] [nil y4] ...)`"
-  [id-fn xs ys]
-  (lazy-seq
-   (when (or (seq xs) (seq ys))
-     (let [x (first xs)
-           y (first ys)
-           id-comparison (and x y (compare (id-fn x) (id-fn y)))
-           result (cond
-                    (nil? y) [x nil]              ; xs is empty
-                    (nil? x) [nil y]              ; ys is empty
-                    (neg? id-comparison) [x nil]  ; not equal, and x goes first
-                    (zero? id-comparison) [x y]
-                    (pos? id-comparison) [nil y]) ; not equal, and y goes first
-           [result-x result-y] result]
-       (cons result (outer-join-unique-sorted-seqs id-fn
-                                                   (if result-x (rest xs) xs)
-                                                   (if result-y (rest ys) ys)))))))
-
-(defn right-join-unique-sorted-seqs [id-fn xs ys]
-  (->> (outer-join-unique-sorted-seqs id-fn xs ys)
-       (filter second)))
-
 (defn would-be-expired-locally?
   "If this record existed locally, would it be expired according to our local
   node-ttl settings?"
@@ -365,12 +414,12 @@
       (utils/update-when [:producer_timestamp] to-timestamp)
       (utils/update-when [:deactivated] to-timestamp)))
 
-(defn streamed-summary-query
+(defn remote-streamed-summary-query
   "Perform the summary query at `remote-server`, as specified in
   `sync-config`. Returns a stream which must be closed."
   [remote-server sync-config]
-  (let [{:keys [entity record-hashes-query]} sync-config
-        {:keys [version query order]} record-hashes-query
+  (let [{:keys [entity summary-query]} sync-config
+        {:keys [version query order]} summary-query
         entity-name (name entity)
         error-message-fn (fn [status body]
                            (format "Error querying %s for record summaries (%s). Received HTTP status code %s with the error message '%s'"
@@ -390,7 +439,7 @@
   it doesn't exist locally, download it over http and place it in the
   queue with `submit-command-fn`.  Return false if any records
   failed."
-  [query-fn submit-command-fn remote-server sync-config now node-ttl]
+  [query-fn bucketed-summary-query-fn submit-command-fn remote-server sync-config now node-ttl]
   (let [entity (:entity sync-config)
         entity-name (name entity)
         stats (atom {:transferred 0 :failed 0})]
@@ -404,35 +453,44 @@
                        :finished [:info "  --> transferred {entity} ({transferred}) from {remote} in {elapsed} ms"]
                        :error [:warn (str "  *** transferred {entity} ({transferred}) from {remote};"
                                           " stopped after {failed} failures in {elapsed} ms")]}
-      (with-open [summary-stream (streamed-summary-query remote-server sync-config)]
-        (let [remote-sync-data (map parse-time-fields
-                                    (-> summary-stream
-                                        clojure.java.io/reader
-                                        (json/parse-stream true)))
-              remote-host-404? #(and (= ::remote-host-error (get % :type))
-                                     (= 404 (get-in % [:error-response :status])))
-              {:keys [record-hashes-query record-id-fn
-                      record-ordering-fn]} sync-config
-              {:keys [version query order]} record-hashes-query
-              incoming-records #(records-to-fetch record-id-fn record-ordering-fn
-                                                  % remote-sync-data now node-ttl)
-              maybe-deactivate! #(set-local-deactivation-status! % submit-command-fn)
-              query-and-transfer! #(query-record-and-transfer!
-                                    remote-server % submit-command-fn sync-config)]
-          (query-fn version ["from" entity-name query] order
-                    (fn [local-sync-data]
-                      (doseq [record (incoming-records local-sync-data)]
-                        (try+
-                          (if (= entity :nodes)
-                            (when (maybe-deactivate! record)
-                              (swap! stats update-in [:transferred] inc))
-                            (do
-                              (query-and-transfer! record)
-                              (swap! stats update-in [:transferred] inc)))
-                          (catch (remote-host-404? %) _
-                            (swap! stats update-in [:failed] inc))))))
-          @stats)))))
-
+      (let [buckets-which-differ (run-and-compare-bucketed-summary-queries sync-config remote-server bucketed-summary-query-fn)
+            sync-config (update-summary-query-with-bucket-timespans sync-config buckets-which-differ)
+            need-to-do-detailed-summary-query (if (:bucketed-summary-query-path sync-config)
+                                                ;; if we did a bucketed summary  query, we can
+                                                ;; quit outright if there were no differences
+                                                (not= buckets-which-differ [])
+                                                ;; if there was no bucketed summary, always
+                                                ;; do the detailed summary
+                                                true)]
+        (when need-to-do-detailed-summary-query
+          (with-open [summary-stream (remote-streamed-summary-query remote-server sync-config)]
+            (let [remote-sync-data (map parse-time-fields
+                                        (-> summary-stream
+                                            clojure.java.io/reader
+                                            (json/parse-stream true)))
+                  remote-host-404? #(and (= ::remote-host-error (get % :type))
+                                         (= 404 (get-in % [:error-response :status])))
+                  {:keys [summary-query record-id-fn
+                          record-ordering-fn]} sync-config
+                  {:keys [version query order]} summary-query
+                  incoming-records #(records-to-fetch record-id-fn record-ordering-fn
+                                                      % remote-sync-data now node-ttl)
+                  maybe-deactivate! #(set-local-deactivation-status! % submit-command-fn)
+                  query-and-transfer! #(query-record-and-transfer!
+                                        remote-server % submit-command-fn sync-config)]
+              (query-fn version ["from" entity-name query] order
+                        (fn [local-sync-data]
+                          (doseq [record (incoming-records local-sync-data)]
+                            (try+
+                             (if (= entity :nodes)
+                               (when (maybe-deactivate! record)
+                                 (swap! stats update-in [:transferred] inc))
+                               (do
+                                 (query-and-transfer! record)
+                                 (swap! stats update-in [:transferred] inc)))
+                             (catch (remote-host-404? %) _
+                               (swap! stats update-in [:failed] inc)))))))))
+        @stats))))
 
 (defn wrap-submit-command-fn
   "Wrap the given submit-command-fn to first generate a uuid for the command,
@@ -454,15 +512,18 @@
   `query-fn` to query PuppetDB in process and `submit-command-fn` when
   new data is found."
   ([query-fn
+    bucketed-summary-query-fn
     submit-command-fn
     remote-server :- remote-server-schema
     node-ttl :- Period]
    (sync-from-remote! query-fn
+                      bucketed-summary-query-fn
                       submit-command-fn
                       remote-server
                       node-ttl
                       nil))
   ([query-fn
+    bucketed-summary-query-fn
     submit-command-fn
     remote-server :- remote-server-schema
     node-ttl :- Period
@@ -478,6 +539,7 @@
          (let [result (apply merge-with +
                              (for [sync-config sync-configs]
                                (pull-records-from-remote! query-fn
+                                                          bucketed-summary-query-fn
                                                           submit-command-fn
                                                           remote-server
                                                           sync-config
