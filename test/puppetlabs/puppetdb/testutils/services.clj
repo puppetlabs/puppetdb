@@ -28,7 +28,6 @@
             [me.raynes.fs :as fs]
             [slingshot.slingshot :refer [throw+]]
             [clojure.tools.logging :as log]
-            [clojure.data.xml :as xml]
             [puppetlabs.puppetdb.dashboard :refer [dashboard-redirect-service]]
             [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service maint-mode-service]]
             [puppetlabs.puppetdb.config :refer [config-service]]))
