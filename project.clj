@@ -80,7 +80,6 @@
                  [fast-zip-visit "1.0.2"]
                  [robert/hooke "1.3.0"]
                  [honeysql "0.6.2"]
-                 [org.clojure/data.xml "0.0.8"]
                  [com.rpl/specter "0.5.7"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [puppetlabs/http-client "0.4.4"]]
