@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » Troubleshooting » KahaDB Corruption"
+title: "PuppetDB 3.2: Troubleshooting KahaDB corruption"
 layout: default
 canonical: "/puppetdb/latest/trouble_kahadb_corruption.html"
 ---
@@ -10,23 +10,23 @@ canonical: "/puppetdb/latest/trouble_kahadb_corruption.html"
 What is KahaDB?
 -----
 
-Internally PuppetDB utilises ActiveMQ for queuing commands received via the API and sometimes initiated internally. The queue today utilises a technology built for ActiveMQ called 'KahaDB' which is a file based persistence database designed specifically for high performance queuing.
+PuppetDB uses ActiveMQ for queuing commands, both those received via the API and sometimes those initiated internally. The queue utilizes a technology built for ActiveMQ called **KahaDB**, which is a file-based persistence database designed specifically for high-performance queuing.
 
-The KahaDB storage for PuppetDB is located in a sub-directory underneath your configured `vardir` (see [Configuration][configure_vardir] for more details). This sub-directory is generally, `mq/localhost/KahaDB`. For OSS PuppetDB the full path is usually `/opt/puppetlabs/server/data/puppetdb/mq/localhost/KahaDB`.
+In PuppetDB, KahaDB storage is located in a sub-directory underneath your configured `vardir` (see [the configuration guide][configure_vardir] for more details). This sub-directory is generally `mq/localhost/KahaDB`. For open source PuppetDB, the full path is usually `/opt/puppetlabs/server/data/puppetdb/mq/localhost/KahaDB`.
 
 Why does corruption occur?
 -----
 
-In some cases KahaDB's storage may become corrupt or simply unreadable
-by the version of PuppetDB that you've launched.  There are a number
-of possible causes, for example:
+In some cases, KahaDB's storage might become corrupt or simply unreadable
+due to the version of PuppetDB that you've launched. There are a number
+of possible causes, including:
 
-* Your disk may fill up, so writes are not finalised within the journal or database index.
+* Your disk may fill up, so writes are not finalized within the journal or database index.
 
 * There might be a bug in the KahaDB code that the developers haven't catered for.
 
 * You might downgrade PuppetDB to a version that uses an incompatible
-  ActiveMQ without clearing the queue directory.  If so, you can
+  ActiveMQ without clearing the queue directory. If so, you can
   simply remove the `mq/localhost` directory inside `<vardir>`, but
   note that any unprocessed data will be lost.
 
@@ -40,21 +40,18 @@ During corruption, the simplest way to recover is to simply move the KahaDB dire
     $ mv KahaDB KahaDB.old
     $ service puppetdb start
 
-(*Note:* it is very important for us that you preserve the old KahaDB directory. If the problem turns out to be something our Engineers haven't seen before we'll need that directory to replicate the problem, so make sure you preserve it.)
+(**Note:** it is very important to preserve the old KahaDB directory. If your issue turns out to be something our developers haven't seen before, we'll need that directory to replicate the problem.)
 
-In most cases this is enough, though it does mean that any queued,
-unprocessed data may be lost (i.e. data that had not reached
-PostgreSQL yet).  Re-running puppet on your nodes should normally
-resubmit the lost commands.
+In most cases this will solve the problem, though in the process you might lose any queued, unprocessed data (data that had not reached PostgreSQL yet). Re-running Puppet on your nodes should normally resubmit the lost commands.
 
-If this is going to be too destructive, there are a few things you can do. Before doing anything, backup your KahaDB directory so you can revert it after attempting the actions below:
+If this is going to be too destructive, there are a few things you can do. Before trying the solutions below, first back up your KahaDB directory so you can revert it afterward.
 
-* You can try clearing your `db.data` file and recreating it. The `db.data` file represents your index, and clearing it may force it to be recreated from the logs.
-* You can try clearing your `db-*.log` files. These files contain the journal and while KahaDB is usually good at finding pin-point corruption and ignoring these today (in fact much better since PuppetDB 1.1.0) there are still edge cases.  Clearing them may let you skip over these bad blocks. It might be that only 1 of these files are corrupted, and the remainder are good so you could attempt clearing one at a time (newest first) to find the culprit.
+* Clear your `db.data` file and recreate it. The `db.data` file represents your index, and clearing it may force the file to be recreated from the logs.
+* Clear your `db-*.log` files, which contain the journal. While KahaDB is generally good at finding pinpoint corruption and ignoring these today (in fact much better since PuppetDB 1.1.0) there are still edge cases. Clearing them may let you skip over these bad blocks. It might be that only 1 of these files are corrupted, and the remainder are good so you could attempt clearing one at a time (newest first) to find the culprit.
 
-How do I bring my corruption to the attention of developers?
+How do I bring my corruption issue to the attention of developers?
 -----
 
-Whenever possible, we want to hear about your corruption so we can improve the ways we deal with these problems. If you are affected, please search our [Bug Tracker][tracker] for the term `kahadb` to see if your problem is already known, and if it is, add a comment with your PuppetDB version.
+Whenever possible, we want to hear about your corruption so that we can improve our approach to these problems. If you are affected, please search our [Bug Tracker][tracker] for the term `KahaDB` to see if your problem is already known. If it is, please add a comment with your PuppetDB version.
 
-If the problem is unknown or new, make sure you log a new ticket including your `puppetdb.log` file, or at least the pertinent exception including the version of PuppetDB you are using and the potential cause of the corruption if you are aware of it. In all cases, make sure you preserve any backups of the `KahaDB` directory in its original corrupted state, which may be helpful to our Software Engineers to replicate the problem later.
+If your problem is not already logged on the Bug Tracker, please file a new ticket that includes your `puppetdb.log` file (or at least the pertinent exception) including the version of PuppetDB you are using and the potential cause of the corruption, if known. In all cases, please preserve any backups of the `KahaDB` directory in its original corrupted state, which may be helpful to our developers.
