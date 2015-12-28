@@ -1,6 +1,6 @@
 ---
 layout: default
-title: "PuppetDB 3.2 » API » Query » Curl Tips"
+title: "PuppetDB 3.2: API curl tips"
 canonical: "/puppetdb/latest/api/query/curl.html"
 ---
 
@@ -16,7 +16,7 @@ canonical: "/puppetdb/latest/api/query/curl.html"
 
 You can use [`curl`][curl] to directly interact with PuppetDB's REST API. This is useful for testing, prototyping, and quickly fetching arbitrary data.
 
-The instructions below are simplified. For full usage details, see [the curl manpage][curl] . For additional examples, please see the docs for the individual REST endpoints:
+The instructions below are simplified. For full usage details, see [the curl man page][curl]. For additional examples, please see the user guides for the individual REST endpoints:
 
 * [facts][]
 * [fact-names][]
@@ -24,7 +24,7 @@ The instructions below are simplified. For full usage details, see [the curl man
 * [resources][]
 * [metrics][]
 
-## Using `curl` From `localhost` (Non-SSL/HTTP)
+## Using `curl` From `localhost` (non-SSL/HTTP)
 
 With its default settings, PuppetDB accepts unsecured HTTP connections at port 8080 on `localhost`. This allows you to SSH into the PuppetDB server and run curl commands without specifying certificate information:
 
@@ -33,7 +33,7 @@ With its default settings, PuppetDB accepts unsecured HTTP connections at port 8
 
 If you have allowed unsecured access to other hosts in order to [monitor the dashboard][dashboard], these hosts can also use plain HTTP curl commands.
 
-## Using `curl` From Remote Hosts (SSL/HTTPS)
+## Using `curl` from remote hosts (SSL/HTTPS)
 
 To make secured requests from other hosts, you will need to supply the following via the command line:
 
@@ -41,7 +41,7 @@ To make secured requests from other hosts, you will need to supply the following
 * An SSL certificate signed by your site's Puppet CA (`--cert`)
 * The private key for that certificate (`--key`)
 
-Any node managed by puppet agent will already have all of these and you can re-use them for contacting PuppetDB. You can also generate a new cert on the CA puppet master with the `puppet cert generate` command.
+Any node managed by Puppet agent will already have all of these, and you can reuse them for contacting PuppetDB. You can also generate a new cert on the CA Puppet master with the `puppet cert generate` command.
 
 **Note:** If you have turned on [certificate whitelisting][whitelist], you must make sure to authorize the certificate you are using:
 
@@ -51,7 +51,6 @@ Any node managed by puppet agent will already have all of these and you can re-u
       --cert /etc/puppet/ssl/certs/<node>.pem \
       --key /etc/puppet/ssl/private_keys/<node>.pem \
 
-
 For Puppet Enterprise, the paths to the SSL certificates are different, so use the following example instead:
 
     curl 'https://<your.puppetdb.server>:8081/pdb/query/v4/nodes' \
@@ -60,7 +59,7 @@ For Puppet Enterprise, the paths to the SSL certificates are different, so use t
       --cert /etc/puppetlabs/puppet/ssl/certs/<node>.pem \
       --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem
 
-### Locating Puppet Certificate Files
+### Locating Puppet certificate files
 
 Locate Puppet's `ssldir` as follows:
 
@@ -71,7 +70,6 @@ Within this directory:
 * The CA certificate is found at `certs/ca.pem`
 * The corresponding private key is found at `private_keys/<name>.pem`
 * Other certificates are found at `certs/<name>.pem`
-
 
 ## Dealing with complex query strings
 
@@ -86,8 +84,8 @@ If you do this with an endpoint that accepts `GET` requests, **you must also use
 
 PuppetDB returns unprettified JSON by default. PuppetDB provides the option of
 prettifying your JSON responses with the `pretty` parameter. This parameter
-accepts a boolean (`true` or `false`) value to indicicate whether the response
-should be pretty-printed. Be aware pretty printing comes at the cost of
+accepts a Boolean value (`true` or `false`) to indicicate whether the response
+should be pretty-printed. Note that pretty printing comes at the cost of
 performance on some of our endpoints, such as `/v4/catalogs`, `/v4/reports` and
 `/v4/factsets`, due to the storage of some of their data as JSON/JSONB in PostgreSQL.
 
@@ -96,7 +94,7 @@ performance on some of our endpoints, such as `/v4/catalogs`, `/v4/reports` and
 
 ## Querying PuppetDB with POST
 
-PuppetDB supports querying by POST, which is useful for particularly large
+PuppetDB supports querying by POST, which is useful for large
 queries (exact limits depend on the client and webserver used.)
 
 POST queries use the following syntax:
