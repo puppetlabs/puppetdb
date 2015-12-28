@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Querying Facts"
+title: "PuppetDB 3.2: Facts endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/facts.html"
 ---
@@ -22,34 +22,33 @@ In Puppet's world, you only interact with facts from one node at a time, so any 
 This will return all facts matching the given query. Facts for
 deactivated nodes are not included in the response.
 
-### URL Parameters
+### URL parameters
 
-* `query`: Optional. A JSON array containing the query in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
+* `query`: optional. A JSON array containing the query in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [our guide to query structure.][query]
 
-    If a query parameter is not provided, all results will be returned.
+If a query parameter is not provided, all results will be returned.
 
-### Query Operators
+### Query operators
 
-See [the Operators page.](./operators.html)
+See [the query operators page.](./operators.html)
 
-### Query Fields
+### Query fields
 
-* `name` (string): the name of the fact
-* `value` (string, numeric, boolean): the value of the fact
-* `certname` (string): the node associated with the fact
-* `environment` (string): the environment associated with the fact
+* `name` (string): the name of the fact.
+* `value` (string, numeric, Boolean): the value of the fact.
+* `certname` (string): the node associated with the fact.
+* `environment` (string): the environment associated with the fact.
 
-### Subquery Relationships
+### Subquery relationships
 
-Here is a list of related entities that can be used to constrain the result set using
-implicit subqueries. For more information consult the documentation for [subqueries].
+The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information, consult the documentation for [subqueries][subqueries].
 
-* [`environments`][environments]: The environment where a fact occurs.
-* [`factsets`][factsets]: The factset where a fact appears.
-* [`fact_contents`][fact-contents]: Expanded fact paths and values for a fact.
-* [`nodes`][nodes]: The node where a fact occurs.
+* [`environments`][environments]: the environment where a fact occurs.
+* [`factsets`][factsets]: the factset where a fact appears.
+* [`fact_contents`][fact-contents]: expanded fact paths and values for a fact.
+* [`nodes`][nodes]: the node where a fact occurs.
 
-### Response Format
+### Response format
 
 Successful responses will be in `application/json`. Errors will be returned as
 non-JSON strings.
@@ -63,11 +62,11 @@ The result will be a JSON array, with one entry per fact. Each entry is of the f
       "environment": <facts environment>
     }
 
-The array is unsorted. Fact values can be strings, floats, integers, booleans,
+The array is unsorted. Fact values can be strings, floats, integers, Booleans,
 arrays, or maps. Map and array values can be any of the same types.
 
 If no facts match the query, an empty JSON array will be returned. Querying
-against `value` will return matches only at the top-level, hashes and arrays cannot
+against `value` will return matches only at the top level. Hashes and arrays cannot
 be matched.
 
 ### Examples
@@ -92,7 +91,7 @@ Get all facts for a single node:
      {"certname": "a.example.com", "name": "ipaddress", "value": "192.168.1.105"},
      {"certname": "a.example.com", "name": "uptime_days", "value": "26 days"}]
 
-Subquery against `/fact-contents` to get all remotely-authenticated trusted facts:
+Subquery against `/fact-contents` to get all remotely authenticated trusted facts:
 
     curl -X GET http://localhost:8080/pdb/query/v4/facts --data-urlencode \
       'query=["in", ["name","certname"],
@@ -149,13 +148,12 @@ This will return all facts with the given fact name, for all nodes. It
 behaves exactly like a call to `/pdb/query/v4/facts` with a query string of
 `["=", "name", "<FACT NAME>"]`.
 
-### URL Parameters / Query Operators / Query Fields / Response Format
+### URL parameters / query operators / query fields / response format
 
 This route is an extension of the plain `facts` endpoint. It uses the exact same parameters, operators, fields, and response format.
 
 If you provide a `query` parameter, it will specify additional criteria, which will be
-used to return a subset of the information normally returned by
-this route.
+used to return a subset of the information normally returned by this route.
 
 ### Examples
 
@@ -205,9 +203,9 @@ string of:
         ["=", "name", "<FACT NAME>"],
         ["=", "value", "<VALUE>"]]
 
-### URL Parameters / Query Operators / Query Fields / Response Format
+### URL parameters / query operators / query fields / response format
 
-This route is an extension of the plain `facts` endpoint. It uses the exact same parameters, operators, fields, and response format.
+This route is an extension of the plain `facts` endpoint. It uses the same parameters, operators, fields, and response format.
 
 If you provide a `query` parameter, it will specify additional criteria, which will be
 used to return a subset of the information normally returned by
