@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Querying Environments"
+title: "PuppetDB 3.2: Environments endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/environments.html"
 ---
@@ -16,7 +16,7 @@ canonical: "/puppetdb/latest/api/query/v4/environments.html"
 [events]: ./events.html
 [resources]: ./resources.html
 
-Environments are semi-isolated groups of nodes managed by Puppet. Nodes are assigned to environments by their own configuration, or by the puppet master's external node classifier.
+Environments are semi-isolated groups of nodes managed by Puppet. Nodes are assigned to environments by their own configuration, or by the Puppet master's external node classifier.
 
 When PuppetDB collects info about a node, it keeps track of the environment the node is assigned to. PuppetDB also keeps a list of environments it has seen. You can query this list by making an HTTP request to the `/environments` endpoint.
 
@@ -24,33 +24,32 @@ When PuppetDB collects info about a node, it keeps track of the environment the 
 
 This will return all environments known to PuppetDB.
 
-### URL Parameters
+### URL parameters
 
-* `query`: Optional. A JSON array containing the query in prefix notation. If
+* `query`: optional. A JSON array containing the query in prefix notation. If
   not provided, all results will be returned. See the sections below for the
   supported operators and fields. For general info about queries,
-  see [the page on query structure.][query]
+  see [our guide to query structure.][query]
 
-### Query Operators
+### Query operators
 
-See [the Operators page](./operators.html)
+See [the available operators page](./operators.html)
 
-### Query Fields
+### Query fields
 
-* `"name"` (string): the name of an environment
+* `"name"` (string): the name of an environment.
 
-### Subquery Relationships
+### Subquery relationships
 
-Here is a list of related entities that can be used to constrain the result set using
-implicit subqueries. For more information consult the documentation for [subqueries].
+The following list contains related entities that can be used to constrain the result set by using implicit subqueries. For more information, consult the documentation for [subqueries][subqueries].
 
-* [`factsets`][factsets]: Factsets received for an environment.
-* [`reports`][reports]: Reports received for an environment.
-* [`catalogs`][catalogs]: Catalogs received for an environment.
-* [`facts`][facts]: Fact names and values received for an environment.
-* [`fact_contents`][fact-contents]: Factset paths and values received for an environment.
-* [`events`][events]: Report events triggered for an environment.
-* [`resources`][resources]: Catalog resources received for an environment.
+* [`factsets`][factsets]: factsets received for an environment.
+* [`reports`][reports]: reports received for an environment.
+* [`catalogs`][catalogs]: catalogs received for an environment.
+* [`facts`][facts]: fact names and values received for an environment.
+* [`fact_contents`][fact-contents]: factset paths and values received for an environment.
+* [`events`][events]: report events triggered for an environment.
+* [`resources`][resources]: catalog resources received for an environment.
 
 ### Response format
 
@@ -62,7 +61,7 @@ The array is unsorted.
 
 ### Example
 
-[You can use `curl`][curl] to query information about nodes like so:
+[You can use `curl`][curl] to query information about nodes:
 
     curl 'http://localhost:8080/pdb/query/v4/environments'
 
@@ -70,7 +69,7 @@ The array is unsorted.
 
 This will return the name of the environment if it currently exists in PuppetDB.
 
-### URL Parameters / Query Operators / Query Fields
+### URL parameters / query operators / query fields
 
 This route supports the same URL parameters and query fields/operators
 as the '/pdb/query/v4/environments' route above.
@@ -100,11 +99,11 @@ parameters and route suffixes from the original routes are
 supported. The result format is also the same. Additional query
 parameters are ANDed with the environment clause. See
 [/pdb/query/v4/events][events], [/pdb/query/v4/facts][facts],
-[/pdb/query/v4/reports][reports] or
-[/pdb/query/v4/resources][resources] for more info.
+[/pdb/query/v4/reports][reports], or
+[/pdb/query/v4/resources][resources] for more information.
 
 ## Paging
 
 This query endpoint supports paged results via the common PuppetDB paging
-URL parameters.  For more information, please see the documentation
+URL parameters. For more information, please see the documentation
 on [paging][paging].

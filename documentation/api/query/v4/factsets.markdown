@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Querying Factsets"
+title: "PuppetDB 3.2: Factsets endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/factsets.html"
 ---
@@ -22,43 +22,42 @@ A factset is the set of all facts for a single certname.
 
 This will return all factsets matching the given query.
 
-### URL Parameters
+### URL parameters
 
-* `query`: Optional. A JSON array containing the query in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
+* `query`: optional. A JSON array containing the query in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [our guide to query structure.][query]
 
-    If a query parameter is not provided, all results will be returned.
+If a query parameter is not provided, all results will be returned.
 
-### Query Operators
+### Query operators
 
-See [the Operators page.](./operators.html)
+See [the query operators page.](./operators.html)
 
-### Query Fields
+### Query fields
 
-* `certname` (string): the certname associated with the factset
-* `environment` (string): the environment associated with the fact
+* `certname` (string): the certname associated with the factset.
+* `environment` (string): the environment associated with the fact.
 * `timestamp` (string): the most recent time of fact submission from the
-   associated certname
+   associated certname.
 * `producer_timestamp` (string): the most recent time of fact submission for
   the relevant certname from the master.
 * `hash` (string): a hash of the factset's certname, environment,
   timestamp, facts, and producer_timestamp.
 
-### Subquery Relationships
+### Subquery relationships
 
-Here is a list of related entities that can be used to constrain the result set using
-implicit subqueries. For more information consult the documentation for [subqueries].
+The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information, consult the documentation for [subqueries][subqueries].
 
-* [`environments`][environments]: Environment a factset was received from.
-* [`facts`][facts]: Fact names and values received from a factset.
-* [`fact_contents`][fact-contents]: Factset paths and values received from a factset.
-* [`nodes`][nodes]: Node that a factset was received from.
+* [`environments`][environments]: the environment a factset was received from.
+* [`facts`][facts]: fact names and values received from a factset.
+* [`fact_contents`][fact-contents]: factset paths and values received from a factset.
+* [`nodes`][nodes]: the node that a factset was received from.
 
-### Response Format
+### Response format
 
-Successful responses will be in `application/json`. Errors will be returned as
+Successful responses will be in `application/json`. Errors will be returned as a
 non-JSON string.
 
-The result will be a JSON array with one entry per certname. Each entry is of
+The result will be a JSON array with one entry per certname. Each entry will be in
 the form:
 
     {
@@ -102,7 +101,7 @@ Get all factsets corresponding to nodes with uptime greater than 24 hours:
                     ["select_facts", ["and", ["=", "name", "uptime_hours"],
                                              [">", "value", 24]]]]]'
 
-which returns
+Which returns:
 
     [ {
       "facts" : {
@@ -155,7 +154,7 @@ practice this endpoint is typically used without a query string or URL
 parameters.
 
 The result will be a single map of the factset structure described above, or
-a JSON error message if the factset is not found:
+a JSON error message if the factset is not found.
 
 ### Examples
 
@@ -185,16 +184,15 @@ This is a shortcut to the [`/facts`][facts] endpoint. It behaves the same as a
 call to [`/facts`][facts] with a query string of `["=", "certname", "<NODE>"]`,
 except results are returned even if the node is deactivated or expired.
 
-### URL Parameters / Query Operators / Query Fields / Response Format
+### URL parameters / query operators / query fields / response format
 
-This route is an extension of the [`facts`][facts] endpoint. It uses the exact same parameters, operators, fields, and response format.
+This route is an extension of the [`facts`][facts] endpoint. It uses the same parameters, operators, fields, and response format.
 
 If you provide a `query` parameter, it will specify additional criteria, which will be
-used to return a subset of the information normally returned by
-this route.
+used to return a subset of the information normally returned by this route.
 
 ## Paging
 
 This query endpoint supports paged results via the common PuppetDB paging
-URL parameters. For more information, please see the documentation
+URL parameters. For more information, see the documentation
 on [paging][paging].

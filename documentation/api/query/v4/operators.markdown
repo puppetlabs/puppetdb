@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Query Operators"
+title: "PuppetDB 3.2: Available operators"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/operators.html"
 ---
@@ -20,10 +20,10 @@ canonical: "/puppetdb/latest/api/query/v4/operators.html"
 
 PuppetDB's [query strings][query] can use several common operators.
 
-## Binary Operators
+## Binary operators
 
-Each of these operators accepts two arguments: a **field,** and a
-**value.** These operators are **non-transitive:** their syntax must always be:
+Each of these operators accepts two arguments: a **field** and a
+**value.** These operators are **non-transitive,** which means that their syntax must always be:
 
     ["<OPERATOR>", "<FIELD>", "<VALUE>"]
 
@@ -31,42 +31,42 @@ The available fields for each endpoint are listed in that endpoint's documentati
 
 ### `=` (equality)
 
-**Works with:** strings, numbers, timestamps, booleans, arrays, multi, path
+**Works with:** strings, numbers, timestamps, Booleans, arrays, multi, path.
 
 **Matches if:** the field's actual value is exactly the same as the provided value.
 
 * Most fields are strings.
-* Some fields are booleans.
-* Arrays match if any **one** of their elements match.
+* Some fields are Booleans.
+* Arrays match if any **one** of their elements matches.
 * Path matches are a special kind of array, and must be exactly matched with this operator.
 
 ### `>` (greater than)
 
-**Works with:** numbers, timestamps, multi
+**Works with:** numbers, timestamps, multi.
 
 **Matches if:** the field is greater than the provided value.
 
 ### `<` (less than)
 
-**Works with:** numbers, timestamps, multi
+**Works with:** numbers, timestamps, multi.
 
 **Matches if:** the field is less than the provided value.
 
 ### `>=` (greater than or equal to)
 
-**Works with:** numbers, timestamps, multi
+**Works with:** numbers, timestamps, multi.
 
 **Matches if:** the field is greater than or equal to the provided value.
 
 ### `<=` (less than or equal to)
 
-**Works with:** numbers, timestamps, multi
+**Works with:** numbers, timestamps, multi.
 
 **Matches if:** the field is less than or equal to the provided value.
 
 ### `~` (regexp match)
 
-**Works with:** strings, multi
+**Works with:** strings, multi.
 
 **Matches if:** the field's actual value matches the provided regular expression. The provided value must be a regular expression represented as a JSON string:
 
@@ -80,12 +80,12 @@ The following example would match if the `certname` field's actual value resembl
 > **Note:** Regular expression matching is performed by the database
 > backend, so the available
 > [regexp features](http://www.postgresql.org/docs/9.4/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
-> are determined by PostgreSQL.  For best results, use the simplest
+> are determined by PostgreSQL. For best results, use the simplest
 > and most common features that can accomplish your task.
 
 ### `~>` (regexp array match)
 
-**Works with:** paths
+**Works with:** paths.
 
 **Matches if:** the array matches using the regular expressions provided within in each element. Array indexes are coerced to strings.
 
@@ -93,15 +93,15 @@ The following example would match any network interface names starting with "eth
 
     ["~>", "path", ["networking", "eth.*", "macaddress"]]
 
-If you want to match any index for an array path element, you can use regular expressions to do this as the element acts like a string:
+If you want to match any index for an array path element, you can use regular expressions, as the element acts like a string:
 
     ["~>", "path", ["array_fact", ".*"]]
 
 ### `null?` (is null)
 
-**Works with:** fields that may be null
+**Works with:** fields that may be null.
 
-**Matches if:** the field's value is null (when second argument is `true`) or the field is **not** null, i.e. has a real value (when second argument is `false`).
+**Matches if:** the field's value is null (when second argument is `true`) or the field is **not** null, or has a real value (when second argument is `false`).
 
 The following example would return events that do not have an associated line number:
 
@@ -111,7 +111,7 @@ Similarly, the below query would return events that do have a specified line num
 
     ["null?", "line", false]
 
-## Boolean Operators
+## Boolean operators
 
 Every argument of these operators should be a **complete query string** in its own right. These operators are **transitive:** the order of their arguments does not matter.
 
@@ -127,7 +127,7 @@ Every argument of these operators should be a **complete query string** in its o
 
 **Matches if:** its argument **would not** match. Accepts a **single** query string as its argument.
 
-## Projection Operators
+## Projection operators
 
 ### `extract`
 
@@ -136,13 +136,13 @@ To reduce the keypairs returned for each result in the response, you can use **e
     ["extract", ["hash", "certname", "transaction_uuid"]
       ["=", "certname", "foo.com"]]
 
-When only extracting a single column, the [] are optional
+When only extracting a single column, the [] are optional:
 
     ["extract", "transaction_uuid"
       ["=", "certname", "foo.com"]]
 
 When applying an aggregate function over a `group_by` clause, an extract
-statement takes the form
+statement takes the form:
 
     ["extract", [["function", "count"], "status"],
       ["=", "certname", "foo.com"],
@@ -174,51 +174,48 @@ with:
     ["extract", [["function", "count"], "status", "certname"],
       ["=", ["node", "active"], true], ["group_by", "status", "certname"]]
 
-To get the average uptime for your nodes,
+To get the average uptime for your nodes:
 
     ["extract", [["function", "avg", "value"]], ["=", "name", "uptime_seconds"]]
 
-## Context Operators
+## Context operators
 
 *Note:* Context setting support is new and experimental. Setting the context at
 the top of the query is only supported on the [root] endpoint.
 
 Setting context in a query allows you to choose the entity you are querying
 on. This augments the endpoint support we have today, whereby the endpoint
-decides the context. For example `/pdb/query/v4/nodes` sets the context of the query
+decides the context. For example, `/pdb/query/v4/nodes` sets the context of the query
 to `nodes`.
-
 
 ### `from`
 
-The `from` operator allows one to choose the [entity][entities] that you want to query and
+The `from` operator allows you to choose the [entity][entities] that you want to query and
 provide an optional query clause for filtering those results. This operator can
-be used at the top-level context of a query like so:
+be used at the top-level context of a query:
 
     ["from", "nodes", ["=", "certname", "myserver"]]
 
 The `from` operator can also be used in a subquery for setting the context when
 using the [`in` operator](#subquery-operators).
 
-When querying a particular endpoint, such as `/pdb/query/v4/nodes` the endpoint provides
-the context for the query. While querying the [root] endpoint requires specifying a
+When querying a particular endpoint, such as `/pdb/query/v4/nodes`, the endpoint provides
+the context for the query. Querying the [root] endpoint requires specifying a
 context explicitly.
 
-## Subquery Operators
+## Subquery operators
 
 Subqueries allow you to correlate data from multiple sources or multiple
 rows. For instance, a query such as "fetch the IP addresses of all nodes with
 `Class[Apache]`" would have to use both facts and resources to return a list of facts.
 
 There are two forms of subqueries, implicit and explicit, and both forms work the
-same under the hood. The implicit form however, only requires you to specify the
-related entity, while the explicit form requires you to be specify exactly how
+same under the hood. Note, however, that the implicit form only requires you to specify the related entity, while the explicit form requires you to be specify exactly how
 data should be joined during the subquery.
 
-### `subquery` (Implicit Subqueries)
+### `subquery` (implicit subqueries)
 
-*Note:* Implicit subqueries are a new experimental feature, be warned the functionality
-may change as we provide improvements.
+*Note:* Implicit subqueries are an experimental feature. Be warned that the functionality may change as we provide improvements.
 
 Implicit queries work like most operators, and simply require you to specify the
 related entity and the query to use:
@@ -230,12 +227,12 @@ all entities are implicitly relatable to all other entities, as not every relati
 Consult the documentation for the chosen [`<ENTITY>`][entities] for details on what
 implicit relationships are supported.
 
-Internal to PuppetDB, we keep a mapping of how different entities relate to each
-other, and so no other data beyond the entity is needed in this case. This is
-different from explicit subqueries, for those you must specify yourself how
-two entities are related, although functionally they can produce the same results.
+In PuppetDB, we keep a map of how different entities relate to each
+other, and therefore no data beyond the entity is needed in this case. This is
+different from explicit subqueries, where you must specify how
+two entities are related.
 
-#### Implicit Subquery Examples
+#### Implicit subquery examples
 
 A query string like the following on the [`nodes`][nodes] endpoint will return the list
 of all nodes with the `Package[Tomcat]` resource in their catalog, and a certname starting
@@ -248,7 +245,7 @@ with `web1`:
           ["=", "type", "Package"],
           ["=", "title", "Tomcat"]]]]
 
-If you wanted to display the entire `networking` fact, if the hosts interfaces uses a certain mac address
+If you want to display the entire `networking` fact, if the host's interface uses a certain mac address,
 you can do the following on the [`facts`][facts] endpoint:
 
     ["and",
@@ -258,7 +255,7 @@ you can do the following on the [`facts`][facts] endpoint:
           ["~>", "path", ["networking", ".*", "macaddresses", ".*"]],
           ["=", "value", "aa:bb:cc:dd:ee:00"]]]]
 
-### Explicit Subqueries
+### Explicit subqueries
 
 While implicit subqueries can make your syntax succinct, not all relationships are
 mapped internally. For these more advanced subqueries, you need to specify exactly the fields that
@@ -273,7 +270,7 @@ The second new methodology uses `from` to set the context, and now looks like th
 
     ["in", ["<FIELDS>"], ["from", <ENTITY>, ["extract", ["<FIELDS>"], <SUBQUERY>] ] ]
 
-*Note:* This new format is experimental and may change or be removed in the future.
+*Note:* This new format is experimental and may be changed or removed in the future.
 
 That is:
 
@@ -291,22 +288,22 @@ Subquery | Extract | In
 ---------|---------|---
 Every resource whose type is "Class" and title is "Apache." (Note that all resource objects have a `certname` field, among other fields.) | Every `certname` field from the results of the subquery. | Match if the `certname` field is present in the list from the `extract` statement.
 
-The complete `in` statement described in the table above would match any object that shares a `certname` with a node that has `Class[Apache]`. This could be combined with a boolean operator to get a specific fact from every node that matches the `in` statement.
+The complete `in` statement described in the table above would match any object that shares a `certname` with a node that has `Class[Apache]`. This could be combined with a Boolean operator to get a specific fact from every node that matches the `in` statement.
 
 #### `in`
 
-An `in` statement constitutes a full query string, which can be used alone or as an argument for a [boolean operator](#boolean-operators).
+An `in` statement constitutes a full query string, which can be used alone or as an argument for a [Boolean operator](#boolean-operators).
 
 "In" statements are **non-transitive** and take two arguments:
 
 * The first argument **must** consist of one or more **fields** for the endpoint
   or entity **being queried.**. This is a string or vector of strings.
 * The second argument **must** be either:
-** an **`extract` statement,** which acts as a list of fields to extract during
+  * an **`extract` statement,** which acts as a list of fields to extract during
    the subquery for matching against the **fields** in the `in` clause.
-** a **`from` statement,** which sets the context, and allows for an extract
+  * a **`from` statement,** which sets the context, and allows for an extract
    statement to be provided. *Note:* this syntax is new and experimental.
-** an **`array` statement,** which acts as a list of values to match against the
+  * an **`array` statement,** which acts as a list of values to match against the
    **field** in the `in` clause.
 
 **Matches if:** the field values are included in the list of values created by the `extract` or `from` statement.
@@ -345,13 +342,13 @@ For example, the following query on the `/nodes` endpoint is valid:
 
 #### `from`
 
-*Note:* the use of `from` in a subquery is experimental. It may change or be
+*Note:* The use of `from` in a subquery is experimental. It may change or be
  removed in the future.
 
 This statement works like the top-level [`from`](#context-operators) operator,
 and expects an [entity][entities] as the first argument and an optional query in
-the second argument, however when used within an `in` clause an `extract`
-statement is expected to choose the fields like so:
+the second argument. However, when used within an `in` clause, an `extract`
+statement is expected to choose the fields:
 
     ["in", "certname",
      ["from", "facts",
@@ -373,7 +370,7 @@ As the second argument of an `in` statement, an `extract` statement acts as a
 list of possible values. This list is compiled by extracting the value of the
 requested field from every result of the subquery.
 
-#### `select_<ENTITY>` Subquery Statements
+#### `select_<ENTITY>` subquery statements
 
 A subquery statement **does not** constitute a full query string. It may only be used as the second argument of an `extract` statement.
 
@@ -397,7 +394,7 @@ Each subquery acts as a normal query to one of the PuppetDB endpoints. For info 
 * [`select_reports`][reports]
 * [`select_resources`][resources]
 
-#### Explicit Subquery Examples
+#### Explicit subquery examples
 
 This query string queries the `/facts` endpoint for the IP address of
 all nodes with `Class[Apache]`:
@@ -478,7 +475,7 @@ For the previous query, we also allow the shorthand
 
 and its counterpart with `false`.
 
-#### Explicit Subquery Examples (New Experimental Format)
+#### Explicit subquery examples (new experimental format)
 
 *Note:* The new syntax is experimental and may change or be removed.
 
@@ -494,7 +491,7 @@ so the format has changed. For example, a query such as this:
               ["=", "type", "Class"],
               ["=", "title", "Apache"]]]]]]
 
-Will now look like this:
+will now look like this:
 
     ["and",
       ["=", "name", "ipaddress"],
