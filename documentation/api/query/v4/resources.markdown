@@ -31,7 +31,6 @@ deactivated nodes are not included in the response.
 See [the Operators page](./operators.html) for the full list of available operators. Note that:
 
 * The inequality operators are only supported for the `line` field.
-* Regexp matching is **not** supported against parameter values.
 
 ### Query Fields
 
