@@ -9,7 +9,7 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def tk-version "1.1.1")
+(def tk-version "1.1.2-SNAPSHOT")
 (def tk-jetty9-version "1.3.1")
 (def ks-version "1.1.0")
 (def tk-status-version "0.2.1")
@@ -17,6 +17,7 @@
 (def pdb-jvm-opts
   (case (System/getProperty "java.specification.version")
     "1.7" ["-XX:MaxPermSize=200M"]
+    "1.8" ["-Dclojure.compiler.direct-linking=true"]
     []))
 
 (defproject puppetlabs/puppetdb pdb-version
@@ -32,7 +33,7 @@
   ;; requires lein 2.2.0+.
   :pedantic? :abort
 
-  :dependencies [[org.clojure/clojure "1.8.0-RC3"]
+  :dependencies [[org.clojure/clojure "1.8.0-RC4"]
                  [cheshire "5.4.0"]
                  [org.clojure/core.match "0.2.2"]
                  [org.clojure/math.combinatorics "0.0.4"]
@@ -78,7 +79,6 @@
                  [org.clojure/tools.macro "0.1.5"]
                  [com.novemberain/pantomime "2.1.0"]
                  [fast-zip-visit "1.0.2"]
-                 [robert/hooke "1.3.0"]
                  [honeysql "0.6.2"]
                  [com.rpl/specter "0.5.7"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]

@@ -66,7 +66,6 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
-            [robert.hooke :as rh]
             [slingshot.slingshot :refer [throw+ try+]])
   (:import [javax.jms ExceptionListener]))
 
@@ -337,6 +336,4 @@
         customization."}
   -main
   (fn [& args]
-    (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data
-                 #'conf/hook-tk-parse-config-data)
-    (apply tk/main args)))
+    (tk/main-with-config-hook args conf/adjust-and-validate-tk-config)))

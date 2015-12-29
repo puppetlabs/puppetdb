@@ -353,13 +353,6 @@
         warn-retirements
         validate-db-settings))
 
-(defn hook-tk-parse-config-data
-  "This is a robert.hooke compatible hook that is designed to intercept
-   trapperkeeper configuration before it is used, so that we may munge &
-   customize it.  It may throw {:type ::cli-error :message m}."
-  [f args]
-  (adjust-and-validate-tk-config (f args)))
-
 (defn process-config!
   "Accepts a map containing all of the user-provided configuration values
   and configures the various PuppetDB subsystems."
