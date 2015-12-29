@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Querying Catalog Edgs"
+title: "PuppetDB 3.2: Edges endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/edges.html"
 ---
@@ -12,42 +12,41 @@ canonical: "/puppetdb/latest/api/query/v4/edges.html"
 [nodes]: ./nodes.html
 [resources]: ./resources.html
 
-Catalog edges, are relationships formed between two [resources][resources].
+Catalog edges are relationships formed between two [resources][resources].
 They represent the edges inside the catalog graph, whereas resources represent
 the nodes in the graph. You can query edges by making an HTTP request to the
 `/edges` endpoint.
 
 ## `/pdb/query/v4/edges`
 
-This will return all edges known to PuppetDB.
+Returns all edges known to PuppetDB.
 
-### URL Parameters
+### URL parameters
 
-* `query`: Optional. A JSON array containing the query in prefix notation.
+* `query`: optional. A JSON array containing the query in prefix notation.
 If not provided, all results will be returned. See the sections below for the
 supported operators and fields. For general info about queries, see
-[the page on query structure.][query]
+[our guide to query structure.][query]
 
-### Query Operators
+### Query operators
 
-See [the Operators page](./operators.html)
+See [the query operators page](./operators.html)
 
-### Query Fields
+### Query fields
 
-* `certname` (string): the certname associated with the edge
-* `relationship` (string): the edge relationship. Can be one of `contains`, `before`, `required-by`, `notifies`, `subscription-of`.
+* `certname` (string): the certname associated with the edge.
+* `relationship` (string): the edge relationship. Can be `contains`, `before`, `required-by`, `notifies`, or `subscription-of`.
 * `source_title` (string): the source resource title.
 * `source_type` (string, with first letter always capitalized): the source resource type.
 * `target_title` (string): the target resource title.
 * `target_type` (string, with first letter always capitalized): the target resource type.
 
-### Subquery Relationships
+### Subquery relationships
 
-Here is a list of related entities that can be used to constrain the result set using
-implicit subqueries. For more information consult the documentation for [subqueries].
+The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information consult the documentation for [subqueries][subqueries].
 
-* [`nodes`][nodes]: Node entity for the catalog of an edge.
-* [`catalogs`][catalogs]: Catalog entity for an edge.
+* [`nodes`][nodes]: node entity for the catalog of an edge.
+* [`catalogs`][catalogs]: catalog entity for an edge.
 
 ### Response format
 
@@ -64,11 +63,11 @@ The response is a JSON array of hashes, where each hash has the form:
 
 ### Example
 
-[You can use `curl`][curl] to query information about nodes like so:
+[You can use `curl`][curl] to query information about nodes:
 
     curl 'http://localhost:8080/pdb/query/v4/edges'
 
-A sample response would be:
+A sample response:
 
     [ {
       "certname" : "host-5",
@@ -117,5 +116,5 @@ A sample response would be:
 ## Paging
 
 This query endpoint supports paged results via the common PuppetDB paging
-URL parameters.  For more information, please see the documentation
+URL parameters. For more information, please see the documentation
 on [paging][paging].

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Querying Aggregate Event Counts"
+title: "PuppetDB 3.2: Aggregate event counts endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/aggregate-event-counts.html"
 ---
@@ -12,10 +12,10 @@ canonical: "/puppetdb/latest/api/query/v4/aggregate-event-counts.html"
 > **Experimental Endpoint**: The aggregate-event-counts endpoint is designated
 > as experimental. It may be altered or removed in a future release.
 
-Puppet agent nodes submit reports after their runs, and the puppet master forwards these to PuppetDB. Each report includes:
+Puppet agent nodes submit reports after their runs, and the Puppet master forwards these to PuppetDB. Each report includes:
 
-* Some data about the entire run
-* Some metadata about the report
+* Data about the entire run
+* Metadata about the report
 * Many _events,_ describing what happened during the run
 
 Once this information is stored in PuppetDB, it can be queried in various ways.
@@ -26,45 +26,40 @@ Once this information is stored in PuppetDB, it can be queried in various ways.
 
 ## `/pdb/query/v4/aggregate-event-counts`
 
-This will return aggregated count information about all of the resource events matching the given query.
+Returns aggregated count information about all of the resource events matching the given query.
+
 This endpoint is built entirely on the [`event-counts`][event-counts] endpoint and will aggregate those
 results into a single map.
 
 ### URL Parameters
 
-This endpoint builds on top of the [`event-counts`][event-counts] endpoint, and it uses all of the same URL parameters. The supported parameters are re-listed below for reference.
+This endpoint builds on top of the [`event-counts`][event-counts] endpoint, and it uses all of the same URL parameters. The supported parameters are listed below for easy reference.
 
-* `summarize_by`: Required. A string specifying which object types you'd like counted. Supported values are
-`resource`, `containing_class`, and `certname`, or any comma-separated
-combination thereof.
+* `summarize_by`: required. A string specifying which object types you'd like counted. Supported values are `resource`, `containing_class`, and `certname`, or any comma-separated combination thereof.
 
-* `query`: Optional. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
-This query is forwarded to the [`events`][events] endpoint - see there for additional documentation.
-For general info about queries, see [the page on query structure.][query]
+* `query`: optional. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). This query is forwarded to the [`events`][events] endpoint - see there for additional documentation. 
+For general info about queries, see [our guide to query structure.][query]
 
-* `count_by`: Optional. A string specifying what type of object is counted when building up the counts of
-`successes`, `failures`, `noops`, and `skips`. Supported values are `resource` (default) and `certname`.
+* `count_by`: optional. A string specifying what type of object is counted when building up the counts of `successes`, `failures`, `noops`, and `skips`. Supported values are `resource` (default) and `certname`.
 
-* `counts_filter`: Optional. A JSON array of query predicates in the usual prefix form. This query is applied to
-the final event-counts output, but before the results are aggregated. Supported operators are `=`, `>`, `<`,
-`>=`, and `<=`. Supported fields are `failures`, `successes`, `noops`, and `skips`.
+* `counts_filter`: optional. A JSON array of query predicates in the usual prefix form. This query is applied to the final event-counts output, but before the results are aggregated. Supported operators are `=`, `>`, `<`, `>=`, and `<=`. Supported fields are `failures`, `successes`, `noops`, and `skips`.
 
-* `distinct_resources`: Optional.  (EXPERIMENTAL: it is possible that the behavior
-of this parameter may change in future releases.)  This parameter is passed along
-to the [`event`][events] query - see there for additional documentation.
+* `distinct_resources`: optional. (**Experimental: it is possible that the behavior
+of this parameter may change in future releases.**) This parameter is passed along
+to the [`events`][events] query, additional documentation about which can be found [here][events].
 
-### Query Operators
+### Query operators
 
 This endpoint builds on top of the [`event-counts`][event-counts] and [`events`][events] endpoints, and supports all of the [same operators.](./events.html#query-operators)
 
-### Query Fields
+### Query fields
 
 This endpoint builds on top of the [`event-counts`][event-counts] and [`events`][events] endpoints, and supports all of the [same fields.](./events.html#query-fields)
 
-### Response Format
+### Response format
 
 The response is an array of JSON maps containing the summarize_by parameter,
-aggregated event-count information and a `total` field expressing the number of
+aggregated event-count information, and a `total` field expressing the number of
 event-count results that were aggregated.
 
     [ {
@@ -78,7 +73,7 @@ event-count results that were aggregated.
 
 ### Examples
 
-You can use [`curl`][curl] to query information about aggregated resource event counts like so:
+You can use [`curl`][curl] to query information about aggregated resource event counts:
 
     curl -G 'http://localhost:8080/pdb/query/v4/aggregate-event-counts' \
       --data-urlencode 'query=["=", "certname", "foo.local"]' \
@@ -113,6 +108,6 @@ You can use [`curl`][curl] to query information about aggregated resource event 
          "total" : 1
     } ]
 
-## No Paging
+## No paging
 
 This endpoint does not support paging options, and results are unordered.
