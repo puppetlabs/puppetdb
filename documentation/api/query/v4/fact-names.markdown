@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Querying Fact Names"
+title: "PuppetDB 3.2: Fact-names endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/fact-names.html"
 ---
@@ -10,23 +10,21 @@ canonical: "/puppetdb/latest/api/query/v4/fact-names.html"
 
 The `/fact-names` endpoint can be used to retrieve all known fact names.
 
-
 ## `/pdb/query/v4/fact-names`
 
 This will return an alphabetical list of all known fact names, *including* those which are
 known only for deactivated nodes.
 
+### URL parameters
 
-### URL Parameters
-
-* `query`: Optional. A JSON array containing the query in prefix notation
+* `query`: optional. A JSON array containing the query in prefix notation
 (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the
 supported operators and fields. For general info about queries,
-see [the page on query structure.][query]
+see [our guide to query structure.][query]
 
 If a query parameter is not provided, all results will be returned.
 
-### Response Format
+### Response format
 
 The response will be in `application/json`, and will contain an alphabetical
 JSON array containing fact names. Each fact name will appear only once,
@@ -45,6 +43,6 @@ regardless of how many nodes have that fact.
 ## Paging
 
 This query endpoint supports paged results via the common PuppetDB paging
-URL parameters.  For more information, please see the documentation
+URL parameters. For more information, please see the documentation
 on [paging][paging].
 
