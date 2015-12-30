@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » Command API"
+title: "PuppetDB 3.2: Commands endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/command/v1/commands.html"
 ---
@@ -11,8 +11,7 @@ canonical: "/puppetdb/latest/api/command/v1/commands.html"
 [reportv6]: ../../wire_format/report_format_v6.html
 [deactivatev3]: ../../wire_format/deactivate_node_format_v3.html
 
-Commands are used to change PuppetDB's
-model of a population. Commands are represented by `command objects`,
+Commands are used to change PuppetDB's model of a population. Commands are represented by `command objects`,
 which have the following JSON wire format:
 
     {"command": "...",
@@ -28,14 +27,14 @@ also indicates the version of the wire format to use for the command.
 `payload` must be a valid JSON object of any sort. It's up to an
 individual handler function to determine how to interpret that object.
 
-The entire command MUST be encoded as UTF-8.
+The entire command **must** be encoded as UTF-8.
 
 ## Command submission
 
 Commands are submitted via HTTP to the `/pdb/cmd/v1` URL and must
 conform to the following rules:
 
-* A `POST` is used
+* A `POST` is used.
 * The `POST` body must contain the JSON payload.
 * There is an `Accept` header that matches `application/json`.
 * The content-type is `application/json`.
@@ -46,15 +45,19 @@ the payload which will be used for verification.
 When a command is successfully submitted, the submitter will
 receive the following:
 
-* A response code of 200
-* A content-type of `application/json`
-* A response body in the form of a JSON object, containing a single key 'uuid', whose
+* A response code of 200.
+* A content-type of `application/json`.
+* A response body in the form of a JSON object, containing a single key, 'uuid', whose
   value is a UUID corresponding to the submitted command. This can be used, for example, by
   clients to correlate submitted commands with server-side logs.
 
-The PuppetDB termini for puppet masters use this command API to update facts, catalogs, and reports for nodes.
+The PuppetDB-termini for Puppet masters use this command API to update facts, catalogs, and reports for nodes.
 
-### Blocking command submission (EXPERIMENTAL)
+### Blocking command submission
+
+>**Experimental feature:** This is an experimental feature, and it may be changed or removed at any
+>time. Although convenient, it should be used with caution. Always prefer
+>non-blocking command submission.
 
 When submitting a command, you may specify the "secondsToWaitForCompletion"
 query parameter. If you do, PuppetDB will block the request until the command
@@ -69,11 +72,7 @@ first. The response will contain the following additional keys:
 * `error`, `exception`: If the command was processed but an error occurred,
   these two fields provide the specifics of what went wrong.
 
-Note: This is an /EXPERIMENTAL/ feature, and it may be changed or removed at any
-time. Although convenient, it should be used with caution. Always prefer
-non-blocking command submission.
-
-## Command Semantics
+## Command semantics
 
 Commands are processed _asynchronously_. If PuppetDB returns a 200
 when you submit a command, that only indicates that the command has
@@ -82,12 +81,12 @@ that command will be processed, nor that when it is processed it will
 be successful.
 
 Commands that fail processing will be stored in files in the "dead
-letter office", located under the MQ data directory, in
+letter office", located under the MQ data directory in
 `discarded/<command>`. These files contain the command and diagnostic
 information that may be used to determine why the command failed to be
 processed.
 
-## List of Commands
+## List of commands
 
 ### "replace catalog", version 7
 
@@ -102,7 +101,7 @@ or missing fields are an error.
 * Similar to version 6 of replace catalog, previously dashed fields are now
   underscore-separated.
 
-* The 'name' field has been renamed to 'certname', for consistency. 
+* The `name` field has been renamed to `certname`, for consistency. 
 
 See [fact wire format v4][factsv4] for more information on the
 payload of this command.
@@ -122,21 +121,21 @@ The version 6 store report command differs from previous versions by changing
 from a `resource_events` property to a `resources` property. The
 `resource_events` property was a merged version of `resources` and their
 associated events `events`. This new version moves the command to use a similar
-format to a raw Puppet report, with a list of `resources` each with an `events`
+format to a raw Puppet report, with a list of `resources`, each with an `events`
 property containing a list of the resource's events.
 
 The payload is expected to be a report, containing events that occurred on
 Puppet resources. It is structured as a JSON object, conforming to the
 [report wire format v6][reportv6].
 
-## Deprecated Commands
+## Deprecated commands
 
 ### "replace catalog", version 6
 
-* All field names that were previously separated by dashes are
+* All field names that were previously separated by dashes are now
   separated by underscores.
 
-* The catalog 'name' field has been renamed to 'certname'.
+* The catalog `name` field has been renamed to `certname`.
 
 The payload is expected to be a Puppet catalog, as a JSON object,
 conforming exactly to the [catalog wire format v6][catalogv6]. Extra
@@ -145,15 +144,15 @@ or missing fields are an error.
 ### "store report", version 5
 
 The version 5 store report command differs from version 4 in the addition of a
-"noop" flag, which is a boolean indicating whether the report was produced by a
-puppet run with --noop, as well as in the conversion of dash-separated fields to
+"noop" flag, which is a Boolean indicating whether the report was produced by a
+puppet run with `--noop`, as well as in the conversion of dash-separated fields to
 underscored.
 
 The payload is expected to be a report, containing events that occurred on
 Puppet resources. It is structured as a JSON object, conforming to the
 [report wire format v5][reportv5].
 
-## Examples using curl
+## Examples using `curl`
 
 To post a `replace facts` command you can use the following curl command:
 

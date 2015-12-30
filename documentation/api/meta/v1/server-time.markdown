@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » Metadata API » v1 » Querying Server Time"
+title: "PuppetDB 3.2: Server time endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/meta/v1/server-time.html"
 ---
@@ -8,17 +8,16 @@ canonical: "/puppetdb/latest/api/meta/v1/server-time.html"
 
 The `/server-time` endpoint can be used to retrieve the server time from the PuppetDB server.
 
-
 ## `/pdb/meta/v1/server-time`
 
 This metadata endpoint will return the current time of the clock on the PuppetDB
-server.  This can be useful as input to other time-based queries against PuppetDB,
+server. This can be useful as input to other time-based queries against PuppetDB,
 to eliminate the possibility of time differences between the clocks on client
 machines.
 
 This endpoint does not use any URL parameters or query strings.
 
-### Response Format
+### Response format
 
 The response will be in `application/json`, and will return a JSON map with a
 single key: `server_time`, whose value is an ISO-8601 representation of the
@@ -26,7 +25,7 @@ current time on the PuppetDB server.
 
     {"server_time": "2013-09-20T20:54:27.472Z"}
 
-### Examples
+### Example
 
 [Using `curl` from localhost][curl]:
 
