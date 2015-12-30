@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » Metrics API » v1 » Querying Mbeans"
+title: "PuppetDB 3.2: Metrics endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/metrics/v1/index.html"
 ---
@@ -9,8 +9,8 @@ canonical: "/puppetdb/latest/api/metrics/v1/index.html"
 Querying PuppetDB metrics is accomplished by making an HTTP request
 to paths under the `/metrics/v1` REST endpoint.
 
-**Note** In most cases PuppetDB is simply a conduit for mbeans made available
-by its components. PuppetDB makes no guarantee about the stability of mbean names.
+>**Note:** In most cases, PuppetDB is simply a conduit for MBeans made available
+>by its components. PuppetDB makes no guarantee about the stability of MBean names.
 
 ## Listing available metrics
 
@@ -23,10 +23,10 @@ To get a list of all available metric names:
 
 ### Response format
 
-Responses return a JSON Object mapping a string to a string:
+Responses return a JSON object mapping a string to a string:
 
-* The key is the name of a valid MBean
-* The value is a URI to use for requesting that MBean's attributes
+* The key is the name of a valid MBean.
+* The value is a URI to use for requesting that MBean's attributes.
 
 ## Retrieving a specific metric
 
@@ -40,20 +40,20 @@ To get the attributes of a particular metric:
 
 ### Response format
 
-Responses return a JSON Object mapping strings to (strings/numbers/booleans).
+Responses return a JSON object mapping strings to (strings/numbers/Booleans).
 
 ## Useful metrics
 
 ### Population metrics
 
 * `puppetlabs.puppetdb.population:name=num-nodes`:
-  The number of nodes in your population.
+  the number of nodes in your population.
 * `puppetlabs.puppetdb.population:name=num-resources`:
-  The number of resources in your population.
+  the number of resources in your population.
 * `puppetlabs.puppetdb.population:name=avg-resources-per-node`:
-  The average number of resources per node in your population.
+  the average number of resources per node in your population.
 * `puppetlabs.puppetdb.population:name=pct-resource-dupes`:
-  The percentage of resources that exist on more than one node.
+  the percentage of resources that exist on more than one node.
 
 ### Database Metrics
 
@@ -70,14 +70,15 @@ puppetlabs.puppetdb.database:PDBReadPool.<HikariCP metric>
 
 ### Message Queue (MQ) metrics
 
-Each of the following metrics is available for each command supported in
-PuppetDB. In the below list of metrics, `<name>` should be substituted with a
-command spec include:
+Each of the following metrics is available for each command supported
+in PuppetDB. In the following list of metrics, `<name>` should be
+substituted with a command specifier. Example substitutes for `<name>` you can use
+include:
 
-* `global`: Aggregate stats for _all_ commands
-* `replace catalog.1`: Stats for catalog replacement
-* `replace facts.1`: Stats for facts replacement
-* `deactivate node.1`: Stats for node deactivation
+* `global`: aggregate stats for _all_ commands.
+* `replace catalog.1`: stats for catalog replacement.
+* `replace facts.1`: stats for facts replacement.
+* `deactivate node.1`: stats for node deactivation.
 
 Other than `global`, all command specifiers are of the form
 `<command>.<version>`. As we version commands, you'll be able to get statistics
@@ -87,7 +88,7 @@ Metrics available for each command:
 
 * `puppetlabs.puppetdb.mq:name=<name>.discarded`: stats
   about commands we've discarded (we've retried them as many times as
-  we can, to no avail)
+  we can, to no avail).
 * `puppetlabs.puppetdb.mq:name=<name>.fatal`: stats about
   commands we failed to process.
 * `puppetlabs.puppetdb.mq:name=<name>.processed`: stats
@@ -96,28 +97,28 @@ Metrics available for each command:
   stats about how long it takes to process commands
 * `puppetlabs.puppetdb.mq:name=<name>.retried`: stats about
   commands that have been submitted for retry (due to transient
-  errors)
+  errors).
 
 ### HTTP metrics
 
 PuppetDB automatically collects metrics about every URL it has served
 to clients. You can see things like the average response time on a
-per-url basis, or see how many requests against a particular URL
+per-URL basis, or see how many requests against a particular URL
 resulted in a HTTP 400 response code. Each of the following metrics is
 available for each URL. The list of automatically generated metrics is
 available via the `/metrics/v1/mbeans` endpoint.
 
 Additionally, we also support the following explicit names:
 
-**Note:** The use of these explicit names is deprecated; please use, e.g., `/pdb/cmd/v1` instead.
+>**Note:** The use of these explicit names is deprecated; please use, for example, `/pdb/cmd/v1` instead.
 
-* `commands`: Stats relating to the command processing REST
-  endpoint. The PuppetDB termini in Puppet talk to this endpoint to
+* `commands`: stats relating to the command processing REST
+  endpoint. The PuppetDB-termini in Puppet talk to this endpoint to
   submit new catalogs, facts, etc.
-* `metrics`: Stats relating to the metrics REST endpoint. This is the
+* `metrics`: stats relating to the metrics REST endpoint. This is the
   endpoint you're reading about right now!
-* `facts`: Stats relating to fact querying.
-* `resources`: Stats relating to resource querying. This is the
+* `facts`: stats relating to fact querying.
+* `resources`: stats relating to resource querying. This is the
   endpoint used when collecting exported resources.
 
 In addition to customizing `<name>`, the following metrics are
@@ -141,15 +142,15 @@ resources, storing edges, etc.). Metrics of particular note include:
 * `puppetlabs.puppetdb.storage:name=duplicate-pct`:
   the percentage of catalogs that PuppetDB determines to be
   duplicates of existing catalogs.
-* `puppetlabs.puppetdb.storage:name=gc-time`: state
+* `puppetlabs.puppetdb.storage:name=gc-time`: states
   about how long it takes to do storage compaction
 
-### JVM Metrics
+### JVM metrics
 
-* `java.lang:type=Memory`: memory usage statistics
-* `java.lang:type=Threading`: stats about JVM threads
+* `java.lang:type=Memory`: memory usage statistics.
+* `java.lang:type=Threading`: stats about JVM threads.
 
-### MQ Metrics
+### MQ metrics
 
 * `org.apache.activemq:type=Broker,brokerName=localhost,destinationType=Queue,destinationName=puppetlabs.puppetdb.commands`:
   stats about the command processing queue: queue depth, how long messages remain in the queue, etc.
