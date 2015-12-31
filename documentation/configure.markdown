@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » Configuration"
+title: "PuppetDB 3.2: Configuring PuppetDB"
 layout: default
 canonical: "/puppetdb/latest/configure.html"
 ---
@@ -16,38 +16,36 @@ canonical: "/puppetdb/latest/configure.html"
 Summary
 -----
 
-
 PuppetDB has three main groups of settings:
 
-* The init script's configuration file, which sets the JVM heap size and the location of PuppetDB's main config file
-* Logging settings, which go in the [logback.xml](#logging-config) file and can be changed without restarting PuppetDB
-* All other settings, which go in PuppetDB's configuration file(s) and take effect after the service is restarted
-
+* The init script's configuration file, which sets the JVM heap size and the location of PuppetDB's main config file.
+* Logging settings, which go in the [logback.xml](#logging-config) file and can be changed without restarting PuppetDB.
+* All other settings, which go in PuppetDB's configuration file(s) and take effect after the service is restarted.
 
 Init Script Config File
 -----
 
 If you installed PuppetDB from packages or used the `rake install`
 installation method, an init script was created for PuppetDB. This
-script has its own configuration file, whose location varies by
+script has its own configuration file, the location of which varies by
 platform and by package:
 
-OS and Package              | File
-----------------------------|----------------------------
-Redhat-like (open source)   | `/etc/sysconfig/puppetdb`
-Redhat-like (PE)            | `/etc/sysconfig/pe-puppetdb`
-Debian/Ubuntu (open source) | `/etc/default/puppetdb`
-Debian/Ubuntu (PE)          | `/etc/default/pe-puppetdb`
+OS and Package               | File
+-----------------------------|----------------------------
+Red Hat-like (open source)   | `/etc/sysconfig/puppetdb`
+Red Hat-like (PE)            | `/etc/sysconfig/pe-puppetdb`
+Debian/Ubuntu (open source)  | `/etc/default/puppetdb`
+Debian/Ubuntu (PE)           | `/etc/default/pe-puppetdb`
 
  In this file, you can change the following settings:
 
-- **`JAVA_BIN`** --- The location of the Java binary.
-- **`JAVA_ARGS`** --- Command line options for the Java binary, most notably the `-Xmx` (max heap size) flag.
-- **`USER`** --- The user PuppetDB should be running as.
-- **`INSTALL_DIR`** --- The directory into which PuppetDB is installed.
-- **`CONFIG`** --- The location of the PuppetDB config file, which may be a single file or a directory of .ini files.
+- **`JAVA_BIN`**: the location of the Java binary.
+- **`JAVA_ARGS`**: command line options for the Java binary, most notably the `-Xmx` (max heap size) flag.
+- **`USER`**: the user PuppetDB should be running as.
+- **`INSTALL_DIR`**: the directory into which PuppetDB is installed.
+- **`CONFIG`**: the location of the PuppetDB config file, which may be a single file or a directory of .ini files.
 
-### Configuring the Java Heap Size
+### Configuring the Java heap size
 
 To change the JVM heap size for PuppetDB, edit the [init script config
 file](#init-script-config-file) by setting a new value for the `-Xmx`
@@ -61,7 +59,7 @@ To use 1GB of memory:
 
     JAVA_ARGS="-Xmx1g"
 
-### Configuring JMX Access
+### Configuring JMX access
 
 While all JMX metrics are exposed using the `/metrics` namespace, you can also
 expose direct JMX access using standard JVM means as documented
@@ -74,7 +72,7 @@ up a JMX socket on port 1099:
     JAVA_ARGS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=1099"
 
 
-The logback Logging Config File
+The Logback logging-config file
 -----
 
 Logging is configured with a logback.xml file, whose location is
@@ -82,10 +80,10 @@ defined with the [`logging-config`](#logging-config) setting. If you
 change the log settings while PuppetDB is running, it will apply the
 new settings without requiring a restart.
 
-[See the logback documentation][logback] for more information about logging options.
+[See the Logback documentation][logback] for more information about logging options.
 
 
-The PuppetDB Configuration File(s)
+The PuppetDB configuration file(s)
 -----
 
 PuppetDB is configured using an INI-style config format with several
@@ -93,18 +91,17 @@ PuppetDB is configured using an INI-style config format with several
 of the sections and settings described below belong in the PuppetDB
 config file(s).
 
-**Whenever you change PuppetDB's configuration settings, you must
-  restart the service for the changes to take effect.**
+> **Note:** Whenever you change PuppetDB's configuration settings, you must restart the service for the changes to take effect.
 
 You can change the location of the main config file in [the init
 script config file](#init-script-config-file). This location can point
 to a single configuration file or a directory of .ini files. If you
-specify a directory (_conf.d_ style), PuppetDB will merge the .ini
+specify a directory (in _conf.d_ style), PuppetDB will merge the .ini
 files in alphabetical order.
 
 If you've installed PuppetDB from a package, by default it will use
 the _conf.d_ config style. The default config directory is
-`/etc/puppetlabs/puppetdb/conf.d`.  If you're running from source, you
+`/etc/puppetlabs/puppetdb/conf.d`. If you're running from source, you
 may use the `-c` command-line argument to specify your config file or
 directory.
 
@@ -126,7 +123,7 @@ An example configuration file:
     [jetty]
     port = 8080
 
-### Playing Nice With the PuppetDB Module
+### Playing nice with the PuppetDB module
 
 If you [installed PuppetDB with the puppetlabs-puppetdb
 module][module], PuppetDB's settings will be managed by Puppet. Most
@@ -135,7 +132,7 @@ class parameters; see [the module's
 documentation](https://forge.puppetlabs.com/puppetlabs/puppetdb) for
 details.
 
-If you _do_ need to change rare settings that the module doesn't
+If you _do_ need to change those rare settings that the module doesn't
 manage, you can do the following:
 
 Create a new class in a new module (something like
@@ -169,9 +166,8 @@ resources as shown below, set the class to refresh the
     }
 ~~~
 
-`[global]` Settings
+`[global]` settings
 -----
-
 
 The `[global]` section is used to configure application-wide behavior.
 
@@ -185,8 +181,8 @@ the application to run.
 
 This describes the full path to a
 [logback.xml](http://logback.qos.ch/manual/configuration.html)
-file. Covering all the options available for configuring logback is
-outside the scope of this document; see the aforementioned link for
+file. Covering all the options available for configuring Logback is
+outside the scope of this guide: see the [Logback documentation][logback] for
 exhaustive information.
 
 If this setting isn't provided, PuppetDB defaults to logging at INFO
@@ -203,14 +199,14 @@ and it will automatically react to changes after a few seconds.
 ### `update-server`
 
 The URL to query when checking for newer versions; defaults to
-`http://updates.puppetlabs.com/check-for-updates`.  Overriding this
+`http://updates.puppetlabs.com/check-for-updates`. Overriding this
 setting may be useful if your PuppetDB server is firewalled and can't
-make external HTTP requests, in which case you could configure a proxy
+make external HTTP requests. In this case you can configure a proxy
 server to send requests to the `updates.puppetlabs.com` URL and
 override this setting to point to your proxy server.
 
 
-`[puppetdb]` Settings
+`[puppetdb]` settings
 -----
 
 The `[puppetdb]` section is used to configure PuppetDB
@@ -219,9 +215,9 @@ application-specific behavior.
 ### `certificate-whitelist`
 
 Optional. This describes the path to a file that contains a list of
-certificate names, one per line.  Incoming HTTPS requests will have
+certificate names, one per line. Incoming HTTPS requests will have
 their certificates validated against this list of names and only those
-with an _exact_ matching entry will be allowed through. (For a puppet
+with an **exact** matching entry will be allowed through. (For a Puppet
 master, this compares against the value of the `certname` setting,
 rather than the `dns_alt_names` setting.)
 
@@ -232,7 +228,7 @@ SSL client certificates.
 ### `include-historical-catalogs` (PE only)
 
 > **Warning:** This setting is intended for use only in Puppet Enterprise (PE).
-> This this setting will be ignored without a PE PuppetDB package.
+> This setting will be ignored without a PE PuppetDB package.
 
 Setting this to `false` disables the storage of historical catalogs. Defaults to
 `true`.
@@ -243,7 +239,7 @@ Setting this to `true` disables checking for updated versions of PuppetDB.
 Defaults to `false`.
 
 
-`[database]` Settings
+`[database]` settings
 -----
 
 The `[database]` section configures PuppetDB's database settings.
@@ -251,7 +247,7 @@ PuppetDB stores its data in PostgreSQL.
 
 > **FAQ: Why no MySQL or Oracle support?**
 >
-> MySQL lacks several features that PuppetDB relies on; the most notable is recursive queries. We have no plans to ever support MySQL.
+> MySQL lacks several features that PuppetDB relies on, most notably including recursive queries. We have no plans to ever support MySQL.
 >
 > Depending on demand, Oracle support may be forthcoming in a future version of PuppetDB. This hasn't been decided yet.
 
@@ -261,7 +257,7 @@ Before using the PostgreSQL backend, you must set up a PostgreSQL
 server, ensure that it will accept incoming connections, create a user
 for PuppetDB to use when connecting, and create a database for
 PuppetDB. Completely configuring PostgreSQL is beyond the scope of
-this manual, but if you are logged in as root on a running Postgres
+this guide, but if you are logged in as root on a running PostgreSQL
 server, you can create a user and database as follows:
 
     $ sudo -u postgres sh
@@ -269,7 +265,7 @@ server, you can create a user and database as follows:
     $ createdb -E UTF8 -O puppetdb puppetdb
     $ exit
 
-If you are running PostgreSQL you should install the regexp optimized index
+If you are running PostgreSQL, you should install the RegExp-optimized index
 extension [`pg_trgm`][pg_trgm]. This may require installing the
 `postgresql-contrib` (or equivalent) package, depending on your distribution:
 
@@ -277,13 +273,13 @@ extension [`pg_trgm`][pg_trgm]. This may require installing the
     $ psql puppetdb -c 'create extension pg_trgm'
     $ exit
 
-Next you will most likely need to modify the `pg_hba.conf` file to
-allow for md5 authentication from at least localhost. To locate the
+Next, you will most likely need to modify the `pg_hba.conf` file to
+allow for MD5 authentication from at least localhost. To locate the
 file you can either issue a `locate pg_hba.conf` command (if your
 distribution supports it) or consult your distribution's documentation
 for the PostgreSQL `confdir`.
 
-The following example `pg_hba.conf` file allows md5 authentication
+The following example `pg_hba.conf` file allows MD5 authentication
 from localhost for both IPv4 and IPv6 connections:
 
     # TYPE  DATABASE   USER   CIDR-ADDRESS  METHOD
@@ -311,7 +307,7 @@ the name of the database you've created for use with PuppetDB.
 #### Using SSL With PostgreSQL
 
 It's possible to use SSL to protect connections to the database. There
-are several extra steps and considerations when doing so; see the
+are several extra steps and considerations when doing so. See the
 [PostgreSQL SSL setup page][postgres_ssl] for complete details.
 
 The main difference in the config file is that you must be sure to add
@@ -325,7 +321,7 @@ This controls how often, in minutes, to compact the database. The compaction
 process reclaims space and deletes unnecessary rows. If not supplied, the
 default is every 60 minutes.
 
-If `gc-interval` is set to 0, all database GC processes will be disabled. When
+If `gc-interval` is set to zero, all database GC processes will be disabled. When
 using this value, you should explicitly set a `dlo-compression-interval` if your
 system will receive any commands.
 
@@ -333,7 +329,7 @@ system will receive any commands.
 
 Any PuppetDB instance which receives commands must perform periodic maintenance
 on the message queue. This setting controls the interval at which that process
-is performed. By default, it is equal to `gc-interval` (60 minutes if not specified).
+is performed. By default, it is equal to `gc-interval` (60 minutes by default).
 You may wish to set this explicitly if you are using a zero `gc-interval`.
 
 ### `node-ttl`
@@ -350,7 +346,7 @@ You may specify the time as a string using any of the following suffixes:
     `s`  - seconds
     `ms` - milliseconds
 
-So, e.g., a value of `30d` would set the time-to-live to 30 days, and a value of
+For example, a value of `30d` would set the time-to-live to 30 days, and a value of
 `48h` would set the time-to-live to 48 hours.
 
 Nodes will be checked for staleness every `gc-interval` minutes. Manual
@@ -360,9 +356,9 @@ If unset, auto-expiration of nodes is disabled.
 
 ### `node-purge-ttl`
 
-Automatically delete nodes that have been _deactivated_ or _expired_ for the
-specified amount of time. This will also delete all facts, catalogs and reports
-for the node. This ttl may be specified the same way as `node-ttl` above.
+Automatically delete nodes that have been deactivated or expired for the
+specified amount of time. This will also delete all facts, catalogs, and reports
+for the relevant nodes. This TTL may be specified the same way as `node-ttl` above.
 
 If unset, auto-deletion of nodes is disabled.
 
@@ -382,7 +378,7 @@ If unset, the default value is 14 days.
 This describes where to find the database. It should be something like
 `//<HOST>:<PORT>/<DATABASE>`, replacing `<HOST>` with the DB server's
 hostname, `<PORT>` with the port on which PostgreSQL is listening, and
-`<DATABASE>` with the name of the database.  Append `?ssl=true` to
+`<DATABASE>` with the name of the database. Append `?ssl=true` to
 this if your PostgreSQL server is using SSL.
 
 ### `username`
@@ -395,12 +391,12 @@ This is the password to use when connecting. Only used with PostgreSQL.
 
 ### `maximum-pool-size`
 
-From the HikariCP documentation:
+From the [HikariCP documentation](https://github.com/brettwooldridge/HikariCP):
 
-> This property controls the maximum size that the pool is allowed to reach,
+> "This property controls the maximum size that the pool is allowed to reach,
 > including both idle and in-use connections. Basically this value will
 > determine the maximum number of actual connections to the database backend. A
-> reasonable value for this is best determined by your execution environment.
+> reasonable value for this is best determined by your execution environment."
 
 When the pool reaches this size, and no idle connections are available, attempts
 to get a connection will wait for `connection-timeout` milliseconds before timing
@@ -413,7 +409,7 @@ The default value is 10.
 The maximum time (in minutes), for a pooled connection to remain
 unused before it is closed off.
 
-If not supplied, we default to 60 minutes.
+If not supplied, the default value is 60 minutes.
 
 ### `conn-lifetime`
 
@@ -438,8 +434,8 @@ from the pool of database connections. If not supplied, defaults to
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
 from PuppetDB in a future release.
 
-This sets the JDBC class to use.  It should be
-`org.postgresql.Driver`, which is the default.  You should not need to
+This sets the JDBC class to use. It should be
+`org.postgresql.Driver`, which is the default. You should not need to
 change it.
 
 ### `subprotocol`
@@ -447,7 +443,7 @@ change it.
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
 from PuppetDB in a future release.
 
-This should be `postgresql`, which is the default.  You should not
+This should be `postgresql`, which is the default. You should not
 need to change it.
 
 ### `log-slow-statements`
@@ -455,18 +451,18 @@ need to change it.
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
 from PuppetDB in a future release.
 
-This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note PuppetDB does not interrupt slow queries; it simply reports them after they complete.
+This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note that PuppetDB does not interrupt slow queries, but simply reports them after they complete.
 
-The default value is 10 seconds. A value of 0 will disable logging of slow queries.
+The default value is 10 seconds. A value of zero will disable logging of slow queries.
 
 ### `conn-keep-alive`
 
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
 from PuppetDB in a future release.
 
-This sets the time (in minutes), for a connection to remain idle before sending a test query to the DB. This is useful to prevent a DB from timing out connections on its end.
+This sets the time (in minutes) for a connection to remain idle before sending a test query to the database. This is useful to prevent a database from timing out connections on its end.
 
-If not supplied, we default to 45 minutes.
+If not supplied, the default value is 45 minutes.
 
 ###`statements-cache-size`
 
@@ -475,22 +471,22 @@ from PuppetDB in a future release.
 
 This setting defines how many prepared statements are cached automatically. For a large amount of dynamic queries this number could be increased to increase performance, at the cost of memory consumption and database resources.
 
-If not supplied, we default to 0.
+If not supplied, the default value is zero.
 
-`[read-database]` Settings
+`[read-database]` settings
 -----
 
 The `[read-database]` section configures PuppetDB's _read-database_
 settings, useful when running a PostgreSQL [Hot
 Standby](http://wiki.postgresql.org/wiki/Hot_Standby) cluster.
-Currently only configuring a Postgres read-database is supported.  See
-the Postgres docs [here](http://wiki.postgresql.org/wiki/Hot_Standby)
-for details on configuring the cluster.  The `[read-database]` portion
-of the configuration is in addition to the `[database]` settings.  If
+Currently, only configuring a PostgreSQL read-database is supported.  See
+the PostgreSQL documentation [here](http://wiki.postgresql.org/wiki/Hot_Standby)
+for details on configuring the cluster. The `[read-database]` portion
+of the configuration is in addition to the `[database]` settings. If
 `[read-database]` is specified, `[database]` must also be specified.
 
 To configure PuppetDB to use a read-only database from the cluster,
-put the following in the `[read-database]` section:
+add the following to the `[read-database]` section:
 
     classname = org.postgresql.Driver
     subprotocol = postgresql
@@ -515,10 +511,9 @@ The main difference in the config file is that you must be sure to add
 
 ### `subname`
 
-This describes where to find the database. Set this to:
+This describes where to find the database. Set this to `//<HOST>:<PORT>/<DATABASE>` when using PostgreSQL, replacing `<HOST>` with the DB server's hostname, `<PORT>` with the port on which PostgreSQL is listening, and `<DATABASE>` with the name of the database.
 
-* `//<HOST>:<PORT>/<DATABASE>` when using PostgreSQL, replacing `<HOST>` with the DB server's hostname, `<PORT>` with the port on which PostgreSQL is listening, and `<DATABASE>` with the name of the database
-    * Append `?ssl=true` to this if your PostgreSQL server is using SSL.
+Append `?ssl=true` to this if your PostgreSQL server is using SSL.
 
 ### `username`
 
@@ -530,12 +525,12 @@ This is the password to use when connecting.
 
 ### `maximum-pool-size`
 
-From the HikariCP documentation:
+From the [HikariCP documentation](https://github.com/brettwooldridge/HikariCP):
 
-> This property controls the maximum size that the pool is allowed to reach,
+> "This property controls the maximum size that the pool is allowed to reach,
 > including both idle and in-use connections. Basically this value will
 > determine the maximum number of actual connections to the database backend. A
-> reasonable value for this is best determined by your execution environment.
+> reasonable value for this is best determined by your execution environment."
 
 When the pool reaches this size, and no idle connections are available, attempts
 to get a connection will wait for `connection-timeout` milliseconds before timing
@@ -545,10 +540,10 @@ The default value is 10.
 
 ### `conn-max-age`
 
-The maximum time (in minutes), for a pooled connection to remain
+The maximum time (in minutes) for a pooled connection to remain
 unused before it is closed off.
 
-If not supplied, we default to 60 minutes.
+If not supplied, the default value is 60 minutes.
 
 ### `conn-lifetime`
 
@@ -573,8 +568,8 @@ from the pool of database connections. If not supplied, defaults to
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
 from PuppetDB in a future release.
 
-This sets the JDBC class to use.  It should be
-`org.postgresql.Driver`, which is the default.  You should not need to
+This sets the JDBC class to use. It should be
+`org.postgresql.Driver`, which is the default. You should not need to
 change it.
 
 ### `subprotocol`
@@ -582,7 +577,7 @@ change it.
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
 from PuppetDB in a future release.
 
-This should be `postgresql`, which is the default.  You should not
+This should be `postgresql`, which is the default. You should not
 need to change it.
 
 ### `log-slow-statements`
@@ -590,18 +585,18 @@ need to change it.
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
 from PuppetDB in a future release.
 
-This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note PuppetDB does not interrupt slow queries; it simply reports them after they complete.
+This sets the number of seconds before an SQL query is considered "slow." Slow SQL queries are logged as warnings, to assist in debugging and tuning. Note PuppetDB does not interrupt slow queries, but simply reports them after they complete.
 
-The default value is 10 seconds. A value of 0 will disable logging of slow queries.
+The default value is 10 seconds. A value of zero will disable logging of slow queries.
 
 ### `conn-keep-alive`
 
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
 from PuppetDB in a future release.
 
-This sets the time (in minutes), for a connection to remain idle before sending a test query to the DB. This is useful to prevent a DB from timing out connections on its end.
+This sets the time (in minutes) for a connection to remain idle before sending a test query to the DB. This is useful to prevent a DB from timing out connections on its end.
 
-If not supplied, we default to 45 minutes.
+If not supplied, the default setting is 45 minutes.
 
 ###`statements-cache-size`
 
@@ -610,7 +605,7 @@ from PuppetDB in a future release.
 
 This setting defines how many prepared statements are cached automatically. For a large amount of dynamic queries this number could be increased to increase performance, at the cost of memory consumption and database resources.
 
-If not supplied, we default to 0.
+If not supplied, the default setting is zero.
 
 
 `[command-processing]` Settings
@@ -638,29 +633,29 @@ dead-letter office before archiving them. This process will check for
 compressible messages on startup and after every `gc-interval`, but
 will only perform the archive once per
 `dlo-compression-threshold`. The same format can be used as for the
-`node-ttl` setting above. If set to 0 seconds, this behavior will be
-disabled. The default value is 1 day.
+`node-ttl` setting above. If set to zero seconds, this behavior will be
+disabled. The default value is one day.
 
 ### `store-usage`
 
-This setting sets the maximum amount of space in megabytes that
+Sets the maximum amount of space in megabytes that
 PuppetDB's ActiveMQ can use for persistent message storage.
 
 ### `temp-usage`
 
-This setting sets the maximum amount of space in megabytes that
+Sets the maximum amount of space in megabytes that
 PuppetDB's ActiveMQ can use for temporary message storage.
 
 ### `max-frame-size`
 
-This setting sets the maximum frame size for persisted activemq messages
-supplied in bytes.  Default value is 209715200 (i.e 200 MB).
+Sets the maximum frame size for persisted ActiveMQ messages
+supplied in bytes. Default value is 209715200 (or 200MB).
 
 ### `reject-large-commands`
 
-This is a boolean that enables rejecting (returning an HTTP 413 error)
-commands that are too large to process. An example of this would be a
-catalog that is too large and would cause PuppetDB to run out of
+This is a Boolean that enables rejecting (returning an HTTP 413 error)
+commands that are too large to process, such as a
+catalog that is too large, causing PuppetDB to run out of
 memory. This setting can be used along with `max-command-size`.
 
 This setting is true by default.
@@ -668,33 +663,27 @@ This setting is true by default.
 ### `max-command-size`
 
 This is an integer that specifies (in bytes) which commands are "too
-large" to process by PuppetDB. By default this setting is a fraction
-of the total heap space but can be specified manually for users that
-want to support larger catalog sizes. This setting has no affect when
+large" to process with PuppetDB. By default this setting is a fraction
+of the total heap space, but can be specified manually for users who
+want to support larger catalog sizes. This setting has no effect when
 `reject-large-commands` is set to false.
 
 
-`[jetty]` (HTTP) Settings
+`[jetty]` (HTTP) settings
 -----
 
 The `[jetty]` section configures HTTP for PuppetDB.
 
-> **Note:** If you are using Puppet Enterprise and want to enable the
-    PuppetDB dashboard from the PE console, refer to [Changing
-    PuppetDB's
-    Parameters](/pe/latest/maintain_console-db.html#changing-puppetdbs-parameters)
-    for more information. PE users should not edit `jetty.ini`.
+> **Note:** If you are using Puppet Enterprise and want to enable the PuppetDB dashboard from the PE console, refer to [our guide to changing PuppetDB's parameters](/pe/latest/maintain_console-db.html#changing-puppetdbs-parameters) for more information. PE users should not edit `jetty.ini`.
 
 ### `host`
 
-This sets the IP interface to listen on for _unencrypted_ HTTP
+Sets the IP interface to listen on for **unencrypted** HTTP
 traffic. If not supplied, we bind to `localhost`, which will reject
 connections from anywhere but the PuppetDB server itself. To listen on
 all available interfaces, use `0.0.0.0`.
 
-To avoid DNS resolution confusion, it is recommended that if you wish
-to set this to something other than `localhost` an IP address should
-be used instead of a hostname.
+To avoid DNS resolution confusion, if you wish to set this to something other than `localhost`, we reccoment using an IP address instead of a hostname.
 
 > **Note:** Unencrypted HTTP is the only way to view the [performance
     dashboard][dashboard], since PuppetDB uses host verification for
@@ -706,77 +695,73 @@ be used instead of a hostname.
 
 ### `port`
 
-This sets what port to use for _unencrypted_ HTTP traffic. If not
+Establishes which port to use for **unencrypted** HTTP traffic. If not
 supplied, we won't listen for unencrypted traffic at all.
 
 ### `max-threads`
 
-This sets the maximum number of threads assigned to responding to HTTP
+Sets the maximum number of threads assigned to responding to HTTP
 and HTTPS requests, effectively changing how many concurrent requests
 can be made at one time. Defaults to 50.
 
-> **Note:** Due to how our web-server (Jetty 7) behaves, this setting
-    must be higher then the number of CPU's on your system or it will
+> **Note:** Due to the behaviour of our web server (Jetty 7), this setting
+    must be higher then the number of CPUs on your system or it will
     stop processing any HTTP requests.
 
 ### `ssl-host`
 
-This sets IP interface to listen on for _encrypted_ HTTPS traffic. If
+Sets which IP interface to listen on for **encrypted** HTTPS traffic. If
 not supplied, we bind to `localhost`. To listen on all available
 interfaces, use `0.0.0.0`.
 
-To avoid DNS resolution confusion, it is recommended that if you wish
-to set this to something other than `localhost` an IP address should
-be used instead of a hostname.
+To avoid DNS resolution confusion, if you wish to set this to something other than `localhost`, we reccoment using an IP address instead of a hostname
 
 ### `ssl-port`
 
-This sets the port to use for _encrypted_ HTTPS traffic. If not
+Establishes which port to use for **encrypted** HTTPS traffic. If not
 supplied, we won't listen for encrypted traffic at all.
 
 ### `ssl-cert`
 
-This sets the path to the server certificate PEM file used by the
-PuppetDB web service for HTTPS.  During the SSL handshake for a
+Sets the path to the server certificate PEM file used by the
+PuppetDB web service for HTTPS. During the SSL handshake for a
 connection, certificates extracted from this file are presented to the
-client for the client's use in validating the server.  This file may
+client for the client's use in validating the server. This file may
 contain a single certificate or a chain of certificates ordered from
-the end certificate first to the most-root certificate last.  For
+the end certificate first to the most-root certificate last. For
 example, a certificate chain could contain:
 
-* An end certificate
-* An intermediate CA certificate with which the end certificate was issued
-* A root CA certificate with which the intermediate CA certificate was issued
+* An end certificate.
+* An intermediate CA certificate with which the end certificate was issued.
+* A root CA certificate with which the intermediate CA certificate was issued.
 
 In the PEM file, the end certificate should appear first, the
 intermediate CA certificate should appear second, and the root CA
 certificate should appear last.
 
-If a chain is present, it is not required to be complete.  If a path
+If a chain is present, it is not required to be complete. If a path
 has been specified for the `ssl-cert-chain` setting, the server will
 construct the cert chain starting with the first certificate found in
 the `ssl-cert` PEM and followed by any certificates in the
-`ssl-cert-chain` PEM.  In the latter case, any certificates in the
-`ssl-cert` PEM beyond the first one would be ignored.
+`ssl-cert-chain` PEM. In the latter case, any certificates in the
+`ssl-cert` PEM beyond the first one are ignored.
 
 ### `ssl-key`
 
 This sets the path to the private key PEM file that corresponds with
-the `ssl-cert`, it used by the PuppetDB web service for HTTPS.
+the `ssl-cert`, if used by the PuppetDB web service for HTTPS.
 
 ### `ssl-ca-cert`
 
 This sets the path to the CA certificate PEM file used for client
-authentication. Authorized clients must be signed by the CA that that
-corresponds to this certificate.
+authentication. Authorized clients must be signed by the CA that corresponds to this certificate.
 
 ### `cipher-suites`
 
 Optional. A comma-separated list of cryptographic ciphers to allow for
 incoming SSL connections. Valid names are listed in the [official JDK
 cryptographic providers
-documentation](http://docs.oracle.com/javase/7/docs/technotes/guides/security/SunProviders.html#SupportedCipherSuites);
-you'll need to use the all-caps cipher suite name.
+documentation](http://docs.oracle.com/javase/7/docs/technotes/guides/security/SunProviders.html#SupportedCipherSuites). Note that you must use the all-caps cipher suite name.
 
 If not supplied, PuppetDB uses the default cipher suites for your
 local system on JDK versions older than 1.7.0u6. On newer JDK
@@ -787,14 +772,10 @@ versions, PuppetDB will use only non-DHE cipher suites.
 Optional. A comma-separated list of protocols to allow for incoming
 SSL connections. Valid names are listed in the [official JDK
 cryptographic protocol
-documentation](http://docs.oracle.com/javase/7/docs/technotes/guides/security/SunProviders.html#SunJSSEProvider);
-you'll need to use the names with verbatim capitalization. For
+documentation](http://docs.oracle.com/javase/7/docs/technotes/guides/security/SunProviders.html#SunJSSEProvider). Note that you must use the names with verbatim capitalization. For
 example: `TLSv1, TLSv1.1, TLSv1.2`.
 
-If not supplied, PuppetDB uses a default of `TLSv1, TLSv1.1,
-TLSv1.2`. By default SSLv3 is not included in that list due to known
-vulnerabilities. Users wanting to use SSLv3 need to specify it in
-their list explicitly.
+If not supplied, PuppetDB uses a default of `TLSv1, TLSv1.1, TLSv1.2`. By default, SSLv3 is not included in that list due to known vulnerabilities. Users wanting to use SSLv3 need to explicitly specify it in their list.
 
 ### `ssl-crl-path`
 
@@ -805,18 +786,18 @@ certificate matches a revocation entry in the file.
 ### `ssl-cert-chain`
 
 This sets the path to a PEM with CA certificates for use in presenting a
-client with the server's chain of trust.  Certs found in this PEM file are
+client with the server's chain of trust. Certs found in this PEM file are
 appended after the first certificate from the `ssl-cert` PEM in the
-construction of the certificate chain.  This is an optional setting.  The
+construction of the certificate chain. This is an optional setting. The
 certificates in the `ssl-cert-chain` PEM file should be ordered from the
-least-root CA certificate first to the most-root CA certificate last.  For
+least-root CA certificate first to the most-root CA certificate last. For
 example, a certificate chain could contain:
 
-* An end certificate
-* An intermediate CA certificate with which the end certificate was issued
-* A root CA certificate with which the intermediate CA certificate was issued
+* An end certificate.
+* An intermediate CA certificate with which the end certificate was issued.
+* A root CA certificate with which the intermediate CA certificate was issued.
 
-The end certificate should appear in the `ssl-cert` PEM file.  In the
+The end certificate should appear in the `ssl-cert` PEM file. In the
 `ssl-cert-chain` PEM file, the intermediate CA certificate should appear
 first and the root CA certificate should appear last.
 
@@ -828,11 +809,11 @@ The chain is not required to be complete.
 ### `access-log-config`
 
 Optional. This is a path to an XML file containing configuration
-information for the `Logback-access` module. If present, a logger will
+information for the `logback-access` module. If present, a logger will
 be set up to log information about any HTTP requests Jetty receives
 according to the logging configuration, as long as the XML file
 pointed to exists and is valid. Information on configuring the
-`Logback-access` module is available
+`logback-access` module is available
 [here](http://logback.qos.ch/access.html#configuration).
 
 A configuration file may resemble the following:
@@ -856,23 +837,23 @@ response.
 
 ### `graceful-shutdown-timeout`
 
-After receiving a shut down, this is the number of milliseconds the
+After receiving a shutdown, this is the number of milliseconds the
 server will wait for in-flight requests to complete before actually
 shutting down. New requests will be blocked during this time. Defaults
 to 30000.
 
 ### `request-header-max-size`
 
-This sets the maximum size of an HTTP Request Header. If a header is
-sent that exceeds this value, Jetty will return an HTTP 413 Error
+This sets the maximum size of an HTTP request header. If a header is
+sent that exceeds this value, Jetty will return an HTTP 413 error
 response. This defaults to 8192 bytes, and only needs to be configured
-if an exceedingly large header is being sent in an HTTP Request.
+if an exceedingly large header is being sent in an HTTP request.
 
-`[nrepl]` Settings
+`[nrepl]` settings
 -----
 
-The `[nrepl]` section configures remote runtime modification.  For
-more detailed info, see [Debugging with the Remote REPL][repl].
+The `[nrepl]` section configures remote runtime modification. For
+more detailed info, see [our guide to debugging with the remote REPL][repl].
 
 Enabling a remote
 [REPL](http://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop)
@@ -887,7 +868,7 @@ default. An example configuration stanza:
 
 ### `enabled`
 
-Set to `true` to enable the REPL. Defaults to false.
+To enable the REPL, set to true. Defaults to false.
 
 ### `port`
 
@@ -895,8 +876,8 @@ The port to use for the REPL.
 
 ### `host`
 
-Specifies the host or IP address for the repl service to listen on. By
-default this is `127.0.0.1` only, as this is an insecure channel this
-is the only recommended setting for production environments. Although
-this is generally not recommended for production, you can listen on
-all interfaces, you can specify `0.0.0.0` for example.
+Specifies the host or IP address for the REPL service to listen on. By
+default this is `127.0.0.1` only. As this is an insecure channel this
+is the only recommended setting for production environments. 
+
+If you wish to listen on all interfaces, you can specify `0.0.0.0`, for example, although this is generally not recommended for production. 
