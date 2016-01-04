@@ -197,7 +197,7 @@
 (deftest test-hash-field-not-nullable
   (jdbc/with-db-connection *db*
     (clear-db-for-testing!)
-    (fast-forward-to-migration! 39)
+    (fast-forward-to-migration! 40)
 
     (let [factset-template {:timestamp (to-timestamp (now))
                             :environment_id (store/ensure-environment "prod")
@@ -218,15 +218,15 @@
 
       (is (= 2 (:c (first (query-to-vec "SELECT count(*) as c FROM factsets where hash is null")))))
 
-      (apply-migration-for-testing! 40)
+      (apply-migration-for-testing! 41)
 
       (is (zero? (:c (first (query-to-vec "SELECT count(*) as c FROM factsets where hash is null"))))))))
 
 (deftest test-only-hash-field-change
   (clear-db-for-testing!)
-  (fast-forward-to-migration! 39)
+  (fast-forward-to-migration! 40)
   (let [before-migration (schema-info-map *db*)]
-    (apply-migration-for-testing! 40)
+    (apply-migration-for-testing! 41)
     (is (= {:index-diff nil,
             :table-diff [{:left-only {:nullable? "YES"}
                           :right-only {:nullable? "NO"}
@@ -245,9 +245,9 @@
 
 (deftest test-adding-historical-catalogs-support-migration
   (clear-db-for-testing!)
-  (fast-forward-to-migration! 40)
+  (fast-forward-to-migration! 41)
   (let [before-migration (schema-info-map *db*)]
-    (apply-migration-for-testing! 41)
+    (apply-migration-for-testing! 42)
     (let [schema-diff (diff-schema-maps before-migration (schema-info-map *db*))]
       (is (= (set [{:same nil :right-only nil
                     :left-only {:numeric_scale 0 :column_default nil
@@ -322,8 +322,6 @@
                              :type "btree" :unique? true
                              :functional? false :is_partial false
                              :primary? false}}
-               ;; For the `catalog_hash_expr_idx`
-               {:left-only {:unique? true} :right-only {:unique? false}}
                {:left-only nil
                 :right-only {:schema "public" :table "reports"
                              :index "reports_catalog_uuid_idx" :index_keys ["catalog_uuid"]
@@ -336,6 +334,8 @@
                              :type "btree" :unique? true
                              :functional? false :is_partial false
                              :primary? true}}
+               {:left-only {:unique? true}
+                :right-only {:unique? false}}
                {:right-only nil
                 :left-only {:schema "public"
                             :table "catalog_resources" :index "catalog_resources_pkey"
@@ -351,7 +351,7 @@
                              :primary? true}
                 :left-only nil}
                {:left-only {:index "resources_hash_expr_idx"}
-                :right-only {:index "catalog_resources_ltrim_idx"}}}
+                :right-only {:index "catalog_resources_encode_idx"}}}
              (->> (:index-diff schema-diff)
                   (map #(kitchensink/mapvals (fn [idx]
                                                (dissoc idx :user)) %))

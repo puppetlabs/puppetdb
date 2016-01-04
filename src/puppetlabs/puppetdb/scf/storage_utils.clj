@@ -221,7 +221,7 @@
 
 (defn sql-hash-as-str
   [column]
-  (format "trim(leading '\\x' from %s::text)" column))
+  (format "encode(%s::bytea, 'hex')" column))
 
 (defn parse-db-hash
   [db-hash]

@@ -436,7 +436,7 @@
    "ALTER TABLE reports ADD COLUMN catalog_uuid UUID DEFAULT NULL"
 
    "CREATE INDEX reports_catalog_uuid_idx ON reports (catalog_uuid)"
-   "CREATE INDEX catalogs_hash_expr_idx ON catalogs(trim(leading '\\x' from hash::text))"
+   "CREATE INDEX catalogs_hash_expr_idx ON catalogs(encode(hash::bytea, 'hex'))"
    "CREATE INDEX catalogs_certname_idx ON catalogs (certname)"))
 
 (defn add-indexes-for-reports-summary-query
@@ -460,6 +460,23 @@
       certname
     )"))
 
+
+(defn fix-bytea-expression-indexes-to-use-encode
+  []
+  (jdbc/do-commands
+   "DROP INDEX reports_hash_expr_idx"
+   "CREATE UNIQUE INDEX reports_hash_expr_idx ON reports(encode(hash::bytea, 'hex'))"
+   "DROP INDEX resources_hash_expr_idx"
+   "CREATE INDEX resources_hash_expr_idx ON catalog_resources(encode(resource::bytea, 'hex'))"
+   "DROP INDEX rpc_hash_expr_idx"
+   "CREATE INDEX rpc_hash_expr_idx ON resource_params_cache(encode(resource::bytea, 'hex'))"
+   "DROP INDEX resource_params_hash_expr_idx"
+   "CREATE INDEX resource_params_hash_expr_idx ON resource_params(encode(resource::bytea, 'hex'))"
+   "DROP INDEX catalogs_hash_expr_idx"
+   "CREATE UNIQUE INDEX catalogs_hash_expr_idx ON catalogs(encode(hash::bytea, 'hex'))"
+   "DROP INDEX factsets_hash_expr_idx"
+   "CREATE UNIQUE INDEX factsets_hash_expr_idx ON factsets(encode(hash::bytea, 'hex'))"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {34 init-through-3-0-0
@@ -471,9 +488,10 @@
    37 add-jsonb-columns-for-metrics-and-logs
    38 add-code-id-to-catalogs
    39 add-expression-indexes-for-bytea-queries
-   40 factset-hash-field-not-nullable
-   41 add-support-for-historical-catalogs
-   42 add-indexes-for-reports-summary-query})
+   40 fix-bytea-expression-indexes-to-use-encode
+   41 factset-hash-field-not-nullable
+   42 add-support-for-historical-catalogs
+   43 add-indexes-for-reports-summary-query})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -498,9 +516,11 @@
           results (jdbc/with-db-transaction []  (query-to-vec query))]
       (apply sorted-set (map :version results)))
     (catch java.sql.SQLException e
-      (let [message (.getMessage e)]
-        (if (or (re-find #"object not found: SCHEMA_MIGRATIONS" message)
-                (re-find #"\"schema_migrations\" does not exist" message))
+      (let [message (.getMessage e)
+            sql-state (.getSQLState e)]
+        (if (and (or (= sql-state "42P01") ; postgresql: undefined_table
+                     (= sql-state "42501")) ; hsqldb: user lacks privilege or object not found
+                 (re-find #"(?i)schema_migrations" message))
           (sorted-set)
           (throw e))))))
 
