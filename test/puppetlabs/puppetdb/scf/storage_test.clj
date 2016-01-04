@@ -463,6 +463,7 @@
   (add-certname! "basic.catalogs.com")
 
   (reset! store-catalogs-historically? true)
+  (reset! store-catalogs-jsonb-columns? true)
   (testing "stores JSONB resources and edges fields"
     (store-catalog! (assoc catalog :producer_timestamp (-> 2 days ago)) (now))
     (is (= [{:count 1}]

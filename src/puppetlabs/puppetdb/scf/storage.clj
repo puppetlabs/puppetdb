@@ -351,16 +351,17 @@
    (comp first sql/result-set-seq)))
 
 (def store-catalogs-historically? (atom false))
+(def store-catalogs-jsonb-columns? (atom false))
 
 (pls/defn-validated catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
   [hash
    {:keys [edges resources version code_id transaction_uuid environment producer_timestamp]} :- catalog-schema
    received-timestamp :- pls/Timestamp]
-  (let [historical-catalogs? @store-catalogs-historically?]
+  (let [catalogs-jsonb? @store-catalogs-jsonb-columns?]
     {:hash (sutils/munge-hash-for-storage hash)
-     :edges (when historical-catalogs? (sutils/munge-jsonb-for-storage edges))
-     :resources (when historical-catalogs? (sutils/munge-jsonb-for-storage (vals resources)))
+     :edges (when catalogs-jsonb? (sutils/munge-jsonb-for-storage edges))
+     :resources (when catalogs-jsonb? (sutils/munge-jsonb-for-storage (vals resources)))
      :catalog_version  version
      :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
      :timestamp (to-timestamp received-timestamp)
