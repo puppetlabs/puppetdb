@@ -17,6 +17,7 @@
             [metrics.timers :refer [timer time!]]
             [metrics.meters :refer [meter mark!]]
             [clojure.walk :refer [keywordize-keys]]
+            [ring.middleware.multipart-params :as mp]
             [puppetlabs.puppetdb.utils :as utils]))
 
 (defn wrap-with-debug-logging
@@ -297,6 +298,13 @@
           (if (nil? body-string)
             (http/error-response (str "Empty body for application/json submission"))
             (app (assoc req :body-string body-string))))
+        "multipart/form-data"
+        (app (let [mp-request (mp/multipart-params-request req)
+                   mp-params (:params mp-request)]
+               (-> mp-request
+                   (assoc :body-string (utils/synthesize-body-str mp-params))
+                   (assoc :params (dissoc mp-params "command" "version" "certname" "payload")))))
+
         (if-let [payload (params "payload")]
           (app (assoc req :body-string payload))
           (http/error-response (str "Missing required parameter 'payload'")))))))

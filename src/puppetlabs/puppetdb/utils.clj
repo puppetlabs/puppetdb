@@ -10,10 +10,12 @@
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.walk :as walk]
+            [clojure.edn :as edn]
             [slingshot.slingshot :refer [try+ throw+]]
             [com.rpl.specter :as sp])
   (:import [java.net MalformedURLException URISyntaxException URL]
-           [org.postgresql.util PGobject]))
+           [org.postgresql.util PGobject]
+           [puppetlabs.puppetdb.cheshire EncodedPayload]))
 
 (defn jdk6?
   "Returns true when the current JDK version is 1.6"
@@ -309,6 +311,12 @@
   (sp/transform [sp/ALL]
                 #(update % 0 underscores->dashes)
                 m))
+
+(defn synthesize-body-str
+  [{:strs [command version certname payload]}]
+  (json/generate-string
+    {:command command :version (edn/read-string version)
+     :certname certname :payload (EncodedPayload. payload)}))
 
 (defmacro with-timeout [timeout-ms default & body]
   `(let [f# (future (do ~@body))
