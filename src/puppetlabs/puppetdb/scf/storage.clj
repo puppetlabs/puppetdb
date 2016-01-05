@@ -353,6 +353,21 @@
 (def store-catalogs-historically? (atom false))
 (def store-catalogs-jsonb-columns? (atom false))
 
+(defn munge-edges-for-storage [edges]
+  (->> edges
+       (map (fn [{:keys [source target relationship]}]
+              {:source_type (:type source)
+               :source_title (:title source)
+               :target_type (:type target)
+               :target_title (:title target)
+               :relationship relationship}))
+       sutils/munge-jsonb-for-storage))
+
+(defn munge-resources-for-storage [resources]
+  (->> resources
+       (map (partial merge {:file nil :line nil}))
+       sutils/munge-jsonb-for-storage))
+
 (pls/defn-validated catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
   [hash
@@ -360,8 +375,8 @@
    received-timestamp :- pls/Timestamp]
   (let [catalogs-jsonb? @store-catalogs-jsonb-columns?]
     {:hash (sutils/munge-hash-for-storage hash)
-     :edges (when catalogs-jsonb? (sutils/munge-jsonb-for-storage edges))
-     :resources (when catalogs-jsonb? (sutils/munge-jsonb-for-storage (vals resources)))
+     :edges (when catalogs-jsonb? (munge-edges-for-storage edges))
+     :resources (when catalogs-jsonb? (munge-resources-for-storage (vals resources)))
      :catalog_version  version
      :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
      :timestamp (to-timestamp received-timestamp)
