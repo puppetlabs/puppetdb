@@ -65,7 +65,7 @@ module CharEncoding
   # @param bad_char_range a range indicating a block of invalid characters
   # @return String
   def self.error_char_context(str, bad_char_range)
-    
+
     gap = bad_char_range.to_a.length
 
     start_char = [0, bad_char_range.begin-100].max
@@ -106,9 +106,10 @@ module CharEncoding
   # information using error_context_str
   #
   # @param str A string coming from to_pson, likely a command to be submitted to PDB
-  # @param error_context_str information about where this string came from for use in error messages
+  # @param error_context_str information about where this string came from for
+  # use in error messages. Defaults to nil, in which case no error is reported.
   # @return Str
-  def self.coerce_to_utf8(str, error_context_str)
+  def self.coerce_to_utf8(str, error_context_str=nil)
     str_copy = str.dup
     # This code is passed in a string that was created by
     # to_pson. to_pson calls force_encoding('ASCII-8BIT') on the
@@ -127,11 +128,16 @@ module CharEncoding
       # byte related issues that could arise from mis-interpreting a
       # random extra byte as part of a multi-byte UTF-8 character
       str_copy.force_encoding("US-ASCII")
-      warn_if_invalid_chars(str_copy.encode!("UTF-8",
-                                             :invalid => :replace,
-                                             :undef => :replace,
-                                             :replace => DEFAULT_INVALID_CHAR),
-                            error_context_str)
+
+      str_lossy = str_copy.encode!("UTF-8",
+                                   :invalid => :replace,
+                                   :undef => :replace,
+                                   :replace => DEFAULT_INVALID_CHAR)
+      if !error_context_str.nil?
+        warn_if_invalid_chars(str_lossy, error_context_str)
+      else
+        str_lossy
+      end
     end
   end
 

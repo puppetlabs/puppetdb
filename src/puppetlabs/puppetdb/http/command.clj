@@ -23,19 +23,24 @@
 
 (defn validate-command-version
   [app]
-  (fn [{:keys [body-string] :as req}]
-    (let [{:keys [command version]} (json/parse-string body-string true)
+  (fn [{:keys [body-string params param-post?] :as req}]
+    (let [{:strs [command version]} (if param-post?
+                                      params
+                                      (json/parse-string body-string))
+          numeric-version (Integer. version)
           min-supported (get min-supported-commands command ::invalid)]
+      (when-not param-post?
+        (log/warn "POSTing version and command in the body is deprecated. Consider using parameters instead."))
       (cond
         (= ::invalid min-supported)
         (http/bad-request-response
           (format "Supported commands are %s. Received '%s'."
                   valid-commands-str command))
 
-        (< version min-supported)
+        (< numeric-version min-supported)
         (http/bad-request-response
           (format "%s version %s is retired. The minimum supported version is %s."
-                  command version min-supported))
+                  command numeric-version min-supported))
 
         :else (app req)))))
 
@@ -117,7 +122,8 @@
       (mid/fail-when-payload-too-large reject-large-commands? max-command-size)
       mid/verify-accepts-json
       mid/verify-checksum
-      (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"]})
+      (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"
+                                             "certname" "command" "version"]})
       mid/payload-to-body-string
       (mid/verify-content-type ["application/json"])
       (mid/wrap-with-metrics (atom {}) http/leading-uris)

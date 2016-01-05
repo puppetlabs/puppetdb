@@ -9,6 +9,7 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
             [me.raynes.fs :as fs]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]))
 
 (deftest wrapping-metrics
@@ -117,13 +118,26 @@
                     (let [test-req {:body    (test-stream)
                                     :headers {"content-type" "application/json"}}]
                       (is (= (wrapped-fn test-req)
-                             (assoc test-req :body-string test-content)))))))
+                             (assoc test-req :body-string test-content :param-post? false)))))))
 
     (testing "url encoded payload should populate body-string"
       (let [test-req {:params {"payload" test-content}
                       :headers {"content-type" "application/x-www-form-urlencoded"}}]
         (is (= (wrapped-fn test-req)
-               (assoc test-req :body-string test-content)))))))
+               (assoc test-req :body-string test-content)))))
+
+    (testing "param-post? is true when params are included"
+      (let [test-req {:params {"certname" "foo.com"
+                               "command" "fix drywall"
+                               "version" "307"}
+                      :body (test-stream)
+                      :headers {"content-type" "application/json"}}]
+        (is (= (wrapped-fn test-req)
+               (assoc test-req
+                      :body-string (-> (:params test-req)
+                                       (assoc "payload" test-content)
+                                       utils/cmd-params->json-str)
+                      :param-post? true)))))))
 
 (deftest verify-checksum-test
   (let [test-content "test content"

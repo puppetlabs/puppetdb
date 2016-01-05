@@ -31,12 +31,8 @@ describe Puppet::Node::Puppetdb do
     it "should POST a '#{CommandDeactivateNode}' command" do
       response.stubs(:body).returns '{"uuid": "a UUID"}'
 
-      payload = {
-        :command => CommandDeactivateNode,
-        :version => 3,
-        :payload => { :certname => node,
-                      :producer_timestamp => producer_timestamp },
-      }.to_json
+      payload = { :certname => node,
+                  :producer_timestamp => producer_timestamp }.to_json
 
       http.expects(:post).with do |uri,body,headers|
         expect(body).to eq(payload)

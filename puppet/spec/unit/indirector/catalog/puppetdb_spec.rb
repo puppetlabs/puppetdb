@@ -38,15 +38,10 @@ describe Puppet::Resource::Catalog::Puppetdb do
     end
 
     it "should POST the catalog command as a JSON string" do
-      command_payload = subject.munge_catalog(catalog, options)
-      payload = {
-        :command => Puppet::Util::Puppetdb::CommandNames::CommandReplaceCatalog,
-        :version => 7,
-        :payload => command_payload,
-      }.to_json
+      command_payload = subject.munge_catalog(catalog, options).to_json
 
       http.expects(:post).with do |uri, body, headers|
-        expect(body).to eq(payload)
+        expect(body).to eq(command_payload)
       end.returns response
 
       save

@@ -43,17 +43,11 @@ describe Puppet::Node::Facts::Puppetdb do
       trusted_data = {"foo" => "foobar", "certname" => "testing_posting"}
       subject.stubs(:get_trusted_info).returns trusted_data
 
-      f = {
+      payload = {
         "certname" => facts.name,
         "values" => facts.values.merge({"trusted" => trusted_data}),
         "environment" => "my_environment",
         "producer_timestamp" => "a test",
-      }
-
-      payload = {
-        :command => CommandReplaceFacts,
-        :version => 4,
-        :payload => f,
       }.to_pson
 
       http.expects(:post).with do |uri, body, headers|
@@ -75,11 +69,10 @@ describe Puppet::Node::Facts::Puppetdb do
       save
 
       message = JSON.parse(sent_payload)
-      sent_facts = message['payload']
 
       # We shouldn't modify the original instance
       facts.values['something'].should == 100
-      sent_facts['values']['something'].should == 100
+      message['values']['something'].should == 100
     end
   end
 
