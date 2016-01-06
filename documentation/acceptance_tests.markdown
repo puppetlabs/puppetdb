@@ -1,4 +1,4 @@
-Acceptance Tests
+Acceptance tests
 ----------------
 
 PuppetDB uses the [Beaker](https://github.com/puppetlabs/beaker) acceptance
@@ -10,7 +10,7 @@ The current recommended way of running acceptance tests is via EC2. Other
 methods should be possible, as Beaker supports a wide variety of hypervisors.
 
 
-EC2 Setup
+EC2 setup
 ---------
 * Create ~/.fog with these contents. Note that 'aws access key id' is the thing
   otherwise called an AWS access key. It's not your user id. 
@@ -24,7 +24,7 @@ EC2 Setup
   you're using your own AWS account, you'll have to create the appropriate
   resources and modify the appropriate configuration file to refer to them.
 
-Running the Tests
+Running the tests
 -----------------
 * If you previously munged your host file as described below, first remove the
   IP address entry.

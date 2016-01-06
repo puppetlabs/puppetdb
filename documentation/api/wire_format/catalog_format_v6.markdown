@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » Catalog Wire Format, Version 6"
+title: "PuppetDB 3.2: Catalog wire format, version 6"
 layout: default
 canonical: "/puppetdb/latest/api/wire_format/catalog_format_v6.html"
 ---
@@ -18,21 +18,20 @@ canonical: "/puppetdb/latest/api/wire_format/catalog_format_v6.html"
 [type]: /puppet/latest/reference/lang_resources.html#type
 [attributes]: /puppet/latest/reference/lang_resources.html#attributes
 
-PuppetDB receives catalogs from puppet masters in the following wire format. This format is subtly different from the internal format used by Puppet so catalogs are converted by the [PuppetDB catalog terminus](../../connect_puppet_master.html) before they are sent.
+PuppetDB receives catalogs from Puppet masters in the following wire format. This format is subtly different from the internal format used by Puppet, so catalogs are converted by the [PuppetDB catalog terminus](../../connect_puppet_master.html) before they are sent.
 
-Catalog Interchange Format
+Catalog interchange format
 -----
 
 ### Version
 
 This is **version 6** of the catalog interchange format.
 
-
 ### Encoding
 
-The entire catalog is serialized as JSON, which requires strict UTF-8 encoding. Unless otherwise noted, null is not allowed anywhere in the catalog.
+The entire catalog is serialized as JSON, which requires strict UTF-8 encoding. Unless otherwise noted, `null` is not allowed anywhere in the catalog.
 
-### Main Data Type: Catalog
+### Main data type: Catalog
 
      {
       "certname": <string>,
@@ -78,28 +77,29 @@ This field may be `null`.
 
 #### `producer_timestamp`
 
-Datetime.  The time of catalog submission from the master to PuppetDB.  This
-field is currently populated by the master.
+DateTime. The time of catalog submission from the Puppet master to PuppetDB. This
+field is currently populated by the Puppet master.
 
-### Data Type: `<string>`
+### Data type: `<string>`
 
 A JSON string. Because the catalog is UTF-8, these must also be UTF-8.
 
-### Data Type: `<integer>`
+### Data type: `<integer>`
 
-A JSON int.
+A JSON integer.
 
-### Data Type: `<boolean>`
+### Data type: `<boolean>`
 
-A JSON boolean.
+A JSON Boolean.
 
-### Data Type: `<datetime>`
+### Data type: `<datetime>`
+
 A JSON string representing a date and time (with time zone), formatted based on
-the recommendations in ISO8601; so, e.g., for a UTC time, the String would be
+the recommendations in ISO 8601. For example, for a UTC time, the string would be
 formatted as `YYYY-MM-DDThh:mm:ss.sssZ`.  For non-UTC, the `Z` may be replaced
 with `±hh:mm` to represent the specific timezone.
 
-### Data Type: `<edge>`
+### Data type: `<edge>`
 
 A JSON object of the following form, which represents a [relationship][] between two resources:
 
@@ -113,17 +113,17 @@ The keys of an edge are `source`, `target`, and `relationship`, all of which are
 
 #### `source`
 
-A [`<resource-spec>`](#data-type-resource-spec). The resource which should be managed **first.**
+A [`<resource-spec>`](#data-type-resource-spec). The resource which should be managed **first**.
 
 #### `target`
 
-A [`<resource-spec>`](#data-type-resource-spec). The resource which should be managed **second.**
+A [`<resource-spec>`](#data-type-resource-spec). The resource which should be managed **second**.
 
 #### `relationship`
 
 A [`<relationship>`](#data-type-relationship). The way the two resources are related.
 
-### Data Type: `<resource-spec>`
+### Data type: `<resource-spec>`
 
 (Synonym: `<resource-hash>`.)
 
@@ -134,7 +134,7 @@ The JSON representation of a [resource reference][resource_ref] (single-resource
 
 The resource named by a resource-spec **must** exist in the catalog's `"resources"` list. Note also that the title must be the resource's actual [title][], rather than an alias or [name/namevar][namevar].
 
-### Data Type: `<relationship>`
+### Data type: `<relationship>`
 
 One of the following exact strings, when used in the `relationship` key of an [`<edge>` object](#data-type-edge):
 
@@ -156,7 +156,7 @@ String            | Relationship Type        | Origin of Relationship
 `subscription-of` | ordering w/ notification | `subscribe` metaparam on target
 
 
-### Data Type: `<resource>`
+### Data type: `<resource>`
 
 A JSON object of the following form, which represents a [Puppet resource][resource]:
 
@@ -172,11 +172,11 @@ A JSON object of the following form, which represents a [Puppet resource][resour
                     ...}
     }
 
-The eight keys in a resource object are `type`, `title`, `aliases`, `exported`, `file`, `line`, `tags` and `parameters`. All of them are **required.**
+The eight keys in a resource object are `type`, `title`, `aliases`, `exported`, `file`, `line`, `tags`, and `parameters`. All of them are **required.**
 
 #### `type`
 
-String. The [type][] of the resource, **capitalized.** (E.g. `File`, `Service`, `Class`, `Apache::Vhost`.) Note that every segment must be capitalized if the type includes a namespace separator (`::`).
+String. The [type][] of the resource, **capitalized.** (For example, `File`, `Service`, `Class`, `Apache::Vhost`.) Note that every segment must be capitalized if the type includes a namespace separator (`::`).
 
 #### `title`
 
@@ -188,7 +188,7 @@ List of strings. Includes **every** alias for the resource, including the value 
 
 #### `exported`
 
-Boolean. Whether or not this is an exported resource.
+Boolean. Indicates whether or not this is an exported resource.
 
 #### `file`
 
@@ -204,4 +204,4 @@ List of strings. Includes every tag the resource has. This is a normalized super
 
 #### `parameters`
 
-JSON object. Includes all of the resource's [attributes][] and their associated values. The value of an attribute may be any JSON data type, but Puppet will only provide booleans, strings, arrays, and hashes --- [resource references][resource_ref] and [numbers][] in attributes are converted to strings before being inserted into the catalog. Attributes with [undef][] values are not added to the catalog.
+JSON object. Includes all of the resource's [attributes][] and their associated values. The value of an attribute may be any JSON data type, but Puppet will only provide Booleans, strings, arrays, and hashes. [Resource references][resource_ref] and [numbers][] in attributes are converted to strings before being inserted into the catalog. Attributes with [undef][] values are not added to the catalog.

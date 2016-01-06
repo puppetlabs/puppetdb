@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Entities"
+title: "PuppetDB 3.2: Entities"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/entities.html"
 ---
@@ -22,15 +22,15 @@ canonical: "/puppetdb/latest/api/query/v4/entities.html"
 [from]: ./operators.html#context-operators
 [subquery]: ./operators.html#subquery-operators
 
-The PuppetDB API provides access to a series of data entities that map to the Puppet eco-system
+The PuppetDB API provides access to a series of data entities that map to the Puppet ecosystem
 and the data that PuppetDB stores.
 
-## Entity Types
+## Entity types
 
-The following table shows the list of entities available, and their respective REST endpoints for
+The following table shows the list of available entities, with their respective REST endpoints for
 direct querying.
 
-The entity name is utilised within queries themselves, in particular within the [`from`][from]
+The entity name is utilized within queries themselves, in particular within the [`from`][from]
 and [`subquery`][subquery] operators.
 
 Entity Name                                        | REST Endpoint

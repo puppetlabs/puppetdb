@@ -1,29 +1,29 @@
 ---
-title: "PuppetDB 3.2 » API » Query Tutorial"
+title: "PuppetDB 3.2: API query tutorial"
 layout: default
 canonical: "/puppetdb/latest/api/query/tutorial.html"
 ---
 
-This page is a walkthrough for constructing several types of PuppetDB
-queries. It uses the **version 4 API** in all of its examples.
+This page walks through the construction of several types of PuppetDB
+queries. We use the **version 4 API** in all examples.
 
-## How to Query
+## How to query
 
 Queries are performed by issuing an HTTP GET or POST request to an endpoint URL
-and specifying a `query` url parameter (in the GET case) or a json-valued
+and specifying a `query` url parameter (in the GET case) or a JSON-valued
 payload in the POST case, which contains the query to execute. Results are
 always returned in `application/json` form.
 
-Queries are usually issued from code, but you can easily issue them from the command line using curl.
+Queries are usually issued from code, but you can easily issue them from the command line by using curl.
 
-### Querying with Curl
+### Querying with curl
 
-[See "Curl Tips" for more detailed information about constructing curl commands.](./curl.html)
+[See the curl tips page for more information about constructing curl commands.](./curl.html)
 
 **Without SSL:**
 
     curl -X GET http://puppetdb.example.com:8080/pdb/query/v4/resources \
-      --data-urlencode query@<filename>
+      --data-urlencode query@<FILENAME>
 
     curl -X POST http://puppetdb.example.com:8080/pdb/query/v4/resources \
       -H 'Content-Type:application/json'
@@ -40,16 +40,15 @@ This requires that PuppetDB be [configured to accept non-SSL connections][config
       --cacert /etc/puppet/ssl/certs/ca.pem \
       --cert /etc/puppet/ssl/certs/thisnode.pem \
       --key /etc/puppet/ssl/private_keys/thisnode.pem \
-      --data-urlencode query@<filename>
+      --data-urlencode query@<FILENAME>
 
 This requires that you specify a certificate (issued by the same CA PuppetDB trusts), a private key, and a CA certificate.
 
-In both examples, `<filename>` should be a file that contains the query to execute.
+In both examples, `<FILENAME>` should be a file that contains the query to execute.
 
+## Resources walkthrough
 
-## Resources Walkthrough
-
-### Our First Query
+### Our first query
 
 Let's start by taking a look at a simple resource query. Suppose we want to
 find the user "nick" on every node. We can use this query:
@@ -58,7 +57,7 @@ find the user "nick" on every node. We can use this query:
       ["=", "type", "User"],
       ["=", "title", "nick"]]
 
-This query has two `"="` clauses, which both must be true.
+This query has two `"="` clauses, both of which must be true.
 
 In general, the `"="` operator follows a specific structure:
 
@@ -72,14 +71,13 @@ The `"and"` operator also has a well-defined structure:
 `["and", <query clause>, <query clause>, <query clause>, ...]`
 
 The query clauses can be any legal query (including another `"and"`). At least
-one clause has to be specified, and all the clauses have to be true for the
+one clause must be specified, and all the clauses must be true for the
 `"and"` clause to be true. An `"or"` operator is also available, which looks
 just like the `"and"` operator, except that, as you'd expect, it's true if
 *any* specified clause is true.
 
-The query format is declarative; it describes conditions the results must
-satisfy, not how to find them. So the order of the clauses is irrelevant.
-Either the type clause or the title clause could come first, without affecting
+The query format is declarative: it describes conditions the results must
+satisfy, not how to find them. This means that the order of the clauses is irrelevant. You can list either the type clause or the title clause first without impacting
 the performance or the results of the query.
 
 If we execute this query against the `/resources` route, we get results that
@@ -143,7 +141,7 @@ The `"not"` operator wraps another clause, and returns results for which the
 clause is *not* true. In this case, we want resources which aren't defined on
 line 111 of /etc/puppet/manifests/user.pp.
 
-### Resource Attributes
+### Resource attributes
 
 So far we've seen that we can query for resources based on their `certname`,
 `type`, `title`, `file`, and `line`. There are a few more available:
@@ -159,12 +157,12 @@ This query returns resources whose set of tags *contains* the tag
 that of another attribute), it must be namespaced using
 `["parameter", <parameter name>]`.
 
-The full set of queryable attributes can be found in [the resource
-endpoint documentation](./v4/resources.html) for easy reference.
+For easy reference, the full set of queryable attributes can be found in [the resource
+endpoint documentation](./v4/resources.html).
 
-### Regular Expressions
+### Regular expressions
 
-What if we want to restrict our results to a certain subset of nodes? Certainly, we could do something like:
+What if we want to restrict our results to a certain subset of nodes? We could use something like this:
 
     ["or",
       ["=", "certname", "www1.example.com"],
@@ -177,17 +175,17 @@ can use the regular expression match operator `~`:
 
     ["~", "certname", "www\\d+\\.example\\.com"]
 
-Notice that, because our regular expression is specified inside a string, the
+Because our regular expression is specified inside a string, the
 backslash characters must be escaped. The rules for which constructs can be
-used in the regexp depend on which database is in use, so common features
-should be used for interoperability. The regexp operator can be used on every
-field of resources except for parameters, and `exported`.
+used in the regular expression depend on which database is in use, so common features
+should be used for interoperability. The regular expression operator can be used on every
+field of resources except for parameters and `exported`.
 
-## Facts Walkthrough
+## Facts walkthrough
 
 In addition to resources, we can also query for facts. This looks similar,
 though the available fields and operators are a bit different. Some things are
-the same, though. For instance, support you want all the facts for a certain
+the same, though. For instance, suppose you want all the facts for a certain
 node:
 
     ["=", "certname", "foo.example.com"]
@@ -220,7 +218,7 @@ This gives results that look something like this:
       "value" : "2.6.32"
     } ]
 
-### Fact Attributes
+### Fact attributes
 
 In the last query, we saw that a "fact" consists of a "certname", a "name", and
 a "value". As you might expect, we can query using "name" or "value".
@@ -233,10 +231,10 @@ This will find all the "operatingsystem = Debian" facts, and their
 corresponding nodes. As you see, "and" is supported for facts, as are "or" and
 "not".
 
-### Fact Operators
+### Fact operators
 
 As with resources, facts also support the `~` regular expression match
-operator, for all their fields. In addition to that, numeric comparisons are
+operator for all their fields. In addition, numeric comparisons are
 supported for fact values:
 
     ["and",
@@ -244,13 +242,13 @@ supported for fact values:
       [">=", "value", 100000],
       ["<", "value", 1000000]]
 
-This will find nodes for which the uptime_seconds fact is in the half-open
+This will find nodes for which the "uptime_seconds" fact is in the half-open
 range [100000, 1000000). Numeric comparisons will *always be false* for fact
 values which are not numeric. Importantly, version numbers such as 2.6.12 are
-not numeric, and the numeric comparison operators can't be used with them at
+not numeric, and numeric comparison operators can't be used with them at
 this time.
 
-## Nodes Walkthrough
+## Nodes walkthrough
 
 We can also query for nodes. Once again, this is quite similar to resource and
 fact queries:
@@ -275,7 +273,7 @@ This will return an object containing the certname "foo.example.com", as well
 as some metadata detailing deactivation status and the most recent fact,
 report, and catalog updates from that node.
 
-### Querying on Facts
+### Querying on facts
 
 Nodes can also be queried based on their facts, using the same operators as for
 fact queries:
@@ -284,14 +282,12 @@ fact queries:
       ["=", ["fact", "operatingsystem"], "Debian"],
       ["<", ["fact", "uptime_seconds"], 10000]]
 
-This will return Debian nodes with uptime_seconds < 10000.
+This will return Debian nodes with "uptime_seconds" less than 10,000.
 
-## Subquery Walkthrough
+## Subquery walkthrough
 
 The queries we've looked at so far are quite powerful and useful, but what if
-your query needs to consider both resources *and* facts? For instance, suppose
-you need the IP address of your Apache servers, to configure a load balancer.
-You could find those servers using this resource query:
+your query needs to consider both resources *and* facts? For instance, suppose you're configuring a load balancer, and need the IP addresses of your Apache servers. You could find those servers by using this resource query:
 
     ["and",
       ["=", "type", "Class"],
@@ -311,9 +307,9 @@ query:
         ["=", "certname", "e.example.com"]]]
 
 But this query is lengthy, and it requires some logic to assemble and run the
-second query. No, there has to be a better way. What if we could find the
-Class[Apache] servers and use the results of that directly to find the
-certname? It turns out we can, with this fact query:
+second query. There has to be a better way! What if we could find the
+Class[Apache] servers and use the results of that query to find the
+certname? We can, with this fact query:
 
     ["and",
       ["=", "name", "ipaddress"],
@@ -323,26 +319,25 @@ certname? It turns out we can, with this fact query:
                                     ["=", "type", "Class"],
                                     ["=", "title", "Apache"]]]]
 
-This may appear a little daunting, so we'll look at it piecewise.
+This may appear a little daunting, so we'll look at it piece by piece.
 
 Let's start with "select_resources". This operator takes one argument, which is
-a resource query, and returns the results of that query, in exactly the form
+a resource query, and returns the results of that query in exactly the form
 you would expect to see them if you did a plain resource query.
 
 We then use an operator called "extract" to turn our list of resources into
-just a list of certnames. So we now conceptually have something like
+just a list of certnames. So we now conceptually have something like:
 
     ["in", "certname", ["foo.example.com", "bar.example.com", "baz.example.com"]]
 
 The "in" operator matches facts whose "certname" is in the supplied list. (For
 now, that list has to be generated from a subquery, and can't be supplied
 directly in the query, so if you want a literal list, you'll unfortunately
-still have to use a combination of "or" and "="). At this point, our query
-seems a lot like the one above, except we didn't have to specify exactly which
+still have to use a combination of "or" and "=".) At this point, our query
+seems a lot like the one above, except that we didn't have to specify exactly which
 certnames to use, and instead we get them in the same query.
 
-Similarly, there are "select_facts", "select_nodes", and "select_fact_contents" operators
+Similarly, there are "select_facts", "select_nodes", and "select_fact_contents" operators,
 which will perform subqueries against the facts, nodes, and fact-contents endpoints.
 Any subquery operator is usable from any queryable endpoint. Subqueries may be nested,
-and multiple subqueries may be used in a single query. Finding use cases for some of those
-combinations is left as an exercise to the reader.
+and multiple subqueries may be used in a single query. 

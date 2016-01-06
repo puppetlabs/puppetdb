@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Querying Fact Contents"
+title: "PuppetDB 3.2: Fact-contents endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/fact-contents.html"
 ---
@@ -13,9 +13,9 @@ canonical: "/puppetdb/latest/api/query/v4/fact-contents.html"
 [factsets]: ./factsets.html
 [nodes]: ./nodes.html
 
-You can query fact information with greater power by using the '/fact-contents' endpoint. This endpoint provides the capability to descend into structured facts and query tree nodes deep within this data by using the concept of paths and values.
+You can query fact information with greater power by using the `/fact-contents` endpoint. This endpoint provides the capability to descend into structured facts and query tree nodes deep within this data by using the concept of paths and values.
 
-Structured fact data is normally represented as a hash, which allows hashes, arrays and real types as its values as you can see in this example:
+Structured fact data is normally represented as a hash, which allows hashes, arrays, and real types as its values:
 
     {
       "cpus" : {
@@ -31,7 +31,7 @@ Structured fact data is normally represented as a hash, which allows hashes, arr
       }
     }
 
-With the fact-contents endpoint you can query data at a specific location in
+With the fact-contents endpoint, you can query data at a specific location in
 the tree using the `path` field, and then either analyze or filter on the
 `value` of that node.
 
@@ -39,37 +39,36 @@ the tree using the `path` field, and then either analyze or filter on the
 
 This will return all fact contents that match the given query.
 
-### URL Parameters
+### URL parameters
 
-* `query`: Optional. A JSON array containing the query in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
+* `query`: optional. A JSON array containing the query in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [our guide to query structure.][query]
 
-    If a query parameter is not provided, all results will be returned.
+If a query parameter is not provided, all results will be returned.
 
-### Query Operators
+### Query operators
 
-See [the Operators page.](./operators.html)
+See [the query operators page.](./operators.html)
 
-## Query Fields
+## Query fields
 
-* `certname` (string): the certname associated with the factset
-* `environment` (string): the environment associated with the parent fact
-* `name` (string): the name of the parent fact
-* `path` (path): the path of traversal to get to this node
-* `value` (multi): the value of this node
+* `certname` (string): the certname associated with the factset.
+* `environment` (string): the environment associated with the parent fact.
+* `name` (string): the name of the parent fact.
+* `path` (path): the path of traversal to get to this node.
+* `value` (multi): the value of this node.
 
-### Subquery Relationships
+### Subquery relationships
 
-Here is a list of related entities that can be used to constrain the result set using
-implicit subqueries. For more information consult the documentation for [subqueries].
+The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information, consult the documentation for [subqueries][subqueries].
 
-* [`environment`][environments]: The environment for a fact-content.
-* [`facts`][facts]: The fact where this a fact-content occurs.
-* [`factsets`][factsets]: The factset where a fact-content occurs.
-* [`nodes`][nodes]: The node where a fact-content occurs.
+* [`environment`][environments]: the environment for a fact-content.
+* [`facts`][facts]: the fact where this a fact-content occurs.
+* [`factsets`][factsets]: the factset where a fact-content occurs.
+* [`nodes`][nodes]: the node where a fact-content occurs.
 
-## Response Format
+## Response format
 
-Successful responses will be in `application/json`. Errors will be returned as
+Successful responses will be in `application/json`. Errors will be returned as a
 non-JSON string.
 
 The result will be a JSON array with one entry per certname. Each entry is of
@@ -93,7 +92,7 @@ Get the first mac address for eth0:
     --data-urlencode \
       'query=["=", "path", [ "networking", "eth0", "macaddresses", 0 ]]'
 
-which returns:
+Which returns:
 
     [ {
       "certname" : "node-0",
@@ -103,12 +102,12 @@ which returns:
       "environment" : "foo"
     } ]
 
-Get all nodes with values higher then 3:
+Get all nodes with values higher then three:
 
     curl -X GET 'http://localhost:8080/pdb/query/v4/fact-contents' \
       --data-urlencode 'query=[">", "value", 3]'
 
-which returns:
+Which returns:
 
     [ {
       "certname" : "node-0",
@@ -139,7 +138,7 @@ The example shows a query that extracts all `macaddresses` for all ethernet devi
     curl -G 'http://localhost:8080/pdb/query/v4/fact-contents' \
         --data-urlencode 'query=["~>", "path", ["networking","eth.*","macaddresses",".*"]]'
 
-which returns:
+Which returns:
 
     [ {
       "certname" : "node-0",

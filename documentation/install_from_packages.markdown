@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » Installing PuppetDB From Packages"
+title: "PuppetDB 3.2: Installing PuppetDB from packages"
 layout: default
 canonical: "/puppetdb/latest/install_from_packages.html"
 ---
@@ -16,37 +16,36 @@ canonical: "/puppetdb/latest/install_from_packages.html"
 [migrating]: ./migrate.html
 
 
-> **Note:** If you are running Puppet Enterprise 3.0 or later, PuppetDB is already installed as part of PE. You do not need to install it separately.
+> **Note:** If you are running Puppet Enterprise version 3.0 or later, you do not need to install PuppetDB, as it is already installed as part of PE.
 
 This page describes how to manually install and configure PuppetDB from the official packages.
 
 * If you are **just getting started with Puppet** and don't yet know how to assign Puppet classes to nodes, this is the guide for you.
-* If you are **already familiar with Puppet** and have a working Puppet deployment, we recommend that you [use the puppetlabs-puppetdb module][module] instead. See [the "Install via Module" page][module] for more details.
+* If you are **already familiar with Puppet** and have a working Puppet deployment, we recommend that you [use the puppetlabs-puppetdb module][module] instead. See [the "Installing PuppetDB via Puppet module" guide][module] for further details.
 
-Additionally, these instructions may be useful for understanding the various moving parts, or in cases where you must create your own PuppetDB module.
+Additionally, these instructions may be useful for understanding PuppetDB's various moving parts, and can be helpful if you need to create your own PuppetDB module.
 
 > **Notes:**
 >
-> * After following these instructions, you should [connect your puppet master(s) to PuppetDB][connect_master]. (If you use a standalone Puppet deployment, you will need to [connect every node to PuppetDB][connect_apply].)
-> * These instructions are for [platforms with official PuppetDB packages][requirements]. To install on other systems, you should instead follow [the instructions for installing from source](./install_from_source.html).
-> * If this is a production deployment, [review the scaling recommendations](./scaling_recommendations.html) before installing. You should ensure your PuppetDB server will be able to comfortably handle your site's load.
+> * After following these instructions, you must [connect your Puppet master(s) to PuppetDB][connect_master]. (If you use a standalone Puppet deployment, you will need to [connect every node to PuppetDB][connect_apply].)
+> * These instructions are for [platforms with official PuppetDB packages][requirements]. To install on other systems, follow [our instructions for installing from source](./install_from_source.html).
+> * If this is a production deployment, [review the scaling recommendations](./scaling_recommendations.html) before installing. You should ensure that your PuppetDB server will be able to comfortably handle your site's load.
 
-Step 1: Install and Configure Puppet
+Step 1: Install and configure Puppet
 -----
-If Puppet isn't fully installed and configured yet on your PuppetDB server, [install it][installpuppet] and request/sign/retrieve a certificate for the node.
+
+If Puppet isn't fully installed and configured on your PuppetDB server, [install it][installpuppet] and request/sign/retrieve a certificate for the node.
 
 [installpuppet]: /puppet/latest/reference/install_pre.html
 
-Your PuppetDB server should be running puppet agent and have a signed certificate from your puppet master server. If you run `puppet agent --test`, it should successfully complete a run, ending with "`notice: Finished catalog run in X.XX seconds`."
+Your PuppetDB server should be running Puppet agent and have a signed certificate from your Puppet master server. If you run `puppet agent --test`, it should successfully complete a run, ending with `Notice: Applied catalog in X.XX seconds`.
 
+> Note: If Puppet doesn't have a valid certificate when PuppetDB is installed, you will have to [run the SSL config script and edit the config file][ssl_script], or [manually configure PuppetDB's SSL credentials][keystore_instructions] before the Puppet master will be able to connect to PuppetDB.
 
-> Note: If Puppet doesn't have a valid certificate when PuppetDB is installed, you will have to [run the SSL config script and edit the config file][ssl_script], or [manually configure PuppetDB's SSL credentials][keystore_instructions] before the puppet master will be able to connect to PuppetDB.
-
-Step 2: Enable the Puppet Labs Package Repository
+Step 2: Enable the Puppet Labs package repository
 -----
 
 If you didn't already use it to install Puppet, you will need to [enable the Puppet Labs package repository](/guides/puppetlabs_package_repositories.html) for your system.
-
 
 Step 3: Install PuppetDB
 -----
@@ -55,13 +54,12 @@ Use Puppet to install PuppetDB:
 
     $ sudo puppet resource package puppetdb ensure=latest
 
-
-Step 4: Configure Database
+Step 4: Configure database
 -----
 
 - [Set up a PostgreSQL server and configure PuppetDB to use it][configure_postgres].
 
-Step 5: Start the PuppetDB Service
+Step 5: Start the PuppetDB service
 -----
 
 Use Puppet to start the PuppetDB service and enable it on startup.
@@ -70,20 +68,19 @@ Use Puppet to start the PuppetDB service and enable it on startup.
 
 You must also configure your PuppetDB server's firewall to accept incoming connections on port 8081.
 
-> PuppetDB is now fully functional and ready to receive catalogs and facts from any number of puppet master servers.
-
+> PuppetDB is now fully functional and ready to receive catalogs and facts from any number of Puppet master servers.
 
 Finish: Connect Puppet to PuppetDB
 -----
 
-[You should now configure your puppet master(s) to connect to PuppetDB][connect_master].
+[You should now configure your Puppet master(s) to connect to PuppetDB][connect_master].
 
 If you use a standalone Puppet site, [you should configure every node to connect to PuppetDB][connect_apply].
 
-Troubleshooting Installation Problems
+Troubleshooting installation problems
 -----
 
-* Check the log file, and see whether PuppetDB knows what the problem is. This file will be `/var/log/puppetlabs.puppetdb/puppetdb.log`.
-* If PuppetDB is running but the puppet master can't reach it, check [PuppetDB's jetty configuration][configure_jetty] to see which port(s) it is listening on, then attempt to reach it by telnet (`telnet <host> <port>`) from the puppet master server. If you can't connect, the firewall may be blocking connections. If you can, Puppet may be attempting to use the wrong port, or PuppetDB's keystore may be misconfigured (see below).
+* Check the log file (`/var/log/puppetlabs.puppetdb/puppetdb.log`), and see whether PuppetDB knows what the problem is. 
+* If PuppetDB is running but the Puppet master can't reach it, check [PuppetDB's `[jetty]` configuration][configure_jetty] to see which port(s) it is listening on, then attempt to reach it by Telnet (`telnet <HOST> <PORT>`) from the Puppet master server. If you can't connect, the firewall may be blocking connections. If you can, Puppet may be attempting to use the wrong port, or PuppetDB's keystore may be misconfigured (see below).
 * Check whether any other service is using PuppetDB's port and interfering with traffic.
-* Check [PuppetDB's jetty configuration][configure_jetty] and the `/etc/puppetlabs/puppetdb/ssl` directory, and make sure it has a truststore and keystore configured. If it didn't create these during installation, you will need to [run the SSL config script and edit the config file][ssl_script] or [manually configure a truststore and keystore][keystore_instructions] before a puppet master can contact PuppetDB.
+* Check [PuppetDB's `[jetty]` configuration][configure_jetty] and the `/etc/puppetlabs/puppetdb/ssl` directory, and make sure it has a truststore and keystore configured. If PuppetDB didn't create these during installation, you will need to [run the SSL config script and edit the config file][ssl_script] or [manually configure a truststore and keystore][keystore_instructions] before a Puppet master can contact PuppetDB.

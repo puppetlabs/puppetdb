@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Querying Catalogs"
+title: "PuppetDB 3.2: Catalogs endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 ---
@@ -21,38 +21,37 @@ You can query catalogs by making an HTTP request to the
 
 This will return a JSON array containing the most recent catalog for each node in your infrastructure.
 
-### URL Parameters
-* `query`: Optional. A JSON array containing the query in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
+### URL parameters
+* `query`: optional. A JSON array containing the query in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [our guide to query structure.][query]
 
 If a query parameter is not provided, all results will be returned.
 
-### Query Operators
+### Query operators
 
-See [the Operators page.](./operators.html)
+See [the query operators page.](./operators.html)
 
-### Query Fields
+### Query fields
 
-* `certname` (string): the certname associated with the catalog
-* `version` (string): an arbitrary string that uniquely identifies each catalog for a node
-* `environment` (string): the environment associated with the catalog's certname
-* `transaction_uuid` (string): a string used to tie a catalog to a report from the same puppet run
-* `code_id` (string): a string used to tie a catalog to the Puppet code which generated the catalog
-* `hash` (string): sha1 hash of the resources of associated with a node's most
-  recent catalog
+* `certname` (string): the certname associated with the catalog.
+* `version` (string): an arbitrary string that uniquely identifies each catalog for a node.
+* `environment` (string): the environment associated with the catalog's certname.
+* `transaction_uuid` (string): a string used to tie a catalog to a report from the same Puppet run.
+* `code_id` (string): a string used to tie a catalog to the Puppet code which generated the catalog.
+* `hash` (string): SHA-1 hash of the resources of associated with a node's most
+  recent catalog.
 * `producer_timestamp` (string): a string representing the time at which the
   `replace_catalog` command for a given catalog was submitted from the master.
 
-### Subquery Relationships
+### Subquery relationships
 
-Here is a list of related entities that can be used to constrain the result set using
-implicit subqueries. For more information consult the documentation for [subqueries].
+The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information consult the documentation for [subqueries][subqueries].
 
-* [`nodes`][nodes]: Node for a catalog.
-* [`environments`][environments]: Environment for a catalog.
-* [`edges`][edges]: Resource edges received for a catalog.
-* [`resources`][resources]: Resources received for a catalog.
+* [`nodes`][nodes]: node for a catalog.
+* [`environments`][environments]: environment for a catalog.
+* [`edges`][edges]: resource edges received for a catalog.
+* [`resources`][resources]: resources received for a catalog.
 
-### Response Format
+### Response format
 
 Successful responses will be in `application/json`.
 
@@ -147,7 +146,6 @@ This query will return all catalogs with producer_timestamp after 2014-11-19:
       "resources" : {...}
     } ]
 
-
 ## `/pdb/query/v4/catalogs/<NODE>`
 
 This will return the most recent catalog for the given node. Supplying a node
@@ -156,7 +154,7 @@ practice this endpoint is typically used without a query string or URL
 parameters.
 
 The result will be a single map of the catalog structure described above, or
-a JSON error message if the catalog is not found:
+a JSON error message if the catalog is not found.
 
 ### Examples
 
@@ -188,13 +186,12 @@ This is a shortcut to the [`/edges`][edges] endpoint. It behaves the same as a
 call to [`/edges`][edges] with a query string of `["=", "certname", "<NODE>"]`,
 except results are returned even if the node is deactivated or expired.
 
-### URL Parameters / Query Operators / Query Fields / Response Format
+### URL parameters / query operators / query fields / response format
 
-This route is an extension of the [`edges`][edges] endpoint. It uses the exact same parameters, operators, fields, and response format.
+This route is an extension of the [`edges`][edges] endpoint. It uses the same parameters, operators, fields, and response format.
 
 If you provide a `query` parameter, it will specify additional criteria, which will be
-used to return a subset of the information normally returned by
-this route.
+used to return a subset of the information normally returned by this route.
 
 ## `/pdb/query/v4/catalogs/<NODE>/resources`
 
@@ -205,9 +202,9 @@ same as a call to [`/resources`][resources] with a query string of
 `["=", "certname", "<NODE>"]`, except results are returned even if the node is
 deactivated or expired.
 
-### URL Parameters / Query Operators / Query Fields / Response Format
+### URL parameters / query operators / query fields / response format
 
-This route is an extension of the [`/resources`][resources] endpoint. It uses the exact same parameters, operators, fields, and response format.
+This route is an extension of the [`/resources`][resources] endpoint. It uses the same parameters, operators, fields, and response format.
 
 If you provide a `query` parameter, it will specify additional criteria, which will be
 used to return a subset of the information normally returned by
