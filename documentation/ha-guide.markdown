@@ -300,11 +300,11 @@ These metrics are all available via the metrics http endpoint; for example, you
 can fetch the data using cURL like this:
 
 ```sh
-curl http://localhost:8080/metrics/v1/mbeans/puppetlabs.pe-puppetdb-extensions.sync:type\=default,name\=sync-has-worked-once
+curl http://localhost:8080/metrics/v1/mbeans/puppetlabs.puppetdb.ha:name\=sync-has-worked-once
 ```
 
 The following metrics are all located in the
-`puppetlabs.pe-puppetdb-extensions.sync` namespace.
+`puppetlabs.puppetdb.ha` namespace.
 
 * `last-sync-succeeded`: Did the last sync succeed? (boolean)
 * `sync-has-worked-once`: Has the sync worked at all since starting this processes?
