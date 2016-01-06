@@ -365,6 +365,22 @@
       wrap-with-default-body
       wrap-with-debug-logging))
 
+(defn wrap-with-parent-check''
+  "Middleware that checks the parent exists before serving the rest of the
+   application. This ensures we always return 404's on child paths when the
+   parent data is empty."
+  [app version parent route-param-key]
+  (fn [{:keys [globals route-params] :as req}]
+    (let [{:keys [scf-read-db url-prefix]} globals]
+      ;; There is a race condition here, in particular we open up 1 transaction
+      ;; for the parent test, but the rest of the query results are done via the
+      ;; streaming query. This can't be solved until we work out a way to
+      ;; pass through an existing db handle through to the streamed query thread.
+      (if (jdbc/with-transacted-connection scf-read-db
+            (qe/object-exists? parent (get route-params route-param-key)))
+        (app req)
+        (http/json-response {:error (str "No information is known about " (name parent) " " (get route-params route-param-key))} http/status-not-found)))))
+
 (defn wrap-with-parent-check'
   "Middleware that checks the parent exists before serving the rest of the
    application. This ensures we always return 404's on child paths when the

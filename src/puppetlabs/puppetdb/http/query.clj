@@ -201,9 +201,26 @@
   [title req]
   {:pre  [(string? title)]
    :post [(are-queries-different? req %)]}
-  (println "title" title)
   (restrict-query ["=" "title" title]
                   req))
+
+(defn restrict-resource-query-to-type'
+  "Restrict the query parameter of the supplied request so that it
+  only returns resources with the given type"
+  [type]
+  {:pre  [(string? type)]
+   :post [(fn? %)]}
+  (fn [req]
+    (restrict-query ["=" "type" type] req)))
+
+(defn restrict-resource-query-to-title'
+  "Restrict the query parameter of the supplied request so that it
+   only returns resources with the given title"
+  [title]
+  {:pre  [(string? title)]
+   :post [(fn? %)]}
+  (fn [req]
+    (restrict-query ["=" "title" title] req)))
 
 (defn wrap-with-from
   "Wrap a query in a from, using the entity and any provided query"
@@ -294,7 +311,9 @@
   parameters/body to a pdb query map"
   [param-spec]
   (fn [{:keys [request-method body params puppetdb-query] :as req}]
-    (assoc req :puppetdb-query (create-query-map req param-spec))))
+    (if (= ::not-found (get req :puppetdb-query ::not-found))
+      (assoc req :puppetdb-query (create-query-map req param-spec))
+      req)))
 
 (defn extract-query
   "Query handler that converts the incoming request (GET or POST)
@@ -346,6 +365,18 @@
          (concat 
           optional-handlers
           [(extract-query' param-spec)])))
+
+(defn query-handler
+  [version]
+  (fn [{:keys [params globals puppetdb-query]}]
+    (try
+      (produce-streaming-body version
+                              (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                              (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental]))
+      (catch Exception e
+        (println "\n\n\n\n\nProblem")
+        (.printStackTrace e)
+        (throw e)))))
 
 (defn query-route-from'
   "Convenience wrapper for query-route, which automatically wraps the query in a
