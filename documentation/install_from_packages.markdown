@@ -6,7 +6,6 @@ canonical: "/puppetdb/latest/install_from_packages.html"
 
 [connect_master]: ./connect_puppet_master.html
 [connect_apply]: ./connect_puppet_apply.html
-[keystore_instructions]: ./install_from_source.html#step-3-option-b-manually-create-a-keystore-and-truststore
 [ssl_script]: ./install_from_source.html#step-3-option-a-run-the-ssl-configuration-script
 [configure_postgres]: ./configure.html#using-postgresql
 [configure_heap]: ./configure.html#configuring-the-java-heap-size
@@ -99,4 +98,4 @@ Troubleshooting Installation Problems
 * Check the log file, and see whether PuppetDB knows what the problem is. This file will be `/var/log/puppetlabs.puppetdb/puppetdb.log`.
 * If PuppetDB is running but the puppet master can't reach it, check [PuppetDB's jetty configuration][configure_jetty] to see which port(s) it is listening on, then attempt to reach it by telnet (`telnet <host> <port>`) from the puppet master server. If you can't connect, the firewall may be blocking connections. If you can, Puppet may be attempting to use the wrong port, or PuppetDB's keystore may be misconfigured (see below).
 * Check whether any other service is using PuppetDB's port and interfering with traffic.
-* Check [PuppetDB's jetty configuration][configure_jetty] and the `/etc/puppetlabs/puppetdb/ssl` directory, and make sure it has a truststore and keystore configured. If it didn't create these during installation, you will need to [run the SSL config script and edit the config file][ssl_script] or [manually configure a truststore and keystore][keystore_instructions] before a puppet master can contact PuppetDB.
+* Check [PuppetDB's jetty configuration][configure_jetty] and the `/etc/puppetlabs/puppetdb/ssl` directory, and make sure it has a truststore and keystore configured. If it didn't create these during installation, you will need to [run the SSL config script and edit the config file][ssl_script] before a puppet master can contact PuppetDB.
