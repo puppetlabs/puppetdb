@@ -72,13 +72,6 @@
             response (*command-app* (post-request* endpoint nil payload))]
         (assert-success! response)))
 
-    (testing "should return 400 when checksums don't match"
-      (let [response (*command-app* (post-request* endpoint
-                                                   {"checksum" "something bad"}
-                                                   "Testing"))]
-        (is (= (:status response)
-               http/status-bad-request))))
-
     (testing "should 400 when the command is invalid"
       (let [invalid-command (form-command "foo" 100 "{}")
             invalid-checksum (kitchensink/utf8-string->sha1 invalid-command)

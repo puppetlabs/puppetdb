@@ -129,8 +129,8 @@
       mid/make-pdb-handler
       validate-command-version
       mid/verify-accepts-json
-      mid/verify-checksum
       add-received-param ;; must be (temporally) after validate-query-params
+      ;; The checksum here is vestigial.  It is no longer checked
       (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"
                                              "certname" "command" "version"]})
       mid/payload-to-body-string

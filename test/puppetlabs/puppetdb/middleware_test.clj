@@ -139,24 +139,6 @@
                                        utils/cmd-params->json-str)
                       :param-post? true)))))))
 
-(deftest verify-checksum-test
-  (let [test-content "test content"
-        checksum     "1eebdf4fdc9fc7bf283031b93f9aef3338de9052"
-        wrapped-fn   (verify-checksum identity)]
-
-    (testing "ensure fn succeeds with matching checksum"
-      (let [test-req {:body-string test-content
-                      :params {"checksum" checksum}}]
-        (is (= (wrapped-fn test-req)
-               {:body-string test-content
-                :params {"checksum" checksum}}))))
-
-    (testing "ensure fn call with mismatching checksum fails"
-      (let [test-req {:body-string test-content
-                      :params {"checksum" "asdf"}}]
-        (is (= (wrapped-fn test-req)
-               {:status 400 :headers {} :body "checksums don't match"}))))))
-
 (deftest verify-content-type-test
   (testing "with content-type of application/json"
     (let [test-req {:content-type "application/json"

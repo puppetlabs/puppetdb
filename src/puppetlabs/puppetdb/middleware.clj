@@ -200,20 +200,6 @@
   (fn [app]
     (verify-accepts-content-type app "application/json")))
 
-(defn verify-checksum
-  "Ring middleware which will verify that the content of the body-string
-  has the checksum specified in the `checksum` parameter. If no checksum is
-  provided, this check will be skipped. If the checksum doesn't match, a 400
-  Bad Request error is returned."
-  [app]
-  (fn [{:keys [params body-string] :as req}]
-    (let [expected-checksum (params "checksum")
-          payload           body-string]
-      (if (and expected-checksum
-               (not= expected-checksum (kitchensink/utf8-string->sha1 payload)))
-        (http/error-response "checksums don't match")
-        (app req)))))
-
 (def http-metrics-registry (get-in metrics/metrics-registries [:http :registry]))
 
 (defn wrap-with-metrics
