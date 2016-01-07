@@ -90,39 +90,13 @@
                          (sutils/parse-db-json catalog-resources)
                          {:resource_type :type
                           :resource_title :title})
-       (map (comp #(merge % {:file nil :line nil})
-                  #(dissoc % :resource_type :resource_title)))))
-
-(defn munge-jsonb-edges
-  [edges]
-  (->> edges
-       sutils/parse-db-json
-       (map (fn [{:keys [source target relationship]}]
-              {:source_type (:type source)
-               :source_title (:title source)
-               :target_type (:type target)
-               :target_title (:title target)
-               :relationship relationship}))))
-
-(defn munge-jsonb-resources
-  [edges]
-  (->> edges
-       sutils/parse-db-json
-       (map (partial merge {:file nil :line nil}))))
-
-(defn munge-historical-catalogs-rows
-  [_ _]
-  (fn [rows]
-    (->> rows
-         (map (comp #(update % :resources munge-jsonb-resources)
-                    #(update % :edges munge-jsonb-edges))))))
+       (map #(dissoc % :resource_type :resource_title))))
 
 (defn munge-resource-graph-rows
   [_ _]
   (fn [rows]
     (->> rows
-         (map (comp #(update % :edges munge-jsonb-edges)
-                    #(assoc % :resources (merge-resources (:report_resources %)
+         (map (comp #(assoc % :resources (merge-resources (:report_resources %)
                                                           (:catalog_resources %)))
                     #(dissoc % :catalog_resources :report_resources))))))
 
@@ -130,8 +104,9 @@
   [store-historical-catalogs?]
   (when store-historical-catalogs?
     (reset! scf-storage/store-catalogs-historically? true))
+  (reset! scf-storage/store-catalogs-jsonb-columns? true)
   (swap! query-eng/entity-fn-idx merge
-         {:historical-catalogs {:munge munge-historical-catalogs-rows
+         {:historical-catalogs {:munge (constantly identity)
                                 :rec historical-catalog-query}}
          {:resource-graphs {:munge munge-resource-graph-rows
                             :rec resource-graph-query}}))
