@@ -47,7 +47,6 @@
       (assoc-in [:projections "resources"]
                 {:type :json
                  :queryable? false
-                 :expandable? true
                  :field
                  {:select [(honeysql/row-to-json :t)]
                   :from [[{:select

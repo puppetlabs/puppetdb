@@ -1,6 +1,8 @@
 (ns puppetlabs.pe-puppetdb-extensions.catalogs
   (:require [compojure.core :as compojure]
+            [honeysql.core :as hcore]
             [puppetlabs.puppetdb.query.paging :as paging]
+            [puppetlabs.puppetdb.honeysql :as honeysql]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.query-eng :as query-eng]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -11,16 +13,32 @@
   "Query for the top level catalogs entity"
   (engine/map->Query
    (-> engine/catalog-query
-       (update :projections merge {"resources" {:type :json
-                                                :queryable? false
-                                                :field :c.resources}
-                                   "edges" {:type :json
-                                            :queryable? false
-                                            :field :c.edges}})
+       (update :projections merge {"resources"
+                                   {:type :json
+                                    :queryable? false
+                                    :field {:select [(honeysql/row-to-json :t)]
+                                            :from [[{:select [[:c.resources :data]
+                                                              [(engine/hsql-hash-as-href
+                                                                "c.catalog_uuid::text"
+                                                                :historical-catalogs
+                                                                :resources)
+                                                               :href]]} :t]]}}
+                                   "edges"
+                                   {:type :json
+                                    :queryable? false
+                                    :field {:select [(honeysql/row-to-json :t)]
+                                            :from [[{:select
+                                                     [[:c.edges :data]
+                                                      [(engine/hsql-hash-as-href
+                                                        "c.catalog_uuid::text"
+                                                        :historical-catalogs
+                                                        :edges)
+                                                       :href]]} :t]]}}})
        (assoc :selection {:from [[:catalogs :c]]
                           :left-join [[:environments :e]
                                       [:= :c.environment_id :e.id]]}
               :alias "historical_catalogs"))))
+
 
 (def resource-graph-query
   (engine/map->Query
@@ -49,12 +67,20 @@
       "environment" {:type :string
                      :queryable? true
                      :field :e.environment}
-      "catalog_resources" {:type :json
-                           :queryable? false
-                           :field :c.resources}
-      "report_resources" {:type :json
-                          :queryable? false
-                          :field :r.resources}
+      "resources" {:type :json
+                   :queryable? false
+                   :field {:select [(honeysql/json-agg (honeysql/row-to-json :t))]
+                           :from [[{:select [[:cr.value :catalog_resources]
+                                             [:rr.value :report_resources]]
+                                    :from [[(hcore/call :jsonb_array_elements :r.resources) :rr]]
+                                    :full-join [[(hcore/call :jsonb_array_elements :c.resources) :cr]
+                                                [:and
+                                                 [:=
+                                                  (hcore/raw "cr.value->>'type'")
+                                                  (hcore/raw "rr.value->>'resource_type'")]
+                                                 [:=
+                                                  (hcore/raw "cr.value->>'title'")
+                                                  (hcore/raw "rr.value->>'resource_title'")]]]} :t]]}}
       "edges" {:type :json
                :queryable? false
                :field :c.edges}}
@@ -85,20 +111,19 @@
   (let [param-spec {:optional paging/query-params}]
     (http-q/query-route-from "resource_graphs" :v1 param-spec [])))
 
-(defn merge-resources [report-resources catalog-resources]
-  (->> (clojure.set/join (sutils/parse-db-json report-resources)
-                         (sutils/parse-db-json catalog-resources)
-                         {:resource_type :type
-                          :resource_title :title})
-       (map #(dissoc % :resource_type :resource_title))))
+(defn merge-resources [resources]
+  (->> (sutils/parse-db-json resources)
+       (map (fn [{:keys [catalog_resources report_resources]}]
+              (merge catalog_resources
+                     (clojure.set/rename-keys report_resources
+                                              {:resource_type :type
+                                               :resource_title :title}))))))
 
 (defn munge-resource-graph-rows
   [_ _]
   (fn [rows]
     (->> rows
-         (map (comp #(assoc % :resources (merge-resources (:report_resources %)
-                                                          (:catalog_resources %)))
-                    #(dissoc % :catalog_resources :report_resources))))))
+         (map #(update % :resources merge-resources)))))
 
 (defn turn-on-historical-catalogs!
   [store-historical-catalogs?]
