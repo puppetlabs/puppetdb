@@ -32,19 +32,25 @@ The entire command MUST be encoded as UTF-8.
 
 ## Command submission
 
-Commands are submitted via HTTP to the `/pdb/cmd/v1` URL and must
-conform to the following rules:
+Commands must be submitted via HTTP to the `/pdb/cmd/v1` endpoint via one of
+two mechanisms:
 
-* A `POST` is used
-* The `POST` body must contain the JSON payload.
-* There is an `Accept` header that matches `application/json`.
-* The content-type is `application/json`.
+### Multipart/form-data POST
 
-Optionally, there may be a query parameter, `checksum`, that contains a SHA-1 hash of
-the payload which will be used for verification.
+When POSTing a command with Content-Type multipart/form-data, separate
+forms are used for certname, command name, command version, payload, and
+optionally checksum.
 
-When a command is successfully submitted, the submitter will
-receive the following:
+### Application/json POST (deprecated)
+
+When using Content-Type application/json, the POST body is a JSON payload
+containing values for certname, command name, command version, and payload.
+This method requires Accept and Content-Type headers set to application/json. A
+checksum may optionally be provided as a separate parameter.
+
+In either case, the checksum should contain a SHA-1 hash of the payload which
+will be used for content verification with the server. When a command is
+successfully submitted, the submitter will receive the following:
 
 * A response code of 200
 * A content-type of `application/json`
@@ -52,7 +58,8 @@ receive the following:
   value is a UUID corresponding to the submitted command. This can be used, for example, by
   clients to correlate submitted commands with server-side logs.
 
-The PuppetDB termini for puppet masters use this command API to update facts, catalogs, and reports for nodes.
+The PuppetDB termini for Puppet masters use this command API to update facts,
+catalogs, and reports for nodes, and will always include the checksum.
 
 ### Blocking command submission (EXPERIMENTAL)
 
@@ -158,12 +165,30 @@ Puppet resources. It is structured as a JSON object, conforming to the
 To post a `replace facts` command you can use the following curl command:
 
     curl -X POST \
+      -F 'command=replace facts' \
+      -F 'version=4' \
+      -F 'certname=test1' \
+      -F 'payload={"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"},"producer_timestamp":"2015-01-01"}'
+      http://localhost:8080/pdb/cmd/v1
+
+or equivalently (with the deprecated mechanism):
+
+    curl -X POST \
       -H "Accept: application/json" \
       -H "Content-Type: application/json" \
       -d '{"command":"replace facts","version":4,"payload":{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"},"producer_timestamp":"2015-01-01"}}' \
       http://localhost:8080/pdb/cmd/v1
 
 An example of `deactivate node`:
+
+    curl -X POST \
+      -F 'command=deactivate node' \
+      -F 'version=3' \
+      -F 'certname=test1' \
+      -F 'payload={"certname":"test1","producer_timestamp":"2015-01-01"}' \
+      http://localhost:8080/pdb/cmd/v1
+
+or equivalently:
 
     curl -X POST \
       -H "Accept: application/json" \

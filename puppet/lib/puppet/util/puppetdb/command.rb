@@ -3,7 +3,21 @@ require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/http'
 require 'puppet/util/puppetdb/command_names'
 require 'puppet/util/puppetdb/char_encoding'
+require 'net/http/post/multipart'
 require 'json'
+
+class Puppet::Network::HTTP::Connection
+
+  def multipart_post(path, certname, command, version, payload)
+    url = URI.parse(path)
+    request = Net::HTTP::Post::Multipart.new(path,
+                                             "version" => version,
+                                             "certname" => certname,
+                                             "command" => command,
+                                             "payload" => payload)
+    request_with_redirects(request, {})
+  end
+end
 
 class Puppet::Util::Puppetdb::Command
   include Puppet::Util::Puppetdb
@@ -24,13 +38,11 @@ class Puppet::Util::Puppetdb::Command
   #   primitive (numeric type, string, array, or hash) that is natively supported
   #   by JSON serialization / deserialization libraries.
   def initialize(command, version, certname, payload)
-    @command = command
-    @version = version
-    @certname = certname
     profile("Format payload", [:puppetdb, :payload, :format]) do
-      @payload = Puppet::Util::Puppetdb::CharEncoding.utf8_string({
+      @checksum_payload = Puppet::Util::Puppetdb::CharEncoding.utf8_string({
         :command => command,
         :version => version,
+        :certname => certname,
         :payload => payload,
       # We use to_pson still here, to work around the support for shifting
       # binary data from a catalog to PuppetDB. Attempting to use to_json
@@ -44,22 +56,26 @@ class Puppet::Util::Puppetdb::Command
       # Puppet 4.1.0. We need a better answer to non-utf8 data end-to-end.
       }.to_pson, "Error encoding a '#{command}' command for host '#{certname}'")
     end
+    @command = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(command)
+    @version = version
+    @certname = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(certname)
+    @payload = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(payload.to_pson)
   end
 
-  attr_reader :command, :version, :certname, :payload
+  attr_reader :command, :version, :certname, :payload, :checksum_payload
 
   # Submit the command, returning the result hash.
   #
   # @return [Hash <String, String>]
   def submit
-    checksum = Digest::SHA1.hexdigest(payload)
+    checksum = Digest::SHA1.hexdigest(checksum_payload)
 
     for_whom = " for #{certname}" if certname
 
     begin
       response = profile("Submit command HTTP post", [:puppetdb, :command, :submit]) do
         Http.action("#{CommandsUrl}?checksum=#{checksum}", :command) do |http_instance, path|
-          http_instance.post(path, payload, headers)
+          http_instance.multipart_post(path, certname, command, version, payload)
         end
       end
 

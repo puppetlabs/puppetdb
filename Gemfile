@@ -15,6 +15,7 @@ end
 
 gem 'facter'
 gem 'rake'
+gem 'multipart-post', '~> 2.0'
 
 group :test do
   # Pinning to work-around an incompatiblity with 2.14 in puppetlabs_spec_helper

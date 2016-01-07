@@ -10,6 +10,7 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
             [compojure.core :as compojure]
+            [clojure.edn :as edn]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as kitchensink]))
 
@@ -21,10 +22,17 @@
 
 (def valid-commands-str (str/join ", " (sort (vals command-names))))
 
+(defn maybe-str->number
+  [s]
+  (if (number? s) s (edn/read-string s)))
+
 (defn validate-command-version
   [app]
-  (fn [{:keys [body-string] :as req}]
-    (let [{:keys [command version]} (json/parse-string body-string true)
+  (fn [{:keys [body-string multipart-params] :as req}]
+    (let [{:strs [command version]} (if multipart-params
+                                      (select-keys multipart-params ["command" "version"])
+                                      (json/parse-string body-string))
+          numeric-version (maybe-str->number version)
           min-supported (get min-supported-commands command ::invalid)]
       (cond
         (= ::invalid min-supported)
@@ -32,10 +40,10 @@
           (format "Supported commands are %s. Received '%s'."
                   valid-commands-str command))
 
-        (< version min-supported)
+        (< numeric-version min-supported)
         (http/bad-request-response
           (format "%s version %s is retired. The minimum supported version is %s."
-                  command version min-supported))
+                  command numeric-version min-supported))
 
         :else (app req)))))
 
@@ -119,6 +127,6 @@
       mid/verify-checksum
       (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"]})
       mid/payload-to-body-string
-      (mid/verify-content-type ["application/json"])
+      (mid/verify-content-type ["application/json" "multipart/form-data"])
       (mid/wrap-with-metrics (atom {}) http/leading-uris)
       (mid/wrap-with-globals get-shared-globals)))
