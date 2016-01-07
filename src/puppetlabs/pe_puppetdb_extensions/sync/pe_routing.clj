@@ -19,6 +19,7 @@
             [puppetlabs.pe-puppetdb-extensions.server :as pe-server]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as sync-svcs]
             [puppetlabs.puppetdb.time :refer [parse-period]]
+            [puppetlabs.pe-puppetdb-extensions.catalogs :refer [turn-on-historical-catalogs!]]
             [puppetlabs.pe-puppetdb-extensions.reports
              :refer [reports-resources-routes turn-on-unchanged-resources!]]))
 
@@ -26,7 +27,7 @@
   (map #(apply wrap-with-context %)
        (partition 2
                   ["/sync" (sync-svcs/sync-app get-config query bucketed-summary-query enqueue-command response-mult get-shared-globals)
-                   "/ext" (pe-server/build-app query)])))
+                   "/ext" (pe-server/build-app query get-shared-globals)])))
 
 (tk/defservice pe-routing-service
   [[:WebroutingService add-ring-handler get-route]
@@ -39,11 +40,15 @@
         (let [context-root (get-route this)
               query-prefix (str context-root "/query")
               config (get-config)
-              {sync-config :sync jetty-config :jetty} config
+              {sync-config :sync
+               puppetdb-config :puppetdb
+               jetty-config :jetty} config
               shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
           (set-url-prefix query-prefix)
           (log/info "Starting PuppetDB, entering maintenance mode")
           (turn-on-unchanged-resources!)
+          (turn-on-historical-catalogs!
+           (:include-historical-catalogs puppetdb-config true))
           (add-ring-handler
            this
            (pdb-app context-root config maint-mode?
