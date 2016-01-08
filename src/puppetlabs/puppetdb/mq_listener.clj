@@ -6,6 +6,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [slingshot.slingshot :refer [try+]]
+            [puppetlabs.puppetdb.metrics.core :as metrics]
             [metrics.meters :refer [meter mark!]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
@@ -62,42 +63,50 @@
 ;; * `:retry-counts`: histogram containing the number of times
 ;;   messages have been retried prior to suceeding
 ;;
+(def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
-(def metrics (atom {}))
-;; This is pinned to the old namespace for backwards compatibility
-(def ns-str "puppetlabs.puppetdb.command")
+(defn create-metrics [prefix]
+  (let [to-metric-name-fn (fn [metric-name]
+                            (->> metric-name
+                                 (conj prefix)
+                                 (mapv name)))]
+    {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
+     :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
+     :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
+     :processed (meter mq-metrics-registry (to-metric-name-fn :discarded))
+     :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
+     :retried (meter mq-metrics-registry (to-metric-name-fn :retried))
+     :discarded (meter mq-metrics-registry (to-metric-name-fn :discarded))}))
 
-(defn create-metrics-for-command!
-  "Create a subtree of metrics for the given command and version (if
-  present).  If a subtree of metrics already exists, this function is
-  a no-op."
-  ([command]
-     (create-metrics-for-command! command nil))
-  ([command version]
-     (let [prefix     (if (nil? version) [command] [command version])
-           prefix-str (clojure.string/join "." prefix)]
-       (when-not (get-in @metrics prefix)
-         (swap! metrics assoc-in (conj prefix :processing-time) (timer [ns-str prefix-str "processing-time"]))
-         (swap! metrics assoc-in (conj prefix :retry-counts) (histogram [ns-str prefix-str "retry-counts"]))
-         (doseq [metric [:seen :processed :fatal :retried :discarded]
-                 :let [metric-str (name metric)]]
-           (swap! metrics assoc-in (conj prefix metric) (meter [ns-str prefix-str metric-str] "msgs/s")))))))
-
-;; Create metrics for aggregate operations
-(create-metrics-for-command! "global")
-
-(defn fatal?
-  "Tests if the supplied exception is a fatal command-processing
-  exception or not."
-  [exception]
-  (:fatal exception))
+(def metrics (atom {:global (create-metrics [:global])}))
 
 (defn global-metric
   "Returns the metric identified by `name` in the `\"global\"` metric
   hierarchy"
   [name]
   {:pre [(keyword? name)]}
-  (get-in @metrics ["global" name]))
+  (get-in @metrics [:global name]))
+
+(defn cmd-metric
+  [cmd version name]
+  {:pre [(keyword? name)]}
+  (get-in @metrics [(keyword (str cmd version)) name]))
+
+(defn create-metrics-for-command!
+  "Create a subtree of metrics for the given command and version (if
+  present).  If a subtree of metrics already exists, this function is
+  a no-op."
+  [command version]
+  (let [storage-path [(keyword (str command version))]]
+    (when (= ::not-found (get-in @metrics storage-path ::not-found))
+      (swap! metrics assoc-in storage-path
+             (create-metrics [(keyword command) (keyword (str version))])))))
+
+(defn fatal?
+  "Tests if the supplied exception is a fatal command-processing
+  exception or not."
+  [exception]
+  (:fatal exception))
 
 ;; ## MQ I/O
 ;;
@@ -203,22 +212,21 @@
   middleware."
   [f on-discard max-retries]
   (fn [{:keys [command version annotations] :as msg}]
-    (let [retries    (count (:attempts annotations))
-          cmd-metric #(get-in @metrics [command version %])]
+    (let [retries (count (:attempts annotations))]
       (create-metrics-for-command! command version)
-      (mark! (cmd-metric :seen))
+      (mark! (cmd-metric command version :seen))
       (update! (global-metric :retry-counts) retries)
-      (update! (cmd-metric :retry-counts) retries)
+      (update! (cmd-metric command version :retry-counts) retries)
 
       (when (>= retries max-retries)
         (mark! (global-metric :discarded))
-        (mark! (cmd-metric :discarded))
+        (mark! (cmd-metric command version :discarded))
         (on-discard msg))
 
       (when (< retries max-retries)
-        (let [result (time! (cmd-metric :processing-time)
+        (let [result (time! (cmd-metric command version :processing-time)
                             (f msg))]
-          (mark! (cmd-metric :processed))
+          (mark! (cmd-metric command version :processed))
           result)))))
 
 (defn wrap-with-thread-name
@@ -275,7 +283,7 @@
   `n` is the number of the current attempt, and `random` is a random
   number between 0 and the argument."
   [{:keys [command version annotations] :as msg} e publish-fn]
-  (mark! (get-in @metrics [command version :retried]))
+  (mark! (cmd-metric command version :retried))
   (let [attempt (count (:attempts annotations))
         id      (:id annotations)
         msg     (annotate-with-attempt msg e)

@@ -13,6 +13,7 @@
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [metrics.histograms :refer [sample histogram]]
+            [metrics.counters :as counters]
             [schema.core :as s]
             [puppetlabs.trapperkeeper.testutils.logging :as pllog]
             [clojure.string :as str]
@@ -681,18 +682,18 @@
   (testing "should share structure when duplicate catalogs are detected for the same host"
     (add-certname! certname)
     (let [hash (replace-catalog! catalog)
-          prev-dupe-num (.count (:duplicate-catalog performance-metrics))
-          prev-new-num  (.count (:updated-catalog performance-metrics))]
+          prev-dupe-num (counters/value (:duplicate-catalog performance-metrics))
+          prev-new-num  (counters/value (:updated-catalog performance-metrics))]
 
       ;; Do an initial replacement with the same catalog
       (replace-catalog! catalog (now))
-      (is (= 1 (- (.count (:duplicate-catalog performance-metrics)) prev-dupe-num)))
-      (is (= 0 (- (.count (:updated-catalog performance-metrics)) prev-new-num)))
+      (is (= 1 (- (counters/value (:duplicate-catalog performance-metrics)) prev-dupe-num)))
+      (is (= 0 (- (counters/value (:updated-catalog performance-metrics)) prev-new-num)))
 
       ;; Store a second catalog, with the same content save the version
       (replace-catalog! (assoc catalog :version "abc123") (now))
-      (is (= 2 (- (.count (:duplicate-catalog performance-metrics)) prev-dupe-num)))
-      (is (= 0 (- (.count (:updated-catalog performance-metrics)) prev-new-num)))
+      (is (= 2 (- (counters/value (:duplicate-catalog performance-metrics)) prev-dupe-num)))
+      (is (= 0 (- (counters/value (:updated-catalog performance-metrics)) prev-new-num)))
 
       (is (= (query-to-vec ["SELECT certname FROM certnames"])
              [{:certname certname}]))
@@ -702,8 +703,8 @@
                :certname certname}]))
 
       (replace-catalog! (assoc-in catalog [:resources {:type "File" :title "/etc/foobar"} :line] 20) (now))
-      (is (= 2 (- (.count (:duplicate-catalog performance-metrics)) prev-dupe-num)))
-      (is (= 1 (- (.count (:updated-catalog performance-metrics)) prev-new-num))))))
+      (is (= 2 (- (counters/value (:duplicate-catalog performance-metrics)) prev-dupe-num)))
+      (is (= 1 (- (counters/value (:updated-catalog performance-metrics)) prev-new-num))))))
 
 (deftest-db fact-delete-should-prune-paths-and-values
   (add-certname! certname)
@@ -814,7 +815,9 @@
         (tu/with-wrapped-fn-args [inserts sql/insert!
                                   deletes sql/delete!
                                   updates sql/update!]
-          (with-redefs [performance-metrics (assoc metrics-map :catalog-volatility (histogram [ns-str "default" (str (gensym))]))]
+          (with-redefs [performance-metrics
+                        (assoc metrics-map
+                               :catalog-volatility (histogram storage-metrics-registry [(str (gensym))]))]
             (replace-catalog! (assoc updated-catalog :transaction_uuid new-uuid) yesterday)
 
             ;; 2 edge deletes
@@ -823,7 +826,7 @@
             ;; 1 params cache insert
             ;; 1 catalog_resource insert
             ;; 1 catalog_resource delete
-            (is (= 8.0 (apply + (sample (:catalog-volatility performance-metrics))))))
+            (is (= 8 (apply + (sample (:catalog-volatility performance-metrics))))))
 
           (is (sort= [:resource_params_cache :resource_params :catalog_resources :edges]
                      (table-args @inserts)))

@@ -13,6 +13,7 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [clojure.set :as set]
             [pantomime.media :as media]
+            [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [metrics.timers :refer [timer time!]]
             [metrics.meters :refer [meter mark!]]
@@ -206,41 +207,9 @@
         (http/error-response "checksums don't match")
         (app req)))))
 
-(defn wrap-with-metrics*
-  "Ring middleware that will tack performance counters for each
-  URL. Arguments are the same as for `wrap-with-metrics`, except:
+(def http-metrics-registry (get-in metrics/metrics-registries [:http :registry]))
 
-  `prefix`: string to use as the first component of each generated
-  metric."
-  [app prefix storage normalize-uri]
-  (fn [req]
-    ;; add metric timers for the uri as we service the request.
-    (let [metric-roots (let [s (normalize-uri (:uri req))]
-                         (if (string? s) [s] s))
-          metric-roots (map #(s/replace % #"[:,=]" "_") metric-roots)]
-
-      ;; Create timer objects for each metric the user has requested
-      (doseq [metric-root metric-roots
-              :let [timer-key [:timers metric-root]]
-              :when (not (get-in @storage timer-key))]
-        (swap! storage assoc-in timer-key (timer [prefix metric-root "service-time"])))
-
-      (let [timers (map #(get-in @storage [:timers %]) metric-roots)]
-        (multitime! timers
-                    (let [response  (app req)
-                          status    (:status response)]
-
-                      ;; Create meter objects for each metric the user has
-                      ;; requested
-                      (doseq [metric-root metric-roots
-                              :let [meter-key [:meters metric-root status]]
-                              :when (not (get-in @storage meter-key))]
-                        (swap! storage assoc-in meter-key (meter [prefix metric-root (str status)] "reqs/s"))
-                        (mark! (get-in @storage meter-key)))
-
-                        response))))))
-
-(defmacro wrap-with-metrics
+(defn wrap-with-metrics
   "Ring middleware that will tack performance counters for each URL.
   We track the following metrics per-app, at a top-level
 
@@ -274,8 +243,32 @@
   cannot contain ':', '=', or ',' characters. They will be replaced
   with '_'."
   [app storage normalize-uri]
-  `(let [prefix# ~(str *ns*)]
-    (wrap-with-metrics* ~app prefix# ~storage ~normalize-uri)))
+  (fn [req]
+    ;; add metric timers for the uri as we service the request.
+    (let [metric-roots (let [s (normalize-uri (:uri req))]
+                         (if (string? s) [s] s))
+          metric-roots (map #(s/replace % #"[:,=]" "_") metric-roots)]
+
+      ;; Create timer objects for each metric the user has requested
+      (doseq [metric-root metric-roots
+              :let [timer-key [:timers metric-root]]
+              :when (not (get-in @storage timer-key))]
+        (swap! storage assoc-in timer-key (timer http-metrics-registry [metric-root "service-time"])))
+
+      (let [timers (map #(get-in @storage [:timers %]) metric-roots)]
+        (multitime! timers
+                    (let [response  (app req)
+                          status    (:status response)]
+
+                      ;; Create meter objects for each metric the user has
+                      ;; requested
+                      (doseq [metric-root metric-roots
+                              :let [meter-key [:meters metric-root status]]
+                              :when (not (get-in @storage meter-key))]
+                        (swap! storage assoc-in meter-key (meter http-metrics-registry [metric-root (str status)]))
+                        (mark! (get-in @storage meter-key)))
+
+                        response))))))
 
 (defn payload-to-body-string
   "Middleware to move the payload from the body or the payload param into the

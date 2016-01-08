@@ -40,7 +40,7 @@
                  [org.clojure/tools.logging "0.3.1"]
                  [puppetlabs/tools.namespace "0.2.4.1"]
                  [clj-stacktrace "0.2.8"]
-                 [metrics-clojure "0.7.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
+                 [metrics-clojure "2.6.0" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
                  [clj-time "0.9.0"]
                  [org.clojure/java.jmx "0.3.1"]
                  ;; Filesystem utilities

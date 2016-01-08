@@ -1,6 +1,8 @@
 (ns puppetlabs.puppetdb.command.dlo-test
   (:require [me.raynes.fs :as fs]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [metrics.timers :as timers]
+            [metrics.meters :as meters]
             [clojure.test :refer :all]
             [clj-time.core :refer [years days seconds ago now]]
             [puppetlabs.puppetdb.command.dlo :refer :all]))
@@ -111,8 +113,8 @@
           (is (empty? (archives subdir)))
           (is (empty? (archives other-subdir)))
 
-          (is (= 0 (.count compression)))
-          (is (= 0 (.count failures))))
+          (is (= 0 (timers/number-recorded compression)))
+          (is (= 0.0 (meters/rate-one failures))))
 
         (testing "should not archive new messages"
           (fs/touch (fs/file subdir "foo"))
@@ -123,8 +125,8 @@
           (is (empty? (archives subdir)))
           (is (empty? (archives other-subdir)))
 
-          (is (= 0 (.count compression)))
-          (is (= 0 (.count failures))))
+          (is (= 0 (timers/number-recorded compression)))
+          (is (= 0.0 (meters/rate-one failures))))
 
         (testing "should archive old messages in subdirectories which haven't been archived"
           (fs/touch (fs/file subdir "foo") stale-timestamp)
@@ -135,8 +137,8 @@
           (is (= 1 (count (archives subdir))))
           (is (= 1 (count (archives other-subdir))))
 
-          (is (= 1 (.count compression)))
-          (is (= 0 (.count failures))))
+          (is (= 1 (timers/number-recorded compression)))
+          (is (= 0.0 (meters/rate-one failures))))
 
         (testing "should not archive subdirectories which have already been, even if there are old messages"
           (fs/touch (fs/file subdir "foo2") stale-timestamp)
@@ -147,8 +149,8 @@
           (is (= 1 (count (archives subdir))))
           (is (= 1 (count (archives other-subdir))))
 
-          (is (= 1 (.count compression)))
-          (is (= 0 (.count failures))))
+          (is (= 1 (timers/number-recorded compression)))
+          (is (= 0.0 (meters/rate-one failures))))
 
         (testing "should archive subdirectories again after the threshold has passed"
           (compress! dlo short-threshold)
@@ -157,5 +159,5 @@
           (is (= 2 (count (archives other-subdir))))
           (is (= 2 (count (archives other-subdir))))
 
-          (is (= 2 (.count compression)))
-          (is (= 0 (.count failures))))))))
+          (is (= 2 (timers/number-recorded compression)))
+          (is (= 0.0 (meters/rate-one failures))))))))

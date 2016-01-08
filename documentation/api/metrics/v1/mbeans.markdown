@@ -46,27 +46,33 @@ Responses return a JSON Object mapping strings to (strings/numbers/booleans).
 
 ### Population metrics
 
-* `puppetlabs.puppetdb.query.population:type=default,name=num-nodes`:
+* `puppetlabs.puppetdb.population:name=num-nodes`:
   The number of nodes in your population.
-* `puppetlabs.puppetdb.query.population:type=default,name=num-resources`:
+* `puppetlabs.puppetdb.population:name=num-resources`:
   The number of resources in your population.
-* `puppetlabs.puppetdb.query.population:type=default,name=avg-resources-per-node`:
+* `puppetlabs.puppetdb.population:name=avg-resources-per-node`:
   The average number of resources per node in your population.
-* `puppetlabs.puppetdb.query.population:type=default,name=pct-resource-dupes`:
+* `puppetlabs.puppetdb.population:name=pct-resource-dupes`:
   The percentage of resources that exist on more than one node.
 
-### Database metrics
+### Database Metrics
 
-* See
-  [the HikariCP documentation](https://github.com/brettwooldridge/HikariCP/wiki/Dropwizard-Metrics)
-  for the metric names and descriptions.
+The deprecated BoneCP connection pooling library has been removed from PuppetDB
+and has been replaced with HikariCP. The complete list of HikariCP metrics and
+their names can be found in
+[their documentation](https://github.com/brettwooldridge/HikariCP/wiki/Dropwizard-Metrics).
+All the database metrics have the following naming convention:
 
-### Command-processing metrics
+```
+puppetlabs.puppetdb.database:PDBWritePool.<HikariCP metric>
+puppetlabs.puppetdb.database:PDBReadPool.<HikariCP metric>
+```
 
-Each of the following metrics is available for each command supported
-in PuppetDB. In the below list of metrics, `<name>` should be
-substituted with a command specifier. Example `<name>`s you can use
-include:
+### Message Queue (MQ) metrics
+
+Each of the following metrics is available for each command supported in
+PuppetDB. In the below list of metrics, `<name>` should be substituted with a
+command spec include:
 
 * `global`: Aggregate stats for _all_ commands
 * `replace catalog.1`: Stats for catalog replacement
@@ -74,21 +80,21 @@ include:
 * `deactivate node.1`: Stats for node deactivation
 
 Other than `global`, all command specifiers are of the form
-`<command>.<version>`. As we version commands, you'll be able to get
-statistics for each version independently.
+`<command>.<version>`. As we version commands, you'll be able to get statistics
+for each version independently.
 
 Metrics available for each command:
 
-* `puppetlabs.puppetdb.command:type=<name>,name=discarded`: stats
+* `puppetlabs.puppetdb.mq:name=<name>.discarded`: stats
   about commands we've discarded (we've retried them as many times as
   we can, to no avail)
-* `puppetlabs.puppetdb.command:type=<name>,name=fatal`: stats about
+* `puppetlabs.puppetdb.mq:name=<name>.fatal`: stats about
   commands we failed to process.
-* `puppetlabs.puppetdb.command:type=<name>,name=processed`: stats
+* `puppetlabs.puppetdb.mq:name=<name>.processed`: stats
   about commands we've successfully processed
-* `puppetlabs.puppetdb.command:type=<name>,name=processing-time`:
+* `puppetlabs.puppetdb.mq:name=<name>.processing-time`:
   stats about how long it takes to process commands
-* `puppetlabs.puppetdb.command:type=<name>,name=retried`: stats about
+* `puppetlabs.puppetdb.mq:name=<name>.retried`: stats about
   commands that have been submitted for retry (due to transient
   errors)
 
@@ -120,22 +126,22 @@ see the stats for all `200` responses for the `resources`
 endpoint. This allows you to see, per endpoint and per response,
 independent counters and statistics.
 
-* `puppetlabs.puppetdb.http.server:type=<name>,name=service-time`:
+* `puppetlabs.puppetdb.http:name=<name>.service-time`:
   stats about how long it takes to service all HTTP requests to this endpoint
-* `puppetlabs.puppetdb.http.server:type=<name>,name=<status code>`:
+* `puppetlabs.puppetdb.http:name=<name>.<status code>`:
   stats about how often we're returning this response code
 
 ### Storage metrics
 
 Metrics involving the PuppetDB storage subsystem all begin with the
-`puppetlabs.puppetdb.scf.storage:type=default,name=` prefix. There are
+`puppetlabs.puppetdb.storage:name=` prefix. There are
 a number of metrics concerned with individual storage operations (storing
 resources, storing edges, etc.). Metrics of particular note include:
 
-* `puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct`:
+* `puppetlabs.puppetdb.storage:name=duplicate-pct`:
   the percentage of catalogs that PuppetDB determines to be
   duplicates of existing catalogs.
-* `puppetlabs.puppetdb.scf.storage:type=default,name=gc-time`: state
+* `puppetlabs.puppetdb.storage:name=gc-time`: state
   about how long it takes to do storage compaction
 
 ### JVM Metrics
@@ -152,7 +158,7 @@ resources, storing edges, etc.). Metrics of particular note include:
 
 [Using `curl` from localhost][curl]:
 
-    curl 'http://localhost:8080/metrics/v1/mbeans/puppetlabs.puppetdb.command%3Atype%3Dglobal%2Cname%3Dprocessing-time'
+    curl 'http://localhost:8080/metrics/v1/mbeans/puppetlabs.puppetdb.mq%3Aname%3Dglobal.processing-time'
     {
         "EventType" : "calls",
         "OneMinuteRate" : 0.015222994059151214,

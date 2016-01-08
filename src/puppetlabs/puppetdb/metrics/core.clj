@@ -1,11 +1,21 @@
 (ns puppetlabs.puppetdb.metrics.core
-  (:require [puppetlabs.puppetdb.http :as http]
-            [ring.util.response :as rr]
-            [clj-http.util :refer [url-encode]]
+  (:require [clj-http.util :refer [url-encode]]
             [cheshire.custom :refer [JSONable]]
             [clojure.java.jmx :as jmx]
-            [clojure.string :as s]
-            [puppetlabs.puppetdb.middleware :as mid]))
+            [metrics.reporters.jmx :refer [reporter]]
+            [metrics.core :refer [new-registry]]))
+
+(defn new-metrics [domain]
+  (let [registry (new-registry)]
+    {:registry registry
+     :reporter (reporter registry {:domain domain})}))
+
+(def metrics-registries {:mq (new-metrics "puppetlabs.puppetdb.mq")
+                         :dlo (new-metrics "puppetlabs.puppetdb.dlo")
+                         :http (new-metrics "puppetlabs.puppetdb.http")
+                         :population (new-metrics "puppetlabs.puppetdb.population")
+                         :storage (new-metrics "puppetlabs.puppetdb.storage")
+                         :database (new-metrics "puppetlabs.puppetdb.database")})
 
 (defn filter-mbean
   "Converts an mbean to a map. For attributes that can't be converted to JSON,
@@ -30,60 +40,21 @@
               [k (str v)]))))
 
 (defn all-mbean-names
-  "Return a set of all mbeans names"
+  "Return a seq of all mbeans names"
   []
-  {:post [(set? %)]}
-  (set (map str (jmx/mbean-names "*:*"))))
-
-(defn linkify-names
-  "Return a map of mbean name to a link that will retrieve the
-  attributes"
-  [names]
-  (zipmap names (map #(format "/mbeans/%s" (url-encode %)) names)))
+  {:post [(coll? %)]}
+  (map str (jmx/mbean-names "*:*")))
 
 (defn mbean-names
-  "Returns a JSON array of all MBean names"
-  [_]
+  "Return a map of mbean name to a link that will retrieve the attributes"
+  []
   (->> (all-mbean-names)
-       (linkify-names)
-       (into (sorted-map))
-       (http/json-response)))
+       (map #(vector % (format "/mbeans/%s" (url-encode %))))
+       (into (sorted-map))))
 
 (defn get-mbean
   "Returns the attributes of a given MBean"
   [name]
-  (if ((all-mbean-names) name)
-    (-> (jmx/mbean name)
-        (filter-mbean)
-        (http/json-response))
-    (rr/status (rr/response "No such mbean")
-               http/status-not-found)))
-
-(defn convert-shortened-mbean-name
-  "Middleware that converts the given / separated mbean name from a shortend 'commands' type
-   to the longer form needed by the metrics beans."
-  [names-coll]
-  (fn [req]
-    (-> (s/join "/" names-coll)
-        (get-mbean))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Public
-
-;; The below fns expect to be called from a moustache handler and
-;; return functions that accept a ring request map 
-
-(def list-mbeans
-  "Function for validating the request then getting the list of mbeans currently known
-   by the application"
-  (-> mbean-names
-      mid/verify-accepts-json
-      mid/validate-no-query-params))
-
-(defn mbean
-  "Function for getting a specific mbean, identified by `names-coll`. `names-coll`
-   is list of mbean name segments"
-  [names-coll]
-  (-> (convert-shortened-mbean-name names-coll)
-      mid/verify-accepts-json
-      mid/validate-no-query-params))
+  (when (some #(= name %) (all-mbean-names))
+    (filter-mbean
+     (jmx/mbean name))))

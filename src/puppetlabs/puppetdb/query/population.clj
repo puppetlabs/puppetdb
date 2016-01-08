@@ -5,8 +5,9 @@
   (:require [puppetlabs.puppetdb.jdbc :refer [query-to-vec
                                               table-count
                                               with-transacted-connection]]
+            [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.kitchensink.core :refer [quotient]]
-            [metrics.gauges :refer [gauge]]
+            [metrics.gauges :refer [gauge-fn]]
             [honeysql.core :as hcore]
             [honeysql.helpers :as hh]))
 
@@ -14,8 +15,7 @@
 
 (def ^:private from-all-resources-and-their-nodes
   (hcore/build :from [:certnames]
-               :join [:catalogs [:= :certnames.certname :catalogs.certname]
-                      :catalog_resources [:= :certnames.id :catalog_resources.certname_id]]))
+               :join [:catalog_resources [:= :certnames.id :catalog_resources.certname_id]]))
 
 (defn- where-nodes-are-active [q]
   (hh/merge-where q [:and
@@ -67,29 +67,23 @@
         num-total (num-resources)]
     (quotient (- num-total num-unique) num-total)))
 
-;; ## Population-wide metrics
-
-;; This is pinned to the old namespace for backwards compatibility
-(def ns-str "puppetlabs.puppetdb.query.population")
-(def metrics (atom nil))
-
-(defn population-gauges
-  "Create a set of gauges that calculate population-wide metrics"
-  [db]
-  {:num-resources          (gauge [ns-str "default" "num-resources"]
-                                  (with-transacted-connection db
-                                    (num-resources)))
-   :num-nodes              (gauge [ns-str "default" "num-nodes"]
-                                  (with-transacted-connection db
-                                    (num-nodes)))
-   :avg-resources-per-node (gauge [ns-str "default" "avg-resources-per-node"]
-                                  (with-transacted-connection db
-                                    (avg-resource-per-node)))
-   :pct-resource-dupes     (gauge [ns-str "default" "pct-resource-dupes"]
-                                  (with-transacted-connection db
-                                    (pct-resource-duplication)))})
-
-(defn initialize-metrics
+(defn initialize-population-metrics!
   "Initializes the set of population-wide metrics"
-  [db]
-  (compare-and-set! metrics nil (population-gauges db)))
+  [registry db]
+  (gauge-fn registry ["num-resources"]
+            (fn []
+              (with-transacted-connection db
+                (num-resources))))
+  (gauge-fn registry ["num-nodes"]
+                       (fn []
+                         (with-transacted-connection db
+                           (num-nodes))))
+  (gauge-fn registry ["avg-resources-per-node"]
+                                    (fn []
+                                      (with-transacted-connection db
+                                        (avg-resource-per-node))))
+  (gauge-fn registry ["pct-resource-dupes"]
+            (fn []
+              (with-transacted-connection db
+                (pct-resource-duplication))))
+  nil)

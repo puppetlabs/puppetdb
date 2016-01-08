@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.utils.metrics
-  (:require [metrics.timers :refer [time! timer]]))
+  (:require [metrics.timers :refer [time!]]))
 
 ;;; Metrics and timing
 

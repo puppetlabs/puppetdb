@@ -44,8 +44,10 @@
      maintain acceptable performance."
   (:require [clj-time.core :refer [ago]]
             [clojure.java.io :as io]
+            [clojure.java.jmx :as jmx]
             [clojure.tools.logging :as log]
             [compojure.core :as compojure]
+            [metrics.reporters.jmx :as jmx-reporter]
             [overtone.at-at :refer [mk-pool interspaced]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -55,12 +57,13 @@
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.meta.version :as version]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.time :refer [to-seconds to-millis parse-period
                                               format-period period?]]
             [puppetlabs.puppetdb.utils :as utils]
@@ -71,6 +74,7 @@
   (:import [javax.jms ExceptionListener]))
 
 (def cli-description "Main PuppetDB daemon")
+(def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
 ;; ## Wiring
 ;;
@@ -214,7 +218,8 @@
                         :pool-name "PDBMigrationsPool")]
     (if-let [result
              (try
-               (with-open [init-db-pool (jdbc/make-connection-pool db-spec)]
+               (with-open [init-db-pool (jdbc/make-connection-pool db-spec
+                                                                   database-metrics-registry)]
                  (let [db-pool-map {:datasource init-db-pool}]
                    (initialize-schema db-pool-map config)
                    ::success))
@@ -238,15 +243,19 @@
         {:keys [dlo-compression-threshold]} command-processing
         {:keys [disable-update-checking]} puppetdb
 
-        write-db (jdbc/pooled-datasource (assoc database :pool-name "PDBWritePool"))
-        read-db (jdbc/pooled-datasource (assoc read-database :read-only? true :pool-name "PDBReadPool"))
+        write-db (jdbc/pooled-datasource (assoc database :pool-name "PDBWritePool")
+                                         database-metrics-registry)
+        read-db (jdbc/pooled-datasource (assoc read-database :read-only? true :pool-name "PDBReadPool")
+                                        database-metrics-registry)
         discard-dir (io/file (conf/mq-discard-dir config))]
 
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
 
     (init-with-db database config)
-    (pop/initialize-metrics write-db)
+
+    (let [population-registry (get-in metrics/metrics-registries [:population :registry])]
+      (pop/initialize-population-metrics! population-registry write-db))
 
     (when (.exists discard-dir)
       (dlo/create-metrics-for-dlo! discard-dir))
@@ -309,11 +318,16 @@
   [[:DefaultedConfig get-config]
    [:WebroutingService add-ring-handler get-registered-endpoints]]
   (init [this context]
+
+        (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
+          (jmx-reporter/start reporter))
         (assoc context :url-prefix (atom nil)))
   (start [this context]
          (start-puppetdb context (get-config) this get-registered-endpoints))
 
   (stop [this context]
+        (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
+          (jmx-reporter/stop reporter))
         (stop-puppetdb context))
   (set-url-prefix [this url-prefix]
                   (let [old-url-prefix (:url-prefix (service-context this))]
