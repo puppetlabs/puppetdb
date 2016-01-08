@@ -350,6 +350,14 @@
            (.cancel stmt)
            (throw e)))))))
 
+(defn ^:dynamic enable-jmx
+  "This function exists to enable starting multiple PuppetDB instances
+  inside a single JVM. Starting up a second instance results in a
+  collision exception between JMX beans from the two
+  instances. Disabling JMX from the broker avoids that issue"
+  [^HikariConfig config metrics-registry]
+  (.setMetricRegistry config metrics-registry))
+
 (defn make-connection-pool
   "Given a DB spec map containing :subprotocol, :subname, :user, and :password
   keys, return a pooled DB spec map (one containing just the :datasource key
@@ -383,7 +391,7 @@
      (some->> read-only? (.setReadOnly config))
      (some->> (or user username) str (.setUsername config))
      (some->> password str (.setPassword config))
-     (some->> metrics-registry (.setMetricRegistry config))
+     (some->> metrics-registry (enable-jmx config))
      (HikariDataSource. config))))
 
 (defn pooled-datasource

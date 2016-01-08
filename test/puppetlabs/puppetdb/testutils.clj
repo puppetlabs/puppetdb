@@ -42,7 +42,8 @@
   allow them both to be started."
   [& body]
   `(with-redefs [puppetlabs.puppetdb.mq/enable-jmx (fn [broker# _#]
-                                                     (.setUseJmx broker# false))]
+                                                     (.setUseJmx broker# false))
+                 puppetlabs.puppetdb.jdbc/enable-jmx (fn [config# _#] nil)]
      (do ~@body)))
 
 (defmacro with-test-broker
