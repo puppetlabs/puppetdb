@@ -350,7 +350,15 @@
     certname]
    (comp first sql/result-set-seq)))
 
+;; `store-catalogs-historically?` is used for toggling historical catalog
+;; storage, this is configurable and PE only.
 (def store-catalogs-historically? (atom false))
+
+;; `store-catalogs-jsonb-columns?` is used for toggling storage of the resources
+;; and edges jsonb blobs for catalogs. These blobs are used in PE only and this
+;; variable is meant to only be set to true in PE. This exists so that we can
+;; store the jsonb columns idependently from storing historical catalogs. This
+;; way a user can turn off historical catalogs and the PE only views still work.
 (def store-catalogs-jsonb-columns? (atom false))
 
 (defn munge-edges-for-storage [edges]

@@ -129,7 +129,7 @@
    (s/optional-key :noop) (s/maybe s/Bool)
    (s/optional-key :report_format) s/Int
    (s/optional-key :configuration_version) s/Str
-   (s/optional-key :resources) resources-expanded-query-schema
+   (s/optional-key :resources) (s/maybe resources-expanded-query-schema)
    (s/optional-key :metrics) metrics-expanded-query-schema
    (s/optional-key :logs) logs-expanded-query-schema
    (s/optional-key :resource_events) resource-events-expanded-query-schema

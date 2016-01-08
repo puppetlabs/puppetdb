@@ -49,7 +49,7 @@
 
       (svc-utils/call-with-single-quiet-pdb-instance
        (let [anon-out-map (tar->map anon-out-file)
-             anon-certname (-> anon-out-map (get "reports") first val (get "certname"))]
+             anon-certname (some-> anon-out-map (get "reports") first val (get "certname"))]
          (fn []
            (is (empty? (get-nodes)))
 

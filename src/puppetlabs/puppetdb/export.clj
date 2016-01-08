@@ -2,6 +2,7 @@
   (:require [clj-time.core :refer [now]]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [puppetlabs.puppetdb.scf.storage :as storage]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.anonymizer :as anon]
@@ -49,9 +50,7 @@
           "catalogs" ["catalogs" (str (:certname datum) ".json")]
           "reports" ["reports" (export-report-filename datum)])]
     {:file-suffix file-suffix
-     :contents (if (= entity :reports)
-                 (-> datum (dissoc :hash) json/generate-pretty-string)
-                 (json/generate-pretty-string datum))}))
+     :contents (json/generate-pretty-string datum)}))
 
 (defn export-data->tar-items
   [entity data]
@@ -63,7 +62,7 @@
               :json-encoded-fields [:edges :resources]}
    "reports" {:query->wire-fn reports/reports-query->wire-v6
              :anonymize-fn anon/anonymize-report
-             :json-encoded-fields [:metrics :logs :resource_events]}
+             :json-encoded-fields [:metrics :logs :resource_events :resources]}
    "factsets" {:query->wire-fn factsets/factsets-query->wire-v4
               :anonymize-fn anon/anonymize-facts
               :json-encoded-fields [:facts]}})
@@ -79,8 +78,8 @@
   (doseq [entry entries]
     (utils/add-tar-entry tar-writer entry)))
 
-(defn decode-json-children [entity json-encoded-fields]
-  (kitchensink/mapvals sutils/parse-db-json json-encoded-fields entity))
+(defn decode-json-children [row json-encoded-fields]
+  (kitchensink/mapvals sutils/parse-db-json json-encoded-fields row))
 
 (defn export!*
   [tar-writer query-fn anonymize-profile]
@@ -92,8 +91,14 @@
                                            query->wire-fn
                                            (maybe-anonymize anonymize-fn anon-config)
                                            (export-data->tar-items entity)
-                                           (add-tar-entries tar-writer)))]]
-      (query-fn query-api-version ["from" entity] nil query-callback-fn))))
+                                           (add-tar-entries tar-writer)))
+                  entity* (if (and (= entity "catalogs")
+                                   @storage/store-catalogs-jsonb-columns?)
+                            ;; *Warning* this can only be used in PE so it
+                            ;; *cannot be tested against in the FOSS repo
+                            "historical_catalogs"
+                            entity)]]
+      (query-fn query-api-version ["from" entity*] nil query-callback-fn))))
 
 (defn export!
   ([outfile query-fn] (export! outfile query-fn nil))
