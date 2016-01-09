@@ -18,6 +18,13 @@
 (def query-params ["query" "limit" "offset" "order_by" "include_total"])
 (def count-header "X-Records")
 
+(defn munge-query-ordering
+  [clauses]
+  (for [c clauses]
+    (if (vector? c)
+      (update c 1 {:asc :ascending :desc :descending})
+      [c :ascending])))
+
 (defn valid-order-str?
   "Predicate that tests whether an 'order' string is valid; legal values are
   nil, 'asc', and 'desc' (case-insensitive)."

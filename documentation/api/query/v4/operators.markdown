@@ -191,7 +191,7 @@ to `nodes`.
 ### `from`
 
 The `from` operator allows you to choose the [entity][entities] that you want to query and
-provide an optional query clause for filtering those results. This operator can
+provide optional query and paging clauses to filter those results. This operator can
 be used at the top-level context of a query:
 
     ["from", "nodes", ["=", "certname", "myserver"]]
@@ -202,6 +202,58 @@ using the [`in` operator](#subquery-operators).
 When querying a particular endpoint, such as `/pdb/query/v4/nodes`, the endpoint provides
 the context for the query. Querying the [root] endpoint requires specifying a
 context explicitly.
+
+## Paging operators (`limit`, `offset`, `order_by`)
+
+PuppetDB allows specification of paging clauses within a "from" clause in a
+query or subquery. The `limit` and `offset` operators both accept an
+integer-valued argument, and `order_by` accepts a vector of either column names
+or vector pairs containing a column name and an ordering of "asc" or "desc".
+For example,
+
+    ["limit", 1]
+
+    ["offset", 1]
+
+    ["order_by", ["certname"]]
+
+    ["order_by", ["certname", ["timestamp", "desc"]]]
+
+When no ordering is explicitly specified, as in the case of "certname" in the
+example above, ascending order is assumed. Here are a few examples of queries
+using paging operators:
+
+Return the most recent ten reports for a certname:
+
+    ["from", "reports",
+      ["=", "certname", "myserver"],
+      ["order_by", [["timestamp", "desc"]]],
+      ["limit", 10]]
+
+Return the next page of ten reports:
+
+    ["from", "reports",
+      ["=", "certname", "myserver"],
+      ["order_by", [["timestamp", "desc"]]],
+      ["limit", 10],
+      ["offset", 10]]
+
+Return the most recent ten reports for any certname:
+
+    ["from", "reports",
+      ["order_by", [["timestamp", "desc"]]],
+      ["limit", 10]]
+
+Return the nodes represented in the ten most recent reports:
+
+    ["from", "nodes",
+      ["in", "certname",
+        ["from", "reports",
+          ["extract", "certname"],
+          ["limit", 10],
+          ["order_by", [["certname", "desc"]]]]]]
+
+The order in which paging operators are supplied does not matter.
 
 ## Subquery operators
 

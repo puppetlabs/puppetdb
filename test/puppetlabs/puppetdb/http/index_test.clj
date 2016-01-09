@@ -53,7 +53,7 @@
         (is (= status http/status-bad-request))))
 
     (testing "pagination"
-      (testing "with order_by only"
+      (testing "with order_by parameter"
         (let [results (ordered-query-result method endpoint ["from" "nodes"]
                                             {:order_by
                                              (vector-param method
@@ -62,7 +62,13 @@
           (is (= "host1" (:certname (first results))))
           (is (= 3 (count results)))))
 
-      (testing "with all options"
+      (testing "with order_by in query"
+        (let [results (ordered-query-result
+                        method endpoint ["from" "nodes" ["order_by" ["certname"]]])]
+          (is (= "host1" (:certname (first results))))
+          (is (= 3 (count results)))))
+
+      (testing "with all options in parameters"
         (let [results (ordered-query-result method endpoint ["from" "nodes"]
                                             {:order_by
                                              (vector-param method
@@ -71,7 +77,27 @@
                                              :limit 2
                                              :offset 1})]
           (is (= "host2" (:certname (first results))))
-          (is (= 2 (count results))))))
+          (is (= 2 (count results)))))
+
+      (testing "with all options in query"
+        (let [results (ordered-query-result
+                        method endpoint
+                        ["from" "nodes" ["order_by" [["certname" "desc"]]]
+                         ["limit" 2] ["offset" 1]])]
+          (is (= "host2" (:certname (first results))))
+          (is (= 2 (count results)))))
+
+      (testing "in a subquery"
+        (let [results (ordered-query-result
+                        method endpoint
+                        ["from" "catalogs"
+                         ["in" "certname"
+                          ["from" "nodes"
+                           ["extract" "certname"]
+                           ["limit" 1]
+                           ["order_by" ["certname"]]]]])]
+          (is (= 1 (count results)))
+          (is (= "host1" (:certname (first results)))))))
 
     (testing "extract parameters"
       (let [results (query-result method endpoint ["from" "nodes"

@@ -3,6 +3,7 @@
   (:require [clojure.core.match :as cm]
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
+            [clojure.set :refer [rename-keys]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -144,8 +145,13 @@
          :or {warn-experimental true
               pretty-print false}} options
         query (:query query-map)
-        query-options (dissoc query-map :query)
-        {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)]
+        {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context
+                                                          version query warn-experimental)
+        paging-options (some-> paging-clauses
+                               (rename-keys {:order-by :order_by})
+                               (update :order_by paging/munge-query-ordering))
+        query-options (merge (dissoc query-map :query) paging-options)]
+
     (try
       (jdbc/with-transacted-connection scf-read-db
         (let [munge-fn (get-munge-fn entity version query-options url-prefix)
