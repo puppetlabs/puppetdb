@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.http.v4
   (:require [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.http.index :as index]
             [bidi.bidi :as bidi]
             [bidi.ring :as bring]
             [puppetlabs.puppetdb.http.query :as http-q]
@@ -22,21 +21,29 @@
 
 (def version :v4)
 
-(defn create-query-handler [entity param-spec]
-  (comp (http-q/query-handler version)
-        #(http-q/restrict-query-to-entity entity %)
-        (http-q/extract-query' param-spec)))
+(defn create-handler
+  [version entity param-spec & handler-fns]
+  (apply comp
+         (http-q/query-handler version)
+         #(http-q/restrict-query-to-entity entity %)
+         (concat handler-fns
+                 [(http-q/extract-query' param-spec)])))
 
-(defn create-paging-query-handler [entity]
-  (comp (http-q/query-handler version)
-        #(http-q/restrict-query-to-entity entity %)
-        (http-q/extract-query' {:optional paging/query-params})))
+(defn add-parent-check [route version entity]
+  (cmdi/wrap-routes route
+                    #(wrap-with-parent-check'' % version entity entity)))
 
 (defn experimental-index-app
   [version]
-  (bring/wrap-middleware (index/index-app version)
-                         (fn [app]
-                           (partial http/experimental-warning app  "The root endpoint is experimental"))))
+  (cmdi/wrap-routes (cmdi/ANY "" []
+                              (comp (http-q/query-handler version)
+                                    (http-q/extract-query' {:optional paging/query-params
+                                                            :required ["query"]})))
+                    (fn [handler]
+                      (fn [req]
+                        (http/experimental-warning handler "The root endpoint is experimental" req)))))
+
+
 
 (defn report-data-responder
   "Respond with either metrics or logs for a given report hash.
@@ -53,33 +60,31 @@
 (defn events-app
   "Ring app for querying events"
   [version]
-  (comp (http-q/query-handler version)
-        #(http-q/restrict-query-to-entity "events" %)
-        (http-q/extract-query' {:optional (concat
-                               ["query"
-                                "distinct_resources"
-                                "distinct_start_time"
-                                "distinct_end_time"]
-                               paging/query-params)})))
-
-
+  (cmdi/ANY "" []
+            (create-handler version "events" {:optional (concat
+                                                         ["query"
+                                                          "distinct_resources"
+                                                          "distinct_start_time"
+                                                          "distinct_end_time"]
+                                                         paging/query-params)})))
 
 (defn reports-app
   [version]
-  {"" [["" (create-paging-query-handler "reports")]
+  (cmdi/routes
+   (cmdi/ANY "" []
+             (create-handler version "reports" {:optional paging/query-params}))
+   (cmdi/ANY ["/" :hash "/events"] []
+             (wrap-with-parent-check'' (comp (events-app version) http-q/restrict-query-to-report') version :report :hash))
        
-       [["/" :hash "/events"]
-        (wrap-with-parent-check'' (comp (events-app version) http-q/restrict-query-to-report') version :report :hash)]
+   (cmdi/ANY ["/" :hash "/metrics"] []
+             (-> (report-data-responder version "report_metrics")
+                 validate-no-query-params
+                 (wrap-with-parent-check'' version :report :hash)))
        
-       [["/" :hash "/metrics"]
-        (-> (report-data-responder version "report_metrics")
-            validate-no-query-params
-            (wrap-with-parent-check'' version :report :hash))]
-       
-       [["/" :hash "/logs"]
-        (-> (report-data-responder version "report_logs")
-            validate-no-query-params
-            (wrap-with-parent-check'' version :report :hash))]]})
+   (cmdi/ANY ["/" :hash "/logs"] []
+             (-> (report-data-responder version "report_logs")
+                 validate-no-query-params
+                 (wrap-with-parent-check'' version :report :hash)))))
 
 (defn url-decode [x]
   (java.net.URLDecoder/decode x))
@@ -87,284 +92,254 @@
 (defn resources-app
   [version]
   (let [param-spec {:optional paging/query-params}]
-    {"" (comp (http-q/query-handler version)
-              #(http-q/restrict-query-to-entity "resources" %)
-              http-q/restrict-query-to-active-nodes
-              (http-q/extract-query' param-spec))
+    (cmdi/routes
+     (cmdi/ANY "" []
+               (create-handler version "resources" param-spec http-q/restrict-query-to-active-nodes))
+     
+     (cmdi/context ["/" :type]
+                   (cmdi/ANY "" []
+                             (create-handler version "resources" param-spec
+                                             (fn [{:keys [route-params] :as req}]
+                                               (http-q/restrict-resource-query-to-type (:type route-params) req))
+                                             http-q/restrict-query-to-active-nodes))
+                   (cmdi/ANY ["/" [#".*" :title]] []
+                             (create-handler version "resources" param-spec
+                                             (fn [{:keys [route-params] :as req}]
+                                               (http-q/restrict-resource-query-to-title (url-decode (:title route-params)) req))
+                                             (fn [{:keys [route-params] :as req}]
+                                               (http-q/restrict-resource-query-to-type (:type route-params) req))
+                                             http-q/restrict-query-to-active-nodes))))))
 
-     ["/" :type]
-     {"" (comp (http-q/query-handler version)
-               #(http-q/restrict-query-to-entity "resources" %)
-               (fn [{:keys [route-params] :as req}]
-                 (http-q/restrict-resource-query-to-type (:type route-params) req))
-               http-q/restrict-query-to-active-nodes
-               (http-q/extract-query' param-spec))
-      
-      ["/" [#".*" :title]]
-      (comp (http-q/query-handler version)
-            #(http-q/restrict-query-to-entity "resources" %)
-            (fn [{:keys [route-params] :as req}]
-              (http-q/restrict-resource-query-to-title (url-decode (:title route-params)) req))
-            (fn [{:keys [route-params] :as req}]
-              (http-q/restrict-resource-query-to-type (:type route-params) req))
-            http-q/restrict-query-to-active-nodes
-            (http-q/extract-query' param-spec))}}))
+(defn status-handler [version query options found-fn not-found-response]
+  (if-let [catalog (first (stream-query-result version query {} options))]
+    (http/json-response (found-fn catalog))
+    not-found-response))
 
-(defn catalog-status
-  "Produce a response body for a request to retrieve the catalog for `node`."
-  [api-version node options]
-  (let [catalog (first
-                 (stream-query-result api-version
-                                          ["from" "catalogs" ["=" "certname" node]]
-                                          {}
-                                          options))]
-    (if catalog
-      (http/json-response (s/validate catalog-query-schema
-                                      (kitchensink/mapvals sutils/parse-db-json [:edges :resources] catalog)))
-      (http/status-not-found-response "catalog" node))))
-
-(defn catalog-app
-  [version]
-  {"" (create-paging-query-handler "catalogs")
-
-   ["/" :node]
-   {"" (fn [{:keys [globals route-params]}]
-         (catalog-status version (:node route-params)
-                         (select-keys globals [:scf-read-db :url-prefix :warn-experimental])))
-
-    ["/edges"]
-    (-> (comp (http-q/query-handler version)
-              http-q/restrict-query-to-node'
-              #(http-q/restrict-query-to-entity "edges"  %)
-              (http-q/extract-query' {:optional paging/query-params}))
-        (wrap-with-parent-check'' version :catalog :node))
-
-    ["/resources"]
-    (-> (comp (resources-app version)
-              http-q/restrict-query-to-node')
-        (wrap-with-parent-check'' version :catalog :node))}})
-
-(defn facts-app
-  [version]
-  (let [param-spec {:optional paging/query-params}]
-    {""
-     (comp (http-q/query-handler version)
-           #(http-q/restrict-query-to-entity "facts" %)
-           http-q/restrict-query-to-active-nodes
-           (http-q/extract-query' param-spec))
-
-     ["/" :fact]
-     {"" (comp (http-q/query-handler version)
-               #(http-q/restrict-query-to-entity "facts" %)
-               (fn [{:keys [route-params] :as req}]
-                 (http-q/restrict-fact-query-to-name (:fact route-params) req))
-               http-q/restrict-query-to-active-nodes
-               (http-q/extract-query' param-spec))
-
-      ["/" :value]
-      (comp (http-q/query-handler version)
-            #(http-q/restrict-query-to-entity "facts" %)
-            (fn [{:keys [route-params] :as req}]
-              (http-q/restrict-fact-query-to-name (:fact route-params) req))
-            (fn [{:keys [route-params] :as req}]
-              (http-q/restrict-fact-query-to-value (:value route-params) req))
-            http-q/restrict-query-to-active-nodes
-            (http-q/extract-query' param-spec))}}))
+(defn catalog-status [version node options]
+  (status-handler version ["from" "catalogs" ["=" "certname" node]] options
+                  #(s/validate catalog-query-schema
+                               (kitchensink/mapvals sutils/parse-db-json [:edges :resources] %))
+                  (http/status-not-found-response "catalog" node)))
 
 (defn factset-status
   "Produces a response body for a request to retrieve the factset for `node`."
   [api-version node options]
-  (let [factset (first
-                 (stream-query-result api-version
-                                          ["from" "factsets" ["=" "certname" node]]
-                                          {}
-                                          options))]
-    (if factset
-      (http/json-response factset)
-      (http/status-not-found-response "factset" node))))
-
-(defn factset-app
-  [version]
-  (let [param-spec {:optional paging/query-params}]
-    {"" 
-     (comp (http-q/query-handler version)
-           #(http-q/restrict-query-to-entity "factsets" %)
-           http-q/restrict-query-to-active-nodes
-           (http-q/extract-query' param-spec))
-
-     ["/" :node]
-     {"" (fn [{:keys [globals route-params]}]
-           (factset-status version (:node route-params)
-                           (select-keys globals [:scf-read-db :warn-experimental :url-prefix])))
-
-      ["/facts"]
-      (wrap-with-parent-check'' (comp (http-q/query-handler version)
-                                      #(http-q/restrict-query-to-entity "factsets" %)
-                                      http-q/restrict-query-to-node'
-                                      (http-q/extract-query' param-spec))
-                                version :factset :node)}}))
-
-(defn fact-names-app
-  [version]
-  (http-q/extract-query (comp
-                         (fn [{:keys [params globals puppetdb-query]}]
-                           (let [puppetdb-query (assoc-when puppetdb-query :order_by [[:name :ascending]])]
-                             (produce-streaming-body
-                              version
-                              (http-q/validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-                              (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental]))))
-                         (partial http-q/restrict-query-to-entity "fact_names"))
-                        {:optional paging/query-params}))
+  (status-handler version ["from" "factsets" ["=" "certname" node]] options
+                  identity
+                  (http/status-not-found-response "factset" node)))
 
 (defn node-status
   "Produce a response body for a single environment."
   [api-version node options]
-  (let [status (first
-                (stream-query-result api-version
-                                         ["from" "nodes" ["=" "certname" node]]
-                                         {}
-                                         options))]
-    (if status
-      (http/json-response status)
-      (http/status-not-found-response "node" node))))
-
-(defn node-app
-  [version]
-  (let [param-spec {:optional paging/query-params}]
-    {"" (comp (http-q/query-handler version)
-              #(http-q/restrict-query-to-entity "nodes" %)
-              http-q/restrict-query-to-active-nodes
-              (http-q/extract-query' param-spec))
-
-     ["/" :node]
-     {"" (-> (fn [{:keys [globals route-params]}]
-               (node-status version
-                            (:node route-params)
-                            (select-keys globals [:scf-read-db :url-prefix :warn-experimental])))
-             ;; Being a singular item, querying and pagination don't really make
-             ;; sense here
-             (validate-query-params {})) 
-
-      ["/facts"]
-      (second
-       (cmdi/wrap-routes 
-        (cmdi/wrap-routes ["" (facts-app version)]
-                          (fn [handler]
-                            (comp handler
-                                  http-q/restrict-query-to-node'
-                                  (http-q/extract-query' param-spec))))
-        #(wrap-with-parent-check'' % version :node :node)))
-
-      ["/resources"]
-      (second
-       (cmdi/wrap-routes 
-        (cmdi/wrap-routes ["" (resources-app version)]
-                          (fn [handler]
-                            (comp handler
-                                  http-q/restrict-query-to-node'
-                                  (http-q/extract-query' param-spec))))
-        #(wrap-with-parent-check'' % version :node :node)))}}))
+  (status-handler version ["from" "nodes" ["=" "certname" node]] options
+                  identity
+                  (http/status-not-found-response "node" node)))
 
 (defn environment-status
   "Produce a response body for a single environment."
   [api-version environment options]
-  (let [status (first
-                (stream-query-result api-version
-                                         ["from" "environments" ["=" "name" environment]]
-                                         {}
-                                         options))]
-    (if status
-      (http/json-response status)
-      (http/status-not-found-response "environment" environment))))
+  (status-handler version ["from" "environments" ["=" "name" environment]] options
+                  identity
+                  (http/status-not-found-response "environment" environment)))
+
+(defn catalog-app
+  [version]
+  (cmdi/routes
+
+   (cmdi/ANY "" []
+             (create-handler version "catalogs" {:optional paging/query-params}))
+
+   (cmdi/context ["/" :node]
+                 (cmdi/ANY "" []
+                           (fn [{:keys [globals route-params]}]
+                             (catalog-status version (:node route-params)
+                                             (select-keys globals [:scf-read-db :url-prefix :warn-experimental]))))
+
+                 (cmdi/ANY "/edges" []
+                           (-> (create-handler version "edges" paging/query-params http-q/restrict-query-to-node')
+                               (wrap-with-parent-check'' version :catalog :node)))
+                 
+                 (cmdi/ANY "/resources" []
+                           (-> (comp (resources-app version)
+                                     http-q/restrict-query-to-node')
+                               (wrap-with-parent-check'' version :catalog :node))))))
+
+(defn facts-app
+  [version]
+  (let [param-spec {:optional paging/query-params}]
+    (cmdi/routes
+     (cmdi/ANY "" []
+               (create-handler version "facts" param-spec http-q/restrict-query-to-active-nodes))
+
+     (cmdi/context ["/" :fact]
+                   
+                   (cmdi/ANY "" []
+                             (create-handler version "facts" param-spec
+                                             (fn [{:keys [route-params] :as req}]
+                                               (http-q/restrict-fact-query-to-name (:fact route-params) req))
+                                             http-q/restrict-query-to-active-nodes))
+
+                   (cmdi/ANY ["/" :value] []
+                             (create-handler version "facts" param-spec
+                                             (fn [{:keys [route-params] :as req}]
+                                               (http-q/restrict-fact-query-to-name (:fact route-params) req))
+                                             (fn [{:keys [route-params] :as req}]
+                                               (http-q/restrict-fact-query-to-value (:value route-params) req))
+                                             http-q/restrict-query-to-active-nodes))))))
+
+(defn factset-app
+  [version]
+  (let [param-spec {:optional paging/query-params}]
+    (cmdi/routes
+     (cmdi/ANY "" []
+               (create-handler version "factsets" param-spec http-q/restrict-query-to-active-nodes))
+
+     (cmdi/context ["/" :node]
+                   (cmdi/ANY "" []
+                             (fn [{:keys [globals route-params]}]
+                               (factset-status version (:node route-params)
+                                               (select-keys globals [:scf-read-db :warn-experimental :url-prefix]))))
+
+                   (cmdi/ANY "/facts" []
+                             (-> (create-handler version "factsets" param-spec http-q/restrict-query-to-node')
+                                 (wrap-with-parent-check'' version :factset :node)))))))
+
+(defn fact-names-app
+  [version]
+  (cmdi/ANY "" []
+   (http-q/extract-query (comp
+                          (fn [{:keys [params globals puppetdb-query]}]
+                            (let [puppetdb-query (assoc-when puppetdb-query :order_by [[:name :ascending]])]
+                              (produce-streaming-body
+                               version
+                               (http-q/validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                               (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental]))))
+                          (partial http-q/restrict-query-to-entity "fact_names"))
+                         {:optional paging/query-params})))
+
+(defn node-app
+  [version]
+  (let [param-spec {:optional paging/query-params}]
+    (cmdi/routes
+     (cmdi/ANY "" []
+               (create-handler version "nodes" param-spec http-q/restrict-query-to-active-nodes))
+     (cmdi/context ["/" :node]
+                   (cmdi/ANY "" []
+                             (-> (fn [{:keys [globals route-params]}]
+                                   (node-status version
+                                                (:node route-params)
+                                                (select-keys globals [:scf-read-db :url-prefix :warn-experimental])))
+                                 ;; Being a singular item, querying and pagination don't really make
+                                 ;; sense here
+                                 (validate-query-params {})))
+                   (cmdi/context "/facts"
+                             (cmdi/wrap-routes
+                              (cmdi/wrap-routes (facts-app version)
+                                            (fn [handler]
+                                              (comp handler
+                                                    http-q/restrict-query-to-node'
+                                                    (http-q/extract-query' param-spec))))
+                              #(wrap-with-parent-check'' % version :node :node)))
+                   (cmdi/context "/resources"
+                             (cmdi/wrap-routes
+                              (cmdi/wrap-routes (resources-app version)
+                                            (fn [handler]
+                                              (comp handler
+                                                    http-q/restrict-query-to-node'
+                                                    (http-q/extract-query' param-spec))))
+                              #(wrap-with-parent-check'' % version :node :node)))))))
 
 (defn environments-app
   [version & optional-handlers]
   (let [param-spec {:optional paging/query-params}]
-    {"" (http-q/query-route-from' "environments" version param-spec)
-
-     ["/" :environment]
-     {"" (validate-query-params (fn [{:keys [globals route-params]}]
-                                  (environment-status version (:environment route-params)
-                                                      (select-keys globals [:scf-read-db :warn-experimental :url-prefix])))
-                                {})
-
-      ["/facts"]
-      (second
-       (cmdi/wrap-routes ["" (facts-app version)]
-                         (fn [handler]
-                           (wrap-with-parent-check''
-                            (comp handler
-                                  http-q/restrict-query-to-environment'
-                                  (http-q/extract-query' param-spec))
-                            version :environment :environment))))
-      
-
-      ["/resources"]
-      (second
-       (cmdi/wrap-routes ["" (resources-app version)]
-                         (fn [handler]
-                           (wrap-with-parent-check''
-                            (comp handler
-                                  http-q/restrict-query-to-environment'
-                                  (http-q/extract-query' param-spec))
-                            version :environment :environment))))
+    (cmdi/routes
+     (cmdi/ANY "" []
+               (create-handler version "environments" param-spec))
+     (cmdi/context ["/" :environment]
+                   (cmdi/ANY "" []
+                             (validate-query-params (fn [{:keys [globals route-params]}]
+                                                      (environment-status version (:environment route-params)
+                                                                          (select-keys globals [:scf-read-db :warn-experimental :url-prefix])))
+                                                    {}))
+                   (add-parent-check
+                    (cmdi/routes
+                     (cmdi/context "/facts"
+                                   (cmdi/wrap-routes (facts-app version)
+                                                     (fn [handler]
+                                                       (comp handler
+                                                             http-q/restrict-query-to-environment'
+                                                             (http-q/extract-query' param-spec)))))
+                     (cmdi/context "/resources"
+                                   (cmdi/wrap-routes (resources-app version)
+                                                     (fn [handler]
+                                                       (comp handler
+                                                             http-q/restrict-query-to-environment'
+                                                             (http-q/extract-query' param-spec)))))
 
 
-      ["/events"]
-      (second
-       (cmdi/wrap-routes ["" (events-app version)]
-                         (fn [handler]
-                           (wrap-with-parent-check''
-                            (comp handler
-                                  http-q/restrict-query-to-environment'
-                                  (http-q/extract-query' {:optional (concat
-                                                                     ["query"
-                                                                      "distinct_resources"
-                                                                      "distinct_start_time"
-                                                                      "distinct_end_time"]
-                                                                     paging/query-params)}))
-                            version :environment :environment))))
-      
+                     (cmdi/context "/events"
+                                   
+                                   (cmdi/wrap-routes (events-app version)
+                                                     (fn [handler]
+                                                       (comp handler
+                                                             http-q/restrict-query-to-environment'
+                                                             (http-q/extract-query' {:optional (concat
+                                                                                                ["query"
+                                                                                                 "distinct_resources"
+                                                                                                 "distinct_start_time"
+                                                                                                 "distinct_end_time"]
+                                                                                                paging/query-params)})))))
+                     
 
-      ["/reports"]
-      (second
-       (cmdi/wrap-routes ["" (reports-app version)]
-                         (fn [handler]
-                           (wrap-with-parent-check'' (comp handler
-                                                           http-q/restrict-query-to-environment'
-                                                           (http-q/extract-query' param-spec))
-                                                     version :environment :environment))))}}))
+                     (cmdi/context "/reports"
+                                   (cmdi/wrap-routes (reports-app version)
+                                                     (fn [handler]
+                                                       (comp handler
+                                                             http-q/restrict-query-to-environment'
+                                                             (http-q/extract-query' param-spec))))))
+                    version :environment)))))
 
 (def v4-app
-  {"" (experimental-index-app version)
-   "/facts" (facts-app version)
-   "/edges" (comp (http-q/query-handler version)
-                  http-q/restrict-query-to-active-nodes
-                  #(http-q/restrict-query-to-entity "edges" %)
-                  (http-q/extract-query' {:optional paging/query-params}))
-   "/factsets" (factset-app version)
-   "/fact-names" (fact-names-app version)
-   "/fact-contents"   (comp (http-q/query-handler version)
-                            #(http-q/restrict-query-to-entity "fact_contents" %)
-                            http-q/restrict-query-to-active-nodes
-                            (http-q/extract-query' {:optional paging/query-params}))
-   "/fact-paths" (create-paging-query-handler "fact_paths")
+  (cmdi/routes
+   (cmdi/context ""
+                 (experimental-index-app version))
+   (cmdi/context "/facts" (facts-app version))
+   (cmdi/context "/edges"
+                 (cmdi/ANY "" []
+                           (create-handler version "edges" {:optional paging/query-params} http-q/restrict-query-to-active-nodes)))
+   (cmdi/context "/factsets"
+                 (factset-app version))
+   (cmdi/context "/fact-names" (fact-names-app version))
+   (cmdi/context "/fact-contents"   (cmdi/ANY "" []
+                                              (create-handler version "fact_contents" {:optional paging/query-params} http-q/restrict-query-to-active-nodes)))
+   (cmdi/context "/fact-paths"
+                 (cmdi/ANY "" []
+                           (create-handler version
+                                           "fact_paths"
+                                           {:optional paging/query-params})))
    
-   "/nodes" (node-app version)
-   "/environments" (environments-app version)
+   (cmdi/context "/nodes" (node-app version))
+   (cmdi/context "/environments" (environments-app version))
 
 
-   "/resources" (resources-app version)
-   "/catalogs" (catalog-app version)
-   "/events" (events-app version)
-   "/event-counts" (create-query-handler "event_counts" {:required ["summarize_by"]
-                                                         :optional (concat ["counts_filter" "count_by"
-                                                                            "distinct_resources" "distinct_start_time"
-                                                                            "distinct_end_time"]
-                                                                           paging/query-params)})
-   "/aggregate-event-counts" (create-query-handler "aggregate_event_counts"
-                                                   {:required ["summarize_by"]
-                                                    :optional ["query" "counts_filter" "count_by"
+   (cmdi/context "/resources" (resources-app version))
+   (cmdi/context "/catalogs" (catalog-app version))
+   (cmdi/context "/events" (events-app version))
+   (cmdi/context "/event-counts"
+                 (cmdi/ANY "" []
+                           (create-handler version
+                                           "event_counts"
+                                           {:required ["summarize_by"]
+                                            :optional (concat ["counts_filter" "count_by"
                                                                "distinct_resources" "distinct_start_time"
-                                                               "distinct_end_time"]}) 
-   "/reports" (reports-app version)})
+                                                               "distinct_end_time"]
+                                                              paging/query-params)})))
+   (cmdi/context "/aggregate-event-counts"
+                 (cmdi/ANY "" []
+                           (create-handler version
+                                           "aggregate_event_counts"
+                                           {:required ["summarize_by"]
+                                            :optional ["query" "counts_filter" "count_by"
+                                                       "distinct_resources" "distinct_start_time"
+                                                       "distinct_end_time"]}))) 
+   (cmdi/context "/reports" (reports-app version))))

@@ -13,7 +13,8 @@
                                                     make-pdb-handler]]
             [ring.util.response :as rr]
             [bidi.bidi :as bidi]
-            [bidi.ring :as bring]))
+            [bidi.ring :as bring]
+            [puppetlabs.comidi :as cmdi]))
 
 (defn- refuse-retired-api
   [version]
@@ -23,10 +24,18 @@
     404)))
 
 (def routes
-  ["" {"/v1" [[true (refuse-retired-api "v1")]]
-       "/v2" [[true (refuse-retired-api "v2")]]
-       "/v3" [[true (refuse-retired-api "v3")]]
-       "/v4" v4-app}])
+  (cmdi/routes
+   (cmdi/context "/v1"
+                 (cmdi/routes
+                  [true (refuse-retired-api "v1")]))
+   (cmdi/context "/v2"
+                 (cmdi/routes
+                  [true (refuse-retired-api "v2")]))
+   (cmdi/context "/v3"
+                 (cmdi/routes
+                  [true (refuse-retired-api "v3")]))
+   (cmdi/context "/v4"
+                 v4-app)))
 
 (defn build-app
   "Generates a Ring application that handles PuppetDB requests.

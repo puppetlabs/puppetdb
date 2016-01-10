@@ -388,25 +388,3 @@
                         optional-handlers)]
      (query-route' version param-spec handlers))))
 
-
-
-#_(defn query-route
-  [version param-spec optional-handlers]
-  (app
-   (extract-query param-spec)
-   (apply comp
-          (fn [{:keys [params globals puppetdb-query]}]
-            (produce-streaming-body version
-                                    (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-                                    (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental])))
-          optional-handlers)))
-
-#_(defn query-route-from
-  "Convenience wrapper for query-route, which automatically wraps the query in a
-  `from` to set context."
-  ([entity version param-spec]
-   (query-route-from entity version param-spec [identity]))
-  ([entity version param-spec optional-handlers]
-   (let [handlers (cons (partial restrict-query-to-entity entity)
-                        optional-handlers)]
-     (query-route version param-spec handlers))))
