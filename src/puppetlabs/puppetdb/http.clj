@@ -293,7 +293,8 @@
 
 (defn experimental-warning
   "Add a Warning: header for experimental endpoints"
-  [app msg request]
-  (let [result (app request)]
-    (log/warn msg)
-    (rr/header result "Warning" msg)))
+  [app msg]
+  (fn [request]
+    (let [result (app request)]
+      (log/warn msg)
+      (rr/header result "Warning" msg))))

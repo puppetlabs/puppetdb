@@ -550,7 +550,6 @@
 
     (testing "query without param should not fail"
       (let [response (query-response method endpoint)]
-        (printf "method: %s endpoint: %s" method endpoint)
         (assert-success! response)
         (slurp (:body response))))
 

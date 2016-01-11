@@ -23,17 +23,17 @@
     (format "The %s API has been retired; please use v4" version)
     404)))
 
+(defn retired-api-route
+  [version]
+  (cmdi/context (str "/" version)
+                (cmdi/routes
+                 [true (refuse-retired-api version)])))
+
 (def routes
   (cmdi/routes
-   (cmdi/context "/v1"
-                 (cmdi/routes
-                  [true (refuse-retired-api "v1")]))
-   (cmdi/context "/v2"
-                 (cmdi/routes
-                  [true (refuse-retired-api "v2")]))
-   (cmdi/context "/v3"
-                 (cmdi/routes
-                  [true (refuse-retired-api "v3")]))
+   (retired-api-route "v1")
+   (retired-api-route "v2")
+   (retired-api-route "v3")
    (cmdi/context "/v4"
                  v4-app)))
 

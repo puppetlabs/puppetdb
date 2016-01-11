@@ -116,7 +116,7 @@
     (restrict-query ["=" ["node" "active"] true] req)))
 
 
-(defn restrict-query-to-node'
+(defn restrict-query-to-node
   "Restrict the query parameter of the supplied request so that it
    only returns results for the supplied node"
   [req]
@@ -124,15 +124,7 @@
    :post [(are-queries-different? req %)]}
   (restrict-query ["=" "certname" (get-in req [:route-params :node])] req))
 
-(defn restrict-query-to-node
-  "Restrict the query parameter of the supplied request so that it
-   only returns results for the supplied node"
-  [node req]
-  {:pre  [(string? node)]
-   :post [(are-queries-different? req %)]}
-  (restrict-query ["=" "certname" node] req))
-
-(defn restrict-query-to-report'
+(defn restrict-query-to-report
   "Restrict the query parameter of the supplied request so that it
    only returns results for the supplied active node"
   [req]
@@ -141,16 +133,7 @@
   (restrict-query ["=" "report" (get-in req [:route-params :hash])]
                   req))
 
-(defn restrict-query-to-report
-  "Restrict the query parameter of the supplied request so that it
-   only returns results for the supplied active node"
-  [hash req]
-  {:pre  [(string? hash)]
-   :post [(are-queries-different? req %)]}
-  (restrict-query ["=" "report" hash]
-                  req))
-
-(defn restrict-query-to-environment'
+(defn restrict-query-to-environment
   "Restrict the query parameter of the supplied request so that it
    only returns results for the supplied environment"
   [req]
@@ -159,68 +142,41 @@
   (restrict-query ["=" "environment" (get-in req [:route-params :environment])]
                   req))
 
-(defn restrict-query-to-environment
-  "Restrict the query parameter of the supplied request so that it
-   only returns results for the supplied environment"
-  [environment req]
-  {:pre  [(string? environment)]
-   :post [(are-queries-different? req %)]}
-  (restrict-query ["=" "environment" environment]
-                  req))
-
 (defn restrict-fact-query-to-name
   "Restrict the query parameter of the supplied request so that it
    only returns facts with the given name"
-  [fact req]
-  {:pre  [(string? fact)]
+  [req]
+  {:pre  [(string? (get-in req [:route-params :fact]))]
    :post [(are-queries-different? req %)]}
-  (restrict-query ["=" "name" fact]
+  (restrict-query ["=" "name" (get-in req [:route-params :fact])]
                   req))
 
 (defn restrict-fact-query-to-value
   "Restrict the query parameter of the supplied request so that it
   only returns facts with the given name"
-  [value req]
-  {:pre  [(string? value)]
+  [req]
+  {:pre  [(string? (get-in req [:route-params :value]))]
    :post [(are-queries-different? req %)]}
-  (restrict-query ["=" "value" value]
+  (restrict-query ["=" "value" (get-in req [:route-params :value])]
                   req))
 
 (defn restrict-resource-query-to-type
   "Restrict the query parameter of the supplied request so that it
   only returns resources with the given type"
-  [type req]
-  {:pre  [(string? type)]
+  [req]
+  {:pre  [(string? (get-in req [:route-params :type]))]
    :post [(are-queries-different? req %)]}
-  (restrict-query ["=" "type" type]
+  (restrict-query ["=" "type" (get-in req [:route-params :type])]
                   req))
 
 (defn restrict-resource-query-to-title
   "Restrict the query parameter of the supplied request so that it
    only returns resources with the given title"
-  [title req]
-  {:pre  [(string? title)]
+  [req]
+  {:pre  [(string? (get-in req [:route-params :title]))]
    :post [(are-queries-different? req %)]}
-  (restrict-query ["=" "title" title]
+  (restrict-query ["=" "title" (get-in req [:route-params :title])]
                   req))
-
-(defn restrict-resource-query-to-type'
-  "Restrict the query parameter of the supplied request so that it
-  only returns resources with the given type"
-  [type]
-  {:pre  [(string? type)]
-   :post [(fn? %)]}
-  (fn [req]
-    (restrict-query ["=" "type" type] req)))
-
-(defn restrict-resource-query-to-title'
-  "Restrict the query parameter of the supplied request so that it
-   only returns resources with the given title"
-  [title]
-  {:pre  [(string? title)]
-   :post [(fn? %)]}
-  (fn [req]
-    (restrict-query ["=" "title" title] req)))
 
 (defn wrap-with-from
   "Wrap a query in a from, using the entity and any provided query"
@@ -231,9 +187,9 @@
 
 (pls/defn-validated restrict-query-to-entity
   "Restrict the query to a particular entity, by wrapping the query in a from."
-  [entity :- String
-   req]
-  (update-in req [:puppetdb-query :query] #(wrap-with-from entity %)))
+  [entity :- String]
+  (fn [req]
+    (update-in req [:puppetdb-query :query] #(wrap-with-from entity %))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion/validation of query parameters
@@ -306,21 +262,15 @@
      (throw (IllegalArgumentException. "PuppetDB queries must be made via GET/POST")))
    param-spec))
 
-(defn extract-query'
-  "Query handler that converts the incoming request (GET or POST)
-  parameters/body to a pdb query map"
-  [param-spec]
-  (fn [{:keys [request-method body params puppetdb-query] :as req}]
-    (if (= ::not-found (get req :puppetdb-query ::not-found))
-      (assoc req :puppetdb-query (create-query-map req param-spec))
-      req)))
-
 (defn extract-query
   "Query handler that converts the incoming request (GET or POST)
   parameters/body to a pdb query map"
   [handler param-spec]
   (fn [{:keys [request-method body params puppetdb-query] :as req}]
-    (handler (assoc req :puppetdb-query (create-query-map req param-spec)))))
+    (handler
+     (if puppetdb-query
+       req
+       (assoc req :puppetdb-query (create-query-map req param-spec))))))
 
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a
@@ -355,36 +305,9 @@
        (IllegalArgumentException.
          "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
 
-(defn query-route'
-  [version param-spec optional-handlers]
-  (apply comp
-         (fn [{:keys [params globals puppetdb-query]}]
-           (produce-streaming-body version
-                                   (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-                                   (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental])))
-         (concat 
-          optional-handlers
-          [(extract-query' param-spec)])))
-
 (defn query-handler
   [version]
   (fn [{:keys [params globals puppetdb-query]}]
-    (try
-      (produce-streaming-body version
-                              (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-                              (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental]))
-      (catch Exception e
-        (println "\n\n\n\n\nProblem")
-        (.printStackTrace e)
-        (throw e)))))
-
-(defn query-route-from'
-  "Convenience wrapper for query-route, which automatically wraps the query in a
-  `from` to set context."
-  ([entity version param-spec]
-   (query-route-from' entity version param-spec [identity]))
-  ([entity version param-spec optional-handlers]
-   (let [handlers (cons (partial restrict-query-to-entity entity)
-                        optional-handlers)]
-     (query-route' version param-spec handlers))))
-
+    (produce-streaming-body version
+                            (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                            (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental]))))

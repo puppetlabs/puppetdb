@@ -152,10 +152,7 @@
   (let [report-hash (:hash (store-example-report! (:basic reports) (now)))
         basic (assoc (:basic reports) :hash report-hash)
         get-data (fn [hash field]
-                   (let [res (query-result method (format "/v4/reports/%s/%s" hash field))]
-                     (println "res")
-                     (clojure.pprint/pprint res)
-                     res))]
+                   (query-result method (format "/v4/reports/%s/%s" hash field)))]
     (testing (format "%s endpoint returns the proper data" (name field))
       (is (= (get-data report-hash (name field))
              (-> basic field :data set))))))
@@ -686,7 +683,6 @@
 (deftest-http-app unknown-parent-handling
   [[version endpoint] no-parent-endpoints
    method [:get :post]]
-
   (let [{:keys [status body]} (query-response method endpoint)]
     (is (= status http/status-not-found))
     (is (= {:error "No information is known about report foo"} (json/parse-string body true)))))
