@@ -2,6 +2,7 @@
   (:import [org.joda.time Period]
            [java.net URI])
   (:require [puppetlabs.pe-puppetdb-extensions.sync.services :refer :all]
+            [puppetlabs.pe-puppetdb-extensions.sync.bucketed-summary :as bucketed-summary]
             [clojure.test :refer :all]
             [slingshot.test :refer :all]
             [clj-time.core :refer [seconds]]
@@ -13,7 +14,8 @@
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [with-ext-instances blocking-command-post]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
-            [puppetlabs.puppetdb.cheshire :as json]))
+            [puppetlabs.puppetdb.cheshire :as json]
+            [clj-time.coerce :refer [to-date-time]]))
 
 (deftest enable-periodic-sync?-test
   (testing "Happy case"
@@ -86,13 +88,56 @@
 
   (testing "two reports"
     (with-ext-instances [pdb (utils/sync-config nil)]
-     (let [report (assoc (:basic report-examples/reports)
-                         :producer_timestamp "2014-01-01T08:05:00.000Z")
-           report2 (assoc (:basic2 report-examples/reports)
-                          :producer_timestamp "2014-01-01T09:01:00.000Z")]
-       (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report))
-       (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report2))
-       (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
-             expected {"2014-01-01T08:00:00.000Z" "ff9fd7a2c2459280c30632d3390345b5"
-                       "2014-01-01T09:00:00.000Z" "ee94b04f27d6f844bcac35cffe841d93"}]
-         (is (= expected actual)))))))
+      (let [report (assoc (:basic report-examples/reports)
+                          :producer_timestamp "2014-01-01T08:05:00.000Z")
+            report2 (assoc (:basic2 report-examples/reports)
+                           :producer_timestamp "2014-01-01T09:01:00.000Z")]
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report))
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report2)))
+      (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
+            expected {"2014-01-01T08:00:00.000Z" "ff9fd7a2c2459280c30632d3390345b5"
+                      "2014-01-01T09:00:00.000Z" "ee94b04f27d6f844bcac35cffe841d93"}]
+        (is (= expected actual)))))
+
+  (testing "caching"
+    (with-ext-instances [pdb (utils/sync-config nil)]
+      (let [report (assoc (:basic report-examples/reports)
+                          :producer_timestamp "2014-01-01T08:05:00.000Z")]
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report)))
+      (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
+            expected {"2014-01-01T08:00:00.000Z" "ff9fd7a2c2459280c30632d3390345b5"}]
+        (is (= expected actual)))
+
+      ;; With no changes, the second request should issue a query which omits
+      ;; the hour we just saw
+      (let [queried-timespans (atom nil)
+            real-generate-bucketed-summary-query bucketed-summary/generate-bucketed-summary-query]
+        (with-redefs [bucketed-summary/generate-bucketed-summary-query
+                      (fn [table timespans]
+                        (reset! queried-timespans timespans)
+                        (real-generate-bucketed-summary-query table timespans))]
+          (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
+                expected {"2014-01-01T08:00:00.000Z" "ff9fd7a2c2459280c30632d3390345b5"}]
+            (is (= expected actual))
+            (is (= [[:open (to-date-time "2014-01-01T08:00:00.000Z")]
+                    [(to-date-time "2014-01-01T09:00:00.000Z") :open]]
+                   @queried-timespans)))))))
+
+  (testing "cache invalidation"
+    (with-ext-instances [pdb (utils/sync-config nil)]
+      (let [report (assoc (:basic report-examples/reports)
+                          :producer_timestamp "2014-01-01T08:05:00.000Z")
+            report2 (assoc (:basic2 report-examples/reports)
+                           :producer_timestamp "2014-01-01T08:10:00.000Z")]
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report))
+        (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
+              expected {"2014-01-01T08:00:00.000Z" "ff9fd7a2c2459280c30632d3390345b5"}]
+          (is (= expected actual)))
+
+        ;; the second report is in the same bucket as the first, so submitting
+        ;; this command should invalidate the cache and give us a new result
+        ;; when running the summary
+        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report2))
+        (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
+              expected {"2014-01-01T08:00:00.000Z" "afd22efd338d2c1802b62f1fb67beeb8"}]
+          (is (= expected actual)))))))

@@ -139,24 +139,44 @@
            "              'hex') "
            "         AS hash "
            (str "FROM " (name table) " ")
-           (when timespans (str "WHERE " (sql-query-condition-for-timespans timespans)) " ")
+           (when timespans (str "WHERE " (sql-query-condition-for-timespans timespans) " "))
            "GROUP BY date_trunc('hour', producer_timestamp AT TIME ZONE 'UTC')"))
 
+(def cachable-entity-for-command
+  {"store report" :reports})
 
 ;;; public
 
-(defn bucketed-summary-query [scf-read-db entity timespans]
-  (jdbc/with-db-connection scf-read-db
-    (jdbc/with-db-transaction []
-      (jdbc/do-commands "SET LOCAL TIMEZONE TO 'UTC'")
-      (let [rows (jdbc/query-to-vec
-                  (generate-bucketed-summary-query entity timespans))]
-        (->> rows
-             (map (fn [{:keys [hour hash]}] [(to-date-time hour) hash]))
-             (into {}))))))
+(defn bucketed-summary-query
+  "Perform the bucketed summary query against scf-read-db for the given entity.
+  Cache the results in cache-atom, which contains a map of the form {entity
+  {hour-timestamp hash}}. This cache should be invalidated elsewhere as appropriate."
+  [scf-read-db cache-atom entity]
+  (let [timespans (some-> @cache-atom
+                          (get entity)
+                          keys
+                          sort
+                          hourly-bucket-timestamps-to-timespans
+                          timespan-seq-complement)
+        query-sql (generate-bucketed-summary-query entity timespans)
+        result (jdbc/with-db-connection scf-read-db
+                 (jdbc/with-db-transaction []
+                   (jdbc/do-commands "SET LOCAL TIMEZONE TO 'UTC'")
+                   (let [rows (jdbc/query-to-vec query-sql)]
+                     (->> rows
+                          (map (fn [{:keys [hour hash]}] [(to-date-time hour) hash]))
+                          (into {})))))]
+    (get (swap! cache-atom update entity #(merge % result))
+         entity)))
 
 (defn pdb-query-condition-for-buckets [timestamps]
   (->> timestamps
        hourly-bucket-timestamps-to-timespans
        pdb-query-condition-for-timespans))
 
+(defn invalidate-cache-for-command
+  "Process a message from the command response-mult, invalidating the hour
+  bucket in cache-atom that corresponds to its producer-timestamp."
+  [cache-atom {:keys [command producer-timestamp]}]
+  (when-let [entity (cachable-entity-for-command command)]
+    (swap! cache-atom update entity dissoc (utc-hour-of producer-timestamp))))
