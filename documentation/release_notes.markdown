@@ -10,6 +10,43 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrading]: ./api/query/v4/upgrading-from-v3.html
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 
+3.2.3
+-----
+
+PuppetDB 3.2.3 is a bugfix release that addresses an issue affecting new
+installs on non-english PostgreSQL installations, as well as submission
+failures that can occur on catalogs containing large amounts of binary data.
+
+### Bug Fixes and Maintenance
+
+* Use heap size and the content-length header to reject oversize commands on
+  reception. The maximum size can be configured via `max-command-size` and
+  defaults to 1/205th of heap.
+  ([PDB-156](https://tickets.puppetlabs.com/browse/PDB-156))
+
+* Use PostgreSQL's encode/decode functions (rather than trim) to make our bytea
+  handling agnostic with respect to the `bytea_output` setting in PostgreSQL.
+  ([PDB-2239](https://tickets.puppetlabs.com/browse/PDB-156))
+
+* Upgrade to ActiveMQ 5.13.0.
+  ([PDB-2248](https://tickets.puppetlabs.com/browse/PDB-2248))
+
+* Only include debugging information for the first instance of non-UTF8 data
+  within a command.
+  ([PDB-2256](https://tickets.puppetlabs.com/browse/PDB-2256))
+
+* Fix initial data migration for non-english PostgreSQL installations.
+  ([PDB-2259](https://tickets.puppetlabs.com/browse/PDB-2259))
+
+### Documentation
+
+* Document session logging for failed HTTP connections.
+  ([PDB-2267](https://tickets.puppetlabs.com/browse/PDB-2267))
+
+### Contributors
+Andrew Roetker, Ken Barber, Rob Browning, Rob Nelson, Russell Mull, Ryan
+Senior, and Wyatt Alt
+
 3.2.2
 -----
 
