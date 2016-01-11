@@ -164,10 +164,17 @@
    (let [^TextMessage text-message message]
      (.getText text-message))
    (instance? javax.jms.BytesMessage message)
-   (let [^BytesMessage bytes-message message]
-     (.readUTF8 bytes-message))
+   (let [^BytesMessage bytes-message message
+         len (.getBodyLength message)
+         buf (byte-array len)
+         n (.readBytes bytes-message buf)]
+     (when (not= len n)
+       (throw (Exception. (format "Only read %d/%d bytes from incoming message"
+                                  n len))))
+     (String. buf "UTF-8"))
    :else
-   (throw (ex-info (str "Expected a text message, instead found: " (class message)) {}))))
+   (throw (Exception. (format "Expected TextMessage or BytesMessage; found %s "
+                              (class message))))))
 
 (defn convert-jms-message [m]
   {:headers (extract-headers m) :body (convert-message-body m)})
