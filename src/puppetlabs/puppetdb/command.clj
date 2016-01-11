@@ -112,11 +112,14 @@
   [mq-connection :- mq/connection-schema
    mq-endpoint :- s/Str
    raw-command :- s/Str
-   uuid :- (s/maybe s/Str)]
+   uuid :- (s/maybe s/Str)
+   properties :- (s/maybe {s/Str s/Str})] ;; For now stick with str -> str
   (let [uuid (or uuid (kitchensink/uuid))]
-    (mq/send-message! mq-connection mq-endpoint
-                      raw-command
-                      {"received" (kitchensink/timestamp) "id" uuid})
+    (mq/send-message! mq-connection mq-endpoint raw-command
+                      ;; Until/unless we require that all callers
+                      ;; include received, etc.
+                      (merge {"received" (kitchensink/timestamp) "id" uuid}
+                             properties))
     uuid))
 
 (defn-validated ^:private do-enqueue-command :- s/Str
@@ -127,11 +130,15 @@
    command :- s/Str
    version :- s/Int
    payload
-   uuid :- (s/maybe s/Str)]
+   uuid :- (s/maybe s/Str)
+   properties]
   (let [command-map {:command command
                      :version version
                      :payload payload}]
-    (do-enqueue-raw-command mq-connection mq-endpoint (json/generate-string command-map) uuid)))
+    (do-enqueue-raw-command mq-connection mq-endpoint
+                            (json/generate-string command-map)
+                            uuid
+                            properties)))
 
 ;; ## Command processing exception classes
 
@@ -286,10 +293,11 @@
   (enqueue-command
     [this command version payload]
     [this command version payload uuid]
+    [this command version payload uuid properties]
     "Annotates the command via annotate-command, submits it for
     processing, and then returns its unique id.")
 
-  (enqueue-raw-command [this raw-command uuid]
+  (enqueue-raw-command [this raw-command uuid properties]
     "Submits the raw-command for processing and returns the command's
     unique id.")
 
@@ -376,21 +384,25 @@
     (enqueue-command this command version payload nil))
 
   (enqueue-command [this command version payload uuid]
+    (enqueue-command this command version payload uuid nil))
+
+  (enqueue-command [this command version payload uuid properties]
     (let [config (get-config)
           connection (:connection (service-context this))
           endpoint (get-in config [:command-processing :mq :endpoint])
           command (if (string? command) command (command-names command))
           result (do-enqueue-command connection endpoint
-                                     command version payload uuid)]
+                                      command version payload uuid properties)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
 
-  (enqueue-raw-command [this raw-command uuid]
+  (enqueue-raw-command [this raw-command uuid properties]
     (let [config (get-config)
           connection (:connection (service-context this))
           endpoint (get-in config [:command-processing :mq :endpoint])
-          result (do-enqueue-raw-command connection endpoint raw-command uuid)]
+          result (do-enqueue-raw-command connection endpoint
+                                          raw-command uuid properties)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))

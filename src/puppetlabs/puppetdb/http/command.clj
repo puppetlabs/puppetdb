@@ -100,7 +100,7 @@
                                         (get "secondsToWaitForCompletion")
                                         Double/parseDouble
                                         (* 1000))
-          do-submit #(enqueue-fn body-string uuid)]
+          do-submit #(enqueue-fn body-string uuid nil)] ;; nil is properties
       (if (some-> completion-timeout-ms pos?)
         (blocking-submit-command do-submit (get-response-pub) uuid completion-timeout-ms)
         (do
