@@ -128,11 +128,11 @@
   (-> (routes enqueue-fn get-response-pub)
       mid/make-pdb-handler
       validate-command-version
+      mid/payload-to-body-string
       add-received-param ;; must be (temporally) after validate-query-params
       ;; The checksum here is vestigial.  It is no longer checked
       (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"
                                              "certname" "command" "version"]})
-      mid/payload-to-body-string
       mid/verify-accepts-json
       (mid/verify-content-type ["application/json"])
       (mid/fail-when-payload-too-large reject-large-commands? max-command-size)
