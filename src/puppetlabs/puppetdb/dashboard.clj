@@ -6,11 +6,9 @@
             [puppetlabs.comidi :as cmdi]))
 
 (def dashboard-routes
-  (cmdi/routes
-   (cmdi/context "/"
-                 (cmdi/routes
-                  (cmdi/GET "" []
-                            (fn [req] (rr/redirect "/pdb/dashboard/index.html")))))))
+  (cmdi/context "/"
+                (cmdi/GET "" []
+                          (rr/redirect "/pdb/dashboard/index.html"))))
 
 (defservice dashboard-redirect-service
   [[:WebroutingService add-ring-handler get-route]]

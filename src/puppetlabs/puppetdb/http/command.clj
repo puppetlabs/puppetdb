@@ -11,8 +11,7 @@
             [compojure.core :as compojure]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [bidi.bidi :as bidi]
-            [bidi.ring :as bring]))
+            [puppetlabs.comidi :as cmdi]))
 
 (def min-supported-commands
   {"replace catalog" 6
@@ -110,8 +109,9 @@
           (http/json-response {:uuid uuid}))))))
 
 (defn routes [enqueue-fn get-response-pub]
-  (let [route-data ["/v1" (enqueue-command-handler enqueue-fn get-response-pub)]]
-    (bring/make-handler route-data identity)))
+  (cmdi/context "/v1"
+                (cmdi/ANY "" []
+                          (enqueue-command-handler enqueue-fn get-response-pub))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -122,6 +122,7 @@
 (defn command-app
   [get-shared-globals enqueue-fn get-response-pub reject-large-commands? max-command-size]
   (-> (routes enqueue-fn get-response-pub)
+      mid/make-pdb-handler
       validate-command-version
       (mid/fail-when-payload-too-large reject-large-commands? max-command-size)
       mid/verify-accepts-json

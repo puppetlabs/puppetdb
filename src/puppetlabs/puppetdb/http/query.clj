@@ -17,8 +17,7 @@
                                                       parse-order-by
                                                       parse-order-by-json]]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [puppetlabs.puppetdb.utils :refer [update-when]]
-            [bidi.ring :as bring]))
+            [puppetlabs.puppetdb.utils :refer [update-when]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas

@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.http.handlers
   (:require [puppetlabs.puppetdb.http :as http]
-            [bidi.bidi :as bidi]
-            [bidi.ring :as bring]
             [bidi.schema :as bidi-schema]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.query.paging :as paging]
@@ -209,6 +207,12 @@
                                             http-q/restrict-query-to-active-nodes
                                             decode-route-params))))))
 
+(pls/defn-validated edge-routes :- bidi-schema/RoutePair
+  [version :- s/Keyword]
+  (extract-query
+   (cmdi/ANY "" []
+             (create-handler version "edges" http-q/restrict-query-to-active-nodes))))
+
 (pls/defn-validated catalog-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
@@ -223,17 +227,16 @@
                             (comp (catalog-status version)
                                   decode-route-params))
 
-                  (cmdi/ANY "/edges" []
-                            (-> (create-handler version "edges"
-                                                http-q/restrict-query-to-node
-                                                decode-route-params)
-                                (parent-check version :catalog :node)))
+                  (cmdi/context "/edges"
+                                (-> (edge-routes version)
+                                    (append-handler decode-route-params)
+                                    (wrap-with-parent-check version :catalog :node)))
                                 
-                  (cmdi/ANY "/resources" []
-                            (-> (comp (resources-routes version)
-                                      http-q/restrict-query-to-node
-                                      decode-route-params)
-                                (parent-check version :catalog :node)))))))
+                  (cmdi/context "/resources"
+                                (-> (resources-routes version)
+                                    (append-handler (comp http-q/restrict-query-to-node
+                                                          decode-route-params)) 
+                                    (wrap-with-parent-check version :catalog :node)))))))
 
 (pls/defn-validated facts-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
@@ -354,12 +357,6 @@
                                     (-> (events-routes version)
                                         (append-handler http-q/restrict-query-to-environment)))))
                     version :environment :environment)))))
-
-(pls/defn-validated edge-routes :- bidi-schema/RoutePair
-  [version :- s/Keyword]
-  (extract-query
-   (cmdi/ANY "" []
-             (create-handler version "edges" http-q/restrict-query-to-active-nodes))))
 
 (pls/defn-validated fact-contents-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]

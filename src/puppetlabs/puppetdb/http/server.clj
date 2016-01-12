@@ -12,8 +12,6 @@
                                                     verify-accepts-json
                                                     make-pdb-handler]]
             [ring.util.response :as rr]
-            [bidi.bidi :as bidi]
-            [bidi.ring :as bring]
             [puppetlabs.comidi :as cmdi]))
 
 (defn- refuse-retired-api

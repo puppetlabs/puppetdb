@@ -3,22 +3,23 @@
             [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.metrics.core :as metrics]
-            [puppetlabs.puppetdb.middleware :as mid]))
+            [puppetlabs.puppetdb.middleware :as mid]
+            [bidi.schema :as bidi-schema]
+            [schema.core :as s]))
 
-(def routes
-  (cmdi/routes
-   (cmdi/context "/v1/mbeans"
-                 (cmdi/ANY "" []
-                           (fn [req]
-                             (http/json-response
-                              (metrics/mbean-names))))
-                 (cmdi/ANY ["/" [#".*" :names]] []
-                           (fn [{:keys [route-params] :as req}]
-                             (let [name (java.net.URLDecoder/decode (:names route-params))
-                                   mbean (metrics/get-mbean name)]
-                               (if mbean
-                                 (http/json-response mbean)
-                                 (http/status-not-found-response "mbean" name))))))))
+(s/def ^:always-validate routes :- bidi-schema/RoutePair
+  (cmdi/context "/v1/mbeans"
+                (cmdi/GET "" []
+                          (fn [req]
+                            (http/json-response
+                             (metrics/mbean-names))))
+                (cmdi/GET ["/" [#".*" :names]] []
+                          (fn [{:keys [route-params] :as req}]
+                            (let [name (java.net.URLDecoder/decode (:names route-params))
+                                  mbean (metrics/get-mbean name)]
+                              (if mbean
+                                (http/json-response mbean)
+                                (http/status-not-found-response "mbean" name)))))))
 
 (defn build-app
   "Generates a Ring application that handles metrics requests.
