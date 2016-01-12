@@ -52,6 +52,8 @@ See [the Operators page](./operators.html) for the full list of available operat
 
 * `environment` (string): the environment of the node associated to the resource.
 
+* `resource` (string): a SHA-1 hash of the resource's type, title, and parameters, for identification.
+
 ### Subquery Relationships
 
 Here is a list of related entities that can be used to constrain the result set using
@@ -142,6 +144,7 @@ this route.
         "ensure" : "present"
       },
       "line" : 20,
+      "resource" : "514cc3d67baf20c1c5e053e6a74b249558031311",
       "file" : "/etc/puppet/manifests/site.pp",
       "exported" : false,
       "environment": "production",
@@ -187,6 +190,7 @@ this route.
         "ensure" : "present"
       },
       "line" : 10,
+      "resource" : "514cc3d67baf20c1c5e053e6a74b249558031311",
       "file" : "/etc/puppet/manifests/site.pp",
       "exported" : false,
       "environment": "production",
