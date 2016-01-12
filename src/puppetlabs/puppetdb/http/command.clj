@@ -128,7 +128,6 @@
   (-> (routes enqueue-fn get-response-pub)
       mid/make-pdb-handler
       validate-command-version
-      (mid/fail-when-payload-too-large reject-large-commands? max-command-size)
       mid/verify-accepts-json
       mid/verify-checksum
       add-received-param ;; must be (temporally) after validate-query-params
@@ -136,5 +135,6 @@
                                              "certname" "command" "version"]})
       mid/payload-to-body-string
       (mid/verify-content-type ["application/json"])
+      (mid/fail-when-payload-too-large reject-large-commands? max-command-size)
       (mid/wrap-with-metrics (atom {}) http/leading-uris)
       (mid/wrap-with-globals get-shared-globals)))
