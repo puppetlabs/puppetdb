@@ -65,7 +65,6 @@
                  ;; bridge to allow some spring/activemq stuff to log over slf4j
                  [org.slf4j/jcl-over-slf4j "1.7.10"]
                  ;; WebAPI support libraries.
-                 [net.cgrand/moustache "1.1.0" :exclusions [ring/ring-core org.clojure/clojure]]
                  [compojure "1.4.0"]
                  [clj-http "2.0.0"]
                  [ring/ring-core "1.4.0" :exclusions [javax.servlet/servlet-api]]
