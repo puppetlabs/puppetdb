@@ -3,12 +3,14 @@
   (:require [clj-time.core :as time]
             [clojure.tools.logging :as log]
             [overtone.at-at :as atat]
+            [metrics.reporters.jmx :as jmx-reporter]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.structured-logging.core :refer [maplog]]
             [puppetlabs.puppetdb.time :refer [to-millis periods-equal? parse-period period?]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote! with-trailing-slash]]
             [puppetlabs.pe-puppetdb-extensions.sync.bucketed-summary :as bucketed-summary]
+            [puppetlabs.pe-puppetdb-extensions.sync.events :as events]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [get-service service-context]]
             [puppetlabs.puppetdb.utils :as utils :refer [throw+-cli-error!]]
@@ -222,6 +224,10 @@
    [:PuppetDBServer query shared-globals]
    [:PuppetDBCommandDispatcher enqueue-command response-mult]]
 
+  (init [this context]
+        (jmx-reporter/start (:reporter events/sync-metrics))
+        context)
+
   (start [this context]
          (let [{{node-ttl :node-ttl} :database
                 sync-config :sync
@@ -276,6 +282,7 @@
              context)))
 
   (stop [this context]
+        (jmx-reporter/stop (:reporter events/sync-metrics))
         (when-let [s (:scheduled-sync context)]
           (log/info "Stopping pe-puppetdb sync")
           (atat/stop s)

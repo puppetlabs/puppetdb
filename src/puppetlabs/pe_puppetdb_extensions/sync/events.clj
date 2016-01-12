@@ -2,6 +2,7 @@
   (:require [puppetlabs.structured-logging.core :refer [maplog]]
             [puppetlabs.kitchensink.core :as ks]
             [clj-time.core :as time :refer [now interval in-seconds]]
+            [puppetlabs.puppetdb.metrics.core :as metrics]
             [metrics.gauges :refer [gauge-fn]]
             [metrics.counters :refer [counter] :as counters]
             [metrics.timers :refer [timer time-fn!]]))
@@ -18,6 +19,9 @@
          :last-successful-sync-time nil
          :last-failed-sync-time nil}))
 
+(def sync-metrics (metrics/new-metrics "puppetlabs.puppetdb.ha"))
+(def sync-metrics-registry (:registry sync-metrics))
+
 (defn- seconds-since-last-successful-sync []
   (-> (@metrics-backing-state :last-successful-sync-time)
       (interval (now))
@@ -29,13 +33,14 @@
       in-seconds))
 
 (defn- metric-name [name]
-  ["puppetlabs.pe-puppetdb-extensions.sync" "default" name])
+  ["" name])
 
 (defn- make-gauge
   "Create a gauge that just pulls a value out of the metrics-backing-state
   atom."
   [kw]
-  (gauge-fn (metric-name (name kw))
+  (gauge-fn sync-metrics-registry
+            (metric-name (name kw))
             #(kw @metrics-backing-state)))
 
 ;; The actual metrics objects; calling functions in the metrics.* namespaces
@@ -48,17 +53,20 @@
    :sync-has-failed-after-working (make-gauge :sync-has-failed-after-working)
    :last-successful-sync-time (make-gauge :last-successful-sync-time)
    :last-failed-sync-time (make-gauge :last-failed-sync-time)
-   :seconds-since-last-successful-sync (gauge-fn (metric-name "seconds-since-last-successful-sync")
+   :seconds-since-last-successful-sync (gauge-fn sync-metrics-registry
+                                                 ["seconds-since-last-successful-sync"]
                                                  seconds-since-last-successful-sync)
-   :seconds-since-last-failed-sync (gauge-fn (metric-name "seconds-since-last-failed-sync")
+   :seconds-since-last-failed-sync (gauge-fn sync-metrics-registry
+                                             ["seconds-since-last-failed-sync"]
                                              seconds-since-last-failed-sync)
-   :failed-request-counter (counter (metric-name "failed-requests"))
-   :timers {"sync" (timer (metric-name "sync-duration"))
-            "record" (timer (metric-name "record-transfer-duration"))
-            ["entity" "catalogs"] (timer (metric-name "catalogs-sync-duration"))
-            ["entity" "reports"] (timer (metric-name "reports-sync-duration"))
-            ["entity" "factsets"] (timer (metric-name "factsets-sync-duration"))
-            ["entity" "nodes"] (timer (metric-name "nodes-sync-duration"))}})
+   :failed-request-counter (counter sync-metrics-registry
+                                    ["failed-requests"])
+   :timers {"sync" (timer sync-metrics-registry ["sync-duration"])
+            "record" (timer sync-metrics-registry ["record-transfer-duration"])
+            ["entity" "catalogs"] (timer sync-metrics-registry ["catalogs-sync-duration"])
+            ["entity" "reports"] (timer sync-metrics-registry ["reports-sync-duration"])
+            ["entity" "factsets"] (timer sync-metrics-registry ["factsets-sync-duration"])
+            ["entity" "nodes"] (timer sync-metrics-registry ["nodes-sync-duration"])}})
 
 (defn- with-timer-metric
   "Time the execution of the function 'f' and publish it in the timer metric
