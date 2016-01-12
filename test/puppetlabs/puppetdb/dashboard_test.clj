@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.dashboard-test
-  (:require [puppetlabs.puppetdb.dashboard :as dashboard]
+  (:require [puppetlabs.puppetdb.dashboard :refer :all]
             [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
@@ -8,11 +8,13 @@
             [clj-http.client :as client]
             [puppetlabs.puppetdb.utils :refer [base-url->str-with-prefix]]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.testutils.dashboard :as dtu]))
+            [puppetlabs.puppetdb.testutils.dashboard :as dtu]
+            [puppetlabs.puppetdb.middleware :as mid]))
 
 (deftest dashboard-resource-requests
   (testing "dashboard redirect works"
-    (let [{:keys [status headers]} (dashboard/dashboard-redirect (request :get "/"))]
+    (let [handler (mid/make-pdb-handler dashboard-routes)
+          {:keys [status headers]} (handler (request :get "/"))]
       (is (= status 302))
       (is (= "/pdb/dashboard/index.html" (get headers "Location"))))))
 
