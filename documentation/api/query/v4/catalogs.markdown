@@ -19,10 +19,15 @@ You can query catalogs by making an HTTP request to the
 
 ## `/pdb/query/v4/catalogs`
 
-This will return a JSON array containing the most recent catalog for each node in your infrastructure.
+This will return a JSON array containing the most recent catalog for each node
+in your infrastructure.
 
 ### URL Parameters
-* `query`: Optional. A JSON array containing the query in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
+
+* `query`: Optional. A JSON array containing the query in prefix notation
+  (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the
+  supported operators and fields. For general info about queries, see
+  [the page on query structure.][query]
 
 If a query parameter is not provided, all results will be returned.
 
@@ -33,10 +38,13 @@ See [the Operators page.](./operators.html)
 ### Query Fields
 
 * `certname` (string): the certname associated with the catalog
-* `version` (string): an arbitrary string that uniquely identifies each catalog for a node
+* `version` (string): an arbitrary string that uniquely identifies each catalog
+  for a node
 * `environment` (string): the environment associated with the catalog's certname
-* `transaction_uuid` (string): a string used to tie a catalog to a report from the same puppet run
-* `code_id` (string): a string used to tie a catalog to the Puppet code which generated the catalog
+* `transaction_uuid` (string): a string used to tie a catalog to a report from
+  the same puppet run
+* `code_id` (string): a string used to tie a catalog to the Puppet code which
+  generated the catalog
 * `hash` (string): sha1 hash of the resources of associated with a node's most
   recent catalog
 * `producer_timestamp` (string): a string representing the time at which the
@@ -44,8 +52,9 @@ See [the Operators page.](./operators.html)
 
 ### Subquery Relationships
 
-Here is a list of related entities that can be used to constrain the result set using
-implicit subqueries. For more information consult the documentation for [subqueries].
+Here is a list of related entities that can be used to constrain the result set
+using implicit subqueries. For more information consult the documentation for
+[subqueries][subqueries].
 
 * [`nodes`][nodes]: Node for a catalog.
 * [`environments`][environments]: Environment for a catalog.
@@ -155,8 +164,8 @@ this way will restrict any given query to only apply to that node, but in
 practice this endpoint is typically used without a query string or URL
 parameters.
 
-The result will be a single map of the catalog structure described above, or
-a JSON error message if the catalog is not found:
+The result will be a single map of the catalog structure described above, or a
+JSON error message if the catalog is not found:
 
 ### Examples
 
@@ -190,15 +199,17 @@ except results are returned even if the node is deactivated or expired.
 
 ### URL Parameters / Query Operators / Query Fields / Response Format
 
-This route is an extension of the [`edges`][edges] endpoint. It uses the exact same parameters, operators, fields, and response format.
+This route is an extension of the [`edges`][edges] endpoint. It uses the exact
+same parameters, operators, fields, and response format.
 
-If you provide a `query` parameter, it will specify additional criteria, which will be
-used to return a subset of the information normally returned by
-this route.
+If you provide a `query` parameter, it will specify additional criteria, which
+will be used to return a subset of the information normally returned by this
+route.
 
 ## `/pdb/query/v4/catalogs/<NODE>/resources`
 
-This will return all resources for a particular catalog, designated by a node certname.
+This will return all resources for a particular catalog, designated by a node
+certname.
 
 This is a shortcut to the [`/resources`][resources] endpoint. It behaves the
 same as a call to [`/resources`][resources] with a query string of
@@ -207,11 +218,41 @@ deactivated or expired.
 
 ### URL Parameters / Query Operators / Query Fields / Response Format
 
-This route is an extension of the [`/resources`][resources] endpoint. It uses the exact same parameters, operators, fields, and response format.
+This route is an extension of the [`/resources`][resources] endpoint. It uses
+the exact same parameters, operators, fields, and response format.
 
-If you provide a `query` parameter, it will specify additional criteria, which will be
-used to return a subset of the information normally returned by
-this route.
+If you provide a `query` parameter, it will specify additional criteria, which
+will be used to return a subset of the information normally returned by this
+route.
+
+## `/pdb/ext/v1/historical-catalogs` (PE only)
+
+This will return a JSON array containing the all the stored catalogs for each
+node in your infrastructure, not just the most recent. By default this will
+include the most recent 14 days worth of catalogs for each node.
+
+**Note on querying resources and edges**
+
+The `historical-catalogs` endpoint does not support querying on the value of
+`resources` or `edges`.
+
+### URL Parameters / Query Operators / Query Fields / Response Format
+
+This route is an extension of the `/pdb/query/v4/catalogs` endpoint. It uses the
+exact same parameters, operators, fields, and response format.
+
+If you provide a `query` parameter, it will specify additional criteria, which
+will be used to return a subset of the information normally returned by this
+route.
+
+### Subquery Relationships
+
+Here is a list of related entities that can be used to constrain the result set
+using implicit subqueries. For more information consult the documentation for
+[subqueries][subqueries].
+
+* [`nodes`][nodes]: Node for a catalog.
+* [`environments`][environments]: Environment for a catalog.
 
 ## Paging
 
