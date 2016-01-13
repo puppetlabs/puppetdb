@@ -67,7 +67,7 @@ The default value is false.
 ### `include_unchanged_resources` (PE only)
 
 > **Warning:** This setting is intended for use only in Puppet Enterprise (PE).
-> Using this setting with a PE PuppetDB package will only result in degraded
+> Using this setting without a PE PuppetDB package will only result in degraded
 > PuppetDB performance and PuppetDB will not store the unchanged resources data.
 
 This setting tells the PuppetDB terminus whether or not it should include
