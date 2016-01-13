@@ -310,6 +310,12 @@
                 #(update % 0 underscores->dashes)
                 m))
 
+(defn cmd-params->json-str
+  [{:strs [command version certname payload]}]
+  (json/generate-string
+    {:command command :version (Integer. version)
+     :certname certname :payload (json/->RawJsonString payload)}))
+
 (defmacro with-timeout [timeout-ms default & body]
   `(let [f# (future (do ~@body))
          result# (deref f# ~timeout-ms ~default)]

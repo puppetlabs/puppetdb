@@ -284,15 +284,36 @@
         "application/x-www-form-urlencoded"
         (if-let [payload (params "payload")]
           (app (assoc req :body-string payload))
-          (http/error-response (str "Missing required parameter 'payload'")))
+          (http/error-response "Missing required parameter 'payload'"))
         "application/json"
-        (let [body-string (request/body-string req)]
-          (if (nil? body-string)
-            (http/error-response (str "Empty body for application/json submission"))
-            (app (assoc req :body-string body-string))))
+        (let [{:strs [certname version command]} params
+              body-string (request/body-string req)
+              param-post? (boolean (and certname version command))]
+
+          (cond
+            (and (not param-post?) (or certname version command))
+            (http/error-response
+              "Commands submitted via POST with parameters require certname, version, and command")
+
+            (nil? body-string)
+            (http/error-response "Empty body for application/json submission")
+
+            :else
+            (if param-post?
+              (let [command' (s/replace command "_" " ")
+                    submission-body (-> params
+                                        (assoc "payload" body-string)
+                                        (assoc "command" command')
+                                        utils/cmd-params->json-str)]
+                (-> req
+                    (assoc-in [:params "command"] command')
+                    (assoc :body-string submission-body :param-post? param-post?)
+                    app))
+              (app (assoc req :body-string body-string :param-post? param-post?)))))
+
         (if-let [payload (params "payload")]
           (app (assoc req :body-string payload))
-          (http/error-response (str "Missing required parameter 'payload'")))))))
+          (http/error-response "Missing required parameter 'payload'"))))))
 
 (defn consume-and-close
   "Consume all data from input stream and then close"

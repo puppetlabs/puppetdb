@@ -87,7 +87,7 @@ describe Puppet::Util::Puppetdb::Command do
         end
         Puppet.expects(:debug).with do |msg|
           msg =~ /Error encoding a 'command-1' command for host 'foo.localdomain'/ &&
-            msg =~ Regexp.new(Regexp.quote('"command":"command-1","version":1,"payload":{"foo"')) &&
+            msg =~ Regexp.new(Regexp.quote('"command":"command-1","version":1,"certname":"foo.localdomain","payload":{"foo"')) &&
             msg =~ /1 invalid\/undefined/
         end
         cmd = described_class.new("command-1", 1, "foo.localdomain", {"foo" => [192].pack('c*')})

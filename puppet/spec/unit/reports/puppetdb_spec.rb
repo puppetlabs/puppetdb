@@ -26,7 +26,7 @@ describe processor do
 
     def without_producer_timestamp(json_body)
       parsed = JSON.parse(json_body)
-      parsed["payload"].delete("producer_timestamp")
+      parsed.delete("producer_timestamp")
       parsed.to_json
     end
 
@@ -34,11 +34,7 @@ describe processor do
       httpok.stubs(:body).returns '{"uuid": "a UUID"}'
       subject.stubs(:run_duration).returns(10)
 
-      expected_body = {
-        :command => Puppet::Util::Puppetdb::CommandNames::CommandStoreReport,
-        :version => 6,
-        :payload => subject.send(:report_to_hash)
-      }.to_json
+      expected_body = subject.send(:report_to_hash).to_json
 
       Puppet::Network::HttpPool.expects(:http_instance).returns(http)
       http.expects(:post).with {|path, body, headers|

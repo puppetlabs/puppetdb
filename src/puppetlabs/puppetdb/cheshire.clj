@@ -19,23 +19,29 @@
             [clojure.java.io :as io]
             [clojure.set :as set]))
 
+(defrecord RawJsonString [data])
+
 ;; Alias coerce/to-string to avoid reflection
 (def ^String to-string coerce/to-string)
 (defn add-common-json-encoders!*
   "Non-memoize version of add-common-json-encoders!"
   []
   (generate/add-encoder
-   org.postgresql.util.PGobject
-   (fn [^PGobject data ^JsonGenerator jsonGenerator]
-     ;; The .getPrettyPrinter method on the Jackson jsonGenerator will return
-     ;; nil if `:pretty` is not set as a cheshire option
-     (if (.getPrettyPrinter jsonGenerator)
-       (generate/encode-map (core/parse-string (.getValue data)) jsonGenerator)
-       (.writeRawValue jsonGenerator (.getValue data)))))
+    org.postgresql.util.PGobject
+    (fn [^PGobject data ^JsonGenerator jsonGenerator]
+      ;; The .getPrettyPrinter method on the Jackson jsonGenerator will return
+      ;; nil if `:pretty` is not set as a cheshire option
+      (if (.getPrettyPrinter jsonGenerator)
+        (generate/encode-map (core/parse-string (.getValue data)) jsonGenerator)
+        (.writeRawValue jsonGenerator (.getValue data)))))
   (generate/add-encoder
-   org.joda.time.DateTime
-   (fn [data ^JsonGenerator jsonGenerator]
-     (.writeString jsonGenerator (to-string data)))))
+    org.joda.time.DateTime
+    (fn [data ^JsonGenerator jsonGenerator]
+      (.writeString jsonGenerator (to-string data))))
+  (generate/add-encoder
+    RawJsonString
+    (fn [^String data ^JsonGenerator jsonGenerator]
+      (.writeRawValue jsonGenerator (:data data)))))
 
 (def
   ^{:doc "Registers some common encoders for cheshire JSON encoding.
