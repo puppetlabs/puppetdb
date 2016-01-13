@@ -263,51 +263,6 @@
 
                         response))))))
 
-(defn payload-to-body-string
-  "Middleware to move the payload from the body or the payload param into the
-  request property `:body-string`.
-
-  Usually the body is an InputStream, it is first converted to a string."
-  [app]
-  (fn [{:keys [body params headers] :as req}]
-    (let [content-type (headers "content-type")
-          mediatype (if (nil? content-type) nil
-                        (str (media/base-type content-type)))]
-      (case mediatype
-        "application/x-www-form-urlencoded"
-        (if-let [payload (params "payload")]
-          (app (assoc req :body-string payload))
-          (http/error-response "Missing required parameter 'payload'"))
-        "application/json"
-        (let [{:strs [certname version command]} params
-              body-string (request/body-string req)
-              param-post? (boolean (and certname version command))]
-
-          (cond
-            (and (not param-post?) (or certname version command))
-            (http/error-response
-              "Commands submitted via POST with parameters require certname, version, and command")
-
-            (nil? body-string)
-            (http/error-response "Empty body for application/json submission")
-
-            :else
-            (if param-post?
-              (let [command' (str/replace command "_" " ")
-                    submission-body (-> params
-                                        (assoc "payload" body-string)
-                                        (assoc "command" command')
-                                        utils/cmd-params->json-str)]
-                (-> req
-                    (assoc-in [:params "command"] command')
-                    (assoc :body-string submission-body :param-post? param-post?)
-                    app))
-              (app (assoc req :body-string body-string :param-post? param-post?)))))
-
-        (if-let [payload (params "payload")]
-          (app (assoc req :body-string payload))
-          (http/error-response "Missing required parameter 'payload'"))))))
-
 (defn consume-and-close
   "Consume all data from input stream and then close"
   [^java.io.InputStream req-stream content-length]

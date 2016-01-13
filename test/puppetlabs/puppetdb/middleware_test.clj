@@ -108,37 +108,6 @@
         (is (= http/status-bad-request status))
         (is (= "Unsupported query parameter 'wazzup'" body))))))
 
-(deftest payload-to-body-string-test
-  (let [test-content "test content"
-        test-stream  #(ByteArrayInputStream. (.getBytes test-content "UTF-8"))
-        wrapped-fn   (payload-to-body-string identity)]
-
-    (doseq [mt ["application/json" "application/json;charset=UTF8"]]
-      (testing (str "for content-type " mt " body should populate body-string"
-                    (let [test-req {:body    (test-stream)
-                                    :headers {"content-type" "application/json"}}]
-                      (is (= (wrapped-fn test-req)
-                             (assoc test-req :body-string test-content :param-post? false)))))))
-
-    (testing "url encoded payload should populate body-string"
-      (let [test-req {:params {"payload" test-content}
-                      :headers {"content-type" "application/x-www-form-urlencoded"}}]
-        (is (= (wrapped-fn test-req)
-               (assoc test-req :body-string test-content)))))
-
-    (testing "param-post? is true when params are included"
-      (let [test-req {:params {"certname" "foo.com"
-                               "command" "fix drywall"
-                               "version" "307"}
-                      :body (test-stream)
-                      :headers {"content-type" "application/json"}}]
-        (is (= (wrapped-fn test-req)
-               (assoc test-req
-                      :body-string (-> (:params test-req)
-                                       (assoc "payload" test-content)
-                                       utils/cmd-params->json-str)
-                      :param-post? true)))))))
-
 (deftest verify-content-type-test
   (testing "with content-type of application/json"
     (let [test-req {:content-type "application/json"

@@ -55,18 +55,38 @@
           (is (map? (:annotations parsed))))))
 
     (testing "should reject invalid input"
-      (is (thrown? AssertionError (parse-command {:body ""})))
-      (is (thrown? AssertionError (parse-command {:body "{}"})))
+      (is (thrown-with-msg?
+           RuntimeException
+           #"Output of parse-queue-command does not match schema"
+           (parse-command {:body ""})))
+      (is (thrown-with-msg?
+           RuntimeException
+           #"Output of parse-queue-command does not match schema"
+           (parse-command {:body "{}"})))
 
       ;; Missing required attributes
-      (is (thrown? AssertionError (parse-command {:body "{\"version\": 2, \"payload\": \"meh\"}"})))
-      (is (thrown? AssertionError (parse-command {:body "{\"version\": 2}"})))
+      (is (thrown-with-msg?
+           RuntimeException
+           #"Output of parse-queue-command does not match schema"
+           (parse-command {:body "{\"version\": 2, \"payload\": \"meh\"}"})))
+      (is (thrown-with-msg?
+           RuntimeException
+           #"Output of parse-queue-command does not match schema"
+           (parse-command {:body "{\"version\": 2}"})))
 
       ;; Non-numeric version
-      (is (thrown? AssertionError (parse-command {:body "{\"version\": \"2\", \"payload\": \"meh\"}"})))
+      (is (thrown-with-msg?
+           RuntimeException
+           #"Output of parse-queue-command does not match schema"
+           (parse-command
+            {:body "{\"version\": \"2\", \"payload\": \"meh\"}"})))
 
       ;; Non-string command
-      (is (thrown? AssertionError (parse-command {:body "{\"command\": 123, \"version\": 2, \"payload\": \"meh\"}"})))
+      (is (thrown-with-msg?
+           RuntimeException
+           #"Output of parse-queue-command does not match schema"
+           (parse-command
+            {:body "{\"command\": 3, \"version\": 2, \"payload\": \"meh\"}"})))
 
       ;; Non-JSON payload
       (is (thrown? Exception (parse-command {:body "{\"command\": \"foo\", \"version\": 2, \"payload\": #{}"})))

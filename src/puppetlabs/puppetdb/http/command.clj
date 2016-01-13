@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.http.command
-  (:require [puppetlabs.puppetdb.command.constants :refer [command-names]]
+  (:require [clojure.set :as set]
+            [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -8,9 +9,16 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
+            [puppetlabs.puppetdb.schema :refer [defn-validated]]
+            [puppetlabs.puppetdb.utils :as utils]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.comidi :as cmdi]))
+            [puppetlabs.comidi :as cmdi]
+            [ring.util.request :as request]
+            [schema.core :as s]
+            [slingshot.slingshot :refer [try+ throw+]])
+  (:import [org.apache.commons.io IOUtils]
+           [org.apache.commons.fileupload.util LimitedInputStream]))
 
 (def min-supported-commands
   {"replace catalog" 6
@@ -20,28 +28,23 @@
 
 (def valid-commands-str (str/join ", " (sort (vals command-names))))
 
-(defn validate-command-version
-  [app]
-  (fn [{:keys [body-string params param-post?] :as req}]
-    (let [{:strs [command version]} (if param-post?
-                                      params
-                                      (json/parse-string body-string))
-          numeric-version (Integer. version)
-          min-supported (get min-supported-commands command ::invalid)]
-      (when-not param-post?
-        (log/warn "POSTing version and command in the body is deprecated. Consider using parameters instead."))
+(defn- validate-command-version
+  [handle]
+  (fn [{:keys [params] :as req}]
+    (let [{:strs [command version]} params
+          min-supported (min-supported-commands command)]
       (cond
-        (= ::invalid min-supported)
+        (not min-supported)
         (http/bad-request-response
-          (format "Supported commands are %s. Received '%s'."
-                  valid-commands-str command))
+         (format "Supported commands are %s. Received '%s'."
+                 valid-commands-str command))
 
-        (< numeric-version min-supported)
+        (< version min-supported)
         (http/bad-request-response
-          (format "%s version %s is retired. The minimum supported version is %s."
-                  command numeric-version min-supported))
+         (format "%s version %s is retired. The minimum supported version is %s."
+                 command version min-supported))
 
-        :else (app req)))))
+        :else (handle req)))))
 
 (defmacro with-chan
   "Bind chan-sym to init-chan in the scope of the body, calling async/close! in
@@ -91,18 +94,87 @@
                                                         :timed_out false)
                                                  200)))))))))
 
+(def new-request-schema
+  {:params {(s/required-key "command") s/Str
+            (s/required-key "version") s/Str
+            (s/required-key "certname") s/Str
+            (s/required-key "received") s/Str
+            (s/optional-key "checksum") s/Str}
+   :body java.io.InputStream
+   s/Any s/Any})
+
+(defn-validated normalize-new-request
+  [{:keys [params body] :as req} :- new-request-schema]
+  (-> req
+      (update-in [:params "command"] str/replace "_" " ")
+      (update-in [:params "version"] #(Integer/parseInt %))))
+
+(def old-request-schema
+  (s/conditional
+   map?
+   (s/pred #(empty? (select-keys (:params %)
+                                 ["command" "version" "certname"])))))
+
+(defn-validated ^:private normalize-old-request
+  [{:keys [params body] :as req} :- old-request-schema]
+  (log/warn (str "Unable to stream command posted without parameters"
+                 " (loading into RAM)"))
+  (if-not body
+    (http/error-response "Empty application/json POST body")
+    (let [body (json/parse-strict (:body req))]
+      (if (empty? body)
+        (http/error-response "Empty application/json POST body")
+        (do
+          (s/validate {(s/required-key "command") s/Str
+                       (s/required-key "version") s/Int
+                       (s/required-key "payload") {s/Any s/Any}}
+                      body)
+          (-> req
+              (assoc :body (json/generate-string (body "payload")))
+              (update :params merge
+                      (select-keys body ["command" "version"])
+                      (some->> (get-in body ["payload" "certname"])
+                               (hash-map "certname")))))))))
+
+(defn- wrap-with-request-normalization
+  "Converts request to the \"one true format\" if possible.  Ensures
+  that the request :params include \"command\", \"version\", and maybe
+  \"certname\" entries, and that the entries are in the correct
+  format, i.e. spaces instead of underscores in the command name,
+  integer instead of string for the version, etc.  Ensures that
+  the :body only contains the \"payload\", as either a string or
+  stream.  The :body will be a stream unless reading the body stream
+  is unavoidable (i.e. old-style, non-param POST)."
+  [handle]
+  (fn [{:keys [params] :as req}]
+    (handle (if (params "command")
+              (normalize-new-request req)
+              (normalize-old-request req)))))
+
 (defn- enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
   [enqueue-fn get-response-pub]
-  (fn [{:keys [body-string params] :as request}]
+  (fn [{:keys [body params] :as request}]
+    ;; For now body will be in-memory, but eventually may be a stream.
     (let [uuid (kitchensink/uuid)
           completion-timeout-ms (some-> params
                                         (get "secondsToWaitForCompletion")
                                         Double/parseDouble
                                         (* 1000))
-          do-submit #(enqueue-fn body-string uuid nil)] ;; nil is properties
+          submit-params (select-keys params ["certname" "command" "version"])
+          submit-params (if-let [v (submit-params "version")]
+                          (update submit-params "version" str)
+                          submit-params)
+          ;; Replace read-body when our queue supports streaming
+          do-submit #(enqueue-fn (if (instance? java.io.InputStream body)
+                                   (IOUtils/toByteArray body)
+                                   body)
+                                 uuid
+                                 submit-params)]
       (if (some-> completion-timeout-ms pos?)
-        (blocking-submit-command do-submit (get-response-pub) uuid completion-timeout-ms)
+        (blocking-submit-command do-submit (get-response-pub)
+                                 uuid
+                                 completion-timeout-ms)
         (do
           (do-submit)
           (http/json-response {:uuid uuid}))))))
@@ -128,7 +200,7 @@
   (-> (routes enqueue-fn get-response-pub)
       mid/make-pdb-handler
       validate-command-version
-      mid/payload-to-body-string
+      wrap-with-request-normalization
       add-received-param ;; must be (temporally) after validate-query-params
       ;; The checksum here is vestigial.  It is no longer checked
       (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"
