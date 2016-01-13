@@ -14,7 +14,6 @@
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [get-service service-context]]
             [puppetlabs.puppetdb.utils :as utils :refer [throw+-cli-error!]]
-            [compojure.core :refer [routes GET POST] :as compojure]
             [schema.core :as s]
             [clj-time.coerce :refer [to-date-time]]
             [slingshot.slingshot :refer [throw+ try+]]
@@ -22,7 +21,9 @@
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]))
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.comidi :as cmdi]
+            [puppetlabs.puppetdb.middleware :as mid]))
 
 (defprotocol PuppetDBSync
   (bucketed-summary-query [this entity]))
@@ -164,7 +165,7 @@
         (async/close! submitted-commands-chan)
         (async/untap response-mult processed-commands-chan)))))
 
-(defn sync-app
+(defn sync-handler
   "Top level route for PuppetDB sync"
   [get-config query-fn bucketed-summary-query-fn enqueue-command-fn response-mult get-shared-globals]
   (let [{{node-ttl :node-ttl} :database
@@ -176,37 +177,38 @@
                                   allow-unsafe-sync-triggers
                                   remotes-config
                                   jetty-config)]
-    (routes
-     (GET "/v1/reports-summary" []
-          (let [summary-map (bucketed-summary-query-fn :reports)]
-            (http/json-response (ks/mapkeys str summary-map))))
+    (mid/make-pdb-handler
+     (cmdi/context "/v1"
+                   (cmdi/GET "/reports-summary" []
+                             (let [summary-map (bucketed-summary-query-fn :reports)]
+                               (http/json-response (ks/mapkeys str summary-map))))
 
-     (POST "/v1/trigger-sync" {:keys [body params] :as request}
-           (let [sync-request (json/parse-string (slurp body) true)
-                 remote-url (:remote_host_path sync-request)
-                 completion-timeout-ms (some-> params
-                                               (get "secondsToWaitForCompletion")
-                                               Double/parseDouble
-                                               (* 1000))]
-             (s/validate sync-request-schema sync-request)
-             (let [remote-server (make-remote-server remote-url jetty-config)]
-               (cond
-                 (not (validate-sync-fn remote-server))
-                 {:status 503 :body (format "Refusing to sync. PuppetDB is not configured to sync with %s" remote-url)}
+                   (cmdi/POST "/trigger-sync" {:keys [body params] :as request}
+                              (let [sync-request (json/parse-string (slurp body) true)
+                                    remote-url (:remote_host_path sync-request)
+                                    completion-timeout-ms (some-> params
+                                                                  (get "secondsToWaitForCompletion")
+                                                                  Double/parseDouble
+                                                                  (* 1000))]
+                                (s/validate sync-request-schema sync-request)
+                                (let [remote-server (make-remote-server remote-url jetty-config)]
+                                  (cond
+                                    (not (validate-sync-fn remote-server))
+                                    {:status 503 :body (format "Refusing to sync. PuppetDB is not configured to sync with %s" remote-url)}
 
-                 completion-timeout-ms
-                 (do
-                   (maplog [:sync :info] {:remote (:url remote-server)}
-                           "Performing blocking sync with timeout of %s ms" completion-timeout-ms)
-                   (async/alt!!
-                     (async/go (blocking-sync remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl response-mult))
-                     (http/json-response {:timed_out false} 200)
+                                    completion-timeout-ms
+                                    (do
+                                      (maplog [:sync :info] {:remote (:url remote-server)}
+                                              "Performing blocking sync with timeout of %s ms" completion-timeout-ms)
+                                      (async/alt!!
+                                        (async/go (blocking-sync remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl response-mult))
+                                        (http/json-response {:timed_out false} 200)
 
-                     (async/timeout completion-timeout-ms)
-                     (http/json-response {:timed_out true} 503)))
+                                        (async/timeout completion-timeout-ms)
+                                        (http/json-response {:timed_out true} 503)))
 
-                 :else
-                 (sync-with! remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl))))))))
+                                    :else
+                                    (sync-with! remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl)))))))))
 
 (defn start-bucketed-summary-cache-invalidation-job [response-mult cache-atom]
   (let [processed-commands-chan (async/chan)]

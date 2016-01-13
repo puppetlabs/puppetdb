@@ -1,7 +1,6 @@
 (ns puppetlabs.pe-puppetdb-extensions.sync.sync-test-utils
   (:refer-clojure :exclude [sync])
   (:require [clj-time.core :as t]
-            [compojure.core :refer [routes GET context]]
             [puppetlabs.http.client.sync :as http]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as services]
             [puppetlabs.pe-puppetdb-extensions.testutils
@@ -17,7 +16,9 @@
             [puppetlabs.trapperkeeper.app :as tk-app]
             [slingshot.slingshot :refer [throw+]]
             [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [puppetlabs.comidi :as cmdi]
+            [puppetlabs.puppetdb.middleware :as mid]))
 
 (defn notable-pdb-event? [event] true)
 
@@ -47,7 +48,7 @@
       (f)
       (throw (Exception. (str "Couldn't find a test fn attached to var " (:name meta)))))))
 
-(defn logging-query-handler
+(defn logging-query-routes
   "Build a handler to stub certain query results. This can handle two kinds of
   queries; first, an 'extract' query, which it assumes to be the summary
   query. Second, a lookup-by-identity query, where the record key is
@@ -59,29 +60,30 @@
 
   All queries are logged to `requests-atom`."
   [path requests-atom stub-data-atom record-identity-key]
-  (routes (GET path {query-params :query-params}
-            (let [stub-data @stub-data-atom
-                  stub-data-index (index-by record-identity-key stub-data)
-                  summary-data (map #(select-keys % [:certname :hash :producer_timestamp]) stub-data)]
-              (when-let [query (vec (json/parse-string (query-params "query")))]
-                (swap! requests-atom conj query)
-                (cond
-                  (= "extract" (first query))
-                  (json-response summary-data)
+  (cmdi/routes
+   (cmdi/GET path {query-params :query-params}
+             (let [stub-data @stub-data-atom
+                   stub-data-index (index-by record-identity-key stub-data)
+                   summary-data (map #(select-keys % [:certname :hash :producer_timestamp]) stub-data)]
+               (when-let [query (vec (json/parse-string (query-params "query")))]
+                 (swap! requests-atom conj query)
+                 (cond
+                   (= "extract" (first query))
+                   (json-response summary-data)
 
-                  (and (= "and") (first query)
-                       (= ["=" (name record-identity-key)] (take 2 (second query))))
-                  (let [[_ [_ _ record-hash]] query]
-                    (json-response [(get stub-data-index record-hash)]))))))
+                   (and (= "and") (first query)
+                        (= ["=" (name record-identity-key)] (take 2 (second query))))
+                   (let [[_ [_ _ record-hash]] query]
+                     (json-response [(get stub-data-index record-hash)]))))))
 
-          ;; fallback routes, for data that wasn't explicitly stubbed
-          (GET "/pdb-x/sync/v1/reports-summary" []
-            (json-response {}))
-          (context "/pdb-x/query/v4" []
-            (GET "/reports" [] (json-response []))
-            (GET "/factsets" [] (json-response []))
-            (GET "/catalogs" [] (json-response []))
-            (GET "/nodes" [] (json-response [])))))
+   ;; fallback routes, for data that wasn't explicitly stubbed
+   (cmdi/GET "/pdb-x/sync/v1/reports-summary" []
+             (json-response {}))
+   (cmdi/context "/pdb-x/query/v4"
+                 (cmdi/GET "/reports" [] (json-response []))
+                 (cmdi/GET "/factsets" [] (json-response []))
+                 (cmdi/GET "/catalogs" [] (json-response []))
+                 (cmdi/GET "/nodes" [] (json-response [])))))
 
 (defn trigger-sync [source-pdb-url dest-sync-url]
  (http/post dest-sync-url

@@ -8,7 +8,7 @@
   (fn [query]
     (query-fn :v4 query nil doall)))
 
-(defn state-overview-app
+(defn state-overview-handler
   [query-fn]
   (fn [{:keys [params] :as request}]
     (let [produce-body (fn-produce-body query-fn)

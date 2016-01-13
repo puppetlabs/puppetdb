@@ -2,7 +2,6 @@
   (:import [org.joda.time Period])
   (:require [puppetlabs.trapperkeeper.core :as tk]
             [clout.core :as cc]
-            [compojure.core :as compojure]
             [compojure.route :as route]
             [puppetlabs.trapperkeeper.services :as tksvc]
             [ring.middleware.resource :refer [wrap-resource resource-request]]
@@ -26,7 +25,7 @@
 (defn pe-routes [get-config get-shared-globals query bucketed-summary-query enqueue-command response-mult]
   (map #(apply wrap-with-context %)
        (partition 2
-                  ["/sync" (sync-svcs/sync-app get-config query bucketed-summary-query enqueue-command response-mult get-shared-globals)
+                  ["/sync" (sync-svcs/sync-handler get-config query bucketed-summary-query enqueue-command response-mult get-shared-globals)
                    "/ext" (pe-server/build-app query get-shared-globals)])))
 
 (tk/defservice pe-routing-service
