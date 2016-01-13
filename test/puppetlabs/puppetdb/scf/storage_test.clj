@@ -463,17 +463,33 @@
   (add-certname! "basic.catalogs.com")
 
   (reset! store-catalogs-historically? true)
+  (reset! store-catalogs-jsonb-columns? true)
   (testing "stores JSONB resources and edges fields"
     (store-catalog! (assoc catalog :producer_timestamp (-> 2 days ago)) (now))
     (is (= [{:count 1}]
            (query-to-vec [(str "SELECT COUNT(*) FROM catalogs WHERE resources IS NOT NULL"
                                " AND edges IS NOT NULL")])))
-    (is (= (set (map #(update % :relationship name)
-                     (:edges catalog)))
+    (is (= #{{:source_type "Class" :source_title "foobar"
+              :target_type "File" :target_title "/etc/foobar"
+              :relationship "contains"}
+             {:source_type "Class" :source_title "foobar"
+              :target_type "File" :target_title "/etc/foobar/baz"
+              :relationship "contains"}
+             {:source_type "File" :source_title "/etc/foobar"
+              :target_type "File" :target_title "/etc/foobar/baz"
+              :relationship "required-by"}}
            (->> (query-to-vec [(str "SELECT edges FROM catalogs")])
                 (mapcat (comp sutils/parse-db-json :edges))
                 set)))
-    (is (= (set (vals (:resources catalog)))
+    (is (= #{{:type "Class" :title "foobar" :exported false
+              :tags #{"class" "foobar"} :file nil :line nil :parameters {}}
+             {:type "File" :title "/etc/foobar" :exported false
+              :file "/tmp/foo" :line 10 :tags #{"file" "class" "foobar"}
+              :parameters {:ensure "directory" :group "root" :user "root"}}
+             {:type "File" :title "/etc/foobar/baz" :exported false
+              :file "/tmp/bar" :line 20 :tags #{"file" "class" "foobar"}
+              :parameters {:ensure "directory" :group "root" :user "root"
+                           :require "File[/etc/foobar]"}}}
            (->> (query-to-vec [(str "SELECT resources FROM catalogs")])
                 (mapcat (comp sutils/parse-db-json :resources))
                 (map #(update % :tags set))
