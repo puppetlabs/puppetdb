@@ -23,7 +23,8 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.comidi :as cmdi]
-            [puppetlabs.puppetdb.middleware :as mid]))
+            [puppetlabs.puppetdb.middleware :as mid]
+            [puppetlabs.http.client.sync :as http-sync]))
 
 (defprotocol PuppetDBSync
   (bucketed-summary-query [this entity]))
@@ -40,12 +41,17 @@
     server-url
     (str (with-trailing-slash (str server-url)) "pdb/query/v4")))
 
+(defrecord RemoteServer [url client]
+  java.io.Closeable
+  (close [this] (.close client)))
+
 (defn make-remote-server
   "Create a remote-server structure out the given url, pulling ssl options from
-  jetty-config."
+  jetty-config. You should call .close on this when you're done with it (or use
+  it inside 'with-open') to clean up any persistent network connections. "
   [server-url jetty-config]
-  (-> (select-keys jetty-config [:ssl-cert :ssl-key :ssl-ca-cert])
-      (assoc :url (query-endpoint server-url))))
+  (map->RemoteServer {:url (query-endpoint server-url)
+                      :client (http-sync/create-client (select-keys jetty-config [:ssl-cert :ssl-key :ssl-ca-cert]))}))
 
 (defn- sync-with! [remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl]
   (if (compare-and-set! currently-syncing false true)
@@ -99,9 +105,12 @@
 (defn validate-trigger-sync
   "Validates `remote-server' as a valid sync target given user config items"
   [allow-unsafe-sync-triggers remotes-config jetty-config remote-server]
-  (let [valid-remotes (map (comp #(make-remote-server % jetty-config) :server-url) remotes-config)]
+  (let [valid-remote-urls (map #(-> (:server-url %)
+                                    (make-remote-server jetty-config)
+                                    :url)
+                               remotes-config)]
     (or allow-unsafe-sync-triggers
-        (ks/seq-contains? valid-remotes remote-server))))
+        (ks/seq-contains? valid-remote-urls (:url remote-server)))))
 
 (defn wait-for-sync [submitted-commands-chan processed-commands-chan process-command-timeout-ms]
   (async/go-loop [pending-commands #{}
@@ -191,7 +200,7 @@
                                                                   Double/parseDouble
                                                                   (* 1000))]
                                 (s/validate sync-request-schema sync-request)
-                                (let [remote-server (make-remote-server remote-url jetty-config)]
+                                (with-open [remote-server (make-remote-server remote-url jetty-config)]
                                   (cond
                                     (not (validate-sync-fn remote-server))
                                     {:status 503 :body (format "Refusing to sync. PuppetDB is not configured to sync with %s" remote-url)}
@@ -242,7 +251,7 @@
                               cache-atom
                               :cache-invalidation-job-stop-fn
                               (start-bucketed-summary-cache-invalidation-job response-mult
-                                                                         cache-atom))]
+                                                                             cache-atom))]
            (jdbc/with-db-connection (:scf-read-db (shared-globals))
              (when-not (sutils/pg-extension? "pgcrypto")
                (throw+-cli-error!
@@ -254,16 +263,16 @@
                      "then restart PuppetDB.\n"))))
 
            (if (enable-periodic-sync? remotes-config)
-             (let [{:keys [interval server-url]} (first remotes-config)
-                   remote-server (make-remote-server (str server-url) jetty-config)]
+             (let [{:keys [interval server-url]} (first remotes-config)]
                (try+
                 (maplog [:sync :info] {:remote (str server-url)}
                         "Performing initial blocking sync from {remote}...")
-                (blocking-sync remote-server query
-                               (partial bucketed-summary/bucketed-summary-query
-                                        (:scf-read-db (shared-globals))
-                                        cache-atom)
-                               enqueue-command node-ttl response-mult)
+                (with-open [remote-server (make-remote-server (str server-url) jetty-config)]
+                  (blocking-sync remote-server query
+                                 (partial bucketed-summary/bucketed-summary-query
+                                          (:scf-read-db (shared-globals))
+                                          cache-atom)
+                                 enqueue-command node-ttl response-mult))
                 (catch [:type ::message-processing-timeout] _
                   ;; Something is very wrong if we hit this timeout; rethrow the
                   ;; exception to crash the server.
@@ -277,9 +286,10 @@
                (assoc context
                       :scheduled-sync
                       (atat/interspaced (to-millis interval)
-                                        #(sync-with! remote-server
-                                                     query (partial bucketed-summary-query this) enqueue-command
-                                                     node-ttl)
+                                        #(with-open [remote-server (make-remote-server (str server-url) jetty-config)]
+                                           (sync-with! remote-server
+                                                       query (partial bucketed-summary-query this) enqueue-command
+                                                       node-ttl))
                                         (atat/mk-pool))))
              context)))
 

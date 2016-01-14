@@ -4,7 +4,7 @@
             [puppetlabs.puppetdb.utils :as utils]
             [clj-http.util :refer [url-encode]]
             [clj-http.client :as client]
-            [puppetlabs.http.client.sync :as http]
+            [puppetlabs.http.client.common :as http]
             [puppetlabs.puppetdb.cheshire :as json]
             [cheshire.core :as cheshire]
             [clj-time.core :as t]
@@ -158,9 +158,7 @@
 
 (def remote-server-schema
   {:url s/Str
-   (s/optional-key :ssl-cert) s/Str
-   (s/optional-key :ssl-key) s/Str
-   (s/optional-key :ssl-ca-cert) s/Str})
+   :client (s/protocol http/HTTPClient)})
 
 (defn-validated url-on-remote-server :- s/Str
   [{:keys [url]} :- remote-server-schema
@@ -187,11 +185,9 @@
    error-message-fn]
   (try
     (let [full-url (url-on-remote-server remote-server path)
-          full-opts (merge {:as :text}
-                           (select-keys remote-server [:ssl-cert :ssl-key :ssl-ca-cert])
-                           opts)
-          _ (log/debugf "HTTP GET %s %s" (url-on-remote-server remote-server path) full-opts)
-          response (http/get full-url full-opts)]
+          request-opts (merge {:as :text} opts)
+          _ (log/debugf "HTTP GET %s %s" (url-on-remote-server remote-server path) request-opts)
+          response (http/get (:client remote-server) full-url request-opts)]
       (if (is-error-status? (:status response))
         (throw+ {:type ::remote-host-error :error-response response}
                 (error-message-fn (:status response) (:body response)))
@@ -279,8 +275,7 @@
                                         "%s. Received HTTP status code %s with the "
                                         "error message '%s'")
                                    (url-on-remote-server remote-server path) status (slurp body)))]
-    (with-open [body (:body (http-get remote-server path {:throw-entire-message true
-                                                          :as :stream}
+    (with-open [body (:body (http-get remote-server path {:as :stream}
                                       error-message-fn))
                 body-reader (clojure.java.io/reader body)]
       (ks/mapkeys to-date-time
@@ -427,8 +422,7 @@
     (-> (http-get remote-server entity-name
                   {:query-params {"query" (json/generate-string query)
                                   "order_by" (json/generate-string (order-by-clause-to-wire-format order))}
-                   :as :stream
-                   :throw-entire-message true}
+                   :as :stream}
                   error-message-fn)
         :body)))
 

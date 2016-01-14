@@ -23,7 +23,8 @@
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as services]
-            [puppetlabs.pe-puppetdb-extensions.sync.bucketed-summary :as bucketed-summary] )
+            [puppetlabs.pe-puppetdb-extensions.sync.bucketed-summary :as bucketed-summary]
+            [puppetlabs.http.client.sync :as http-sync])
   (:import
    [org.joda.time Period DateTime]))
 
@@ -174,17 +175,18 @@
                     (format "Unrecognized sync test command: %s" command))))))
 
 (defn- sync-directly! [pdb remote-url]
-  (let [server (:server pdb)
-        pdb-service (get-service server :PuppetDBServer)
-        sync-service (get-service server :PuppetDBSync)
-        dispatcher (get-service server :PuppetDBCommandDispatcher)
-        globals (cli-svcs/shared-globals pdb-service)
-        scf-read-db (:scf-read-db globals)]
-    (sync-from-remote! (partial cli-svcs/query pdb-service)
-                       (partial services/bucketed-summary-query sync-service)
-                       (partial dispatch/enqueue-command dispatcher)
-                       {:url remote-url}
-                       Period/ZERO)))
+  (with-open [http-client (http-sync/create-client {})]
+    (let [server (:server pdb)
+          pdb-service (get-service server :PuppetDBServer)
+          sync-service (get-service server :PuppetDBSync)
+          dispatcher (get-service server :PuppetDBCommandDispatcher)
+          globals (cli-svcs/shared-globals pdb-service)
+          scf-read-db (:scf-read-db globals)]
+      (sync-from-remote! (partial cli-svcs/query pdb-service)
+                         (partial services/bucketed-summary-query sync-service)
+                         (partial dispatch/enqueue-command dispatcher)
+                         {:url remote-url :client http-client}
+                         Period/ZERO))))
 
 (defn- count-possible-deactivation-races
   [commands]
