@@ -8,7 +8,6 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
-            [compojure.core :as compojure]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.comidi :as cmdi]))

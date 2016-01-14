@@ -7,7 +7,8 @@
                                                    stream-query-result]]
             [puppetlabs.puppetdb.middleware :refer [validate-no-query-params
                                                     validate-query-params
-                                                    parent-check]]
+                                                    parent-check
+                                                    handler-schema]]
             [puppetlabs.comidi :as cmdi]
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls]
@@ -17,7 +18,6 @@
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
             [clojure.walk :refer [keywordize-keys]]))
 
-(def handler-schema (s/=> s/Any {s/Any s/Any}))
 (def params-schema {(s/optional-key :optional) [s/Str]
                     (s/optional-key :required) [s/Str]})
 
@@ -35,7 +35,7 @@
    handler-to-append :- handler-schema]
   (cmdi/wrap-routes route #(comp % handler-to-append)))
 
-(pls/defn-validated create-handler :- handler-schema
+(pls/defn-validated create-query-handler :- handler-schema
   "Creates a new query handler for the given `entity` and `version`."
   [version :- s/Keyword
    entity :- s/Str
@@ -52,18 +52,6 @@
    entity :- s/Keyword
    route-param-key :- s/Keyword]
   (cmdi/wrap-routes route #(parent-check % version entity route-param-key)))
-
-(pls/defn-validated url-decode :- s/Str
-  [x :- s/Str]
-  (java.net.URLDecoder/decode x))
-
-(pls/defn-validated decode-route-params :- {s/Any s/Any}
-  "Bidi will not decode URL route segments. Calling this handler will
-  URL decode all route-params"
-  [{:keys [route-params] :as req} :- {s/Any s/Any}]
-  (if route-params
-    (update req :route-params #(kitchensink/mapvals url-decode %))
-    req))
 
 (pls/defn-validated experimental-index-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
@@ -160,29 +148,27 @@
                paging/query-params)}
    (cmdi/routes
     (cmdi/ANY "" []
-              (create-handler version "events")))))
+              (create-query-handler version "events")))))
 
 (pls/defn-validated reports-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (cmdi/routes
    (extract-query
     (cmdi/ANY "" []
-              (create-handler version "reports")))
+              (create-query-handler version "reports")))
    
    (cmdi/context ["/" :hash "/events"]
                  (-> (events-routes version)
-                     (append-handler (comp http-q/restrict-query-to-report decode-route-params))
+                     (append-handler (comp http-q/restrict-query-to-report))
                      (wrap-with-parent-check version :report :hash)))
    
    (cmdi/ANY ["/" :hash "/metrics"] []
              (-> (report-data-responder version "report_metrics")
-                 (comp decode-route-params)
                  (parent-check version :report :hash)
                  validate-no-query-params))
    
    (cmdi/ANY ["/" :hash "/logs"] []
              (-> (report-data-responder version "report_logs")
-                 (comp decode-route-params)
                  (parent-check version :report :hash)
                  validate-no-query-params))))
 
@@ -191,26 +177,24 @@
   (extract-query
    (cmdi/routes
     (cmdi/ANY "" []
-              (create-handler version "resources"  http-q/restrict-query-to-active-nodes))
+              (create-query-handler version "resources"  http-q/restrict-query-to-active-nodes))
     
     (cmdi/context ["/" (route-param :type)]
                   (cmdi/ANY "" []
-                            (create-handler version "resources"
+                            (create-query-handler version "resources"
                                             http-q/restrict-resource-query-to-type
-                                            http-q/restrict-query-to-active-nodes
-                                            decode-route-params))
+                                            http-q/restrict-query-to-active-nodes))
                   (cmdi/ANY ["/" (route-param :title)] []
-                            (create-handler version "resources"
+                            (create-query-handler version "resources"
                                             http-q/restrict-resource-query-to-title
                                             http-q/restrict-resource-query-to-type
-                                            http-q/restrict-query-to-active-nodes
-                                            decode-route-params))))))
+                                            http-q/restrict-query-to-active-nodes))))))
 
 (pls/defn-validated edge-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
    (cmdi/ANY "" []
-             (create-handler version "edges" http-q/restrict-query-to-active-nodes))))
+             (create-query-handler version "edges" http-q/restrict-query-to-active-nodes))))
 
 (pls/defn-validated catalog-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
@@ -218,22 +202,19 @@
    (cmdi/routes
 
     (cmdi/ANY "" []
-              (create-handler version "catalogs"))
+              (create-query-handler version "catalogs"))
 
     (cmdi/context ["/" (route-param :node)]
                   (cmdi/ANY "" []
-                            (comp (catalog-status version)
-                                  decode-route-params))
+                            (catalog-status version))
 
                   (cmdi/context "/edges"
                                 (-> (edge-routes version)
-                                    (append-handler decode-route-params)
                                     (wrap-with-parent-check version :catalog :node)))
                                 
                   (cmdi/context "/resources"
                                 (-> (resources-routes version)
-                                    (append-handler (comp http-q/restrict-query-to-node
-                                                          decode-route-params)) 
+                                    (append-handler http-q/restrict-query-to-node) 
                                     (wrap-with-parent-check version :catalog :node)))))))
 
 (pls/defn-validated facts-routes :- bidi-schema/RoutePair
@@ -241,38 +222,34 @@
   (extract-query
    (cmdi/routes
     (cmdi/ANY "" []
-              (create-handler version "facts" http-q/restrict-query-to-active-nodes))
+              (create-query-handler version "facts" http-q/restrict-query-to-active-nodes))
 
     (cmdi/context ["/" (route-param :fact)]
                   
                   (cmdi/ANY "" []
-                            (create-handler version "facts"
+                            (create-query-handler version "facts"
                                             http-q/restrict-fact-query-to-name 
-                                            http-q/restrict-query-to-active-nodes
-                                            decode-route-params))
+                                            http-q/restrict-query-to-active-nodes))
 
                   (cmdi/ANY ["/" (route-param :value)] []
-                            (create-handler version "facts"
+                            (create-query-handler version "facts"
                                             http-q/restrict-fact-query-to-name
                                             http-q/restrict-fact-query-to-value
-                                            http-q/restrict-query-to-active-nodes
-                                            decode-route-params))))))
+                                            http-q/restrict-query-to-active-nodes))))))
 
 (pls/defn-validated factset-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
    (cmdi/routes
     (cmdi/ANY "" []
-              (create-handler version "factsets" http-q/restrict-query-to-active-nodes))
+              (create-query-handler version "factsets" http-q/restrict-query-to-active-nodes))
 
     (cmdi/context ["/" :node]
                   (cmdi/ANY "" []
-                            (comp (factset-status version)
-                                  decode-route-params))
+                            (factset-status version))
 
                   (cmdi/ANY "/facts" []
-                            (-> (create-handler version "factsets" http-q/restrict-query-to-node)
-                                (comp decode-route-params)
+                            (-> (create-query-handler version "factsets" http-q/restrict-query-to-node)
                                 (parent-check version :factset :node)))))))
 
 (pls/defn-validated fact-names-routes :- bidi-schema/RoutePair
@@ -293,20 +270,19 @@
   (extract-query
    (cmdi/routes
     (cmdi/ANY "" []
-              (create-handler version "nodes" http-q/restrict-query-to-active-nodes))
+              (create-query-handler version "nodes" http-q/restrict-query-to-active-nodes))
     (cmdi/context ["/" (route-param :node)]
                   (cmdi/ANY "" []
                             (-> (node-status version)
-                                (comp decode-route-params)
                                 validate-no-query-params))
                   
                   (cmdi/context "/facts"
                                 (-> (facts-routes version)
-                                    (append-handler (comp http-q/restrict-query-to-node decode-route-params))
+                                    (append-handler http-q/restrict-query-to-node)
                                     (wrap-with-parent-check version :node :node)))
                   (cmdi/context "/resources"
                                 (-> (resources-routes version)
-                                    (append-handler (comp http-q/restrict-query-to-node decode-route-params))
+                                    (append-handler http-q/restrict-query-to-node)
                                     (wrap-with-parent-check version :node :node)))))))
 
 (pls/defn-validated environments-routes :- bidi-schema/RoutePair
@@ -314,7 +290,7 @@
   (cmdi/routes
    (extract-query
     (cmdi/ANY "" []
-              (create-handler version "environments")))
+              (create-query-handler version "environments")))
    (cmdi/context ["/" (route-param :environment)]
                  (cmdi/ANY "" []
                            (validate-no-query-params (environment-status version)))
@@ -353,13 +329,13 @@
   [version :- s/Keyword]
   (extract-query
    (cmdi/ANY "" []
-             (create-handler version "fact_contents" http-q/restrict-query-to-active-nodes))))
+             (create-query-handler version "fact_contents" http-q/restrict-query-to-active-nodes))))
 
 (pls/defn-validated fact-path-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
    (cmdi/ANY "" []
-             (create-handler version "fact_paths"))))
+             (create-query-handler version "fact_paths"))))
 
 (pls/defn-validated event-counts-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
@@ -370,7 +346,7 @@
                        "distinct_end_time"]
                       paging/query-params)}
    (cmdi/ANY "" []
-             (create-handler version "event_counts"))))
+             (create-query-handler version "event_counts"))))
 
 (pls/defn-validated agg-event-counts-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
@@ -380,6 +356,6 @@
                "distinct_resources" "distinct_start_time"
                "distinct_end_time"]}
    (cmdi/ANY "" []
-             (create-handler version
-                             "aggregate_event_counts"))))
+             (create-query-handler version
+                                   "aggregate_event_counts"))))
 

@@ -3,7 +3,6 @@
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
-            [compojure.core :as compojure]
             [puppetlabs.kitchensink.core :as kitchensink]
             [slingshot.slingshot :refer [try+]]
             [puppetlabs.puppetdb.http :as http]

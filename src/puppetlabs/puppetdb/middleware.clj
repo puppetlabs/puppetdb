@@ -7,7 +7,7 @@
             [puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
             [ring.util.request :as request]
-            [clojure.string :as s]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [ring.middleware.params :refer [wrap-params]]
             [puppetlabs.puppetdb.query.paging :as paging]
@@ -20,7 +20,12 @@
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.utils :as utils]
             [bidi.bidi :as bidi]
-            [bidi.ring :as bring]))
+            [bidi.ring :as bring]
+            [bidi.schema :as bidi-schema]
+            [puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]))
+
+(def handler-schema (s/=> s/Any {s/Any s/Any}))
 
 (defn wrap-with-debug-logging
   "Ring middleware that logs incoming HTTP request URIs (at DEBUG level) as
@@ -249,7 +254,7 @@
     ;; add metric timers for the uri as we service the request.
     (let [metric-roots (let [s (normalize-uri (:uri req))]
                          (if (string? s) [s] s))
-          metric-roots (map #(s/replace % #"[:,=]" "_") metric-roots)]
+          metric-roots (map #(str/replace % #"[:,=]" "_") metric-roots)]
 
       ;; Create timer objects for each metric the user has requested
       (doseq [metric-root metric-roots
@@ -302,7 +307,7 @@
 
             :else
             (if param-post?
-              (let [command' (s/replace command "_" " ")
+              (let [command' (str/replace command "_" " ")
                     submission-body (-> params
                                         (assoc "payload" body-string)
                                         (assoc "command" command')
@@ -381,21 +386,26 @@
         (app req)
         (http/json-response {:error (str "No information is known about " (name parent) " " (get route-params route-param-key))} http/status-not-found)))))
 
-(defn make-pdb-handler
+(pls/defn-validated url-decode :- s/Str
+  [x :- s/Str]
+  (java.net.URLDecoder/decode x))
+
+(pls/defn-validated make-pdb-handler :- handler-schema
   "Similar to `bidi.ring/make-handler` but does not merge route-params
   into the regular parameter map. Currently route-params causes
   validation errors with merged in with parameters. Parameter names
   are currently strings and validated against an expected list. Route
   params are merged in a keywords."
-  ([route] (make-pdb-handler route identity))
-  ([route handler-fn]
-      (assert route "Cannot create a Ring handler with a nil Route(s) parameter")
-      (fn [{:keys [uri path-info] :as req}]
-        (let [path (or path-info uri)
-              {:keys [handler route-params] :as match-context}
-              (bidi/match-route* route path req)]
-          (when handler
-            (bring/request
-             (handler-fn handler)
-             (update-in req [:route-params] merge route-params)
-             (apply dissoc match-context :handler (keys req))))))))
+  ([route :- bidi-schema/RoutePair]
+   (make-pdb-handler route identity))
+  ([route :- bidi-schema/RoutePair
+    handler-fn :- handler-schema]
+   (fn [{:keys [uri path-info] :as req}]
+     (let [path (or path-info uri)
+           {:keys [handler route-params] :as match-context} (bidi/match-route* route path req)]
+       (when handler
+         (bring/request
+          (handler-fn handler)
+          (update req :route-params merge (kitchensink/mapvals url-decode route-params))
+          (apply dissoc match-context :handler (keys req))))))))
+
