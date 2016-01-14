@@ -683,7 +683,6 @@
 (deftest-http-app unknown-parent-handling
   [[version endpoint] no-parent-endpoints
    method [:get :post]]
-
   (let [{:keys [status body]} (query-response method endpoint)]
     (is (= status http/status-not-found))
     (is (= {:error "No information is known about report foo"} (json/parse-string body true)))))

@@ -6,12 +6,11 @@
             [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.cheshire :as json]
-            [net.cgrand.moustache :as moustache]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
-            [compojure.core :as compojure]
             [clojure.core.async :as async]
-            [puppetlabs.kitchensink.core :as kitchensink]))
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.comidi :as cmdi]))
 
 (def min-supported-commands
   {"replace catalog" 6
@@ -108,16 +107,21 @@
           (do-submit)
           (http/json-response {:uuid uuid}))))))
 
+(defn routes [enqueue-fn get-response-pub]
+  (cmdi/context "/v1"
+                (cmdi/ANY "" []
+                          (enqueue-command-handler enqueue-fn get-response-pub))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-;; The below fns expect to be called from a moustache handler and
+;; The below fns expect to be called from a ring handler and
 ;; return functions that accept a ring request map
 
 (defn command-app
   [get-shared-globals enqueue-fn get-response-pub reject-large-commands? max-command-size]
-  (-> (moustache/app
-       ["v1" &] {:any (enqueue-command-handler enqueue-fn get-response-pub)})
+  (-> (routes enqueue-fn get-response-pub)
+      mid/make-pdb-handler
       validate-command-version
       (mid/fail-when-payload-too-large reject-large-commands? max-command-size)
       mid/verify-accepts-json

@@ -1,16 +1,17 @@
 (ns puppetlabs.puppetdb.meta
   (:require [clojure.tools.logging :as log]
-            [net.cgrand.moustache :as moustache]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.middleware
-             :refer [verify-accepts-json wrap-with-globals validate-no-query-params]]
+            [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
-            [compojure.core :as compojure]
             [puppetlabs.kitchensink.core :as kitchensink]
             [slingshot.slingshot :refer [try+]]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.meta.version :as v]
-            [puppetlabs.puppetdb.config :as conf]))
+            [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.comidi :as cmdi]
+            [bidi.schema :as bidi-schema]
+            [puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]))
 
 (defn current-version-fn
   "Returns a function that always returns a JSON object with the running
@@ -50,21 +51,21 @@
           (http/error-response
            (format "Error when checking for latest version: %s" e)))))))
 
-(defn version-routes
-  [get-shared-globals config]
-  (moustache/app [""] (current-version-fn (v/version))
-                 ["latest"] (latest-version-fn get-shared-globals config)))
-
-(def server-time-routes
-  (moustache/app [""] (fn [_] (http/json-response {:server_time (now)}))))
-
-(defn routes
-  [get-shared-globals config]
-  (moustache/app ["v1" "version" &] {:any (version-routes get-shared-globals config)}
-                 ["v1" "server-time" &] {:any server-time-routes}))
+(pls/defn-validated meta-routes :- bidi-schema/RoutePair
+  [get-shared-globals :- (s/pred fn?)
+   config :- {s/Any s/Any}]
+  (cmdi/context "/v1"
+                (cmdi/context "/version"
+                              (cmdi/ANY "" []
+                                        (current-version-fn (v/version)))
+                              (cmdi/ANY "/latest" []
+                                        (latest-version-fn get-shared-globals config)))
+                (cmdi/ANY "/server-time" []
+                          (http/json-response {:server_time (now)}))))
 
 (defn build-app
   [get-shared-globals config]
-  (-> (routes get-shared-globals config)
-      verify-accepts-json
-      validate-no-query-params))
+  (-> (meta-routes get-shared-globals config)
+      mid/make-pdb-handler
+      mid/verify-accepts-json
+      mid/validate-no-query-params))

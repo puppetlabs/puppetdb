@@ -7,7 +7,7 @@
             [puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
             [ring.util.request :as request]
-            [clojure.string :as s]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [ring.middleware.params :refer [wrap-params]]
             [puppetlabs.puppetdb.query.paging :as paging]
@@ -18,7 +18,14 @@
             [metrics.timers :refer [timer time!]]
             [metrics.meters :refer [meter mark!]]
             [clojure.walk :refer [keywordize-keys]]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.utils :as utils]
+            [bidi.bidi :as bidi]
+            [bidi.ring :as bring]
+            [bidi.schema :as bidi-schema]
+            [puppetlabs.puppetdb.schema :as pls]
+            [schema.core :as s]))
+
+(def handler-schema (s/=> s/Any {s/Any s/Any}))
 
 (defn wrap-with-debug-logging
   "Ring middleware that logs incoming HTTP request URIs (at DEBUG level) as
@@ -247,7 +254,7 @@
     ;; add metric timers for the uri as we service the request.
     (let [metric-roots (let [s (normalize-uri (:uri req))]
                          (if (string? s) [s] s))
-          metric-roots (map #(s/replace % #"[:,=]" "_") metric-roots)]
+          metric-roots (map #(str/replace % #"[:,=]" "_") metric-roots)]
 
       ;; Create timer objects for each metric the user has requested
       (doseq [metric-root metric-roots
@@ -300,7 +307,7 @@
 
             :else
             (if param-post?
-              (let [command' (s/replace command "_" " ")
+              (let [command' (str/replace command "_" " ")
                     submission-body (-> params
                                         (assoc "payload" body-string)
                                         (assoc "command" command')
@@ -363,18 +370,42 @@
       wrap-with-default-body
       wrap-with-debug-logging))
 
-(defn wrap-with-parent-check
+(defn parent-check
   "Middleware that checks the parent exists before serving the rest of the
    application. This ensures we always return 404's on child paths when the
    parent data is empty."
-  [app version parent id]
-  (fn [{:keys [globals] :as req}]
+  [app version parent route-param-key]
+  (fn [{:keys [globals route-params] :as req}]
     (let [{:keys [scf-read-db url-prefix]} globals]
       ;; There is a race condition here, in particular we open up 1 transaction
       ;; for the parent test, but the rest of the query results are done via the
       ;; streaming query. This can't be solved until we work out a way to
       ;; pass through an existing db handle through to the streamed query thread.
       (if (jdbc/with-transacted-connection scf-read-db
-            (qe/object-exists? parent id))
+            (qe/object-exists? parent (get route-params route-param-key)))
         (app req)
-        (http/json-response {:error (str "No information is known about " (name parent) " " id)} http/status-not-found)))))
+        (http/json-response {:error (str "No information is known about " (name parent) " " (get route-params route-param-key))} http/status-not-found)))))
+
+(pls/defn-validated url-decode :- s/Str
+  [x :- s/Str]
+  (java.net.URLDecoder/decode x))
+
+(pls/defn-validated make-pdb-handler :- handler-schema
+  "Similar to `bidi.ring/make-handler` but does not merge route-params
+  into the regular parameter map. Currently route-params causes
+  validation errors with merged in with parameters. Parameter names
+  are currently strings and validated against an expected list. Route
+  params are merged in a keywords."
+  ([route :- bidi-schema/RoutePair]
+   (make-pdb-handler route identity))
+  ([route :- bidi-schema/RoutePair
+    handler-fn :- handler-schema]
+   (fn [{:keys [uri path-info] :as req}]
+     (let [path (or path-info uri)
+           {:keys [handler route-params] :as match-context} (bidi/match-route* route path req)]
+       (when handler
+         (bring/request
+          (handler-fn handler)
+          (update req :route-params merge (kitchensink/mapvals url-decode route-params))
+          (apply dissoc match-context :handler (keys req))))))))
+
