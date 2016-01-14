@@ -8,7 +8,6 @@
             [puppetlabs.pe-puppetdb-extensions.sync.pe-routing :refer [pe-routing-service]]
             [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [compojure.core :refer [context POST routes ANY]]
             [puppetlabs.puppetdb.cli.services :as cli-svcs]
             [puppetlabs.puppetdb.config :as pdbconf]
             [puppetlabs.puppetdb.testutils
@@ -22,7 +21,9 @@
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
             [puppetlabs.puppetdb.cheshire :as json]
             [environ.core :refer [env]]
-            [clj-http.client :as http])
+            [clj-http.client :as http]
+            [puppetlabs.comidi :as cmdi]
+            [puppetlabs.puppetdb.middleware :as mid])
    (:import [java.net MalformedURLException URISyntaxException URL]) )
 
 (defservice stub-server-service
@@ -30,8 +31,11 @@
    [:WebroutingService add-ring-handler get-route]
    [:PuppetDBSync]]
   (start [this tk-context]
-         (if-let [handler (get-in (get-config) [:stub-server-service :handler])]
-           (add-ring-handler this (wrap-params (context (get-route this) [] handler))))
+         (if-let [routes (get-in (get-config) [:stub-server-service :routes])]
+           (add-ring-handler this (wrap-params
+                                   (mid/make-pdb-handler
+                                    (cmdi/context (get-route this)
+                                                  routes)))))
          tk-context))
 
 (def pe-services
@@ -96,13 +100,13 @@
 (defn sync-config
   "Returns a default TK config setup for sync testing. PuppetDB is
   hosted at /pdb, and the sync service at /sync. Takes an optional
-  `stub-handler` parameter, a ring handler that will be hosted under
+  `stub-routes` parameter, a ring handler that will be hosted under
   '/stub'."
-  [stub-handler]
+  [stub-routes]
   (-> (svcs/create-temp-config)
       (assoc-in [:sync :allow-unsafe-sync-triggers] true)
       (assoc-in [:sync :allow-unsafe-cleartext-sync] true)
-      (assoc :stub-server-service {:handler stub-handler}
+      (assoc :stub-server-service {:routes stub-routes}
              :web-router-service
              {:puppetlabs.pe-puppetdb-extensions.sync.pe-routing/pe-routing-service pdb-prefix
               :puppetlabs.pe-puppetdb-extensions.testutils/stub-server-service stub-url-prefix})))

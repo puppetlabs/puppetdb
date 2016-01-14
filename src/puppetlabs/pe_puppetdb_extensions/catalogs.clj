@@ -1,13 +1,13 @@
 (ns puppetlabs.pe-puppetdb-extensions.catalogs
-  (:require [compojure.core :as compojure]
-            [honeysql.core :as hcore]
+  (:require [honeysql.core :as hcore]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.honeysql :as honeysql]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.query-eng :as query-eng]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.query-eng.engine :as engine]
-            [puppetlabs.puppetdb.scf.storage :as scf-storage]))
+            [puppetlabs.puppetdb.scf.storage :as scf-storage]
+            [puppetlabs.puppetdb.http.handlers :as handlers]))
 
 (def historical-catalog-query
   "Query for the top level catalogs entity"
@@ -103,13 +103,11 @@
      :entity :reports
      :source-table "reports"}))
 
-(def historical-catalogs-app
-  (let [param-spec {:optional paging/query-params}]
-    (http-q/query-route-from "historical_catalogs" :v1 param-spec [])))
+(def historical-catalogs-handler
+  (handlers/create-query-handler :v1 "historical_catalogs"))
 
-(def resource-graphs-app
-  (let [param-spec {:optional paging/query-params}]
-    (http-q/query-route-from "resource_graphs" :v1 param-spec [])))
+(def resource-graphs-handler
+  (handlers/create-query-handler :v1 "resource_graphs"))
 
 (defn merge-resources [resources]
   (->> (sutils/parse-db-json resources)

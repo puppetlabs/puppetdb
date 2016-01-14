@@ -1,28 +1,31 @@
 (ns puppetlabs.pe-puppetdb-extensions.reports
-  (:require [compojure.core :as compojure]
-            [puppetlabs.puppetdb.middleware :as mid]
+  (:require [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.query-eng :as query-eng]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query-eng.engine :as engine]
             [puppetlabs.puppetdb.honeysql :as honeysql]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.scf.storage :as scf-storage]))
+            [puppetlabs.puppetdb.scf.storage :as scf-storage]
+            [puppetlabs.comidi :as cmdi]
+            [puppetlabs.puppetdb.middleware :as mid]
+            [puppetlabs.puppetdb.http.handlers :as handlers]))
 
 (defn reports-resources-routes
   [get-shared-globals]
-  (-> (compojure/routes
-       (compojure/GET "/query/v4/reports/:hash/resources" [hash]
-                      (-> (fn [{:keys [globals]}]
-                            (let [query ["from" "report_resources" ["=" "hash" hash]]
-                                  opts (select-keys globals [:scf-read-db
-                                                             :url-prefix
-                                                             :pretty-print
-                                                             :warn-experimental])]
-                              (query-eng/produce-streaming-body :v4 {:query query} opts)))
-                          (mid/wrap-with-parent-check :v4 :report hash)
-                          mid/verify-accepts-json
-                          (mid/wrap-with-globals get-shared-globals))))
+  (-> (cmdi/routes
+       (cmdi/GET ["/query/v4/reports/" (handlers/route-param :hash) "/resources"] []
+                 (-> (fn [{:keys [globals route-params]}]
+                       (let [query ["from" "report_resources" ["=" "hash" (:hash route-params)]]
+                             opts (select-keys globals [:scf-read-db
+                                                        :url-prefix
+                                                        :pretty-print
+                                                        :warn-experimental])]
+                         (query-eng/produce-streaming-body :v4 {:query query} opts)))
+                     (mid/parent-check :v4 :report :hash)
+                     mid/verify-accepts-json
+                     (mid/wrap-with-globals get-shared-globals))))
+      mid/make-pdb-handler
       vector))
 
 (def report-resources-query

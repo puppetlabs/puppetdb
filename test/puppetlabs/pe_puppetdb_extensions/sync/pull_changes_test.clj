@@ -8,7 +8,7 @@
             [puppetlabs.pe-puppetdb-extensions.sync.core :as sync-core]
             [puppetlabs.pe-puppetdb-extensions.sync.events :as events]
             [puppetlabs.pe-puppetdb-extensions.sync.sync-test-utils
-             :refer [logging-query-handler run-test-for-var
+             :refer [logging-query-routes run-test-for-var
                      perform-sync trigger-sync
                      facts catalog]]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
@@ -25,7 +25,8 @@
             [puppetlabs.puppetdb.testutils.services :as svcs :refer [get-json]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.time :refer [parse-period]]
-            [compojure.core :refer [routes context GET]]))
+            [puppetlabs.comidi :as cmdi]
+            [puppetlabs.puppetdb.middleware :as mid]))
 
 ;;; These tests isolate PDB-Y. We store some fixture data in it, then synthesize
 ;;; a sync command. We serve requests back to PDB-X with a mock so we can
@@ -34,9 +35,9 @@
 
 (defn notable-pdb-event? [event] true)
 
-(defn stub-reports-summary-handler [content-atom]
-  (routes (GET "/pdb-x/sync/v1/reports-summary" []
-            (json-response @content-atom))))
+(defn stub-reports-summary-route [content-atom]
+  (cmdi/GET "/pdb-x/sync/v1/reports-summary" []
+            (json-response @content-atom)))
 
 (deftest pull-reports-test
   (let [report-1 (-> reports :basic reports/report-query->wire-v6)
@@ -44,10 +45,10 @@
         pdb-x-queries (atom [])
         stub-data-atom (atom [])
         bucketed-reports-atom (atom {})
-        stub-handler (context "" []
-                       (stub-reports-summary-handler bucketed-reports-atom)
-                       (logging-query-handler "/pdb-x/query/v4/reports" pdb-x-queries
-                                              stub-data-atom :hash))]
+        stub-handler (cmdi/routes
+                      (stub-reports-summary-route bucketed-reports-atom)
+                      (logging-query-routes "/pdb-x/query/v4/reports" pdb-x-queries
+                                             stub-data-atom :hash))]
     (with-ext-instances [pdb (sync-config stub-handler)]
       ;; store two reports in PDB Y
       (blocking-command-post (utils/pdb-cmd-url) "store report" 6 report-1)
@@ -89,8 +90,8 @@
 (deftest pull-factsets-test
   (let [pdb-x-queries (atom [])
         stub-data-atom (atom [])
-        stub-handler (logging-query-handler "/pdb-x/query/v4/factsets" pdb-x-queries
-                                            stub-data-atom :certname)]
+        stub-handler (logging-query-routes "/pdb-x/query/v4/factsets" pdb-x-queries
+                                               stub-data-atom :certname)]
     (with-ext-instances [pdb (sync-config stub-handler)]
       ;; store factsets in PDB Y
       (doseq [c (map char (range (int \a) (int \g)))]
@@ -165,7 +166,7 @@
 (deftest pull-catalogs-test
   (let [pdb-x-queries (atom [])
         stub-data-atom (atom [])
-        stub-handler (logging-query-handler "/pdb-x/query/v4/catalogs" pdb-x-queries
+        stub-handler (logging-query-routes "/pdb-x/query/v4/catalogs" pdb-x-queries
                                             stub-data-atom :certname)]
     (with-ext-instances [pdb (sync-config stub-handler)]
       ;; store catalogs in PDB Y
@@ -279,7 +280,7 @@
 (deftest overlapping-sync
   (let [pdb-x-queries (atom [])
         stub-data-atom (atom [])
-        stub-handler (logging-query-handler
+        stub-handler (logging-query-routes
                        "/pdb-x/query/v4/catalogs" pdb-x-queries stub-data-atom :certname)]
 
     (testing "overlapping sync"
