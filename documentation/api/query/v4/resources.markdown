@@ -103,7 +103,7 @@ query string of `["=", "type", "<TYPE>"]`.
 
 ### URL parameters / query operators / query fields / response format
 
-This route is an extension of the plain `resources` endpoint. It uses the same parameters, operators, fields, and response format.
+This route is an extension of the `resources` endpoint. It uses the same parameters, operators, fields, and response format.
 
 If you provide a `query` parameter, it will specify additional criteria, which will be
 used to return a subset of the information normally returned by
@@ -165,7 +165,7 @@ query string of:
 
 ### URL parameters / query operators / query fields / response format
 
-This route is an extension of the plain `resources` endpoint. It uses the same parameters, operators, fields, and response format.
+This route is an extension of the `resources` endpoint. It uses the same parameters, operators, fields, and response format.
 
 If you provide a `query` parameter, it will specify additional criteria, which will be
 used to return a subset of the information normally returned by

@@ -104,7 +104,7 @@ In each `<resource>` object `"events"` is an array of objects of the following f
      }
 
 >**Note: Fields that allow `NULL` values**
->In the resource_event schema above, `containment_path`, `new_value`, `old_value`, >`property`, `file`, `line`, `status`, and `message` may all be null.
+>In the resource_event schema above, `containment_path`, `new_value`, `old_value`, `property`, `file`, `line`, `status`, and `message` may all be null.
 
 ### Encoding
 
@@ -151,7 +151,7 @@ All keys are required.
 
 `"timestamp"` is the date/time at which the resource's events occurred.
 
-`"status"` is a string representing the outcome of the event; possible values are `success`, `failure`, and `noop`.
+`"status"` is a string representing the outcome of the event. Possible values are `success`, `failure`, and `noop`.
 
 `"skipped"` is a Boolean representing whether or not the resource was skipped during the
 Puppet run; a skipped resource should have an empty list of `"events"`.

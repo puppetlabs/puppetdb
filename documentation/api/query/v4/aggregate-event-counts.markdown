@@ -9,14 +9,14 @@ canonical: "/puppetdb/latest/api/query/v4/aggregate-event-counts.html"
 [curl]: ../curl.html
 [query]: ./query.html
 
-> **Experimental Endpoint**: The aggregate-event-counts endpoint is designated
+> **Experimental endpoint**: The aggregate-event-counts endpoint is designated
 > as experimental. It may be altered or removed in a future release.
 
 Puppet agent nodes submit reports after their runs, and the Puppet master forwards these to PuppetDB. Each report includes:
 
-* Data about the entire run
-* Metadata about the report
-* Many _events,_ describing what happened during the run
+* Data about the entire run.
+* Metadata about the report.
+* Many _events,_ describing what happened during the run.
 
 Once this information is stored in PuppetDB, it can be queried in various ways.
 
@@ -31,7 +31,7 @@ Returns aggregated count information about all of the resource events matching t
 This endpoint is built entirely on the [`event-counts`][event-counts] endpoint and will aggregate those
 results into a single map.
 
-### URL Parameters
+### URL parameters
 
 This endpoint builds on top of the [`event-counts`][event-counts] endpoint, and it uses all of the same URL parameters. The supported parameters are listed below for easy reference.
 
@@ -46,7 +46,7 @@ For general info about queries, see [our guide to query structure.][query]
 
 * `distinct_resources`: optional. (**Experimental: it is possible that the behavior
 of this parameter may change in future releases.**) This parameter is passed along
-to the [`events`][events] query, additional documentation about which can be found [here][events].
+to the `events` query. See the [`events` documentation][events] for more information.
 
 ### Query operators
 

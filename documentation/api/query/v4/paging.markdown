@@ -23,7 +23,7 @@ Each map may also optionally contain the key `order`, whose value may either be 
 `"desc"`, depending on whether you wish the field to be sorted in ascending or descending
 order. The default value for this key, if not specified, is `"asc"`.
 
-Note that the legal values for `field` vary depending on which endpoint you are querying; for lists of legal fields, please refer to the documentation for the specific query endpoints.
+Note that the legal values for `field` vary depending on which endpoint you are querying. For lists of legal fields, please refer to the documentation for the specific query endpoints.
 
 #### Example:
 
@@ -42,7 +42,7 @@ The value should be an integer.
 
 ### `include_total`
 
-This parameter lets you request a count of how many total records would have been returned, had the query not been limited using the `limit` parameter. This is useful if you want your application to show how far the user has navigated ("page 3 of 15").
+This parameter lets you request a count of how many records would have been returned, had the query not been limited using the `limit` parameter. This is useful if you want your application to show how far the user has navigated ("page 3 of 15").
 
 The value should be a Boolean, and defaults to `false`. If `true`, the HTTP response will contain a header `X-Records`, whose value is an integer indicating the total number of results available.
 

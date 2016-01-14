@@ -19,7 +19,7 @@ The request should be a multipart POST and have `Content-Type: multipart/mixed`.
 ### URL parameters
 
 * `archive`: required. The archive file to import to the PuppetDB.
-* `command_versions`: required. A JSON object mapping PuppetDB command-names to their version. The mapping for a given PuppetDB archive can be found in the archive:
+* `command_versions`: required. A JSON object mapping PuppetDB command names to their version. The mapping for a given PuppetDB archive can be found in the archive:
 
 ~~~ shell
     tar -xOf <my-pdb-archive>.tar.gz puppetdb-bak/export-metadata.json

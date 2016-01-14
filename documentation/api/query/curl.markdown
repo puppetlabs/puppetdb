@@ -84,7 +84,7 @@ If you do this with an endpoint that accepts `GET` requests, **you must also use
 
 PuppetDB returns unprettified JSON by default. PuppetDB provides the option of
 prettifying your JSON responses with the `pretty` parameter. This parameter
-accepts a Boolean value (`true` or `false`) to indicicate whether the response
+accepts a Boolean value (`true` or `false`) to indicate whether the response
 should be pretty-printed. Note that pretty printing comes at the cost of
 performance on some of our endpoints, such as `/v4/catalogs`, `/v4/reports` and
 `/v4/factsets`, due to the storage of some of their data as JSON/JSONB in PostgreSQL.

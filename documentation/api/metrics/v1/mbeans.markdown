@@ -135,8 +135,8 @@ resources, storing edges, etc.). Metrics of particular note include:
 * `puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct`:
   the percentage of catalogs that PuppetDB determines to be
   duplicates of existing catalogs.
-* `puppetlabs.puppetdb.scf.storage:type=default,name=gc-time`: states
-  about how long it takes to do storage compaction
+* `puppetlabs.puppetdb.scf.storage:type=default,name=gc-time`: stats
+  about how long it takes to do storage compaction.
 
 ### JVM metrics
 
