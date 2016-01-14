@@ -66,8 +66,9 @@ and issues will be addressed on a best-effort basis, but support is not guarante
 
 ## Which databases are supported?
 
-PostgreSQL is the recommended database for production use. PuppetDB also ships
-with an embedded HyperSQL database, which is suitable for very small or proof-of-concept deployments. As with our choice of language, we prototyped several
+PostgreSQL is the recommended database for production use. 
+
+As with our choice of language, we prototyped several
 databases before settling on PostgreSQL. These included Neo4j, Riak, and MySQL
 with ActiveRecord in Ruby. We have no plans to support any other databases,
 including MySQL, which lacks important features such as array columns and
@@ -116,7 +117,7 @@ problem.
 
 ## My Puppet master is running slower since I enabled PuppetDB. How can I profile it?
 
-Puppet 3.x introduced a new profiling capability that we leveraged in the puppetdb-termini client code. By simply adding `profile=true` to your `puppet.conf`, you can enable detailed profiling of all apsects of Puppet, including puppetdb-termini. For this to work, you must enable debugging on your master instance as well.
+Puppet 3.x introduced a new profiling capability that we leveraged in the puppetdb-termini client code. By simply adding `profile=true` to your `puppet.conf`, you can enable detailed profiling of all aspects of Puppet, including puppetdb-termini. For this to work, you must enable debugging on your master instance as well.
 
 **Note:** We encourage all users to use common sense when working with profiling mechanisms. Using these tools will add more load, which can increase speed problems in a limited capacity environment. Enabling profiling in production environments should only be done with care and for a very short period of time.
 

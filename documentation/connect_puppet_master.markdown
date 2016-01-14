@@ -20,15 +20,14 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 
 Once PuppetDB is installed and running, configure your Puppet master(s) to use it. When properly connected to PuppetDB, Puppet masters will do the following:
 
-* Send every node's catalog to PuppetDB
-* Send every node's facts to PuppetDB
+* Send every node's catalog, facts, and reports to PuppetDB
 * Query PuppetDB when compiling node catalogs that collect [exported resources][exported]
 
 > Note: if you've [installed PuppetDB using the PuppetDB module][install_via_module], then the `puppetdb::master::config` class is taking care of all of this for you.
 
  **Working on your Puppet master server(s),** follow all of the instructions below:
 
-## Step 1: Install plugins
+## Step 1: Install plug-ins
 
 Currently, Puppet masters need additional Ruby plug-ins in order to use PuppetDB. Unlike custom facts or functions, these cannot be loaded from a module and must be installed in Puppet's main source directory.
 
@@ -126,7 +125,7 @@ PuppetDB works without modification with SELinux in enforcing mode.
 
 Use your system's service tools to restart the Puppet master service. For open source Puppet users, the command to do this will vary, depending on the frontend web server being used.
 
-> Your Puppet master is now using PuppetDB to store and retrieve catalogs, facts, and exported resources. You can test your setup by triggering a Puppet agent run on an arbitrary node, then logging into your PuppetDB server and viewing the `/var/log/puppetlabs/puppetdb/puppetdb.log` file, which will include calls to the "replace facts" and "replace catalog" commands:
+> Your Puppet master is now using PuppetDB to store and retrieve catalogs, facts, and exported resources. You can test your setup by triggering a Puppet agent run on an arbitrary node, then logging into your PuppetDB server and viewing the `/var/log/puppetlabs/puppetdb/puppetdb.log` file, which will include calls to the "replace facts", "replace catalog", and "store report" commands:
 >
 >     2012-05-17 13:08:41,664 INFO  [command-proc-67] [puppetdb.command] [85beb105-5f4a-4257-a5ed-cdf0d07aa1a5] [replace facts] screech.example.com
 >     2012-05-17 13:08:45,993 INFO  [command-proc-67] [puppetdb.command] [3a910863-6b33-4717-95d2-39edf92c8610] [replace catalog] screech.example.com

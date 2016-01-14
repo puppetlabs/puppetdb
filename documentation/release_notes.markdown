@@ -121,10 +121,10 @@ performing subqueries, and many more enhancements and bug fixes.
   force this to run on nodes of their choosing.
   ([PDB-154](https://tickets.puppetlabs.com/browse/PDB-154))
 
-* Improved and reduced number of UTF-8 warnings for storage of new data.
+* Improved and reduced the number of UTF-8 warnings for storage of new data.
 
   Prior to this work, any non-ASCII character found in a catalog would
-  be replaced by /ufffd and an invalid character warning would be issued. The code now    takes into account the force_encoding done by to_pson and attempts to force_encode it back to UTF-8. For most
+  be replaced by /ufffd and an invalid character warning would be issued. The code now takes into account the force_encoding done by to_pson and attempts to force_encode it back to UTF-8. For most
   cases this should be sufficient.
 
   There are times when binary data can appear in a catalog, which creates characters that we can't represent in UTF-8. In these cases, users will still receive a warning.

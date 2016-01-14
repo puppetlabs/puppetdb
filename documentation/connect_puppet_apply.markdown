@@ -18,7 +18,7 @@ canonical: "/puppetdb/latest/connect_puppet_apply.html"
 [ssl_script]: ./install_from_source.html#step-3-option-a-run-the-ssl-configuration-script
 [package_repos]: /guides/puppetlabs_package_repositories.html
 
-> Note: To use PuppetDB, the nodes at your site must be running Puppet version 3.5.1 or later.
+> Note: To use PuppetDB, the nodes at your site must be running Puppet version 3.8.1 or later.
 
 PuppetDB can be used with standalone Puppet deployments where each node runs `puppet apply`. Once connected to PuppetDB, `puppet apply` will do the following:
 
@@ -98,7 +98,7 @@ You can specify the contents of [puppetdb.conf][puppetdb_conf] directly in your 
 
 PuppetDB's port for secure traffic defaults to 8081. Puppet **requires** use of PuppetDB's secure HTTPS port. You cannot use the unencrypted, plain HTTP port.
 
-For availability reasons, there is a setting named `soft_write_failure` that will cause the PuppetDB-termini to fail in a soft manner if PuppetDB is not accessable for command submission. This means that users who are either not using storeconfigs or only exporting resources will still have their catalogs compile during a PuppetDB outage.
+For availability reasons, there is a setting named `soft_write_failure` that will cause the PuppetDB-termini to fail in a soft manner if PuppetDB is not accessible for command submission. This means that users who are either not using storeconfigs or only exporting resources will still have their catalogs compile during a PuppetDB outage.
 
 If no puppetdb.conf file exists, the following default values will be used:
 

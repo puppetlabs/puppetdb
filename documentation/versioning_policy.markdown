@@ -51,7 +51,7 @@ For example:
 * New content-type support for submission (for example: application/json or application/msgpack)
 * A new optional parameter for /command submission
 
-Changes that remove or rename end-points, fields, and query operators, however, must be performed in experimental API versions only.
+Changes that remove or rename endpoints, fields, and query operators, however, must be performed in experimental API versions only.
 
 ### Experimental
 

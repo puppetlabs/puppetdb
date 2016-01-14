@@ -67,7 +67,7 @@ Use Puppet to start the PuppetDB service and enable it on startup.
 
 You must also configure your PuppetDB server's firewall to accept incoming connections on port 8081.
 
-> PuppetDB is now fully functional and ready to receive catalogs and facts from any number of Puppet master servers.
+> PuppetDB is now fully functional and ready to receive facts, catalogs, and reports from any number of Puppet master servers.
 
 Finish: Connect Puppet to PuppetDB
 -----
