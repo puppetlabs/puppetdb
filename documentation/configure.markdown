@@ -371,7 +371,7 @@ The maximum time (in minutes) a pooled connection should remain open. Any connec
 
 If not supplied, we won't terminate connections based on their age alone.
 
-###`statements-cache-size`
+###  `statements-cache-size`
 
 This setting defines how many prepared statements are cached automatically. For a large amount of dynamic queries this number could be increased to increase performance, at the cost of memory consumption and database resources.
 
