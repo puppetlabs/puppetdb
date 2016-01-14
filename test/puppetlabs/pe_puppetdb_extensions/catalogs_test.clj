@@ -124,7 +124,7 @@
 (deftest test-export-works-in-pe
   (let [export-out-file (tu/temp-file "export-test" ".tar.gz")]
 
-    (svc-utils/call-with-single-quiet-pdb-instance
+    (with-ext-instances [pdb (utils/sync-config nil)]
      (fn []
        (is (empty? (get-nodes)))
 
@@ -141,22 +141,22 @@
        (let [query-fn (partial query (tk-app/get-service svc-utils/*server* :PuppetDBServer))]
          (export/export! export-out-file query-fn))))
 
-    (svc-utils/call-with-single-quiet-pdb-instance
-     (fn []
-       (is (empty? (get-nodes)))
+    (with-ext-instances [pdb (utils/sync-config nil)]
+      (fn []
+        (is (empty? (get-nodes)))
 
-       (let [dispatcher (tk-app/get-service svc-utils/*server*
-                                            :PuppetDBCommandDispatcher)
-             submit-command-fn (partial enqueue-command dispatcher)
-             command-versions (:command_versions (cli-import/parse-metadata export-out-file))]
-         (import/import! export-out-file command-versions submit-command-fn))
+        (let [dispatcher (tk-app/get-service svc-utils/*server*
+                                             :PuppetDBCommandDispatcher)
+              submit-command-fn (partial enqueue-command dispatcher)
+              command-versions (:command_versions (cli-import/parse-metadata export-out-file))]
+          (import/import! export-out-file command-versions submit-command-fn))
 
-       @(tu/block-until-results 100 (first (get-catalogs example-certname)))
-       @(tu/block-until-results 100 (first (get-reports example-certname)))
-       @(tu/block-until-results 100 (first (get-factsets example-certname)))
+        @(tu/block-until-results 100 (first (get-catalogs example-certname)))
+        @(tu/block-until-results 100 (first (get-reports example-certname)))
+        @(tu/block-until-results 100 (first (get-factsets example-certname)))
 
-       (is (= (tuc/munge-catalog example-catalog)
-              (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [example-report] (get-reports example-certname)))
-       (is (= (tuf/munge-facts example-facts)
-              (tuf/munge-facts (get-factsets example-certname))))))))
+        (is (= (tuc/munge-catalog example-catalog)
+               (tuc/munge-catalog (get-catalogs example-certname))))
+        (is (= [example-report] (get-reports example-certname)))
+        (is (= (tuf/munge-facts example-facts)
+               (tuf/munge-facts (get-factsets example-certname))))))))
