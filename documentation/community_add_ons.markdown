@@ -33,7 +33,7 @@ canonical: "/puppetdb/latest/community_add_ons.html"
 [Zack Smith --- Puppet face for querying PuppetDB exports][exports]
 -----
 
-[A Puppet module with a face querying PuppetDB for exported resources.][exports] This simple face can be used for listing exported resources from the command line. It has support for querying all exports or filtering to a comma-seperated list. Example syntax:
+[A Puppet module with a face querying PuppetDB for exported resources.][exports] This simple face can be used for listing exported resources from the command line. It has support for querying all exports or filtering to a comma-separated list. Example syntax:
 
 * `puppet node exports`
 * `puppet node exports file`
@@ -42,9 +42,9 @@ canonical: "/puppetdb/latest/community_add_ons.html"
 [Tim Skirvin --- cms-puppetdb-tools (PuppetDB CLI tools)][cms-puppetdb-tools]
 -----
 
-[A set of command-line scripts for querying PuppetDB.][cms-puppetdb-tools] This was originally written for use in a specific Puppet environment, and includes a few scripts that are more generally useful. This includes:
+[A set of command-line scripts for querying PuppetDB.][cms-puppetdb-tools] This was originally written for use in a specific Puppet environment, but includes a few scripts that are more generally useful. This includes:
 
-* `puppetdb-tangled` Lists "tangled" host, or where the most recent report was a success in which something changed (an event status changed), and some number of these changes have occurred several time in the last several runs (something is changing back and forth over and over again).
+* `puppetdb-tangled` Lists "tangled" host, or where the most recent report was a success in which something changed (an event status changed), and some number of these changes have occurred several times in the last several runs (something is changing back and forth over and over again).
 * `puppetdb-failed` Lists hosts that failed in their last Puppet run.
 * `puppetdb-tooquiet` Lists hosts that have not checked in over the last two hours (configurable).
 

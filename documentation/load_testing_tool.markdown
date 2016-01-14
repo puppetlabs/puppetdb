@@ -10,7 +10,7 @@ A basic tool for simulating PuppetDB loads is included with
 the standard PuppetDB distribution. **This tool is currently experimental
 and is likely to change in future releases**.  
 
-The load testing tool can submit catalogs and/or reports at a defined interval, for a
+The load testing tool can submit catalogs, facts, and/or reports at a defined interval, for a
 specified number of nodes. It is also able to vary the submitted
 catalogs over time to simulate catalog changes (which can cause a higher
 PuppetDB load). The intent of the tool is to get a rough idea about

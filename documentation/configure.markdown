@@ -594,7 +594,7 @@ The default value is 10 seconds. A value of zero will disable logging of slow qu
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
 from PuppetDB in a future release.
 
-This sets the time (in minutes) for a connection to remain idle before sending a test query to the DB. This is useful to prevent a DB from timing out connections on its end.
+This sets the time (in minutes) for a connection to remain idle before sending a test query to the database. This is useful to prevent a database from timing out connections on its end.
 
 If not supplied, the default setting is 45 minutes.
 
@@ -683,7 +683,7 @@ traffic. If not supplied, we bind to `localhost`, which will reject
 connections from anywhere but the PuppetDB server itself. To listen on
 all available interfaces, use `0.0.0.0`.
 
-To avoid DNS resolution confusion, if you wish to set this to something other than `localhost`, we reccoment using an IP address instead of a hostname.
+To avoid DNS resolution confusion, if you wish to set this to something other than `localhost`, we reccomend using an IP address instead of a hostname.
 
 > **Note:** Unencrypted HTTP is the only way to view the [performance
     dashboard][dashboard], since PuppetDB uses host verification for
@@ -704,7 +704,7 @@ Sets the maximum number of threads assigned to responding to HTTP
 and HTTPS requests, effectively changing how many concurrent requests
 can be made at one time. Defaults to 50.
 
-> **Note:** Due to the behaviour of our web server (Jetty 7), this setting
+> **Note:** Due to the behaviour of our web server (Jetty 9), this setting
     must be higher then the number of CPUs on your system or it will
     stop processing any HTTP requests.
 
@@ -714,7 +714,7 @@ Sets which IP interface to listen on for **encrypted** HTTPS traffic. If
 not supplied, we bind to `localhost`. To listen on all available
 interfaces, use `0.0.0.0`.
 
-To avoid DNS resolution confusion, if you wish to set this to something other than `localhost`, we reccoment using an IP address instead of a hostname
+To avoid DNS resolution confusion, if you wish to set this to something other than `localhost`, we reccomend using an IP address instead of a hostname
 
 ### `ssl-port`
 
