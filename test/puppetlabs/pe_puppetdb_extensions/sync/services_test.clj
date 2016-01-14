@@ -39,8 +39,10 @@
   (let [allow-unsafe-sync-triggers false
         jetty-config {}
         remotes-config [{:server-url (URI. "http://foo.bar:8080"), :interval (parse-period "120s")}]]
-    (is (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config {:url "http://foo.bar:8080/pdb/query/v4"}))
-    (is (not (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config {:url "http://baz.buzz:8080/pdb/query/v4"})))))
+    (is (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config
+                               {:url "http://foo.bar:8080/pdb/query/v4"}))
+    (is (not (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config
+                                    {:url "http://baz.buzz:8080/pdb/query/v4"})))))
 
 (deftest test-wait-for-sync
   (testing "Happy path of processing commands"
@@ -141,3 +143,13 @@
         (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
               expected {"2014-01-01T08:00:00.000Z" "afd22efd338d2c1802b62f1fb67beeb8"}]
           (is (= expected actual)))))))
+
+(deftest remote-url->server-url-test
+  []
+  (testing "remote-url->server-url"
+    (is (= (remote-url->server-url "http://localhost:8080/pdb/query/v4")
+           "http://localhost:8080"))
+    (is (= (remote-url->server-url "https://localhost:8080/foo/pdb/query/v4")
+           "https://localhost:8080/foo"))
+    (is (= (remote-url->server-url "https://localhost:8080/foo/bar/pdb/query/v4")
+           "https://localhost:8080/foo/bar"))))

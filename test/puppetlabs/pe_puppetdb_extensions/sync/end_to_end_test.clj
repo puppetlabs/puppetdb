@@ -155,6 +155,22 @@
         (is (thrown+? [:status 404]
                       (get-node (:query-url pdb2) certname)))))))
 
+(deftest three-node-end-to-end
+  (with-ext-instances [pdb1 (sync-config nil)
+                       pdb2 (sync-config nil)
+                       pdb3 (sync-config nil)]
+    (with-alt-mq (:mq-name pdb1)
+      (submit-factset pdb1 facts))
+    (with-alt-mq (:mq-name pdb2)
+      (sync :from pdb1 :to pdb2))
+    (with-alt-mq (:mq-name pdb3)
+      (sync :from pdb2 :to pdb3))
+    (is (=-after?
+          without-timestamp
+          (first (svcs/get-factsets (:query-url pdb1) (:certname facts)))
+          (first (svcs/get-factsets (:query-url pdb2) (:certname facts)))))
+          (first (svcs/get-factsets (:query-url pdb3) (:certname facts)))))
+
 (defn- event->map [event]
   {:level (str (.getLevel event))
    :message (.getMessage event)
