@@ -746,22 +746,6 @@
     (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 0))
     (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 0))))
 
-(deftest-db delete-with-gc-report-statuses
-  (add-certname! certname)
-
-  (let [timestamp     (now)
-        report        (:basic reports)
-        certname      (:certname report)]
-    (store-example-report! report timestamp)
-
-    (is (= [{:c 1}] (query-to-vec ["SELECT COUNT(*) as c FROM report_statuses"])))
-
-    (delete-reports-older-than! (-> 2 days ago))
-
-    (is (= [{:c 1}] (query-to-vec ["SELECT COUNT(*) as c FROM report_statuses"])))
-    (garbage-collect! *db*)
-    (is (= [{:c 0}] (query-to-vec ["SELECT COUNT(*) as c FROM report_statuses"])))))
-
 (deftest-db catalog-bad-input
   (testing "should noop"
     (testing "on bad input"
