@@ -473,7 +473,7 @@ The maximum time to wait (in milliseconds) to acquire a connection
 from the pool of database connections. If not supplied, defaults to
 1000.
 
-###`statements-cache-size`
+###  `statements-cache-size`
 
 This setting defines how many prepared statements are cached
 automatically. For a large amount of dynamic queries this number could
