@@ -89,9 +89,6 @@ If you wish to use PuppetDB with
 [standalone nodes that are running puppet apply][apply], every node
 must be running 3.8.1 or later.
 
-> **Note about Puppet Enterprise**
-> * PuppetDB has been included in Puppet Enterprise since 3.0.0. In order to obtain the latest PuppetDB functionality, users of Puppet Enterprise 2.8 and below should upgrade to the latest version of PE by following the instructions [here](https://docs.puppetlabs.com/pe/latest/install_upgrading.html).
-
 ### Robust Hardware
 
 PuppetDB will be a critical component of your Puppet deployment and should be run on a robust and reliable server.
