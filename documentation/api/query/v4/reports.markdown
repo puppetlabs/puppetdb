@@ -190,11 +190,11 @@ File and line may each be null if the log does not concern a resource.
 
 >**Note: Fields that allow `NULL` values**
 >
->In the resource_event schema above, `containment_path`, `new_value`, `old_value`, >`property`, `file`, `line`, `status`, and `message` may all be null.
+>In the resource_event schema above, `containment_path`, `new_value`, `old_value`, `property`, `file`, `line`, `status`, and `message` may all be null.
 
 >**Note: On querying resource events, metrics, and logs**
->
->The `reports` endpoint does not support querying on the value of `resource_events`, >`logs`, or `metrics`. For `resource_events`, the same information can be accessed by >querying the `events` endpoint for events with field `report` equal to a given report's >`hash`. Making metrics and logs queryable may be the target of future work.
+> 
+>The `reports` endpoint does not support querying on the value of `resource_events`, `logs`, or `metrics`. For `resource_events`, the same information can be accessed by querying the `events` endpoint for events with field `report` equal to a given report's `hash`. Making metrics and logs queryable may be the target of future work.
 
 ### Examples
 

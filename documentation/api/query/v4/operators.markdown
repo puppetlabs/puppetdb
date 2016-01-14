@@ -245,7 +245,7 @@ with `web1`:
           ["=", "type", "Package"],
           ["=", "title", "Tomcat"]]]]
 
-If you want to display the entire `networking` fact, if the host's interface uses a certain mac address,
+If you want to display the entire `networking` fact, and the host's interface uses a certain mac address,
 you can do the following on the [`facts`][facts] endpoint:
 
     ["and",

@@ -100,7 +100,7 @@ match a report with the catalog that was used for the run. This field may be `nu
      }
 
 >**Note: Fields that allow `null` values**
->In the resource_event schema above, `containment_path`, `new_value`, `old_value`, >`property`, `file`, `line`, `status`, and `message` may all be null.
+>In the resource_event schema above, `containment_path`, `new_value`, `old_value`, `property`, `file`, `line`, `status`, and `message` may all be null.
 
 ### Encoding
 
@@ -119,7 +119,7 @@ A JSON integer.
 ### Data type: `<datetime>`
 
 A JSON string representing a date and time (with time zone), formatted based on
-the recommendations in ISO 8601. For example, for a UTC time, the String would be
+the recommendations in ISO 8601. For example, for a UTC time, the string would be
 formatted as `YYYY-MM-DDThh:mm:ss.sssZ`. For non-UTC time, the `Z` may be replaced
 with `±hh:mm` to represent the specific timezone.
 
@@ -152,7 +152,7 @@ This may be `null` only if the `status` is `skipped`.
 
 `"timestamp"` is the date/time at which the event occurred.
 
-`"status"` is a string representing the outcome of the event; possible values are `success`, `failure`, and `skipped`.
+`"status"` is a string representing the outcome of the event. Possible values are `success`, `failure`, and `skipped`.
 
 `"old_value"` is the value that Puppet determined the property to have held prior
 to the event.

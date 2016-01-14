@@ -44,7 +44,7 @@ This is useful if you are really concerned about limiting the data you expose, b
 The `moderate` profile attempts to be a bit smarter about what it anonymizes and is **the recommended profile for most cases**. It sorts and anonymizes data by data type:
 
 * Node name: is anonymized by default.
-* Resource type name: the core types that are built into Puppet are not anonymized, including some common types from the modules: `stdlib`, `postgresql`, `rabbitmq`, `puppetdb`, `apache`, `mrep`, `f5`, `apt`, `registry`, `concat`, and `mysql`. Any Puppet Enterprise core types names are also preserved. The goal here is to anonymize any custom or unknown resource type name, as these may contain confidential information.
+* Resource type name: the core types that are built into Puppet are not anonymized, including some common types from the modules: `stdlib`, `postgresql`, `rabbitmq`, `puppetdb`, `apache`, `mrep`, `f5`, `apt`, `registry`, `concat`, and `mysql`. Any Puppet Enterprise core type names are also preserved. The goal here is to anonymize any custom or unknown resource type names, as these may contain confidential information.
 * Resource titles: all titles are anonymized expect for those belonging to Filebucket, Package, Service, and Stage.
 * Parameter names: are never anonymized.
 * Parameter values: everything is anonymized except for the values for `provider`, `ensure`, `noop`, `loglevel`, `audit`, and `schedule`.
@@ -56,10 +56,10 @@ The `moderate` profile attempts to be a bit smarter about what it anonymizes and
 
 ### Profile: low
 
-This profile is aimed at hiding security information specifically, but leaving most of the data in its original state. However, by default, the following categories are annonymized:
+This profile is aimed at hiding security information specifically, but leaving most of the data in its original state. The following categories are anonymized:
 
 * Node name: is always anonymized.
-* Parameter values: this profile will anonymize values and messages for any parameter name containing the strings `password`, `pwd`, `secret`, `key`, or `private`. Everything else is left alone.
+* Parameter values: only values and messages for parameter names containing the strings `password`, `pwd`, `secret`, `key`, or `private` are anonymized.
 * Log messages: are always anonymized.
 
 Verifying your anonymized data
@@ -72,4 +72,4 @@ Simply untar the export file and analyze the contents:
     $ tar -xzf my-puppetdb-anonymized-export.tar.gz
     $ cd puppetdb-bak
 
-Inside this directory there is a directory for each content type (such as `reports` and `catalogs`), and each file inside represents a node (and a report instance for reports). The data is represented as human-readable JSON. You can open these files and use tools such as `grep` to check the status of specific information you wished to anonymize.
+Inside this directory there is a directory for each content type (reports, catalogs, and facts), and each file inside represents a node (and a report instance for reports). The data is represented as human-readable JSON. You can open these files and use tools such as `grep` to check the status of specific information you wish to anonymize.

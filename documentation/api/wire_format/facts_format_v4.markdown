@@ -22,7 +22,7 @@ The `"certname"` key is the certname the facts are associated with.
 
 The `"environment"` key is the environment associated to the node when the facts were collected.
 
-The `"values"` key points to a _JSONObject_ that represents the set
+The `"values"` key points to a _JSON Object_ that represents the set
 of facts. Each key is the fact name, and the value is the fact value.
 
 The `"producer_timestamp"` key points to a timestamp reflecting

@@ -26,11 +26,9 @@ jetty settings][jetty] if you need to access the API over unencrypted HTTP.
 
 ## Query structure
 
-A query consists of:
-
-* An HTTP GET request to an endpoint URL ...
-* ... which may or may not contain a `query` URL parameter, whose value is a **query string ...**
-* ... and which may or may not contain other URL parameters, to configure [paging][] or other behavior.
+A query consists of an HTTP GET request to an endpoint URL which may or may not contain: 
+* A `query` URL parameter, whose value is a **query string**. 
+* Other URL parameters, to configure [paging][] or other behavior.
 
 That is, most queries will look like a GET request to a URL that resembles the following:
 
@@ -58,7 +56,7 @@ After the `/pdb/query/` prefix, the first part of an API URL is the
 
 ### Entity endpoints
 
-After the version, URLs are organized into a number of **endpoints** that express the entity you wish to query on.
+After the version, URLs are organized into a number of **endpoints** that express the entity you wish to query for.
 
 Conceptually, an entity endpoint represents a PuppetDB entity. Each version of the PuppetDB API defines a set number of endpoints.
 
@@ -82,13 +80,7 @@ Most PuppetDB query endpoints support paged results via a set of shared URL para
 
 ## Query strings
 
-A query string passed to the `query` URL parameter must be:
-
-* A [URL-encoded][urlencode] ...
-* ... JSON array ...
-    * ... which may contain scalar data types (usually strings) and additional arrays ...
-* ... which describes a complex _comparison operation ..._
-* ... in [_prefix notation_][prefix], with an **operator** first and its **arguments** following.
+A query string passed to the `query` URL parameter must be a [URL-encoded][urlencode] JSON array, which may contain scalar data types (usually strings) and additional arrays, that describes a complex _comparison operation_ in [_prefix notation_][prefix] with an **operator** first and its **arguments** following.
 
 That is, before being URL-encoded, all query strings follow this form:
 
@@ -136,4 +128,4 @@ All queries return data with a content type of `application/json`. Each endpoint
 
 ## Tutorial and tips
 
-For a walkthrough on constructing queries, see [the query tutorial page][tutorial]. For quick tips on using curl to make ad-hoc queries, see [the curl tips page][curl].
+For a walkthrough on constructing queries, see [the query tutorial page][tutorial]. For quick tips on using curl to make ad hoc queries, see [the curl tips page][curl].

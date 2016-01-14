@@ -47,7 +47,7 @@ The following list contains related entities that can be used to constrain the r
 * [`reports`][reports]: reports received for an environment.
 * [`catalogs`][catalogs]: catalogs received for an environment.
 * [`facts`][facts]: fact names and values received for an environment.
-* [`fact_contents`][fact-contents]: factset paths and values received for an environment.
+* [`fact_contents`][fact-contents]: fact paths and values received for an environment.
 * [`events`][events]: report events triggered for an environment.
 * [`resources`][resources]: catalog resources received for an environment.
 

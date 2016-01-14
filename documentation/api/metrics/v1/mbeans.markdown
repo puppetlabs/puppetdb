@@ -143,7 +143,7 @@ resources, storing edges, etc.). Metrics of particular note include:
   the percentage of catalogs that PuppetDB determines to be
   duplicates of existing catalogs.
 * `puppetlabs.puppetdb.storage:name=gc-time`: states
-  about how long it takes to do storage compaction
+  about how long it takes to do storage compaction.
 
 ### JVM metrics
 

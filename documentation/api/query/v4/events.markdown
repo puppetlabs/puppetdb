@@ -68,7 +68,7 @@ the `timestamp` field.
 
 * `certname` (string): the name of the node on which the event occurred.
 
-* `report` (string): the ID of the report that the event occurred in; these IDs can be acquired via event queries or via the [`/reports`][report] query endpoint.
+* `report` (string): the ID of the report that the event occurred in. These IDs can be acquired via event queries or via the [`/reports`][report] query endpoint.
 
 * `status` (string): the status of the event. Legal values are `success`, `failure`, `noop`, and `skipped`.
 
@@ -113,7 +113,7 @@ the `timestamp` field.
 
 The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information consult the documentation for [subqueries][subqueries].
 
-* [`reports`][reports]: the report asssociated with an event.
+* [`reports`][reports]: the report associated with an event.
 * [`nodes`][nodes]: the node associated with an this event.
 * [`environments`][environments]: the environment associated with an event.
 

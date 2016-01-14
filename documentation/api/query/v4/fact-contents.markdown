@@ -15,7 +15,7 @@ canonical: "/puppetdb/latest/api/query/v4/fact-contents.html"
 
 You can query fact information with greater power by using the `/fact-contents` endpoint. This endpoint provides the capability to descend into structured facts and query tree nodes deep within this data by using the concept of paths and values.
 
-Structured fact data is normally represented as a hash, which allows hashes, arrays, and real types as its values:
+Structured fact data can be represented as a hash or an array, each of which allows hashes, arrays, and real types as its values:
 
     {
       "cpus" : {
@@ -102,7 +102,7 @@ Which returns:
       "environment" : "foo"
     } ]
 
-Get all nodes with values higher then three:
+Get all nodes with values greater then three:
 
     curl -X GET 'http://localhost:8080/pdb/query/v4/fact-contents' \
       --data-urlencode 'query=[">", "value", 3]'
