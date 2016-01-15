@@ -117,8 +117,11 @@
                                "resources" {:columns ["certname"]}}
 
                :selection {:from [:certnames]
-                           :left-join [:catalogs
-                                       [:= :certnames.certname :catalogs.certname]
+                           :left-join [:latest_catalogs
+                                       [:= :latest_catalogs.certname_id :certnames.id]
+
+                                       :catalogs
+                                       [:= :catalogs.id :latest_catalogs.catalog_id]
 
                                        [:factsets :fs]
                                        [:= :certnames.certname :fs.certname]
