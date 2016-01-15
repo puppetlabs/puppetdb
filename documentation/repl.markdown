@@ -1,12 +1,12 @@
 ---
-title: "PuppetDB 3.2 » Debugging with the Remote REPL"
+title: "PuppetDB 3.2: Debugging with remote REPL"
 layout: default
 canonical: "/puppetdb/latest/repl.html"
 ---
 
 PuppetDB includes a remote REPL interface, which is disabled by default.
 
-This is mostly of use to developers who know Clojure and are familiar with PuppetDB's code base. It allows you to modify PuppetDB's code on the fly. Most users should never need to use the REPL, and it should usually be left disabled for security reasons.
+This interface is mostly of use to developers who know Clojure and are familiar with PuppetDB's codebase. It allows you to modify PuppetDB's code on the fly. Most users will never need to use the REPL, and for security reasons, it should generally be left disabled.
 
 Enabling the REPL
 -----
@@ -19,14 +19,14 @@ To enable the REPL, you must edit PuppetDB's config file to [enable it, configur
     port = 8082
     host = 127.0.0.1
 
-After configuring it, you should restart the PuppetDB service.
+After configuration, restart the PuppetDB service.
 
-Connecting to a Remote REPL
+Connecting to a remote REPL
 -----
 
 Once PuppetDB is accepting remote REPL connections, you can connect to it and begin issuing low-level debugging commands and Clojure code.
 
-For example, with a NREPL configured on port 8082, and using leiningen to connect:
+For example, with a NREPL configured on port 8082, and using Leiningen to connect:
 
     # lein repl :connect localhost:8082
     Connecting to nREPL at localhost:8082
@@ -42,7 +42,7 @@ For example, with a NREPL configured on port 8082, and using leiningen to connec
     user=> (+ 1 2 3)
     6
 
-Executing Functions
+Executing functions
 -----
 
 Within the REPL, you can interactively execute PuppetDB's functions. For example, to manually compact the database:
@@ -56,7 +56,7 @@ Within the REPL, you can interactively execute PuppetDB's functions. For example
     user=> (garbage-collect! (:database configuration))
     (0)
 
-Redefining Functions
+Redefining functions
 -----
 
 You can also manipulate the running PuppetDB instance by redefining functions on the fly. Let's say that for debugging purposes, you'd like to log every time a catalog is deleted. You can just redefine the existing `delete-catalog!` function dynamically:

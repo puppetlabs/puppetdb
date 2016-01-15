@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » Metadata API » v1 » Querying PuppetDB Version"
+title: "PuppetDB 3.2: Version endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/meta/v1/version.html"
 ---
@@ -19,7 +19,7 @@ This endpoint does not use any URL parameters or query strings.
 
 This query will display a message describing the latest version of PuppetDB.
 
-### Response Format
+### Response format
 
 The response will be in `application/json`, and will return a JSON map with a
 single key: `version`, whose value is a string representation of the version

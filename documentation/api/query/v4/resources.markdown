@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Querying Resources"
+title: "PuppetDB 3.2: Resources endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/resources.html"
 ---
@@ -20,19 +20,19 @@ You can query resources by making an HTTP request to the
 This will return all resources matching the given query. Resources for
 deactivated nodes are not included in the response.
 
-### URL Parameters
+### URL parameters
 
-* `query`: Optional. A JSON array of query predicates, in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
+* `query`: optional. A JSON array of query predicates, in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [our guide to query structure.][query]
 
-    If no query is provided, all resources will be returned.
+If no query is provided, all resources will be returned.
 
-### Query Operators
+### Query operators
 
-See [the Operators page](./operators.html) for the full list of available operators. Note that:
+See [the query operators page](./operators.html) for the full list of available operators. Note that:
 
 * The inequality operators are only supported for the `line` field.
 
-### Query Fields
+### Query fields
 
 * `tag` (string): a case-insensitive tag on the resource. (Appears in the response as `tags`, which is an array of strings.)
 
@@ -44,22 +44,21 @@ See [the Operators page](./operators.html) for the full list of available operat
 
 * `title` (string): the resource title.
 
-* `exported` (boolean): whether or not the resource is exported.
+* `exported` (Boolean): whether or not the resource is exported.
 
-* `file` (string): the manifest file the resource was declared in.
+* `file` (string): the manifest file in which the resource was declared.
 
 * `line` (number): the line of the manifest on which the resource was declared.
 
 * `environment` (string): the environment of the node associated to the resource.
 
-### Subquery Relationships
+### Subquery relationships
 
-Here is a list of related entities that can be used to constrain the result set using
-implicit subqueries. For more information consult the documentation for [subqueries].
+The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information, consult the documentation for [subqueries][subqueries].
 
-* [`catalogs`][catalogs]: The catalog containing a resource.
-* [`environments`][environments]: The environment associated with a resource.
-* [`nodes`][nodes]: The node associated with a resource.
+* [`catalogs`][catalogs]: the catalog containing a resource.
+* [`environments`][environments]: the environment associated with a resource.
+* [`nodes`][nodes]: the node associated with a resource.
 
 ### Response format
 
@@ -101,9 +100,9 @@ response.
 This behaves exactly like a call to `/pdb/query/v4/resources` with a
 query string of `["=", "type", "<TYPE>"]`.
 
-### URL Parameters / Query Operators / Query Fields / Response Format
+### URL parameters / query operators / query fields / response format
 
-This route is an extension of the plain `resources` endpoint. It uses the exact same parameters, operators, fields, and response format.
+This route is an extension of the `resources` endpoint. It uses the same parameters, operators, fields, and response format.
 
 If you provide a `query` parameter, it will specify additional criteria, which will be
 used to return a subset of the information normally returned by
@@ -163,9 +162,9 @@ query string of:
         ["=", "type", "<TYPE>"],
         ["=", "title", "<TITLE>"]]
 
-### URL Parameters / Query Operators / Query Fields / Response Format
+### URL parameters / query operators / query fields / response format
 
-This route is an extension of the plain `resources` endpoint. It uses the exact same parameters, operators, fields, and response format.
+This route is an extension of the `resources` endpoint. It uses the same parameters, operators, fields, and response format.
 
 If you provide a `query` parameter, it will specify additional criteria, which will be
 used to return a subset of the information normally returned by
@@ -199,6 +198,6 @@ this route.
 ## Paging
 
 This query endpoint supports paged results via the common PuppetDB paging
-URL parameters.  For more information, please see the documentation
+URL parameters. For more information, please see the documentation
 on [paging][paging].
 

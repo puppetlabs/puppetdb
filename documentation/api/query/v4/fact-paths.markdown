@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Querying Fact Paths"
+title: "PuppetDB 3.2: Fact-paths endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/fact-paths.html"
 ---
@@ -22,33 +22,32 @@ that require a basic top-level view of fact paths.
 
 This will return all fact paths matching the given query.
 
-### URL Parameters
+### URL parameters
 
-* `query`: Optional. A JSON array containing the query in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
+* `query`: optional. A JSON array containing the query in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [our guide to query structure.][query]
 
 If a query parameter is not provided, all results will be returned.
 
-### Query Operators
+### Query operators
 
-See [the Operators page.](./operators.html)
+See [the query operators page.](./operators.html)
 
-## Query Fields
+## Query fields
 
-* `path` (path): the path associated with a fact node
-* `type` (string): the type of the value a the fact node
+* `path` (path): the path associated with a fact node.
+* `type` (string): the type of the value a the fact node.
 
-### Subquery Relationships
+### Subquery relationships
 
-Here is a list of related entities that can be used to constrain the result set using
-implicit subqueries. For more information consult the documentation for [subqueries].
+The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information consult the documentation for [subqueries][subqueries].
 
-* [`facts`][facts]: All facts that contain a fact-path.
-* [`fact_contents`][fact-contents]: All factset paths and values using a fact-path.
+* [`facts`][facts]: all facts that contain a fact-path.
+* [`fact_contents`][fact-contents]: all factset paths and values using a fact-path.
 
-## Response Format
+## Response format
 
 Successful responses will be in `application/json`. Errors will be returned as
-non-JSON string.
+a non-JSON string.
 
 The result will be a JSON array with one entry per certname. Each entry is of
 the form:
@@ -58,8 +57,8 @@ the form:
       "type": <fact-node type>
     }
 
-
 ### Examples
+
 [Using `curl` from localhost][curl]:
 
 Get all fact paths that match the regex array query for paths related to
@@ -104,5 +103,5 @@ Get all fact paths of integer type:
 ## Paging
 
 This query endpoint supports paged results via the common PuppetDB paging URL
-parameters.  For more information, please see the documentation on
+parameters. For more information, please see the documentation on
 [paging][paging].

@@ -1,79 +1,75 @@
 ---
-title: "PuppetDB 3.2 » Data Anonymization"
+title: "PuppetDB 3.2: Data anonymization"
 layout: default
 canonical: "/puppetdb/latest/anonymization.html"
 ---
 
-There are times when sharing your PuppetDB data is required, however due to the
-nature of the data it may contain sensitive items that need to be scrubbed or
-anonymized beforehand. For this purpose we have given the export tool the ability
-to anonymize the PuppetDB archive before returning the archive.
+The export tool has the ability to anonymize the PuppetDB archive before returning the archive. This is particularly useful when sharing PuppetDB data that contains sensitive items.
 
 Using the `export` command
 -----
 
-To create an anonymized PuppetDB archive directly all you need it the `puppetdb
-export` tool,
-[more information here](./migrate.html#exporting-data-from-an-existing-puppetdb-database):
+To create an anonymized PuppetDB archive directly, simply run the `puppetdb export` tool, preferably on your PuppetDB instance:
 
     $ sudo puppetdb export --outfile ./my-puppetdb-export.tar.gz --anonymization moderate
 
-This needs to be run on your PuppetDB instance preferably. See `puppetdb export -h` for more options for remote execution.
+[See our guide to exporting data for further details, ](./migrate.html#exporting-data-from-an-existing-puppetdb-database) and see `puppetdb export -h` for more options for remote execution.
 
 How does it work?
 -----
 
-The tool itself walks through your entire data set applying different rules to each of the leaf data based on the profile you have chosen. The data structure itself is left intact, while only the data contents are modified. The point here is to maintain the "shape" of the data without exposing the underlying data you may wish to scrub. We do this by always ensuring we replace data consistently, so while a string for example may have been replaced with something random - we make sure that all instances of that original string are replaced with the same random string throughout all your data.
+The tool walks through your entire data set, applying different rules to each of the leaf data based on the profile you have chosen. The data structure is left intact, and only the data contents are modified. This maintains the "shape" of the data without exposing the underlying data you may wish to scrub. 
 
-By keeping the shape the data can be anonymized based on your needs but still hold some value to the consumer of your anonymized data.
+We do this by always ensuring we replace data consistently. For example, if a string is replaced with something random, we ensure that all instances of that original string are replaced with the same random string throughout the data.
 
-Anonymization Profiles
+By keeping its original shape, the data can be anonymized based on your needs but still hold some value to the consumer of your anonymized data.
+
+Anonymization profiles
 -----
 
-Anonymizing all data is often not that useful so we have provided you with a number of different profiles that you can choose from that will provide different levels of anonymization.
+You may not need to anonymize all data in every case, so we have provided a number of profiles offering varying levels of anonymization.
 
-The profile itself can be chosen on the command line when the command is run. For example, you can choose the `low` profile as an option like so:
+The profile can be specified on the command line when the command is run. For example, to choose the `low` profile, enter:
 
     $ sudo puppetdb export --outfile ./my-puppetdb-anonymized-export.tar.gz --profile low
 
 ### Profile: full
 
-The `full` profile will anonymize everything, while keeping the shape of data as previously mentioned. This includes: node names, resource types, resource titles, parameter names, values, any log messages, file names and file lines. The result should be a completely anonymized data set. Report metrics under the `resources` and `events` categories are left intact, as these can be inferred from the rest of the data, but names of metrics under the `time` category are anonymized as resource types.
+The `full` profile will anonymize all data (including node names, resource types, resource titles, parameter names, values, any log messages, file names, and file lines) while retaining the data set's shape. The result is a completely anonymized data set. Report metrics under the `resources` and `events` categories are left intact, as these can be inferred from the rest of the data, but names of metrics under the `time` category are anonymized as resource types.
 
 This is useful if you are really concerned about limiting the data you expose, but provides the least utility for the consumer depending on the activity they are trying to test.
 
 ### Profile: moderate
 
-The `moderate` profile attempts to be a bit smarter about what it anonymizes and is the recommended one for most cases. It operates different depending on the data type:
+The `moderate` profile attempts to be a bit smarter about what it anonymizes and is **the recommended profile for most cases**. It sorts and anonymizes data by data type:
 
-* node name: is anonymized by default always
-* resource type name: the core types that are built-in to Puppet are not anonymized, including some common types from the modules: stdlib, postgresql, rabbitmq, puppetdb, apache, mrep, f5, apt, registry, concat and mysql. Any Puppet Enterprise core types names are also preserved. The goal here is to anonymize any custom or unknown resource type names as they may contain confidential information.
-* resource titles: all titles are anonymized expect for those belonging to Filebucket, Package, Service and Stage.
-* parameter names: are never anonymized
-* parameter values: everything is anonymized except for the values for `provider`, `ensure`, `noop`, `loglevel`, `audit` and `schedule`.
-* report log messages: are always anonymized
-* file names: are always anonymized
-* file numbers: are left as they are
-* log messages: are always anonymized
-* metrics: metric names in the `time` category are anonymized as resource
-  types.
+* Node name: is anonymized by default.
+* Resource type name: the core types that are built into Puppet are not anonymized, including some common types from the modules: `stdlib`, `postgresql`, `rabbitmq`, `puppetdb`, `apache`, `mrep`, `f5`, `apt`, `registry`, `concat`, and `mysql`. Any Puppet Enterprise core type names are also preserved. The goal here is to anonymize any custom or unknown resource type names, as these may contain confidential information.
+* Resource titles: all titles are anonymized expect for those belonging to Filebucket, Package, Service, and Stage.
+* Parameter names: are never anonymized.
+* Parameter values: everything is anonymized except for the values for `provider`, `ensure`, `noop`, `loglevel`, `audit`, and `schedule`.
+* Report log messages: are always anonymized.
+* File names: are always anonymized.
+* File numbers: are left as they are.
+* Log messages: are always anonymized.
+* Metrics: metric names in the `time` category are anonymized as resource types.
 
 ### Profile: low
 
-This profile is aimed at hiding security information specifically, but leaving most of the data in its original state. By default most things are not anonymized except for:
+This profile is aimed at hiding security information specifically, but leaving most of the data in its original state. The following categories are anonymized:
 
-* node name: is always anonymized
-* parameter values: we specifically anonymize any values and messages for any parameter name containing the strings: password, pwd, secret, key, private. Everything else is left alone.
-* log messages: are always anonymized
+* Node name: is always anonymized.
+* Parameter values: only values and messages for parameter names containing the strings `password`, `pwd`, `secret`, `key`, or `private` are anonymized.
+* Log messages: are always anonymized.
 
-Verifying your Anonymized Data
+Verifying your anonymized data
 -----
 
-While the tool itself tries to achieve the documented level of anonymization, this is your precious data and it is recommended you analyze it first before sharing it with another party to ensure all your requirements are met.
+After anonymizing data with the `puppetdb export` tool, we **strongly recommend** that you analyze the anonymized data before sharing it with another party to ensure that all sensitive data has been scrubbed.
 
-The best way to do this, is to untar the export file, and analyze the contents:
+Simply untar the export file and analyze the contents:
 
     $ tar -xzf my-puppetdb-anonymized-export.tar.gz
     $ cd puppetdb-bak
 
-Inside this directory there is a directory for each content type: `reports`, `catalogs` and each file inside represents a node (and a report instance for reports). The data is represented as pretty-formatted JSON so you can open these files up yourself and use tools such as `grep` to find any specific information you might have wanted to anonymize.
+Inside this directory there is a directory for each content type (reports, catalogs, and facts), and each file inside represents a node (and a report instance for reports). The data is represented as human-readable JSON. You can open these files and use tools such as `grep` to check the status of specific information you wish to anonymize.

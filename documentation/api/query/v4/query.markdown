@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Query Structure"
+title: "PuppetDB 3.2: Query structure"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/query.html"
 ---
@@ -17,20 +17,18 @@ canonical: "/puppetdb/latest/api/query/v4/query.html"
 ## Summary
 
 PuppetDB's query API can retrieve data objects from PuppetDB for use in other
-applications. For example, the PuppetDB termini for Puppet masters use this
+applications. For example, the PuppetDB-termini for Puppet masters use this
 API to collect exported resources.
 
 The query API is implemented as HTTP URLs on the PuppetDB server. By default,
 it can only be accessed over the network via host-verified HTTPS; [see the
 jetty settings][jetty] if you need to access the API over unencrypted HTTP.
 
-## Query Structure
+## Query structure
 
-A query consists of:
-
-* An HTTP GET request to an endpoint URL...
-* ...which may or may not contain a `query` URL parameter, whose value is a **query string...**
-* ...and which may or may not contain other URL parameters, to configure [paging][] or other behavior.
+A query consists of an HTTP GET request to an endpoint URL which may or may not contain: 
+* A `query` URL parameter, whose value is a **query string**. 
+* Other URL parameters, to configure [paging][] or other behavior.
 
 That is, most queries will look like a GET request to a URL that resembles the following:
 
@@ -40,7 +38,7 @@ Alternatively, you can provide the entity context instead of using the `<ENDPOIN
 
     https://puppetdb:8081/pdb/query/v4?query=<QUERY STRING>
 
-Consult the [root] endpoint documentation for more details.
+Consult the [root][root] endpoint documentation for more details.
 
 ### API URLs
 
@@ -50,21 +48,21 @@ API URLs generally look like this:
 
 For example: `https://puppetdb:8081/pdb/query/v4/resources?limit=50&offset=50`.
 
-### API Version
+### API version
 
 After the `/pdb/query/` prefix, the first part of an API URL is the
-**API version,** written as `v4`, etc. This section describes version
+**API version,** written in the `v4` format. This section describes version
 4 of the API, so every URL will begin with `/pdb/query/v4`.
 
-### Entity Endpoints
+### Entity endpoints
 
-After the version, URLs are organized into a number of **endpoints.** that express the entity you wish to query on.
+After the version, URLs are organized into a number of **endpoints** that express the entity you wish to query for.
 
 Conceptually, an entity endpoint represents a PuppetDB entity. Each version of the PuppetDB API defines a set number of endpoints.
 
 See the [entities documentation][entities] for a list of the available endpoints. Each endpoint may have additional sub-endpoints under it; these are generally just shortcuts for the most common types of query, so that you can write terser and simpler query strings.
 
-### URL Parameters
+### URL parameters
 
 Finally, the URL may include some **URL parameters.** Some endpoints require certain parameters; for others they're optional or disallowed. Each endpoint's page lists the parameters it accepts, and most endpoints also support the [paging][] parameters.
 
@@ -72,7 +70,7 @@ A group of parameters begins with a question mark (`?`). Each parameter is forma
 
 #### `query`
 
-The most common URL parameter is `query`, which lets you define the set of results returned by most endpoints. The value of `query` must be a **query string.** Query strings are described in more detail [below](#query-strings).
+The most common URL parameter is `query`, which lets you define the set of results returned by most endpoints. The value of `query` must be a **query string.** Query strings are described in more detail [here](#query-strings).
 
 #### Paging
 
@@ -80,17 +78,11 @@ The next most common URL parameters are the **paging** parameters.
 
 Most PuppetDB query endpoints support paged results via a set of shared URL parameters.  For more information, please see the documentation on [paging][paging].
 
-## Query Strings
+## Query strings
 
-A query string passed to the `query` URL parameter must be:
+A query string passed to the `query` URL parameter must be a [URL-encoded][urlencode] JSON array, which may contain scalar data types (usually strings) and additional arrays, that describes a complex _comparison operation_ in [_prefix notation_][prefix] with an **operator** first and its **arguments** following.
 
-* A [URL-encoded][urlencode]...
-* ...JSON array...
-    * ...which may contain scalar data types (usually strings) and additional arrays...
-* ...which describes a complex _comparison operation..._
-* ...in [_prefix notation_][prefix], with an **operator** first and its **arguments** following.
-
-That is, before being URL-encoded, all query strings follow the form:
+That is, before being URL-encoded, all query strings follow this form:
 
     [ "<OPERATOR>", "<ARGUMENT>", (..."<ARGUMENT>"...) ]
 
@@ -98,7 +90,7 @@ A complete query string describes a comparison operation. When submitting a quer
 
 Different operators may take different numbers (and types) of arguments. Each endpoint may have a slightly different set of operators available.
 
-> ### Explicit Grammar for Query Strings
+> ### Explicit grammar for query strings
 >
 > More explicitly, the following grammar describes a query string (before it is URL-encoded):
 >
@@ -116,7 +108,7 @@ Different operators may take different numbers (and types) of arguments. Each en
 >                   | "select_nodes"
 >                   | "select_fact_contents"
 
-> ### Note on JSON Formatting
+> ### Note on JSON formatting
 >
 > JSON arrays are delimited by square brackets (`[` and `]`), and items in the array are separated by commas. JSON strings are delimited by straight double-quotes (`"`) and must be UTF-8 text; literal double quotes and literal backslashes in the string must be escaped with a backslash (`"` is `\"` and `\` is `\\`).
 
@@ -126,15 +118,14 @@ Different operators may take different numbers (and types) of arguments. Each en
 
 PuppetDB uses three main kinds of operators:
 
-* **Binary comparison operators** like `=` or `<`, which take exactly one **field** and exactly one **value** as arguments. (`["=", "certname", "magpie.example.com"]`)
-* **Boolean operators** like `not` or `and`, which take complete query strings as arguments. `["and", ["<", "timestamp", "2011-01-01T12:01:00-03:00"], [">", "timestamp", "2011-01-01T12:00:00-03:00"]]`
+* **Binary comparison operators** like `=` or `<`, which take exactly one **field** and exactly one **value** as arguments. Examples: `["=", "certname", "magpie.example.com"]`
+* **Boolean operators** like `not` or `and`, which take complete query strings as arguments. Examples: `["and", ["<", "timestamp", "2011-01-01T12:01:00-03:00"], [">", "timestamp", "2011-01-01T12:00:00-03:00"]]`
 * **Subquery operators,** which always occur in the form `["in", "<FIELD>", ["extract", "<FIELD>", <SUBQUERY STATEMENT>] ]`.
 
-
-## Query Responses
+## Query responses
 
 All queries return data with a content type of `application/json`. Each endpoint's page describes the format of its return data.
 
-## Tutorial and Tips
+## Tutorial and tips
 
-For a walkthrough on constructing queries, see [the Query Tutorial page][tutorial]. For quick tips on using curl to make ad-hoc queries, see [the Curl Tips page][curl].
+For a walkthrough on constructing queries, see [the query tutorial page][tutorial]. For quick tips on using curl to make ad hoc queries, see [the curl tips page][curl].

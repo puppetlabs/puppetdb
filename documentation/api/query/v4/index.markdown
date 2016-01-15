@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Root Endpoint"
+title: "PuppetDB 3.2: Root endpoint (experimental)"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/index.html"
 ---
@@ -12,7 +12,7 @@ canonical: "/puppetdb/latest/api/query/v4/index.html"
 
 *Note:* This endpoint is experimental. It may be altered or removed in a future release.
 
-The root query endpoint can be used to retrieve any known entities, from a
+The root query endpoint can be used to retrieve any known entities from a
 single endpoint.
 
 ## `/pdb/query/v4`
@@ -21,14 +21,14 @@ This will return any known entity based on the required `query` field. Unlike
 other endpoints, the [entity][entities] must be supplied using a query with the [`from`][from]
 operator.
 
-### URL Parameters
+### URL parameters
 
-* `query`: Required. A JSON array containing the query in prefix notation
+* `query`: required. A JSON array containing the query in prefix notation
 (`["from", "<ENTITY>", ["<OPERATOR>", "<FIELD>", "<VALUE>"]]`). Unlike other endpoints,
-a query with a [`from`][from] is required to choose the [entity][entities] to query for. For
-general info about queries, see [the page on query structure.][query]
+a query with a [`from`][from] is required to choose the [entity][entities] for which to query. For
+general info about queries, see [our guide to query structure.][query]
 
-### Response Format
+### Response format
 
 The response will be in `application/json`, and will contain a list of JSON
 object results based on the [entity][entities] provided in the top-level [`from`][from] query.
@@ -58,6 +58,6 @@ object results based on the [entity][entities] provided in the top-level [`from`
 ## Paging
 
 This query endpoint supports paged results via the common PuppetDB paging
-URL parameters.  For more information, please see the documentation
+URL parameters. For more information, see the documentation
 on [paging][paging].
 

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » Admin API » v1 » Importing and Exporting PuppetDB Archives"
+title: "PuppetDB 3.2: Archive endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/admin/v1/archive.html"
 ---
@@ -12,27 +12,27 @@ The `/archive` endpoint can be used for importing and exporting PuppetDB archive
 
 This endpoint can be used for streaming a PuppetDB archive into PuppetDB.
 
-### Request Format
+### Request format
 
 The request should be a multipart POST and have `Content-Type: multipart/mixed`.
 
-### URL Parameters
+### URL parameters
 
-* `archive`: Required. The archive file to import to the PuppetDB.
-* `command_versions`: Required. A JSON object mapping PuppetDB command-names to their version. The mapping for a given PuppetDB archive can be found in the archive:
-~~~shell
-        tar -xOf <my-pdb-archive>.tar.gz puppetdb-bak/export-metadata.json
+* `archive`: required. The archive file to import to the PuppetDB.
+* `command_versions`: required. A JSON object mapping PuppetDB command names to their version. The mapping for a given PuppetDB archive can be found in the archive:
+
+~~~ shell
+    tar -xOf <my-pdb-archive>.tar.gz puppetdb-bak/export-metadata.json
 ~~~
 
-### Response Format
+### Response format
 
-The response will be in `application/json`, and will return a JSON map
+The response will be in `application/json`, and will return a JSON map upon successful completion of the importation:
 
     {"ok": true}
 
-upon successful completion of the importation.
+### Example
 
-### Examples
 [Using `curl` from localhost][curl]:
 
         curl -X POST http://localhost:8080/pdb/admin/v1/archive \
@@ -45,15 +45,15 @@ upon successful completion of the importation.
 
 This endpoint can be used to stream a tarred, gzipped backup archive of PuppetDB to your local machine.
 
-### URL Parameters
+### URL parameters
 
-* `anonymization_profile`: Optional. The level of anonymization applied to the archive files.
+* `anonymization_profile`: optional. The level of anonymization applied to the archive files.
 
-### Response Format
+### Response format
 
 The response will be a `application/octet-stream`, and will return a `tar.gz` archive.
 
-### Examples
+### Example
 
 [Using `curl` from localhost][curl]:
 

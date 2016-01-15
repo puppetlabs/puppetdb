@@ -7,23 +7,23 @@ canonical: "/puppetdb/latest/using.html"
 [exported]: /puppet/latest/reference/lang_exported.html
 
 
-Currently, the main use for PuppetDB is to enable advanced features in Puppet. We expect additional applications to be built on PuppetDB as it becomes more widespread.
+Currently, PuppetDB's primary use is enabling advanced Puppet features. As use becomes more widespread, we expect additional applications to be built on PuppetDB.
 
-If you wish to build applications on PuppetDB, see the navigation sidebar for links to the API spec.
+If you wish to build applications on PuppetDB, see the navigation sidebar for links to the API specifications.
 
-Checking Node Status
+Checking node status
 -----
 
-The PuppetDB plugins [installed on your puppet master(s)](./connect_puppet_master.html) include a `status` action for the `node` face. On your puppet master, run:
+The PuppetDB plugins [installed on your Puppet master(s)](./connect_puppet_master.html) include a `status` action for the `node` face. On your Puppet master, run:
 
-    $ sudo puppet node status <node>
+    $ sudo puppet node status <NODE>
 
-where `<node>` is the name of the node you wish to investigate. This will tell you whether the node is active, when its last catalog was submitted, and when its last facts were submitted.
+where `<NODE>` is the name of the node you wish to investigate. This will tell you whether the node is active, when its last catalog was submitted, and when its last facts were submitted.
 
-Using Exported Resources
+Using exported resources
 -----
 
 PuppetDB lets you use exported resources, which allows your nodes to publish information for use by other nodes.
 
-[See here for more about using exported resources.][exported]
+[Learn more about using exported resources here.][exported]
 

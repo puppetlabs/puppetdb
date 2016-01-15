@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » API » v4 » Querying Event Counts"
+title: "PuppetDB 3.2: Event counts endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/event-counts.html"
 ---
@@ -9,13 +9,13 @@ canonical: "/puppetdb/latest/api/query/v4/event-counts.html"
 [curl]: ../curl.html
 [query]: ./query.html
 
-> **Experimental Endpoint**: The event-counts endpoint is designated
+> **Experimental endpoint**: The event-counts endpoint is designated
 > as experimental. It may be altered or removed in a future release.
 
-Puppet agent nodes submit reports after their runs, and the puppet master forwards these to PuppetDB. Each report includes:
+Puppet agent nodes submit reports after their runs, and the Puppet master forwards these to PuppetDB. Each report includes:
 
-* Some data about the entire run
-* Some metadata about the report
+* Data about the entire run
+* Metadata about the report
 * Many _events,_ describing what happened during the run
 
 Once this information is stored in PuppetDB, it can be queried in various ways.
@@ -26,42 +26,38 @@ Once this information is stored in PuppetDB, it can be queried in various ways.
 
 ## `/pdb/query/v4/event-counts`
 
-This will return count information about all of the resource events matching the given query.
+Returns count information about all of the resource events matching the given query.
 For a given object type (resource, containing_class, or node), you can retrieve counts of the
-number of events on objects of that type that had a status of `success`, `failure`, `noop`,
-or `skip`.
+number of events on objects of that type that had a status of `success`, `failure`, `noop`, or `skip`.
 
-See the [`events`][events] endpoint for additional documentation as this endpoint builds heavily on it.
+See the [`events`][events] endpoint for additional documentation, as this endpoint builds heavily on it.
 
-### URL Parameters
+### URL parameters
 
-* `query`: Optional. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
-This query is forwarded to the [`events`][events] endpoint - see there for additional documentation. For general info about queries, see [the page on query structure.][query]
+* `query`: optional. A JSON array of query predicates in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`).
+This query is forwarded to the [`events`] endpoint; additional information about this endpoint can be found [here][events]. For general info about queries, see [our guide to query structure][query].
 
-* `summarize_by`: Required. A string specifying which type of object you'd like to see counts for.
-Supported values are `resource`, `containing_class`, and `certname`.
+* `summarize_by`: required. A string specifying which type of object you'd like to see counts for. Supported values are `resource`, `containing_class`, and `certname`.
 
-* `count_by`: Optional. A string specifying what type of object is counted when building up the
-counts of `successes`, `failures`, `noops`, and `skips`. Supported values are `resource` (default)
-and `certname`.
+* `count_by`: optional. A string specifying what type of object is counted when building up the counts of `successes`, `failures`, `noops`, and `skips`. Supported values are `resource` (default) and `certname`.
 
-* `counts_filter`: Optional. A JSON array of query predicates in the usual prefix form. This query
+* `counts_filter`: optional. A JSON array of query predicates in the usual prefix form. This query
 is applied to the final event counts output. Supported operators are `=`, `>`, `<`, `>=`, and `<=`.
 Supported fields are `failures`, `successes`, `noops`, and `skips`.
 
-* `distinct_resources`: Optional.  (EXPERIMENTAL: it is possible that the behavior
-of this parameter may change in future releases.)  This parameter is passed along
-to the [`events`][events] query - see there for additional documentation.
+* `distinct_resources`: optional. (**Experimental: it is possible that the behavior
+of this parameter may change in future releases.**) This parameter is passed along
+to the `events` query. See the [`events` documentation][events] for more information.
 
-### Query Operators
+### Query operators
 
 This endpoint builds on top of the [`events`][events] endpoint, and supports all of the [same operators.](./events.html#query-operators)
 
-### Query Fields
+### Query fields
 
 This endpoint builds on top of the [`events`][events] endpoint, and supports all of the [same fields.](./events.html#query-fields)
 
-### Response Format
+### Response format
 
 The response is a JSON array of maps. Each map contains the counts of events that matched the input
 parameters. The events are counted based on their statuses: `failures`, `successes`, `noops`, `skips`.
@@ -92,7 +88,7 @@ When summarizing by `certname`, the `subject` will contain a `title` key:
       }
     ]
 
-When summarizing by `resource`, the `subject` will contain a `type` and `title` key:
+When summarizing by `resource`, the `subject` will contain `type` and `title` keys:
 
     [
       {
@@ -136,7 +132,7 @@ When summarizing by `containing_class`, the `subject` will contain a `title` key
 
 ### Examples
 
-You can use [`curl`][curl] to query information about resource event counts like so:
+You can use [`curl`][curl] to query information about resource event counts:
 
     curl -G 'http://localhost:8080/pdb/query/v4/event-counts' \
       --data-urlencode 'query=["=", "certname", "foo.local"]' \
@@ -146,5 +142,4 @@ You can use [`curl`][curl] to query information about resource event counts like
 
 ## Paging
 
-This endpoint supports paged results via the common PuppetDB paging URL parameters.
-For more information, please see the documentation on [paging][paging].
+This endpoint supports paged results via the common PuppetDB paging URL parameters. For more information, please see the documentation on [paging][paging].
