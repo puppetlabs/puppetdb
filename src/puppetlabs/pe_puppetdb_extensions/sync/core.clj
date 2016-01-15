@@ -172,25 +172,34 @@
     (let [^java.net.URI uri (uri-with-trailing-slash url)]
       (without-trailing-slash (str (.resolve uri path))))))
 
-(defn-validated http-get
-  "A wrapper around puppetlabs.http.client.sync/get which:
+
+(defn-validated http-request
+  "A wrapper around puppetlabs.http.client.sync which:
 
    - throws slingshot exceptions like clj-http does on error responses
 
    - takes a custom error formatter, `(fn [status body] ...)`, to provide a
      message which is written to the log on failure status codes "
-  [remote-server :- remote-server-schema
+  [method :- (s/enum :get :post)
+   remote-server :- remote-server-schema
    path :- s/Str
    opts :- {s/Any s/Any}
    error-message-fn]
   (try
     (let [full-url (url-on-remote-server remote-server path)
           request-opts (merge {:as :text} opts)
-          _ (log/debugf "HTTP GET %s %s" (url-on-remote-server remote-server path) request-opts)
-          response (http/get (:client remote-server) full-url request-opts)]
+          _ (log/debugf "HTTP %s %s %s"
+                        (clojure.string/upper-case (name method))
+                        (url-on-remote-server remote-server path)
+                        request-opts)
+          request-fn (case method
+                       :get http/get
+                       :post http/post)
+          response (request-fn (:client remote-server) full-url request-opts)]
       (if (is-error-status? (:status response))
-        (throw+ {:type ::remote-host-error :error-response response}
-                (error-message-fn (:status response) (:body response)))
+        (let [response (update response :body #(if (string? %) % (slurp %)))]
+          (throw+ {:type ::remote-host-error :error-response response}
+                  (error-message-fn (:status response) (:body response))))
         response))
     (catch Exception e
       (events/failed-request!)
@@ -210,11 +219,11 @@
        (:order_by internal-order-by-clause)))
 
 (defn http-get-for-expansion [url path key]
-  (http-get url path {}
-            (fn [status body]
-              (format (str "Error getting URL %s, to expand record key %s. "
-                           "Received HTTP status code %s with the error message '%s'")
-                      (url-on-remote-server url path) key status body))))
+  (http-request :get url path {}
+                (fn [status body]
+                  (format (str "Error getting URL %s, to expand record key %s. "
+                               "Received HTTP status code %s with the error message '%s'")
+                          (url-on-remote-server url path) key status body))))
 
 (defn collapse-and-download-collections
   "Look for values in `record` which are maps with `data` and `href`
@@ -275,8 +284,8 @@
                                         "%s. Received HTTP status code %s with the "
                                         "error message '%s'")
                                    (url-on-remote-server remote-server path) status (slurp body)))]
-    (with-open [body (:body (http-get remote-server path {:as :stream}
-                                      error-message-fn))
+    (with-open [body (:body (http-request :get remote-server path {:as :stream}
+                                          error-message-fn))
                 body-reader (clojure.java.io/reader body)]
       (ks/mapkeys to-date-time
                   (json/parse-stream body-reader)))))
@@ -311,19 +320,27 @@
 
 ;;; Pull from remote instance
 
-(defn query-record-and-transfer!
+(defn ingest-record-data [record-data remote-server clean-up-record-fn store-record-locally-fn]
+  (-> record-data
+      (collapse-and-download-collections remote-server)
+      strip-timestamp-and-hash
+      clean-up-record-fn
+      store-record-locally-fn))
+
+(defn transfer-batch
   "Query for a record where `record-fetch-key` (from `sync-config`) equals
   `record-fetch-val` and submit a command locally to copy that record, via
   `store-record-locally-fn`."
-  [remote-server record submit-command-fn sync-config]
+  [remote-server record-seq submit-command-fn sync-config]
   (let [{:keys [entity record-fetch-key clean-up-record-fn
                 submit-command]} sync-config
         entity-name (name entity)
-        record-fetch-val (record-fetch-key record)
+        record-fetch-vals (map record-fetch-key record-seq)
         store-record-locally-fn (partial submit-command-fn
                                          (:command submit-command)
                                          (:version submit-command))
-        query ["and" ["=" (name record-fetch-key) record-fetch-val]
+        ingest-record-data #(ingest-record-data % remote-server clean-up-record-fn store-record-locally-fn)
+        query ["and" ["in" (name record-fetch-key) ["array" (vec record-fetch-vals)]]
                include-inactive-nodes-criteria]
         qerr-msg (fn [status body]
                    (str "unable to request " entity-name " from " (:url remote-server)
@@ -332,21 +349,22 @@
     (with-sync-events {:context (merge {:phase "record"
                                         :entity entity-name
                                         :remote (url-on-remote-server remote-server entity-name)
-                                        :query query}
-                                       (select-keys record [:certname :hash]))
+                                        :query query})
                        :start [:debug "    syncing {entity} record ({certname} {hash}) from {remote}"]
                        :finished [:debug "    --> transferred {entity} record for query {query} via {remote} in {elapsed} ms"]
                        :error [:warn "    *** failed to sync {entity} record for query {query} via {remote} in {elapsed} ms"]}
-      (-> (http-get remote-server entity-name
-                    {:query-params {"query" (json/generate-string query)}}
-                    qerr-msg)
-          :body
-          (json/parse-string true)
-          first
-          (collapse-and-download-collections remote-server)
-          strip-timestamp-and-hash
-          clean-up-record-fn
-          store-record-locally-fn))))
+      (with-open [body-stream (-> (http-request :post remote-server entity-name
+                                                {:as :stream
+                                                 :body (json/generate-string {:query query})
+                                                 :headers {"Content-Type" "application/json"}}
+                                                qerr-msg)
+                                  :body)
+                  body-reader (clojure.java.io/reader body-stream)]
+        (let [records-transferred (->> (json/parse-stream body-reader true)
+                                       (map ingest-record-data)
+                                       count)]
+          {:transferred records-transferred
+           :failed (- (count record-seq) records-transferred)})))))
 
 (defn- need-local-deactivation?
   "Returns a truthy value indicating whether a local deactivation is
@@ -419,11 +437,11 @@
         error-message-fn (fn [status body]
                            (format "Error querying %s for record summaries (%s). Received HTTP status code %s with the error message '%s'"
                                    remote-server entity-name status body))]
-    (-> (http-get remote-server entity-name
-                  {:query-params {"query" (json/generate-string query)
-                                  "order_by" (json/generate-string (order-by-clause-to-wire-format order))}
-                   :as :stream}
-                  error-message-fn)
+    (-> (http-request :get remote-server entity-name
+                      {:query-params {"query" (json/generate-string query)
+                                      "order_by" (json/generate-string (order-by-clause-to-wire-format order))}
+                       :as :stream}
+                      error-message-fn)
         :body)))
 
 (defn pull-records-from-remote!
@@ -469,21 +487,18 @@
                   {:keys [version query order]} summary-query
                   incoming-records #(records-to-fetch record-id-fn record-ordering-fn
                                                       % remote-sync-data now node-ttl)
-                  maybe-deactivate! #(set-local-deactivation-status! % submit-command-fn)
-                  query-and-transfer! #(query-record-and-transfer!
-                                        remote-server % submit-command-fn sync-config)]
+                  maybe-deactivate #(set-local-deactivation-status! % submit-command-fn)
+                  transfer-batch #(transfer-batch remote-server % submit-command-fn sync-config)]
               (query-fn version ["from" entity-name query] order
                         (fn [local-sync-data]
-                          (doseq [record (incoming-records local-sync-data)]
-                            (try+
-                             (if (= entity :nodes)
-                               (when (maybe-deactivate! record)
-                                 (swap! stats update-in [:transferred] inc))
-                               (do
-                                 (query-and-transfer! record)
-                                 (swap! stats update-in [:transferred] inc)))
-                             (catch (remote-host-404? %) _
-                               (swap! stats update-in [:failed] inc)))))))))
+                          ;; transfer records in batches of 5000, to avoid per-request overhead
+                          (doseq [batch (partition-all 5000 (incoming-records local-sync-data))]
+                            (if (= entity :nodes)
+                              (doseq [record batch]
+                                (when (maybe-deactivate record)
+                                  (swap! stats update :transferred + (count batch))))
+                              (let [batch-transfer-stats (transfer-batch batch)]
+                                (swap! stats (partial merge-with +) batch-transfer-stats)))))))))
         @stats))))
 
 (defn wrap-submit-command-fn

@@ -105,10 +105,10 @@
 (defn validate-trigger-sync
   "Validates `remote-server' as a valid sync target given user config items"
   [allow-unsafe-sync-triggers remotes-config jetty-config remote-server]
-  (let [valid-remote-urls (map #(-> (:server-url %)
-                                    (make-remote-server jetty-config)
-                                    :url)
-                               remotes-config)]
+  (let [valid-remote-urls (for [remote-config remotes-config]
+                            (with-open [remote-server (make-remote-server (:server-url remote-config)
+                                                                          jetty-config)]
+                              (:url remote-server)))]
     (or allow-unsafe-sync-triggers
         (ks/seq-contains? valid-remote-urls (:url remote-server)))))
 

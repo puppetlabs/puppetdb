@@ -154,12 +154,12 @@
           (perform-sync (utils/stub-url-str "/pdb-x/query/v4")
                         (utils/trigger-sync-url-str)))
 
-        ;; We should see that the sync happened, and that one summary
-        ;; query and two factset querys where made to PDB X
+        ;; We should see that the sync happened, and that a summary
+        ;; query and a bulk record transfer query where made to PDB X
         (let [synced-factsets (get-json (utils/pdb-query-url) "/factsets")
               environments (->> synced-factsets (map :environment) (into #{}))]
           (is (= #{"DEV" "A" "E" "F"} environments))
-          (is (= 4 (count @pdb-x-queries))))))))
+          (is (= 2 (count @pdb-x-queries))))))))
 
 ;;  the catalogs we get as http responses have flattened edge definitions
 (def catalog-response
@@ -231,12 +231,11 @@
           (perform-sync (utils/stub-url-str "/pdb-x/query/v4")
                         (utils/trigger-sync-url-str)))
 
-        ;; We should see that the sync happened, and that two catalog
-        ;; queries were made to PDB X
+        ;; We should see that the sync happened, and a summary query and bulk record query were made to PDB X
         (let [synced-catalogs (get-json (utils/pdb-query-url) "/catalogs")
               environments (->> synced-catalogs (map :environment) (into #{}))]
           (is (= #{"DEV" "A" "E" "F"} environments))
-          (is (= 4 (count @pdb-x-queries))))))))
+          (is (= 2 (count @pdb-x-queries))))))))
 
 (deftest pull-with-https
   (let [pdb-x-queries (atom [])
