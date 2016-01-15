@@ -87,7 +87,6 @@ the form:
 The `<resources>` object is of the following form:
 
     {
-      "certname": <string>,
       "resource": <string>,
       "type": <string>,
       "title": <sttring>,
