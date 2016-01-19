@@ -143,10 +143,6 @@
     (is (thrown-with-msg? IllegalArgumentException #"is not specified"
                           (validate-vardir {:global {:vardir nil}}))))
 
-  (testing "should fail if it's not an absolute path"
-    (is (thrown-with-msg? IllegalArgumentException #"must be an absolute path"
-                          (validate-vardir (vardir "foo/bar/baz")))))
-
   (testing "should fail if it doesn't exist"
     (is (thrown-with-msg? java.io.FileNotFoundException #"does not exist"
                           (validate-vardir (vardir "/abc/def/ghi")))))
@@ -172,6 +168,15 @@
                      (.delete)
                      (.mkdir)
                      (.setWritable true))]
+      (is (= (validate-vardir (vardir filename))
+             (vardir filename)))))
+
+  (testing "should support relative paths"
+    (let [filename "./target/totally/okay"]
+      (doto (fs/file filename)
+        (.deleteOnExit)
+        (.mkdirs)
+        (.setWritable true))
       (is (= (validate-vardir (vardir filename))
              (vardir filename))))))
 

@@ -245,7 +245,10 @@
   "Checks that `vardir` is specified, exists, and is writeable, throwing
   appropriate exceptions if any condition is unmet."
   [config]
-  (let [vardir (io/file (get-in config [:global :vardir]))]
+  (let [vardir (some-> (get-in config [:global :vardir])
+                       io/file
+                       fs/absolute-path
+                       fs/file)]
     (cond
      (nil? vardir)
      (throw (IllegalArgumentException.
