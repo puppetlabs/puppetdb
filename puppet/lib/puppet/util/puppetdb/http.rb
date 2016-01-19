@@ -147,7 +147,7 @@ module Puppet::Util::Puppetdb
         request_exception = with_http_error_logging(server_url, route) {
           http = Puppet::Network::HttpPool.http_instance(server_url.host, server_url.port)
 
-          response = timeout(config.server_url_timeout) do
+          response = Timeout.timeout(config.server_url_timeout) do
             http_callback.call(http, route)
           end
         }
@@ -182,7 +182,7 @@ module Puppet::Util::Puppetdb
         request_exception = with_http_error_logging(server_url, route) {
           http = Puppet::Network::HttpPool.http_instance(server_url.host, server_url.port)
 
-          response = timeout(config.server_url_timeout) do
+          response = Timeout.timeout(config.server_url_timeout) do
             http_callback.call(http, route)
           end
         }
