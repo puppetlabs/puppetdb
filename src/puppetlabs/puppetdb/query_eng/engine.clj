@@ -120,10 +120,7 @@
                                        [:= :certnames.certname :fs.certname]
 
                                        :reports
-                                       [:and
-                                        [:= :certnames.certname :reports.certname]
-                                        [:in :reports.id {:select [:latest_report_id]
-                                                          :from [:certnames]}]]
+                                       [:= :certnames.latest_report_id :reports.id]
 
                                        [:environments :catalog_environment]
                                        [:= :catalog_environment.id :catalogs.environment_id]
