@@ -846,13 +846,6 @@
            UNION SELECT environment_id FROM factsets
                    WHERE environment_id IS NOT NULL)"])))
 
-(defn delete-unassociated-statuses!
-  "Remove any statuses that aren't associated with a report"
-  []
-  (time! (:gc-report-statuses performance-metrics)
-         (jdbc/delete! :report_statuses
-                       ["ID NOT IN (SELECT status_id FROM reports)"])))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Facts
 
@@ -1411,8 +1404,7 @@
    (:gc performance-metrics)
    (jdbc/with-transacted-connection db
      (delete-unassociated-params!)
-     (delete-unassociated-environments!)
-     (delete-unassociated-statuses!))
+     (delete-unassociated-environments!))
    ;; These require serializable because they make the decision to
    ;; delete based on row counts in another table.
    (jdbc/with-transacted-connection' db :serializable
