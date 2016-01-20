@@ -281,6 +281,14 @@ must be supplied as the value to be matched."
     (format "encode(%s::bytea, 'hex')" column)
     column))
 
+(defn vacuum-analyze
+  "Must call within a db connection"
+  [db]
+  (sql/with-db-connection [conn db]
+    (-> (doto (:connection conn) (.setAutoCommit true))
+        .createStatement
+        (.execute "vacuum (analyze)"))))
+
 (defn sql-uuid-as-str
   [column]
   (if (postgres?)

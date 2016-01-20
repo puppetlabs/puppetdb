@@ -14,6 +14,7 @@
 (deftest resource-count
   (testing "Counting resources"
     (testing "should return 0 when no resources present"
+      (sutils/vacuum-analyze *db*)
       (is (= 0 (pop/num-resources))))
 
     (testing "should only count current resources"
@@ -45,31 +46,29 @@
        {:catalog_id 1 :resource (sutils/munge-hash-for-storage "02") :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
        {:catalog_id 1 :resource (sutils/munge-hash-for-storage "03") :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
 
-      (is (= 3 (pop/num-resources))))
-
-    (testing "should only count resources for active nodes"
-      ;; Remove the node from the previous block
-      (deactivate-node! "h1")
-      (is (= 0 (pop/num-resources))))))
+      (sutils/vacuum-analyze *db*)
+      (is (= 4 (pop/num-resources))))))
 
 (deftest node-count
   (testing "Counting nodes"
     (testing "should return 0 when no resources present"
-      (is (= 0 (pop/num-nodes))))
+      (is (= 0 (pop/num-active-nodes))))
 
     (testing "should only count active nodes"
       (jdbc/insert! :certnames
                     {:certname "h1"}
                     {:certname "h2"})
 
-      (is (= 2 (pop/num-nodes)))
+      (is (= 2 (pop/num-active-nodes)))
 
       (deactivate-node! "h1")
-      (is (= 1 (pop/num-nodes))))))
+      (is (= 1 (pop/num-active-nodes)))
+      (is (= 1 (pop/num-inactive-nodes))))))
 
 (deftest resource-dupes
   (testing "Computing resource duplication"
     (testing "should return 0 when no resources present"
+      (sutils/vacuum-analyze *db*)
       (is (= 0 (pop/pct-resource-duplication))))
 
     (testing "should equal (total-unique) / total"
@@ -102,9 +101,5 @@
       (let [total  4
             unique 3
             dupes  (/ (- total unique) total)]
-        (is (= dupes (pop/pct-resource-duplication))))
-
-      ;; If we remove h2's resources, the only resources left are all
-      ;; unique and should result in a duplicate percentage of zero
-      (deactivate-node! "h2")
-      (is (= 0 (pop/pct-resource-duplication))))))
+        (sutils/vacuum-analyze *db*)
+        (is (= dupes (pop/pct-resource-duplication)))))))

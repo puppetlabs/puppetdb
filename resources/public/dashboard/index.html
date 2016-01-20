@@ -108,6 +108,19 @@ body {
     };
   };
 
+  function merge(a, b){
+      // merge objects a and b, giving b's contents precedence and returning
+      // a new object
+      var result = {};
+      for (item in a) {
+          result[item] = a[item];
+      }
+      for (item in b) {
+          result[item] = b[item];
+      }
+      return result;
+  };
+
   // Parse URL arguments
   function getParameter(paramName) {
     var searchString = window.location.search.substring(1),
@@ -177,9 +190,14 @@ body {
        url: "/metrics/v1/mbeans/java.lang:type=Memory",
        format: d3.format(",.3s"),
        snag: function(res) { return res["HeapMemoryUsage"]["used"]; }},
-      {description: "Nodes",
+      {description: "Active Nodes",
        addendum: "in the population",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.query.population:type=default,name=num-nodes",
+       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.query.population:type=default,name=num-active-nodes",
+       format: d3.format(","),
+       snag: getValueSnag},
+      {description: "Inactive Nodes",
+       addendum: "in the population",
+       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.query.population:type=default,name=num-inactive-nodes",
        format: d3.format(","),
        snag: getValueSnag},
       {description: "Resources",
@@ -188,6 +206,7 @@ body {
        format: d3.format(","),
        snag: getValueSnag},
       {description: "Resource duplication",
+       options: {pollingInterval: 1000 * 30},
        addendum: "% of resources stored",
        url: "/metrics/v1/mbeans/puppetlabs.puppetdb.query.population:type=default,name=pct-resource-dupes",
        format: d3.format(",.1%"),
@@ -265,12 +284,13 @@ body {
 
   for (i = 0; i < metrics.length; i++) {
       var metric = metrics[i];
+      var local_options = metric["options"] || {};
       counterAndSparkline(metric.description,
                           metric.addendum,
                           metric.url,
                           metric.format,
                           metric.snag,
-                          options);
+                          merge(options, local_options));
   }
 
   // Check the current version and for updates now, and then every 5 minutes
