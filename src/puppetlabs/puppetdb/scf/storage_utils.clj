@@ -287,6 +287,10 @@ must be supplied as the value to be matched."
     (format "%s::text" column)
     column))
 
+(defn vacuum-analyze
+  [db]
+  (jdbc/do-commands false "vacuum analyze"))
+
 (defn parse-db-hash
   [db-hash]
   (if (postgres?)
