@@ -223,6 +223,11 @@
   [column]
   (format "encode(%s::bytea, 'hex')" column))
 
+(defn vacuum-analyze
+  [db]
+  (sql/with-db-connection [conn db]
+    (sql/execute! db ["vacuum analyze"] :transaction? false)))
+
 (defn parse-db-hash
   [db-hash]
   (clojure.string/replace (.getValue db-hash) "\\x" ""))
