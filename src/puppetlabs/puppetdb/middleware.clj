@@ -294,9 +294,9 @@
                        length-in-bytes
                        max-command-size)
             (consume-and-close (:body req) length-in-bytes)
-            {:status 413
-             :headers {}
-             :body "Command rejected due to size exceeding max-command-size"})
+            (http/error-response
+             "Command rejected due to size exceeding max-command-size"
+             http/status-entity-too-large))
           (app req)))
       (app req))))
 

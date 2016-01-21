@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.http.command-test
-  (:require [clojure.math.combinatorics :refer [combinations]]
+  (:require [clojure.core.async :as async]
+            [clojure.math.combinatorics :refer [combinations]]
             [clojure.set :as set]
             [clojure.string :as str]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -205,3 +206,42 @@
     (is (= (content-type response)
            http/json-response-content-type))
     (is (uuid-in-response? response))))
+
+(deftest enqueue-max-command-size
+  ;; Does not check blocking-submit-command yet.
+  (testing "size limit"
+    (tgt/with-chan [chan (async/chan)]
+      (let [pub (async/pub chan :id)
+            enqueuer (fn [limit]
+                       (#'tgt/enqueue-command-handler (fn [& args] true)
+                                                      (fn [] pub)
+                                                      limit))
+            req {:request-method :post :body "more than ten characters"}
+            wait-req (assoc req :params {"secondsToWaitForCompletion" "0.001"})]
+
+        ;; These cases differ because we want to skip the processing
+        ;; via timeout in the "success" case.
+        (testing "when disabled, allows larger size"
+          (testing "(without timeout),"
+            (is (= http/status-ok
+                   (:status ((enqueuer false) req)))))
+          (testing "(with timeout),"
+            (testing "when disabled, allows larger size"
+              (let [response ((enqueuer false) wait-req)]
+                (is (= http/status-unavailable (:status response)))
+                (is (= true
+                       ((json/parse-string (:body response)) "timed_out")))))))
+
+        ;; These cases should behave the same in the with/without cases
+        (doseq [[case-name req] [["(without timeout)," req]
+                                 ["(with timeout)," wait-req]]]
+          (testing case-name
+            (testing "when enabled, rejects excessive string requests"
+              (is (= http/status-entity-too-large
+                     (:status ((enqueuer 10) req)))))
+            (testing "when enabled, rejects excessive stream requests"
+              (is (= http/status-entity-too-large
+                     (:status ((enqueuer 10)
+                               (assoc req :body
+                                      (ByteArrayInputStream.
+                                       (.getBytes (:body req)))))))))))))))

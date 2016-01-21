@@ -67,6 +67,22 @@
        (finally
          (async/unsub p# t# c#)))))
 
+(defn- restrained-drained-stream [stream max-size]
+  "Returns a stream that will throw ::body-stream-overflow and drain
+  the rest of the stream if more than max-size-data is read."
+  ;; The drain is because ruby.  i.e. if we closed the connection
+  ;; without that, one of the ruby clients wouldn't handle the broken
+  ;; pipe in a friendly way.
+  (proxy [LimitedInputStream] [stream max-size]
+    (raiseError [max-size count]
+      ;; We don't trust skip; it appears to just invoke InputStream
+      ;; skip which claims to allocate at least one buffer (of
+      ;; unspecified size) per request.
+      (loop [buf (byte-array (* 64 1024))]
+        (when (pos? (.read ^java.io.InputStream this buf))
+          (recur buf)))
+      (throw+ ::body-stream-overflow))))
+
 (defn- blocking-submit-command
   "Submit a command by calling do-submit-fn and block until it completes.
   Subscribes to response-pub on the topic of the commands uuid, waiting up to
@@ -80,19 +96,20 @@
           timeout-chan (http/json-response {:uuid uuid
                                             :processed false
                                             :timed_out true}
-                                           503)
+                                           http/status-unavailable)
           response-chan ([{:keys [command exception]}]
                          (let [base-response {:uuid uuid
                                               :processed true}]
                            (if exception
-                             (http/json-response (assoc base-response
-                                                        :timed_out false
-                                                        :error (str exception)
-                                                        :stack_trace (map str (.getStackTrace exception)))
-                                                 503)
+                             (http/json-response
+                              (assoc base-response
+                                     :timed_out false
+                                     :error (str exception)
+                                     :stack_trace (map str (.getStackTrace exception)))
+                              http/status-unavailable)
                              (http/json-response (assoc base-response
                                                         :timed_out false)
-                                                 200)))))))))
+                                                 http/status-ok)))))))))
 
 (def new-request-schema
   {:params {(s/required-key "command") s/Str
@@ -151,43 +168,69 @@
               (normalize-new-request req)
               (normalize-old-request req)))))
 
+(defn- realize-body [body max-command-size]
+  "Returns the body as an in-memory string or byte-array, reading it
+  if necessary.  Throws ::body-stream-overflow if the max-command-size
+  is not false and not respected."
+  (if-not max-command-size
+    (if (instance? java.io.InputStream body)
+      (IOUtils/toByteArray body)
+      body)
+    (cond
+      (instance? java.io.InputStream body)
+      (IOUtils/toByteArray
+       (restrained-drained-stream body (long max-command-size)))
+
+      (string? body)
+      ;; Given Java's (UCS-2) encoding, the size should be effectively
+      ;; two bytes per character.
+      (if (> (* 2 (count body)) max-command-size)
+        (throw+ ::body-stream-overflow)
+        body)
+
+      :else
+      (throw (Exception. (str "Unexpected body type: " (class body)))))))
+
 (defn- enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
-  [enqueue-fn get-response-pub]
+  [enqueue-fn get-response-pub max-command-size]
   (fn [{:keys [body params] :as request}]
     ;; For now body will be in-memory, but eventually may be a stream.
-    (let [uuid (kitchensink/uuid)
-          completion-timeout-ms (some-> params
-                                        (get "secondsToWaitForCompletion")
-                                        Double/parseDouble
-                                        (* 1000))
-          submit-params (select-keys params ["certname" "command" "version"])
-          submit-params (if-let [v (submit-params "version")]
-                          (update submit-params "version" str)
-                          submit-params)
-          ;; Replace read-body when our queue supports streaming
-          do-submit #(enqueue-fn (if (instance? java.io.InputStream body)
-                                   (IOUtils/toByteArray body)
-                                   body)
-                                 uuid
-                                 submit-params)]
-      (if (some-> completion-timeout-ms pos?)
-        (blocking-submit-command do-submit (get-response-pub)
-                                 uuid
-                                 completion-timeout-ms)
-        (do
-          (do-submit)
-          (http/json-response {:uuid uuid}))))))
+    (try+
+     (let [uuid (kitchensink/uuid)
+           completion-timeout-ms (some-> params
+                                         (get "secondsToWaitForCompletion")
+                                         Double/parseDouble
+                                         (* 1000))
+           submit-params (select-keys params ["certname" "command" "version"])
+           submit-params (if-let [v (submit-params "version")]
+                           (update submit-params "version" str)
+                           submit-params)
+           ;; Replace read-body when our queue supports streaming
+           do-submit #(enqueue-fn (realize-body body max-command-size)
+                                  uuid
+                                  submit-params)]
+       (if (some-> completion-timeout-ms pos?)
+         (blocking-submit-command do-submit (get-response-pub)
+                                  uuid
+                                  completion-timeout-ms)
+         (do
+           (do-submit)
+           (http/json-response {:uuid uuid}))))
+     (catch (= ::body-stream-overflow %) _
+       (http/error-response "Command size exceeds max-command-size"
+                            http/status-entity-too-large)))))
 
 (defn- add-received-param
   [handle]
   (fn [req]
     (handle (assoc-in req [:params "received"] (kitchensink/timestamp)))))
 
-(defn routes [enqueue-fn get-response-pub]
+(defn routes [enqueue-fn get-response-pub max-command-size]
   (cmdi/context "/v1"
                 (cmdi/ANY "" []
-                          (enqueue-command-handler enqueue-fn get-response-pub))))
+                          (enqueue-command-handler enqueue-fn get-response-pub
+                                                   max-command-size))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -196,8 +239,10 @@
 ;; return functions that accept a ring request map
 
 (defn command-app
-  [get-shared-globals enqueue-fn get-response-pub reject-large-commands? max-command-size]
-  (-> (routes enqueue-fn get-response-pub)
+  [get-shared-globals enqueue-fn get-response-pub
+   reject-large-commands? max-command-size]
+  (-> (routes enqueue-fn get-response-pub
+              (when reject-large-commands? max-command-size))
       mid/make-pdb-handler
       validate-command-version
       wrap-with-request-normalization
