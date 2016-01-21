@@ -5,6 +5,8 @@
 
    * generate-string
    * generate-stream
+   * parse
+   * parse-strict
    * parse-string
    * parse-stream
 
@@ -12,9 +14,13 @@
    globally, so you can avoid doing this for each call."
   (:import [com.fasterxml.jackson.core JsonGenerator]
            [org.postgresql.util PGobject]
-           [java.io Writer])
+           [java.io ByteArrayInputStream Writer])
   (:require [cheshire.core :as core]
-            [cheshire.generate :refer [add-encoder encode-map encode-seq]]
+            [cheshire.factory :as factory]
+            [cheshire.generate :as generate
+             :refer [add-encoder encode-map encode-seq]]
+            [cheshire.generate :as generate]
+            [cheshire.parse :as parse]
             [clj-time.coerce :as coerce]
             [clojure.java.io :as io]
             [clojure.set :as set]))
@@ -103,22 +109,73 @@
 
 (def parse-stream core/parse-stream)
 
-(defn coerce-from-json
-  "Parses as json if `s` is a string/stream/reader, otherwise return `s`"
-  [obj]
-  (cond
-   (string? obj)
-   (parse-strict-string obj true)
+(def byte-array-class (Class/forName "[B"))
 
-   (instance? java.io.Reader obj)
-   (parse-stream obj true)
+(defprotocol Parser
+  (-parse [obj key-fn array-coerce-fn]
+    "Parses obj.  key-fn and array-coerce-fn match the corresponding
+    Cheshire parse-stream arguments."))
 
-   (instance? java.io.InputStream obj)
-   (with-open [reader (clojure.java.io/reader obj)]
-     (coerce-from-json reader))
+(extend String
+  Parser
+  {:-parse (fn [s key-fn array-coerce-fn]
+             (parse-string s key-fn array-coerce-fn))})
 
-   :else
-   obj))
+(extend java.io.Reader
+  Parser
+  {:-parse (fn [rdr key-fn array-coerce-fn]
+             (parse-stream rdr key-fn array-coerce-fn))})
+
+(defn parse
+  "Parses a string, byte-array, input-stream, or reader.  key-fn and
+  array-coerce-fn match the corresponding Cheshire parse-stream and
+  parse-string arguments.  The top-level object will be parsed lazily
+  if it's an array."
+  ([x] (-parse x nil nil))
+  ([x key-fn] (-parse x key-fn nil))
+  ([x key-fn array-coerce-fn] (-parse x key-fn array-coerce-fn)))
+
+(defprotocol StrictParser
+  (-parse-strict [obj key-fn array-coerce-fn]
+    "Eagerly parses obj.  key-fn and array-coerce-fn match the
+    corresponding Cheshire parse-stream arguments."))
+
+(extend String
+  StrictParser
+  {:-parse-strict (fn [s key-fn array-coerce-fn]
+                    (parse-strict-string s key-fn array-coerce-fn))})
+
+(extend byte-array-class
+  StrictParser
+  {:-parse-strict (fn [buf key-fn array-coerce-fn]
+                    (with-open [rdr (io/reader (ByteArrayInputStream. buf)
+                                               :encoding "UTF-8")]
+                      (-parse-strict rdr key-fn array-coerce-fn)))})
+
+(extend java.io.InputStream
+  StrictParser
+  {:-parse-strict (fn [s key-fn array-coerce-fn]
+                    (with-open [rdr (io/reader s)]
+                      (-parse-strict rdr key-fn array-coerce-fn)))})
+
+(extend java.io.Reader
+  StrictParser
+  {:-parse-strict
+   (fn [rdr key-fn array-coerce-fn]
+     (parse/parse-strict
+      (.createParser
+       ^JsonFactory (or factory/*json-factory* factory/json-factory)
+       ^java.io.Reader rdr)
+      key-fn nil array-coerce-fn))})
+
+(defn parse-strict
+  "Eagerly parses a string, byte-array, input-stream, or reader.
+  key-fn and array-coerce-fn match the corresponding Cheshire
+  parse-stream and parse-string arguments, and the top-level object
+  will not be parsed lazily if it's an array."
+  ([x] (-parse-strict x nil nil))
+  ([x key-fn] (-parse-strict x key-fn nil))
+  ([x key-fn array-coerce-fn] (-parse-strict x key-fn array-coerce-fn)))
 
 
 ;; Alias (apply io/writer ...) to avoid reflection
