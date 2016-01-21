@@ -7,6 +7,7 @@
            [org.apache.activemq.pool PooledConnectionFactory])
   (:require [clojure.java.jmx :as jmx]
             [clojure.tools.logging :as log]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [schema.core :as s]
             [slingshot.slingshot :refer [throw+]]))
@@ -209,7 +210,7 @@
                           (-set-jms-property! value name msg))
                         msg))})
 
-(extend (Class/forName "[B")
+(extend utils/byte-array-class
   ToJmsMessage
   {:-to-jms-message (fn [x properties session]
                       (let [msg (.createBytesMessage session)]

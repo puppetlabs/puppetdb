@@ -96,7 +96,7 @@
           (string? (:command %))
           (number? (:version %))
           (map? (:annotations %))]}
-  (let [message (if (= (class body) (class (byte-array 0)))
+  (let [message (if (instance? utils/byte-array-class body)
                       (json/parse-string (String. body "UTF-8") true)
                       (json/parse-string body true))
         default-annotations {:received (kitchensink/timestamp)

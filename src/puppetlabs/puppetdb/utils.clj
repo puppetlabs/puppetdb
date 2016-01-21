@@ -320,3 +320,5 @@
   `(let [f# (future (do ~@body))
          result# (deref f# ~timeout-ms ~default)]
      result#))
+
+(def byte-array-class (Class/forName "[B"))
