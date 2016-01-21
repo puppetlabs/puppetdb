@@ -14,7 +14,7 @@
            [org.postgresql.util PGobject]
            [java.io Writer])
   (:require [cheshire.core :as core]
-            [cheshire.generate :as generate]
+            [cheshire.generate :refer [add-encoder encode-map encode-seq]]
             [clj-time.coerce :as coerce]
             [clojure.java.io :as io]
             [clojure.set :as set]))
@@ -26,19 +26,23 @@
 (defn add-common-json-encoders!*
   "Non-memoize version of add-common-json-encoders!"
   []
-  (generate/add-encoder
+  (add-encoder
     org.postgresql.util.PGobject
     (fn [^PGobject data ^JsonGenerator jsonGenerator]
       ;; The .getPrettyPrinter method on the Jackson jsonGenerator will return
       ;; nil if `:pretty` is not set as a cheshire option
       (if (.getPrettyPrinter jsonGenerator)
-        (generate/encode-map (core/parse-string (.getValue data)) jsonGenerator)
+        (let [obj (core/parse-string (.getValue data))
+              encode-fn (condp instance? obj
+                          clojure.lang.IPersistentMap encode-map
+                          clojure.lang.ISeq encode-seq)]
+          (encode-fn obj jsonGenerator))
         (.writeRawValue jsonGenerator (.getValue data)))))
-  (generate/add-encoder
+  (add-encoder
     org.joda.time.DateTime
     (fn [data ^JsonGenerator jsonGenerator]
       (.writeString jsonGenerator (to-string data))))
-  (generate/add-encoder
+  (add-encoder
     RawJsonString
     (fn [^String data ^JsonGenerator jsonGenerator]
       (.writeRawValue jsonGenerator (:data data)))))

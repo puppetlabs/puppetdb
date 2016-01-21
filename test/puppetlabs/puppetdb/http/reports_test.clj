@@ -157,6 +157,17 @@
       (is (= (get-data report-hash (name field))
              (-> basic field :data set))))))
 
+(deftest-http-app query-report-data-with-pretty-printing
+  [[version field] [[:v4 :logs] [:v4 :metrics]]
+   method [:get :post]]
+  (let [report-hash (:hash (store-example-report! (:basic reports) (now)))
+        basic (assoc (:basic reports) :hash report-hash)
+        get-data (fn [hash field]
+                   (query-result method (format "/v4/reports/%s/%s?pretty=true" hash field)))]
+    (testing (format "%s endpoint returns the proper data" (name field))
+      (is (= (get-data report-hash (name field))
+             (-> basic field :data set))))))
+
 (deftest-http-app query-with-paging
   [[version endpoint] endpoints
    method [:get :post]]
