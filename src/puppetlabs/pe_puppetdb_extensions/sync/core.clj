@@ -218,13 +218,6 @@
                    :descending :desc)})
        (:order_by internal-order-by-clause)))
 
-(defn http-get-for-expansion [url path key]
-  (http-request :get url path {}
-                (fn [status body]
-                  (format (str "Error getting URL %s, to expand record key %s. "
-                               "Received HTTP status code %s with the error message '%s'")
-                          (url-on-remote-server url path) key status body))))
-
 (defn collapse-and-download-collections
   "Look for values in `record` which are maps with `data` and `href`
   keys. Transform these values to just be the contents of `data`, which is the
@@ -235,9 +228,9 @@
              (if (and (map? val) (contains? val :href))
                (if (contains? val :data)
                  [key (get val :data)]
-                 [key (-> (http-get-for-expansion remote-server (get val :href) key)
-                          :body
-                          (json/parse-string true))])
+                 (throw (Exception. (str "Can't process a record with :href but no "
+                                         ":data. Are you trying to sync with a "
+                                         "PuppetDB running on hsqldb?"))))
                [key val]))))
 
 (defn strip-timestamp-and-hash
