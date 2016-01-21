@@ -6,6 +6,7 @@ require 'puppet/util/puppetdb/command'
 require 'puppet/util/puppetdb/config'
 require 'digest/sha1'
 require 'time'
+require 'json'
 require 'fileutils'
 
 module Puppet::Util::Puppetdb
@@ -61,6 +62,21 @@ module Puppet::Util::Puppetdb
             [:puppetdb, :command, :submit, command_name, version]) do
       command = Puppet::Util::Puppetdb::Command.new(command_name, version, certname, payload)
       command.submit
+    end
+  end
+
+  # Query PuppetDB.
+  #
+  # @param query [String, Array] The PQL or AST query for PuppetDB
+  # @return [Array<Hash>]
+  def query_puppetdb(query)
+    profile("Submitted query '#{query}'", [:puppetdb, :query, query]) do
+      headers = { "Accept" => "application/json",
+                  "Content-Type" => "application/json; charset=UTF-8" }
+      response = Puppet::Util::Puppetdb::Http.action("/pdb/query/v4", :query) do |http_instance, path|
+        http_instance.post(path, { 'query' => query }.to_json, headers)
+      end
+      JSON.parse(response.body)
     end
   end
 
