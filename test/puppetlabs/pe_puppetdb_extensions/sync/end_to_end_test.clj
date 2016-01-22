@@ -216,8 +216,6 @@
         (is (= "DEBUG" (:level item#)))
         (is (= ~event (:event m#)))
         (is (string? (:remote m#)))
-        (is (string? (:certname m#)))
-        (is (string? (:hash m#)))
         (ok-correct? m#)
         (elapsed-correct? m#)))))
 
@@ -294,18 +292,18 @@
                   (with-alt-mq (:mq-name pdb1)
                     (submit-factset pdb1 facts))
                   (with-alt-mq (:mq-name pdb2)
-                    (with-redefs [sync-core/query-record-and-transfer!
+                    (with-redefs [sync-core/transfer-batch
                                   (fn [& args]
-                                    (throw+ {:type ::sync-core/remote-host-error
-                                             :error-response {:status 404}}))]
+                                    {:transferred 0
+                                     :failed 1})]
                       (perform-sync (base-url->str (:query-url pdb1))
                                     (str (base-url->str (:sync-url pdb2))
                                          "/trigger-sync")))))))
             (map event->map @log))]
-      ;; Check that factsets :failed is 1.
       (is (ordered-matches?
            [#(verify-sync "start" %)
             #(verify-entity-sync "start" "factsets" 0 0 %)
+            ;; Check that factsets :failed is 1.
             #(verify-entity-sync "finished" "factsets" 0 1 %)
             #(verify-sync "finished" %)]
            events)))))

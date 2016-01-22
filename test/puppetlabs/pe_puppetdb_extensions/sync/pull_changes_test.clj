@@ -3,7 +3,7 @@
   (:require [clojure.test :refer :all :exclude [report]]
             [clj-time.coerce :refer [to-date-time]]
             [clj-time.core :as t]
-            [puppetlabs.http.client.sync :as http]
+            [puppetlabs.http.client.sync :as http-client-sync]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.pe-puppetdb-extensions.sync.core :as sync-core]
             [puppetlabs.pe-puppetdb-extensions.sync.events :as events]
@@ -154,12 +154,12 @@
           (perform-sync (utils/stub-url-str "/pdb-x/query/v4")
                         (utils/trigger-sync-url-str)))
 
-        ;; We should see that the sync happened, and that one summary
-        ;; query and two factset querys where made to PDB X
+        ;; We should see that the sync happened, and that a summary
+        ;; query and a bulk record transfer query where made to PDB X
         (let [synced-factsets (get-json (utils/pdb-query-url) "/factsets")
               environments (->> synced-factsets (map :environment) (into #{}))]
           (is (= #{"DEV" "A" "E" "F"} environments))
-          (is (= 4 (count @pdb-x-queries))))))))
+          (is (= 2 (count @pdb-x-queries))))))))
 
 ;;  the catalogs we get as http responses have flattened edge definitions
 (def catalog-response
@@ -231,47 +231,37 @@
           (perform-sync (utils/stub-url-str "/pdb-x/query/v4")
                         (utils/trigger-sync-url-str)))
 
-        ;; We should see that the sync happened, and that two catalog
-        ;; queries were made to PDB X
+        ;; We should see that the sync happened, and a summary query and bulk record query were made to PDB X
         (let [synced-catalogs (get-json (utils/pdb-query-url) "/catalogs")
               environments (->> synced-catalogs (map :environment) (into #{}))]
           (is (= #{"DEV" "A" "E" "F"} environments))
-          (is (= 4 (count @pdb-x-queries))))))))
+          (is (= 2 (count @pdb-x-queries))))))))
 
 (deftest pull-with-https
-  (let [seen-http-get-opts (atom [])
-        remote-host-url "https://some-host"
-        pdb-config (assoc (sync-config nil)
+  (let [pdb-x-queries (atom [])
+        stub-data-atom (atom [])
+        stub-routes (logging-query-routes
+                      "/pdb-x/query/v4/catalogs" pdb-x-queries stub-data-atom :certname)
+        pdb-config (assoc (sync-config stub-routes)
                           :jetty {:ssl-port 0
                                   :ssl-host "0.0.0.0"
                                   :ssl-cert "test-resources/localhost.pem"
                                   :ssl-key "test-resources/localhost.key"
                                   :ssl-ca-cert "test-resources/ca.pem"
                                   :ssl-protocols "TLSv1,TLSv1.1"})]
-    ;; Stub http/get to always return empty content, but to remember the options
-    ;; passed to it.
-    (with-redefs [http/get (fn [url opts]
-                             (when (.startsWith url remote-host-url)
-                               (swap! seen-http-get-opts conj opts))
-                             {:status 200
-                              :body (java.io.StringReader. "[]")})]
-      ;; Run a pdb with https
-      (with-ext-instances [pdb pdb-config]
-        ;; Trigger a sync; the url doesn't matter, as the stubbed
-        ;; http/get will be used
-        (http/post (utils/trigger-sync-url-str)
-                   {:headers {"content-type" "application/json"}
-                    :body (generate-string {:remote_host_path remote-host-url})
-                    :ssl-cert "test-resources/localhost.pem"
-                    :ssl-key "test-resources/localhost.key"
-                    :ssl-ca-cert "test-resources/ca.pem"})
-        ;; Check that the ssl was configured when making sync requests
-        (is (pos? (count @seen-http-get-opts)))
-        (doseq [opts @seen-http-get-opts]
-          (is opts)
-          (is (contains? opts :ssl-cert))
-          (is (contains? opts :ssl-key))
-          (is (contains? opts :ssl-ca-cert)))))))
+    ;; Run a pdb with https
+    (with-ext-instances [pdb pdb-config]
+      (let [remote-host-path (utils/stub-url-str "/pdb-x/query/v4")]
+        (is (.startsWith remote-host-path "https"))
+        ;; Trigger a sync against the stub, using https
+        (http-client-sync/post (utils/trigger-sync-url-str)
+                               {:headers {"content-type" "application/json"}
+                                :body (generate-string {:remote_host_path remote-host-path})
+                                :ssl-cert "test-resources/localhost.pem"
+                                :ssl-key "test-resources/localhost.key"
+                                :ssl-ca-cert "test-resources/ca.pem"})
+        ;; Check that some of the requests went through
+        (is (pos? (count @pdb-x-queries)))))))
 
 (defn perform-overlapping-sync [source-pdb-url dest-sync-url]
   (let [stop-here (promise)]
@@ -319,9 +309,10 @@
     (with-redefs [events/successful-sync! (mock-fn)
                   events/failed-sync! (mock-fn)
                   events/failed-request! (mock-fn)]
-      (try
-        (sync-core/sync-from-remote! #() #() #() {:url "http://localhost:1234/bogus"} (parse-period "42s"))
-        (catch Exception _))
+      (with-open [client (http-client-sync/create-client {})]
+       (try
+         (sync-core/sync-from-remote! #() #() #() {:url "http://localhost:1234/bogus" :client client} (parse-period "42s"))
+         (catch Exception _)))
       (is (= false (called? events/successful-sync!)))
       (is (= true (called? events/failed-sync!)))
       (is (= true (called? events/failed-request!))))))

@@ -18,7 +18,8 @@
             [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [puppetlabs.comidi :as cmdi]
-            [puppetlabs.puppetdb.middleware :as mid]))
+            [puppetlabs.puppetdb.middleware :as mid]
+            [clojure.core.match :as cm]))
 
 (defn notable-pdb-event? [event] true)
 
@@ -61,20 +62,23 @@
   All queries are logged to `requests-atom`."
   [path requests-atom stub-data-atom record-identity-key]
   (cmdi/routes
-   (cmdi/GET path {query-params :query-params}
-             (let [stub-data @stub-data-atom
+   (cmdi/ANY path request
+             (let [query-params (:query-params request)
+                   stub-data @stub-data-atom
                    stub-data-index (index-by record-identity-key stub-data)
-                   summary-data (map #(select-keys % [:certname :hash :producer_timestamp]) stub-data)]
-               (when-let [query (vec (json/parse-string (query-params "query")))]
+                   summary-data (map #(select-keys % [:certname :hash :producer_timestamp]) stub-data)
+                   key-name (name record-identity-key)]
+               (when-let [query (or (some-> (query-params "query") json/parse-string vec)
+                                    (some-> request :body slurp json/parse-string (get "query")))]
                  (swap! requests-atom conj query)
-                 (cond
-                   (= "extract" (first query))
+                 (cm/match [query]
+                   [["extract" & _]]
                    (json-response summary-data)
 
-                   (and (= "and") (first query)
-                        (= ["=" (name record-identity-key)] (take 2 (second query))))
-                   (let [[_ [_ _ record-hash]] query]
-                     (json-response [(get stub-data-index record-hash)]))))))
+                   [["and" ["in" key-name ["array" id-vals]] & _]]
+                   (->> id-vals
+                        (map (partial get stub-data-index))
+                        json-response)))))
 
    ;; fallback routes, for data that wasn't explicitly stubbed
    (cmdi/GET "/pdb-x/sync/v1/reports-summary" []
