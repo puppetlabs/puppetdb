@@ -9,8 +9,8 @@
   [query-fn get-shared-globals]
   (cmdi/context "/v1"
                 (handlers/extract-query
-                 (cmdi/ANY "/historical-catalogs" []
-                           catalogs/historical-catalogs-handler))
+                 (cmdi/context "/historical-catalogs"
+                     (catalogs/historical-catalogs-routes :v1)))
                 (handlers/extract-query
                  (cmdi/ANY "/resource-graphs" []
                            catalogs/resource-graphs-handler))

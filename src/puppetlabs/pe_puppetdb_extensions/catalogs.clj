@@ -1,5 +1,10 @@
 (ns puppetlabs.pe-puppetdb-extensions.catalogs
   (:require [honeysql.core :as hcore]
+            [bidi.schema :as bidi-schema]
+            [puppetlabs.comidi :as cmdi]
+            [schema.core :as s]
+            [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.honeysql :as honeysql]
             [puppetlabs.puppetdb.http.query :as http-q]
@@ -8,6 +13,14 @@
             [puppetlabs.puppetdb.query-eng.engine :as engine]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.http.handlers :as handlers]))
+
+(defn hsql-hash-as-href
+  [entity parent child]
+  (hcore/raw (str "format("
+                  (str "'/pdb/ext/v1/" (name parent) "/%s/" (name child) "'")
+                  ", "
+                  entity
+                  ")")))
 
 (def historical-catalog-query
   "Query for the top level catalogs entity"
@@ -18,7 +31,7 @@
                                     :queryable? false
                                     :field {:select [(honeysql/row-to-json :t)]
                                             :from [[{:select [[:c.resources :data]
-                                                              [(engine/hsql-hash-as-href
+                                                              [(hsql-hash-as-href
                                                                 "c.catalog_uuid::text"
                                                                 :historical-catalogs
                                                                 :resources)
@@ -103,8 +116,52 @@
      :entity :reports
      :source-table "reports"}))
 
-(def historical-catalogs-handler
-  (handlers/create-query-handler :v1 "historical_catalogs"))
+(def historical-catalogs-child-data-query
+  "Query intended to be used by the `/historical-catalogs/<hash>/reosurces` and
+  `/historical-catalogs/<hash>/edges` endpoints used for digging into the child
+  data for a specifc catalog."
+  (engine/map->Query {:projections
+                      {"resources" {:type :json
+                                    :queryable? false
+                                    :field :catalogs.resources}
+                       "edges" {:type :json
+                                :queryable? false
+                                :field :catalogs.edges}
+                       "catalog_uuid" {:type :string
+                                       :queryable? true
+                                       :query-only? true
+                                       :field
+                                       (engine/hsql-uuid-as-str :catalogs.catalog_uuid)}}
+                      :selection {:from [:catalogs]}
+                      :alias "historical_catalogs_children"
+                      :subquery? false
+                      :entity :catalogs
+                      :source-table "catalogs"}))
+
+(defn historical-catalogs-data-responder
+  "Respond with either metrics or logs for a given report hash.
+   `entity` should be either :metrics or :logs."
+  [version entity]
+  (fn [{:keys [globals route-params]}]
+    (let [query ["from" entity ["=" "catalog_uuid" (:catalog_uuid route-params)]]]
+      (query-eng/produce-streaming-body version {:query query}
+                                        (handlers/narrow-globals globals)))))
+
+(pls/defn-validated historical-catalogs-routes :- bidi-schema/RoutePair
+  [version]
+  (cmdi/routes
+   (cmdi/ANY "" []
+     (handlers/create-query-handler version "historical_catalogs"))
+
+   (cmdi/ANY ["/" :catalog_uuid "/edges"] []
+     (-> (historical-catalogs-data-responder version "historical_catalog_edges")
+         (mid/parent-check version :historical-catalog :catalog_uuid)
+         mid/validate-no-query-params))
+
+   (cmdi/ANY ["/" :catalog_uuid "/resources"] []
+     (-> (historical-catalogs-data-responder version "historical_catalog_resources")
+         (mid/parent-check version :historical-catalog :catalog_uuid)
+         mid/validate-no-query-params))))
 
 (def resource-graphs-handler
   (handlers/create-query-handler :v1 "resource_graphs"))
@@ -129,7 +186,19 @@
     (reset! scf-storage/store-catalogs-historically? true))
   (reset! scf-storage/store-catalogs-jsonb-columns? true)
   (swap! query-eng/entity-fn-idx merge
-         {:historical-catalogs {:munge (constantly identity)
-                                :rec historical-catalog-query}}
-         {:resource-graphs {:munge munge-resource-graph-rows
-                            :rec resource-graph-query}}))
+         {:historical-catalogs
+          {:munge (constantly identity)
+           :rec historical-catalog-query}
+
+          :historical-catalog-resources
+          {:munge (constantly (comp :resources first))
+           :rec historical-catalogs-child-data-query}
+
+          :historical-catalog-edges
+          {:munge (constantly (comp :edges first))
+           :rec historical-catalogs-child-data-query}
+
+          :resource-graphs
+          {:munge munge-resource-graph-rows
+           :rec resource-graph-query}}))
+

@@ -87,7 +87,22 @@
                           (get-in (first historical-catalogs) [:resources :data]))
                  (sort-by (juxt :type :title)
                           (map #(dissoc % :resource)
-                               (get-in (first normal-catalogs) [:resources :data])))))))
+                               (get-in (first normal-catalogs) [:resources :data])))))
+
+          (testing "and so the child data endpoints"
+            (let [historical-catalog (first historical-catalogs)
+                  historical-catalog-edges (get-json (utils/pe-pdb-url)
+                                                     (str "/historical-catalogs/"
+                                                          (:catalog_uuid historical-catalog)
+                                                          "/edges"))
+                  historical-catalog-resources (get-json (utils/pe-pdb-url)
+                                                         (str "/historical-catalogs/"
+                                                              (:catalog_uuid historical-catalog)
+                                                              "/resources"))]
+              (is (= (get-in historical-catalog [:edges :data])
+                     historical-catalog-edges))
+              (is (= (get-in historical-catalog [:resources :data])
+                     historical-catalog-resources))))))
 
       (testing "when data is missing"
         (testing "when there is no report for a catalog"

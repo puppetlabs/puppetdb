@@ -40,7 +40,7 @@
                                :query-only? true
                                :field (engine/hsql-hash-as-str :reports.hash)}}
                       :selection {:from [:reports]}
-                      :alias "resources"
+                      :alias "report_resources"
                       :subquery? false
                       :entity :reports
                       :source-table "reports"}))
