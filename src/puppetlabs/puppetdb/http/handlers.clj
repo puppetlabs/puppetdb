@@ -155,17 +155,17 @@
    (extract-query
     (cmdi/ANY "" []
               (create-query-handler version "reports")))
-   
+
    (cmdi/context ["/" :hash "/events"]
                  (-> (events-routes version)
                      (append-handler (comp http-q/restrict-query-to-report))
                      (wrap-with-parent-check version :report :hash)))
-   
+
    (cmdi/ANY ["/" :hash "/metrics"] []
              (-> (report-data-responder version "report_metrics")
                  (parent-check version :report :hash)
                  validate-no-query-params))
-   
+
    (cmdi/ANY ["/" :hash "/logs"] []
              (-> (report-data-responder version "report_logs")
                  (parent-check version :report :hash)
@@ -293,14 +293,14 @@
    (cmdi/context ["/" (route-param :environment)]
                  (cmdi/ANY "" []
                            (validate-no-query-params (environment-status version)))
-                 
+
                  (wrap-with-parent-check
                   (cmdi/routes
                    (extract-query
                     (cmdi/context "/facts"
                                   (-> (facts-routes version)
                                       (append-handler http-q/restrict-query-to-environment))))
-                   
+
                    (extract-query
                     (cmdi/context "/resources"
                                   (-> (resources-routes version)
