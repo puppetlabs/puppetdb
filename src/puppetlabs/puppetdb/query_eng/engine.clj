@@ -23,7 +23,7 @@
 ;;; Plan - functions/transformations of the internal query plan
 
 (defrecord Query [projections selection source-table alias where
-                  subquery? entity call group-by])
+                  subquery? entity call group-by limit offset order-by])
 (defrecord BinaryExpression [operator column value])
 (defrecord InArrayExpression [table column value])
 (defrecord RegexExpression [column value])
@@ -1270,19 +1270,56 @@
   (let [f (first expr)]
     (and (str f) (= f "extract"))))
 
+(defn get-clause
+  [clause clauses]
+  (when-let [candidates (seq (filter #(= (first %) clause) clauses))]
+    (cond
+      (> (count candidates) 1)
+      (throw (IllegalArgumentException.
+               (format "Multiple '%s' clauses are not permitted" clause)))
+
+      (not (second (first candidates)))
+      (throw (IllegalArgumentException.
+               (format "Received '%s' clause without an argument" clause))))
+
+      :else (second (first candidates))))
+
+(defn process-order-by
+  [clauses]
+  (when clauses
+    (for [clause clauses]
+      (if (vector? clause) (mapv keyword clause) (keyword clause)))))
+
+(defn create-paging-map
+  "Given a list of clauses [['limit'1 1] ['offset' 1], etc], convert to a map
+   {:limit 1 :offset 1}"
+  [clauses]
+  {:limit (get-clause "limit" clauses)
+   :offset (get-clause "offset" clauses)
+   :order-by (process-order-by (get-clause "order_by" clauses))})
+
+(defn update-selection
+  [query-rec offset limit order-by]
+  (cond-> query-rec
+    offset (assoc-in [:selection :offset] offset)
+    limit (assoc-in [:selection :limit] limit)
+    order-by (assoc-in [:selection :order-by] order-by)))
+
 (defn create-from-node
   "Create an explicit subquery declaration to mimic the select_<entity>
-  syntax."
-  [entity expr]
-  (let [query-rec (user-query->logical-obj (str "select_" (utils/dashes->underscores entity)))]
+   syntax."
+  [entity expr clauses]
+  (let [query-rec (user-query->logical-obj (str "select_" (utils/dashes->underscores entity)))
+        {:keys [limit offset order-by]} (create-paging-map clauses)]
     (if (extract-expression? expr)
       (let [[extract columns remaining-expr] expr
             column-list (utils/vector-maybe columns)]
-        (assoc query-rec
-          :projected-fields column-list
-          :where (user-node->plan-node query-rec remaining-expr)))
-      (assoc query-rec
-        :where (user-node->plan-node query-rec expr)))))
+        (-> query-rec
+            (assoc :projected-fields column-list :where (user-node->plan-node query-rec remaining-expr))
+            (update-selection offset limit order-by)))
+      (-> query-rec
+          (assoc :where (user-node->plan-node query-rec expr))
+          (update-selection offset limit order-by)))))
 
 (pls/defn-validated columns->fields :- [(s/cond-pre s/Keyword SqlCall SqlRaw)]
   "Convert a list of columns to their true SQL field names."
@@ -1421,8 +1458,8 @@
 
             ;; This provides the from capability to replace the select_<entity> syntax from an
             ;; explicit subquery.
-            [["from" entity expr]]
-            (create-from-node entity expr)
+            [["from" entity expr & clauses]]
+            (create-from-node entity expr clauses)
 
             [["extract" column]]
             (let [[fargs cols] (strip-function-calls column)
@@ -1658,23 +1695,40 @@
                 "The %s entity is experimental and may be altered or removed in the future."
                 (name entity)))))
 
+(defn paging-clause?
+  [v]
+  (contains? #{"limit" "order_by" "offset"} (first v)))
+
 (defn parse-query-context
   "Parses a top-level query with a 'from', validates it and returns the entity and remaining-query in
-  a map."
+   a map."
   [version query warn]
   (cm/match
-   query
-   ["from" (entity-str :guard #(string? %)) & remaining-query]
-   (let [remaining-query (cm/match
-                          remaining-query
-                          [(q :guard #(vector? %))] q
-                          [] []
-                          :else (throw (IllegalArgumentException. "Your `from` query accepts an optional query only as a second argument. Check your query and try again.")))
-         entity (keyword (utils/underscores->dashes entity-str))]
-     (when warn
-       (warn-experimental entity))
-     {:remaining-query remaining-query
-      :entity entity})
+    query
+    ["from" (entity-str :guard #(string? %)) & remaining-query]
+    (let [remaining-query (cm/match
+                            remaining-query
+
+                            [(c :guard paging-clause?) & clauses]
+                            (let [paging-clauses (create-paging-map (cons c clauses))]
+                              {:paging-clauses paging-clauses :query []})
+
+                            [(q :guard vector?)]
+                            {:query q}
+
+                            [(q :guard vector?) & clauses]
+                            (let [paging-clauses (create-paging-map clauses)]
+                              {:query q :paging-clauses paging-clauses})
+
+                            []
+                            {:query []}
+                            :else (throw (IllegalArgumentException. "Your `from` query accepts an optional query only as a second argument. Check your query and try again.")))
+          entity (keyword (utils/underscores->dashes entity-str))]
+      (when warn
+        (warn-experimental entity))
+      {:remaining-query (:query remaining-query)
+       :paging-clauses (:paging-clauses remaining-query)
+       :entity entity})
 
    :else (throw (IllegalArgumentException. (format "Your initial query must be of the form: [\"from\",<entity>,(<optional-query>)]. Check your query and try again.")))))
 

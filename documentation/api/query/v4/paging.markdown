@@ -7,8 +7,11 @@ canonical: "/puppetdb/latest/api/query/v4/paging.html"
 [api]: ../../index.html
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [query]: ./query.html
+[operators]: ./operators.html
 
-Most of PuppetDB's [query endpoints][api] support a general set of HTTP URL parameters that can be used for paging results.
+Most of PuppetDB's [query endpoints][api] support a general set of HTTP URL parameters that
+can be used for paging results. PuppetDB also supports paging via query
+operators, as described in the [operators documentation][operators#paging].
 
 ## URL parameters for paging results
 
