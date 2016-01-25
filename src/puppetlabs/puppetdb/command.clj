@@ -77,64 +77,6 @@
             [clojure.set :as set]
             [clojure.core.async :as async]))
 
-(defn version-range [min-version max-version]
-  (set (range min-version (inc max-version))))
-
-(def supported-command-versions
-  {"replace facts" (version-range 2 4)
-   "replace catalog" (version-range 4 7)
-   "store report" (version-range 3 6)
-   "deactivate node" (version-range 1 3)})
-
-;; ## Command parsing
-
-(defn parse-command
-  "Take a wire-format command and parse it into a command object."
-  [{:keys [headers body]}]
-  {:post [(map? %)
-          (:payload %)
-          (string? (:command %))
-          (number? (:version %))
-          (map? (:annotations %))]}
-  (let [message (if (= (class body) (class (byte-array 0)))
-                      (json/parse-string (String. body "UTF-8") true)
-                      (json/parse-string body true))
-        default-annotations {:received (kitchensink/timestamp)
-                             :id (kitchensink/uuid)}]
-    (update message :annotations
-            merge default-annotations headers)))
-
-;; ## Command submission
-
-(defn-validated ^:private do-enqueue-raw-command :- s/Str
-  "Submits raw-command to the mq-endpoint of mq-connection and returns
-  its id."
-  [mq-connection :- mq/connection-schema
-   mq-endpoint :- s/Str
-   raw-command :- s/Str
-   uuid :- (s/maybe s/Str)]
-  (let [uuid (or uuid (kitchensink/uuid))]
-    (mq/send-message! mq-connection mq-endpoint
-                      raw-command
-                      {"received" (kitchensink/timestamp) "id" uuid})
-    uuid))
-
-(defn-validated ^:private do-enqueue-command :- s/Str
-  "Submits command to the mq-endpoint of mq-connection and returns
-  its id. Annotates the command via annotate-command."
-  [mq-connection :- mq/connection-schema
-   mq-endpoint :- s/Str
-   command :- s/Str
-   version :- s/Int
-   payload
-   uuid :- (s/maybe s/Str)]
-  (let [command-map {:command command
-                     :version version
-                     :payload payload}]
-    (do-enqueue-raw-command mq-connection mq-endpoint (json/generate-string command-map) uuid)))
-
-;; ## Command processing exception classes
-
 (defn fatality
   "Create an object representing a fatal command-processing exception
 
@@ -149,6 +91,148 @@
     ~@body
     (catch Throwable e#
       (throw+ (fatality e#)))))
+
+(defn version-range [min-version max-version]
+  (set (range min-version (inc max-version))))
+
+(def supported-command-versions
+  {"replace facts" (version-range 2 4)
+   "replace catalog" (version-range 4 7)
+   "store report" (version-range 3 6)
+   "deactivate node" (version-range 1 3)})
+
+(defn- die-on-header-payload-mismatch
+  [name in-header in-body]
+  (when (and in-header in-body (not= in-header in-body))
+    (throw+
+     (fatality
+      (Exception.
+       (format "%s mismatch between message properties and payload (%s != %s)"
+               name in-header in-body))))))
+
+(def new-message-schema
+  {:headers {:command s/Str
+             :version s/Str
+             :certname s/Str
+             :received s/Str
+             :id s/Str}
+   :body (s/cond-pre s/Str utils/byte-array-class)})
+
+(def queue-message-schema
+  ;; Perhaps eventually require :id and :received
+  {(s/optional-key :headers) {(s/optional-key :id) s/Str
+                              (s/optional-key :received) s/Str
+                              (s/optional-key :scheduledJobId) s/Str
+                              (s/optional-key :JMSXDeliveryCount) s/Str
+                              s/Any s/Any}
+   :body (s/cond-pre s/Str utils/byte-array-class)})
+
+(def new-command-schema ;; This could probably be stricter
+  {:command s/Str
+   :version s/Int
+   :certname s/Str
+   :payload {s/Any s/Any}
+   :annotations
+   (s/pred
+    (fn [x]
+      (and (map? x)
+           (some-> x :id string?)
+           (some-> x :received string?)
+           (empty? (select-keys x [:command :version :certname])))))})
+
+(def queue-command-schema
+  ;; Created to match existing test behavior, but is that
+  ;; comprehensive? i.e. if we're wrong, and this is too strict, then
+  ;; it could break on outside queue content on release.  Adding a
+  ;; schema here could change our effectively public queue API.
+  (-> new-command-schema
+      (dissoc :certname)
+      (assoc (s/optional-key :certname) s/Str)
+      (dissoc :payload)
+      (assoc (s/optional-key :payload) (s/cond-pre s/Str {s/Any s/Any}))))
+
+(defn-validated ^:private parse-new-command :- new-command-schema
+  "Parses a new-format queue command and returns it in the traditional
+  format (see parse-queue-command).  New-style messages must have all
+  5 headers (command, version, certname, received, and id), and the
+  body must be the bare command content (i.e. the payload).  So for a
+  \"deactivate node\" command, a string like
+  {\"certname\":\"test1\",\"producer_timestamp\":\"2015-01-01\"}."
+  [{:keys [headers body]} :- new-message-schema]
+  (let [{:keys [command version certname received id]} headers
+        version (Integer/parseInt version)]
+    (let [message (json/parse body true)]
+      (die-on-header-payload-mismatch "certname"
+                                      certname
+                                      (get-in message ["payload" "certname"]))
+      ;; Since new commands aren't the queue retry format, we expect
+      ;; no annotations.
+      (assert (not (:annotations message)))
+      {:command command
+       :version version
+       :certname certname ;; Duplicated with respect to payload for now.
+       :payload message
+       :annotations (dissoc headers :command :version :certname)})))
+
+(defn-validated ^:private parse-queue-command :- queue-command-schema
+  "Parses a traditional queue command (also the current format for
+  failed, re-queued messages).  See parse-new-command for the handling
+  of newly received messages.  These messages must not have command,
+  version, or certname headers, and the body must be a JSON map like
+  this: {\"command\":\"deactivate node\",\"version\":3,\"payload\":{\"certname\":...}}."
+  [{:keys [headers body]} :- queue-message-schema]
+  (let [{:keys [command version certname]} headers]
+    (update (json/parse-strict body true) :annotations merge
+            {:received (kitchensink/timestamp) :id (kitchensink/uuid)}
+            headers)))
+
+(defn parse-command
+  "Parses a queue message and returns it as a command map."
+  [{:keys [headers body] :as message}]
+  {:post [(map? %)
+          (:payload %)
+          (string? (:command %))
+          (number? (:version %))
+          (map? (:annotations %))]}
+  (if (:command headers)
+    (parse-new-command message)
+    (parse-queue-command message)))
+
+;; ## Command submission
+
+(defn-validated ^:private do-enqueue-raw-command :- s/Str
+  "Submits raw-command to the mq-endpoint of mq-connection and returns
+  its id."
+  [mq-connection :- mq/connection-schema
+   mq-endpoint :- s/Str
+   raw-command :- (s/cond-pre s/Str utils/byte-array-class)
+   uuid :- (s/maybe s/Str)
+   properties :- (s/maybe {s/Str s/Str})] ;; For now stick with str -> str
+  (let [uuid (or uuid (kitchensink/uuid))]
+    (mq/send-message! mq-connection mq-endpoint raw-command
+                      ;; Until/unless we require that all callers
+                      ;; include received, etc.
+                      (merge {"received" (kitchensink/timestamp) "id" uuid}
+                             properties))
+    uuid))
+
+(defn-validated ^:private do-enqueue-command :- s/Str
+  "Submits command to the mq-endpoint of mq-connection and returns
+  its id. Annotates the command via annotate-command."
+  [mq-connection :- mq/connection-schema
+   mq-endpoint :- s/Str
+   command :- s/Str
+   version :- s/Int
+   payload
+   uuid :- (s/maybe s/Str)
+   properties]
+  (let [command-map {:command command
+                     :version version
+                     :payload payload}]
+    (do-enqueue-raw-command mq-connection mq-endpoint
+                            (json/generate-string command-map)
+                            uuid
+                            properties)))
 
 ;; Catalog replacement
 
@@ -286,10 +370,11 @@
   (enqueue-command
     [this command version payload]
     [this command version payload uuid]
+    [this command version payload uuid properties]
     "Annotates the command via annotate-command, submits it for
     processing, and then returns its unique id.")
 
-  (enqueue-raw-command [this raw-command uuid]
+  (enqueue-raw-command [this raw-command uuid properties]
     "Submits the raw-command for processing and returns the command's
     unique id.")
 
@@ -376,21 +461,25 @@
     (enqueue-command this command version payload nil))
 
   (enqueue-command [this command version payload uuid]
+    (enqueue-command this command version payload uuid nil))
+
+  (enqueue-command [this command version payload uuid properties]
     (let [config (get-config)
           connection (:connection (service-context this))
           endpoint (get-in config [:command-processing :mq :endpoint])
           command (if (string? command) command (command-names command))
           result (do-enqueue-command connection endpoint
-                                     command version payload uuid)]
+                                      command version payload uuid properties)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
 
-  (enqueue-raw-command [this raw-command uuid]
+  (enqueue-raw-command [this raw-command uuid properties]
     (let [config (get-config)
           connection (:connection (service-context this))
           endpoint (get-in config [:command-processing :mq :endpoint])
-          result (do-enqueue-raw-command connection endpoint raw-command uuid)]
+          result (do-enqueue-raw-command connection endpoint
+                                          raw-command uuid properties)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))

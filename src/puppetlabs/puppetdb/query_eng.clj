@@ -133,6 +133,17 @@
              (query->sql remaining-query entity version paging-options)]
          (jdbc/with-query-results-cursor results-query (comp row-fn munge-fn)))))))
 
+;; Do we still need this, i.e. do we need the pass-through, and the
+;; strict selectivity in the caller below?
+(defn- coerce-from-json [obj]
+  "Parses obj as JSON if it's a string/stream/reader, otherwise
+  returns obj."
+  (cond
+    (string? obj) (json/parse-strict obj true)
+    (instance? java.io.Reader obj) (json/parse obj true)
+    (instance? java.io.InputStream obj) (json/parse obj true)
+    :else obj))
+
 (pls/defn-validated produce-streaming-body
   "Given a query, and database connection, return a Ring response with
    the query results. query-map is a clojure map of the form
@@ -156,7 +167,7 @@
       (jdbc/with-transacted-connection scf-read-db
         (let [munge-fn (get-munge-fn entity version query-options url-prefix)
               {:keys [results-query count-query]} (-> remaining-query
-                                                      json/coerce-from-json
+                                                      coerce-from-json
                                                       (query->sql entity version query-options))
               query-error (promise)
               resp (http/streamed-response
