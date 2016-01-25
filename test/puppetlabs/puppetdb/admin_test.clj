@@ -26,9 +26,12 @@
      (fn []
        (is (empty? (get-nodes)))
 
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 7 example-catalog)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 6 example-report)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace facts" 4 example-facts)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                    "replace catalog" 7 example-catalog)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                    "store report" 6 example-report)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                    "replace facts" 4 example-facts)
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
@@ -69,9 +72,12 @@
        (fn []
          (is (empty? (get-nodes)))
 
-         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 7 example-catalog)
-         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 6 example-report)
-         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace facts" 4 example-facts)
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                      "replace catalog" 7 example-catalog)
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                      "store report" 6 example-report)
+         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                      "replace facts" 4 example-facts)
 
 
          (is (= (tuc/munge-catalog example-catalog)
