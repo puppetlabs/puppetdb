@@ -44,6 +44,7 @@
                  [org.clojure/java.jmx "0.3.1"]
                  ;; Filesystem utilities
                  [me.raynes/fs "1.4.5"]
+                 [org.apache.commons/commons-lang3 "3.3.1"]
                  ;; Version information
                  [puppetlabs/dujour-version-check "0.1.3"]
                  ;; Job scheduling
