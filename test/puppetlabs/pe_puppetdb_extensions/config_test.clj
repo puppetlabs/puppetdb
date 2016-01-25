@@ -18,9 +18,11 @@
     (are [in out] (= out (#'s/parse-sync-config in))
 
       ;; hocon
-      {:remotes [{:server_url "https://foo.bar:8081", :interval "120s"}]}
+      {:remotes [{:server_url "https://foo.bar:8081", :interval "120s"}
+                 {:server_url "https://foo.bar:8089" :interval "120s"}]}
       {:remotes
-       [{:server-url (URI. "https://foo.bar:8081"), :interval (parse-period "120s")}]}
+       [{:server-url (URI. "https://foo.bar:8081"), :interval (parse-period "120s")}
+        {:server-url (URI. "https://foo.bar:8089"), :interval (parse-period "120s")}]}
 
       ;; ini
       {:server_urls "https://foo.bar:8081", :intervals "120s"}

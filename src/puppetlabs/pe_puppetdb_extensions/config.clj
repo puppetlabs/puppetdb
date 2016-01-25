@@ -104,10 +104,10 @@
 (defn- recursive-underscore->dash-keys
   [m]
   (:node (zip/post-order-transform
-          (zip/tree-zipper m)
-          [(fn [node]
-             (when (map-entry? node)
-               (update node 0 utils/underscores->dashes)))])))
+           (zip/tree-zipper m)
+           [(fn [node]
+              (when (map-entry? node)
+                (update node 0 utils/underscores->dashes)))])))
 
 (defn- parse-sync-config [sync-config]
   (try+
