@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.anonymizer
   (:require [clojure.string :as str]
-            [puppetlabs.kitchensink.core :refer [regexp? boolean? uuid string-contains?]]
+            [puppetlabs.kitchensink.core :refer [regexp? boolean? uuid string-contains?
+                                                 bounded-memoize]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.random :refer :all]
             [puppetlabs.puppetdb.reports :as reports]
@@ -109,6 +110,20 @@
       (rule-match? x context) (get x "anonymize")
       :else (recur (rest xs)))))
 
+(defn anonymize-string*
+  [value]
+  (random-string (max 1 (count value))))
+
+(def anonymize-string
+  (bounded-memoize anonymize-string* 40000))
+
+(defn anonymize-text
+  [text]
+  (when text
+    (->> (str/split text #" ")
+         (map anonymize-string*)
+         (str/join " "))))
+
 ;; Functions for anonymizing the final leaf data
 (defn anonymize-leaf-value
   "Based on the input value, return an appropriate random replacement"
@@ -132,8 +147,7 @@
        :type (random-type-name)
        :title (random-string (max 10 (count value)))
        :parameter-name (random-string-alpha (max 10 (count value)))
-       :message (random-string (max 10 (count value)))
-       :log-message (random-string (max 10 (count value)))
+       :text (anonymize-text value)
        :file (random-pp-path)
        :line (when value (rand-int (max value 20)))
        :transaction_uuid (uuid)
@@ -328,7 +342,7 @@
                           "message" message
                           "property_name" property)]
     (-> event
-        (update "message" anonymize-leaf :message newcontext config)
+        (update "message" anonymize-leaf :text newcontext config)
         (update "property" anonymize-leaf :parameter-name newcontext config)
         (update "new_value" anonymize-leaf :parameter-value (assoc newcontext :parameter-value new_value) config)
         (update "old_value" anonymize-leaf :parameter-value (assoc newcontext :parameter-value old_value) config))))
@@ -369,7 +383,7 @@
 
 (defn anonymize-log [log context config]
   (-> log
-      (update "message" anonymize-leaf :log-message context config)
+      (update "message" anonymize-leaf :text context config)
       (update "source" anonymize-log-source context config)
       (update "tags" anonymize-tags context config)
       (update "file" anonymize-leaf :file context config)
@@ -574,13 +588,12 @@
    "none" {
            "rules" {
                     "node" [ {"context" {} "anonymize" false} ]
-                    "log-message" [ {"context" {} "anonymize" false} ]
+                    "text" [ {"context" {} "anonymize" false} ]
                     "type" [ {"context" {} "anonymize" false} ]
                     "title" [ {"context" {} "anonymize" false} ]
                     "parameter-name" [ {"context" {} "anonymize" false} ]
                     "line" [ {"context" {} "anonymize" false} ]
                     "file" [ {"context" {} "anonymize" false} ]
-                    "message" [ {"context" {} "anonymize" false} ]
                     "parameter-value" [ {"context" {} "anonymize" false} ]
                     "transaction_uuid" [ {"context" {} "anonymize" false} ]
                     "fact-name" [{"context" {} "anonymize" false}]
