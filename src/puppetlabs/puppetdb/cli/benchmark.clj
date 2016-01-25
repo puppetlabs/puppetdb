@@ -201,7 +201,7 @@
 (defn update-host
   "Submit a `catalog` for `hosts` (when present), possibly mutating it before
   submission. Also submit a report for the host (if present)."
-  [{:keys [catalog report factset] :as state} rand-percentage current-time command-send-ch]
+  [{:keys [host catalog report factset] :as state} rand-percentage current-time command-send-ch]
   (let [stamp (jitter current-time 1800)
         uuid (kitchensink/uuid)
         catalog (some-> catalog
@@ -210,9 +210,9 @@
                        (update-report uuid stamp))
         factset (some-> factset
                         (update-factset rand-percentage stamp))]
-    (when catalog (>!! command-send-ch [:catalog 6 catalog]))
-    (when report (>!! command-send-ch [:report 6 report]))
-    (when factset (>!! command-send-ch [:factset 4 factset]))
+    (when catalog (>!! command-send-ch [:catalog host 6 catalog]))
+    (when report (>!! command-send-ch [:report host 6 report]))
+    (when factset (>!! command-send-ch [:factset host 4 factset]))
 
     (assoc state
            :catalog catalog
@@ -309,18 +309,19 @@
 
 (defn try-read-and-send-command [base-url command-send-ch]
   (try
-   (cm/match [(<!! command-send-ch)]
-             [:stop] nil
-             [nil] nil
-             [[entity version payload]] (do ((case entity
-                                               :catalog client/submit-catalog
-                                               :report client/submit-report
-                                               :factset client/submit-facts)
-                                             base-url version payload)
-                                            ::submitted))
-   (catch Exception e
-     (println "Exception while submitting command: " e)
-     ::error)))
+    (cm/match [(<!! command-send-ch)]
+              [:stop] nil
+              [nil] nil
+              [[entity host version payload]]
+              (do ((case entity
+                     :catalog client/submit-catalog
+                     :report client/submit-report
+                     :factset client/submit-facts)
+                   base-url host version payload)
+                  ::submitted))
+    (catch Exception e
+      (println "Exception while submitting command: " e)
+      ::error)))
 
 (defn start-command-sender
   "Start a command sending thread. Reads commands from command-send-ch of the
