@@ -109,6 +109,11 @@
       (rule-match? x context) (get x "anonymize")
       :else (recur (rest xs)))))
 
+(defn anonymize-text
+  "This is for anonymizing text data where we care only about size, not content."
+  [text]
+  (str/join "" (repeat (count text) "?")))
+
 ;; Functions for anonymizing the final leaf data
 (defn anonymize-leaf-value
   "Based on the input value, return an appropriate random replacement"
@@ -132,8 +137,8 @@
        :type (random-type-name)
        :title (random-string (max 10 (count value)))
        :parameter-name (random-string-alpha (max 10 (count value)))
+       :text (anonymize-text value)
        :message (random-string (max 10 (count value)))
-       :log-message (random-string (max 10 (count value)))
        :file (random-pp-path)
        :line (when value (rand-int (max value 20)))
        :transaction_uuid (uuid)
@@ -369,7 +374,7 @@
 
 (defn anonymize-log [log context config]
   (-> log
-      (update "message" anonymize-leaf :log-message context config)
+      (update "message" anonymize-leaf :text context config)
       (update "source" anonymize-log-source context config)
       (update "tags" anonymize-tags context config)
       (update "file" anonymize-leaf :file context config)
@@ -574,13 +579,12 @@
    "none" {
            "rules" {
                     "node" [ {"context" {} "anonymize" false} ]
-                    "log-message" [ {"context" {} "anonymize" false} ]
+                    "text" [ {"context" {} "anonymize" false} ]
                     "type" [ {"context" {} "anonymize" false} ]
                     "title" [ {"context" {} "anonymize" false} ]
                     "parameter-name" [ {"context" {} "anonymize" false} ]
                     "line" [ {"context" {} "anonymize" false} ]
                     "file" [ {"context" {} "anonymize" false} ]
-                    "message" [ {"context" {} "anonymize" false} ]
                     "parameter-value" [ {"context" {} "anonymize" false} ]
                     "transaction_uuid" [ {"context" {} "anonymize" false} ]
                     "fact-name" [{"context" {} "anonymize" false}]
