@@ -10,10 +10,11 @@
 
 (deftest query-resources-on-reports
   (with-ext-instances [pdb (utils/sync-config nil)]
-      (let [report (:basic reports)]
+      (let [report (:basic reports)
+            certname (:certname report)]
         (->> report
              reports/report-query->wire-v6
-             (blocking-command-post (utils/pdb-cmd-url) "store report" 6))
+             (blocking-command-post (utils/pdb-cmd-url) certname "store report" 6))
         (let [expected (->> report
                             reports/report-query->wire-v6
                             :resources

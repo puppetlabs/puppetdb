@@ -48,6 +48,8 @@
 (deftest pull-reports-test
   (let [report-1 (-> reports :basic reports/report-query->wire-v6)
         report-2 (assoc report-1 :certname "bar.local")
+        cert1 (:certname report-1)
+        cert2 (:certname report-2)
         pdb-x-queries (atom [])
         stub-data-atom (atom [])
         bucketed-reports-atom (atom {})
@@ -58,13 +60,11 @@
     (with-log-suppressed-unless-notable notable-pull-changes-event?
       (with-ext-instances [pdb (sync-config stub-handler)]
         ;; store two reports in PDB Y
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 6 report-1)
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 6 report-2)
+        (blocking-command-post (utils/pdb-cmd-url) cert1 "store report" 6 report-1)
+        (blocking-command-post (utils/pdb-cmd-url) cert2 "store report" 6 report-2)
 
-        (let [created-report-1 (first (svcs/get-reports (utils/pdb-query-url)
-                                                        (:certname report-1)))
-              created-report-2 (first (svcs/get-reports (utils/pdb-query-url)
-                                                        (:certname report-2)))]
+        (let [created-report-1 (first (svcs/get-reports (utils/pdb-query-url) cert1))
+              created-report-2 (first (svcs/get-reports (utils/pdb-query-url) cert2))]
           (is (= "3.0.1" (:puppet_version created-report-2)))
 
           ;; Set up pdb-x as a stub where 1 report has a different hash
@@ -103,8 +103,9 @@
       (with-ext-instances [pdb (sync-config stub-handler)]
         ;; store factsets in PDB Y
         (doseq [c (map char (range (int \a) (int \g)))]
-          (blocking-command-post (utils/pdb-cmd-url) "replace facts" 4
-                                 (assoc facts :certname (str c ".local"))))
+          (let [certname (str c ".local")]
+            (blocking-command-post (utils/pdb-cmd-url) certname "replace facts" 4
+                                   (assoc facts :certname certname))))
 
         (let [local-factsets (index-by :certname (get-json (utils/pdb-query-url)
                                                            "/factsets"))
@@ -180,8 +181,9 @@
       (with-ext-instances [pdb (sync-config stub-handler)]
         ;; store catalogs in PDB Y
         (doseq [c (map char (range (int \a) (int \g)))]
-          (blocking-command-post (utils/pdb-cmd-url) "replace catalog" 6
-                                 (assoc catalog :certname (str c ".local"))))
+          (let [certname (str c ".local")]
+            (blocking-command-post (utils/pdb-cmd-url) certname "replace catalog" 6
+                                   (assoc catalog :certname certname))))
 
         (let [local-catalogs (index-by :certname (get-json (utils/pdb-query-url)
                                                            "/catalogs"))

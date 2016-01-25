@@ -29,7 +29,7 @@
              (:body (start-sync :from pdb1 :to pdb2))
              "Refusing to sync. PuppetDB is not configured to sync with"))))))
 
-(deftest end-to-end-report-replication  
+(deftest end-to-end-report-replication
   (with-ext-instances [pdb1 (sync-config nil) pdb2 (sync-config nil)]
     (with-alt-mq (:mq-name pdb1)
       (submit-report pdb1 report))
@@ -100,7 +100,8 @@
 
 (deftest periodic-sync
   (let [sync-interval "2s"]
-    (let [facts-from #(-> % :query-url (svcs/get-factsets (:certname facts))
+    (let [certname (:certname facts)
+          facts-from #(-> % :query-url (svcs/get-factsets certname)
                           first)]
       (with-related-ext-instances [master (sync-config nil)
                                    mirror (sync-config nil)]
@@ -113,7 +114,8 @@
                                 :allow-unsafe-cleartext-sync true}))))
         (with-alt-mq (:mq-name master)
           (is (nil? (facts-from mirror)))
-          (blocking-command-post (:command-url master) "replace facts" 4 facts)
+          (blocking-command-post (:command-url master) certname
+                                 "replace facts" 4 facts)
           @(block-until-results 100 (facts-from master)))
         @(block-until-results 100 (facts-from mirror))
         (is (=-after? without-timestamp

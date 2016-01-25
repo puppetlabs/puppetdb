@@ -40,11 +40,13 @@
         (->> (assoc example-report
                     :transaction_uuid tx-uuid
                     :producer_timestamp timestamp)
-             (blocking-command-post (utils/pdb-cmd-url) "store report" 6))
+             (blocking-command-post (utils/pdb-cmd-url) example-certname
+                                    "store report" 6))
         (->> (assoc example-catalog
                     :transaction_uuid tx-uuid
                     :producer_timestamp timestamp)
-             (blocking-command-post (utils/pdb-cmd-url) "replace catalog" 7)))
+             (blocking-command-post (utils/pdb-cmd-url) example-certname
+                                    "replace catalog" 7)))
       (testing "historical catalogs views have the right amount of data"
        (let [historical-catalogs (get-json (utils/pe-pdb-url) "/historical-catalogs")
              resource-graphs (get-json (utils/pe-pdb-url) "/resource-graphs")]
@@ -94,7 +96,8 @@
                       :transaction_uuid (ks/uuid)
                       :certname "bar.example.com"
                       :producer_timestamp (-> 3 days ago))
-               (blocking-command-post (utils/pdb-cmd-url) "replace catalog" 7))
+               (blocking-command-post (utils/pdb-cmd-url) "bar.example.com"
+                                      "replace catalog" 7))
 
           (let [resource-graphs
                 (get-json (utils/pe-pdb-url) "/resource-graphs"
@@ -107,7 +110,8 @@
                       :transaction_uuid (ks/uuid)
                       :certname "baz.lan"
                       :producer_timestamp (-> 3 days ago))
-               (blocking-command-post (utils/pdb-cmd-url) "store report" 6))
+               (blocking-command-post (utils/pdb-cmd-url) "baz.lan"
+                                      "store report" 6))
 
           (let [resource-graphs
                 (get-json (utils/pe-pdb-url) "/resource-graphs"
@@ -128,9 +132,12 @@
      (fn []
        (is (empty? (get-nodes)))
 
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 7 example-catalog)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 6 example-report)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace facts" 4 example-facts)
+       (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
+                              "replace catalog" 7 example-catalog)
+       (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
+                              "store report" 6 example-report)
+       (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
+                              "replace facts" 4 example-facts)
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
