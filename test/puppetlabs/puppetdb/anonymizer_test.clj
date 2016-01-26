@@ -161,8 +161,8 @@
 
 (deftest test-anonymize-leaf-message
   (testing "should return a string of equal length"
-    (is (string? (anonymize-leaf-memoize :message "good old string")))
-    (is (= 15 (count (anonymize-leaf-memoize :message "good old string"))))))
+    (is (string? (anonymize-leaf-memoize :text "good old string")))
+    (is (= 15 (count (anonymize-leaf-memoize :text "good old string"))))))
 
 (deftest test-memoized-vector-elements
   (testing "should memoize individual vector elements"
