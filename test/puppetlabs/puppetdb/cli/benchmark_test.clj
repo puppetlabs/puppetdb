@@ -8,8 +8,7 @@
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.cli.export :as cli-export]
             [puppetlabs.puppetdb.testutils.cli :refer [get-nodes example-catalog
-                                                       example-report example-facts
-                                                       example-certname]]
+                                                       example-report example-facts]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as ks]
             [slingshot.test]
@@ -17,7 +16,7 @@
 
 
 (defn mock-submit-record-fn [submitted-records entity]
-  (fn [base-url certname version payload-string]
+  (fn [base-url version payload-string]
     (swap! submitted-records conj
            {:entity entity
             :base-url base-url
@@ -80,9 +79,9 @@
      (fn []
        (is (empty? (get-nodes)))
 
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace catalog" 7 example-catalog)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "store report" 6 example-report)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace facts" 4 example-facts)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 7 example-catalog)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 6 example-report)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace facts" 4 example-facts)
        (#'cli-export/-main "--outfile" export-out-file
                            "--host" (:host svc-utils/*base-url*)
                            "--port" (str (:port svc-utils/*base-url*)))))

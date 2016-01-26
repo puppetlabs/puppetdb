@@ -316,10 +316,9 @@
 (defn sync-command-post
   "Syncronously post a command to PDB by blocking until the message is consumed
    off the queue."
-  [base-url certname cmd version payload]
+  [base-url cmd version payload]
   (let [timeout-seconds 10]
-    (let [response (pdb-client/submit-command-via-http!
-                     base-url certname cmd version payload timeout-seconds)]
+    (let [response (pdb-client/submit-command-via-http! base-url cmd version payload timeout-seconds)]
       (if (>= (:status response) 400)
         (throw (ex-info "Command processing failed" {:response response}))
         response))))
