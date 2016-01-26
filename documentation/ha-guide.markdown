@@ -69,39 +69,32 @@ PE PuppetDB HA Installation, Configuration and Provisioning
 1. Select an agent to become an additional PuppetDB. This additional PuppetDB
 will be refered to as the `replica` and the original PuppetDB will be refered
 to as the `primary`.
+2. From the PE Console go the `PE PuppetDB` class and pin the `replica` node
+to the group, under `certname` and `Pin node`:
 
-2. From the PE Console go the
+    ```
+    Nodes > Classification > PE PuppetDB
+    ```
 
-```
-Nodes > Classification > PE PuppetDB
-```
-
-Pin the `replica` node to the group, under `certname` and `Pin node`.
-
-3. Now go to 
-
-```
-Nodes > Classification > PE PuppetDB > Classes
-```
-
-and add the class `puppet_enterprise::profile::database`. Also change the
+3. Now add the class `puppet_enterprise::profile::database`. Also change the
 parameter `database\_host` on the `puppet_enterprise::profile::puppetdb` class
 to be `"$certname"`.
 
+    ```
+    Nodes > Classification > PE PuppetDB > Classes
+    ```
+
 4. Run `puppet agent -t` on the `primary` and once that has completed, run the
 agent on the `replica` as well.
+5. Return to the PE Console and change the `puppetdb_host` parameter to be a
+list of both the `primary` and `replica` PuppetDBs, e.g.
+`[ "primary.puppetdb.vm", "replica.puppetdb.vm"]`:
 
-5. Return to the PE Console and from 
-
-```
-Nodes > Classification > PE Infrastructure > Classes
-```
-
-change the `puppetdb_host` parameter to be a list of both the `primary` and
-`replica` PuppetDBs, e.g. `[ "primary.puppetdb.vm", "replica.puppetdb.vm"]`.
+    ```
+    Nodes > Classification > PE Infrastructure > Classes
+    ```
 
 6. Run `puppet agent -t` on the Master.
-
 7. Once these Puppet runs are complete, PuppetDB Replication should be
 operational.
      
