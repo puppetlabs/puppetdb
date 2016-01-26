@@ -6,66 +6,63 @@
                                               table-count
                                               with-transacted-connection]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
+            [clojure.core.memoize :as mem]
             [puppetlabs.kitchensink.core :refer [quotient]]
             [metrics.gauges :refer [gauge-fn]]
             [honeysql.core :as hcore]
             [honeysql.helpers :as hh]))
 
-;;; Query library
-
-(def ^:private from-all-resources-and-their-nodes
-  (hcore/build :from [:certnames]
-               :join [:catalog_resources [:= :certnames.id :catalog_resources.certname_id]]))
-
-(defn- where-nodes-are-active [q]
-  (hh/merge-where q [:and
-                     [:= :certnames.deactivated nil]
-                     [:= :certnames.expired nil]]))
-
-(defn- select-count [q]
-  (-> q
-      (hh/select [:%count.* :c])
-      hcore/format
+(defn first-query-result
+  "Pick a key out of the first result of a query."
+  [query k]
+  (-> query
       query-to-vec
       first
-      :c))
-
-;;; Public
+      k))
 
 (defn num-resources
   "The number of resources in the population"
   []
   {:post [(number? %)]}
-  (-> from-all-resources-and-their-nodes
-      where-nodes-are-active
-      select-count))
+  (-> "select reltuples::bigint as c from pg_class where relname='catalog_resources'"
+      (first-query-result :c)))
 
-(defn num-nodes
+(defn num-inactive-nodes
+  "The number of expired/deactivated nodes"
+  []
+  {:post [(number? %)]}
+  (-> "select count(*) as c from certnames where deactivated is not null or expired is not null"
+      (first-query-result :c)))
+
+(defn num-active-nodes
   "The number of unique certnames in the population"
   []
   {:post [(number? %)]}
-  (-> (hh/from :certnames)
-      where-nodes-are-active
-      select-count))
+  (-> "select count(*) as c from certnames where deactivated is null and expired is null"
+      (first-query-result :c)))
 
 (defn avg-resource-per-node
   "The average number of resources per node"
   []
   {:post [(number? %)]}
-  (quotient (num-resources) (num-nodes)))
+  (let [nresources (num-resources)
+        nnodes (first-query-result "select count(*) as c from certnames" :c)]
+    (/ nresources nnodes)))
 
-(defn pct-resource-duplication
+(defn pct-resource-duplication*
   "What percentage of resources in the population are duplicates"
   []
   {:post [(number? %)]}
-  (let [distinct-resources-q (-> from-all-resources-and-their-nodes
-                                 where-nodes-are-active
-                                 (hh/select :catalog_resources.resource)
-                                 (hh/modifiers :distinct))
-        num-unique (-> (hh/from [distinct-resources-q :r])
-                       select-count)
-        num-total (num-resources)]
-    (quotient (- num-total num-unique) num-total)))
+  (let [nresources (num-resources)
+        ndistinct (-> "select count(*) as c from
+                       (select distinct resource from catalog_resources) dist"
+                      (first-query-result :c))]
+    (if (zero? nresources)
+      0
+      (/ (- nresources ndistinct) nresources))))
+
+(def pct-resource-duplication
+  (mem/ttl pct-resource-duplication* :ttl/threshold 60000))
 
 (defn initialize-population-metrics!
   "Initializes the set of population-wide metrics"
@@ -74,14 +71,22 @@
             (fn []
               (with-transacted-connection db
                 (num-resources))))
+  (gauge-fn registry ["num-inactive-nodes"]
+            (fn []
+              (with-transacted-connection db
+                (num-inactive-nodes))))
+  (gauge-fn registry ["num-active-nodes"]
+            (fn []
+              (with-transacted-connection db
+                (num-active-nodes))))
   (gauge-fn registry ["num-nodes"]
-                       (fn []
-                         (with-transacted-connection db
-                           (num-nodes))))
+            (fn []
+              (with-transacted-connection db
+                (num-active-nodes))))
   (gauge-fn registry ["avg-resources-per-node"]
-                                    (fn []
-                                      (with-transacted-connection db
-                                        (avg-resource-per-node))))
+            (fn []
+              (with-transacted-connection db
+                (avg-resource-per-node))))
   (gauge-fn registry ["pct-resource-dupes"]
             (fn []
               (with-transacted-connection db
