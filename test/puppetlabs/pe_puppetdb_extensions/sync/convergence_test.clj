@@ -145,7 +145,7 @@
             (if (= target :x) [pdb-x pdb-y] [pdb-y pdb-x]))
           (submit [x y target command version data]
             (let [[x y] (order-targets x y target)]
-              (submit-command-via-http! (:command-url x)
+              (submit-command-via-http! (:command-url x) (:certname data)
                                         command version data)))]
     (ccm/match command
       {:cmd :replace-catalog :target target :stamp stamp :seed n}

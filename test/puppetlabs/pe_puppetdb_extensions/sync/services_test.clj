@@ -94,8 +94,10 @@
                           :producer_timestamp "2014-01-01T08:05:00.000Z")
             report2 (assoc (:basic2 report-examples/reports)
                            :producer_timestamp "2014-01-01T09:01:00.000Z")]
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report))
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report2)))
+        (blocking-command-post (utils/pdb-cmd-url) (:certname report)
+                               "store report" 5 (reports/report-query->wire-v6 report))
+        (blocking-command-post (utils/pdb-cmd-url) (:certname report2)
+                               "store report" 5 (reports/report-query->wire-v6 report2)))
       (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
             expected {"2014-01-01T08:00:00.000Z" "ff9fd7a2c2459280c30632d3390345b5"
                       "2014-01-01T09:00:00.000Z" "ee94b04f27d6f844bcac35cffe841d93"}]
@@ -105,7 +107,8 @@
     (with-ext-instances [pdb (utils/sync-config nil)]
       (let [report (assoc (:basic report-examples/reports)
                           :producer_timestamp "2014-01-01T08:05:00.000Z")]
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report)))
+        (blocking-command-post (utils/pdb-cmd-url) (:certname report)
+                               "store report" 5 (reports/report-query->wire-v6 report)))
       (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
             expected {"2014-01-01T08:00:00.000Z" "ff9fd7a2c2459280c30632d3390345b5"}]
         (is (= expected actual)))
@@ -131,7 +134,8 @@
                           :producer_timestamp "2014-01-01T08:05:00.000Z")
             report2 (assoc (:basic2 report-examples/reports)
                            :producer_timestamp "2014-01-01T08:10:00.000Z")]
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report))
+        (blocking-command-post (utils/pdb-cmd-url) (:certname report)
+                               "store report" 5 (reports/report-query->wire-v6 report))
         (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
               expected {"2014-01-01T08:00:00.000Z" "ff9fd7a2c2459280c30632d3390345b5"}]
           (is (= expected actual)))
@@ -139,7 +143,8 @@
         ;; the second report is in the same bucket as the first, so submitting
         ;; this command should invalidate the cache and give us a new result
         ;; when running the summary
-        (blocking-command-post (utils/pdb-cmd-url) "store report" 5 (reports/report-query->wire-v6 report2))
+        (blocking-command-post (utils/pdb-cmd-url) (:certname report2)
+                               "store report" 5 (reports/report-query->wire-v6 report2))
         (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
               expected {"2014-01-01T08:00:00.000Z" "afd22efd338d2c1802b62f1fb67beeb8"}]
           (is (= expected actual)))))))

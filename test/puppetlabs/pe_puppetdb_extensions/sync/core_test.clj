@@ -101,13 +101,13 @@
                      query-fn (partial cli-svcs/query
                                        (get-service svcs/*server*
                                                     :PuppetDBServer))]
-                 (blocking-command-post (utils/pdb-cmd-url)
+                 (blocking-command-post (utils/pdb-cmd-url) (:certname report)
                                         "store report" 6 report)
                  (is (not (empty? (svcs/get-reports (utils/pdb-query-url)
                                                     (:certname report)))))
                  (with-alt-mq "puppetlabs.puppetdb.commands-2"
                    (with-puppetdb-instance config-2
-                     (blocking-command-post (utils/pdb-cmd-url)
+                     (blocking-command-post (utils/pdb-cmd-url) (:certname report)
                                             "store report" 6 report)
                      (is (not (empty? (svcs/get-reports
                                        (utils/pdb-query-url)

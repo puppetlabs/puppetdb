@@ -117,16 +117,19 @@
   (svcs/get-json base-url (str "/nodes/" certname)))
 
 (defn submit-catalog [endpoint catalog]
-  (blocking-command-post (:command-url endpoint) "replace catalog" 6 catalog))
+  (blocking-command-post (:command-url endpoint) (:certname catalog)
+                         "replace catalog" 6 catalog))
 
 (defn submit-factset [endpoint facts]
-  (blocking-command-post (:command-url endpoint) "replace facts" 4 facts))
+  (blocking-command-post (:command-url endpoint) (:certname facts)
+                         "replace facts" 4 facts))
 
 (defn submit-report [endpoint report]
-  (blocking-command-post (:command-url endpoint) "store report" 6 report))
+  (blocking-command-post (:command-url endpoint) (:certname report)
+                         "store report" 6 report))
 
 (defn deactivate-node [endpoint certname]
-  (blocking-command-post (:command-url endpoint) "deactivate node" 3
+  (blocking-command-post (:command-url endpoint) certname "deactivate node" 3
                          {:certname certname
                           :producer_timestamp (t/plus (t/now) (t/years 10))}))
 

@@ -12,9 +12,10 @@
     (let [report (:basic reports)
           report2 (-> (:basic2 reports)
                       (merge {:certname "bar.local" :end_time (now)}))]
-      (blocking-command-post (utils/pdb-cmd-url) "store report" 5
-                             (reports/report-query->wire-v6 report))
-      (blocking-command-post (utils/pdb-cmd-url) "store report" 5
+      (blocking-command-post (utils/pdb-cmd-url) (:certname report)
+                             "store report" 5 (reports/report-query->wire-v6 report))
+      (blocking-command-post (utils/pdb-cmd-url) (:certname report2)
+                             "store report" 5
                              (reports/report-query->wire-v6 report2))
       (testing "query with no parameters returns correct counts"
         (let [actual (svcs/get-json (utils/pe-pdb-url) "/state-overview")
@@ -48,8 +49,8 @@
 
       (testing "state-overview excludes deactivated nodes"
         (do
-          (blocking-command-post (utils/pdb-cmd-url) "deactivate node" 3
-                                 {"certname" "bar.local"})
+          (blocking-command-post (utils/pdb-cmd-url) "bar.local"
+                                 "deactivate node" 3 {"certname" "bar.local"})
           ;; Sleep to allow status to change to unresponsive with threshold=1
           (Thread/sleep 1000)
           (let [actual (svcs/get-json (utils/pe-pdb-url)
