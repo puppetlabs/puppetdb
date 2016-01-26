@@ -10,7 +10,6 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
-            [puppetlabs.puppetdb.utils :as utils]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.comidi :as cmdi]
@@ -116,6 +115,7 @@
             (s/required-key "version") s/Str
             (s/required-key "certname") s/Str
             (s/required-key "received") s/Str
+            (s/optional-key "secondsToWaitForCompletion") s/Str
             (s/optional-key "checksum") s/Str}
    :body java.io.InputStream
    s/Any s/Any})
