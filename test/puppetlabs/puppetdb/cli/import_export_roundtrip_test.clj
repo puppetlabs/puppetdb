@@ -23,9 +23,12 @@
      (fn []
        (is (empty? (get-nodes)))
 
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace catalog" 7 example-catalog)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "store report" 6 example-report)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace facts" 4 example-facts)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                    "replace catalog" 7 example-catalog)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                    "store report" 6 example-report)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
+                                    "replace facts" 4 example-facts)
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
@@ -61,7 +64,7 @@
      (fn []
        (is (empty? (get-nodes)))
 
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "replace facts" 4 example-facts)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace facts" 4 example-facts)
 
        (is (empty? (get-catalogs example-certname)))
        (is (empty? (get-reports example-certname)))
@@ -100,7 +103,11 @@
      (fn []
        (is (empty? (get-nodes)))
 
-       (pdb-client/submit-command-via-http! (svc-utils/pdb-cmd-url) "replace catalog" 7 example-catalog)
+       (pdb-client/submit-command-via-http! (svc-utils/pdb-cmd-url)
+                                            example-certname
+                                            "replace catalog"
+                                            7
+                                            example-catalog)
 
        (is (thrown-with-msg?
             java.util.concurrent.ExecutionException #"Results not found"
