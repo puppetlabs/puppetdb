@@ -69,8 +69,8 @@ module Puppet::Util::Puppetdb
   #
   # @param query [String, Array] The PQL or AST query for PuppetDB
   # @return [Array<Hash>]
-  def query_puppetdb(query)
-    profile("Submitted query '#{query}'", [:puppetdb, :query, query]) do
+  def self.query_puppetdb(query)
+    Puppet::Util::Profiler.profile("Submitted query '#{query}'", [:puppetdb, :query, query]) do
       headers = { "Accept" => "application/json",
                   "Content-Type" => "application/json; charset=UTF-8" }
       response = Puppet::Util::Puppetdb::Http.action("/pdb/query/v4", :query) do |http_instance, path|
