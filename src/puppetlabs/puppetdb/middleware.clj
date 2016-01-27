@@ -103,7 +103,7 @@
 (defn wrap-pretty-printing-opts
   [app]
   (fn [{:keys [params] :as req}]
-    (let [pretty (get params "pretty" "false")]
+    (if-let [pretty (get params "pretty")]
       (if-not (or (= "false" pretty)
                   (= "true" pretty))
         (http/error-response (str "Parameter 'pretty' must be either 'true' or 'false' not '"
@@ -112,14 +112,15 @@
         (let [new-req (-> req
                           (update :params dissoc "pretty")
                           (assoc-in [:globals :pretty-print] (= "true" pretty)))]
-          (app new-req))))))
+          (app new-req)))
+      (app req))))
 
 (defn wrap-with-globals
   "Ring middleware that adds a :globals attribute to each request that
-  contains a map of the current shared-global settings."
+   contains a map of the current shared-global settings."
   [app get-shared-globals]
   (fn [req]
-    (let [new-req (update req :globals merge (get-shared-globals))]
+    (let [new-req (update req :globals #(merge (get-shared-globals) %))]
       (app new-req))))
 
 (defn wrap-with-illegal-argument-catch

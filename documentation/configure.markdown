@@ -205,7 +205,6 @@ make external HTTP requests. In this case you can configure a proxy
 server to send requests to the `updates.puppetlabs.com` URL and
 override this setting to point to your proxy server.
 
-
 `[puppetdb]` settings
 -----
 
@@ -881,3 +880,18 @@ default this is `127.0.0.1` only. As this is an insecure channel this
 is the only recommended setting for production environments. 
 
 If you wish to listen on all interfaces, you can specify `0.0.0.0`, for example, although this is generally not recommended for production. 
+
+`[developer]` settings
+-----
+
+The `[developer]` section contains configuration items that may be useful to
+users developing against the PuppetDB API. These settings may impede
+performance, and are not recommended for production use.
+
+### `pretty-print`
+
+Enables/disables default pretty-printing of API responses. Defaults to false.
+Enabling default pretty-printing is not recommended in production because it
+incurs a penalty in data transfer speed and size. Users may override this
+setting on a per-query basis by supplying a `?pretty=` parameter in the URL,
+valued `true` or `false`.
