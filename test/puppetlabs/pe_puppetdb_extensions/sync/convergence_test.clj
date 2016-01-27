@@ -34,8 +34,9 @@
 
 (defn- make-test-catalog [stamp n]
   (-> (get-in examples/wire-catalogs [7 :basic])
-      (assoc :certname example-certname)
-      (assoc :producer_timestamp (DateTime. stamp))
+      (assoc :certname example-certname
+             :producer_timestamp (DateTime. stamp)
+             :transaction_uuid (kitchensink/uuid))
       (update :resources conj
               {:type "File"
                :title example-resource-uuid
@@ -51,7 +52,8 @@
   (-> report-examples/reports
       :basic
       (assoc-in [:resource_events :data 0 :line] n)
-      (assoc :producer_timestamp (DateTime. stamp))
+      (assoc :producer_timestamp (DateTime. stamp)
+             :transaction_uuid (kitchensink/uuid))
       reports/report-query->wire-v6))
 
 (defn- make-test-facts [stamp n]

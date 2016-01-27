@@ -55,7 +55,7 @@
         bucketed-reports-atom (atom {})
         stub-handler (cmdi/routes
                       (stub-reports-summary-route bucketed-reports-atom)
-                      (logging-query-routes "/pdb-x/query/v4/reports" pdb-x-queries
+                      (logging-query-routes :reports pdb-x-queries
                                             stub-data-atom :hash))]
     (with-log-suppressed-unless-notable notable-pull-changes-event?
       (with-ext-instances [pdb (sync-config stub-handler)]
@@ -97,7 +97,7 @@
 (deftest pull-factsets-test
   (let [pdb-x-queries (atom [])
         stub-data-atom (atom [])
-        stub-handler (logging-query-routes "/pdb-x/query/v4/factsets" pdb-x-queries
+        stub-handler (logging-query-routes :factsets pdb-x-queries
                                            stub-data-atom :certname)]
     (with-log-suppressed-unless-notable notable-pull-changes-event?
       (with-ext-instances [pdb (sync-config stub-handler)]
@@ -172,78 +172,68 @@
                                :target_title (get-in edge [:target :title])})
                    %)))
 
+(defn stub-catalogs-summary-route [content-atom]
+  (cmdi/GET "/pdb-x/sync/v1/catalogs-summary" []
+    (json-response @content-atom)))
+
 (deftest pull-catalogs-test
   (let [pdb-x-queries (atom [])
         stub-data-atom (atom [])
-        stub-handler (logging-query-routes "/pdb-x/query/v4/catalogs" pdb-x-queries
-                                           stub-data-atom :certname)]
+        bucketed-catalogs-atom (atom {})
+        stub-handler (cmdi/routes
+                      (stub-catalogs-summary-route bucketed-catalogs-atom)
+                      (logging-query-routes :historical_catalogs
+                                            pdb-x-queries
+                                            stub-data-atom
+                                            :transaction_uuid))]
     (with-log-suppressed-unless-notable notable-pull-changes-event?
       (with-ext-instances [pdb (sync-config stub-handler)]
         ;; store catalogs in PDB Y
-        (doseq [c (map char (range (int \a) (int \g)))]
+        (doseq [c ["a" "b"]]
           (let [certname (str c ".local")]
             (blocking-command-post (utils/pdb-cmd-url) certname "replace catalog" 6
                                    (assoc catalog :certname certname))))
 
-        (let [local-catalogs (index-by :certname (get-json (utils/pdb-query-url)
-                                                           "/catalogs"))
+        (let [local-catalogs (index-by :certname (get-json (utils/pe-pdb-url)
+                                                           "/historical-catalogs"))
               timestamps (ks/mapvals (comp to-date-time :producer_timestamp)
-                                     local-catalogs)]
-          (is (= 6 (count local-catalogs)))
+                                     local-catalogs)
+              transaction-uuids (ks/mapvals :transaction_uuid local-catalogs)]
+          (is (= 2 (count local-catalogs)))
 
           (reset! stub-data-atom
-                  [ ;; time is newer than local, hash is different -> should pull
+                  [ ;; same transaction_uuid -> no pull
                    (assoc catalog-response
                           :certname "a.local"
-                          :hash "a_different"
-                          :producer_timestamp (t/plus (timestamps "a.local")
-                                                      (t/days 1))
+                          :producer_timestamp (timestamps "a.local")
+                          :transaction_uuid (transaction-uuids "a.local")
                           :environment "A")
-                   ;; time is older than local, hash is different -> no pull
+
+                   ;; certname and timestamp same but different transaction_uuid -> pull
                    (assoc catalog-response
                           :certname "b.local"
-                          :hash "b_different"
-                          :producer_timestamp (t/minus (timestamps "b.local")
-                                                       (t/days 1)))
-                   ;; time is the same, hash is the same -> no pull
-                   (assoc catalog-response
-                          :certname "c.local"
-                          :hash (-> local-catalogs (get "c.local") :hash)
-                          :producer_timestamp (timestamps "c.local"))
-                   ;; time is the same, hash is lexically less -> no pull
-                   (assoc catalog-response
-                          :certname "d.local"
-                          :hash "0000000000000000000000000000000000000000"
-                          :producer_timestamp (timestamps "d.local"))
-                   ;; time is the same, hash is lexically greater -> should pull
-                   (assoc catalog-response
-                          :certname "e.local"
-                          :hash "ffffffffffffffffffffffffffffffffffffffff"
-                          :producer_timestamp (timestamps "e.local")
-                          :environment "E")
-                   ;; timer is newer than local, hash is the same -> should pull
-                   (assoc catalog-response
-                          :certname "f.local"
-                          :hash (-> local-catalogs (get "f.local") :hash)
-                          :producer_timestamp (t/plus (timestamps "f.local")
-                                                      (t/days 1))
-                          :environment "F")])
+                          :producer_timestamp (timestamps "b.local")
+                          :transaction_uuid "a8b08e2a-eeb1-4322-b241-bfdf151d294b"
+                          :environment "B")])
+
+          (reset! bucketed-catalogs-atom
+                  {"2014-07-10T22:00:00.000Z" "a different hash"})
 
           ;; Send a sync command to PDB Y
           (perform-sync (utils/stub-url-str "/pdb-x/query/v4")
                         (utils/trigger-sync-url-str)))
 
         ;; We should see that the sync happened, and a summary query and bulk record query were made to PDB X
-        (let [synced-catalogs (get-json (utils/pdb-query-url) "/catalogs")
-              environments (->> synced-catalogs (map :environment) (into #{}))]
-          (is (= #{"DEV" "A" "E" "F"} environments))
+        (let [local-catalogs (get-json (utils/pe-pdb-url) "/historical-catalogs")
+              environments (->> local-catalogs (map :environment) (into #{}))]
+          (is (= #{"DEV" "B"} environments))
           (is (= 2 (count @pdb-x-queries))))))))
 
 (deftest pull-with-https
   (let [pdb-x-queries (atom [])
         stub-data-atom (atom [])
         stub-routes (logging-query-routes
-                      "/pdb-x/query/v4/catalogs" pdb-x-queries stub-data-atom :certname)
+                      :factsets pdb-x-queries stub-data-atom :hash)
         pdb-config (assoc (sync-config stub-routes)
                           :jetty {:ssl-port 0
                                   :ssl-host "0.0.0.0"

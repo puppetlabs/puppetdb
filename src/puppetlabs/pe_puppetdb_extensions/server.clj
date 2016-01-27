@@ -12,7 +12,7 @@
                  (cmdi/ANY "/historical-catalogs" []
                            catalogs/historical-catalogs-handler))
                 (handlers/extract-query
-                 (cmdi/GET "/resource-graphs" []
+                 (cmdi/ANY "/resource-graphs" []
                            catalogs/resource-graphs-handler))
                 (cmdi/GET "/state-overview" []
                           (state-overview/state-overview-handler query-fn))))

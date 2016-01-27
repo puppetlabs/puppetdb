@@ -68,9 +68,10 @@
     ;; information about the identity of each record and a
     ;; hash of its content.
     :summary-query {:version :v4
-                    :query ["extract" ["hash" "certname" "producer_timestamp"]
-                            ["and" ["null?" "start_time" false]
-                             include-inactive-nodes-criteria]]
+                    :query ["from" "reports"
+                            ["extract" ["hash" "certname" "producer_timestamp"]
+                             ["and" ["null?" "start_time" false]
+                              include-inactive-nodes-criteria]]]
                     :order {:order_by [[:certname :ascending] [:producer_timestamp :ascending]]}}
 
     ;; The above query is done on each side of the sync; the
@@ -96,8 +97,9 @@
 
    {:entity :factsets
     :summary-query {:version :v4
-                    :query ["extract" ["hash" "certname" "producer_timestamp"]
-                            include-inactive-nodes-criteria]
+                    :query ["from" "factsets"
+                            ["extract" ["hash" "certname" "producer_timestamp"]
+                             include-inactive-nodes-criteria]]
                     :order {:order_by [[:certname :ascending]]}}
     :record-id-fn :certname
     :record-fetch-key :certname
@@ -110,14 +112,19 @@
     :submit-command {:command :replace-facts
                      :version 4}}
 
-   {:entity :catalogs
+   {:entity :historical_catalogs
+    ;; Bucketed summary queries are disabled for catalogs, for now, since we're
+    ;; only keeping a very short history. We can enable this once we solve the storage problems
+    ;; and need to deal with more history.
+    ;; :bucketed-summary-query-path "../../sync/v1/catalogs-summary"
     :summary-query {:version :v4
-                    :query ["extract" ["hash" "certname" "producer_timestamp"]
-                            include-inactive-nodes-criteria]
-                    :order {:order_by [[:certname :ascending]]}}
-    :record-id-fn :certname
-    :record-fetch-key :certname
-    :record-ordering-fn (juxt :producer_timestamp :hash)
+                    :query ["from" "historical_catalogs"
+                            ["extract" ["transaction_uuid" "producer_timestamp"]
+                             include-inactive-nodes-criteria]]
+                    :order {:order_by [[:transaction_uuid :ascending]]}}
+    :record-id-fn :transaction_uuid
+    :record-fetch-key :transaction_uuid
+    :record-ordering-fn :transaction_uuid
     :clean-up-record-fn (fn clean-up-catalog [catalog]
                           (-> catalog
                               (utils/update-when [:edges] #(map clean-up-edge %))
@@ -127,7 +134,8 @@
 
    {:entity :nodes
     :summary-query {:version :v4
-                    :query include-inactive-nodes-criteria
+                    :query ["from" "nodes"
+                            include-inactive-nodes-criteria]
                     :order {:order_by [[:certname :ascending]]}}
     :record-id-fn :certname
     :record-fetch-key :certname
@@ -333,8 +341,10 @@
                                          (:command submit-command)
                                          (:version submit-command))
         ingest-record-data #(ingest-record-data % remote-server clean-up-record-fn store-record-locally-fn)
-        query ["and" ["in" (name record-fetch-key) ["array" (vec record-fetch-vals)]]
-               include-inactive-nodes-criteria]
+        query ["from" entity
+               ["and"
+                ["in" (name record-fetch-key) ["array" (vec record-fetch-vals)]]
+                include-inactive-nodes-criteria]]
         qerr-msg (fn [status body]
                    (str "unable to request " entity-name " from " (:url remote-server)
                         " using query " query "; received "
@@ -346,7 +356,7 @@
                        :start [:debug "    syncing {entity} record ({certname} {hash}) from {remote}"]
                        :finished [:debug "    --> transferred {entity} record for query {query} via {remote} in {elapsed} ms"]
                        :error [:warn "    *** failed to sync {entity} record for query {query} via {remote} in {elapsed} ms"]}
-      (with-open [body-stream (-> (http-request :post remote-server entity-name
+      (with-open [body-stream (-> (http-request :post remote-server ""
                                                 {:as :stream
                                                  :body (json/generate-string {:query query})
                                                  :headers {"Content-Type" "application/json"}}
@@ -428,12 +438,14 @@
         {:keys [version query order]} summary-query
         entity-name (name entity)
         error-message-fn (fn [status body]
-                           (format "Error querying %s for record summaries (%s). Received HTTP status code %s with the error message '%s'"
+                           (format (str "Error querying %s for record summaries (%s)."
+                                        "Received HTTP status code %s with the error message '%s'")
                                    remote-server entity-name status body))]
-    (-> (http-request :get remote-server entity-name
-                      {:query-params {"query" (json/generate-string query)
-                                      "order_by" (json/generate-string (order-by-clause-to-wire-format order))}
-                       :as :stream}
+    (-> (http-request :post remote-server ""
+                      {:as :stream
+                       :body (json/generate-string
+                              {:query query
+                               :order_by (order-by-clause-to-wire-format order)})}
                       error-message-fn)
         :body)))
 
@@ -468,24 +480,23 @@
                                                 ;; do the detailed summary
                                                 true)]
         (when need-to-do-detailed-summary-query
-          (with-open [summary-stream (remote-streamed-summary-query remote-server sync-config)]
-            (let [remote-sync-data (map parse-time-fields
-                                        (-> summary-stream
-                                            clojure.java.io/reader
-                                            (json/parse-stream true)))
-                  remote-host-404? #(and (= ::remote-host-error (get % :type))
-                                         (= 404 (get-in % [:error-response :status])))
-                  {:keys [summary-query record-id-fn
+          (with-open [remote-summary-stream (remote-streamed-summary-query remote-server sync-config)
+                      remote-summary-reader (-> remote-summary-stream clojure.java.io/reader)]
+            (let [{:keys [summary-query record-id-fn
                           record-ordering-fn]} sync-config
                   {:keys [version query order]} summary-query
-                  incoming-records #(records-to-fetch record-id-fn record-ordering-fn
-                                                      % remote-sync-data now node-ttl)
+                  incoming-records (fn [local-summary-seq]
+                                     (records-to-fetch record-id-fn record-ordering-fn
+                                                       local-summary-seq
+                                                       (map parse-time-fields (json/parse-stream remote-summary-reader true))
+                                                       now node-ttl))
                   maybe-deactivate #(set-local-deactivation-status! % submit-command-fn)
                   transfer-batch #(transfer-batch remote-server % submit-command-fn sync-config)]
-              (query-fn version ["from" entity-name query] order
-                        (fn [local-sync-data]
+              (query-fn version query order
+                        ;; TODO: we're retaining the seq head here; need to change the API to pass a thunk instead
+                        (fn [local-summary-seq]
                           ;; transfer records in batches of 5000, to avoid per-request overhead
-                          (doseq [batch (partition-all 5000 (incoming-records local-sync-data))]
+                          (doseq [batch (partition-all 5000 (incoming-records local-summary-seq))]
                             (if (= entity :nodes)
                               (doseq [record batch]
                                 (when (maybe-deactivate record)

@@ -211,6 +211,10 @@
                              (let [summary-map (bucketed-summary-query-fn :reports)]
                                (http/json-response (ks/mapkeys str summary-map))))
 
+                   (cmdi/GET "/catalogs-summary" []
+                     (let [summary-map (bucketed-summary-query-fn :catalogs)]
+                       (http/json-response (ks/mapkeys str summary-map))))
+
                    (cmdi/POST "/trigger-sync" {:keys [body params] :as request}
                               (let [sync-request (json/parse-string (slurp body) true)
                                     remote-url (:remote_host_path sync-request)
