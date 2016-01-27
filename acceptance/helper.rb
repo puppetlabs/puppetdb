@@ -26,7 +26,7 @@ module PuppetDBExtensions
 
     install_mode =
         get_option_value(options[:install_mode],
-                         [:install, :upgrade], "install mode",
+                         [:install, :upgrade_oldest, :upgrade_latest], "install mode",
                          "INSTALL_MODE", :install)
 
     validate_package_version =
@@ -194,12 +194,17 @@ module PuppetDBExtensions
     end
   end
 
-  def puppetdb_confdir(host)
-    "/etc/puppetlabs/puppetdb"
+  def aio_pathing_exists?(host)
+    result = on host, %Q|if [ -e /etc/puppetlabs/puppetdb ]; then echo aio; fi|
+    result.stdout.strip == "aio"
   end
 
-  def puppetdb_sharedir(host)
-    "/opt/puppetlabs/server/apps/puppetdb/share"
+  def puppetdb_confdir(host, legacy=false)
+    if aio_pathing_exists?(host)
+      "/etc/puppetlabs/puppetdb"
+    else
+      "/etc/puppetdb"
+    end
   end
 
   def puppetdb_bin_dir(host)
@@ -208,10 +213,6 @@ module PuppetDBExtensions
 
   def puppetdb_log_dir(host)
     "/var/log/puppetlabs/puppetdb"
-  end
-
-  def puppetdb_vardir(host)
-    "/opt/puppetlabs/server/data/puppetdb"
   end
 
   def puppetdb_pids(host)
@@ -248,20 +249,24 @@ module PuppetDBExtensions
   def sleep_until_started(host)
     # Hit an actual endpoint to ensure PuppetDB is up and not just the webserver.
     # Retry until an HTTP response code of 200 is received.
+    test_route = aio_pathing_exists?(host) ? "pdb/meta/v1/version" : "v4/version"
     curl_with_retries("start puppetdb", host,
-                      "-s -w '%{http_code}' http://localhost:8080/pdb/meta/v1/version -o /dev/null",
+                      "-s -w '%{http_code}' http://localhost:8080/#{test_route} -o /dev/null",
                       0, 120, 1, /200/)
     curl_with_retries("start puppetdb (ssl)", host,
-                      "https://#{host.node_name}:8081/pdb/meta/v1/version", [35, 60])
+                      "https://#{host.node_name}:8081/#{test_route}", [35, 60])
   rescue RuntimeError => e
     display_last_logs(host)
     raise
   end
 
   def get_package_version(host, version = nil)
-    return version unless version.nil?
 
-    version = PuppetDBExtensions.config[:package_build_version].to_s
+    if version == 'latest'
+      return 'latest'
+    elsif version.nil?
+      version = PuppetDBExtensions.config[:package_build_version].to_s
+    end
 
     # version can look like:
     #   3.0.0
@@ -360,6 +365,7 @@ module PuppetDBExtensions
   end
 
   def print_ini_files(host, confdir='/etc/puppetlabs/puppetdb/conf.d')
+    confdir = "#{puppetdb_confdir(host)}/conf.d"
     step "Print out jetty.ini for posterity" do
       on host, "cat #{confdir}/jetty.ini"
     end
