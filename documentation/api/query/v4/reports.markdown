@@ -5,13 +5,13 @@ canonical: "/puppetdb/latest/api/query/v4/reports.html"
 ---
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
-[operator]: ./operators.html
+[ast]: ./ast.html
 [events]: ./events.html
 [paging]: ./paging.html
 [statuses]: /puppet/latest/reference/format_report.html#puppettransactionreport
 [query]: ./query.html
 [8601]: http://en.wikipedia.org/wiki/ISO_8601
-[subqueries]: ./operators.html#subquery-operators
+[subqueries]: ./ast.html#subquery-operators
 [environments]: ./environments.html
 [events]: ./events.html
 [nodes]: ./nodes.html
@@ -38,7 +38,7 @@ If the `query` parameter is absent, PuppetDB will return all reports.
 
 ### Query operators
 
-See [the query operators page](./operators.html)
+See [the AST query language page][ast].
 
 ### Query fields
 

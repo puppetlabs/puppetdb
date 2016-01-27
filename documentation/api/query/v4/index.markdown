@@ -7,8 +7,10 @@ canonical: "/puppetdb/latest/api/query/v4/index.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
-[from]: ./operators.html#context-operators
+[from]: ./ast.html#context-operators
 [entities]: ./entities.html
+[pql]: ./pql.html
+[ast]: ./ast.html
 
 *Note:* This endpoint is experimental. It may be altered or removed in a future release.
 
@@ -19,11 +21,11 @@ single endpoint.
 
 This will return any known entity based on the required `query` field. Unlike
 other endpoints, the [entity][entities] must be supplied using a query with the [`from`][from]
-operator.
+operator or a [PQL][pql] query string.
 
 ### URL parameters
 
-* `query`: required. A JSON array containing the query in prefix notation
+* `query`: required. Either a [PQL query string][pql], or an [AST][ast] JSON array containing the query in prefix notation
 (`["from", "<ENTITY>", ["<OPERATOR>", "<FIELD>", "<VALUE>"]]`). Unlike other endpoints,
 a query with a [`from`][from] is required to choose the [entity][entities] for which to query. For
 general info about queries, see [our guide to query structure.][query]
@@ -38,6 +40,26 @@ object results based on the [entity][entities] provided in the top-level [`from`
 [Using `curl` from localhost][curl]:
 
     curl -X GET http://localhost:8080/pdb/query/v4 --data-urlencode 'query=["from","nodes",["=","certname","macbook-pro.local"]]'
+
+    [
+      {
+        "catalog_environment": "production",
+        "catalog_timestamp": "2015-11-23T19:25:25.561Z",
+        "certname": "macbook-pro.local",
+        "deactivated": null,
+        "expired": null,
+        "facts_environment": "production",
+        "facts_timestamp": "2015-11-23T19:25:25.079Z",
+        "latest_report_hash": "0b2aa3bbb1deb71a5328c1d934eadbba5f52d733",
+        "latest_report_status": "unchanged",
+        "report_environment": "production",
+        "report_timestamp": "2015-11-23T19:25:23.394Z"
+      }
+    ]
+
+The same query can also be executed using [PQL][pql]:
+
+    curl -X GET http://localhost:8080/pdb/query/v4 --data-urlencode 'query=nodes { certname = "macbook-pro.local" }'
 
     [
       {

@@ -1,26 +1,50 @@
+# Build files
 pom.xml
 *jar
 /lib/
 /classes/
 /target/
 /docs/
-.lein-failures
-.lein-deps-sum
-*#
 /pkg/
-test-resources/config/local.clj
-checkouts
-ext/packaging/*
-/scripts
-Gemfile.lock
 /log/
-Vagrantfile
-.vagrant
 *.tar.gz
-.blimpy.d
 version
 junit
-tmp
-vendor
-ext/packaging
 
+# Emacs files
+*#
+
+# Local overide for testing config
+test-resources/config/local.clj
+
+# Vagrant cache folder & vagrantfile if used
+.vagrant
+Vagrantfile
+
+# A generalized temporary area for local use, tmp for
+# general temporary items, and scripts for any local
+# scripts.
+tmp
+/scripts
+
+# Bundler files
+vendor
+Gemfile.lock
+
+# Used by Puppet Labs packaging system
+ext/packaging/*
+
+# VIM swap files
+*.swp
+
+# The leiningen temporary/local files
+.lein-failures
+.lein-deps-sum
+.lein-repl-history
+
+# lein-checkouts folder
+checkouts
+
+# RVM files for localised setups
+.ruby-gemset
+.ruby-version

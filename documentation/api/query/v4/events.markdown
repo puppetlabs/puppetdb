@@ -6,11 +6,11 @@ canonical: "/puppetdb/latest/api/query/v4/events.html"
 
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [report]: ./reports.html
-[operators]: ./operators.html
+[ast]: ./ast.html
 [paging]: ./paging.html
 [query]: ./query.html
 [8601]: http://en.wikipedia.org/wiki/ISO_8601
-[subqueries]: ./operators.html#subquery-operators
+[subqueries]: ./ast.html#subquery-operators
 [environments]: ./environments.html
 [nodes]: ./nodes.html
 [reports]: ./reports.html
@@ -53,9 +53,7 @@ are generated from Puppet reports.)
 
 ### Query operators
 
-See [the query operators page][operators] for the full list of available operators.
-Note that inequality operators (`<`, `>`, `<=`, and `>=`) are only supported against
-the `timestamp` field.
+See [the AST query language page][ast] for the full list of available operators.
 
 ### Query fields
 

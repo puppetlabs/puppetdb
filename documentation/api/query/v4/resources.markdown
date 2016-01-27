@@ -7,7 +7,8 @@ canonical: "/puppetdb/latest/api/query/v4/resources.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
-[subqueries]: ./operators.html#subquery-operators
+[subqueries]: ./ast.html#subquery-operators
+[ast]: ./ast.html
 [catalogs]: ./catalogs.html
 [environments]: ./environments.html
 [nodes]: ./nodes.html
@@ -28,7 +29,7 @@ If no query is provided, all resources will be returned.
 
 ### Query operators
 
-See [the query operators page](./operators.html) for the full list of available operators. Note that:
+See [the AST query language page][ast] for the full list of available operators. Note that:
 
 * The inequality operators are only supported for the `line` field.
 

@@ -8,7 +8,8 @@ canonical: "/puppetdb/latest/api/query/v4/fact-paths.html"
 [paging]: ./paging.html
 [query]: ./query.html
 [fact-names]: ./query/v4/fact-names.html
-[subqueries]: ./operators.html#subquery-operators
+[subqueries]: ./ast.html#subquery-operators
+[ast]: ./ast.html
 [facts]: ./facts.html
 [fact-contents]: ./fact_contents.html
 
@@ -30,7 +31,7 @@ If a query parameter is not provided, all results will be returned.
 
 ### Query operators
 
-See [the query operators page.](./operators.html)
+See [the AST query language page][ast].
 
 ## Query fields
 

@@ -1,7 +1,7 @@
 ---
-title: "PuppetDB 3.2: Available operators"
+title: "PuppetDB 3.2: AST query language"
 layout: default
-canonical: "/puppetdb/latest/api/query/v4/operators.html"
+canonical: "/puppetdb/latest/api/query/v4/ast.html"
 ---
 
 [root]: ./index.html
@@ -17,8 +17,31 @@ canonical: "/puppetdb/latest/api/query/v4/operators.html"
 [reports]: ./reports.html
 [resources]: ./resources.html
 [entities]: ./entities.html
+[pql]: ./pql.html
+[urlencode]: http://en.wikipedia.org/wiki/Percent-encoding
 
-PuppetDB's [query strings][query] can use several common operators.
+## Summary
+
+The AST (abstract syntax tree) query language for PuppetDB is a language that presents
+itself as a raw AST format. It can be used to provide complex querying via REST on each of
+PuppetDB's query [endpoints][entities].
+
+This document outlines the operator syntax for this query language.
+
+An easier to use alternative to this query language is the [Puppet query language][pql], which is
+largely based on the AST query language.
+
+## Query strings
+
+An AST query string passed to the `query` URL parameter of a REST endpoint must be a [URL-encoded][urlencode]
+JSON array, which may contain scalar data types (usually strings) and additional arrays, that describes a
+complex _comparison operation_ in [_prefix notation_][prefix] with an **operator** first and its **arguments** following.
+
+That is, before being URL-encoded, all AST query strings follow this form:
+
+    [ "<OPERATOR>", "<ARGUMENT>", (..."<ARGUMENT>"...) ]
+
+Different operators may take different numbers (and types) of arguments.
 
 ## Binary operators
 

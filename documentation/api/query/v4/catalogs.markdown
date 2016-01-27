@@ -8,7 +8,8 @@ canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
-[subqueries]: ./operators.html#subquery-operators
+[subqueries]: ./ast.html#subquery-operators
+[ast]: ./ast.html
 [edges]: ./edges.html
 [environments]: ./environments.html
 [nodes]: ./nodes.html
@@ -30,7 +31,7 @@ If a query parameter is not provided, all results will be returned.
 
 ### Query operators
 
-See [the query operators page.](./operators.html)
+See [the AST query language page][ast].
 
 ### Query fields
 

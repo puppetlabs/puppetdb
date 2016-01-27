@@ -16,6 +16,7 @@
                                                       parse-offset
                                                       parse-order-by
                                                       parse-order-by-json]]
+            [puppetlabs.puppetdb.pql :as pql]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.utils :refer [update-when]]))
 
@@ -236,40 +237,51 @@
 
 (defn get-req->query
   "Converts parameters of a GET request to a pdb query map"
-  [{:keys [params] :as req}]
+  [{:keys [params] :as req}
+   parse-fn]
   (-> params
-      (update-when ["query"] json/parse-strict-string true)
+      (update-when ["query"] parse-fn)
       (update-when ["order_by"] parse-order-by-json)
       (update-when ["counts_filter"] json/parse-strict-string true)
       keywordize-keys))
 
 (defn post-req->query
   "Takes a POST body and parses the JSON to create a pdb query map"
-  [req]
-  (with-open [reader (-> req :body clojure.java.io/reader)]
-    (json/parse-stream reader true)))
+  [req parse-fn]
+  (-> (with-open [reader (-> req :body clojure.java.io/reader)]
+        (json/parse-stream reader true))
+      (update :query (fn [query]
+                       (if (vector? query)
+                         query
+                         (parse-fn query))))))
 
 (pls/defn-validated create-query-map :- puppetdb-query-schema
   "Takes a ring request map and extracts the puppetdb query from the
   request. GET and POST are accepted, all other requests throw an
   exception"
-  [req param-spec]
+  [req param-spec parse-fn]
   (convert-query-params
    (case (:request-method req)
-     :get (get-req->query req)
-     :post (post-req->query req)
+     :get (get-req->query req parse-fn)
+     :post (post-req->query req parse-fn)
      (throw (IllegalArgumentException. "PuppetDB queries must be made via GET/POST")))
    param-spec))
 
 (defn extract-query
   "Query handler that converts the incoming request (GET or POST)
   parameters/body to a pdb query map"
+  ([handler param-spec]
+   (extract-query handler param-spec #(json/parse-strict-string % true)))
+  ([handler param-spec parse-fn]
+   (fn [{:keys [request-method body params puppetdb-query] :as req}]
+     (handler
+      (if puppetdb-query
+        req
+        (assoc req :puppetdb-query (create-query-map req param-spec parse-fn)))))))
+
+(defn extract-query-pql
   [handler param-spec]
-  (fn [{:keys [request-method body params puppetdb-query] :as req}]
-    (handler
-     (if puppetdb-query
-       req
-       (assoc req :puppetdb-query (create-query-map req param-spec))))))
+  (extract-query handler param-spec pql/parse-json-or-pql-to-ast))
 
 (defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a

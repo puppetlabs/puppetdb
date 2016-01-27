@@ -6,6 +6,8 @@ canonical: "/puppetdb/latest/api/index.html"
 
 [commands]: ./command/v1/commands.html
 [termini]: ../connect_puppet_master.html
+[ast]: ./query/v4/ast.html
+[pql]: ./query/v4/pql.html
 
 Since PuppetDB collects lots of data from Puppet, it's an ideal platform for new tools and applications that use that data. You can use the HTTP API described in these pages to interact with PuppetDB's data.
 
@@ -29,7 +31,8 @@ Queries
 PuppetDB's data can be queried with a REST API.
 
 * [Specification of the general query structure](./query/v4/query.html)
-* [Available operators](./query/v4/operators.html)
+* [AST query language][ast]
+* [Puppet query language (experimental)][pql]
 * [Query tutorial](./query/tutorial.html)
 * [Curl tips](./query/curl.html)
 

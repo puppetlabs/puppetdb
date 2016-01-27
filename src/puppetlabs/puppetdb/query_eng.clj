@@ -185,13 +185,13 @@
             (cond-> (http/json-response* resp)
                     count-query (http/add-headers {:count (jdbc/get-result-count count-query)})))))
       (catch com.fasterxml.jackson.core.JsonParseException e
-        (log/errorf e (str "Error executing query '%s'"
-                           "with query-options '%s'. Returning a 400 error code.")
+        (log/errorf e (str "Error executing query '%s' "
+                           "with query options '%s'. Returning a 400 error code.")
                     (name entity) query query-options)
         (http/error-response e))
       (catch IllegalArgumentException e
-        (log/errorf e (str "Error executing query '%s'"
-                           "with query-options '%s'. Returning a 400 error code.")
+        (log/errorf e (str "Error executing query '%s' "
+                           "with query options '%s'. Returning a 400 error code.")
                     (name entity) query query-options)
         (http/error-response e))
       (catch org.postgresql.util.PSQLException e

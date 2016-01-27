@@ -50,17 +50,28 @@
     (testing "invalid from query"
       (let [{:keys [status body]} (query-response method endpoint ["from" "foobar"])]
         (is (re-find #"Invalid entity" body))
+        (is (= status http/status-bad-request)))
+
+      ;; Ensure we parse anything that looks like AST/JSON as JSON not PQL
+      (is (thrown-with-msg? com.fasterxml.jackson.core.JsonParseException #"Unexpected end-of-input"
+                            (query-response method endpoint "[\"from\",\"foobar\"")))
+
+      (let [{:keys [status body]} (query-response method endpoint "foobar {}")]
+        (is (re-find #"PQL parse error at line 1, column 1" body))
         (is (= status http/status-bad-request))))
 
     (testing "pagination"
       (testing "with order_by parameter"
-        (let [results (ordered-query-result method endpoint ["from" "nodes"]
-                                            {:order_by
-                                             (vector-param method
-                                                           [{"field" "certname"
-                                                             "order" "ASC"}])})]
-          (is (= "host1" (:certname (first results))))
-          (is (= 3 (count results)))))
+        (doseq [query [["from" "nodes"]
+                       "nodes {}"
+                       "nodes [] {}"]]
+          (let [results (ordered-query-result method endpoint query
+                                              {:order_by
+                                               (vector-param method
+                                                             [{"field" "certname"
+                                                               "order" "ASC"}])})]
+            (is (= "host1" (:certname (first results))))
+            (is (= 3 (count results))))))
 
       (testing "with order_by in query"
         (let [results (ordered-query-result
@@ -69,15 +80,17 @@
           (is (= 3 (count results)))))
 
       (testing "with all options in parameters"
-        (let [results (ordered-query-result method endpoint ["from" "nodes"]
-                                            {:order_by
-                                             (vector-param method
-                                                           [{"field" "certname"
-                                                             "order" "DESC"}])
-                                             :limit 2
-                                             :offset 1})]
-          (is (= "host2" (:certname (first results))))
-          (is (= 2 (count results)))))
+        (doseq [query [["from" "nodes"]
+                       "nodes {}"]]
+          (let [results (ordered-query-result method endpoint query
+                                              {:order_by
+                                               (vector-param method
+                                                             [{"field" "certname"
+                                                               "order" "DESC"}])
+                                               :limit 2
+                                               :offset 1})]
+            (is (= "host2" (:certname (first results))))
+            (is (= 2 (count results))))))
 
       (testing "with all options in query"
         (let [results (ordered-query-result
@@ -100,19 +113,31 @@
           (is (= "host1" (:certname (first results)))))))
 
     (testing "extract parameters"
-      (let [results (query-result method endpoint ["from" "nodes"
-                                                   ["extract" "certname"
-                                                    ["=" "certname" "host2"]]])]
-        (is (= results #{{:certname "host2"}}))))
+      (doseq [query [["from" "nodes"
+                       ["extract" "certname"
+                        ["=" "certname" "host2"]]]
+                     "nodes [certname] {certname = 'host2'}"]]
+        (let [results (query-result method endpoint query)]
+          (is (= results #{{:certname "host2"}})))))
 
     (testing "nodes"
       (testing "query should return all nodes (including deactivated ones)"
-        (is (= (set (mapv :certname (query-result method endpoint ["from" "nodes"] {})))
-               #{"host1" "host2" "host3"})))
+        (doseq [query [["from" "nodes"]
+                       "nodes {}"]]
+          (is (= (set (mapv :certname (query-result method endpoint query {})))
+                 #{"host1" "host2" "host3"}))))
+
+      (testing "broad regexp query should return all nodes"
+        (doseq [query [["from" "nodes" ["~" "certname" "^host"]]
+                       "nodes { certname ~ '^host' }"]]
+          (is (= (set (mapv :certname (query-result method endpoint query {})))
+                 #{"host1" "host2" "host3"}))))
 
       (testing "query should return single node info"
-        (doseq [host ["host1" "host2" "host3"]]
-          (let [results (query-result method endpoint ["from" "nodes" ["=" "certname" host]])
+        (doseq [host ["host1" "host2" "host3"]
+                query [["from" "nodes" ["=" "certname" host]]
+                       (format "nodes { certname = '%s' }" host)]]
+          (let [results (query-result method endpoint query)
                 result (first results)]
             (is (= host (:certname result)))
             (if (= host "host3")
@@ -121,47 +146,85 @@
 
     (testing "resources"
       (testing "query should return the resources just for that node"
-        (doseq [host ["host1" "host2"]]
-          (let [results (query-result method endpoint ["from" "resources" ["=" "certname" host]])]
+        (doseq [host ["host1" "host2"]
+                query [["from" "resources" ["=" "certname" host]]
+                       (format "resources { certname = '%s' }" host)]]
+          (let [results (query-result method endpoint query)]
             (is (= (set (map :certname results)) #{host})))))
 
       (testing "query should return the resources just for that node matching the supplied type"
-        (doseq [host ["host1" "host2"]]
-          (let [results (query-result method endpoint ["from" "resources"
-                                                       ["and"
-                                                        ["=" "certname" host]
-                                                        ["=" "type" "File"]]])]
+        (doseq [host ["host1" "host2"]
+                query [["from" "resources"
+                        ["and"
+                         ["=" "certname" host]
+                         ["=" "type" "File"]]]
+                       (format "resources { certname = '%s' and type = 'File' }" host)]]
+          (let [results (query-result method endpoint query)]
             (is (= (set (map :certname results)) #{host}))
             (is (= (set (map :type results)) #{"File"}))
             (is (= (count results) 2)))))
 
       (testing "query should return all resources matching the supplied type"
-        (let [results (query-result method endpoint ["from" "resources" ["=" "type" "File"]])]
-          (is (= (set (map :certname results)) #{"host1" "host2" "host3"}))
-          (is (= (set (map :type results)) #{"File"}))
-          (is (= (count results) 6))))
+        (doseq [query [["from" "resources" ["=" "type" "File"]]
+                       "resources { type = 'File' }"]]
+          (let [results (query-result method endpoint query)]
+            (is (= (set (map :certname results)) #{"host1" "host2" "host3"}))
+            (is (= (set (map :type results)) #{"File"}))
+            (is (= (count results) 6)))))
 
       (testing "query should return [] if the <type> doesn't match anything"
-        (let [results (query-result method endpoint ["from" "resources" ["=" "type" "Foobar"]])]
-          (is (= results #{})))))
+        (doseq [query [["from" "resources" ["=" "type" "Foobar"]]
+                       "resources { type = 'Foobar' }"]]
+          (let [results (query-result method endpoint query)]
+            (is (= results #{}))))))
 
     (testing "facts"
       (testing "query should return all instances of the given fact"
-        (let [results (query-result method endpoint ["from" "facts" ["=" "name" "kernel"]])]
-          (is (= (set (map :name results)) #{"kernel"}))
-          (is (= (count results) 3))))
+        (doseq [query [["from" "facts" ["=" "name" "kernel"]]
+                       "facts { name = 'kernel' }"]]
+          (let [results (query-result method endpoint query)]
+            (is (= (set (map :name results)) #{"kernel"}))
+            (is (= (count results) 3)))))
 
       (testing "query should return all instances of the given fact with the given value"
-        (let [results (query-result method endpoint ["from" "facts" ["and" ["=" "name" "kernel"] ["=" "value" "Linux"]]])]
-          (is (= (set (map :name results)) #{"kernel"}))
-          (is (= (set (map :value results)) #{"Linux"}))
-          (is (= (count results) 3))))
+        (doseq [query [["from" "facts" ["and" ["=" "name" "kernel"] ["=" "value" "Linux"]]]
+                       "facts { name = 'kernel' and value = 'Linux' }"]]
+          (let [results (query-result method endpoint query)]
+            (is (= (set (map :name results)) #{"kernel"}))
+            (is (= (set (map :value results)) #{"Linux"}))
+            (is (= (count results) 3)))))
 
       (testing "query should return [] if the fact doesn't match anything"
-        (let [results (query-result method endpoint ["from" "facts" ["=" "name" "blah"]])]
-          (is (= results #{})))))
+        (doseq [query [["from" "facts" ["=" "name" "blah"]]
+                       "facts { name = 'blah' }"]]
+          (let [results (query-result method endpoint query)]
+            (is (= results #{}))))))
 
     (testing "fact_contents query should match expected results"
-      (let [results (query-result method endpoint ["from" "fact_contents" ["=" "certname" "host1"]])]
-        (is (= (set (mapv :name results))
-               #{"kernel" "operatingsystem" "fqdn"}))))))
+      (doseq [query [["from" "fact_contents" ["=" "certname" "host1"]]
+                     "fact_contents { certname = 'host1' }"]]
+        (let [results (query-result method endpoint query)]
+          (is (= (set (mapv :name results))
+                 #{"kernel" "operatingsystem" "fqdn"})))))
+
+    (testing "group by"
+      (doseq [query [["from" "facts"
+                      ["extract"
+                       ["name" ["function" "count"]]
+                       ["group_by" "name"]]]
+                     "facts [name, count()] { group by name }"]]
+        (let [results (query-result method endpoint query)]
+          (is (= results
+                 #{{:name "fqdn" :count 3}
+                   {:name "kernel" :count 3}
+                   {:name "operatingsystem", :count 3}})))))
+
+    (testing "in"
+      (doseq [query [["from" "nodes"
+                      ["in" "certname"
+                       ["array"
+                        ["host1" "host2"]]]]
+                     "nodes { certname in ['host1', 'host2'] }"]]
+        (let [results (query-result method endpoint query)]
+          (is (= 2 (count results)))
+          (is (= (set (map :certname results)) #{"host1" "host2"})))))))
