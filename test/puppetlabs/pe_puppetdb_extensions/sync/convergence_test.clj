@@ -233,6 +233,8 @@
         max-expected-transfers (count-possible-deactivation-races commands)]
     (is (= #{:transferred :failed} (set (keys result))))
     (is (zero? (:failed result)))
+    ;; ideally, there would be zero transfers here because the two pdbs have
+    ;; converged. But we must account for the possibility of deactivation races.
     (is (>= max-expected-transfers (:transferred result)))
     (if (or (not (= #{:transferred :failed} (set (keys result))))
             (not (zero? (:failed result)))
