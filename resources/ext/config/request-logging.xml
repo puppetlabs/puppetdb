@@ -2,13 +2,7 @@
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
         <file>/var/log/puppetlabs/puppetdb/puppetdb-access.log</file>
         <encoder>
-            <pattern>combined</pattern>
-            <!-- To have the same "combined" pattern with elapsedTime ('%D')
-                 appended use the following line:
-
             <pattern>%h %l %u [%t] "%r" %s %b "%i{Referer}" "%i{User-Agent}" %D</pattern>
-
-            -->
         </encoder>
     </appender>
     <appender-ref ref="FILE" />
