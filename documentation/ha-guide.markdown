@@ -90,7 +90,10 @@ the `replica` (i.e. `service pe-puppetdb restart`) and wait for the initial sync
 to complete.
 5. Return to the PE Console and change the `puppetdb_host` parameter to be a
 list of both the `primary` and `replica` PuppetDBs, e.g.
-`[ "primary.puppetdb.vm", "replica.puppetdb.vm"]`:
+`[ "primary.puppetdb.vm", "replica.puppetdb.vm"]`. Also you must change the
+`puppetdb_port` parameter to be a list of the ports that the PuppetDBs in
+`puppetdb_host` are available on, e.g.
+`[ 8081, 8081 ]` when using default PuppetDB configuration on both PuppetDBs:
 
     ```
     Nodes > Classification > PE Infrastructure > Classes
