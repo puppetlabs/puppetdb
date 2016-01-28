@@ -69,38 +69,40 @@ PE PuppetDB HA Installation, Configuration and Provisioning
 1. Select an agent to become an additional PuppetDB. This additional PuppetDB
 will be refered to as the `replica` and the original PuppetDB will be refered
 to as the `primary`.
-2. From the PE Console go the `PE PuppetDB` class and pin the `replica` node
-to the group, under `certname` and `Pin node`:
-
+2. Go to the PE Console and navigate to the `PE PuppetDB` class:
+ 
     ```
     Nodes > Classification > PE PuppetDB
     ```
 
-3. Now add the class `puppet_enterprise::profile::database`. Also change the
-parameter `database\_host` on the `puppet_enterprise::profile::puppetdb` class
-to be `"$clientcert"`.
+3. Pin the `replica` node to the group, under `certname` and `Pin node`.
+4. Navigate to the `Classes` tab now:
 
     ```
     Nodes > Classification > PE PuppetDB > Classes
     ```
 
-4. Run `puppet agent -t` on the `replica` and once that has completed, run the
+5. Add the class `puppet_enterprise::profile::database` and on the class
+`puppet_enterprise::profile::puppetdb` change the parameter `database\_host` to
+to be `$clientcert` (which will automatically be converted to a string).
+6. Run `puppet agent -t` on the `replica` and once that has completed, run the
 agent on the `primary` as well. Once both runs have succeed, restart PuppetDB on
 the `replica` (i.e. `service pe-puppetdb restart`) and wait for the initial sync
 to complete.
-5. Return to the PE Console and change the `puppetdb_host` parameter to be a
-list of both the `primary` and `replica` PuppetDBs, e.g.
-`[ "primary.puppetdb.vm", "replica.puppetdb.vm"]`. Also you must change the
-`puppetdb_port` parameter to be a list of the ports that the PuppetDBs in
-`puppetdb_host` are available on, e.g.
-`[ 8081, 8081 ]` when using default PuppetDB configuration on both PuppetDBs:
+7. Return to the PE Console and navigate to the `Classes` for the
+`PE Infrastructure` node group:
 
     ```
     Nodes > Classification > PE Infrastructure > Classes
     ```
 
-6. Run `puppet agent -t` on the Master.
-7. Once these Puppet runs are complete, PuppetDB Replication should be
+8. Change the `puppetdb_host` parameter to be a list of both the `primary` and
+`replica` PuppetDBs, e.g. `[ "primary.puppetdb.vm", "replica.puppetdb.vm"]`. Also
+you must change the `puppetdb_port` parameter to be a list of the ports that the
+PuppetDBs in `puppetdb_host` are available on, e.g. `[ 8081, 8081 ]` when using
+default PuppetDB configuration on both PuppetDBs.
+9. Run `puppet agent -t` on the Master.
+10. Once these Puppet runs are complete, PuppetDB Replication should be
 operational.
      
 Manual Installation and Configuration
