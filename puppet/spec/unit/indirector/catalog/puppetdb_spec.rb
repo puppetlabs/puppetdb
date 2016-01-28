@@ -22,7 +22,6 @@ describe Puppet::Resource::Catalog::Puppetdb do
       cat
     end
     let(:options) {{
-      :code_id => 'my_git_sha1',
       :transaction_uuid => 'abcdefg',
       :environment => 'my_environment',
       :producer_timestamp => "a test",
@@ -81,6 +80,27 @@ describe Puppet::Resource::Catalog::Puppetdb do
         result = subject.add_transaction_uuid(catalog_data_hash, nil)
         result.has_key?('transaction_uuid').should be_truthy
         result['transaction_uuid'].should be_nil
+      end
+    end
+
+    describe "#add_catalog_uuid_if_missing" do
+      it "should add the given default if missing" do
+        result = subject.add_catalog_uuid_if_missing(catalog_data_hash, 'abc123')
+        result['catalog_uuid'].should == 'abc123'
+      end
+
+      it "should not add change the catalog_uuid if one was present" do
+        # TODO FIXME PLEASE I need a real test for a different version of Puppet
+        result = subject.add_catalog_uuid_if_missing(catalog_data_hash, 'abc123')
+        result['catalog_uuid'].should == 'abc123'
+      end
+    end
+
+    describe "#add_code_id_if_missing" do
+      it "should add the code_id key" do
+        result = subject.add_code_id_if_missing(catalog_data_hash)
+        result.has_key?('code_id').should be_truthy
+        result['code_id'].should be_nil
       end
     end
 
@@ -648,7 +668,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         result = subject.munge_catalog(catalog)
 
         result.keys.should =~ ['certname', 'version', 'edges', 'resources',
-          'transaction_uuid', 'environment', 'producer_timestamp', "code_id"]
+          'transaction_uuid', 'environment', 'producer_timestamp', "code_id", "catalog_uuid"]
       end
     end
   end
