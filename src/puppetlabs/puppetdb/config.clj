@@ -173,6 +173,13 @@
    :include-historical-catalogs Boolean
    :disable-update-checking Boolean})
 
+(def developer-config-in
+  (all-optional
+    {:pretty-print (pls/defaulted-maybe String "false")}))
+
+(def developer-config-out
+  {:pretty-print Boolean})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database config
 
@@ -222,6 +229,10 @@
   "Validates the [puppetdb] section of the config"
   [{:keys [puppetdb] :as config :or {puppetdb {}}}]
   (configure-section config :puppetdb puppetdb-config-in puppetdb-config-out))
+
+(defn configure-developer
+  [{:keys [developer] :as config :or {developer {}}}]
+  (configure-section config :developer developer-config-in developer-config-out))
 
 (defn configure-command-processing
   [config]
@@ -369,6 +380,7 @@
   [config]
   (-> config
       configure-globals
+      configure-developer
       validate-vardir
       convert-config
       add-mq-defaults))

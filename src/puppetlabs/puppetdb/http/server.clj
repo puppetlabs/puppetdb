@@ -48,7 +48,7 @@
                 "/catalogs" handlers/catalog-routes
                 "/events" handlers/events-routes
                 "/event-counts" handlers/event-counts-routes
-                "/aggregate-event-counts" handlers/agg-event-counts-routes 
+                "/aggregate-event-counts" handlers/agg-event-counts-routes
                 "/reports" handlers/reports-routes}))))
 
 (defn build-app

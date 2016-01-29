@@ -234,10 +234,10 @@
          (map? config)]
    :post [(map? %)
           (every? (partial contains? %) [:broker])]}
-  (let [{:keys [global   jetty
+  (let [{:keys [developer jetty
                 database read-database
                 puppetdb command-processing]} config
-        {:keys [vardir]} global
+        {:keys [pretty-print]} developer
         {:keys [gc-interval dlo-compression-interval node-ttl
                 node-purge-ttl report-ttl]} database
         {:keys [dlo-compression-threshold]} command-processing
@@ -271,7 +271,8 @@
                       "PuppetDB troubleshooting guide.")
                      (throw e)))
           globals {:scf-read-db read-db
-                   :scf-write-db write-db}]
+                   :scf-write-db write-db
+                   :pretty-print pretty-print}]
       (transfer-old-messages! (conf/mq-endpoint config))
 
       (when-not disable-update-checking
