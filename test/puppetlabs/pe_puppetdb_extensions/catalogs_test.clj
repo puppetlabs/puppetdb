@@ -23,37 +23,77 @@
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
+            [puppetlabs.puppetdb.random :refer [random-string]]
             [puppetlabs.puppetdb.reports :as reports]))
+
+(defn generate-events [catalog-resource]
+  (for [[field value] (:parameters catalog-resource)]
+    {:status "success"
+     :timestamp (now)
+     :property field
+     :old_value (random-string (count value))
+     :new_value value
+     :message (random-string 20)}))
+
+(defn catalog-resource->report-resource [catalog-resource]
+  {:events (generate-events catalog-resource)
+   :file (:file catalog-resource)
+   :line (:line catalog-resource)
+   :resource_type (:type catalog-resource)
+   :resource_title (:title catalog-resource)
+   :skipped false
+   :timestamp (now)
+   :containment_path [(random-string 10)]})
+
+(defn unify-report-with-catalog
+  "Given a catalog and report, munge the report to make it look like it's
+  associated with said catalog"
+  [report
+   {:keys [certname
+           resources
+           catalog_uuid]
+    :as catalog}]
+  (assoc report
+         :resources (map catalog-resource->report-resource resources)
+         :certname certname))
 
 (deftest query-resources-on-reports
   (with-ext-instances [pdb (utils/sync-config nil)]
     (let [timestamps [(now) (-> 1 days ago) (-> 2 days ago)]
           certname "foo.local"
-          example-catalog (-> (get-in wire-catalogs [7 :basic])
+          example-catalog (-> (get-in wire-catalogs [8 :basic])
                               (assoc :certname certname))
           example-report (-> (:basic reports)
                              (assoc :certname certname)
-                             reports/report-query->wire-v6)]
+                             reports/report-query->wire-v7
+                             (unify-report-with-catalog example-catalog))]
       (doseq [timestamp timestamps
-              :let [tx-uuid (ks/uuid)]]
+              :let [tx-uuid (ks/uuid)
+                    catalog-uuid (ks/uuid)]]
         (->> (assoc example-report
                     :transaction_uuid tx-uuid
+                    :catalog_uuid catalog-uuid
                     :producer_timestamp timestamp)
              (blocking-command-post (utils/pdb-cmd-url) example-certname
-                                    "store report" 6))
+                                    "store report" 7))
         (->> (assoc example-catalog
                     :transaction_uuid tx-uuid
+                    :catalog_uuid catalog-uuid
                     :producer_timestamp timestamp)
              (blocking-command-post (utils/pdb-cmd-url) example-certname
-                                    "replace catalog" 7)))
+                                    "replace catalog" 8)))
       (testing "historical catalogs views have the right amount of data"
        (let [historical-catalogs (get-json (utils/pe-pdb-url) "/historical-catalogs")
              resource-graphs (get-json (utils/pe-pdb-url) "/resource-graphs")]
          (is (= (count timestamps)
                 (count historical-catalogs)
                 (count resource-graphs)))
-         (is (not (nil? (:edges (first resource-graphs)))))
-         (is (not (nil? (:resources (first resource-graphs)))))))
+         (is (= (count (:data (:resources historical-catalogs)))
+                (count (:resources resource-graphs))))
+         (is (= (set (->> (get-in historical-catalogs [:resources :data])
+                          (map (juxt :type :title :parameters))))
+                (set (->> (:resources resource-graphs)
+                          (map (juxt :type :title :parameters))))))))
 
       (testing "paging options and queries work per usual"
         (let [[resource-graph :as resource-graphs]
@@ -111,7 +151,7 @@
                       :certname "bar.example.com"
                       :producer_timestamp (-> 3 days ago))
                (blocking-command-post (utils/pdb-cmd-url) "bar.example.com"
-                                      "replace catalog" 7))
+                                      "replace catalog" 8))
 
           (let [resource-graphs
                 (get-json (utils/pe-pdb-url) "/resource-graphs"
@@ -147,9 +187,9 @@
        (is (empty? (get-nodes)))
 
        (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
-                              "replace catalog" 7 example-catalog)
+                              "replace catalog" 8 example-catalog)
        (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
-                              "store report" 6 example-report)
+                              "store report" 7 example-report)
        (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
                               "replace facts" 4 example-facts)
 

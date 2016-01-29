@@ -42,7 +42,7 @@
                                     :field {:select [(honeysql/row-to-json :t)]
                                             :from [[{:select
                                                      [[:c.edges :data]
-                                                      [(engine/hsql-hash-as-href
+                                                      [(hsql-hash-as-href
                                                         "c.catalog_uuid::text"
                                                         :historical-catalogs
                                                         :edges)
@@ -59,7 +59,7 @@
      {"certname" {:type :string
                   :queryable? true
                   :field :r.certname}
-      "catalog_uuid" {:type :uuid
+      "catalog_uuid" {:type :string
                       :queryable? true
                       :field (engine/hsql-uuid-as-str :r.catalog_uuid)}
       "transaction_uuid" {:type :string
@@ -120,7 +120,7 @@
                :field :c.edges}}
 
      :selection {:from [[:reports :r]]
-                 :left-join [[:catalogs :c] [:= :c.transaction_uuid :r.transaction_uuid]
+                 :left-join [[:catalogs :c] [:= :c.catalog_uuid :r.catalog_uuid]
                              [:environments :e] [:= :r.environment_id :e.id]
                              :report_statuses [:= :r.status_id :report_statuses.id]]}
 
@@ -138,7 +138,7 @@
      :source-table "reports"}))
 
 (def historical-catalogs-child-data-query
-  "Query intended to be used by the `/historical-catalogs/<hash>/reosurces` and
+  "Query intended to be used by the `/historical-catalogs/<hash>/resources` and
   `/historical-catalogs/<hash>/edges` endpoints used for digging into the child
   data for a specifc catalog."
   (engine/map->Query {:projections
@@ -150,7 +150,6 @@
                                 :field :catalogs.edges}
                        "catalog_uuid" {:type :string
                                        :queryable? true
-                                       :query-only? true
                                        :field
                                        (engine/hsql-uuid-as-str :catalogs.catalog_uuid)}}
                       :selection {:from [:catalogs]}
