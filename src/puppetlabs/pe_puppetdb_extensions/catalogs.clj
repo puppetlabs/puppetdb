@@ -83,17 +83,38 @@
       "resources" {:type :json
                    :queryable? false
                    :field {:select [(honeysql/json-agg (honeysql/row-to-json :t))]
-                           :from [[{:select [[:cr.value :catalog_resources]
-                                             [:rr.value :report_resources]]
-                                    :from [[(hcore/call :jsonb_array_elements :r.resources) :rr]]
+                           :from [[{:select [[(honeysql/coalesce (hcore/raw "cr.value->>'type'")
+                                                                 :rr.type) :type]
+                                             [(honeysql/coalesce (hcore/raw "cr.value->>'title'")
+                                                                 :rr.title) :title]
+                                             [(hcore/raw "cr.value->>'file'") :file]
+                                             [(hcore/raw "cr.value->>'line'") :line]
+                                             [(hcore/raw "cr.value->>'exported'") :exported]
+                                             [(hcore/call
+                                               :cast (hcore/raw "cr.value->>'tags'") :jsonb)
+                                              :tags]
+                                             [(hcore/call
+                                               :cast (hcore/raw "cr.value->>'parameters'") :jsonb)
+                                              :parameters]
+                                             :rr.events]
+                                    :from [[{:select
+                                             [[(honeysql/json-agg
+                                                (hcore/call :json_build_object
+                                                            (hcore/raw "'property'") :re.property
+                                                            (hcore/raw "'status'") :re.status
+                                                            (hcore/raw "'message'") :re.message
+                                                            (hcore/raw "'new_value'") (honeysql/scast :re.new_value :jsonb)
+                                                            (hcore/raw "'old_value'") (honeysql/scast :re.old_value :jsonb)
+                                                            (hcore/raw "'timestamp'") :re.timestamp)) :events]
+                                              [:re.resource_type :type]
+                                              [:re.resource_title :title]]
+                                             :from [[:resource_events :re]]
+                                             :where [:= :r.id :re.report_id]
+                                             :group-by [:re.resource_type :re.resource_title]} :rr]]
                                     :full-join [[(hcore/call :jsonb_array_elements :c.resources) :cr]
                                                 [:and
-                                                 [:=
-                                                  (hcore/raw "cr.value->>'type'")
-                                                  (hcore/raw "rr.value->>'resource_type'")]
-                                                 [:=
-                                                  (hcore/raw "cr.value->>'title'")
-                                                  (hcore/raw "rr.value->>'resource_title'")]]]} :t]]}}
+                                                 [:= :rr.type (hcore/raw "cr.value->>'type'")]
+                                                 [:= :rr.title (hcore/raw "cr.value->>'title'")]]]} :t]]}}
       "edges" {:type :json
                :queryable? false
                :field :c.edges}}
@@ -166,20 +187,6 @@
 (def resource-graphs-handler
   (handlers/create-query-handler :v1 "resource_graphs"))
 
-(defn merge-resources [resources]
-  (->> (sutils/parse-db-json resources)
-       (map (fn [{:keys [catalog_resources report_resources]}]
-              (merge catalog_resources
-                     (clojure.set/rename-keys report_resources
-                                              {:resource_type :type
-                                               :resource_title :title}))))))
-
-(defn munge-resource-graph-rows
-  [_ _]
-  (fn [rows]
-    (->> rows
-         (map #(update % :resources merge-resources)))))
-
 (defn turn-on-historical-catalogs!
   [store-historical-catalogs?]
   (when store-historical-catalogs?
@@ -199,6 +206,5 @@
            :rec historical-catalogs-child-data-query}
 
           :resource-graphs
-          {:munge munge-resource-graph-rows
+          {:munge (constantly identity)
            :rec resource-graph-query}}))
-
