@@ -6,6 +6,7 @@
    {:certname         "empty.catalogs.com"
     :version          "1330463884"
     :transaction_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
+    :catalog_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
     :environment      nil
     :code_id nil
     :producer_timestamp "2014-07-10T22:33:54.781Z"
@@ -35,6 +36,7 @@
    {:certname         "basic.catalogs.com"
     :code_id nil
     :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+    :catalog_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :environment      "DEV"
     :version          "123456789"
     :producer_timestamp "2014-07-10T22:33:54.781Z"
@@ -76,6 +78,7 @@
    {:certname         "invalid.catalogs.com"
     :code_id nil
     :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+    :catalog_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :version          123456789
     :edges            #{{:source       {:type "Class" :title "foobar"}
                          :target       {:type "File" :title "does not exist"}
@@ -127,6 +130,7 @@
      :type       "Node"}]
    :version          "1332533763"
    :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+   :catalog_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
    :environment "DEV"
    :producer_timestamp "2014-07-10T22:33:54.781Z"})
 

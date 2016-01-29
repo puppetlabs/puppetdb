@@ -21,7 +21,7 @@
   (-> (:basic reports)
       (change-certname node-name)
       (assoc :end_time (now))
-      report/report-query->wire-v6))
+      report/report-query->wire-v7))
 
 (defn store-example-nodes
   []

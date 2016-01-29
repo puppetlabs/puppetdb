@@ -57,10 +57,10 @@
   (map #(export-datum->tar-item entity %) data))
 
 (def export-info
-  {"catalogs" {:query->wire-fn catalogs/catalogs-query->wire-v7
+  {"catalogs" {:query->wire-fn catalogs/catalogs-query->wire-v8
               :anonymize-fn anon/anonymize-catalog
               :json-encoded-fields [:edges :resources]}
-   "reports" {:query->wire-fn reports/reports-query->wire-v6
+   "reports" {:query->wire-fn reports/reports-query->wire-v7
              :anonymize-fn anon/anonymize-report
              :json-encoded-fields [:metrics :logs :resource_events :resources]}
    "factsets" {:query->wire-fn factsets/factsets-query->wire-v4

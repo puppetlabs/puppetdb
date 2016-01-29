@@ -379,7 +379,14 @@
 (pls/defn-validated catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
   [hash
-   {:keys [edges resources version code_id transaction_uuid environment producer_timestamp]} :- catalog-schema
+   {:keys [edges
+           resources
+           version
+           code_id
+           transaction_uuid
+           catalog_uuid
+           environment
+           producer_timestamp]} :- catalog-schema
    received-timestamp :- pls/Timestamp]
   (let [catalogs-jsonb? @store-catalogs-jsonb-columns?]
     {:hash (sutils/munge-hash-for-storage hash)
@@ -387,6 +394,7 @@
      :resources (when catalogs-jsonb? (munge-resources-for-storage (vals resources)))
      :catalog_version  version
      :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
+     :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
      :timestamp (to-timestamp received-timestamp)
      :code_id code_id
      :environment_id (ensure-environment environment)
@@ -1218,13 +1226,17 @@
   (time! (:store-report performance-metrics)
          (let [{:keys [puppet_version certname report_format configuration_version
                        producer_timestamp start_time end_time transaction_uuid environment
-                       status noop metrics logs resources resource_events]
+                       status noop metrics logs resources resource_events catalog_uuid
+                       code_id cached_catalog_reason]
                 :as report} (normalize-report orig-report)
                 report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
              (let [certname-id (certname-id certname)
                    row-map {:hash (sutils/munge-hash-for-storage report-hash)
                             :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
+                            :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
+                            :code_id code_id
+                            :cached_catalog_reason cached_catalog_reason
                             :metrics (sutils/munge-jsonb-for-storage metrics)
                             :logs (sutils/munge-jsonb-for-storage logs)
                             :resources (sutils/munge-jsonb-for-storage resources)

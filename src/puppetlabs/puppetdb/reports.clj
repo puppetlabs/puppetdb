@@ -53,10 +53,17 @@
    :resources [resource-wireformat-schema]
    :noop (s/maybe s/Bool)
    :transaction_uuid (s/maybe s/Str)
+   :catalog_uuid (s/maybe s/Str)
+   :code_id (s/maybe s/Str)
+   :cached_catalog_reason (s/maybe s/Str)
    :metrics [metric-wireformat-schema]
    :logs [log-wireformat-schema]
    :environment s/Str
    :status (s/maybe s/Str)})
+
+(def report-v6-wireformat-schema
+  (-> report-wireformat-schema
+      (dissoc :catalog_uuid :cached_catalog_reason :code_id)))
 
 (def resource-event-v5-wireformat-schema
   (-> resource-wireformat-schema
@@ -64,7 +71,7 @@
       (merge event-wireformat-schema)))
 
 (def report-v5-wireformat-schema
-  (-> report-wireformat-schema
+  (-> report-v6-wireformat-schema
       (dissoc :resources)
       (assoc :resource_events [resource-event-v5-wireformat-schema])))
 
@@ -133,7 +140,10 @@
    (s/optional-key :metrics) metrics-expanded-query-schema
    (s/optional-key :logs) logs-expanded-query-schema
    (s/optional-key :resource_events) resource-events-expanded-query-schema
-   (s/optional-key :transaction_uuid) s/Str
+   (s/optional-key :transaction_uuid) (s/maybe s/Str)
+   (s/optional-key :catalog_uuid) (s/maybe s/Str)
+   (s/optional-key :code_id) (s/maybe s/Str)
+   (s/optional-key :cached_catalog_reason) (s/maybe s/Str)
    (s/optional-key :status) (s/maybe s/Str)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -147,15 +157,16 @@
                      :report :certname :containing_class :configuration_version
                      :run_start_time :run_end_time :report_receive_time :environment))))
 
-(pls/defn-validated report-query->wire-v5 :- report-v5-wireformat-schema
-  [report :- report-query-schema]
+(defn report-query->wire-v5
+  [report]
   (-> report
       (dissoc :hash :receive_time :resources)
       (update :resource_events resource-events-query->wire-v5)
       (update :metrics :data)
       (update :logs :data)))
 
-(defn reports-query->wire-v5 [reports]
+(pls/defn-validated reports-query->wire-v5 :- [report-v5-wireformat-schema]
+  [reports :- [report-query-schema]]
   (map report-query->wire-v5 reports))
 
 (defn dash->underscore-report-keys [v5-report-or-older]
@@ -177,13 +188,21 @@
          :let [events (mapv #(dissoc % :file :line :resource_type :resource_title :containment_path) resource-events)]]
      (assoc resource :events events))))
 
-(defn wire-v5->wire-v6
+(defn wire-v6->wire-v7
+  [{:keys [transaction_uuid] :as report}]
+  (utils/assoc-when report
+                    :catalog_uuid transaction_uuid
+                    :cached_catalog_reason nil
+                    :code_id nil))
+
+(defn wire-v5->wire-v7
   [report]
   (-> report
       (update :resource_events resource-events-v5->resources)
-      (clojure.set/rename-keys {:resource_events :resources})))
+      (clojure.set/rename-keys {:resource_events :resources})
+      wire-v6->wire-v7))
 
-(defn wire-v4->wire-v6
+(defn wire-v4->wire-v7
   [report received-time]
   (-> report
       dash->underscore-report-keys
@@ -191,23 +210,23 @@
              :logs nil
              :noop nil
              :producer_timestamp received-time)
-      wire-v5->wire-v6))
+      wire-v5->wire-v7))
 
 
-(defn wire-v3->wire-v6
+(defn wire-v3->wire-v7
   [report received-time]
   (-> report
       (assoc :status nil)
-      (wire-v4->wire-v6 received-time)))
+      (wire-v4->wire-v7 received-time)))
 
-(pls/defn-validated report-query->wire-v6 :- report-wireformat-schema
+(pls/defn-validated report-query->wire-v7 :- report-wireformat-schema
   [report :- report-query-schema]
   (-> report
       report-query->wire-v5
-      wire-v5->wire-v6))
+      wire-v5->wire-v7))
 
-(defn reports-query->wire-v6 [reports]
-  (map report-query->wire-v6 reports))
+(defn reports-query->wire-v7 [reports]
+  (map report-query->wire-v7 reports))
 
 (defn- resource->skipped-resource-events
   "Fabricate a skipped resource-event"

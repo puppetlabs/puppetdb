@@ -88,9 +88,11 @@
 
     (testing "key validation"
       (let [catalog (dissoc (:basic catalogs) :api_version)
-            v6-catalog (dissoc catalog :code_id)]
+            v7-catalog (dissoc catalog :catalog_uuid)
+            v6-catalog (dissoc v7-catalog :code_id)]
         (testing "should accept catalogs with the correct set of keys"
           (= catalog (s/validate catalog-wireformat-schema catalog))
+          (= v7-catalog (s/validate catalog-v7-wireformat-schema v7-catalog))
           (= v6-catalog (s/validate catalog-v6-wireformat-schema v6-catalog)))
 
         (testing "should fail if the catalog has an extra key"

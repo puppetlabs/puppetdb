@@ -1302,7 +1302,7 @@
 (let [timestamp (now)
       {:keys [certname] :as report} (:basic reports)
       report-hash (-> report
-                      report/report-query->wire-v6
+                      report/report-query->wire-v7
                       normalize-report
                       shash/report-identity-hash)]
 

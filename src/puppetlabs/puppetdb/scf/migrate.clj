@@ -1016,6 +1016,14 @@
    "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey
      FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
 
+(defn add-catalog-uuid-to-reports-and-catalogs
+  []
+  (jdbc/do-commands
+   "ALTER TABLE reports ADD COLUMN cached_catalog_reason TEXT"
+   "ALTER TABLE reports ADD COLUMN code_id TEXT"
+   "UPDATE catalogs SET catalog_uuid=catalogs.transaction_uuid WHERE hash is NULL"
+   "UPDATE reports SET catalog_uuid=reports.transaction_uuid WHERE hash is NULL"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1036,7 +1044,8 @@
    40 fix-bytea-expression-indexes-to-use-encode
    41 factset-hash-field-not-nullable
    42 add-support-for-historical-catalogs
-   43 add-indexes-for-reports-summary-query})
+   43 add-indexes-for-reports-summary-query
+   44 add-catalog-uuid-to-reports-and-catalogs})
 
 (def desired-schema-version (apply max (keys migrations)))
 

@@ -22,14 +22,14 @@
 (defn get-catalogs [certname]
   (-> (svc-utils/pdb-query-url)
       (svc-utils/get-catalogs certname)
-      catalogs/catalogs-query->wire-v7
+      catalogs/catalogs-query->wire-v8
       vec))
 
 (defn get-reports [certname]
   (-> (svc-utils/pdb-query-url)
       (svc-utils/get-reports certname)
       tur/munge-reports
-      reports/reports-query->wire-v6
+      reports/reports-query->wire-v7
       vec))
 
 (defn get-factsets [certname]
@@ -60,7 +60,7 @@
       :basic
       (assoc :certname example-certname)
       tur/munge-report
-      reports/report-query->wire-v6))
+      reports/report-query->wire-v7))
 
 (defn munge-tar-map
   [tar-map]

@@ -44,7 +44,7 @@
   ([example-report timestamp]
    (store-example-report! example-report timestamp true))
   ([example-report timestamp update-latest-report?]
-   (let [example-report (reports/report-query->wire-v6 example-report)
+   (let [example-report (reports/report-query->wire-v7 example-report)
          report-hash (shash/report-identity-hash
                       (scf-store/normalize-report example-report))]
      (scf-store/maybe-activate-node! (:certname example-report) timestamp)
@@ -88,8 +88,9 @@
   "Convert actual results for reports queries to wire format ready for comparison."
   [reports]
   (set
-   (map munge-report-for-comparison
-        (reports/reports-query->wire-v5 reports))))
+   (map (comp munge-report-for-comparison
+              reports/report-query->wire-v5)
+        reports)))
 
 (defn enumerated-resource-events-map
   [resource-events]
