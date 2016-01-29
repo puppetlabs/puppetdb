@@ -32,12 +32,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utility Functions
 
-(defn export-report-filename
-  [{:keys [certname start_time configuration_version] :as report}]
-  (let [formatted-start-time (->> start_time
+(defn export-filename
+  "For anything we store historically and need unique names"
+  [{:keys [certname producer_timestamp]}]
+  (let [formatted-start-time (->> producer_timestamp
                                   time-coerce/to-date-time
                                   (time-fmt/unparse (time-fmt/formatter "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")))]
-    (->> (str formatted-start-time configuration_version)
+    (->> formatted-start-time
          kitchensink/utf8-string->sha1
          (format "%s-%s.json" certname))))
 
@@ -47,8 +48,8 @@
   (let [file-suffix
         (case entity
           "factsets" ["facts" (str (:certname datum) ".json")]
-          "catalogs" ["catalogs" (str (:certname datum) ".json")]
-          "reports" ["reports" (export-report-filename datum)])]
+          "catalogs" ["catalogs" (export-filename datum)]
+          "reports" ["reports" (export-filename datum)])]
     {:file-suffix file-suffix
      :contents (json/generate-pretty-string datum)}))
 

@@ -90,8 +90,8 @@
      (fn []
        (is (empty? (get-nodes)))
 
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace catalog" 7 example-catalog)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "store report" 6 example-report)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace catalog" 8 example-catalog)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "store report" 7 example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace facts" 4 example-facts)
        (trigger-export-via-http! svc-utils/*base-url* export-out-file)))
     (let [submitted (run-benchmark {}

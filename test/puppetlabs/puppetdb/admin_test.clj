@@ -26,9 +26,9 @@
        (is (empty? (get-nodes)))
 
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace catalog" 7 example-catalog)
+                                    "replace catalog" 8 example-catalog)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "store report" 6 example-report)
+                                    "store report" 7 example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                     "replace facts" 4 example-facts)
 
@@ -70,9 +70,9 @@
          (is (empty? (get-nodes)))
 
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "replace catalog" 7 example-catalog)
+                                      "replace catalog" 8 example-catalog)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "store report" 6 example-report)
+                                      "store report" 7 example-report)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                       "replace facts" 4 example-facts)
 

@@ -51,7 +51,7 @@
 
 (def example-catalog
   (-> examples/wire-catalogs
-      (get-in [7 :empty])
+      (get-in [8 :empty])
       (assoc :certname example-certname
              :producer_timestamp (time/now))))
 
