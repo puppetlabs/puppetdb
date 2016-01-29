@@ -6,6 +6,8 @@ require 'puppet/indirector/catalog/puppetdb'
 require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
 require 'json'
+require 'puppet/resource/catalog'
+require 'puppet/version'
 
 describe Puppet::Resource::Catalog::Puppetdb do
   before :each do
@@ -84,16 +86,19 @@ describe Puppet::Resource::Catalog::Puppetdb do
     end
 
     describe "#add_catalog_uuid_if_missing" do
-      it "should add the given default if missing" do
-        result = subject.add_catalog_uuid_if_missing(catalog_data_hash, 'abc123')
-        result['catalog_uuid'].should == 'abc123'
-      end
-
-      it "should not add change the catalog_uuid if one was present" do
-        # TODO FIXME PLEASE I need a real test for a different version of Puppet
-        result = subject.add_catalog_uuid_if_missing(catalog_data_hash, 'abc123')
-        result['catalog_uuid'].should == 'abc123'
-      end
+        it "should not change the catalog_uuid if one was present" do
+          # Puppet v4.3.2 doesn't actually have catalog_uuid, it will be 4.3.3
+          # which has the change but until they bump the development version we
+          # need this extra `and` clause
+          if (Gem::Version.new(Puppet.version) >= Gem::Version.new('4.3.2') and
+              catalog_data_hash.has_key?('catalog_uuid')) then
+            result = subject.add_catalog_uuid_if_missing(catalog_data_hash, 'abc123')
+            result['catalog_uuid'].should_not == 'abc123'
+          else
+            result = subject.add_catalog_uuid_if_missing(catalog_data_hash, 'abc123')
+            result['catalog_uuid'].should == 'abc123'
+          end
+        end
     end
 
     describe "#add_code_id_if_missing" do

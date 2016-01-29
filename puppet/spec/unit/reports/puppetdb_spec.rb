@@ -71,8 +71,42 @@ describe processor do
 
     it "should include the transaction uuid or nil" do
       subject.transaction_uuid = 'abc123'
+      if defined?(subject.catalog_uuid) then
+        subject.catalog_uuid = 'bde432'
+      end
       result = subject.send(:report_to_hash)
       result["transaction_uuid"].should == 'abc123'
+
+      # This won't be defined on < Puppet 4.3.3
+      if defined?(subject.catalog_uuid) then
+        result["catalog_uuid"].should == 'bde432'
+      else
+        result["catalog_uuid"].should == 'abc123'
+      end
+    end
+
+    it "should include the code_id or nil" do
+      if defined?(subject.code_id) then
+        subject.code_id = 'bde432'
+      end
+      result = subject.send(:report_to_hash)
+      if defined?(subject.code_id) then
+        result["code_id"].should == 'bde432'
+      else
+        result["code_id"].should == nil
+      end
+    end
+
+    it "should include the cached_catalog_status or nil" do
+      if defined?(subject.cached_catalog_status) then
+        subject.cached_catalog_status = 'not_used'
+      end
+      result = subject.send(:report_to_hash)
+      if defined?(subject.cached_catalog_status) then
+        result["cached_catalog_status"].should == 'not_used'
+      else
+        result["cached_catalog_status"].should == nil
+      end
     end
 
     context "start/end time" do
