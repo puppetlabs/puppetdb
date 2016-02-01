@@ -1019,7 +1019,7 @@
 (defn add-catalog-uuid-to-reports-and-catalogs
   []
   (jdbc/do-commands
-   "ALTER TABLE reports ADD COLUMN cached_catalog_reason TEXT"
+   "ALTER TABLE reports ADD COLUMN cached_catalog_status TEXT"
    "ALTER TABLE reports ADD COLUMN code_id TEXT"
    "UPDATE catalogs SET catalog_uuid=catalogs.transaction_uuid WHERE hash is NULL"
    "UPDATE reports SET catalog_uuid=reports.transaction_uuid WHERE hash is NULL"))

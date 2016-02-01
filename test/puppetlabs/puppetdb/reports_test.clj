@@ -35,7 +35,7 @@
 (def v5-example-report
   (-> reports
       :basic
-      (dissoc :code_id :catalog_uuid :cached_catalog_reason)
+      (dissoc :code_id :catalog_uuid :cached_catalog_status)
       report-query->wire-v5))
 
 (def v4-example-report

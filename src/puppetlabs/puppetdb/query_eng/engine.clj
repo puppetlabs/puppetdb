@@ -435,9 +435,9 @@
       "code_id" {:type :string
                  :queryable? true
                  :field :reports.code_id}
-      "cached_catalog_reason" {:type :string
+      "cached_catalog_status" {:type :string
                                :queryable? true
-                               :field :reports.cached_catalog_reason}
+                               :field :reports.cached_catalog_status}
       "environment"     {:type :string
                          :queryable? true
                          :field :environments.environment}

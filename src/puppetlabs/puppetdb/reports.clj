@@ -55,7 +55,7 @@
    :transaction_uuid (s/maybe s/Str)
    :catalog_uuid (s/maybe s/Str)
    :code_id (s/maybe s/Str)
-   :cached_catalog_reason (s/maybe s/Str)
+   :cached_catalog_status (s/maybe s/Str)
    :metrics [metric-wireformat-schema]
    :logs [log-wireformat-schema]
    :environment s/Str
@@ -63,7 +63,7 @@
 
 (def report-v6-wireformat-schema
   (-> report-wireformat-schema
-      (dissoc :catalog_uuid :cached_catalog_reason :code_id)))
+      (dissoc :catalog_uuid :cached_catalog_status :code_id)))
 
 (def resource-event-v5-wireformat-schema
   (-> resource-wireformat-schema
@@ -143,7 +143,7 @@
    (s/optional-key :transaction_uuid) (s/maybe s/Str)
    (s/optional-key :catalog_uuid) (s/maybe s/Str)
    (s/optional-key :code_id) (s/maybe s/Str)
-   (s/optional-key :cached_catalog_reason) (s/maybe s/Str)
+   (s/optional-key :cached_catalog_status) (s/maybe s/Str)
    (s/optional-key :status) (s/maybe s/Str)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -192,7 +192,7 @@
   [{:keys [transaction_uuid] :as report}]
   (utils/assoc-when report
                     :catalog_uuid transaction_uuid
-                    :cached_catalog_reason nil
+                    :cached_catalog_status nil
                     :code_id nil))
 
 (defn wire-v5->wire-v7
