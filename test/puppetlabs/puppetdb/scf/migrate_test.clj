@@ -52,7 +52,7 @@
     (testing "should return missing migrations if the *db* is partially migrated"
       (jdbc/with-db-connection *db*
         (clear-db-for-testing!)
-        (let [applied '(34 35 37)]
+        (let [applied '(28 29 31)]
           (doseq [m applied]
             (apply-migration-for-testing! m))
           (is (= (set (keys (pending-migrations)))
@@ -89,6 +89,72 @@
                     {:version (inc migrate/desired-schema-version)
                      :time (to-timestamp (now))})
       (is (thrown? IllegalStateException (migrate! *db*))))))
+
+(deftest migration-29
+  (testing "should contain same reports before and after migration"
+    (jdbc/with-db-connection *db*
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 28)
+
+      (let [current-time (to-timestamp (now))]
+        (jdbc/insert! :report_statuses
+                      {:status "testing1" :id 1})
+        (jdbc/insert! :environments
+                      {:id 1 :name "testing1"})
+        (jdbc/insert! :certnames
+                      {:name "testing1" :deactivated nil}
+                      {:name "testing2" :deactivated nil})
+        (jdbc/insert! :reports
+                      {:hash "01"
+                       :configuration_version  "thisisacoolconfigversion"
+                       :transaction_uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"
+                       :certname "testing1"
+                       :puppet_version "0.0.0"
+                       :report_format 1
+                       :start_time current-time
+                       :end_time current-time
+                       :receive_time current-time
+                       :environment_id 1
+                       :status_id 1}
+                      {:hash "0000"
+                       :transaction_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
+                       :configuration_version "blahblahblah"
+                       :certname "testing2"
+                       :puppet_version "911"
+                       :report_format 1
+                       :start_time current-time
+                       :end_time current-time
+                       :receive_time current-time
+                       :environment_id 1
+                       :status_id 1})
+
+        (jdbc/insert! :latest_reports
+                      {:report "01" :certname "testing1"}
+                      {:report "0000" :certname "testing2"})
+
+        (apply-migration-for-testing! 29)
+
+        (let [response
+              (query-to-vec
+                "SELECT encode(r.hash::bytea, 'hex') AS hash, r.certname,
+                         e.name AS environment, rs.status, r.transaction_uuid::text AS uuid
+                 FROM certnames c
+                 INNER JOIN reports r on c.latest_report_id=r.id
+                 AND c.certname=r.certname
+                 INNER JOIN environments e on r.environment_id=e.id
+                 INNER JOIN report_statuses rs on r.status_id=rs.id
+                 order by c.certname")]
+          ;; every node should with facts should be represented
+          (is (= response
+                 [{:hash "01" :environment "testing1" :certname "testing1" :status "testing1" :uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"}
+                  {:hash "0000" :environment "testing1" :certname "testing2" :status "testing1" :uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"}])))
+
+        (let [[id1 id2] (map :id
+                              (query-to-vec "SELECT id from reports order by certname"))]
+
+          (let [latest-ids (map :latest_report_id
+                                (query-to-vec "select latest_report_id from certnames order by certname"))]
+            (is (= [id1 id2] latest-ids))))))))
 
 (deftest migration-37
   (testing "should contain same reports before and after migration"
@@ -147,8 +213,7 @@
 
         (let [response
               (query-to-vec
-               (format
-                "SELECT %s AS hash, r.certname, e.environment, rs.status,
+                "SELECT encode(r.hash, 'hex') AS hash, r.certname, e.environment, rs.status,
                         r.transaction_uuid::text AS uuid,
                         coalesce(metrics_json::jsonb, metrics) as metrics,
                         coalesce(logs_json::jsonb, logs) as logs
@@ -157,8 +222,7 @@
                        ON c.latest_report_id=r.id AND c.certname=r.certname
                      INNER JOIN environments e ON r.environment_id=e.id
                      INNER JOIN report_statuses rs ON r.status_id=rs.id
-                   ORDER BY c.certname"
-                (sutils/sql-hash-as-str "r.hash")))]
+                   ORDER BY c.certname")]
           ;; every node should with facts should be represented
           (is (= [{:metrics [{:foo "bar"}] :logs [{:bar "baz"}]
                    :hash "01" :environment "testing1" :certname "testing1" :status "testing1" :uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"}
@@ -174,6 +238,38 @@
                                 (query-to-vec "select latest_report_id from certnames order by certname"))]
             (is (= [id1 id2] latest-ids))))))))
 
+(deftest migration-29-producer-timestamp-not-null
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 28)
+
+    (let [current-time (to-timestamp (now))]
+      (jdbc/insert! :environments
+                    {:id 1 :name "test env"})
+      (jdbc/insert! :certnames
+                   {:name "foo.local"})
+      (jdbc/insert! :catalogs
+                    {:hash "18440af604d18536b1c77fd688dff8f0f9689d90"
+                     :api_version 1
+                     :catalog_version 1
+                     :transaction_uuid "95d132b3-cb21-4e0a-976d-9a65567696ba"
+                     :timestamp current-time
+                     :certname "foo.local"
+                     :environment_id 1
+                     :producer_timestamp nil})
+      (jdbc/insert! :factsets
+                    {:timestamp current-time
+                     :certname "foo.local"
+                     :environment_id 1
+                     :producer_timestamp nil})
+
+      (apply-migration-for-testing! 29)
+
+      (let [catalogs-response (query-to-vec "SELECT producer_timestamp FROM catalogs")
+            factsets-response (query-to-vec "SELECT producer_timestamp FROM factsets")]
+        (is (= catalogs-response [{:producer_timestamp current-time}]))
+        (is (= factsets-response [{:producer_timestamp current-time}]))))))
+
 (deftest migration-in-different-schema
   (jdbc/with-db-connection *db*
     (clear-db-for-testing!)
@@ -187,8 +283,6 @@
      ;; Cleaned up in clear-db-for-testing!
      "CREATE SCHEMA pdbtestschema"
      "SET SCHEMA 'pdbtestschema'")
-    ((migrations 34))
-    (record-migration! 34)
     (let [tables (sutils/sql-current-connection-table-names)]
       ;; Currently sql-current-connection-table-names only looks in public.
       (is (empty? (sutils/sql-current-connection-table-names)))
@@ -360,24 +454,12 @@
 
 (deftest test-migrate-from-unsupported-version
   (clear-db-for-testing!)
-  (fast-forward-to-migration! 34)
+  (fast-forward-to-migration! 28)
   (jdbc/do-commands "DELETE FROM schema_migrations")
-  (record-migration! 33)
+  (record-migration! 27)
   (is (thrown-with-msg? IllegalStateException
                         #"Found an old and unuspported database migration.*"
                         (migrate! *db*))))
-
-(deftest test-upgrade-migration
-  (clear-db-for-testing!)
-  ;;This represents a database from a 2.x version of PuppetDB
-  (fast-forward-to-migration! 34)
-  (doseq [migration-num (range 1 34)]
-    (record-migration! migration-num))
-  (let [latest-known-migration (apply max (keys migrations))]
-    (is (= (set (range 35 (inc latest-known-migration)))
-           (ks/keyset (pending-migrations))))
-    (migrate! *db*)
-    (is (empty? (pending-migrations)))))
 
 (deftest md5-agg-test
   (with-test-db
@@ -394,5 +476,3 @@
                 (str "select encode(md5_agg(val), 'hex') "
                      "from (values (1, 'a'::bytea), (1, 'b'::bytea)) x(gid, val) "
                      "group by gid"))))))))
-
-
