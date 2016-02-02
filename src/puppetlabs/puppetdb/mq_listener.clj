@@ -73,7 +73,7 @@
     {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
      :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
      :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
-     :processed (meter mq-metrics-registry (to-metric-name-fn :discarded))
+     :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
      :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
      :retried (meter mq-metrics-registry (to-metric-name-fn :retried))
      :discarded (meter mq-metrics-registry (to-metric-name-fn :discarded))}))
