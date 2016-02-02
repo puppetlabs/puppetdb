@@ -122,8 +122,7 @@
      (format "sweep of stale reports (threshold: %s)"
              (format-period report-ttl))
      (jdbc/with-transacted-connection db
-       (scf-store/delete-reports-older-than! (ago report-ttl))
-       (scf-store/delete-old-unassociated-catalogs! (ago report-ttl))))
+       (scf-store/delete-reports-older-than! (ago report-ttl))))
     (catch Exception e
       (log/error e "Error while sweeping reports"))))
 

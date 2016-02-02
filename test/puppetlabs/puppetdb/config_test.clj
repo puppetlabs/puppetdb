@@ -27,11 +27,11 @@
       (is (thrown? clojure.lang.ExceptionInfo
                    (configure-puppetdb {:puppetdb {:disable-update-checking 1337}}))))
 
-    (testing "should allow for `pe-puppetdb`'s include-historical-catalogs setting"
+    (testing "should allow for `pe-puppetdb`'s historical-catalogs-limit setting"
       (let [config (configure-puppetdb {})]
-        (is (= (get-in config [:puppetdb :include-historical-catalogs]) true)))
-      (let [config (configure-puppetdb {:puppetdb {:include-historical-catalogs "false"}})]
-        (is (= (get-in config [:puppetdb :include-historical-catalogs]) false))))
+        (is (= (get-in config [:puppetdb :historical-catalogs-limit]) 3)))
+      (let [config (configure-puppetdb {:puppetdb {:historical-catalogs-limit 5}})]
+        (is (= (get-in config [:puppetdb :historical-catalogs-limit]) 5))))
 
     (testing "disable-update-checking should default to 'false' if left unspecified"
       (let [config (configure-puppetdb {})]

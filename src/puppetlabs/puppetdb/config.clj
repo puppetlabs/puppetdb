@@ -163,14 +163,14 @@
   "Schema for validating the incoming [puppetdb] block"
   (all-optional
     {:certificate-whitelist s/Str
-     ;; The `include-historical-catalogs` setting is only used by `pe-puppetdb`
-     :include-historical-catalogs (pls/defaulted-maybe String "true")
+     ;; The `historical-catalogs-limit` setting is only used by `pe-puppetdb`
+     :historical-catalogs-limit (pls/defaulted-maybe s/Int 3)
      :disable-update-checking (pls/defaulted-maybe String "false")}))
 
 (def puppetdb-config-out
   "Schema for validating the parsed/processed [puppetdb] block"
   {(s/optional-key :certificate-whitelist) s/Str
-   :include-historical-catalogs Boolean
+   :historical-catalogs-limit s/Int
    :disable-update-checking Boolean})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

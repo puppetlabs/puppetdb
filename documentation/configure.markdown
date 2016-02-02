@@ -225,13 +225,14 @@ If not supplied, PuppetDB uses standard HTTPS without any additional
 authorization. All HTTPS clients must still supply valid, verifiable
 SSL client certificates.
 
-### `include-historical-catalogs` (PE only)
+### `historical-catalogs-limit` (PE only)
 
 > **Warning:** This setting is intended for use only in Puppet Enterprise (PE).
 > This setting will be ignored without a PE PuppetDB package.
 
-Setting this to `false` disables the storage of historical catalogs. Defaults to
-`true`.
+This settings controls how many historical catalogs are stored in PuppetDB per
+node. Setting this to `0` disables the storage of historical catalogs. Defaults
+to `3`.
 
 ### `disable-update-checking`
 

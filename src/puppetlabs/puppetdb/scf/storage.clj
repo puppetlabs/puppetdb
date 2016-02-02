@@ -350,9 +350,9 @@
     certname]
    (comp first sql/result-set-seq)))
 
-;; `store-catalogs-historically?` is used for toggling historical catalog
+;; `historical-catalogs-limit` is used for toggling historical catalog
 ;; storage, this is configurable and PE only.
-(def store-catalogs-historically? (atom false))
+(def historical-catalogs-limit (atom 0))
 
 ;; `store-catalogs-jsonb-columns?` is used for toggling storage of the resources
 ;; and edges jsonb blobs for catalogs. These blobs are used in PE only and this
@@ -747,7 +747,8 @@
   "Persist the supplied catalog in the database, returning its
    similarity hash."
   [{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
-   received-timestamp :- pls/Timestamp]
+   received-timestamp :- pls/Timestamp
+   historical-catalogs-limit]
   (time! (:replace-catalog performance-metrics)
          (jdbc/with-db-transaction []
            (let [hash (time! (:catalog-hash performance-metrics)
@@ -765,7 +766,13 @@
                           (if-not latest-producer-timestamp
                             (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
                             (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id]))
-                          (update-catalog-associations! certname-id catalog refs-to-hashes)))))
+                          (update-catalog-associations! certname-id catalog refs-to-hashes)))
+                      (jdbc/delete! :catalogs
+                                    [(str "id NOT IN (SELECT id FROM catalogs "
+                                          "           WHERE certname=?"
+                                          "           ORDER BY producer_timestamp DESC LIMIT ?)")
+                                     certname
+                                     historical-catalogs-limit])))
              hash))))
 
 (pls/defn-validated replace-catalog!
@@ -801,15 +808,16 @@
 
 (pls/defn-validated store-catalog!
   "Persist the supplied catalog in the database, returning its similarity hash.
-   On PE we alter the atom 'store-catalogs-historically' to be true and we will
-   store the catalog in database alongside the other catalogs for the node. On
-   FOSS we will not store historical catalogs and will replace the existing
-   catalog for node."
+   On PE we alter the atom 'historical-catalog-limit' to be >0 and we will store
+   the catalog in database alongside the other catalogs for the node. On FOSS we
+   will not store historical catalogs and will replace the existing catalog for
+   node."
   [catalog :- catalog-schema
    received-timestamp :- pls/Timestamp]
-  (if @store-catalogs-historically?
-    (add-catalog! catalog received-timestamp)
-    (replace-catalog! catalog received-timestamp)))
+  (let [historical-catalogs-limit @historical-catalogs-limit]
+    (if (> historical-catalogs-limit 0)
+      (add-catalog! catalog received-timestamp historical-catalogs-limit)
+      (replace-catalog! catalog received-timestamp))))
 
 
 (defn catalog-hash-for-certname
@@ -1260,22 +1268,6 @@
   [time]
   {:pre [(kitchensink/datetime? time)]}
   (jdbc/delete! :reports ["producer_timestamp < ?" (to-timestamp time)]))
-
-(defn delete-old-unassociated-catalogs!
-  [time]
-  {:pre [(kitchensink/datetime? time)]}
-  (when @store-catalogs-historically?
-    (let [time (to-timestamp time)]
-      (jdbc/do-prepared
-       (str "DELETE FROM catalogs oc "
-            "       WHERE oc.producer_timestamp < ? "
-            "       AND NOT EXISTS (SELECT 1 FROM catalogs c "
-            "                       JOIN reports r ON c.catalog_uuid = r.catalog_uuid "
-            "                       WHERE c.producer_timestamp < ? AND oc.id = c.id)"
-            "       AND NOT EXISTS (SELECT 1 from catalogs c "
-            "                       JOIN latest_catalogs lc ON c.id = lc.catalog_id "
-            "                       WHERE c.id = oc.id AND c.producer_timestamp < ?)")
-       [time time time]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database support/deprecation
