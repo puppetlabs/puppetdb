@@ -124,9 +124,8 @@
          (map #(update % :resources merge-resources)))))
 
 (defn turn-on-historical-catalogs!
-  [store-historical-catalogs?]
-  (when store-historical-catalogs?
-    (reset! scf-storage/store-catalogs-historically? true))
+  [historical-catalogs-limit]
+  (reset! scf-storage/historical-catalogs-limit historical-catalogs-limit)
   (reset! scf-storage/store-catalogs-jsonb-columns? true)
   (swap! query-eng/entity-fn-idx merge
          {:historical-catalogs {:munge (constantly identity)
