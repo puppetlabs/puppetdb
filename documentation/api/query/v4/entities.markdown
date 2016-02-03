@@ -21,9 +21,12 @@ canonical: "/puppetdb/latest/api/query/v4/entities.html"
 [root]: ./index.html
 [from]: ./ast.html#context-operators
 [subquery]: ./ast.html#subquery-operators
+[erd]: ../../../images/pdb_erd.png
 
 The PuppetDB API provides access to a series of data entities that map to the Puppet ecosystem
 and the data that PuppetDB stores.
+
+![erd][erd]
 
 ## Entity types
 
