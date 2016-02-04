@@ -1,5 +1,5 @@
 # We skip this step entirely unless we are running in :upgrade mode.
-OLDEST_SUPPORTED_UPGRADE="2.3.2"
+OLDEST_SUPPORTED_UPGRADE="2.3.8"
 
 if ([:upgrade_oldest, :upgrade_latest].include? test_config[:install_mode] and not test_config[:skip_presuite_provisioning])
   install_target = test_config[:install_mode] == :upgrade_latest ? 'latest' : OLDEST_SUPPORTED_UPGRADE

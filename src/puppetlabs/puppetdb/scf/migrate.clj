@@ -59,7 +59,7 @@
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.config :as conf]))
 
-(defn init-through-2-3-2
+(defn init-through-2-3-8
   []
 
   (jdbc/do-commands
@@ -1018,7 +1018,7 @@
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
-  {28 init-through-2-3-2
+  {28 init-through-2-3-8
    29 version-2yz-to-300-migration
    30 add-expired-to-certnames
    31 coalesce-fact-values
