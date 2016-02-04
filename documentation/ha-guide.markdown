@@ -84,7 +84,8 @@ to as the `primary`.
 
 5. Add the class `puppet_enterprise::profile::database` and on the class
 `puppet_enterprise::profile::puppetdb` change the parameter `database\_host` to
-to be `$clientcert` (which will automatically be converted to a string).
+to be `$clientcert` (which will automatically be converted to a string) and change
+the `ssl\_listen\_port` to be `8081`.
 6. Run `puppet agent -t` on the `replica` and once that has completed, run the
 agent on the `primary` as well. Once both runs have succeed, restart PuppetDB on
 the `replica` (i.e. `service pe-puppetdb restart`) and wait for the initial sync
