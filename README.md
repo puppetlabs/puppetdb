@@ -44,7 +44,7 @@ The PuppetDB API
 * Querying
   * [Introduction](./documentation/api/query/v4/query.markdown)
   * [Tutorial](./documentation/api/query/tutorial.markdown)
-  * [Operators](./documentation/api/query/v4/operators.markdown)
+  * [Operators](./documentation/api/query/v4/ast.markdown)
   * [Querying Nodes](./documentation/api/query/v4/nodes.markdown)
   * [Querying Facts](./documentation/api/query/v4/facts.markdown)
   * [Querying Fact Names](./documentation/api/query/v4/fact-names.markdown)
