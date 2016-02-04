@@ -723,13 +723,13 @@
       "'"
       "")))
 
-(deftest test-modifiers
-  (testing "modifiers"
-    (are [in expected] (= (parse in :start :modifier) expected)
+(deftest test-groupbyclause
+  (testing "groupbyclause"
+    (are [in expected] (= (parse in :start :groupbyclause) expected)
       "group by name" [[:groupby "name"]]
       "group by name, value" [[:groupby "name" "value"]])
 
-    (are [in] (insta/failure? (insta/parse parse in :start :modifier))
+    (are [in] (insta/failure? (insta/parse parse in :start :groupbyclause))
       "group by 'name'"
       ""))
 
@@ -741,6 +741,26 @@
     (are [in] (insta/failure? (insta/parse parse in :start :groupby))
       "group by 'name'"
       "")))
+
+(deftest test-paging
+  (testing "offset"
+    (are [in expected] (= (parse in :start :pagingclause) expected)
+         "offset 1" [[:offset [:integer "1"]]]))
+  
+  (testing "limit"
+    (are [in expected] (= (parse in :start :pagingclause) expected)
+         "limit 1" [[:limit [:integer "1"]]]))
+  
+  (testing "order by"
+    (are [in expected] (= (parse in :start :pagingclause) expected)
+         "order by name" [[:orderby [:orderparam "name"]]]
+         "order by name, value" [[:orderby [:orderparam "name"] [:orderparam "value"]]]
+         "order by name asc, value desc" [[:orderby
+                                           [:orderparam "name" "asc"]
+                                           [:orderparam "value" "desc"]]]
+         "order by name desc, value" [[:orderby
+                                       [:orderparam "name" "desc"]
+                                       [:orderparam "value"]]])))
 
 (deftest test-parens-grouping
   (is (= (parse ")" :start :rparens) [")"]))

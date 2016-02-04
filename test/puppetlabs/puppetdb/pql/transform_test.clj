@@ -26,7 +26,25 @@
       ["from" "nodes"
        ["extract" ["a" "b" "c"]
         ["=" "a" 1]
-        ["group_by" "a"]]]))
+        ["group_by" "a"]]]
+
+      ["nodes" ["extract" ["a" "b" "c"]] ["=" "a" 1] ["limit" 1]]
+      ["from" "nodes"
+       ["extract" ["a" "b" "c"]
+        ["=" "a" 1]]
+        ["limit" 1]]
+
+      ["nodes" ["extract" ["a" "b" "c"]] ["=" "a" 1] ["order_by" ["certname"]]]
+      ["from" "nodes"
+       ["extract" ["a" "b" "c"]
+        ["=" "a" 1]]
+       ["order_by" ["certname"]]]
+
+      ["nodes" ["extract" ["a" "b" "c"]] ["=" "a" 1] ["order_by" [["certname" "desc"]]]]
+      ["from" "nodes"
+       ["extract" ["a" "b" "c"]
+        ["=" "a" 1]]
+       ["order_by" [["certname" "desc"]]]]))
 
   (testing "transform"
     (are [in expected] (= (transform in) expected)

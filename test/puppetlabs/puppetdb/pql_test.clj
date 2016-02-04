@@ -216,4 +216,49 @@
     ["from" "events"
      ["extract", [["function" "count"] "status" "certname"],
       ["~" "certname" "web.*"]
-      ["group_by" "status" "certname"]]]))
+      ["group_by" "status" "certname"]]]
+
+
+    ;; Paging
+    "reports{limit 1}"
+    ["from" "reports"
+     ["limit" 1]]
+
+    "reports {limit 1 offset 1}"
+    ["from" "reports"
+     ["limit" 1] ["offset" 1]]
+
+    "reports {certname = 'foo' limit 1 offset 1}"
+    ["from" "reports"
+     ["=" "certname" "foo"]
+     ["limit" 1] ["offset" 1]]
+
+    "reports[certname, receive_time]{certname = 'foo' limit 1 offset 1}"
+    ["from" "reports"
+     ["extract" ["certname" "receive_time"] ["=" "certname" "foo"]]
+     ["limit" 1] ["offset" 1]]
+
+    "reports[certname]{certname = 'foo' limit 10 order by certname}"
+    ["from" "reports"
+     ["extract" ["certname"] ["=" "certname" "foo"]]
+     ["limit" 10] ["order_by" ["certname"]]]
+
+    "reports[certname]{certname = 'foo' limit 10 order by certname desc}"
+    ["from" "reports"
+     ["extract" ["certname"] ["=" "certname" "foo"]]
+     ["limit" 10] ["order_by" [["certname" "desc"]]]]
+
+    "reports[certname]{certname = 'foo' limit 10 order by certname desc, receive_time asc}"
+    ["from" "reports"
+     ["extract" ["certname"] ["=" "certname" "foo"]]
+     ["limit" 10] ["order_by" [["certname" "desc"] ["receive_time" "asc"]]]]
+
+    "reports[certname]{certname = 'foo' limit 10 order by certname, receive_time desc}"
+    ["from" "reports"
+     ["extract" ["certname"] ["=" "certname" "foo"]]
+     ["limit" 10] ["order_by" ["certname" ["receive_time" "desc"]]]]
+
+    "reports[certname]{certname = 'foo' order by certname desc, receive_time asc limit 10}"
+    ["from" "reports"
+     ["extract" ["certname"] ["=" "certname" "foo"]]
+     ["order_by" [["certname" "desc"] ["receive_time" "asc"]]] ["limit" 10]]))

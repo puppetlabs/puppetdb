@@ -2,15 +2,22 @@
   (:require [clojure.string :as str]
             [puppetlabs.puppetdb.cheshire :as json]))
 
+(defn paging-clause?
+  [v]
+  (contains? #{"limit" "offset" "order_by"} (first v)))
+
+(defn slurp-expr->extract
+  [clauses]
+  (let [paging-groups (group-by paging-clause? clauses)
+        paging-clauses (get paging-groups true)
+        other-clauses (get paging-groups false)]
+    (if (and (= (ffirst other-clauses) "extract") (second other-clauses))
+      (cons (vec (concat (first other-clauses) (rest other-clauses))) (vec paging-clauses))
+      clauses)))
+
 (defn transform-from
-  ([entity]
-   ["from" entity])
-  ([entity arg2]
-   ["from" entity arg2])
-  ([entity extract expression]
-   ["from" entity (vec (concat extract [expression]))])
-  ([entity extract expression modifier]
-   ["from" entity (vec (concat extract [expression modifier]))]))
+  [entity & args]
+  (vec (concat ["from" entity] (slurp-expr->extract args))))
 
 (defn transform-subquery
   ([entity]
@@ -100,6 +107,22 @@
   [& args]
   (vec (concat ["group_by"] args)))
 
+(defn transform-limit
+  [arg]
+  ["limit" arg])
+
+(defn transform-offset
+  [arg]
+  ["offset" arg])
+
+(defn transform-orderby
+  [& args]
+  ["order_by"
+   (vec (for [arg args]
+          (if (= 2 (count arg))
+            (second arg)
+            (vec (rest arg)))))])
+
 (def transform-specification
   {:from               transform-from
    :subquery           transform-subquery
@@ -120,4 +143,7 @@
    :integer            transform-integer
    :real               transform-real
    :exp                transform-exp
-   :groupby            transform-groupby})
+   :groupby            transform-groupby
+   :limit              transform-limit
+   :offset             transform-offset
+   :orderby            transform-orderby})
