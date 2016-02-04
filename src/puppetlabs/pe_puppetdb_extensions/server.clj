@@ -9,7 +9,7 @@
   [query-fn get-shared-globals]
   (cmdi/context "/v1"
                 (handlers/extract-query
-                 (cmdi/GET "/historical-catalogs" []
+                 (cmdi/ANY "/historical-catalogs" []
                            catalogs/historical-catalogs-handler))
                 (handlers/extract-query
                  (cmdi/GET "/resource-graphs" []
