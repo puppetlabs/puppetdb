@@ -9,11 +9,28 @@ The export tool has the ability to anonymize the PuppetDB archive before returni
 Using the `export` command
 -----
 
-To create an anonymized PuppetDB archive directly, simply run the `puppetdb export` tool, preferably on your PuppetDB instance:
+To create an anonymized PuppetDB archive directly, use the Puppet `db` subcommand
+from any node with puppet-client-tools installed:
 
-    $ sudo puppetdb export --outfile ./my-puppetdb-export.tar.gz --anonymization moderate
+    $ puppet db export --outfile my-puppetdb-export.tar.gz --anonymization moderate
 
-[See our guide to exporting data for further details, ](./migrate.html#exporting-data-from-an-existing-puppetdb-database) and see `puppetdb export -h` for more options for remote execution.
+PuppetDB also supports the deprecated CLI export command, which may be run on
+the PuppetDB node:
+
+    $ puppetdb export --outfile ./my-puppetdb-export.tar.gz --anonymization moderate
+
+Using the `import` command
+-----
+
+To import an anonymized PuppetDB tarball, use the Puppet `db` subcommand from
+any node with puppet-client-tools installed:
+
+    $ puppet db import --infile my-puppetdb-export.tar.gz
+
+PuppetDB also supports the deprecated CLI import command, which may be run on
+the PuppetDB node:
+
+    $ puppetdb import --infile my-puppetdb-export.tar.gz
 
 How does it work?
 -----

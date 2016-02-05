@@ -66,6 +66,9 @@
         import-archive (fs/normalized-path infile)
         command-versions (:command_versions (parse-metadata import-archive))]
     (try
+      (println (str "[deprecated] The PuppetDB import command is deprecated in "
+                    "favor of imports via the Puppet 'db' subcommand. See "
+                    "'man puppet-db' for usage instructions."))
       (println " Importing " infile " to PuppetDB...")
       (http-client/post (str (utils/base-url->str base-url) "/archive")
                         {:multipart [{:name "Content/type" :content "application/octet-stream"}
