@@ -337,7 +337,8 @@ module PuppetDBExtensions
     end
   end
 
-  def install_puppetdb_termini(host, databases, version=nil)
+  def install_puppetdb_termini(host, databases, version=nil,
+                              terminus_package='puppetdb-termini')
     # We pass 'restart_puppet' => false to prevent the module from trying to
     # manage the puppet master service, which isn't actually installed on the
     # acceptance nodes (they run puppet master from the CLI).
@@ -352,6 +353,7 @@ module PuppetDBExtensions
       enable_reports           => true,
       strict_validation        => true,
       restart_puppet           => false,
+      terminus_package         => #{terminus_package},
     }
     ini_setting {'server_urls':
       ensure  => present,

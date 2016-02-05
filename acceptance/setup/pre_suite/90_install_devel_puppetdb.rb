@@ -33,7 +33,6 @@ step "Install development build of PuppetDB on the PuppetDB server" do
         # make sure it got started by the package install/upgrade
         sleep_until_started(database)
       end
-
     end
   end
 
@@ -41,6 +40,11 @@ step "Install development build of PuppetDB on the PuppetDB server" do
   when :git
     install_puppetdb_termini_via_rake(master, databases)
   when :package
-    install_puppetdb_termini(master, databases)
+    os = PuppetDBExtensions.config[:os_families][master.name]
+    if test_config[:install_mode] == :upgrade_oldest && ([:redhat, :fedora].include? os)
+      install_puppetdb_termini(master, databases, nil, 'puppetdb-terminus')
+    else
+      install_puppetdb_termini(master, databases)
+    end
   end
 end

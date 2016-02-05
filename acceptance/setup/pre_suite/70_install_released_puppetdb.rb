@@ -2,13 +2,19 @@
 OLDEST_SUPPORTED_UPGRADE="2.3.8"
 
 if ([:upgrade_oldest, :upgrade_latest].include? test_config[:install_mode] and not test_config[:skip_presuite_provisioning])
-  install_target = test_config[:install_mode] == :upgrade_latest ? 'latest' : OLDEST_SUPPORTED_UPGRADE
+  if test_config[:install_mode] == :upgrade_latest
+    install_target = 'latest'
+    terminus_package = 'puppetdb-termini'
+  else
+    install_target = OLDEST_SUPPORTED_UPGRADE
+    terminus_package = 'puppetdb-terminus'
+  end
   step "Install most recent released PuppetDB on the PuppetDB server for upgrade test" do
     databases.each do |database|
       install_puppetdb(database, install_target)
       start_puppetdb(database)
     end
-    install_puppetdb_termini(master, databases, install_target)
+    install_puppetdb_termini(master, databases, install_target, terminus_package)
     databases.each do |database|
       stop_puppetdb(database)
     end
