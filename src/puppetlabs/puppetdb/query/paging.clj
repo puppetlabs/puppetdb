@@ -63,7 +63,8 @@
     (catch JsonParseException e
       (throw (IllegalArgumentException.
               (str "Illegal value '" order_by "' for :order_by; expected a JSON "
-                   "array of maps."))))))
+                   "array of maps.")
+              e)))))
 
 (defn parse-order-str
   "Given an 'order' string, returns either :ascending or :descending"

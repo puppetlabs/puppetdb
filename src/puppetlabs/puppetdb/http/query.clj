@@ -279,13 +279,15 @@
   "Query handler that converts the incoming request (GET or POST)
   parameters/body to a pdb query map"
   ([handler param-spec]
-   (extract-query handler param-spec #(json/parse-strict-string % true)))
+   (extract-query handler param-spec pql/parse-json-query))
   ([handler param-spec parse-fn]
    (fn [{:keys [request-method body params puppetdb-query] :as req}]
      (handler
       (if puppetdb-query
         req
-        (assoc req :puppetdb-query (create-query-map req param-spec parse-fn)))))))
+        (assoc req
+               :puppetdb-query
+               (create-query-map req param-spec parse-fn)))))))
 
 (defn extract-query-pql
   [handler param-spec]
