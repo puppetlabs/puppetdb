@@ -122,6 +122,9 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # @return [Hash] returns original hash with a gaurunteed code_id key
   # @api private
   def add_code_id_if_missing(hash)
+    # This weird code ensure that `hash` will always have a `code_id` key and if
+    # it already had a `code_id` key we use that as the value. If `hash` didn't
+    # have a `code_id` key the lookup will return nil and hash['code_id'] == nil
     hash['code_id'] = hash['code_id']
 
     hash
