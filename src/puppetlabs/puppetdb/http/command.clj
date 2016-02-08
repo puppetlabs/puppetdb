@@ -182,9 +182,9 @@
        (restrained-drained-stream body (long max-command-size)))
 
       (string? body)
-      ;; Given Java's (UCS-2) encoding, the size should be effectively
-      ;; two bytes per character.
-      (if (> (* 2 (count body)) max-command-size)
+      ;; Given Java's UCS-2 encoding, incoming UTF-8 more or less
+      ;; doubles in size when converted to a String.
+      (if (> (count body) (* 2  max-command-size))
         (throw+ ::body-stream-overflow)
         body)
 
