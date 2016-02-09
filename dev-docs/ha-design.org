@@ -11,10 +11,6 @@
   supported.
 - /PE/: The HA feature must be available only in Puppet Enterprise.
 
-This beta release of HA meets all of these requirements except for Durability;
-there are some known scenarios in which data may still be lost. These will be
-rectified in the following release. 
-
 * Overview 
 PuppetDB implements a pull-based, asynchronous, eventually consistent
 replication mechanism at the application layer.
@@ -54,9 +50,8 @@ replication is used. There are two reasons for this:
 
 2. By taking advantage of PuppetDB's simple command-based data model, we can
    design a replication system that works in cases where normal database
-   replication would fall over. Though not currently supported due to lack of
-   test resources, PuppetDB's replication system can easily work in asymmetric
-   or widely distributed configurations.
+   replication would fall over. PuppetDB's replication system can easily work 
+   in asymmetric or widely distributed configurations.
 
 * Theory
 For the most part, PuppetDB state is modeled as a CRDT. Specifically, it is a
