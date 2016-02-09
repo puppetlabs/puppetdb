@@ -114,11 +114,6 @@ exported resources, PuppetDB startup blocks until it has performed a single sync
 operation.
 
 * Known issues
-** Data loss scenarios
-In the current beta release, data may be lost if a command is submitted to the
-primary PuppetDB but that node loses data before it can be replicated. This will
-be rectified in a future release by keeping some of the data in a local cache on
-the master.
 
 ** Exported resources
 Exported resources are already a bit dicey in a standalone configuration: since
@@ -126,10 +121,12 @@ command are processed asynchronously from their submission, there is a delay
 before the queries issued for use in exported resources reflect the current
 state of the world.
 
-HA makes it much worse. Not only does it introduce additional delay while
-waiting for replication to occur, it also provides the potential for some
+HA makes it somewhat worse. It provides the potential for some
 exported resources to appear to go back in time if a failover occurs when
-commands are in the queue.
+commands are in the queue. We can partially mitigate this by using a sticky
+failover system in the terminus, but it does not disappear entirely. We also
+do our best to ensure all replicas are up to date by broadcasting commands
+to all known replicas in the terminus. 
 
 Short of introducing a consistent distributed store like Raft or Zookeeper, it
 is not yet clear how to robustly handle such scenarios.
