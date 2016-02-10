@@ -6,7 +6,8 @@
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.cli.export :as cli-export]
+            [clj-http.client :as http-client]
+            [clojure.java.io :as io]
             [puppetlabs.puppetdb.testutils.cli :refer [get-nodes example-catalog
                                                        example-report example-facts
                                                        example-certname]]
@@ -74,6 +75,15 @@
                                  "--nummsgs" "3")]
     (is (= 18 (count submitted)))))
 
+(defn trigger-export-via-http!
+  [{:keys [host port]} filename]
+  (let [admin-base-url (utils/pdb-admin-base-url host port)
+        url (str (utils/base-url->str admin-base-url) "/archive")
+        response (http-client/get url {:throw-exceptions false
+                                       :accept :octet-stream
+                                       :as :stream})]
+    (io/copy (:body response) (io/file filename))))
+
 (deftest archive-flag-works
   (let [export-out-file (.getPath (tu/temp-file "benchmark-test" ".tar.gz"))]
     (svc-utils/call-with-single-quiet-pdb-instance
@@ -83,9 +93,7 @@
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace catalog" 8 example-catalog)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "store report" 7 example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace facts" 4 example-facts)
-       (#'cli-export/-main "--outfile" export-out-file
-                           "--host" (:host svc-utils/*base-url*)
-                           "--port" (str (:port svc-utils/*base-url*)))))
+       (trigger-export-via-http! svc-utils/*base-url* export-out-file)))
     (let [submitted (run-benchmark {}
                                    "--config" "anything.ini"
                                    "--numhosts" "2"

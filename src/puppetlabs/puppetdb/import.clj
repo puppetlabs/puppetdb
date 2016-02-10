@@ -58,11 +58,14 @@
   [tar-reader]
   {:post [(map? %)
           (:command_versions %)]}
-  (when-not (archive/find-entry tar-reader metadata-path)
-    (throw (IllegalStateException.
-            (format "Unable to find export metadata file '%s' in archive"
-                    metadata-path))))
-  (utils/read-json-content tar-reader true))
+  ;; *warning* archive/next-entry is side-effecting
+  (let [entry (archive/next-entry tar-reader)]
+    (when-not (= (.getName entry) metadata-path)
+      (throw (IllegalStateException.
+              (str "Unable to find export metadata '"
+                   metadata-path
+                   "' as the first file in the archive"))))
+    (utils/read-json-content tar-reader true)))
 
 (defn import!
   [infile command-fn]
