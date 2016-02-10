@@ -9,6 +9,7 @@
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.reports :as reports]
+            [puppetlabs.puppetdb.export :as export]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]))
@@ -48,8 +49,24 @@
                       (utils/read-json-content tar-reader)))
       nil)))
 
+(def metadata-path
+  (.getPath (io/file utils/export-root-dir export/export-metadata-file-name)))
+
+(defn parse-metadata
+  "Parses the export metadata file to determine, e.g., what versions of the
+  commands should be used during import."
+  [tar-reader]
+  {:post [(map? %)
+          (:command_versions %)]}
+  (when-not (archive/find-entry tar-reader metadata-path)
+    (throw (IllegalStateException.
+            (format "Unable to find export metadata file '%s' in archive"
+                    metadata-path))))
+  (utils/read-json-content tar-reader true))
+
 (defn import!
   [infile command-versions command-fn]
   (with-open [tar-reader (archive/tarball-reader infile)]
-    (doseq [tar-entry (archive/all-entries tar-reader)]
-      (process-tar-entry command-fn tar-reader tar-entry command-versions))))
+    (let [command-versions (:command_versions (parse-metadata tar-reader))]
+      (doseq [tar-entry (archive/all-entries tar-reader)]
+        (process-tar-entry command-fn tar-reader tar-entry command-versions)))))
