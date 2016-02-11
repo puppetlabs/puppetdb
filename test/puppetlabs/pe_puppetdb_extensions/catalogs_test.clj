@@ -20,7 +20,6 @@
             [puppetlabs.puppetdb.testutils.services :refer [get-json] :as svc-utils]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [blocking-command-post with-ext-instances]]
-            [puppetlabs.puppetdb.cli.import :as cli-import]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
@@ -154,9 +153,8 @@
 
         (let [dispatcher (tk-app/get-service svc-utils/*server*
                                              :PuppetDBCommandDispatcher)
-              submit-command-fn (partial enqueue-command dispatcher)
-              command-versions (:command_versions (cli-import/parse-metadata export-out-file))]
-          (import/import! export-out-file command-versions submit-command-fn))
+              submit-command-fn (partial enqueue-command dispatcher)]
+          (import/import! export-out-file submit-command-fn))
 
         @(tu/block-until-results 100 (first (get-catalogs example-certname)))
         @(tu/block-until-results 100 (first (get-reports example-certname)))
