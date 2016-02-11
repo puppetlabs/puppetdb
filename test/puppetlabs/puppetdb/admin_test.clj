@@ -5,7 +5,6 @@
             [puppetlabs.puppetdb.export :as export]
             [puppetlabs.puppetdb.import :as import]
             [puppetlabs.puppetdb.anonymizer :as anon]
-            [puppetlabs.puppetdb.cli.import :as cli-import]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.catalogs :as tuc]
@@ -48,10 +47,8 @@
 
        (let [dispatcher (tk-app/get-service svc-utils/*server*
                                             :PuppetDBCommandDispatcher)
-             submit-command-fn (partial enqueue-command dispatcher)
-             command-versions (:command_versions (cli-import/parse-metadata
-                                                  export-out-file))]
-         (import/import! export-out-file command-versions submit-command-fn))
+             submit-command-fn (partial enqueue-command dispatcher)]
+         (import/import! export-out-file submit-command-fn))
 
        @(tu/block-until-results 100 (first (get-catalogs example-certname)))
        @(tu/block-until-results 100 (first (get-reports example-certname)))
