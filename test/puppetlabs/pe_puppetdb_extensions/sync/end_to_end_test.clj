@@ -16,6 +16,7 @@
             [puppetlabs.puppetdb.testutils
              :refer [=-after? block-until-results with-alt-mq]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
+            [puppetlabs.puppetdb.cheshire :as json]
             [slingshot.slingshot :refer [throw+]]
             [slingshot.test]))
 
@@ -52,16 +53,33 @@
          (first (svcs/get-factsets (:query-url pdb1) (:certname facts)))
          (first (svcs/get-factsets (:query-url pdb2) (:certname facts)))))))
 
+(defn get-historical-catalogs [base-url certname]
+  (svcs/get-json
+   (assoc base-url :prefix utils/pe-pdb-url-prefix :version :v1)
+   "/historical-catalogs"
+   {:query-params {:query (json/generate-string [:= :certname certname])}}))
+
 (deftest end-to-end-catalog-replication
   (with-ext-instances [pdb1 (sync-config nil) pdb2 (sync-config nil)]
     (with-alt-mq (:mq-name pdb1)
-      (submit-catalog pdb1 catalog))
+      (submit-catalog pdb1 (assoc catalog
+                                  :producer_timestamp (t/now)
+                                  :transaction_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"))
+      (submit-catalog pdb1 (assoc catalog
+                                  :producer_timestamp (-> 1 t/hours t/ago)
+                                  :transaction_uuid  "bbbbbbbb-1111-aaaa-1111-aaaaaaaaaaaa")))
     (with-alt-mq (:mq-name pdb2)
       (sync :from pdb1 :to pdb2))
-    (is (=-after?
-         without-timestamp
-         (first (svcs/get-catalogs (:query-url pdb1) (:certname catalog)))
-         (first (svcs/get-catalogs (:query-url pdb2) (:certname catalog)))))))
+
+    ;; FIXME: This is a workaround for the queue retry issue and should be
+    ;; removed once that is resolved.
+    (Thread/sleep 15000)
+
+    (let [pdb1-catalogs (get-historical-catalogs (:query-url pdb1) (:certname catalog))
+          pdb2-catalogs (get-historical-catalogs (:query-url pdb2) (:certname catalog))]
+      (is (= (count pdb1-catalogs) (count pdb2-catalogs)))
+      (is (= (sort-by :transaction_uuid pdb1-catalogs)
+             (sort-by :transaction_uuid pdb2-catalogs))))))
 
 (deftest deactivate-then-sync
   (let [certname (:certname catalog)]
@@ -276,10 +294,10 @@
            events))
       (is (ordered-matches?
            [#(verify-sync "start" %)
-            #(verify-entity-sync "start" "catalogs" 0 0 %)
-            #(verify-record-sync "start" "catalogs" %)
-            #(verify-record-sync "finished" "catalogs" %)
-            #(verify-entity-sync "finished" "catalogs" 1 0 %)
+            #(verify-entity-sync "start" "historical_catalogs" 0 0 %)
+            #(verify-record-sync "start" "historical_catalogs" %)
+            #(verify-record-sync "finished" "historical_catalogs" %)
+            #(verify-entity-sync "finished" "historical_catalogs" 1 0 %)
             #(verify-sync "finished" %)]
            events))
       (is (ordered-matches?

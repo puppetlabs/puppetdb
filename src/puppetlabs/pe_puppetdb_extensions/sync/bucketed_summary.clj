@@ -143,7 +143,8 @@
            "GROUP BY date_trunc('hour', producer_timestamp AT TIME ZONE 'UTC')"))
 
 (def cachable-entity-for-command
-  {"store report" :reports})
+  {"store report" :reports
+   "replace catalog" :catalogs})
 
 ;;; public
 

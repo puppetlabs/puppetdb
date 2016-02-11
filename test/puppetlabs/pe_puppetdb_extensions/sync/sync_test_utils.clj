@@ -60,34 +60,37 @@
   query.
 
   All queries are logged to `requests-atom`."
-  [path requests-atom stub-data-atom record-identity-key]
+  [entity-of-interest requests-atom stub-data-atom record-identity-key]
   (cmdi/routes
-   (cmdi/ANY path request
-             (let [query-params (:query-params request)
-                   stub-data @stub-data-atom
-                   stub-data-index (index-by record-identity-key stub-data)
-                   summary-data (map #(select-keys % [:certname :hash :producer_timestamp]) stub-data)
-                   key-name (name record-identity-key)]
-               (when-let [query (or (some-> (query-params "query") json/parse-string vec)
-                                    (some-> request :body slurp json/parse-string (get "query")))]
-                 (swap! requests-atom conj query)
-                 (cm/match [query]
-                   [["extract" & _]]
-                   (json-response summary-data)
+   (cmdi/GET "/pdb-x/sync/v1/reports-summary" [] (json-response {}))
+   (cmdi/GET "/pdb-x/sync/v1/catalogs-summary" [] (json-response {}))
+   (cmdi/ANY "/pdb-x/query/v4" request
+     (let [query-params (:query-params request)
+           stub-data @stub-data-atom
+           stub-data-index (index-by record-identity-key stub-data)
+           summary-data (map #(select-keys % [:certname :hash :producer_timestamp :transaction_uuid])
+                             stub-data)
+           record-identity-key-name (name record-identity-key)
+           entity-of-interest-name (name entity-of-interest)]
+       (when-let [query (or (some-> (query-params "query") json/parse-string vec)
+                            (some-> request :body slurp json/parse-string (get "query")))]
+         (cm/match [query]
+                   [["from" entity-of-interest-name
+                     ["extract" & _]]]
+                   (do
+                     (swap! requests-atom conj query)
+                     (json-response summary-data))
 
-                   [["and" ["in" key-name ["array" id-vals]] & _]]
-                   (->> id-vals
-                        (map (partial get stub-data-index))
-                        json-response)))))
+                   [["from" entity-of-interest-name
+                     ["and" ["in" record-identity-key-name ["array" id-vals]] & _]]]
+                   (do
+                     (swap! requests-atom conj query)
+                     (->> id-vals
+                          (map (partial get stub-data-index))
+                          json-response))
 
-   ;; fallback routes, for data that wasn't explicitly stubbed
-   (cmdi/GET "/pdb-x/sync/v1/reports-summary" []
-             (json-response {}))
-   (cmdi/context "/pdb-x/query/v4"
-                 (cmdi/GET "/reports" [] (json-response []))
-                 (cmdi/GET "/factsets" [] (json-response []))
-                 (cmdi/GET "/catalogs" [] (json-response []))
-                 (cmdi/GET "/nodes" [] (json-response [])))))
+                   :else
+                   (json-response [])))))))
 
 (defn trigger-sync [source-pdb-url dest-sync-url]
  (http/post dest-sync-url
