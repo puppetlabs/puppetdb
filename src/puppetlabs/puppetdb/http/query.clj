@@ -74,25 +74,33 @@
           (tree-seq vector? rest criteria))))
 
 (defn add-criteria
-  "Add a criteria to the given query, taking top-level extract queries into
-  account."
+  "Add a criteria to the given query, taking top-level 'extract' and 'from'
+  forms into account."
   [crit query]
-  (cm/match [query]
-    [["extract" columns nil]]
-    ["extract" columns crit]
+  (if-not crit
+    query
+    (cm/match [query]
+      [["extract" columns nil]]
+      ["extract" columns crit]
 
-    [["extract" columns]]
-    ["extract" columns crit]
+      [["extract" columns]]
+      ["extract" columns crit]
 
-    [["extract" columns subquery]]
-    ["extract" columns ["and" subquery crit]]
+      [["extract" columns subquery]]
+      ["extract" columns (add-criteria crit subquery)]
 
-    [["extract" columns subquery clauses]]
-    ["extract" columns ["and" subquery crit] clauses]
+      [["extract" columns subquery clauses]]
+      ["extract" columns (add-criteria crit subquery) clauses]
 
-    :else (if query
-            ["and" query crit]
-            crit)))
+      [["from" entity]]
+      ["from" entity crit]
+
+      [["from" entity subquery]]
+      ["from" entity (add-criteria crit subquery)]
+
+      :else (if query
+              ["and" query crit]
+              crit))))
 
 (defn restrict-query
   "Given a criteria that will restrict a query, modify the supplied
