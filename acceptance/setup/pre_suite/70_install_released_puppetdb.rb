@@ -7,7 +7,7 @@ if ([:upgrade_oldest, :upgrade_latest].include? test_config[:install_mode] and n
     databases.each do |database|
       install_puppetdb(database, install_target)
       start_puppetdb(database)
-      install_puppetdb_termini(master, database, install_target)
+      install_puppetdb_termini(master, databases, install_target)
     end
   end
 end
