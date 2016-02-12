@@ -9,7 +9,7 @@ canonical: "/puppetdb/latest/api/query/v4/pql.html"
 [ast]: ./ast.html
 
 > **Experimental Feature**: This featureset is experimental, and it may be altered or removed in
-> future release.
+> a future release.
 
 Puppet Query Language (PQL) is a query language designed with PuppetDB and Puppet data in mind. It
 provides a string based query language as an alternative to the [AST query language][ast] PuppetDB has
@@ -39,8 +39,9 @@ A PQL query has the following structure:
 
 Which is broken up into the following parts:
 
-* `entity`: Rquired. The entity context that this query executes on.
-* `projection`: Optional. Modifies the output of how the `entity` fields are returned.
+* `entity`: Required. The entity context that this query executes on.
+* `projection`: Optional. Restricts the output to a selection of fields or
+  function results.
 * `filter`: Optional. The filter to match on for this `entity`.
 * `modifiers`: Optional. Contains modifiers for the query.
 
@@ -69,14 +70,14 @@ The entity context can also be used within a subquery, see the [subquery] sectio
 
 ## Projection
 
-The projection part of a query, provides a mechanism to choose a subset of fields that are returned
+The projection part of a query provides a mechanism to choose a subset of fields that are returned
 or to modify the way those fields are displayed with the usage of functions.
 
-The projection, lives within the brackets of a query:
+The projection lives within the brackets of a query:
 
     nodes[<projection>] {}
 
-And is a comma seperated list of fields and functions:
+And is a comma separated list of fields and functions:
 
     facts[name, count()] { group by name }
 
@@ -364,14 +365,9 @@ query combined everything before, but with a `resource` subquery for `Package[to
       certname ~ '^web'
     }
 
-## Modifiers
+## Group By
 
-Modifiers to the query provide extra facilities beyond a filter for limiting and changing the resultsets
-returned in special ways.
-
-### `group by`
-
-`group by` will condense into a single row all selected rows that share the same values for the grouped expressions.
+A `group by` clause will condense into a single row all selected rows that share the same values for the grouped expressions.
 
 For example, to only show a list of fact names, you can group by the `name` field:
 
@@ -381,3 +377,35 @@ Combined with aggregate functions, you can effectively rollup of results and agg
 up values, for example to return how many facts exist for each fact name across all facts:
 
     facts[name, count(value)] { certname ~ 'web.*' group by name }
+
+## Paging
+PQL supports restriction of the result set via the SQL-like paging clauses
+`limit`, `offset`, and `order by`.
+
+### `limit` and `offset`
+
+Limit and offset clauses are supplied with integer arguments and may appear in
+any order within the braced section of a PQL query. Offset always takes
+precedence over limit:
+
+    reports {certname = 'foo.com' limit 10}
+
+    reports {certname = 'foo.com' limit 10 offset 10}
+
+    reports {certname = 'foo.com' offset 10 limit 10}
+
+Note that since there is no default ordering for results returned by PuppetDB,
+`limit` and `offset` are generally only useful in combination with `order by`.
+
+### `order by`
+
+An `order by` clause will order the result set on a selection of columns in
+ascending or descending order. The argument to an `order by` is a
+comma-separated list of fields, each optionally appended with a keyword `asc`
+or `desc`. If no keyword is supplied, `asc` is assumed:
+
+    reports {certname = 'foo.com' order by receive_time}
+
+    reports {certname ~ 'web.*' order by receive_time, certname desc}
+
+    reports {certname ~ 'web.*' order by receive_time desc, certname desc limit 10}
