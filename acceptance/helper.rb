@@ -26,7 +26,7 @@ module PuppetDBExtensions
 
     install_mode =
         get_option_value(options[:install_mode],
-                         [:install, :upgrade_oldest, :upgrade_latest], "install mode",
+                         [:install, :upgrade_latest, :upgrade_oldest], "install mode",
                          "INSTALL_MODE", :install)
 
     validate_package_version =
