@@ -38,7 +38,10 @@ See [the AST query language page][ast].
 * `certname` (string): the certname associated with the catalog.
 * `version` (string): an arbitrary string that uniquely identifies each catalog for a node.
 * `environment` (string): the environment associated with the catalog's certname.
-* `transaction_uuid` (string): a string used to tie a catalog to a report from the same Puppet run.
+* `transaction_uuid` (string): a string used to tie a catalog to a report from
+  the same Puppet run (use `catalog_uuid` when running off a cached catalog).
+* `catalog_uuid` (string): a string used to tie a catalog to a report to the
+  catalog used from that Puppet run.
 * `code_id` (string): a string used to tie a catalog to the Puppet code which generated the catalog.
 * `hash` (string): SHA-1 hash of the resources of associated with a node's most
   recent catalog.
@@ -47,7 +50,9 @@ See [the AST query language page][ast].
 
 ### Subquery relationships
 
-The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information consult the documentation for [subqueries][subqueries].
+The following list contains related entities that can be used to constrain the
+result set using implicit subqueries. For more information consult the
+documentation for [subqueries][subqueries].
 
 * [`nodes`][nodes]: node for a catalog.
 * [`environments`][environments]: environment for a catalog.
@@ -169,6 +174,7 @@ a JSON error message if the catalog is not found.
      "version" : "e4c339f",
      "transaction_uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
      "code_id" : null,
+     "catalog_uuid" : null,
      "producer_timestamp": "2014-10-13T20:46:00.000Z",
      "environment" : "production",
      "edges" : {...},
