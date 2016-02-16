@@ -93,13 +93,50 @@
                    true
                    @maint-mode-atom))))
 
+(defprotocol PuppetDBStatus
+  (enable-status-service [this]))
+
+(tk/defservice pdb-status-service
+  PuppetDBStatus
+  [[:MaintenanceMode maint-mode?]
+   [:PuppetDBServer shared-globals]
+   [:StatusService register-status]
+   [:DefaultedConfig get-config]]
+  (init [this context]
+        context)
+  (enable-status-service
+    [this]
+    (let [config (get-config)]
+      (register-status "puppetdb-status"
+                       (status-core/get-artifact-version "puppetlabs" "puppetdb")
+                       1
+                       (fn [level]
+                         (let [globals (shared-globals)
+                               queue-depth (try (->> [:command-processing :mq :endpoint]
+                                                     (get-in config)
+                                                     (mq/queue-size "localhost"))
+                                                (catch Exception _
+                                                  nil))
+                               read-db-up? (sutils/db-up? (:scf-read-db globals))
+                               write-db-up? (sutils/db-up? (:scf-write-db globals))
+                               maintenance-mode? (maint-mode?)
+                               state (cond
+                                       maintenance-mode? :starting
+                                       (and read-db-up? write-db-up?) :running
+                                       :else :error)]
+                           {:state state
+                            :status {:maintenance_mode? maintenance-mode?
+                                     :queue_depth queue-depth
+                                     :read_db_up? read-db-up?
+                                     :write_db_up? write-db-up?}}))))))
+
 (tk/defservice pdb-routing-service
   [[:WebroutingService add-ring-handler get-route]
    [:PuppetDBServer shared-globals query set-url-prefix]
    [:PuppetDBCommandDispatcher
     enqueue-command enqueue-raw-command response-pub]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]
-   [:StatusService register-status]
+   [:PuppetDBStatus enable-status-service]
    [:DefaultedConfig get-config]]
   (init [this context]
         (let [context-root (get-route this)
@@ -121,28 +158,7 @@
                                                            response-pub)))
 
           (enable-maint-mode)
-          (register-status "puppetdb-status"
-                           (status-core/get-artifact-version "puppetlabs" "puppetdb")
-                           1
-                           (fn [level]
-                             (let [globals (shared-globals)
-                                   queue-depth (try (->> [:command-processing :mq :endpoint]
-                                                         (get-in config)
-                                                         (mq/queue-size "localhost"))
-                                                    (catch Exception _
-                                                      nil))
-                                   read-db-up? (sutils/db-up? (:scf-read-db globals))
-                                   write-db-up? (sutils/db-up? (:scf-write-db globals))
-                                   maintenance-mode? (maint-mode?)
-                                   state (cond
-                                           maintenance-mode? :starting
-                                           (and read-db-up? write-db-up?) :running
-                                           :else :error)]
-                               {:state state
-                                :status {:maintenance_mode? maintenance-mode?
-                                         :queue_depth queue-depth
-                                         :read_db_up? read-db-up?
-                                         :write_db_up? write-db-up?}}))))
+          (enable-status-service))
         context)
   (start [this context]
          (log/info "PuppetDB finished starting, disabling maintenance mode")
