@@ -34,7 +34,8 @@
    [:DefaultedConfig get-config]
    [:PuppetDBSync bucketed-summary-query]
    [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub response-mult]
-   [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]]
+   [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]
+   [:PuppetDBStatus enable-status-service]]
   (init [this context]
         (let [context-root (get-route this)
               query-prefix (str context-root "/query")
@@ -62,6 +63,7 @@
                                        query bucketed-summary-query enqueue-command (response-mult))
                             [(route/not-found "Not Found")]))))
         (enable-maint-mode)
+        (enable-status-service)
         context)
   (start [this context]
          (log/info "PuppetDB finished starting, disabling maintenance mode")
