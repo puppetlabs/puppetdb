@@ -29,7 +29,7 @@
       vector))
 
 (def report-resources-query
-  "Query intended to be used by the `/reports/<hash>/reosurces` endpoint
+  "Query intended to be used by the `/reports/<hash>/resources` endpoint
   used for digging into the resources for a specific report."
   (engine/map->Query {:projections
                       {"resources" {:type :json

@@ -97,18 +97,18 @@
                config-2 (assoc (utils/sync-config nil) :database db2)]
            (with-log-suppressed-unless-notable notable-pdb-event?
              (with-puppetdb-instance config-1
-               (let [report (reports/report-query->wire-v6 (:basic reports))
+               (let [report (reports/report-query->wire-v7 (:basic reports))
                      query-fn (partial cli-svcs/query
                                        (get-service svcs/*server*
                                                     :PuppetDBServer))]
                  (blocking-command-post (utils/pdb-cmd-url) (:certname report)
-                                        "store report" 6 report)
+                                        "store report" 7 report)
                  (is (not (empty? (svcs/get-reports (utils/pdb-query-url)
                                                     (:certname report)))))
                  (with-alt-mq "puppetlabs.puppetdb.commands-2"
                    (with-puppetdb-instance config-2
                      (blocking-command-post (utils/pdb-cmd-url) (:certname report)
-                                            "store report" 6 report)
+                                            "store report" 7 report)
                      (is (not (empty? (svcs/get-reports
                                        (utils/pdb-query-url)
                                        (:certname report))))))))))))))))

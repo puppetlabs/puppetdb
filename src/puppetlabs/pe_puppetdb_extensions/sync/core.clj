@@ -93,7 +93,7 @@
     ;; When a record is out-of-date, the whole thing is
     ;; downloaded and then stored with this command
     :submit-command {:command :store-report
-                     :version 6}}
+                     :version 7}}
 
    {:entity :factsets
     :summary-query {:version :v4
@@ -130,7 +130,7 @@
                               (utils/update-when [:edges] #(map clean-up-edge %))
                               (utils/update-when [:resources] #(map clean-up-resource %))))
     :submit-command {:command :replace-catalog
-                     :version 7}}
+                     :version 8}}
 
    {:entity :nodes
     :summary-query {:version :v4

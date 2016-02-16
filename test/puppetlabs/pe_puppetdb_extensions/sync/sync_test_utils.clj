@@ -30,10 +30,10 @@
             :values tuf/base-facts
             :producer_timestamp (new java.util.Date)})
 
-(def catalog (assoc (get-in wire-catalogs [7 :basic])
+(def catalog (assoc (get-in wire-catalogs [8 :basic])
                     :certname "foo.local"))
 
-(def report (-> reports :basic reports/report-query->wire-v6))
+(def report (-> reports :basic reports/report-query->wire-v7))
 
 
 ;;; General test utils
@@ -121,7 +121,7 @@
 
 (defn submit-catalog [endpoint catalog]
   (blocking-command-post (:command-url endpoint) (:certname catalog)
-                         "replace catalog" 6 catalog))
+                         "replace catalog" 8 catalog))
 
 (defn submit-factset [endpoint facts]
   (blocking-command-post (:command-url endpoint) (:certname facts)
@@ -129,7 +129,7 @@
 
 (defn submit-report [endpoint report]
   (blocking-command-post (:command-url endpoint) (:certname report)
-                         "store report" 6 report))
+                         "store report" 7 report))
 
 (defn deactivate-node [endpoint certname]
   (blocking-command-post (:command-url endpoint) certname "deactivate node" 3

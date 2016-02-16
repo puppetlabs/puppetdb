@@ -1,5 +1,10 @@
 (ns puppetlabs.pe-puppetdb-extensions.catalogs
   (:require [honeysql.core :as hcore]
+            [bidi.schema :as bidi-schema]
+            [puppetlabs.comidi :as cmdi]
+            [schema.core :as s]
+            [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.honeysql :as honeysql]
             [puppetlabs.puppetdb.http.query :as http-q]
@@ -8,6 +13,14 @@
             [puppetlabs.puppetdb.query-eng.engine :as engine]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.http.handlers :as handlers]))
+
+(defn hsql-hash-as-href
+  [entity parent child]
+  (hcore/raw (str "format("
+                  (str "'/pdb/ext/v1/" (name parent) "/%s/" (name child) "'")
+                  ", "
+                  entity
+                  ")")))
 
 (def historical-catalog-query
   "Query for the top level catalogs entity"
@@ -18,7 +31,7 @@
                                     :queryable? false
                                     :field {:select [(honeysql/row-to-json :t)]
                                             :from [[{:select [[:c.resources :data]
-                                                              [(engine/hsql-hash-as-href
+                                                              [(hsql-hash-as-href
                                                                 "c.catalog_uuid::text"
                                                                 :historical-catalogs
                                                                 :resources)
@@ -29,7 +42,7 @@
                                     :field {:select [(honeysql/row-to-json :t)]
                                             :from [[{:select
                                                      [[:c.edges :data]
-                                                      [(engine/hsql-hash-as-href
+                                                      [(hsql-hash-as-href
                                                         "c.catalog_uuid::text"
                                                         :historical-catalogs
                                                         :edges)
@@ -46,7 +59,7 @@
      {"certname" {:type :string
                   :queryable? true
                   :field :r.certname}
-      "catalog_uuid" {:type :uuid
+      "catalog_uuid" {:type :string
                       :queryable? true
                       :field (engine/hsql-uuid-as-str :r.catalog_uuid)}
       "transaction_uuid" {:type :string
@@ -70,23 +83,44 @@
       "resources" {:type :json
                    :queryable? false
                    :field {:select [(honeysql/json-agg (honeysql/row-to-json :t))]
-                           :from [[{:select [[:cr.value :catalog_resources]
-                                             [:rr.value :report_resources]]
-                                    :from [[(hcore/call :jsonb_array_elements :r.resources) :rr]]
+                           :from [[{:select [[(honeysql/coalesce (hcore/raw "cr.value->>'type'")
+                                                                 :rr.type) :type]
+                                             [(honeysql/coalesce (hcore/raw "cr.value->>'title'")
+                                                                 :rr.title) :title]
+                                             [(hcore/raw "cr.value->>'file'") :file]
+                                             [(hcore/raw "cr.value->>'line'") :line]
+                                             [(hcore/raw "cr.value->>'exported'") :exported]
+                                             [(hcore/call
+                                               :cast (hcore/raw "cr.value->>'tags'") :jsonb)
+                                              :tags]
+                                             [(hcore/call
+                                               :cast (hcore/raw "cr.value->>'parameters'") :jsonb)
+                                              :parameters]
+                                             :rr.events]
+                                    :from [[{:select
+                                             [[(honeysql/json-agg
+                                                (hcore/call :json_build_object
+                                                            (hcore/raw "'property'") :re.property
+                                                            (hcore/raw "'status'") :re.status
+                                                            (hcore/raw "'message'") :re.message
+                                                            (hcore/raw "'new_value'") (honeysql/scast :re.new_value :jsonb)
+                                                            (hcore/raw "'old_value'") (honeysql/scast :re.old_value :jsonb)
+                                                            (hcore/raw "'timestamp'") :re.timestamp)) :events]
+                                              [:re.resource_type :type]
+                                              [:re.resource_title :title]]
+                                             :from [[:resource_events :re]]
+                                             :where [:= :r.id :re.report_id]
+                                             :group-by [:re.resource_type :re.resource_title]} :rr]]
                                     :full-join [[(hcore/call :jsonb_array_elements :c.resources) :cr]
                                                 [:and
-                                                 [:=
-                                                  (hcore/raw "cr.value->>'type'")
-                                                  (hcore/raw "rr.value->>'resource_type'")]
-                                                 [:=
-                                                  (hcore/raw "cr.value->>'title'")
-                                                  (hcore/raw "rr.value->>'resource_title'")]]]} :t]]}}
+                                                 [:= :rr.type (hcore/raw "cr.value->>'type'")]
+                                                 [:= :rr.title (hcore/raw "cr.value->>'title'")]]]} :t]]}}
       "edges" {:type :json
                :queryable? false
                :field :c.edges}}
 
      :selection {:from [[:reports :r]]
-                 :left-join [[:catalogs :c] [:= :c.transaction_uuid :r.transaction_uuid]
+                 :left-join [[:catalogs :c] [:= :c.catalog_uuid :r.catalog_uuid]
                              [:environments :e] [:= :r.environment_id :e.id]
                              :report_statuses [:= :r.status_id :report_statuses.id]]}
 
@@ -103,25 +137,54 @@
      :entity :reports
      :source-table "reports"}))
 
-(def historical-catalogs-handler
-  (handlers/create-query-handler :v1 "historical_catalogs"))
+(def historical-catalogs-child-data-query
+  "Query intended to be used by the `/historical-catalogs/<hash>/resources` and
+  `/historical-catalogs/<hash>/edges` endpoints used for digging into the child
+  data for a specifc catalog."
+  (engine/map->Query {:projections
+                      {"resources" {:type :json
+                                    :queryable? false
+                                    :field :catalogs.resources}
+                       "edges" {:type :json
+                                :queryable? false
+                                :field :catalogs.edges}
+                       "catalog_uuid" {:type :string
+                                       :queryable? true
+                                       :field
+                                       (engine/hsql-uuid-as-str :catalogs.catalog_uuid)}}
+                      :selection {:from [:catalogs]}
+                      :alias "historical_catalogs_children"
+                      :subquery? false
+                      :entity :catalogs
+                      :source-table "catalogs"}))
+
+(defn historical-catalogs-data-responder
+  "Respond with either metrics or logs for a given report hash.
+   `entity` should be either :metrics or :logs."
+  [version entity]
+  (fn [{:keys [globals route-params]}]
+    (let [query ["from" entity ["=" "catalog_uuid" (:catalog_uuid route-params)]]]
+      (query-eng/produce-streaming-body version {:query query}
+                                        (handlers/narrow-globals globals)))))
+
+(pls/defn-validated historical-catalogs-routes :- bidi-schema/RoutePair
+  [version]
+  (cmdi/routes
+   (cmdi/ANY "" []
+     (handlers/create-query-handler version "historical_catalogs"))
+
+   (cmdi/ANY ["/" :catalog_uuid "/edges"] []
+     (-> (historical-catalogs-data-responder version "historical_catalog_edges")
+         (mid/parent-check version :historical-catalog :catalog_uuid)
+         mid/validate-no-query-params))
+
+   (cmdi/ANY ["/" :catalog_uuid "/resources"] []
+     (-> (historical-catalogs-data-responder version "historical_catalog_resources")
+         (mid/parent-check version :historical-catalog :catalog_uuid)
+         mid/validate-no-query-params))))
 
 (def resource-graphs-handler
   (handlers/create-query-handler :v1 "resource_graphs"))
-
-(defn merge-resources [resources]
-  (->> (sutils/parse-db-json resources)
-       (map (fn [{:keys [catalog_resources report_resources]}]
-              (merge catalog_resources
-                     (clojure.set/rename-keys report_resources
-                                              {:resource_type :type
-                                               :resource_title :title}))))))
-
-(defn munge-resource-graph-rows
-  [_ _]
-  (fn [rows]
-    (->> rows
-         (map #(update % :resources merge-resources)))))
 
 (defn turn-on-historical-catalogs!
   [store-historical-catalogs?]
@@ -129,7 +192,18 @@
     (reset! scf-storage/store-catalogs-historically? true))
   (reset! scf-storage/store-catalogs-jsonb-columns? true)
   (swap! query-eng/entity-fn-idx merge
-         {:historical-catalogs {:munge (constantly identity)
-                                :rec historical-catalog-query}}
-         {:resource-graphs {:munge munge-resource-graph-rows
-                            :rec resource-graph-query}}))
+         {:historical-catalogs
+          {:munge (constantly identity)
+           :rec historical-catalog-query}
+
+          :historical-catalog-resources
+          {:munge (constantly (comp :resources first))
+           :rec historical-catalogs-child-data-query}
+
+          :historical-catalog-edges
+          {:munge (constantly (comp :edges first))
+           :rec historical-catalogs-child-data-query}
+
+          :resource-graphs
+          {:munge (constantly identity)
+           :rec resource-graph-query}}))
