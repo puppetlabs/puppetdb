@@ -10,7 +10,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def save(request)
     profile("catalog#save", [:puppetdb, :catalog, :save, request.key]) do
       catalog = munge_catalog(request.instance, extract_extra_request_data(request))
-      submit_command(request.key, catalog, CommandReplaceCatalog, 7)
+      submit_command(request.key, catalog, CommandReplaceCatalog, 8)
     end
   end
 
@@ -24,7 +24,6 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       :transaction_uuid => request.options[:transaction_uuid],
       :environment => request.environment.to_s,
       :producer_timestamp => request.options[:producer_timestamp] || Time.now.iso8601(5),
-      :code_id => request.options[:code_id],
     }
   end
 
@@ -39,6 +38,8 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
         catalog.to_data_hash
       end
 
+      add_code_id_if_missing(data)
+      add_catalog_uuid_if_missing(data, extra_request_data[:transaction_uuid])
       add_parameters_if_missing(data)
       add_namevar_aliases(data, catalog)
       stringify_titles(data)
@@ -47,12 +48,11 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       sort_unordered_metaparams(data)
       munge_edges(data)
       synthesize_edges(data, catalog)
+      change_name_to_certname(data)
       filter_keys(data)
       add_transaction_uuid(data, extra_request_data[:transaction_uuid])
       add_environment(data, extra_request_data[:environment])
       add_producer_timestamp(data, extra_request_data[:producer_timestamp])
-      change_name_to_certname(data)
-      add_code_id(data, extra_request_data[:code_id])
 
       data
     end
@@ -119,11 +119,25 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # Include code_id in hash, returning the complete hash.
   #
   # @param hash [Hash] original data hash
-  # @param code_id [String] code_id
-  # @return [Hash] returns original hash augmented with transaction_uuid
+  # @return [Hash] returns original hash with a gaurunteed code_id key
   # @api private
-  def add_code_id(hash, code_id)
-    hash['code_id'] = code_id
+  def add_code_id_if_missing(hash)
+    # This weird code ensure that `hash` will always have a `code_id` key and if
+    # it already had a `code_id` key we use that as the value. If `hash` didn't
+    # have a `code_id` key the lookup will return nil and hash['code_id'] == nil
+    hash['code_id'] = hash['code_id']
+
+    hash
+  end
+
+  # Include code_id in hash, returning the complete hash.
+  #
+  # @param hash [Hash] original data hash
+  # @param default [String] default catalog_uuid to use if hash doesn't have one
+  # @return [Hash] returns original hash with a gaurunteed catalog_uuid key/value
+  # @api private
+  def add_catalog_uuid_if_missing(hash, default)
+    hash['catalog_uuid'] = hash['catalog_uuid'] || default
 
     hash
   end
@@ -380,7 +394,12 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     profile("Filter extraneous keys from the catalog",
             [:puppetdb, :keys, :filter_extraneous]) do
       hash.delete_if do |k,v|
-        ! ['name', 'version', 'edges', 'resources'].include?(k)
+        ! ['certname',
+           'version',
+           'edges',
+           'resources',
+           'code_id',
+           'catalog_uuid'].include?(k)
       end
     end
   end

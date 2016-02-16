@@ -19,7 +19,7 @@ Puppet::Reports.register_report(:puppetdb) do
   # @return [void]
   def process
     profile("report#process", [:puppetdb, :report, :process]) do
-      submit_command(self.host, report_to_hash, CommandStoreReport, 6)
+      submit_command(self.host, report_to_hash, CommandStoreReport, 7)
     end
 
     nil
@@ -40,21 +40,28 @@ Puppet::Reports.register_report(:puppetdb) do
       resources = build_resources_list
       is_noop = resources.any? { |rs| has_noop_event?(rs) } and resources.none? { |rs| has_failed_event?(rs) }
 
+
+      defaulted_catalog_uuid = defined?(catalog_uuid) ? catalog_uuid : transaction_uuid
+      defaulted_code_id = defined?(code_id) ? code_id : nil
+      defaulted_cached_catalog_status = defined?(cached_catalog_status) ? cached_catalog_status : nil
       {
-        "certname"                => host,
-        "puppet_version"          => puppet_version,
-        "report_format"           => report_format,
-        "configuration_version"   => configuration_version.to_s,
-        "producer_timestamp"      => Puppet::Util::Puppetdb.to_wire_time(Time.now),
-        "start_time"              => Puppet::Util::Puppetdb.to_wire_time(time),
-        "end_time"                => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
-        "environment"             => environment,
-        "transaction_uuid"        => transaction_uuid,
-        "status"                  => status,
-        "noop"                    => is_noop,
-        "logs"                    => build_logs_list,
-        "metrics"                 => build_metrics_list,
-        "resources"               => resources,
+        "certname" => host,
+        "puppet_version" => puppet_version,
+        "report_format" => report_format,
+        "configuration_version" => configuration_version.to_s,
+        "producer_timestamp" => Puppet::Util::Puppetdb.to_wire_time(Time.now),
+        "start_time" => Puppet::Util::Puppetdb.to_wire_time(time),
+        "end_time" => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
+        "environment" => environment,
+        "transaction_uuid" => transaction_uuid,
+        "status" => status,
+        "noop" => is_noop,
+        "logs" => build_logs_list,
+        "metrics" => build_metrics_list,
+        "resources" => resources,
+        "catalog_uuid" => defaulted_catalog_uuid,
+        "code_id" => defaulted_code_id,
+        "cached_catalog_status" => defaulted_cached_catalog_status,
       }
     end
   end

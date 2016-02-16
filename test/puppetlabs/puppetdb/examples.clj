@@ -6,6 +6,7 @@
    {:certname         "empty.catalogs.com"
     :version          "1330463884"
     :transaction_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
+    :catalog_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
     :environment      nil
     :code_id nil
     :producer_timestamp "2014-07-10T22:33:54.781Z"
@@ -35,6 +36,7 @@
    {:certname         "basic.catalogs.com"
     :code_id nil
     :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+    :catalog_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :environment      "DEV"
     :version          "123456789"
     :producer_timestamp "2014-07-10T22:33:54.781Z"
@@ -76,6 +78,7 @@
    {:certname         "invalid.catalogs.com"
     :code_id nil
     :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+    :catalog_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :version          123456789
     :edges            #{{:source       {:type "Class" :title "foobar"}
                          :target       {:type "File" :title "does not exist"}
@@ -89,7 +92,7 @@
                                                                          "group"  "root"
                                                                          "user"   "root"}}}}})
 
-(def v7-empty-wire-catalog
+(def v8-empty-wire-catalog
   "Basic wire catalog with a minimum number of resources/edges used/modified
    for examples of a catalog"
   {:code_id nil
@@ -127,26 +130,43 @@
      :type       "Node"}]
    :version          "1332533763"
    :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
+   :catalog_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
    :environment "DEV"
    :producer_timestamp "2014-07-10T22:33:54.781Z"})
 
 (def wire-catalogs
   "Catalogs keyed by version."
-  {4 {:empty (-> v7-empty-wire-catalog
-                 (dissoc :producer_timestamp :certname :code_id)
-                 (assoc :name (:certname v7-empty-wire-catalog)
+  {4 {:empty (-> v8-empty-wire-catalog
+                 (dissoc :producer_timestamp :certname :code_id
+                         :catalog_uuid)
+                 (assoc :name (:certname v8-empty-wire-catalog)
                         :api_version 1)
                  utils/underscore->dash-keys)}
-   5 {:empty (-> v7-empty-wire-catalog
-                 (assoc :name (:certname v7-empty-wire-catalog)
+   5 {:empty (-> v8-empty-wire-catalog
+                 (assoc :name (:certname v8-empty-wire-catalog)
                         :api_version 1)
-                 (dissoc :certname :code_id)
+                 (dissoc :certname :code_id :catalog_uuid)
                  utils/underscore->dash-keys)}
-   6 {:empty (-> v7-empty-wire-catalog
-                 (dissoc :code_id))}
-   7 {:empty v7-empty-wire-catalog
+   6 {:empty (-> v8-empty-wire-catalog
+                 (dissoc :code_id :catalog_uuid))}
+   7 {:empty (-> v8-empty-wire-catalog
+                 (dissoc :catalog_uuid))
       :basic
-      (-> v7-empty-wire-catalog
+      (-> v8-empty-wire-catalog
+          (assoc :certname "basic.wire-catalogs.com")
+          (dissoc :catalog_uuid)
+          (update :resources conj {:type "File"
+                                   :title "/etc/foobar"
+                                   :exported false
+                                   :file "/tmp/foo"
+                                   :line 10
+                                   :tags ["file" "class" "foobar"]
+                                   :parameters {:ensure "directory"
+                                                :group  "root"
+                                                :user   "root"}}))}
+   8 {:empty v8-empty-wire-catalog
+      :basic
+      (-> v8-empty-wire-catalog
           (assoc :certname "basic.wire-catalogs.com")
           (update :resources conj {:type "File"
                                    :title "/etc/foobar"

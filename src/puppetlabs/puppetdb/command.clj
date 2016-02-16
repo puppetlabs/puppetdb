@@ -97,8 +97,8 @@
 
 (def supported-command-versions
   {"replace facts" (version-range 2 4)
-   "replace catalog" (version-range 4 7)
-   "store report" (version-range 3 6)
+   "replace catalog" (version-range 4 8)
+   "store report" (version-range 3 7)
    "deactivate node" (version-range 1 3)})
 
 (defn- die-on-header-payload-mismatch
@@ -280,7 +280,6 @@
         (assoc :payload validated-payload)
         (replace-facts* db))))
 
-
 ;; Node deactivation
 
 (defn deactivate-node-wire-v2->wire-3 [deactive-node]
@@ -328,9 +327,10 @@
 (defn store-report [{:keys [payload version annotations] :as command} db]
   (let [{received-timestamp :received} annotations
         latest-version-of-payload (case version
-                                    3 (report/wire-v3->wire-v6 payload received-timestamp)
-                                    4 (report/wire-v4->wire-v6 payload received-timestamp)
-                                    5 (report/wire-v5->wire-v6 payload)
+                                    3 (report/wire-v3->wire-v7 payload received-timestamp)
+                                    4 (report/wire-v4->wire-v7 payload received-timestamp)
+                                    5 (report/wire-v5->wire-v7 payload)
+                                    6 (report/wire-v6->wire-v7 payload)
                                     payload)
         validated-payload (upon-error-throw-fatality
                            (s/validate report/report-wireformat-schema latest-version-of-payload))]

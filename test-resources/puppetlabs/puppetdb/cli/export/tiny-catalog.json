@@ -44,5 +44,6 @@
     } ],
     "version" : "1330463446",
     "transaction_uuid" : "68b08e2a-eeb1-4322-b241-bfdf151d294c",
+    "catalog_uuid" : "68b08e2a-eeb1-4322-b241-bfdf151d294c",
     "environment" : "DEV"
 }

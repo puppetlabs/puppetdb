@@ -7,8 +7,10 @@ canonical: "/puppetdb/latest/api/command/v1/commands.html"
 [factsv4]: ../../wire_format/facts_format_v4.html
 [catalogv6]: ../../wire_format/catalog_format_v6.html
 [catalogv7]: ../../wire_format/catalog_format_v7.html
+[catalogv8]: ../../wire_format/catalog_format_v8.html
 [reportv5]: ../../wire_format/report_format_v5.html
 [reportv6]: ../../wire_format/report_format_v6.html
+[reportv7]: ../../wire_format/report_format_v7.html
 [deactivatev3]: ../../wire_format/deactivate_node_format_v3.html
 
 Commands are used to change PuppetDB's model of a population. Commands are represented by `command objects`,
@@ -94,12 +96,12 @@ processed.
 
 ## List of commands
 
-### "replace catalog", version 7
+### "replace catalog", version 8
 
-* The nullable `code_id` property has been added.
+* The nullable `catalog\_uuid` property has been added.
 
 The payload is expected to be a Puppet catalog, as a JSON object,
-conforming exactly to the [catalog wire format v7][catalogv7]. Extra
+conforming exactly to the [catalog wire format v8][catalogv8]. Extra
 or missing fields are an error.
 
 ### "replace facts", version 4
@@ -121,6 +123,36 @@ payload of this command.
 See [deactivate node wire format v3][deactivatev3] for more information on the
 payload of this command.
 
+### "store report", version 7
+
+* The nullable `catalog\_uuid`, `code\_id`, and `cached\_catalog\_status`
+properties have been added.
+
+The payload is expected to be a report, containing events that occurred on
+Puppet resources. It is structured as a JSON object, conforming to the
+[report wire format v7][reportv7].
+
+## Deprecated commands
+
+### "replace catalog", version 7
+
+* The nullable `code\_id` property has been added.
+
+The payload is expected to be a Puppet catalog, as a JSON object,
+conforming exactly to the [catalog wire format v7][catalogv7]. Extra
+or missing fields are an error.
+
+### "replace catalog", version 6
+
+* All field names that were previously separated by dashes are now
+  separated by underscores.
+
+* The catalog `name` field has been renamed to `certname`.
+
+The payload is expected to be a Puppet catalog, as a JSON object,
+conforming exactly to the [catalog wire format v6][catalogv6]. Extra
+or missing fields are an error.
+
 ### "store report", version 6
 
 The version 6 store report command differs from previous versions by changing
@@ -133,19 +165,6 @@ property containing a list of the resource's events.
 The payload is expected to be a report, containing events that occurred on
 Puppet resources. It is structured as a JSON object, conforming to the
 [report wire format v6][reportv6].
-
-## Deprecated commands
-
-### "replace catalog", version 6
-
-* All field names that were previously separated by dashes are now
-  separated by underscores.
-
-* The catalog `name` field has been renamed to `certname`.
-
-The payload is expected to be a Puppet catalog, as a JSON object,
-conforming exactly to the [catalog wire format v6][catalogv6]. Extra
-or missing fields are an error.
 
 ### "store report", version 5
 

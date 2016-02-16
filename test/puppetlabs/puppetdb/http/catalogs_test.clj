@@ -86,7 +86,7 @@
         (is (= (count expected) (count response-body)))
         (is (= (sort (map :certname expected)) (sort (map :certname response-body))))
         (is (= (extract-tags expected)
-               (extract-tags (catalogs/catalogs-query->wire-v7 response-body)))))))
+               (extract-tags (catalogs/catalogs-query->wire-v8 response-body)))))))
 
   (testing "projection queries"
     (are [query expected]

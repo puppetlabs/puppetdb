@@ -426,9 +426,18 @@
       "transaction_uuid" {:type :string
                           :queryable? true
                           :field (hsql-uuid-as-str :reports.transaction_uuid)}
+      "catalog_uuid" {:type :string
+                      :queryable? true
+                      :field (hsql-uuid-as-str :reports.catalog_uuid)}
       "noop"            {:type :boolean
                          :queryable? true
                          :field :reports.noop}
+      "code_id" {:type :string
+                 :queryable? true
+                 :field :reports.code_id}
+      "cached_catalog_status" {:type :string
+                               :queryable? true
+                               :field :reports.cached_catalog_status}
       "environment"     {:type :string
                          :queryable? true
                          :field :environments.environment}
@@ -497,6 +506,9 @@
       "transaction_uuid" {:type :string
                           :queryable? true
                           :field (hsql-uuid-as-str :c.transaction_uuid)}
+      "catalog_uuid" {:type :string
+                      :queryable? true
+                      :field (hsql-uuid-as-str :c.catalog_uuid)}
       "code_id" {:type :string
                  :queryable? true
                  :field :c.code_id}

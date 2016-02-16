@@ -246,13 +246,13 @@
 
 (def catalog-versions
   "Currently supported catalog versions"
-  [:v7])
+  [:v8])
 
 (deftest replace-catalog-test
   (dotestseq [version catalog-versions
               :let [raw-command {:command (command-names :replace-catalog)
-                                 :version 7
-                                 :payload (-> (get-in wire-catalogs [7 :empty])
+                                 :version 8
+                                 :payload (-> (get-in wire-catalogs [8 :empty])
                                               (assoc :producer_timestamp (now)))}]]
     (testing (str (command-names :replace-catalog) " " version)
       (let [certname (get-in raw-command [:payload :certname])

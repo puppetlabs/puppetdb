@@ -98,7 +98,7 @@
 (def ^:const catalog-version
   "Constant representing the version number of the PuppetDB
   catalog format"
-  7)
+  8)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Schemas
@@ -115,6 +115,7 @@
    :version s/Str
    :environment (s/maybe s/Str)
    :transaction_uuid (s/maybe s/Str)
+   :catalog_uuid (s/maybe s/Str)
    :producer_timestamp pls/Timestamp
    :code_id (s/maybe s/Str)
 
@@ -133,8 +134,11 @@
    :resources (s/cond-pre [{s/Any s/Any}]
                           {s/Any {s/Any s/Any}})})
 
+(def catalog-v7-wireformat-schema
+  (dissoc catalog-wireformat-schema :catalog_uuid))
+
 (def catalog-v6-wireformat-schema
-  (dissoc catalog-wireformat-schema :code_id))
+  (dissoc catalog-v7-wireformat-schema :code_id))
 
 (def edge-query-schema
   "Schema for validating a single edge."
@@ -179,6 +183,7 @@
    (s/optional-key :producer_timestamp) (s/maybe pls/Timestamp)
    (s/optional-key :resources) resources-expanded-query-schema
    (s/optional-key :transaction_uuid) (s/maybe s/Str)
+   (s/optional-key :catalog_uuid) (s/maybe s/Str)
    (s/optional-key :code_id) (s/maybe s/Str)
    (s/optional-key :version) s/Str})
 
@@ -192,6 +197,9 @@
   (utils/assoc-when catalog
                     :transaction_uuid nil
                     :environment nil))
+
+(defn wire-v7->wire-v8 [{:keys [transaction_uuid] :as catalog}]
+  (assoc catalog :catalog_uuid transaction_uuid))
 
 (defn wire-v6->wire-v7 [catalog]
   (assoc catalog :code_id nil))
@@ -232,7 +240,7 @@
   [edge]
   {:pre [(:relationship edge)]
    :post [(keyword? (:relationship %))]}
-  (update-in edge [:relationship] keyword))
+  (update edge :relationship keyword))
 
 (defn transform-edges
   "Transforms every edge of the given `catalog` and converts the edges into a set."
@@ -397,6 +405,13 @@
   [catalog version _]
   {:pre [(map? catalog)]
    :post [(map? %)]}
+  (parse-catalog (wire-v7->wire-v8 catalog)
+                 8 nil))
+
+(defmethod parse-catalog 8
+  [catalog version _]
+  {:pre [(map? catalog)]
+   :post [(map? %)]}
   (->> catalog
        default-missing-keys
        transform
@@ -410,7 +425,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Query -> Wire format conversions
 
-(pls/defn-validated edge-query->wire-v7
+(pls/defn-validated edge-query->wire-v8
   [edge :- edge-query-schema]
   {:source
    {:title (:source_title edge)
@@ -420,28 +435,28 @@
     :type (:target_type edge)}
    :relationship (:relationship edge)})
 
-(pls/defn-validated edges-expanded->wire-v7
+(pls/defn-validated edges-expanded->wire-v8
   [edges :- edges-expanded-query-schema]
-  (map edge-query->wire-v7
+  (map edge-query->wire-v8
        (:data edges)))
 
-(pls/defn-validated resource-query->wire-v7
+(pls/defn-validated resource-query->wire-v8
   [resource :- resource-query-schema]
   (-> resource
       (dissoc :resource :certname :environment)
       (kitchensink/dissoc-if-nil :file :line)))
 
-(pls/defn-validated resources-expanded->wire-v7
+(pls/defn-validated resources-expanded->wire-v8
   [resources :- resources-expanded-query-schema]
-  (map resource-query->wire-v7
+  (map resource-query->wire-v8
        (:data resources)))
 
-(pls/defn-validated catalog-query->wire-v7 :- catalog-wireformat-schema
+(pls/defn-validated catalog-query->wire-v8 :- catalog-wireformat-schema
   [catalog :- catalog-query-schema]
   (-> catalog
       (dissoc :hash)
-      (update :edges edges-expanded->wire-v7)
-      (update :resources resources-expanded->wire-v7)))
+      (update :edges edges-expanded->wire-v8)
+      (update :resources resources-expanded->wire-v8)))
 
-(defn catalogs-query->wire-v7 [catalogs]
-  (map catalog-query->wire-v7 catalogs))
+(defn catalogs-query->wire-v8 [catalogs]
+  (map catalog-query->wire-v8 catalogs))

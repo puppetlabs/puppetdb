@@ -206,7 +206,7 @@
 (deftest report-dedupe
   (let [report-query->hash (comp report-identity-hash
                                  normalize-report
-                                 reports/report-query->wire-v6)
+                                 reports/report-query->wire-v7)
         report (:basic reports)
         report2-events (get-in reports [:basic4 :resource_events :data])
         report2 (assoc-in report [:resource_events :data] report2-events)
