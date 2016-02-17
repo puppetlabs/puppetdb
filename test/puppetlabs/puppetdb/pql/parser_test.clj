@@ -37,6 +37,25 @@
      "nodes"
      [:extract "a" "b" "c"]]
 
+    "nodes [a, <b>, c] {}"
+    [:from
+     "nodes"
+     [:extract "a" [:groupedfield "b"] "c"]]
+
+    "nodes [a, <b>, <c>] {}"
+    [:from
+     "nodes"
+     [:extract "a" [:groupedfield "b"] [:groupedfield "c"]]]
+
+    "nodes [a, <b>, <c>] { a = 1 }"
+    [:from
+     "nodes"
+     [:extract "a" [:groupedfield "b"] [:groupedfield "c"]]
+     [:expr-or
+      [:expr-and
+       [:expr-not
+        [:condexpression "a" "=" [:integer "1"]]]]]]
+
     "nodes [a, b, c] { a = 1 }"
     [:from
      "nodes"
@@ -113,7 +132,7 @@
 
     "fact_contents"
     ["fact_contents"])
- 
+
   (are [in] (insta/failure? (insta/parse parse in :start :entity))
     "foobar"
     "hyphen-ated"
@@ -126,7 +145,7 @@
     "[ a ]" [:extract "a"]
     "[a]" [:extract "a"]
     "[]" [:extract])
- 
+
   (are [in] (insta/failure? (insta/parse parse in :start :extract))
     "[a b]"
     "[ab.cd]"
@@ -719,34 +738,15 @@
       "'"
       "")))
 
-(deftest test-groupbyclause
-  (testing "groupbyclause"
-    (are [in expected] (= (parse in :start :groupbyclause) expected)
-      "group by name" [[:groupby "name"]]
-      "group by name, value" [[:groupby "name" "value"]])
-
-    (are [in] (insta/failure? (insta/parse parse in :start :groupbyclause))
-      "group by 'name'"
-      ""))
-
-  (testing "groupby"
-    (are [in expected] (= (parse in :start :groupby) expected)
-      "group by name" [:groupby "name"]
-      "group by name, value" [:groupby "name" "value"])
-
-    (are [in] (insta/failure? (insta/parse parse in :start :groupby))
-      "group by 'name'"
-      "")))
-
 (deftest test-paging
   (testing "offset"
     (are [in expected] (= (parse in :start :pagingclause) expected)
          "offset 1" [[:offset [:integer "1"]]]))
-  
+
   (testing "limit"
     (are [in expected] (= (parse in :start :pagingclause) expected)
          "limit 1" [[:limit [:integer "1"]]]))
-  
+
   (testing "order by"
     (are [in expected] (= (parse in :start :pagingclause) expected)
          "order by name" [[:orderby [:orderparam "name"]]]

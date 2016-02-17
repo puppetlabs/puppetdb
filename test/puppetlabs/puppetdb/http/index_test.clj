@@ -225,7 +225,7 @@
                       ["extract"
                        ["name" ["function" "count"]]
                        ["group_by" "name"]]]
-                     "facts [name, count()] { group by name }"]]
+                     "facts [<name>, count()] {}"]]
         (let [results (query-result method endpoint query)]
           (is (= results
                  #{{:name "fqdn" :count 3}
