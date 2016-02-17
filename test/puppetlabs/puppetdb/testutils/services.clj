@@ -29,7 +29,9 @@
             [slingshot.slingshot :refer [throw+]]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.dashboard :refer [dashboard-redirect-service]]
-            [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service maint-mode-service]]
+            [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service
+                                                     maint-mode-service
+                                                     pdb-status-service]]
             [puppetlabs.puppetdb.config :refer [config-service]]))
 
 ;; See utils.clj for more information about base-urls.
@@ -70,6 +72,7 @@
    #'dashboard-redirect-service
    #'pdb-routing-service
    #'maint-mode-service
+   #'pdb-status-service
    #'config-service])
 
 (defn call-with-puppetdb-instance
