@@ -197,10 +197,12 @@ except results are returned even if the node is deactivated or expired.
 
 ### URL parameters / query operators / query fields / response format
 
-This route is an extension of the [`edges`][edges] endpoint. It uses the same parameters, operators, fields, and response format.
+This route is an extension of the [`edges`][edges] endpoint. It uses the same
+parameters, operators, fields, and response format.
 
-If you provide a `query` parameter, it will specify additional criteria, which will be
-used to return a subset of the information normally returned by this route.
+If you provide a `query` parameter, it will specify additional criteria, which
+will be used to return a subset of the information normally returned by this
+route.
 
 ## `/pdb/query/v4/catalogs/<NODE>/resources`
 
@@ -208,8 +210,8 @@ This will return all resources for a particular catalog, designated by a node
 certname.
 
 This is a shortcut to the [`/resources`][resources] endpoint. It behaves the
-same as a call to [`/resources`][resources] with a query string of
-`["=", "certname", "<NODE>"]`, except results are returned even if the node is
+same as a call to [`/resources`][resources] with a query string of `["=",
+"certname", "<NODE>"]`, except results are returned even if the node is
 deactivated or expired.
 
 ### URL parameters / query operators / query fields / response format
@@ -255,3 +257,13 @@ using implicit subqueries. For more information consult the documentation for
 The v4 catalogs endpoint supports all the usual paging URL parameters described
 in the documents on [paging][paging]. Ordering is allowed on every queryable
 field.
+
+## `/pdb/ext/v1/historical-catalogs/<CATALOG_UUID>/edges`
+
+This will return all edges for a particular catalog, designated by a
+`catalog\_uuid`. This endpoint does not currently support querying or paging.
+
+## `/pdb/ext/v1/historical-catalogs/<CATALOG_UUID>/resources`
+
+This will return all resources for a particular catalog, designated by a
+`catalog\_uuid`. This endpoint does not currently support querying or paging.
