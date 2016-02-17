@@ -3,6 +3,7 @@
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [sync-config with-ext-instances]]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.testutils.log
              :refer [with-log-suppressed-unless-notable notable-pdb-event?]]))
 
@@ -17,3 +18,14 @@
                                        {:throw-exceptions false
                                         :accept :octet-stream})]
       (is (= 200 (:status response))))))
+
+(deftest status-service
+  (with-ext-instances [pdb1 (sync-config nil)]
+    (let [status-endpoint (assoc svcs/*base-url*
+                                 :prefix "/status"
+                                 :version :v1)
+          body (-> status-endpoint
+                   (utils/get-response "/services" {})
+                   :body
+                   (json/parse-string true))]
+      (is (= "running" (-> body :puppetdb-status :state))))))
