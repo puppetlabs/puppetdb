@@ -428,7 +428,7 @@
         _ (mq/start-broker! broker)
         factory (mq/activemq-connection-factory conn-str)
         connection (doto (.createConnection factory) .start)
-        session (.createSession connection true Session/SESSION_TRANSACTED)]
+        session (.createSession connection true 0)]
     (AMQBrokerBuffer. broker
                       session
                       (.createProducer session (.createQueue session endpoint-name))
