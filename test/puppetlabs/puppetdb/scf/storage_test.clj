@@ -462,7 +462,7 @@
 (deftest-db historical-catalogs-storage-test
   (add-certname! "basic.catalogs.com")
 
-  (reset! store-catalogs-historically? true)
+  (reset! historical-catalogs-limit 3)
   (reset! store-catalogs-jsonb-columns? true)
   (testing "stores JSONB resources and edges fields"
     (store-catalog! (assoc catalog :producer_timestamp (-> 2 days ago)) (now))
@@ -511,17 +511,11 @@
                                " JOIN catalogs ON catalogs.id = latest_catalogs.catalog_id"
                                " WHERE certnames.certname = 'basic.catalogs.com'")]))))
 
-  (testing "garbage collection deletes old catalogs"
-    (jdbc/with-transacted-connection *db*
-      (delete-old-unassociated-catalogs! (-> 1 days ago)))
-    (is (= [{:count 1}]
-           (query-to-vec ["SELECT COUNT(*) FROM catalogs"]))))
-
-  (testing "garbage collection leaves the newest catalogs"
-    (jdbc/with-transacted-connection *db*
-      (delete-old-unassociated-catalogs! (now)))
-    (is (= [{:count 1}]
-           (query-to-vec ["SELECT COUNT(*) FROM catalogs"])))))
+  (testing "only stores up to three catalogs a certname"
+    (store-catalog! (assoc catalog :producer_timestamp (-> 3 days ago)) (now))
+    (store-catalog! (assoc catalog :producer_timestamp (-> 4 days ago)) (now))
+    (store-catalog! (assoc catalog :producer_timestamp (-> 5 days ago)) (now))
+    (is (= [{:count 3}] (query-to-vec ["SELECT COUNT(*) FROM catalogs"])))))
 
 (deftest-db catalog-persistence
   (testing "Persisted catalogs"
