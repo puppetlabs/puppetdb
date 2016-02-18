@@ -515,7 +515,15 @@
     (store-catalog! (assoc catalog :producer_timestamp (-> 3 days ago)) (now))
     (store-catalog! (assoc catalog :producer_timestamp (-> 4 days ago)) (now))
     (store-catalog! (assoc catalog :producer_timestamp (-> 5 days ago)) (now))
-    (is (= [{:count 3}] (query-to-vec ["SELECT COUNT(*) FROM catalogs"])))))
+    (store-catalog! (assoc catalog :producer_timestamp (-> 6 days ago)) (now))
+    (is (= [{:count 3}] (query-to-vec ["SELECT COUNT(*) FROM catalogs"]))))
+
+  (testing "storing a new certname doesn't delete other certname's catalogs"
+    (add-certname! "bar.bazz.com")
+    (store-catalog! (assoc catalog
+                           :certname "bar.bazz.com"
+                           :producer_timestamp (-> 1 days ago)) (now))
+    (is (= [{:count 4}] (query-to-vec ["SELECT COUNT(*) FROM catalogs"])))))
 
 (deftest-db catalog-persistence
   (testing "Persisted catalogs"
