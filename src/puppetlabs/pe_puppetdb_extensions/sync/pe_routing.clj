@@ -48,7 +48,7 @@
           (log/info "Starting PuppetDB, entering maintenance mode")
           (turn-on-unchanged-resources!)
           (turn-on-historical-catalogs!
-           (:include-historical-catalogs puppetdb-config true))
+           (:historical-catalogs-limit puppetdb-config 3))
           (add-ring-handler
            this
            (pdb-app context-root config maint-mode?
