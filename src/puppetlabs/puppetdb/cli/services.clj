@@ -242,7 +242,7 @@
       (log/infof "PuppetDB version %s" v))
 
     (init-with-db database config)
-    (pop/initialize-metrics write-db)
+    (pop/initialize-metrics read-db)
 
     (when (.exists discard-dir)
       (dlo/create-metrics-for-dlo! discard-dir))
