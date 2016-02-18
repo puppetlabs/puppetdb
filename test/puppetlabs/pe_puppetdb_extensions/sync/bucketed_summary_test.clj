@@ -76,3 +76,21 @@
     [[1 2] [3 :open]] ["or"
                        ["and" [">=" "producer_timestamp" "1"] ["<" "producer_timestamp" "2"]]
                        [">=" "producer_timestamp" "3"]]))
+
+(deftest invalidate-cache-for-command-test
+  (let [initial-cache-content {:reports
+                               {(to-date-time "2014-12-31T22") "d34db33f"}}]
+    (testing "invalidate report"
+      (let [cache-atom (atom initial-cache-content)]
+        (invalidate-cache-for-command
+         cache-atom
+         {:command "store report"
+          :producer-timestamp (to-date-time "2014-12-31T22:12:13")})
+        (is (= {} (:reports @cache-atom)))))
+    (testing "command processing error"
+      (let [cache-atom (atom initial-cache-content)]
+        (invalidate-cache-for-command
+         cache-atom
+         {:command "store report"
+          :exception (Exception. "some problem")})
+        (is (= initial-cache-content @cache-atom))))))

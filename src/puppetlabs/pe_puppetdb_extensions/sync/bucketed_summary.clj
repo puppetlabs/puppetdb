@@ -178,6 +178,7 @@
 (defn invalidate-cache-for-command
   "Process a message from the command response-mult, invalidating the hour
   bucket in cache-atom that corresponds to its producer-timestamp."
-  [cache-atom {:keys [command producer-timestamp]}]
-  (when-let [entity (cachable-entity-for-command command)]
-    (swap! cache-atom update entity dissoc (utc-hour-of producer-timestamp))))
+  [cache-atom {:keys [command producer-timestamp exception]}]
+  (when (and command producer-timestamp (nil? exception))
+    (when-let [entity (cachable-entity-for-command command)]
+      (swap! cache-atom update entity dissoc (utc-hour-of producer-timestamp)))))
