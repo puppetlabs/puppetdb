@@ -776,9 +776,11 @@
                             (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id]))
                           (update-catalog-associations! certname-id catalog refs-to-hashes)))
                       (jdbc/delete! :catalogs
-                                    [(str "id NOT IN (SELECT id FROM catalogs "
+                                    [(str "certname = ? AND "
+                                          "id NOT IN (SELECT id FROM catalogs "
                                           "           WHERE certname=?"
                                           "           ORDER BY producer_timestamp DESC LIMIT ?)")
+                                     certname
                                      certname
                                      historical-catalogs-limit])))
              hash))))
