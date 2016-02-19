@@ -34,7 +34,7 @@
 
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [cheshire "5.5.0"]
-                 [org.clojure/core.match "0.2.2"]
+                 [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
                  [org.clojure/math.combinatorics "0.1.1"]
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/tools.logging "0.3.1"]
@@ -72,7 +72,7 @@
                  ;; WebAPI support libraries.
                  [compojure "1.4.0"]
                  [clj-http "2.0.1"]
-                 [ring/ring-core "1.4.0" :exclusions [javax.servlet/servlet-api]]
+                 [ring/ring-core "1.4.0" :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
                  [org.apache.commons/commons-compress "1.10"]
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
@@ -86,7 +86,7 @@
                  [robert/hooke "1.3.0"]
                  [honeysql "0.6.3"]
                  [com.rpl/specter "0.5.7"]
-                 [org.clojure/core.async "0.1.346.0-17112a-alpha"]
+                 [org.clojure/core.async "0.2.374"]
                  [puppetlabs/http-client "0.5.0" :exclusions [org.apache.httpcomponents/httpclient
                                                               org.apache.httpcomponents/httpcore
                                                               org.slf4j/slf4j-api]]
