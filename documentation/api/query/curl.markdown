@@ -16,7 +16,7 @@ canonical: "/puppetdb/latest/api/query/curl.html"
 
 You can use [`curl`][curl] to directly interact with PuppetDB's REST API. This is useful for testing, prototyping, and quickly fetching arbitrary data.
 
-The instructions below are simplified. For full usage details, see [the curl manpage][curl] . For additional examples, please see the docs for the individual REST endpoints:
+The instructions below are simplified. For full usage details, see [the curl manpage][curl]. For additional examples, please see the docs for the individual REST endpoints:
 
 * [facts][]
 * [fact-names][]
@@ -47,18 +47,9 @@ Any node managed by puppet agent will already have all of these and you can re-u
 
     curl 'https://<your.puppetdb.server>:8081/pdb/query/v4/nodes' \
       --tlsv1 \
-      --cacert /etc/puppet/ssl/certs/ca.pem \
-      --cert /etc/puppet/ssl/certs/<node>.pem \
-      --key /etc/puppet/ssl/private_keys/<node>.pem \
-
-
-For Puppet Enterprise, the paths to the SSL certificates are different, so use the following example instead:
-
-    curl 'https://<your.puppetdb.server>:8081/pdb/query/v4/nodes' \
-      --tlsv1 \
       --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
       --cert /etc/puppetlabs/puppet/ssl/certs/<node>.pem \
-      --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem
+      --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem \
 
 ### Locating Puppet Certificate Files
 
