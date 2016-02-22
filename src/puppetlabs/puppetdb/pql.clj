@@ -1,12 +1,12 @@
 (ns puppetlabs.puppetdb.pql
+  (:import com.fasterxml.jackson.core.JsonParseException)
   (:require [clojure.string :refer [join]]
             [clojure.tools.logging :as log]
             [instaparse.core :as insta]
             [instaparse.failure :as failure]
             [instaparse.print :as print]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.pql.transform :as transform])
-  (:import [com.fasterxml.jackson.core JsonParseException]))
+            [puppetlabs.puppetdb.pql.transform :as transform]))
 
 (defn transform
   "Transform parsed PQL to AST."
@@ -56,14 +56,31 @@
                     (format "%s\n" (print-reason r))))]
     (join [opening expected freasons preasons])))
 
+(defn parse-json-query
+  "Parse a query string as JSON. Parse errors will result in an
+  IllegalArgumentException"
+  [query]
+  (try
+    (json/parse-strict-string query true)
+    (catch JsonParseException e
+      (throw (IllegalArgumentException.
+              (str "Malformed JSON for query: " query)
+              e)))))
+
+(defn parse-pql-query
+  "Parse a query string as PQL. Parse errors will result in an
+  IllegalArgumentException"
+  [query]
+  (let [pql-result (pql->ast query)]
+    (if (map? pql-result)
+      (throw (IllegalArgumentException.
+              (pprint-failure pql-result)))
+      (first pql-result))))
+
 (defn parse-json-or-pql-to-ast
-  "Attempt to parse a string as JSON first, else fall back
-  to parsing it as PQL."
+  "Parse a query string either as JSON or PQL to transform it to AST"
   [query]
   (when query
     (if (re-find #"^\s*\[" query)
-      (json/parse-strict-string query true)
-      (let [pql-result (pql->ast query)]
-        (if (map? pql-result)
-          (throw (IllegalArgumentException. (pprint-failure pql-result)))
-          (first pql-result))))))
+      (parse-json-query query)
+      (parse-pql-query query))))

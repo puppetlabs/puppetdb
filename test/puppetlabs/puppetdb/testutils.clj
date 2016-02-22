@@ -160,11 +160,10 @@
 (defn post-request
   "Submit a POST request against path, suitable as an argument to a ring
   app."
-  ([path] (post-request path nil))
-  ([path query] (post-request path query {}))
-  ([path query params] (post-request path query params {"accept" c-t "content-type" c-t}))
-  ([path query params headers] (post-request path query params headers nil))
-  ([path query params headers body]
+  ([path] (post-request path {}))
+  ([path params] (post-request path params {"accept" c-t "content-type" c-t}))
+  ([path params headers] (post-request path params headers nil))
+  ([path params headers body]
      (let [request (mock/request :post path)
            orig-headers (:headers request)]
        (assoc request :headers (merge orig-headers headers)
@@ -180,7 +179,7 @@
   ([http-method path query {:keys [params headers]}]
    (if (= :get http-method)
      (get-request path query params headers)
-     (post-request path nil nil headers
+     (post-request path nil headers
                    (-> params
                        (assoc :query query)
                        json/generate-string

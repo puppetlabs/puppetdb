@@ -146,6 +146,15 @@
                                             ["=" "certname" (:certname basic)]])
              #{(select-keys basic [:hash :certname :transaction_uuid])})))))
 
+(deftest-http-app query-report-with-malformed-json
+  [version [:v4]]
+  (let [report-hash (:hash (store-example-report! (:basic reports) (now)))
+        basic (assoc (:basic reports) :hash report-hash)
+        {:keys [status body]} (query-response :get "/v4/reports" "[\"=\"")]
+    (testing "malformed json queries don't return status 500 responses"
+      (is (= 400 status))
+      (is (= "Malformed JSON for query: [\"=\"" body)))))
+
 (deftest-http-app query-report-data
   [[version field] [[:v4 :logs] [:v4 :metrics]]
    method [:get :post]]

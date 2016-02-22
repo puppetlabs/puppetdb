@@ -53,8 +53,9 @@
         (is (= status http/status-bad-request)))
 
       ;; Ensure we parse anything that looks like AST/JSON as JSON not PQL
-      (is (thrown-with-msg? com.fasterxml.jackson.core.JsonParseException #"Unexpected end-of-input"
-                            (query-response method endpoint "[\"from\",\"foobar\"")))
+      (let [{:keys [status body]} (query-response method endpoint "[\"from\",\"foobar\"")]
+        (is (= "Malformed JSON for query: [\"from\",\"foobar\"" body))
+        (is (= http/status-bad-request status)))
 
       (let [{:keys [status body]} (query-response method endpoint "foobar {}")]
         (is (re-find #"PQL parse error at line 1, column 1" body))

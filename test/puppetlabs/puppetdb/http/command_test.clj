@@ -35,8 +35,8 @@
   [path params payload]
   (let [body (when-not (nil? payload)
                (ByteArrayInputStream. (.getBytes payload "UTF-8")))]
-    (post-request path nil params {"content-type" "application/json"
-                                   "accept" "application/json"} body)))
+    (post-request path params {"content-type" "application/json"
+                               "accept" "application/json"} body)))
 
 (defn form-command
   [command version payload]
