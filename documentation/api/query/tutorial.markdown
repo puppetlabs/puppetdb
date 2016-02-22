@@ -39,9 +39,9 @@ This requires that PuppetDB be [configured to accept non-SSL connections][config
 
     curl -X GET https://puppetdb.example.com:8081/pdb/query/v4/resources \
       --tlsv1 \
-      --cacert /etc/puppet/ssl/certs/ca.pem \
-      --cert /etc/puppet/ssl/certs/thisnode.pem \
-      --key /etc/puppet/ssl/private_keys/thisnode.pem \
+      --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
+      --cert /etc/puppetlabs/puppet/ssl/certs/thisnode.pem \
+      --key /etc/puppetlabs/puppet/ssl/private_keys/thisnode.pem \
       --data-urlencode query@<FILENAME>
 
 This requires that you specify a certificate (issued by the same CA PuppetDB trusts), a private key, and a CA certificate.
@@ -84,8 +84,8 @@ satisfy, not how to find them. This means that the order of the clauses is irrel
 You can list either the type clause or the title clause first without impacting
 the performance or the results of the query.
 
-If we execute this query against the `/resources` route, we get results that
-look something like this:
+If we execute this query against the `/resources` route, and assuming that we're using the
+production environment, we get results that look something like this:
 
     [{
       "parameters" : {
@@ -99,7 +99,7 @@ look something like this:
         "ensure" : "present"
       },
       "line" : 111,
-      "file" : "/etc/puppet/manifests/user.pp",
+      "file" : "/etc/puppetlabs/code/environments/production/manifests/user.pp",
       "exported" : false,
       "tags" : [ "firewall", "default", "node", "nick", "role::base", "users", "virtual", "user", "account", "base", "role::firewall::office", "role", "role::firewall", "class", "account::user", "office", "virtual::users", "allstaff" ],
       "title" : "nick",
@@ -128,7 +128,7 @@ of the resource (each with at least a different certname field).
 ### Excluding results
 
 We know this instance of the user "nick" is defined on line 111 of
-/etc/puppet/manifests/user.pp. What if
+`/etc/puppetlabs/code/environments/production/manifests/user.pp`. What if
 we want to check whether or not we define the same resource somewhere else?
 After all, if we're repeating ourselves, something may be wrong! Fortunately,
 there's an operator to help us:
@@ -138,12 +138,12 @@ there's an operator to help us:
       ["=", "title", "nick"],
       ["not",
         ["and",
-          ["=", "file", "/etc/puppet/manifests/user.pp"],
+          ["=", "file", "/etc/puppetlabs/code/environments/production/manifests/user.pp"],
           ["=", "line", 111]]]]
 
 The `"not"` operator wraps another clause, and returns results for which the
 clause is *not* true. In this case, we want resources which aren't defined on
-line 111 of /etc/puppet/manifests/user.pp.
+line 111 of `/etc/puppetlabs/code/environments/production/manifests/user.pp`.
 
 ### Resource attributes
 
