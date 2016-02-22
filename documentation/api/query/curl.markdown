@@ -49,7 +49,7 @@ Any node managed by puppet agent will already have all of these and you can re-u
       --tlsv1 \
       --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
       --cert /etc/puppetlabs/puppet/ssl/certs/<node>.pem \
-      --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem \
+      --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem
 
 ### Locating Puppet Certificate Files
 
