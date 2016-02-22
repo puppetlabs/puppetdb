@@ -75,7 +75,7 @@ following form:
        "title": "/etc/hosts",
        "exported": "true",
        "tags": ["foo", "bar"],
-       "file": "/etc/puppet/manifests/site.pp",
+       "file": "/etc/puppetlabs/code/environments/production/manifests/site.pp",
        "line": "1",
        "environment": "production",
        "parameters": {<parameter>: <value>,
