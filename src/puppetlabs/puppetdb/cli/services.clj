@@ -254,7 +254,7 @@
     (init-with-db database config)
 
     (let [population-registry (get-in metrics/metrics-registries [:population :registry])]
-      (pop/initialize-population-metrics! population-registry write-db))
+      (pop/initialize-population-metrics! population-registry read-db))
 
     (when (.exists discard-dir)
       (dlo/create-metrics-for-dlo! discard-dir))
