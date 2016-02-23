@@ -204,15 +204,16 @@
 
 (extend String
   ToJmsMessage
-  {:-to-jms-message (fn [x properties session]
-                      (let [msg (.createTextMessage session x)]
+  {:-to-jms-message (fn [^String x properties ^Session session]
+                      (let [msg (.createBytesMessage session)]
+                        (.writeBytes msg (.getBytes x "UTF-8"))
                         (doseq [[name value] properties]
                           (-set-jms-property! value name msg))
                         msg))})
 
 (extend utils/byte-array-class
   ToJmsMessage
-  {:-to-jms-message (fn [x properties session]
+  {:-to-jms-message (fn [x properties ^Session session]
                       (let [msg (.createBytesMessage session)]
                         (.writeBytes msg x)
                         (doseq [[name value] properties]
