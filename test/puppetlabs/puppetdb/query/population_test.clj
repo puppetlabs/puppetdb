@@ -16,15 +16,14 @@
 (deftest resource-count
   (testing "Counting resources"
     (testing "should return 0 when no resources present"
-      (sutils/vacuum-analyze *db*)
+      (when (sutils/postgres?)
+        (sutils/vacuum-analyze *db*))
       (is (= 0 (pop/num-resources))))
 
     (testing "should only count current resources"
       (jdbc/insert! :certnames
                     {:certname "h1" :id 1}
                     {:certname "h2" :id 2})
-
-      (deactivate-node! "h2")
 
       (jdbc/insert! :catalogs
                     {:id 1 :hash (sutils/munge-hash-for-storage "c1")
@@ -48,7 +47,8 @@
        {:catalog_id 1 :resource (sutils/munge-hash-for-storage "02") :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
        {:catalog_id 1 :resource (sutils/munge-hash-for-storage "03") :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
 
-      (sutils/vacuum-analyze *db*)
+      (when (sutils/postgres?)
+        (sutils/vacuum-analyze *db*))
       (is (= 4 (pop/num-resources))))))
 
 (deftest node-count
@@ -69,7 +69,8 @@
 (deftest resource-dupes
   (testing "Computing resource duplication"
     (testing "should return 0 when no resources present"
-      (sutils/vacuum-analyze *db*)
+      (when (sutils/postgres?)
+        (sutils/vacuum-analyze *db*))
       (is (= 0 (pop/pct-resource-duplication))))
 
     (testing "should equal (total-unique) / total"
@@ -102,6 +103,7 @@
       (let [total  4
             unique 3
             dupes  (/ (- total unique) total)]
-        (sutils/vacuum-analyze *db*)
+        (when (sutils/postgres?)
+          (sutils/vacuum-analyze *db*))
         (is (= dupes (pop/pct-resource-duplication*)))
         (is (not (= dupes (pop/pct-resource-duplication))))))))

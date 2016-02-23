@@ -10,7 +10,8 @@
             [puppetlabs.kitchensink.core :refer [quotient]]
             [metrics.gauges :refer [gauge]]
             [honeysql.core :as hcore]
-            [honeysql.helpers :as hh]))
+            [honeysql.helpers :as hh]
+            [puppetlabs.puppetdb.scf.storage-utils :as su]))
 
 (defn first-query-result
   "Pick a key out of the first result of a query."
@@ -20,12 +21,32 @@
       first
       k))
 
+(def ^:private from-all-resources-and-their-nodes
+  (hcore/build :from [:catalogs :catalog_resources :certnames]
+               :merge-where [:and
+                             [:= :catalogs.id :catalog_resources.catalog_id]
+                             [:= :certnames.certname :catalogs.certname]]))
+
+(defn- where-nodes-are-active [q]
+  (hh/merge-where q [:and
+                     [:= :certnames.deactivated nil]
+                     [:= :certnames.expired nil]]))
+
+(defn- select-count [q]
+  (-> q
+      (hh/select [:%count.* :c])
+      hcore/format))
+
 (defn num-resources
   "The number of resources in the population"
   []
   {:post [(number? %)]}
-  (-> "select reltuples::bigint as c from pg_class where relname='catalog_resources'"
-      (first-query-result :c)))
+  (let [resources-sql (if (su/postgres?)
+                        "select reltuples::bigint as c from pg_class where relname='catalog_resources'"
+                        (-> from-all-resources-and-their-nodes
+                            where-nodes-are-active
+                            select-count))]
+    (first-query-result resources-sql :c)))
 
 (defn num-active-nodes
   "The number of unique certnames in the population"
