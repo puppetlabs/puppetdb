@@ -204,15 +204,16 @@
 
 (extend String
   ToJmsMessage
-  {:-to-jms-message (fn [x properties session]
-                      (let [msg (.createTextMessage session x)]
+  {:-to-jms-message (fn [^String x properties ^Session session]
+                      (let [msg (.createBytesMessage session)]
+                        (.writeBytes msg (.getBytes x "UTF-8"))
                         (doseq [[name value] properties]
                           (-set-jms-property! value name msg))
                         msg))})
 
 (extend utils/byte-array-class
   ToJmsMessage
-  {:-to-jms-message (fn [x properties session]
+  {:-to-jms-message (fn [x properties ^Session session]
                       (let [msg (.createBytesMessage session)]
                         (.writeBytes msg x)
                         (doseq [[name value] properties]
@@ -239,7 +240,7 @@
   ([connection endpoint message]
    (send-message! connection endpoint message {}))
   ([connection endpoint message attributes]
-   (with-open [s (.createSession connection true Session/SESSION_TRANSACTED)
+   (with-open [s (.createSession connection true 0)
                pro (.createProducer s (.createQueue s endpoint))]
      (commit-or-rollback s
        (.send pro (to-jms-message s message attributes))))))
@@ -251,7 +252,7 @@
   [connection :- connection-schema
    endpoint :- s/Str
    timeout :- (s/constrained s/Int pos?)]
-  (with-open [s (.createSession connection true Session/SESSION_TRANSACTED)
+  (with-open [s (.createSession connection true 0)
               consumer (.createConsumer s (.createQueue s endpoint))]
     (let [deadline (+ (System/currentTimeMillis) timeout)
           next-msg #(commit-or-rollback s
@@ -269,7 +270,7 @@
   [connection :- connection-schema
    endpoint :- s/Str
    n :- (s/constrained s/Int pos?)]
-  (with-open [s (.createSession connection true Session/SESSION_TRANSACTED)
+  (with-open [s (.createSession connection true 0)
               consumer (.createConsumer s (.createQueue s endpoint))]
     (vec (repeatedly n #(commit-or-rollback s
                           (convert-jms-message (.receive consumer)))))))

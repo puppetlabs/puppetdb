@@ -342,7 +342,7 @@
 
 (defn start-receiver
   [connection endpoint discard-dir process-msg]
-  (let [sess (.createSession connection true Session/SESSION_TRANSACTED)
+  (let [sess (.createSession connection true 0)
         q (.createQueue sess endpoint)
         consumer (.createConsumer sess q)
         producer (.createProducer sess q)

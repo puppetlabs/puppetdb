@@ -56,7 +56,7 @@
             [puppetlabs.puppetdb.mq :as mq]
             [taoensso.nippy :as nippy])
   (:import [org.apache.activemq.broker BrokerService]
-           [javax.jms Connection Session MessageProducer MessageConsumer]
+           [javax.jms MessageConsumer MessageProducer Session]
            [clojure.core.async.impl.protocols Buffer]))
 
 (def cli-description "Development-only benchmarking tool")
@@ -428,7 +428,7 @@
         _ (mq/start-broker! broker)
         factory (mq/activemq-connection-factory conn-str)
         connection (doto (.createConnection factory) .start)
-        session (.createSession connection true Session/SESSION_TRANSACTED)]
+        session (.createSession connection true 0)]
     (AMQBrokerBuffer. broker
                       session
                       (.createProducer session (.createQueue session endpoint-name))
