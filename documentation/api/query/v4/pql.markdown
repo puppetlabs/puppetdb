@@ -392,17 +392,25 @@ query combined everything before, but with a `resource` subquery for `Package[to
 ## Group By
 
 As explained above in the `projections` section, a `group by` clause is
-effected by surrounding a projection in angle brackets.
+effected by surrounding a projection in angle brackets. When a function is
+supplied in the projection, however, angle brackets are assumed on the other
+fields. In other words,
 
-For example, to only show a list of fact names, you can group by the `name` field:
+    facts[<name>, count(value)] {certname ~ 'web.*'}
 
-    facts[<name>] {}
+and
 
-In addition, you may apply an aggregate function to results grouped along a
-chosen axis. For example, to return the number of facts that exist for each
-fact name across all nodes with certnames matching a regex, you can use:
+    facts[name, count(value)] {certname ~ 'web.*'}
 
-    facts[<name>, count(value)] { certname ~ 'web.*'}
+are equivalent, whereas
+
+    facts[<name>]{}
+
+and
+   
+    facts[name]{}
+
+are not, since the first will only return a list of distinct fact names.
 
 ## Paging
 PQL supports restriction of the result set via the SQL-like paging clauses

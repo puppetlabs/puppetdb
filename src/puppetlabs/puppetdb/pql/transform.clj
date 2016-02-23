@@ -20,7 +20,7 @@
 
                               :else nil))
                   (fn  [node state]
-                    (when (not (empty? state))
+                    (when (seq state)
                       (cm/match node
                                 ["extract" & _]
                                 {:node (conj node (vec (cons "group_by" state)))}
@@ -50,9 +50,18 @@
   ([entity arg2]
    ["subquery" entity arg2]))
 
+(defn assume-groupedfield-in-function-case
+  [args]
+  (if (some #(= (first %) "function") args)
+    (for [arg args]
+      (if (not (contains? #{"function" :groupedfield} (first arg)))
+        [:groupedfield arg]
+        arg))
+    args))
+
 (defn transform-extract
   [& args]
-  ["extract" (vec args)])
+  ["extract" (vec (assume-groupedfield-in-function-case args))])
 
 (defn transform-expr-or
   ;; Single arg? collapse

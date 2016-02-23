@@ -40,7 +40,6 @@
         ["=" "a" 1]]
        ["order_by" [["certname" "desc"]]]]
 
-
       ["nodes" ["extract" [[:groupedfield "a"]] ["=" "a" 1]]]
       ["from" "nodes" ["extract" ["a"] ["=" "a" 1] ["group_by" "a"]]]
 
@@ -143,7 +142,16 @@
   (testing "function"
     (are [in expected] (= (apply transform-extract in) expected)
       ["a" "b" "c"]
-      ["extract" ["a" "b" "c"]]))
+      ["extract" ["a" "b" "c"]]
+      
+      [[:groupedfield "a"] ["function" "count"]]
+      ["extract" [[:groupedfield "a"] ["function" "count"]]]
+      
+      ["a" ["function" "count"]]
+      ["extract" [[:groupedfield "a"] ["function" "count"]]]
+
+      [[:groupedfield "b"] "a" ["function" "count"]]
+      ["extract" [[:groupedfield "b"] [:groupedfield "a"] ["function" "count"]]]))
 
   (testing "transform"
     (are [in expected] (= (transform in) expected)
