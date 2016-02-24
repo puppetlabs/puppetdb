@@ -17,7 +17,7 @@ done.
    acceptance test run. This can be done before the release notes PR is in.
 
 4. While the test run is going, write the announcement email. Old release
-   emails are here: bit.ly/21aIqeL . The easiest thing to do is copy one and
+   emails are here: http://bit.ly/21aIqeL . The easiest thing to do is copy one and
    change the dates/versions. Once finished copy paste the doc contents into an
    email titled "(DRAFT) Announce: PuppetDB x.y.z is now available" or similar
    and send to the puppetdb team for review.
