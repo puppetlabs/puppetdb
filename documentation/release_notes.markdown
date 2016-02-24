@@ -10,6 +10,45 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrading]: ./api/query/v4/upgrading-from-v3.html
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 
+3.2.4
+-----
+
+PuppetDB 3.2.4 is a backward-compatible bugfix release that improves the
+performance of certain metrics queries and reduces the size of anonymized export
+tarballs.
+
+### Bug Fixes and Maintenance
+
+* Optimize metrics queries used by the PuppetDB dashboard
+
+When computing the "percent resource duplication" and "average resources per
+node" metrics, PuppetDB now uses an approximation of the number of resources
+instead of an exact count. Additionally, the result of the "percent resource
+duplication" query is cached and recomputed at most once per minute. This
+greatly reduces query load when using the PuppetDB dashboard.
+([PDB-2425](https://tickets.puppetlabs.com/browse/PDB-2425))
+
+* Anonymize text as "?????"
+
+When using the data anonymization feature of the "puppetdb export" command, we
+now anonymize text as a string of question mark characters. The previous
+behavior of using long, random strings produced data that compressed very
+poorly. Anonymized export tarballs will now be much smaller and more manageable.
+([PDB-2214](https://tickets.puppetlabs.com/browse/PDB-2214))
+
+* Improve performance of the /query/v4/nodes endpoint
+([PDB-2324](https://tickets.puppetlabs.com/browse/PDB-2324))
+
+### Documentation
+
+* Update paths in code examples for Puppet 4
+([DOC-2560](https://tickets.puppetlabs.com/browse/DOC-2560))
+
+### Contributors
+
+Andrew Roetker, Garrett Guillotte, Geoff Nichols, Isaac Eldridge, Ken Barber,
+Kurt Wall, Russell Mull, Ryan Senior, Sean P. McDonald, and Wyatt Alt
+
 3.2.3
 -----
 
