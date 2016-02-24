@@ -5,8 +5,8 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def pdb-version "3.2.4-SNAPSHOT")
-(def pe-pdb-version "3.2.4-SNAPSHOT")
+(def pdb-version "3.2.4")
+(def pe-pdb-version "3.2.4")
 
 (def tk-version "1.1.1")
 (def ks-version "1.0.0")
