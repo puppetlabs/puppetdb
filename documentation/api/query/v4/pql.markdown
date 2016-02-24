@@ -48,7 +48,7 @@ Which is broken up into the following parts:
 As an example, if you wanted to query for `nodes` related data, but only see the `certname` field
 for each node, with a regex filter across certname:
 
-    nodes[certname] { certname ~ '^web' }
+    nodes[certname] { certname ~ "^web" }
 
 In this case, this would return only the certname field of nodes starting with `web`.
 
@@ -123,7 +123,7 @@ themselves are provided in the projection much like fields are:
 As an example, to query how many objects exist that start with a certname of `web` you could use
 the following filter and function combination:
 
-    nodes[count()] { certname ~ 'web.*' }
+    nodes[count()] { certname ~ "web.*" }
 
 There are only a few functions that are supported today by PQL, see the list below for more detail.
 
@@ -171,7 +171,7 @@ following operators are available within PQL:
 
 Matches the field value, with the literal value provided.
 
-    nodes { certname = 'foo' }
+    nodes { certname = "foo" }
 
 #### Numeric comparison: `>=`, `<=`, `>`, `<`
 
@@ -215,17 +215,17 @@ The `in` operator matches a field, or set of fields against either an array or a
 The `in` operator can be used in two ways. The simplest way is to see if a field, contains one of the values
 provided in a list of literal values:
 
-    nodes { certname in ['foo', 'bar', 'baz'] }
+    nodes { certname in ["foo", "bar", "baz"] }
 
 The operator can also be used to ensure the values of a field match the fields returned, from a subquery,
 which has the form of a nested PQL query within the filter:
 
-    nodes { certname in facts[certname] { value = 'foo' } }
+    nodes { certname in facts[certname] { value = "foo" } }
 
 With the subquery form, we can even match on multiple fields, as long as the fields being matched, and the
 subqueries projection fields match:
 
-    facts { [name, value] in facts[name, value] { value ~ 'foo' } }
+    facts { [certname, name] in fact_contents[certname, name] { value ~ "a" } }
 
 #### Null detection: `is null`, `is not null`
 
@@ -247,7 +247,11 @@ to strings.
 
 For example. the following query would query the path element, matching any ethernet mac address:
 
-    fact_contents { path ~> ["networking", "eth.*", "macaddress"] }
+    fact_contents { path ~> ["networking","interfaces",".*","mac"] }
+
+The following example will match against the size of any disk on the system:
+
+    fact_contents { path ~> ["disks",".*","size"] }
 
 ### Boolean operators
 
@@ -265,7 +269,7 @@ There are only 3 boolean operators today, in order of natural precedence:
 By default PQL binary operators are evaluated using the following natural order of precedence: `!`, `and`, and `or`.
 To override this precedence, you can group conditions together explicitly using parenetheses:
 
-    facts { name ~ '^operating' and ( name ~ 'system' or value = 'FlowerOS' ) }
+    facts { name ~ "^operating" and ( name ~ "system" or value = "FlowerOS" ) }
 
 In this case the `or` gets evaluated before the `and` despite the natural order of precedence.
 
@@ -296,6 +300,10 @@ Double quoted strings follow the same rules as JSON strings, and can accept esca
 For example to match on a string with a newline in it:
 
     facts { value = "first line\nsecondline" }
+
+However if you wanted to match the literal `\n` set of characters, and not have it translated to a newline, you could do:
+
+    facts { value = 'first line\nstill on first line' }
 
 #### Booleans
 
@@ -337,7 +345,7 @@ subqueries instead.
 Basically, an implicit subquery looks like a query, embedded within the filter of a PQL query:
 
     nodes {
-      facts { name = 'operatingsystem' and value = 'Debian' }
+      facts { name = "operatingsystem" and value = "Debian" }
     }
 
 In this example, while the query context is set to `nodes`, we will only return `nodes` that have
@@ -352,17 +360,17 @@ basic filters. The following query combines the fact subquery as before, include
 match on the node itself:
 
     nodes {
-      facts { name = 'operatingsystem' and value = 'Debian' } and
-      certname ~ '^web'
+      facts { name = "operatingsystem" and value = "Debian" } and
+      certname ~ "^web"
     }
 
 You can even combined with other implict subqueries, to provide more complex matching capabilities. This
 query combined everything before, but with a `resource` subquery for `Package[tomcat]`:
 
     nodes {
-      facts { name = 'operatingsystem' and value = 'Debian' } and
-      resources { type = 'Package' and title = 'tomcat' } and
-      certname ~ '^web'
+      facts { name = "operatingsystem" and value = "Debian" } and
+      resources { type = "Package" and title = "tomcat" } and
+      certname ~ "^web"
     }
 
 ## Group By
@@ -374,9 +382,10 @@ For example, to only show a list of fact names, you can group by the `name` fiel
     facts[name] { group by name }
 
 Combined with aggregate functions, you can effectively rollup of results and aggregate the rolled
-up values, for example to return how many facts exist for each fact name across all facts:
+up values, for example to return how many facts exist for each fact name across all facts, where the certame
+starts with `web`:
 
-    facts[name, count(value)] { certname ~ 'web.*' group by name }
+    facts[name, count(value)] { certname ~ "^web.*" group by name }
 
 ## Paging
 PQL supports restriction of the result set via the SQL-like paging clauses
@@ -388,11 +397,11 @@ Limit and offset clauses are supplied with integer arguments and may appear in
 any order within the braced section of a PQL query. Offset always takes
 precedence over limit:
 
-    reports {certname = 'foo.com' limit 10}
+    reports {certname = "foo.com" limit 10}
 
-    reports {certname = 'foo.com' limit 10 offset 10}
+    reports {certname = "foo.com" limit 10 offset 10}
 
-    reports {certname = 'foo.com' offset 10 limit 10}
+    reports {certname = "foo.com" offset 10 limit 10}
 
 Note that since there is no default ordering for results returned by PuppetDB,
 `limit` and `offset` are generally only useful in combination with `order by`.
@@ -404,8 +413,8 @@ ascending or descending order. The argument to an `order by` is a
 comma-separated list of fields, each optionally appended with a keyword `asc`
 or `desc`. If no keyword is supplied, `asc` is assumed:
 
-    reports {certname = 'foo.com' order by receive_time}
+    reports {certname = "foo.com" order by receive_time}
 
-    reports {certname ~ 'web.*' order by receive_time, certname desc}
+    reports {certname ~ "web.*" order by receive_time, certname desc}
 
-    reports {certname ~ 'web.*' order by receive_time desc, certname desc limit 10}
+    reports {certname ~ "web.*" order by receive_time desc, certname desc limit 10}

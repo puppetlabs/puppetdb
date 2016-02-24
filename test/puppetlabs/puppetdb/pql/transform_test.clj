@@ -281,7 +281,7 @@
   (testing "function"
     (are [in expected] (= (apply transform-groupedlist in) expected)
       []
-      nil
+      []
 
       ["a"]
       ["a"]

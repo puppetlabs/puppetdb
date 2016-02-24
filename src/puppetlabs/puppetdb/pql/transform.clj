@@ -65,7 +65,7 @@
 
 (defn transform-groupedlist
   [& args]
-  args)
+  (vec args))
 
 (defn transform-groupedliterallist
   [& args]
