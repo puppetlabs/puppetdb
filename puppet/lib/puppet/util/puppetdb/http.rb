@@ -4,13 +4,11 @@ require 'net/http'
 require 'timeout'
 require 'pp'
 require 'thread'
-require 'puppet/util/puppetdb/atom'
+require 'puppet/util/puppetdb/shared_terminus_state'
 
 module Puppet::Util::Puppetdb
   class Http
     SERVER_URL_FAIL_MSG = "Failing over to the next PuppetDB server_url in the 'server_urls' list"
-
-    @@last_good_query_server_url_index = Atom.new(0)
 
     # Concat two server_url snippets, taking into account a trailing/leading slash to
     # ensure a correct server_url is constructed
@@ -123,7 +121,7 @@ module Puppet::Util::Puppetdb
       last_good_index = 0
 
       if sticky
-        last_good_index = @@last_good_query_server_url_index.deref()
+        last_good_index = SharedTerminusState.last_good_query_server_url_index
       end
 
       server_count = server_urls.length
@@ -145,7 +143,7 @@ module Puppet::Util::Puppetdb
           response_error = check_http_response(response, server_url, route)
           if response_error.nil?
             if server_url_index != server_try_order.first()
-              @@last_good_query_server_url_index.reset(server_url_index)
+              SharedTerminusState.last_good_query_server_url_index = server_url_index
             end
             break
           end
@@ -219,7 +217,7 @@ module Puppet::Util::Puppetdb
     end
 
     def self.reset_query_failover()
-      @@last_good_query_server_url_index.reset(0)
+     SharedTerminusState::last_good_query_server_url_index = 0
     end
 
   end
