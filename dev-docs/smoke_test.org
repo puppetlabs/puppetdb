@@ -18,18 +18,23 @@ Make sure to get a '-nocm' image!
   <td>
     <b>wheezy</b>
     <pre>
-vagrant init puppetlabs/ubuntu-14.04-64-nocm && vagrant up 
+vagrant init puppetlabs/ubuntu-14.04-64-nocm 
+vagrant up 
 vagrant ssh
-sudo su 
+sudo su -
+apt-get update
+apt-get upgrade -y
 apt-get install tmux vim git tree -y
     </pre>
   </td>
   <td>
     <b>el7</b>
     <pre>
-vagrant init puppetlabs/centos-7.0-64-nocm && vagrant up
+vagrant init puppetlabs/centos-7.0-64-nocm 
+vagrant up
 vagrant ssh
-sudo su
+sudo su -
+yum update -y
 yum install tmux vim git tree -y
     </pre>
   </td>
@@ -37,26 +42,36 @@ yum install tmux vim git tree -y
 </table>
 #+END_HTML
 
-* 3. Install base puppet stuff
+On the host, edit your Vagrantfile to set 'vb.memory' to 4096. Then reboot the vm and shell back in. 
+#+BEGIN_SRC sh
+  vagrant halt
+  vagrant up
+  vagrant ssh
+  sudo su -
+#+END_SRC
 
+* 3. Install base puppet stuff
 #+BEGIN_HTML
 <table>
 <tr>
   <td>
     <b>wheezy</b>
     <pre>
-curl -o http://apt.puppetlabs.com/puppetlabs-release-pc1-wheezy.deb
+curl -O http://apt.puppetlabs.com/puppetlabs-release-pc1-wheezy.deb
 dpkg -i puppetlabs-release-pc1-wheezy.deb
-apt-get install puppet-agent puppetserver
-export PATH=$PATH:/opt/puppetlabs/puppet/bin
+apt-get update
+apt-get install puppet-agent puppetserver -y
+echo "export PATH=$PATH:/opt/puppetlabs/puppet/bin" >> ~/.profile
+source ~/.profile
     </pre>
   </td>
   <td>
     <b>el7</b>
     <pre>
-yum localinstall http://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm
-yum install puppet-agent puppetserver
-export PATH=$PATH:/opt/puppetlabs/puppet/bin
+yum localinstall http://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm -y
+yum install puppet-agent puppetserver -y
+echo "export PATH=$PATH:/opt/puppetlabs/puppet/bin" >> ~/.profile
+source ~/.profile
     </pre>
   </td>
 </tr>
@@ -88,15 +103,16 @@ export PATH=$PATH:/opt/puppetlabs/puppet/bin
 * 5. Set up your environment and the repos for the build you're testing
 *wheezy*
 #+BEGIN_SRC sh
-  echo "export VERSION=<version>" >> /etc/profile
-  source /etc/profile
+  echo "export VERSION=<version>" >> ~/.profile
+  source ~/.profile
   curl http://builds.puppetlabs.lan/puppetdb/${VERSION}/repo_configs/deb/pl-puppetdb-${VERSION}-wheezy.list >> /etc/apt/sources.list
+  apt-get update
 #+END_SRC
 
 *el7*
 #+BEGIN_SRC sh
-  echo "export VERSION=<version>" >> /etc/profile
-  source /etc/profile
+  echo "export VERSION=<version>" >> ~/.profile
+  source ~/.profile
   pushd /etc/yum.repos.d
   curl -O http://builds.puppetlabs.lan/puppetdb/${VERSION}/repo_configs/rpm/pl-puppetdb-${VERSION}-el-7-x86_64.repo
   popd
@@ -107,22 +123,26 @@ export PATH=$PATH:/opt/puppetlabs/puppet/bin
    vagrant snapshot take initial
  #+END_SRC   
 
-* 7. Install and configure PuppetDB
+* 7. Shell back in, and install and configure PuppetDB
 #+BEGIN_HTML
 <table>
 <tr>
   <td>
     <b>wheezy</b>
     <pre>
-apt-get install puppetdb=${VERSION}
-apt-get install puppetdb-termini=${VERSION}
+vagrant ssh
+sudo su -
+apt-get install puppetdb=${VERSION}-1puppetlabs1 -y --force-yes
+apt-get install puppetdb-termini=${VERSION}-1puppetlabs1 -y --force-yes
     </pre>
   </td>
   <td>
     <b>el7</b>
     <pre>
-yum install puppetdb-${VERSION}
-yum install puppetdb-termini-${VERSION}
+vagrant ssh
+sudo su -
+yum install puppetdb-${VERSION} -y
+yum install puppetdb-termini-${VERSION} -y
     </pre>
   </td>
 </tr>
@@ -156,9 +176,9 @@ yum install puppetdb-termini-${VERSION}
 
 * 9. Check PuppetDB
 ** Do a puppet run
-If the JVM hasn't started yet you'll get a connection
-error so make sure to give it enough time. Once puppetdb is truly running
-the master log will reports storing things in PuppetDB.
+If the JVM hasn't started yet you'll get a connection error so make sure to give
+it enough time. Once puppetdb is truly running the master log will report
+storing things in PuppetDB.
 
 #+BEGIN_SRC sh
   puppet agent -t
@@ -181,8 +201,10 @@ On the host box:
 
 ** Choose the base version for your upgrade
 #+BEGIN_SRC sh
-  echo "export VERSION=<version>" >> /etc/profile
-  source /etc/profile
+  vagrant ssh
+  sudo su - 
+  echo "export VERSION=<version>" >> ~/.profile
+  source ~/.profile
 #+END_SRC
 ** Repeat steps 7-9 for the base version
 ** Upgrade to the latest version
@@ -198,7 +220,7 @@ apt-get upgrade puppetdb puppetdb-termini
   <td>
     <b>el7</b>
     <pre>
-yum upgrade puppetdb puppetdb-termini
+yum upgrade puppetdb puppetdb-termini -y
     </pre>
   </td>
 </tr>
