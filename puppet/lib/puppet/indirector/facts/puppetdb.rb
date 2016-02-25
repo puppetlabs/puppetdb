@@ -34,7 +34,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
         }
       end
 
-      submit_command(request.key, payload, CommandReplaceFacts, 4)
+      submit_command(request.key, payload, CommandReplaceFacts, 5)
     end
   end
 

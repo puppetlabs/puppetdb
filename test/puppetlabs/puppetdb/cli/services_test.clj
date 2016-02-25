@@ -54,7 +54,7 @@
   (svc-utils/with-single-quiet-pdb-instance
     (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
           query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
-      (enqueue-command dispatcher :replace-facts 4
+      (enqueue-command dispatcher :replace-facts 5
                        {:certname "foo.local"
                         :environment "DEV"
                         :values {:foo "the foo"
@@ -86,7 +86,7 @@
   (svc-utils/with-puppetdb-instance
     (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
           query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
-      (enqueue-command dispatcher :replace-facts 4
+      (enqueue-command dispatcher :replace-facts 5
                        {:certname "foo.local"
                         :environment "DEV"
                         :values {:a "a" :b "b" :c "c"}

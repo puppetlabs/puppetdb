@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.command.constants)
 
 (def command-names
-  {:replace-catalog "replace catalog"
-   :replace-facts   "replace facts"
-   :deactivate-node "deactivate node"
-   :store-report    "store report"})
+  {:replace-catalog "replace_catalog"
+   :replace-facts "replace_facts"
+   :deactivate-node "deactivate_node"
+   :store-report "store_report"})

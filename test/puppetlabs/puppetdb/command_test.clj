@@ -360,7 +360,7 @@
 (deftest replace-catalog-with-v6
   (testing "catalog wireformat v6"
     (with-test-db
-      (let [command {:command (command-names :replace-catalog)
+      (let [command {:command "replace catalog"
                      :version 6
                      :payload (get-in wire-catalogs [6 :empty])}
             certname (get-in command [:payload :certname])
@@ -383,7 +383,7 @@
 (deftest replace-catalog-with-v5
   (testing "catalog wireformat v5"
     (with-test-db
-      (let [command {:command (command-names :replace-catalog)
+      (let [command {:command "replace catalog"
                      :version 5
                      :payload (get-in wire-catalogs [5 :empty])}
             certname (get-in command [:payload :name])
@@ -405,7 +405,7 @@
 
 (deftest replace-catalog-with-v4
   (with-test-db
-    (let [command {:command (command-names :replace-catalog)
+    (let [command {:command "replace catalog"
                    :version 4
                    :payload (get-in wire-catalogs [4 :empty])}
           certname (get-in command [:payload :name])
@@ -445,7 +445,7 @@
 
 (deftest catalog-with-updated-resource-line
   (dotestseq [version catalog-versions
-              :let [command {:command (command-names :replace-catalog)
+              :let [command {:command "replace catalog"
                              :version 7
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
@@ -472,7 +472,7 @@
 
 (deftest catalog-with-updated-resource-file
   (dotestseq [version catalog-versions
-              :let [command {:command (command-names :replace-catalog)
+              :let [command {:command "replace catalog"
                              :version 7
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
@@ -499,7 +499,7 @@
 
 (deftest catalog-with-updated-resource-exported
   (dotestseq [version catalog-versions
-              :let [command {:command (command-names :replace-catalog)
+              :let [command {:command "replace catalog"
                              :version 7
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
@@ -524,7 +524,7 @@
 
 (deftest catalog-with-updated-resource-tags
   (dotestseq [version catalog-versions
-              :let [command {:command (command-names :replace-catalog)
+              :let [command {:command "replace catalog"
                              :version 7
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
@@ -561,7 +561,7 @@
 
 (def fact-versions
   "Support fact command versions"
-  [:v4])
+  [:v5])
 
 (let [certname  "foo.example.com"
       facts     {:certname certname
@@ -570,8 +570,8 @@
                           "b" "2"
                           "c" "3"}
                  :producer_timestamp (to-timestamp (now))}
-      v4-command {:command (command-names :replace-facts)
-                  :version 4
+      v5-command {:command (command-names :replace-facts)
+                  :version 5
                   :payload facts}
       one-day   (* 24 60 60 1000)
       yesterday (to-timestamp (- (System/currentTimeMillis) one-day))
@@ -579,7 +579,7 @@
 
   (deftest replace-facts-no-facts
     (dotestseq [version fact-versions
-                :let [command v4-command]]
+                :let [command v5-command]]
       (testing "should store the facts"
         (with-test-db
           (test-msg-handler command publish discard-dir
@@ -607,7 +607,7 @@
 
   (deftest replace-facts-existing-facts
     (dotestseq [version fact-versions
-                :let [command v4-command]]
+                :let [command v5-command]]
       (with-test-db
         (jdbc/with-db-transaction []
           (scf-store/ensure-environment "DEV")
@@ -649,7 +649,7 @@
 
   (deftest replace-facts-newer-facts
     (dotestseq [version fact-versions
-                :let [command v4-command]]
+                :let [command v5-command]]
       (with-test-db
         (jdbc/with-db-transaction []
           (scf-store/ensure-environment "DEV")
@@ -686,7 +686,7 @@
 
   (deftest replace-facts-deactivated-node-facts
     (dotestseq [version fact-versions
-                :let [command v4-command]]
+                :let [command v5-command]]
       (with-test-db
         (testing "should reactivate the node if it was deactivated before the message"
           (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
@@ -749,7 +749,7 @@
                             json/generate-string
                             json/parse-string
                             pt/to-timestamp)
-          facts-cmd {:command (command-names :replace-facts)
+          facts-cmd {:command "replace facts"
                      :version 3
                      :payload {:name certname
                                :environment "DEV"
@@ -787,7 +787,7 @@
   (with-test-db
     (let [certname  "foo.example.com"
           before-test-starts-time (-> 1 seconds ago)
-          facts-cmd {:command (command-names :replace-facts)
+          facts-cmd {:command "replace facts"
                      :version 2
                      :payload {:name certname
                                :environment "DEV"
@@ -827,7 +827,7 @@
           (is (= result [(with-env {:certname certname})])))))))
 
 (deftest replace-facts-bad-payload
-  (let [bad-command {:command (command-names :replace-facts)
+  (let [bad-command {:command "replace facts"
                      :version 4
                      :payload "bad stuff"}]
     (dotestseq [version fact-versions
@@ -865,7 +865,7 @@
                             "operatingsystem" "Debian"
                             }
                    :producer_timestamp (to-timestamp (now))}
-            command   {:command (command-names :replace-facts)
+            command   {:command "replace facts"
                        :version 4
                        :payload facts}
 
@@ -898,7 +898,7 @@
                                        (-> values
                                            (dissoc "kernel")
                                            (assoc "newfact2" "here"))))
-                new-facts-cmd {:command (command-names :replace-facts)
+                new-facts-cmd {:command "replace facts"
                                :version 4
                                :payload new-facts}]
 
@@ -969,16 +969,16 @@
                   :values {"domain" "mydomain2.com"
                            "operatingsystem" "Debian"}
                   :producer_timestamp (now)}
-        command-1b   {:command (command-names :replace-facts)
+        command-1b   {:command "replace facts"
                       :version 4
                       :payload facts-1b}
-        command-2b   {:command (command-names :replace-facts)
+        command-2b   {:command "replace facts"
                       :version 4
                       :payload facts-2b}
-        command-1c   {:command (command-names :replace-facts)
+        command-1c   {:command "replace facts"
                       :version 4
                       :payload facts-1c}
-        command-2c   {:command (command-names :replace-facts)
+        command-2c   {:command "replace facts"
                       :version 4
                       :payload facts-2c}
 
@@ -1068,7 +1068,7 @@
       (let [test-catalog (get-in catalogs [:empty])
             {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
             nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
-            command {:command (command-names :replace-catalog)
+            command {:command "replace catalog"
                      :version 6
                      :payload (json/generate-string wire-catalog)}
 
@@ -1096,7 +1096,7 @@
                                            #{{:relationship "contains"
                                               :target       {:title "Settings" :type "Class"}
                                               :source       {:title "main" :type "Stage"}}})
-                new-catalog-cmd {:command (command-names :replace-catalog)
+                new-catalog-cmd {:command "replace catalog"
                                  :version 6
                                  :payload (json/generate-string new-wire-catalog)}]
 
@@ -1115,7 +1115,7 @@
       (let [test-catalog (get-in catalogs [:empty])
             {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
             nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
-            command {:command (command-names :replace-catalog)
+            command {:command "replace catalog"
                      :version 6
                      :payload (json/generate-string wire-catalog)}
 
@@ -1150,7 +1150,7 @@
                                           :parameters {:ensure "directory"
                                                        :group  "root"
                                                        :user   "root"}})
-                new-catalog-cmd {:command (command-names :replace-catalog)
+                new-catalog-cmd {:command "replace catalog"
                                  :version 6
                                  :payload (json/generate-string new-wire-catalog)}]
 
@@ -1165,19 +1165,24 @@
 
 (let [cases [{:certname "foo.example.com"
               :command {:command (command-names :deactivate-node)
-                        :version 3
+                        :version 4
                         :payload {:certname "foo.example.com"}}}
              {:certname "bar.example.com"
               :command {:command (command-names :deactivate-node)
+                        :version 4
+                        :payload {:certname "bar.example.com"
+                                  :producer_timestamp (now)}}}
+             {:certname "bar.example.com"
+              :command {:command "deactivate node"
                         :version 3
                         :payload {:certname "bar.example.com"
                                   :producer_timestamp (now)}}}
              {:certname "bar.example.com"
-              :command {:command (command-names :deactivate-node)
+              :command {:command "deactivate node"
                         :version 2
                         :payload "bar.example.com"}}
              {:certname "bar.example.com"
-              :command {:command (command-names :deactivate-node)
+              :command {:command "deactivate node"
                         :version 1
                         :payload (json/generate-string "bar.example.com")}}]]
 
@@ -1257,7 +1262,7 @@
       (dissoc :producer_timestamp :metrics :logs :noop)
       utils/underscore->dash-keys))
 
-(def store-report-name (command-names :store-report))
+(def store-report-name "store report")
 
 (deftest store-v6-report-test
   (let [v6-report (-> v5-report
@@ -1366,7 +1371,7 @@
                         (deliver received-cmd? true)
                         @go-ahead-and-execute
                         (apply real-replace! args))]
-          (enqueue-command (command-names :replace-facts) 4
+          (enqueue-command (command-names :replace-facts) 5
                            {:environment "DEV" :certname "foo.local"
                             :values {:foo "foo"}
                             :producer_timestamp (to-string (now))})
@@ -1387,7 +1392,7 @@
           ;; enqueue, a DateTime wasn't a problem.
           input-stamp (java.util.Date. deactivate-ms)
           expected-stamp (DateTime. deactivate-ms DateTimeZone/UTC)]
-      (enqueue-command (command-names :deactivate-node) 3
+      (enqueue-command (command-names :deactivate-node) 4
                        {:certname "foo.local" :producer_timestamp input-stamp})
       (is (svc-utils/wait-for-server-processing svc-utils/*server* 5000))
       ;; While we're here, check the value in the database too...
@@ -1421,7 +1426,7 @@
           response-chan (async/chan)
           command-uuid (ks/uuid)]
       (async/tap response-mult response-chan)
-      (enqueue-command (command-names :deactivate-node) 3
+      (enqueue-command (command-names :deactivate-node) 4
                        {:certname "foo.local" :producer_timestamp (java.util.Date.)}
                        command-uuid)
       (let [received-uuid (async/alt!! response-chan ([msg] (:id msg))

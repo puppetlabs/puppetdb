@@ -16,7 +16,7 @@
             [puppetlabs.puppetdb.testutils.http :as tuhttp]))
 
 (defn submit-facts [base-url certname facts]
-  (svc-utils/sync-command-post base-url certname "replace facts" 4 facts))
+  (svc-utils/sync-command-post base-url certname "replace_facts" 5 facts))
 
 (defn query-fact-names [{:keys [host port]}]
   (tuhttp/pdb-get (utils/pdb-query-base-url host port :v4)

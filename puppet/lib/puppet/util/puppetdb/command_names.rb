@@ -1,8 +1,8 @@
 module Puppet::Util::Puppetdb
   module CommandNames
-    CommandReplaceCatalog   = "replace catalog"
-    CommandReplaceFacts     = "replace facts"
-    CommandDeactivateNode   = "deactivate node"
-    CommandStoreReport      = "store report"
+    CommandReplaceCatalog   = "replace_catalog"
+    CommandReplaceFacts     = "replace_facts"
+    CommandDeactivateNode   = "deactivate_node"
+    CommandStoreReport      = "store_report"
   end
 end
