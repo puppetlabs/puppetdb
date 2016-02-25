@@ -261,4 +261,21 @@
     "reports[certname]{certname = 'foo' order by certname desc, receive_time asc limit 10}"
     ["from" "reports"
      ["extract" ["certname"] ["=" "certname" "foo"]]
-     ["order_by" [["certname" "desc"] ["receive_time" "asc"]]] ["limit" 10]]))
+     ["order_by" [["certname" "desc"] ["receive_time" "asc"]]] ["limit" 10]]
+
+    ;;Inequality on dates
+    "reports{receive_time > '2016-02-07T08:45:42.170687300Z'}"
+    ["from" "reports"
+     [">" "receive_time" "2016-02-07T08:45:42.170687300Z"]]
+
+    "reports{receive_time >= '2016-02-07T08:45:42.170687300Z'}"
+    ["from" "reports"
+     [">=" "receive_time" "2016-02-07T08:45:42.170687300Z"]]
+
+    "reports{receive_time <= '2016-02-07T08:45:42.170687300Z'}"
+    ["from" "reports"
+     ["<=" "receive_time" "2016-02-07T08:45:42.170687300Z"]]
+
+    "reports{receive_time < '2016-02-07T08:45:42.170687300Z'}"
+    ["from" "reports"
+     ["<" "receive_time" "2016-02-07T08:45:42.170687300Z"]]))
