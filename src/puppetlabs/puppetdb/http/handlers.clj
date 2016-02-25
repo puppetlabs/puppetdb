@@ -5,8 +5,7 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body
                                                    stream-query-result]]
-            [puppetlabs.puppetdb.middleware :refer [validate-no-query-params
-                                                    validate-query-params
+            [puppetlabs.puppetdb.middleware :refer [validate-query-params
                                                     parent-check
                                                     handler-schema]]
             [puppetlabs.comidi :as cmdi]
@@ -61,11 +60,6 @@
                                            :required ["query"]})
                 (http/experimental-warning "The root endpoint is experimental"))))
 
-(defn narrow-globals
-  "Reduces the number of globals to limit their reach in the codebase"
-  [globals]
-  (select-keys globals [:scf-read-db :warn-experimental :url-prefix :pretty-print]))
-
 (defn report-data-responder
   "Respond with either metrics or logs for a given report hash.
    `entity` should be either :metrics or :logs."
@@ -73,7 +67,7 @@
   (fn [{:keys [globals route-params]}]
     (let [query ["from" entity ["=" "hash" (:hash route-params)]]]
       (produce-streaming-body version {:query query}
-                              (narrow-globals globals)))))
+                              (http-q/narrow-globals globals)))))
 
 (defn route-param [param-name]
   [#"[\w%\.~-]*" param-name])
@@ -95,7 +89,7 @@
     (let [node (:node route-params)]
       (status-response version
                        ["from" "catalogs" ["=" "certname" node]]
-                       (narrow-globals globals)
+                       (http-q/narrow-globals globals)
                        #(s/validate catalog-query-schema
                                     (kitchensink/mapvals sutils/parse-db-json [:edges :resources] %))
                        (http/status-not-found-response "catalog" node)))))
@@ -107,7 +101,7 @@
     (let [node (:node route-params)]
       (status-response version
                        ["from" "factsets" ["=" "certname" node]]
-                       (narrow-globals globals)
+                       (http-q/narrow-globals globals)
                        identity
                        (http/status-not-found-response "factset" node)))))
 
@@ -118,7 +112,7 @@
     (let [node (:node route-params)]
       (status-response version
                        ["from" "nodes" ["=" "certname" node]]
-                       (narrow-globals globals)
+                       (http-q/narrow-globals globals)
                        identity
                        (http/status-not-found-response "node" node)))))
 
@@ -129,7 +123,7 @@
     (let [environment (:environment route-params)]
       (status-response version
                        ["from" "environments" ["=" "name" environment]]
-                       (narrow-globals globals)
+                       (http-q/narrow-globals globals)
                        identity
                        (http/status-not-found-response "environment" environment)))))
 
@@ -164,12 +158,12 @@
    (cmdi/ANY ["/" :hash "/metrics"] []
              (-> (report-data-responder version "report_metrics")
                  (parent-check version :report :hash)
-                 validate-no-query-params))
+                 (validate-query-params {:optional ["pretty"]})))
 
    (cmdi/ANY ["/" :hash "/logs"] []
              (-> (report-data-responder version "report_logs")
                  (parent-check version :report :hash)
-                 validate-no-query-params))))
+                 (validate-query-params {:optional ["pretty"]})))))
 
 (pls/defn-validated resources-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
@@ -253,7 +247,7 @@
 
 (pls/defn-validated fact-names-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
-  (extract-query 
+  (extract-query
    (cmdi/ANY "" []
              (comp
               (fn [{:keys [params globals puppetdb-query]}]
@@ -261,7 +255,7 @@
                   (produce-streaming-body
                    version
                    (http-q/validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-                   (narrow-globals globals))))
+                   (http-q/narrow-globals globals))))
               (http-q/restrict-query-to-entity "fact_names")))))
 
 (pls/defn-validated node-routes :- bidi-schema/RoutePair
@@ -273,8 +267,8 @@
     (cmdi/context ["/" (route-param :node)]
                   (cmdi/ANY "" []
                             (-> (node-status version)
-                                validate-no-query-params))
-                  
+                                (validate-query-params {:optional ["pretty"]})))
+
                   (cmdi/context "/facts"
                                 (-> (facts-routes version)
                                     (append-handler http-q/restrict-query-to-node)
@@ -292,7 +286,8 @@
               (create-query-handler version "environments")))
    (cmdi/context ["/" (route-param :environment)]
                  (cmdi/ANY "" []
-                           (validate-no-query-params (environment-status version)))
+                   (validate-query-params (environment-status version)
+                                          {:optional ["pretty"]}))
 
                  (wrap-with-parent-check
                   (cmdi/routes

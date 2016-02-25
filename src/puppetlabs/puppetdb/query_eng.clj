@@ -110,7 +110,7 @@
   {:scf-read-db s/Any
    :url-prefix String
    (s/optional-key :warn-experimental) Boolean
-   (s/optional-key :pretty-print) Boolean})
+   (s/optional-key :pretty-print) (s/maybe Boolean)})
 
 (pls/defn-validated stream-query-result
   "Given a query, and database connection, return a Ring response with the query
