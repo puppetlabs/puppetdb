@@ -658,14 +658,17 @@ commands that are too large to process, such as a
 catalog that is too large, causing PuppetDB to run out of
 memory. This setting can be used along with `max-command-size`.
 
-This setting is true by default.
+This setting is false by default.
 
 ### `max-command-size`
 
 This is an integer that specifies (in bytes) which commands are "too
 large" to process with PuppetDB. By default this setting is a fraction
-of the total heap space, but can be specified manually for users who
-want to support larger catalog sizes. This setting has no effect when
+of the total heap space. It is strongly recommended that users set
+this manually as the default is probably too conservative. To help
+determine the current size of commands being processed, enable debug
+logging for the `puppetlabs.puppetdb.middleware` appender in the
+[logback.xml](#logging-config). This setting has no effect when
 `reject-large-commands` is set to false.
 
 
