@@ -7,8 +7,9 @@ done.
    before running. Source for the task is here:
    https://github.com/puppetlabs/packaging/blob/master/tasks/tickets.rake#L416-L417
    
-    cd ~/work/puppetdb
-    rake pl:tickets BUILDER=morgan DEVELOPER=<release QB> WRITER=nick.fagerlund OWNER=beth.cornils TESTER=kurt.wall RELEASE=4.0.0 DATE=2016-02-29 JIRA_USER=<your jira name> PROJECT=PDB
+   From the PDB directory:
+
+       rake pl:tickets BUILDER=morgan DEVELOPER=<release QB> WRITER=nick.fagerlund OWNER=beth.cornils TESTER=kurt.wall RELEASE=4.0.0 DATE=2016-02-29 JIRA_USER=<your jira name> PROJECT=PDB
 
 1. Reconcile tickets as described in the relevant release ticket. I do this
    manually by inspecting the git log and comparing against
