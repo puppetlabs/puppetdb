@@ -191,15 +191,18 @@
   (log/warnf "command '%s' version %s is deprecated, use the latest version" command version))
 
 (defmethod process-command! [(command-names :replace-catalog) 4]
-  [command options]
+  [{:keys [version] :as command} options]
+  (warn-deprecated version "replace catalog")
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 5]
-  [command options]
+  [{:keys [version] :as command} options]
+  (warn-deprecated version "replace catalog")
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 6]
-  [command options]
+  [{:keys [version] :as command} options]
+  (warn-deprecated version "replace catalog")
   (replace-catalog* command options))
 
 (defmethod process-command! [(command-names :replace-catalog) 7]
@@ -225,13 +228,15 @@
     (log/infof "[%s] [%s] %s" id (command-names :replace-facts) certname)))
 
 (defmethod process-command! [(command-names :replace-facts) 3]
-  [command config]
+  [{:keys [version] :as command} config]
+  (warn-deprecated version "replace facts")
   (-> command
       fact/v3-wire->v4-wire
       (process-command! config)))
 
 (defmethod process-command! [(command-names :replace-facts) 2]
-  [command config]
+  [{:keys [version] :as command} config]
+  (warn-deprecated version "replace facts")
   (let [received-time (get-in command [:annotations :received])]
     (-> command
         (fact/v2-wire->v4-wire received-time)
@@ -239,14 +244,16 @@
 
 ;; Node deactivation
 (defmethod process-command! [(command-names :deactivate-node) 1]
-  [command config]
+  [{:keys [version] :as command} config]
+  (warn-deprecated version "deactivate node")
   (-> command
       (assoc :version 2)
       (update :payload #(upon-error-throw-fatality (json/parse-string % true)))
       (process-command! config)))
 
 (defmethod process-command! [(command-names :deactivate-node) 2]
-  [command config]
+  [{:keys [version] :as command} config]
+  (warn-deprecated version "deactivate node")
   (-> command
       (assoc :version 3)
       (update :payload #(hash-map :certname %))
@@ -281,19 +288,22 @@
                puppet_version certname)))
 
 (defmethod process-command! [(command-names :store-report) 3]
-  [command {:keys [db]}]
+  [{:keys [version] :as command} {:keys [db]}]
+  (warn-deprecated version "store report")
   (store-report* 6 db
                  (let [received-time (get-in command [:annotations :received])]
                    (update command :payload report/wire-v3->wire-v6 received-time))))
 
 (defmethod process-command! [(command-names :store-report) 4]
-  [command {:keys [db]}]
+  [{:keys [version] :as command} {:keys [db]}]
+  (warn-deprecated version "store report")
   (store-report* 6 db
                  (let [received-time (get-in command [:annotations :received])]
                    (update command :payload report/wire-v4->wire-v6 received-time))))
 
 (defmethod process-command! [(command-names :store-report) 5]
-  [command {:keys [db]}]
+  [{:keys [version] :as command} {:keys [db]}]
+  (warn-deprecated version "store report")
   (store-report* 6 db
                  (update command :payload report/wire-v5->wire-v6)))
 
