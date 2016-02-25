@@ -84,51 +84,6 @@ If you get `Not Found` or something other than a proper version
 returned as a JSON response, you need to dig in now to figure out
 what's wrong. See below for common troubleshooting info.
 
-### Building for Release
-
-1. Have a FOSS release that you want to do a PE release against. If you need to
-   make such a release just for PE:
-
-   - Update project.clj in puppetdb, removing `-SNAPSHOT` from pdb-version.
-    Commit this and push it *directly* to origin/stable or origin/master; our
-    build can't deal with such a version existing in a PR.
-
-   - Wait for this to build (or kick off the build by hand); once it has 
-     succeeded, you should see an artifact in
-     [nexus](http://nexus.delivery.puppetlabs.net/#nexus-search;quick~puppetdb)
-     with the version you put in project.clj.
-
-2. Update project.clj in pe-puppetdb-extensions, setting pdb-version to the the
-   FOSS version you're building against and removing `-SNAPSHOT` from
-   pe-version. (these should really be the same, for the sanity's sake) Commit
-   and push your changes *directly* to origin/stable or origin/master, for the
-   same reason as above.
-
-3. Wait for your changed version to built and tested. This will *not* put a
-   release build in nexus.
-
-4. Manually trigger the pe-puppetdb-extensions packaging job in Jenkins. This
-   makes the actual release build and puts it in nexus, then makes packages out
-   of it.
-   - stable: http://kahless.delivery.puppetlabs.net/view/pe-puppetdb-extensions/view/all/job/enterprise_pe-puppetdb-extensions_packaging_stable/
-   - master: http://kahless.delivery.puppetlabs.net/view/pe-puppetdb-extensions/view/all/job/enterprise_pe-puppetdb-extensions_packaging_master/
-
-5. Once the build is done, tell kerminator to promote it. If you were releasing
-   pe-puppetdb-extensions version 3.1.2 into PE 2015.3, this would look like:
-   `@kerminator promote pe-puppetdb 3.1.2 to 2013.3.x`
-
-6. This kicked off a Jenkins job over at
-   http://jenkins-compose.delivery.puppetlabs.net/view/Promotion/job/Package-Promotion/.
-   Go babysit it and make sure it actually works.
-
-7. Now you can do some smoke testing; get the packages over at
-   http://getpe.delivery.puppetlabs.net/ Note that this automatically builds
-   every half hour, so you'll need to wait to get one with your build in it.
-
-8. Find a friend in RelEng to make you some tags.
-
-9. Congratulations! PuppetDB is now one release Enterprisier!
-
 ### Building for testing
 
 #### 1 - Install PuppetDB
