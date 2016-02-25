@@ -40,12 +40,11 @@ done.
    the same code that was tested earlier (we should fix this part of the
    process).
 
-7. While that job runs, tell your releng liaison that you're ready for FOSS
-   packages.
-
-8. Once packages are ready, smoke test them following your favorite smoke
-   testing guide. My favorite is here:
-   https://confluence.puppetlabs.com/display/PP/Smoke+Testing+Guide+for+PDB+Releases
+7. The FOSS packages are automatically created by the CI job and uploaded to 
+   http://builds.puppetlabs.lan/puppetdb/<version>. Once they show up,  smoke test 
+   them. 
+   - https://github.com/puppetlabs/pe-puppetdb-extensions/blob/master/dev-docs/smoke_test.org (the new way)
+   - https://confluence.puppetlabs.com/display/PP/Smoke+Testing+Guide+for+PDB+Releases (the old way)
 
    Prioritize platforms that aren't acceptance tested if any aren't. If they
    all are then I usually test the latest debian and latest centos anyway. This
