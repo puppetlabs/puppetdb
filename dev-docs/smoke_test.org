@@ -1,0 +1,209 @@
+PuppetDB manual smoke testing guide
+* 1. Set up your local system
+You need:
+   - Virtualbox
+   - Vagrant
+   - The vagrant vbox-snapshot plugin
+    #+BEGIN_SRC sh
+      vagrant plugin install vagrant-vbox-snapshot
+    #+END_SRC      
+
+* 2. Make a VM
+Use an image from https://vagrantcloud.com/puppetlabs, ssh in, and become root.
+Make sure to get a '-nocm' image!
+
+#+BEGIN_HTML
+<table>
+<tr>
+  <td>
+    <b>wheezy</b>
+    <pre>
+vagrant init puppetlabs/ubuntu-14.04-64-nocm && vagrant up 
+vagrant ssh
+sudo su 
+apt-get install tmux vim git tree -y
+    </pre>
+  </td>
+  <td>
+    <b>el7</b>
+    <pre>
+vagrant init puppetlabs/centos-7.0-64-nocm && vagrant up
+vagrant ssh
+sudo su
+yum install tmux vim git tree -y
+    </pre>
+  </td>
+</tr>
+</table>
+#+END_HTML
+
+* 3. Install base puppet stuff
+
+#+BEGIN_HTML
+<table>
+<tr>
+  <td>
+    <b>wheezy</b>
+    <pre>
+curl -o http://apt.puppetlabs.com/puppetlabs-release-pc1-wheezy.deb
+dpkg -i puppetlabs-release-pc1-wheezy.deb
+apt-get install puppet-agent puppetserver
+export PATH=$PATH:/opt/puppetlabs/puppet/bin
+    </pre>
+  </td>
+  <td>
+    <b>el7</b>
+    <pre>
+yum localinstall http://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm
+yum install puppet-agent puppetserver
+export PATH=$PATH:/opt/puppetlabs/puppet/bin
+    </pre>
+  </td>
+</tr>
+</table>
+#+END_HTML
+
+*both*
+#+BEGIN_SRC sh
+  puppet config set certname $(facter fqdn) --section master
+  puppet config set server $(facter fqdn) --section main
+  puppet cert generate $(facter fqdn) --dns_alt_names  $(hostname -s),$(facter fqdn) \
+    --ca_name "Puppet CA generated on $(facter fqdn) at $(date '+%Y-%m-%d %H:%M:%S %z')"
+#+END_SRC
+
+     Other repo setup packages, for reference:
+     - http://apt.puppetlabs.com
+     - http://yum.puppetlabs.com
+     - https://puppetlabs.com/blog/welcome-puppet-collections
+     - https://docs.puppetlabs.com/guides/puppetlabs_package_repositories.html#open-source-repositories
+
+* 4. Generate certs and sanity test
+#+BEGIN_SRC sh
+  service puppetserver start
+  puppet agent -t
+  puppet cert sign --all
+  service puppetserver stop
+#+END_SRC
+
+* 5. Set up your environment and the repos for the build you're testing
+*wheezy*
+#+BEGIN_SRC sh
+  echo "export VERSION=<version>" >> /etc/profile
+  source /etc/profile
+  curl http://builds.puppetlabs.lan/puppetdb/${VERSION}/repo_configs/deb/pl-puppetdb-${VERSION}-wheezy.list >> /etc/apt/sources.list
+#+END_SRC
+
+*el7*
+#+BEGIN_SRC sh
+  echo "export VERSION=<version>" >> /etc/profile
+  source /etc/profile
+  pushd /etc/yum.repos.d
+  curl -O http://builds.puppetlabs.lan/puppetdb/${VERSION}/repo_configs/rpm/pl-puppetdb-${VERSION}-el-7-x86_64.repo
+  popd
+#+END_SRC
+
+* 6. On the host box, snapshot your VM
+ #+BEGIN_SRC sh
+   vagrant snapshot take initial
+ #+END_SRC   
+
+* 7. Install and configure PuppetDB
+#+BEGIN_HTML
+<table>
+<tr>
+  <td>
+    <b>wheezy</b>
+    <pre>
+apt-get install puppetdb=${VERSION}
+apt-get install puppetdb-termini=${VERSION}
+    </pre>
+  </td>
+  <td>
+    <b>el7</b>
+    <pre>
+yum install puppetdb-${VERSION}
+yum install puppetdb-termini-${VERSION}
+    </pre>
+  </td>
+</tr>
+</table>
+#+END_HTML
+
+*both*
+#+BEGIN_SRC sh
+  echo "host = $(facter fqdn)" >> /etc/puppetlabs/puppetdb/conf.d/jetty.ini
+
+  echo [main]                 > /etc/puppetlabs/puppet/puppetdb.conf
+  echo server=$(facter fqdn) >> /etc/puppetlabs/puppet/puppetdb.conf
+  echo port=8081             >> /etc/puppetlabs/puppet/puppetdb.conf
+
+  echo "---"                         > /etc/puppetlabs/puppet/routes.yaml
+  echo "master:"                    >> /etc/puppetlabs/puppet/routes.yaml
+  echo "    facts:"                 >> /etc/puppetlabs/puppet/routes.yaml
+  echo "       terminus: puppetdb"  >> /etc/puppetlabs/puppet/routes.yaml
+  echo "       cache: yaml"         >> /etc/puppetlabs/puppet/routes.yaml
+
+  puppet config set storeconfigs true --section master
+  puppet config set storeconfigs_backend puppetdb --section master
+  puppet config set reports puppetdb --section master
+#+END_SRC
+
+* 8. Restart puppetdb and puppetserver/puppet master
+#+BEGIN_SRC sh
+  service puppetdb restart
+  service puppetserver restart
+#+END_SRC
+
+* 9. Check PuppetDB
+** Do a puppet run
+If the JVM hasn't started yet you'll get a connection
+error so make sure to give it enough time. Once puppetdb is truly running
+the master log will reports storing things in PuppetDB.
+
+#+BEGIN_SRC sh
+  puppet agent -t
+#+END_SRC
+ 
+** Run these commands and make sure they produce the expected output:
+#+BEGIN_SRC sh
+  curl -X GET http://$(hostname):8080/pdb/meta/v1/version
+  curl -X GET http://$(hostname):8080/pdb/query/v4/reports
+  curl -X GET http://$(hostname):8080/pdb/query/v4/catalogs
+  curl -X GET http://$(hostname):8080/pdb/query/v4/facts
+#+END_SRC
+
+* 10. Upgrade test
+** Revert to your snapshot. 
+On the host box:
+#+BEGIN_SRC sh
+  vagrant snapshot go initial
+#+END_SRC 
+
+** Choose the base version for your upgrade
+#+BEGIN_SRC sh
+  echo "export VERSION=<version>" >> /etc/profile
+  source /etc/profile
+#+END_SRC
+** Repeat steps 7-9 for the base version
+** Upgrade to the latest version
+#+BEGIN_HTML
+<table>
+<tr>
+  <td>
+    <b>wheezy</b>
+    <pre>
+apt-get upgrade puppetdb puppetdb-termini
+    </pre>
+  </td>
+  <td>
+    <b>el7</b>
+    <pre>
+yum upgrade puppetdb puppetdb-termini
+    </pre>
+  </td>
+</tr>
+</table>
+#+END_HTML
+
+** Run the commands in 9.2
+Check that your reports, catalogs, and facts are still present.
