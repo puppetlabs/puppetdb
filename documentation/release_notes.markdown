@@ -47,6 +47,10 @@ queries, and reduces the size of anonymized export tarballs.
 * Improve performance of the /query/v4/nodes endpoint
   ([PDB-2324](https://tickets.puppetlabs.com/browse/PDB-2324))
 
+* Use the read-db connection for population metrics, leveraging read replicas if
+  they are available.
+  ([PDB-2435](https://tickets.puppetlabs.com/browse/PDB-2435))
+
 ### Documentation
 
 * Update paths in code examples for Puppet 4
