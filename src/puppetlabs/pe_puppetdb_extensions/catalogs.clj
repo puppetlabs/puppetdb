@@ -165,7 +165,7 @@
   (fn [{:keys [globals route-params]}]
     (let [query ["from" entity ["=" "catalog_uuid" (:catalog_uuid route-params)]]]
       (query-eng/produce-streaming-body version {:query query}
-                                        (handlers/narrow-globals globals)))))
+                                        (http-q/narrow-globals globals)))))
 
 (pls/defn-validated historical-catalogs-routes :- bidi-schema/RoutePair
   [version]
