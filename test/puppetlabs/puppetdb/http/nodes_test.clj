@@ -397,6 +397,17 @@
           (is (= status http/status-bad-request))
           (is (re-find msg body)))))))
 
+(deftest-http-app query-with-pretty-printing
+  [[version endpoint] endpoints
+   method [:get :post]]
+  (let [expected (store-example-nodes)]
+    (testing "should support pretty printing in reports"
+      (let [results (slurp (:body (query-response method endpoint nil {:pretty true})))
+            normal-results (slurp (:body (query-response method endpoint nil {:pretty false})))]
+        (is (not (empty? (json/parse-string results))))
+        (is (> (count (clojure.string/split-lines results))
+               (count (clojure.string/split-lines normal-results))))))))
+
 (deftest-http-app paging-results
   [[version endpoint] endpoints
    method [:get :post]]

@@ -170,12 +170,26 @@
   [[version field] [[:v4 :logs] [:v4 :metrics]]
    method [:get :post]]
   (let [report-hash (:hash (store-example-report! (:basic reports) (now)))
-        basic (assoc (:basic reports) :hash report-hash)
+        basic (assoc (:basic reports)
+                     :hash report-hash)
         get-data (fn [hash field]
-                   (query-result method (format "/v4/reports/%s/%s?pretty=true" hash field)))]
+                   (query-result method
+                                 (format "/v4/reports/%s/%s" hash field)
+                                 nil
+                                 {:pretty true}))]
     (testing (format "%s endpoint returns the proper data" (name field))
       (is (= (get-data report-hash (name field))
              (-> basic field :data set))))))
+
+(deftest-http-app query-with-pretty-printing
+  [[version endpoint] endpoints
+   method [:get :post]]
+  (let [basic1 (:basic reports)]
+    (store-example-report! basic1 (now))
+
+    (testing "should support pretty printing in reports"
+      (let [results (query-result method endpoint nil {:pretty true})]
+        (is (not (empty? results)))))))
 
 (deftest-http-app query-with-paging
   [[version endpoint] endpoints

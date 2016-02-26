@@ -30,6 +30,7 @@
   of the request"
   {(s/optional-key :query) (s/maybe [s/Any])
    (s/optional-key :include_total) (s/maybe s/Bool)
+   (s/optional-key :pretty) (s/maybe s/Bool)
    (s/optional-key :order_by) (s/maybe [[(s/one s/Keyword "field")
                                          (s/one (s/enum :ascending :descending) "order")]])
    (s/optional-key :distinct_resources) (s/maybe s/Bool)
@@ -241,6 +242,7 @@
       (update-when [:limit] parse-limit)
       (update-when [:offset] parse-offset)
       (update-when [:include_total] coerce-to-boolean)
+      (update-when [:pretty] coerce-to-boolean)
       (update-when [:distinct_resources] coerce-to-boolean)))
 
 (defn get-req->query
@@ -251,6 +253,7 @@
       (update-when ["query"] parse-fn)
       (update-when ["order_by"] parse-order-by-json)
       (update-when ["counts_filter"] json/parse-strict-string true)
+      (update-when ["pretty"] coerce-to-boolean)
       keywordize-keys))
 
 (defn post-req->query
@@ -281,13 +284,16 @@
   ([handler param-spec]
    (extract-query handler param-spec pql/parse-json-query))
   ([handler param-spec parse-fn]
-   (fn [{:keys [request-method body params puppetdb-query] :as req}]
+   (fn [{:keys [puppetdb-query] :as req}]
      (handler
       (if puppetdb-query
         req
-        (assoc req
-               :puppetdb-query
-               (create-query-map req param-spec parse-fn)))))))
+        (let [param-spec (update param-spec :optional conj "pretty")
+              query-map (create-query-map req param-spec parse-fn)
+              pretty-print (:pretty query-map)]
+          (-> req
+              (assoc :puppetdb-query query-map)
+              (assoc-in [:globals :pretty-print] pretty-print))))))))
 
 (defn extract-query-pql
   [handler param-spec]
@@ -326,9 +332,14 @@
        (IllegalArgumentException.
          "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
 
+(defn narrow-globals
+  "Reduces the number of globals to limit their reach in the codebase"
+  [globals]
+  (select-keys globals [:scf-read-db :warn-experimental :url-prefix :pretty-print]))
+
 (defn query-handler
   [version]
   (fn [{:keys [params globals puppetdb-query]}]
     (produce-streaming-body version
                             (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-                            (select-keys globals [:scf-read-db :url-prefix :pretty-print :warn-experimental]))))
+                            (narrow-globals globals))))

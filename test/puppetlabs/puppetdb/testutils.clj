@@ -225,7 +225,7 @@
   ([method {:keys [app-fn path query params limit total include_total] :as paged-test-params}]
    {:pre [(= #{} (difference
                   (keyset paged-test-params)
-                  #{:app-fn :path :query :params :limit :total :include_total}))]}
+                  #{:app-fn :path :query :pretty :params :limit :total :include_total}))]}
    (reduce
     (fn [coll n]
       (let [{:keys [status body headers] :as resp} (paged-results* method (assoc paged-test-params :offset (* limit n)))]
