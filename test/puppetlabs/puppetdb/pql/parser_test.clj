@@ -483,11 +483,14 @@
     (are [in] (= (parse in :start :field) [in])
       "certname"
       "value"
-      "field_underscore")
+      "field_underscore"
+      "latest_report?")
 
     (are [in] (insta/failure? (insta/parse parse in :start :field))
       "'asdf'"
       "field-hyphen"
+      "foo?bar"
+      "?"
       ""))
 
   (testing "condregexp"

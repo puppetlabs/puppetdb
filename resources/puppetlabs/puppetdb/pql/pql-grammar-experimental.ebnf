@@ -80,7 +80,7 @@ groupedarglist = <lparens>, [<whitespace>], [arglist], [<whitespace>], <rparens>
 <arglist>      = field, [ [<whitespace>], <','>, [<whitespace>], arglist ];
 
 (* Represents a field from an entity *)
-<field> = #'[a-zA-Z_]+';
+<field> = #'[a-zA-Z_]+\??';
 
 <condregexp>      = '~';
 <condregexparray> = '~>';

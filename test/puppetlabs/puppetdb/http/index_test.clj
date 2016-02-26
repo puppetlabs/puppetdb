@@ -102,16 +102,28 @@
           (is (= 2 (count results)))))
 
       (testing "in a subquery"
-        (let [results (ordered-query-result
-                        method endpoint
-                        ["from" "catalogs"
-                         ["in" "certname"
-                          ["from" "nodes"
-                           ["extract" "certname"]
+        (doseq [query [["from" "catalogs"
+                        ["in" "certname"
+                         ["from" "nodes"
+                          ["extract" "certname"]
+                          ["limit" 1]
+                          ["order_by" ["certname"]]]]]
+                       "catalogs { certname in nodes[certname] { limit 1 order by certname } }"]]
+          (let [results (ordered-query-result method endpoint query)]
+            (is (= 1 (count results)))
+            (is (= "host1" (:certname (first results)))))))
+
+      (testing "in a subquery with multiple fields"
+        (doseq [query [["from" "facts"
+                        ["in" ["certname" "name"]
+                          ["from" "fact_contents"
+                           ["extract" ["certname" "name"]]
                            ["limit" 1]
-                           ["order_by" ["certname"]]]]])]
-          (is (= 1 (count results)))
-          (is (= "host1" (:certname (first results)))))))
+                           ["order_by" ["certname"]]]]]
+                       "facts { [certname,name] in fact_contents[certname,name] { limit 1 order by certname } }"]]
+          (let [results (ordered-query-result method endpoint query)]
+            (is (= 1 (count results)))
+            (is (= "host1" (:certname (first results))))))))
 
     (testing "extract parameters"
       (doseq [query [["from" "nodes"
