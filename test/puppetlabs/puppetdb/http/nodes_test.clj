@@ -330,6 +330,24 @@
           (is (= status http/status-bad-request))
           (is (re-find msg body)))))))
 
+(deftestseq aggregate-functions-on-nodes
+  [[version endpoint] endpoints
+   method [:get :post]]
+
+  (let [expected (store-example-nodes)]
+
+    (testing "ambiguous function column args"
+      (is (= (query-result method endpoint ["extract" [["function" "count" "certname"]]])
+             #{{:count 4}})))
+
+    (testing "ambiguous group by column args"
+      (is (= (query-result method endpoint ["extract" [["function" "count"] "certname"]
+                                            ["group_by" "certname"]])
+             #{{:certname "web2.example.com" :count 1}
+               {:certname "web1.example.com" :count 1}
+               {:certname "db.example.com" :count 1}
+               {:certname "puppet.example.com" :count 1}})))))
+
 (deftestseq paging-results
   [[version endpoint] endpoints
    method [:get :post]]
