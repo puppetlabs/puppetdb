@@ -356,7 +356,7 @@ match on the node itself:
       certname ~ '^web'
     }
 
-You can even combined with other implict subqueries, to provide more complex matching capabilities. This
+They can even be combined with other implict subqueries, to provide more complex matching capabilities. This
 query combined everything before, but with a `resource` subquery for `Package[tomcat]`:
 
     nodes {
