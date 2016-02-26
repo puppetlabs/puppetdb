@@ -58,10 +58,10 @@ expr-not     = ( not, [<whitespace>], expr-not ) | expr-rest;
 subquery = entity, [<whitespace>], where;
 
 (* Conditional expression *)
-condexpression  = (condexpregexp | condexpregexparray | condexpnumber | condexpmatch | condexpin);
+condexpression  = (condexpregexp | condexpregexparray | condexpinequality | condexpmatch | condexpin);
 <condexpregexp> = field, [<whitespace>], condregexp, [<whitespace>], valueregexp;
 <condexpregexparray> = field, [<whitespace>], condregexparray, [<whitespace>], valueregexparray;
-<condexpnumber> = field, [<whitespace>], condnumber, [<whitespace>], valuenumber;
+<condexpinequality> = field, [<whitespace>], condinequality, [<whitespace>], valueordered;
 <condexpmatch>  = field, [<whitespace>], condmatch, [<whitespace>], valuematch;
 <condexpin>     = (field | groupedfieldlist), [<whitespace>], condin, [<whitespace>], valuein;
 
@@ -84,13 +84,13 @@ groupedarglist = <lparens>, [<whitespace>], [arglist], [<whitespace>], <rparens>
 
 <condregexp>      = '~';
 <condregexparray> = '~>';
-<condnumber>      = '>=' | '<=' | '<' | '>';
+<condinequality>      = '>=' | '<=' | '<' | '>';
 <condmatch>       = '=';
 <condin>          = 'in';
 
 <valueregexp>      = string;
 <valueregexparray> = groupedregexplist;
-<valuenumber>      = integer | real;
+<valueordered>      = integer | real | string; (* Dates are parsed as strings *)
 <valuematch>       = string | integer | real | boolean;
 <valuein>          = query | groupedliterallist;
 

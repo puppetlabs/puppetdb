@@ -303,11 +303,8 @@
       [:condexpression "a" "in" [:from "nodes" [:extract "a"]]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :condexpression))
-      "foo >= 'bar'"
       "foo >= true"
-      "foo <= 'bar'"
       "foo <= true"
-      "foo > 'bar'"
       "foo < true"
       "foo ~ /bar/"
       "foo = bar"
@@ -336,16 +333,13 @@
       "a ~> true"
       ""))
 
-  (testing "condexpnumber"
-    (are [in expected] (= (parse in :start :condexpnumber) expected)
+  (testing "condexpinequality"
+    (are [in expected] (= (parse in :start :condexpinequality) expected)
       "a >= 4" ["a" ">=" [:integer "4"]])
 
-    (are [in] (insta/failure? (insta/parse parse in :start :condexpnumber))
-      "a >= 'bar'"
+    (are [in] (insta/failure? (insta/parse parse in :start :condexpinequality))
       "a >= true"
-      "a <= 'bar'"
       "a <= true"
-      "a > 'bar'"
       "a < true"
       ""))
 
@@ -508,14 +502,14 @@
       "="
       ""))
 
-  (testing "condnumber"
-    (are [in] (= (parse in :start :condnumber) [in])
+  (testing "condinequality"
+    (are [in] (= (parse in :start :condinequality) [in])
       ">="
       "<="
       ">"
       "<")
 
-    (are [in] (insta/failure? (insta/parse parse in :start :condnumber))
+    (are [in] (insta/failure? (insta/parse parse in :start :condinequality))
       "="
       "~>"
       "~"
@@ -557,15 +551,14 @@
       "/as/df/"
       ""))
 
-  (testing "valuenumber"
-    (are [in expected] (= (parse in :start :valuenumber) expected)
+  (testing "valueordered"
+    (are [in expected] (= (parse in :start :valueordered) expected)
       "1" [[:integer "1"]]
       "-1" [[:integer "-" "1"]]
-      "1.1" [[:real "1" "." "1"]])
+      "1.1" [[:real "1" "." "1"]]
+      "'2016-02-25'" [[:sqstring "2016-02-25"]])
 
-    (are [in] (insta/failure? (insta/parse parse in :start :valuenumber))
-      "'asdf'"
-      "\"asdf\""
+    (are [in] (insta/failure? (insta/parse parse in :start :valueordered))
       "true"
       "/asdf/"
       ""))
