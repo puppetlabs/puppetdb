@@ -48,7 +48,7 @@
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]
                                                [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]]
-                      :plugins [[puppetlabs/lein-ezbake "0.3.21"
+                      :plugins [[puppetlabs/lein-ezbake "0.3.23"
                                 :exclusions [org.clojure/clojure]]]
                       :version ~pe-pdb-version
                       :name "pe-puppetdb"}
