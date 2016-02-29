@@ -601,15 +601,24 @@
    edges :- edge-db-schema]
 
   (update! (:catalog-volatility performance-metrics) (count edges))
-
-  (doseq [[source target type] edges]
-    ;; This is relatively inefficient. If we have id's for edges, we could do
-    ;; this in 1 statement.
-    (jdbc/delete! :edges
-                  [(format "certname=? and %s=? and %s=? and type=?"
-                           (sutils/sql-hash-as-str "source")
-                           (sutils/sql-hash-as-str "target"))
-                   certname source target type])))
+  
+  (let [pg? (sutils/postgres?)]
+    (doseq [[source target type] edges]
+      ;; This is relatively inefficient. If we have id's for edges, we could do
+      ;; this in 1 statement.
+      (jdbc/delete! :edges
+                    [(str "certname=?"
+                          " and source=?" (when pg? "::bytea")
+                          " and target=?" (when pg? "::bytea")
+                          " and type=?")
+                     certname
+                     (if pg?
+                       (sutils/bytea-escape source)
+                       source)
+                     (if pg?
+                       (sutils/bytea-escape target)
+                       target)
+                     type]))))
 
 (pls/defn-validated insert-edges!
   "Insert edges for a given certname.
