@@ -129,25 +129,27 @@ done.
 
 ## Post-release
 
-1. Update dujour (https://updates.puppetlabs.com/dashboard/). Get the password
+1. Check the [tarball download page](https://downloads.puppetlabs.com/puppetdb/) to ensure the new release is present
+
+2. Update [dujour](https://updates.puppetlabs.com/dashboard/). Get the password
     from someone on the team.
 
-1. Send the announce email to:
+3. Send the announce email to:
    - puppet-announce@googlegroups.com
    - puppet-users@googlegroups.com
    - puppet-dev@googlegroups.com
 
-2. Get a bit.ly link from the marketing hipchat channel
+4. Get a bit.ly link from the marketing hipchat channel
 
-3. Tweet it
+5. Tweet it
 
-4. Give the tweet link to marketing to they can RT it
+6. Give the tweet link to marketing to they can RT it
 
-5. Send a PSA message in irc #puppet and #puppet-dev
+7. Send a PSA message in irc #puppet and #puppet-dev
 
-6. Change the subject of the puppetdb hipchat channel
+8. Change the subject of the puppetdb hipchat channel
 
-7. Close any tickets that have been resolved for the release.
+9. Close any tickets that have been resolved for the release.
 
    https://tickets.puppetlabs.com/issues/?jql=project%20%3D%20PDB%20AND%20resolution%20%3D%20Fixed%20AND%20fixVersion%20%3D%20%22PDB%203.2.4%22%20AND%20status%20%3D%20Resolved
 
@@ -159,4 +161,4 @@ done.
    - Step 4 - Select "Fixed" in Change Resolution.
    - View what is about to change and confirm it. Then commit the change.
 
-7. Consume alcohol
+10. Consume alcohol
