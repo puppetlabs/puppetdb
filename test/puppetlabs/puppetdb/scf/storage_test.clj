@@ -673,14 +673,21 @@
                        "before"] nil})))
 
           (testing "should only delete the 1 edge"
-            (is (= [[:edges [(format "certname=? and %s=? and %s=? and type=?"
-                                     (sutils/sql-hash-as-str "source")
-                                     (sutils/sql-hash-as-str "target"))
-                             "basic.catalogs.com"
-                             "ff0702ba8a7dc69d3fb17f9d151bf9bd265a9ed9"
-                             "57495b553981551c5194a21b9a26554cd93db3d9"
-                             "contains"]]]
-                   (map rest @deletes))))
+            (let [source-hash "ff0702ba8a7dc69d3fb17f9d151bf9bd265a9ed9"
+                  target-hash "57495b553981551c5194a21b9a26554cd93db3d9"]
+              (is (= [[:edges [(str "certname=?"
+                                    " and source=?" (when (sutils/postgres?) "::bytea")
+                                    " and target=?" (when (sutils/postgres?) "::bytea")
+                                    " and type=?")
+                               "basic.catalogs.com"
+                               (if (sutils/postgres?)
+                                 (sutils/bytea-escape source-hash)
+                                 source-hash)
+                               (if (sutils/postgres?)
+                                 (sutils/bytea-escape target-hash)
+                                 target-hash)
+                               "contains"]]]
+                     (map rest @deletes)))))
           (testing "should only insert the 1 edge"
             (is (= [[:edges {:certname "basic.catalogs.com"
                              :source (sutils/munge-hash-for-storage "57495b553981551c5194a21b9a26554cd93db3d9")

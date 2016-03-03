@@ -252,9 +252,14 @@
   [value]
   (str->pgobject "uuid" value))
 
+(defn bytea-escape [s]
+  (format "\\x%s" s))
+
 (defn munge-hash-for-storage
   [hash]
-  (str->pgobject "bytea" (format "\\x%s" hash)))
+  (if (postgres?)
+    (str->pgobject "bytea" (bytea-escape hash))
+    hash))
 
 (defn munge-json-for-storage
   "Prepare a clojure object for storage depending on db type."
