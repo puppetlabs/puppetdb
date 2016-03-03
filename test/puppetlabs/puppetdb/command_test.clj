@@ -99,7 +99,7 @@
   `(let [log-output#     (atom [])
          publish#        (call-counter)
          discard-dir#    (fs/temp-dir "test-msg-handler")
-         handle-message# (mql/create-message-handler
+         handle-message# (mql/wrap-message-handler-middleware
                           publish# discard-dir# #(process-command! % ~db))
          msg#            {:headers {:id "foo-id-1"
                                     :received (tfmt/unparse (tfmt/formatters :date-time) (now))}
