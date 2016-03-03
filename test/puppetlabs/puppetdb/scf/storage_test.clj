@@ -676,16 +676,12 @@
             (let [source-hash "ff0702ba8a7dc69d3fb17f9d151bf9bd265a9ed9"
                   target-hash "57495b553981551c5194a21b9a26554cd93db3d9"]
               (is (= [[:edges [(str "certname=?"
-                                    " and source=?" (when (sutils/postgres?) "::bytea")
-                                    " and target=?" (when (sutils/postgres?) "::bytea")
+                                    " and source=?::bytea"
+                                    " and target=?::bytea"
                                     " and type=?")
                                "basic.catalogs.com"
-                               (if (sutils/postgres?)
-                                 (sutils/bytea-escape source-hash)
-                                 source-hash)
-                               (if (sutils/postgres?)
-                                 (sutils/bytea-escape target-hash)
-                                 target-hash)
+                               (sutils/bytea-escape source-hash)
+                               (sutils/bytea-escape target-hash)
                                "contains"]]]
                      (map rest @deletes)))))
           (testing "should only insert the 1 edge"

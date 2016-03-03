@@ -257,9 +257,7 @@
 
 (defn munge-hash-for-storage
   [hash]
-  (if (postgres?)
-    (str->pgobject "bytea" (bytea-escape hash))
-    hash))
+  (str->pgobject "bytea" (bytea-escape hash)))
 
 (defn munge-json-for-storage
   "Prepare a clojure object for storage depending on db type."
