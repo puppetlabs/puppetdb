@@ -1089,9 +1089,10 @@
     (into (sorted-map)
           (select-keys migrations pending))))
 
-(defn- sql-or-die [f]
+(defn- sql-or-die
   "Calls (f) and returns its result.  If f throws an SQLException,
   logs the exception and its parent and then calls (System/exit 1)"
+  [f]
   ;; Here we've preserved existing behavior, but this may warrant
   ;; further consideration later.  If possible, we might want to
   ;; avoid System/exit in favor of careful exception
@@ -1100,9 +1101,8 @@
     (f)
     (catch java.sql.SQLException e
       (log/error e "Caught SQLException during migration")
-      (let [next (.getNextException e)]
-        (when-not (nil? next)
-          (log/error next "Unravelled exception")))
+      (when-let [next (.getNextException e)]
+        (log/error next "Unravelled exception"))
       (binding [*out* *err*] (flush)) (flush)
       (System/exit 1))))
 
@@ -1157,10 +1157,20 @@
         ;; Make sure we're creating a new connection (the new
         ;; clojure.jdbc API will re-use an existing one).
         (assert (not (:connection db-connection-pool)))
-        (jdbc/with-db-connection db-connection-pool
-          (log/info "Analyzing database")
-          (sql-or-die
-           (fn [] (jdbc/do-commands-outside-txn "vacuum (analyze, verbose)")))))
+        ;; We don't want to stay in maintenance mode while we vaccum analyze,
+        ;; i.e. refuse http requests as this can take quite some time on large
+        ;; databases
+        (future
+          (jdbc/with-db-connection db-connection-pool
+            (log/info "Analyzing database")
+            (try
+              (-> (doto (:connection (jdbc/db)) (.setAutoCommit true))
+                  .createStatement
+                  (.execute "vacuum (analyze, verbose)"))
+              (catch java.sql.SQLException e
+                (log/error e "Caught SQLException during migration")
+                (when-let [next (.getNextException e)]
+                  (log/error next "Unravelled exception")))))))
       (log/info "There are no pending migrations"))))
 
 ;; SPECIAL INDEX HANDLING
