@@ -249,19 +249,20 @@
    {:pre [(= #{} (difference
                   (keyset paged-test-params)
                   #{:app-fn :path :query :params :limit :total :include_total}))]}
-   (reduce
-    (fn [coll n]
-      (let [{:keys [status body headers] :as resp} (paged-results* method (assoc paged-test-params :offset (* limit n)))]
-        (assert-success! resp)
-        (is (>= limit (count body)))
-        (if include_total
-          (do
-            (is (contains? headers paging/count-header))
-            (is (= total (parse-int (headers paging/count-header)))))
-          (is (excludes? headers paging/count-header)))
-        (concat coll body)))
-    []
-    (range (java.lang.Math/ceil (/ total (float limit)))))))
+   (->> (range (java.lang.Math/ceil (/ total (float limit))))
+        (mapcat (fn [n]
+                  (let [req-params (assoc paged-test-params
+                                          :offset (* limit n))
+                        resp (paged-results* method req-params)
+                        {:keys [status body headers]} resp]
+                    (assert-success! resp)
+                    (is (>= limit (count body)))
+                    (if include_total
+                      (do
+                        (is (contains? headers paging/count-header))
+                        (is (= total (parse-int (headers paging/count-header)))))
+                      (is (excludes? headers paging/count-header)))
+                    body))))))
 
 (defn delete-on-exit
   "Will delete file `f` on shutdown of the JVM"
