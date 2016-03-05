@@ -103,6 +103,12 @@
                                             ["group_by" "status"]])
              #{{:status "unchanged", :count 2}})))
 
+    (testing "projected aggregate count call"
+      (is (= (query-result method endpoint ["extract" [["function" "count" "certname"]
+                                                       ["function" "min" "producer_timestamp"]]])
+             #{{:count 2
+                :min "2011-01-01T15:11:00.000Z"}})))
+
     (testing "projected aggregate sum call"
       (is (= (query-result method endpoint ["extract"
                                             [["function" "sum" "report_format"] "status"]

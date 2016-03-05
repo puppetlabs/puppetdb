@@ -884,30 +884,23 @@
       [field name]
       [href-key name])))
 
-(defn merge-function-options
-  "Optionally merge call and grouping into an existing query map.
-   Alias function calls with escape-quoted function name for hsqldb compatability.
-   For instance, (merge-function-options {} ['count' :*] ['status'])"
-  [selection call grouping]
-  (cond-> selection
-    call (hsql/merge-select [(apply hcore/call call) (format "\"%s\"" (first call))])
-    grouping (assoc :group-by (map keyword grouping))))
-
 (defn honeysql-from-query
   "Convert a query to honeysql format"
   [{:keys [projected-fields group-by call selection projections entity]}]
-  (let [expand? (su/postgres?)
-        call (when-let [[f & args] (some-> call utils/vector-maybe)]
-               (apply vector f (or (seq (map keyword args)) [:*])))
-        new-select (if (and call (empty? projected-fields))
-                     []
-                     (->> (sort projections)
-                          (remove (comp :query-only? val))
-                          (mapv #(extract-fields % entity expand?))))]
-    (-> selection
-        (assoc :select new-select)
-        (merge-function-options call group-by)
-        log/spy)))
+  (let [postgres? (su/postgres?)
+        fs (seq (map (fn [f]
+                       [(apply hcore/call f) (cond->> (first f)
+                                               (not postgres?) (format "\"%s\""))]) call))
+        select (if (and fs
+                        (empty? projected-fields))
+                 (vec fs)
+                 (vec (concat (->> (sort projections)
+                                   (remove (comp :query-only? val))
+                                   (mapv #(extract-fields % entity postgres?)))
+                              fs)))
+        new-selection (cond-> (assoc selection :select select)
+                        group-by (assoc :group-by group-by))]
+    (log/spy new-selection)))
 
 (pls/defn-validated sql-from-query :- String
   "Convert a query to honeysql, then to sql"
@@ -1231,7 +1224,7 @@
   (contains? (ks/keyset user-name->query-rec-name)
              (first expr)))
 
-(defn create-extract-node
+(defn create-extract-node*
   "Returns a `query-rec` that has the correct projection for the given
    `column-list`. Updating :projected-fields causes the select in the SQL query
    to be modified."
@@ -1239,34 +1232,54 @@
   (if (or (nil? expr)
           (not (subquery-expression? expr)))
     (assoc query-rec :where (user-node->plan-node query-rec expr)
-      :projected-fields column-list)
+           :projected-fields column-list)
     (let [[subquery-name & subquery-expression] expr]
       (assoc (user-query->logical-obj subquery-name)
-        :projected-fields column-list
-        :where (when (seq subquery-expression)
-                 (user-node->plan-node (user-query->logical-obj subquery-name)
-                                       (first subquery-expression)))))))
+             :projected-fields column-list
+             :where (when (seq subquery-expression)
+                      (user-node->plan-node (user-query->logical-obj subquery-name)
+                                            (first subquery-expression)))))))
+
+(defn strip-function-calls
+  [column-or-columns]
+  (let [{functions true
+         nonfunctions false} (->> column-or-columns
+                                  utils/vector-maybe
+                                  (group-by (comp #(= "function" %) first)))]
+    [(vec (map rest functions))
+     (vec nonfunctions)]))
+
+(defn create-extract-node
+  [query-rec column expr]
+  (let [[fcols cols] (strip-function-calls column)]
+    (if-let [calls (seq
+                    (map (fn [[name & args]]
+                           (apply vector
+                                  name
+                                  (if (empty? args)
+                                    [:*]
+                                    (map (fn [col]
+                                           (if (and (= "facts" (:source-table query-rec))
+                                                    (= "value" col))
+                                             (h/coalesce :fv.value_integer :fv.value_float)
+                                             (get-in query-rec [:projections col :field])))
+                                         args))))
+                         fcols))]
+      (-> query-rec
+          (assoc :call calls)
+          (create-extract-node* cols expr))
+      (create-extract-node* query-rec cols expr))))
 
 (pls/defn-validated columns->fields :- [(s/either s/Keyword SqlCall SqlRaw)]
   "Convert a list of columns to their true SQL field names."
   [query-rec
    columns :- [s/Str]]
-  ; This case expression here could be eliminated if we just used a projections list
-  ; and had the InExpression use that to generate the sql, but as it is the zipper we
-  ; use to walk the plan won't see instances of hashes and uuids among fields that have
-  ; gone through this function
-  (map #(get-in query-rec [:projections % :field]) (sort columns)))
-
-(defn strip-function-calls
-  [column-or-columns]
-  (let [columns (utils/vector-maybe column-or-columns)
-        {[function-call] true nonfunctions false} (group-by #(= "function" (first %)) columns)]
-    [(vec (rest function-call))
-     (vec nonfunctions)]))
-
-(defn replace-numeric-args
-  [fargs]
-  (mapv #(string/replace % #"value" "COALESCE(value_integer,value_float)") fargs))
+  ;; This case expression here could be eliminated if we just used a projections list
+  ;; and had the InExpression use that to generate the sql, but as it is the zipper we
+  ;; use to walk the plan won't see instances of hashes and uuids among fields that have
+  ;; gone through this function
+  (map #(get-in query-rec [:projections % :field])
+       (sort columns)))
 
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
@@ -1353,32 +1366,20 @@
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
 
             [["extract" column]]
-            (let [[fargs cols] (strip-function-calls column)
-                  call (replace-numeric-args fargs)
-                  query-rec-with-call (cond-> query-rec
-                                        (not (empty? call)) (assoc :call call))]
-              (create-extract-node query-rec-with-call cols nil))
+            (create-extract-node query-rec column nil)
 
-            [["extract" columns ["group_by" & clauses]]]
-            (let [[fargs cols] (strip-function-calls columns)]
-              (-> query-rec
-                  (assoc :call (replace-numeric-args fargs))
-                  (assoc :group-by clauses)
-                  (create-extract-node cols nil)))
+            [["extract" column ["group_by" & clauses]]]
+            (-> query-rec
+                (assoc :group-by (columns->fields query-rec clauses))
+                (create-extract-node column nil))
 
             [["extract" column expr]]
-            (let [[fargs cols] (strip-function-calls column)
-                  call (replace-numeric-args fargs)
-                  query-rec-with-call (cond-> query-rec
-                                        (not (empty? call)) (assoc :call call))]
-              (create-extract-node query-rec-with-call cols expr))
+            (create-extract-node query-rec column expr)
 
-            [["extract" columns expr ["group_by" & clauses]]]
-            (let [[fargs cols] (strip-function-calls columns)]
-              (-> query-rec
-                  (assoc :call (replace-numeric-args fargs))
-                  (assoc :group-by clauses)
-                  (create-extract-node cols expr)))
+            [["extract" column expr ["group_by" & clauses]]]
+            (-> query-rec
+                (assoc :group-by (columns->fields query-rec clauses))
+                (create-extract-node column expr))
 
             :else nil))
 
