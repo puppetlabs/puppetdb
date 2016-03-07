@@ -96,10 +96,17 @@
   (set (range min-version (inc max-version))))
 
 (def supported-command-versions
-  {"replace facts" (version-range 2 4)
-   "replace catalog" (version-range 4 8)
-   "store report" (version-range 3 7)
-   "deactivate node" (version-range 1 3)})
+  {;; Old command versions
+   "replace facts" (version-range 2 4)
+   "replace catalog" (version-range 4 7)
+   "store report" (version-range 3 6)
+   "deactivate node" (version-range 1 3)
+
+   ;; New command versions
+   "replace_facts" (version-range 5 5)
+   "replace_catalog" (version-range 8 8)
+   "store_report" (version-range 7 7)
+   "deactivate_node" (version-range 4 4)})
 
 (defn- die-on-header-payload-mismatch
   [name in-header in-body]
@@ -346,20 +353,21 @@
 (defn supported-version? [command version]
   (contains? (get supported-command-versions command #{}) version))
 
-(defn supported-command-version? [command-name [received-command-name received-version]]
+(defn supported-command-version?
+  [possible-command-names [received-command-name received-version]]
   (boolean
-   (and (= command-name received-command-name)
-        (supported-version? command-name received-version))))
+   (and (contains? possible-command-names received-command-name)
+        (supported-version? received-command-name received-version))))
 
 (defn process-command!
   "Takes a command object and processes it to completion. Dispatch is
   based on the command's name and version information"
   [{command-name :command version :version :as command} db]
   (condp supported-command-version? [command-name version]
-    "replace catalog" (replace-catalog command db)
-    "replace facts" (replace-facts command db)
-    "store report" (store-report command db)
-    "deactivate node" (deactivate-node command db)))
+    #{"replace catalog" "replace_catalog"} (replace-catalog command db)
+    #{"replace facts" "replace_facts"} (replace-facts command db)
+    #{"store report" "store_report"} (store-report command db)
+    #{"deactivate node" "deactivate_node"} (deactivate-node command db)))
 
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"
@@ -467,7 +475,7 @@
     (let [config (get-config)
           connection (:connection (service-context this))
           endpoint (get-in config [:command-processing :mq :endpoint])
-          command (if (string? command) command (command-names command))
+          command (if (string? command) command (get command-names command))
           result (do-enqueue-command connection endpoint
                                       command version payload uuid properties)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in

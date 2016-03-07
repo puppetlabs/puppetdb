@@ -80,9 +80,9 @@
      (fn []
        (is (empty? (get-nodes)))
 
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace catalog" 8 example-catalog)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "store report" 7 example-report)
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace facts" 4 example-facts)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace_catalog" 8 example-catalog)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "store_report" 7 example-report)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace_facts" 5 example-facts)
        (#'cli-export/-main "--outfile" export-out-file
                            "--host" (:host svc-utils/*base-url*)
                            "--port" (str (:port svc-utils/*base-url*)))))

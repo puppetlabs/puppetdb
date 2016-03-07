@@ -43,15 +43,21 @@ test_name "structured and trusted facts should be available through facts termin
 
     step "create a custom structured fact" do
       time = Time.now.iso8601
-      payload = <<-EOM
-      -H "Accept: application/json" -H "Content-Type: application/json" \
-      -d '{"command":"replace facts","version":4, \
-      "payload":{"environment":"DEV","certname":"#{master}", \
-      "timestamp": "#{time}", \
-      "producer_timestamp": "#{time}", \
-      "values":{"my_structured_fact":#{JSON.generate(structured_data)}}}}' #{puppetdb_cmd_url}/v1
-      EOM
-      on database, %Q|curl -X POST #{payload}|
+      headers = '-H "Accept: application/json" -H "Content-Type: application/json"'
+      body = {
+        'command' => 'replace_facts',
+        'version' => 5,
+        'payload' => {
+          'environment' => 'DEV',
+          'certname' => master,
+          'timestamp' => time,
+          'producer_timestamp' => time,
+          'values' => {
+            'my_structured_fact' => structured_data
+          }
+        }
+      }
+      on database, %Q|curl -X POST #{puppetdb_cmd_url}/v1 #{headers} -d '#{JSON.generate(body)}'|
     end
 
     # Wait until all the commands have been processed

@@ -25,9 +25,9 @@
   ;;  on which version of the `replace catalog` matches up with the current
   ;;  version of the `catalog` endpoint... or even to query what the latest
   ;;  version of a command is.  We should improve that.
-  {:replace_catalog 7
-   :store_report 6
-   :replace_facts 4})
+  {:replace_catalog 8
+   :store_report 7
+   :replace_facts 5})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utility Functions

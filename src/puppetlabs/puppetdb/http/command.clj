@@ -20,10 +20,17 @@
            [org.apache.commons.fileupload.util LimitedInputStream]))
 
 (def min-supported-commands
-  {"replace catalog" 6
+  {;; Old commands
+   "replace catalog" 6
    "replace facts" 4
    "store report" 5
-   "deactivate node" 3})
+   "deactivate node" 3
+
+   ;; New commands
+   "replace_catalog" 8
+   "replace_facts" 5
+   "store_report" 6
+   "deactivate_node" 4})
 
 (def valid-commands-str (str/join ", " (sort (vals command-names))))
 
@@ -121,9 +128,8 @@
    s/Any s/Any})
 
 (defn-validated normalize-new-request
-  [{:keys [params body] :as req} :- new-request-schema]
+  [req :- new-request-schema]
   (-> req
-      (update-in [:params "command"] str/replace "_" " ")
       (update-in [:params "version"] #(Integer/parseInt %))))
 
 (def old-request-schema
@@ -148,7 +154,8 @@
                       body)
           (-> req
               (assoc :body (json/generate-string (body "payload")))
-              (update :params merge
+              (update :params
+                      merge
                       (select-keys body ["command" "version"])
                       (some->> (get-in body ["payload" "certname"])
                                (hash-map "certname")))))))))
@@ -164,7 +171,7 @@
   is unavoidable (i.e. old-style, non-param POST)."
   [handle]
   (fn [{:keys [params] :as req}]
-    (handle (if (params "command")
+    (handle (if (get params "command")
               (normalize-new-request req)
               (normalize-old-request req)))))
 

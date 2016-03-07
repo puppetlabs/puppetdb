@@ -51,8 +51,8 @@
   (testing "Commands submitted via REST"
 
     (testing "should work when well-formed"
-      (let [payload (form-command "replace facts"
-                                  (get min-supported-commands "replace facts")
+      (let [payload (form-command "replace_facts"
+                                  (get min-supported-commands "replace_facts")
                                   {})
             checksum (kitchensink/utf8-string->sha1 payload)
             req (internal-request {"payload" payload "checksum" checksum})
@@ -92,8 +92,8 @@
                        valid-commands-str)))))
 
     (testing "should 400 when version is retired"
-      (let [min-supported-version (get min-supported-commands "replace facts")
-            misversioned-command (form-command "replace facts"
+      (let [min-supported-version (get min-supported-commands "replace_facts")
+            misversioned-command (form-command "replace_facts"
                                                (dec min-supported-version)
                                                {})
             misversioned-checksum (kitchensink/utf8-string->sha1 misversioned-command)
@@ -105,7 +105,7 @@
         (is (= status
                http/status-bad-request))
         (is (= (:error (json/parse-string body true))
-               (format (str "replace facts version %s is retired. "
+               (format (str "replace_facts version %s is retired. "
                             "The minimum supported version is %s.")
                        (dec min-supported-version)
                        min-supported-version)))))))
@@ -120,8 +120,8 @@
 (deftest-command-app receipt-timestamping
   [[version endpoint] endpoints]
 
-  (let [good-payload  (form-command "replace facts"
-                                    (get min-supported-commands "replace facts")
+  (let [good-payload  (form-command "replace_facts"
+                                    (get min-supported-commands "replace_facts")
                                     {})
         good-checksum (kitchensink/utf8-string->sha1 good-payload)
         request       (fn [payload checksum]
@@ -150,8 +150,7 @@
       (is (identical? (:body before) (:body after)))
       (is (= (dissoc before :params) (dissoc after :params)))
       (is (= (before-params "version") (str (after-params "version"))))
-      (is (= (str/replace (before-params "command") "_" " ")
-             (after-params "command")))
+      (is (= (before-params "command") (after-params "command")))
       (is (= (dissoc before-params "version" "command")
              (dissoc after-params "version" "command"))))))
 
@@ -191,8 +190,8 @@
 ;; tests test it via the altered terminus.
 (deftest-command-app almost-streaming-post
   [[version endpoint] endpoints]
-  (let [replace-ver (get min-supported-commands "replace facts")
-        payload (form-command "replace facts" replace-ver {})
+  (let [replace-ver (get min-supported-commands "replace_facts")
+        payload (form-command "replace_facts" replace-ver {})
         checksum (kitchensink/utf8-string->sha1 payload)
         req (internal-request {"payload" payload "checksum" checksum})
         preq (post-request* endpoint

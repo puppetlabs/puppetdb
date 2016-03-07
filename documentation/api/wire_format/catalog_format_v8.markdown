@@ -18,25 +18,15 @@ canonical: "/puppetdb/latest/api/wire_format/catalog_format_v8.html"
 [type]: /puppet/latest/reference/lang_resources.html#type
 [attributes]: /puppet/latest/reference/lang_resources.html#attributes
 
+
+Catalog wire format: Version 8
+-----
+
 PuppetDB receives catalogs from Puppet masters in the following wire format.
 This format is subtly different from the internal format used by Puppet, so
 catalogs are converted by the
 [PuppetDB catalog terminus](../../connect_puppet_master.html) before they are
 sent.
-
-Catalog interchange format
------
-
-### Version
-
-This is **version 8** of the catalog interchange format.
-
-### Encoding
-
-The entire catalog is serialized as JSON, which requires strict UTF-8 encoding.
-Unless otherwise noted, `null` is not allowed anywhere in the catalog.
-
-### Main data type: Catalog
 
      {
       "certname": <string>,
@@ -256,3 +246,8 @@ only provide Booleans, strings, arrays, and hashes.
 [Resource references][resource_ref] and [numbers][] in attributes are converted
 to strings before being inserted into the catalog. Attributes with [undef][]
 values are not added to the catalog.
+
+### Encoding
+
+The entire catalog is serialized as JSON, which requires strict UTF-8 encoding.
+Unless otherwise noted, `null` is not allowed anywhere in the catalog.

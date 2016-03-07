@@ -24,11 +24,11 @@
        (is (empty? (get-nodes)))
 
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace catalog" 7 example-catalog)
+                                    "replace_catalog" 8 example-catalog)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "store report" 6 example-report)
+                                    "store_report" 7 example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace facts" 4 example-facts)
+                                    "replace_facts" 5 example-facts)
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
@@ -64,7 +64,7 @@
      (fn []
        (is (empty? (get-nodes)))
 
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace facts" 4 example-facts)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace_facts" 5 example-facts)
 
        (is (empty? (get-catalogs example-certname)))
        (is (empty? (get-reports example-certname)))
@@ -105,8 +105,8 @@
 
        (pdb-client/submit-command-via-http! (svc-utils/pdb-cmd-url)
                                             example-certname
-                                            "replace catalog"
-                                            7
+                                            "replace_catalog"
+                                            8
                                             example-catalog)
 
        (is (thrown-with-msg?
