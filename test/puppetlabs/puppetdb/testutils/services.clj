@@ -125,6 +125,9 @@
 (defn pdb-cmd-url []
   (assoc *base-url* :prefix "/pdb/cmd" :version :v1))
 
+(defn pdb-admin-url []
+  (assoc *base-url* :prefix "/pdb/admin" :version :v1))
+
 (defn get-url [base-url suffix & [opts]]
   (let [opts (or opts {:throw-exceptions true
                        :throw-entire-message? true})]
@@ -146,6 +149,9 @@
 (defn get-catalogs [base-url certname]
   (get-json base-url "/catalogs"
             {:query-params {:query (json/generate-string [:= :certname certname])}}))
+
+(defn get-summary-stats [base-url]
+  (get-json base-url "/summary-stats"))
 
 (defmacro with-puppetdb-instance
   "Convenience macro to launch a puppetdb instance"

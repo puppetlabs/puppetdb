@@ -38,20 +38,20 @@
 
 (defn pdb-core-routes [defaulted-config get-shared-globals enqueue-command-fn
                        query-fn enqueue-raw-command-fn response-pub]
-  (let [meta-cfg #(select-keys (get-shared-globals) [:scf-read-db])
+  (let [db-cfg #(select-keys (get-shared-globals) [:scf-read-db])
         get-response-pub #(response-pub)]
     (map #(apply wrap-with-context %)
          (partition
           2
           ;; The remaining get-shared-globals args are for wrap-with-globals.
-          ["/meta" (meta/build-app meta-cfg defaulted-config)
+          ["/meta" (meta/build-app db-cfg defaulted-config)
            "/cmd" (cmd/command-app get-shared-globals
                                    enqueue-raw-command-fn
                                    get-response-pub
                                    (conf/reject-large-commands? defaulted-config)
                                    (conf/max-command-size defaulted-config))
            "/query" (server/build-app get-shared-globals)
-           "/admin" (admin/build-app enqueue-command-fn query-fn)
+           "/admin" (admin/build-app enqueue-command-fn query-fn db-cfg)
            (route/not-found "Not Found")]))))
 
 (defn pdb-app [root defaulted-config maint-mode-fn app-routes]
