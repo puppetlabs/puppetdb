@@ -5,7 +5,7 @@
             [puppetlabs.puppetdb.fixtures :as fixt]
             [clojure.test :refer :all]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.testutils :refer [paged-results deftestseq
+            [puppetlabs.puppetdb.testutils :refer [deftestseq
                                                    parse-result]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
                                                         query-result

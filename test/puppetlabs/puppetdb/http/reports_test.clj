@@ -173,11 +173,12 @@
   [[version endpoint] endpoints
   method [:get :post]]
 
-  (let [basic1 (:basic reports)
+  (let [munge (fn [d] (set (map #(update-in % [:resource_events :data] set) d)))
+        basic1 (:basic reports)
         _ (store-example-report! basic1 (now))
         basic2 (assoc (:basic2 reports) :certname "bar.local")
         _ (store-example-report! basic2 (now))
-        initial-response (query-result method endpoint)
+        initial-response (munge (query-result method endpoint))
         json-type (if (sutils/postgres?) "::json" "")]
 
     (testing "response is the same with logs split between json and jsonb"
@@ -189,7 +190,7 @@
         "update reports
          set logs=null where certname='foo.local'")
 
-      (is (= (query-result method endpoint) initial-response)))
+      (is (= (munge (query-result method endpoint)) initial-response)))
 
     (testing "response is the same with all logs in json column"
       (jdbc/do-commands
@@ -200,7 +201,7 @@
         "update reports
          set logs=null where certname='bar.local'")
 
-      (is (= (query-result method endpoint) initial-response)))))
+      (is (= (munge (query-result method endpoint)) initial-response)))))
 
 (def my-reports
   (-> reports
