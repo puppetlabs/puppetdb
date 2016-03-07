@@ -5,6 +5,9 @@ canonical: "/puppetdb/latest/api/query/tutorial.html"
 ---
 
 [array]: ./v4/ast.html#array
+[curl]: ./curl.html
+[select]: ./v4/ast.html#selectentity-subquery-statements
+[config_jetty]: ../../configure.html#jetty-http-settings
 
 This page walks through the construction of several types of PuppetDB
 queries. We use the **version 4 API** in all examples.
@@ -20,7 +23,7 @@ Queries are usually issued from code, but you can easily issue them from the com
 
 ### Querying with curl
 
-[See the curl tips page for more information about constructing curl commands.](./curl.html)
+[See the curl tips page for more information about constructing curl commands.][curl]
 
 **Without SSL:**
 
@@ -33,7 +36,6 @@ Queries are usually issued from code, but you can easily issue them from the com
 
 This requires that PuppetDB be [configured to accept non-SSL connections][config_jetty]. By default, it will only accept unencrypted traffic from `localhost`.
 
-[config_jetty]: ../../configure.html#jetty-http-settings
 
 **With SSL:**
 
@@ -199,27 +201,33 @@ This gives results that look something like this:
     [ {
       "certname" : "foo.example.com",
       "name" : "architecture",
-      "value" : "amd64"
+      "value" : "amd64",
+      "environment" : "production"
     }, {
       "certname" : "foo.example.com",
       "name" : "fqdn",
-      "value" : "foo.example.com"
+      "value" : "foo.example.com",
+      "environment" : "production"
     }, {
       "certname" : "foo.example.com",
       "name" : "hostname",
-      "value" : "foo"
+      "value" : "foo",
+      "environment" : "production"
     }, {
       "certname" : "foo.example.com",
       "name" : "ipaddress",
-      "value" : "192.168.100.102"
+      "value" : "192.168.100.102",
+      "environment" : "production"
     }, {
       "certname" : "foo.example.com",
       "name" : "kernel",
-      "value" : "Linux"
+      "value" : "Linux",
+      "environment" : "production"
     }, {
       "certname" : "foo.example.com",
       "name" : "kernelversion",
-      "value" : "2.6.32"
+      "value" : "2.6.32",
+      "environment" : "production"
     } ]
 
 ### Fact attributes
@@ -246,8 +254,8 @@ supported for fact values:
       [">=", "value", 100000],
       ["<", "value", 1000000]]
 
-This will find nodes for which the "uptime_seconds" fact is in the half-open
-range [100000, 1000000). Numeric comparisons will *always be false* for fact
+This will find nodes for which the "uptime_seconds" fact is in the
+range 100000 to 1000000. Numeric comparisons will *always be false* for fact
 values which are not numeric. Importantly, version numbers such as 2.6.12 are
 not numeric, and numeric comparison operators can't be used with them at
 this time.
@@ -343,4 +351,5 @@ At this point, our query seems a lot like the one above, except we didn't have t
 Similarly, there are "select_facts", "select_nodes", and "select_fact_contents" operators,
 which will perform subqueries against the facts, nodes, and fact-contents endpoints.
 Any subquery operator is usable from any queryable endpoint. Subqueries may be nested,
-and multiple subqueries may be used in a single query.
+and multiple subqueries may be used in a single query. For more information see
+the [`select_<ENTITY>` documentation][select].
