@@ -10,18 +10,7 @@ module Puppet::Util::Puppetdb
   class Http
     SERVER_URL_FAIL_MSG = "Failing over to the next PuppetDB server_url in the 'server_urls' list"
 
-    if RUBY_PLATFORM == 'java'
-      begin
-        @@last_good_query_server_url_index = com::puppetlabs::puppetserver::PuppetDBTerminusState.getSharedStateAtom()
-        @@last_good_query_server_url_index.compareAndSet(nil, 0)
-      rescue NameError
-        @@last_good_query_server_url_index = Atom.new(0)
-        Puppet.warning "Couldn't load the PuppetDB shared state component; please upgrade to a newer PuppetServer. " \
-          "Falling back to per-JRuby storage."
-      end
-    else
-      @@last_good_query_server_url_index = Atom.new(0)
-    end
+    @@last_good_query_server_url_index = Atom.new(0)
 
     # Concat two server_url snippets, taking into account a trailing/leading slash to
     # ensure a correct server_url is constructed
