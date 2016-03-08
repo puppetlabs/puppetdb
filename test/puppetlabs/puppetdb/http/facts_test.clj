@@ -25,7 +25,8 @@
                      clear-db-for-testing!
                      init-db
                      defaulted-read-db-config
-                     defaulted-write-db-config]]
+                     defaulted-write-db-config
+                     with-test-db]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
                      deftest-http-app
@@ -33,7 +34,8 @@
                      query-result
                      vector-param]]
             [puppetlabs.puppetdb.utils :as utils]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils]
+            [puppetlabs.puppetdb.testutils.services :as svc-utils
+             :refer [call-with-puppetdb-instance]]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.middleware :as mid]))
@@ -636,7 +638,7 @@
        (clear-db-for-testing! write-config)
        (init-db read-config true)
        (init-db write-config false)
-       (svc-utils/call-with-puppetdb-instance
+       (call-with-puppetdb-instance
         config
         (fn []
           (let [pdb (get-service svc-utils/*server* :PuppetDBServer)
@@ -1861,3 +1863,25 @@
   (let [{:keys [status body]} (query-response method endpoint)]
     (is (= status http/status-not-found))
     (is (= {:error "No information is known about factset foo"} (json/parse-string body true)))))
+
+(deftest developer-pretty-print
+  (let [facts-body (fn [pretty?]
+                     (with-test-db
+                       (call-with-puppetdb-instance
+                        (-> (svc-utils/create-temp-config)
+                            (assoc :database *db*)
+                            (assoc-in [:developer :pretty-print] (str pretty?)))
+                        (fn []
+                          (let [facts {:certname "foo"
+                                       :timestamp reference-time
+                                       :environment "DEV"
+                                       :producer_timestamp reference-time
+                                       :values{"foo" "bar"
+                                               "baz" "bax"}}]
+                            (jdbc/with-transacted-connection *db*
+                              (scf-store/add-certname! "foo")
+                              (scf-store/add-facts! facts))
+                            (-> (svc-utils/pdb-query-url)
+                                (svc-utils/get-url "/facts")))))))]
+    (is (not (re-find #"\n\}, \{\n" (facts-body false))))
+    (is (re-find #"\n\}, \{\n" (facts-body true)))))
