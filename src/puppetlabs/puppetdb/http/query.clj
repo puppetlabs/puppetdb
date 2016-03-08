@@ -290,7 +290,8 @@
         req
         (let [param-spec (update param-spec :optional conj "pretty")
               query-map (create-query-map req param-spec parse-fn)
-              pretty-print (:pretty query-map)]
+              pretty-print (:pretty query-map
+                                    (get-in req [:globals :pretty-print]))]
           (-> req
               (assoc :puppetdb-query query-map)
               (assoc-in [:globals :pretty-print] pretty-print))))))))

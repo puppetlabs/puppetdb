@@ -97,15 +97,17 @@
 
 (defn call-with-http-app
   "Builds an HTTP app and make it available as *app* during the
-  execution of (f)."
-  [f]
-  (let [get-shared-globals (constantly {:scf-read-db *db*
-                                        :scf-write-db *db*
-                                        :url-prefix ""})]
-    (binding [*app* (wrap-with-puppetdb-middleware
-                     (server/build-app get-shared-globals)
-                     nil)]
-      (f))))
+  execution of (f).  Calls (adjust-globals default-globals) if
+  adjust-globals is provided."
+  ([f] (call-with-http-app f identity))
+  ([f adjust-globals]
+   (let [get-shared-globals #(adjust-globals {:scf-read-db *db*
+                                              :scf-write-db *db*
+                                              :url-prefix ""})]
+     (binding [*app* (wrap-with-puppetdb-middleware
+                      (server/build-app get-shared-globals)
+                      nil)]
+       (f)))))
 
 (defmacro with-http-app
   [& body]
