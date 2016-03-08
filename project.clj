@@ -60,9 +60,9 @@
                  [org.postgresql/postgresql "9.4-1206-jdbc4"]
 
                  ;; MQ connectivity
-                 [org.apache.activemq/activemq-broker "5.13.1" :exclusions [org.slf4j/slf4j-api]]
-                 [org.apache.activemq/activemq-kahadb-store "5.13.1" :exclusions [org.slf4j/slf4j-api]]
-                 [org.apache.activemq/activemq-pool "5.13.1" :exclusions [org.slf4j/slf4j-api]]
+                 [org.apache.activemq/activemq-broker "5.13.2" :exclusions [org.slf4j/slf4j-api]]
+                 [org.apache.activemq/activemq-kahadb-store "5.13.2" :exclusions [org.slf4j/slf4j-api]]
+                 [org.apache.activemq/activemq-pool "5.13.2" :exclusions [org.slf4j/slf4j-api]]
 
                  ;; Parsing library required by PQL
                  [instaparse "1.4.1"]
