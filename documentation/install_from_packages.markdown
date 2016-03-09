@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2: Installing PuppetDB from packages"
+title: "PuppetDB 4.0: Installing PuppetDB from packages"
 layout: default
 canonical: "/puppetdb/latest/install_from_packages.html"
 ---

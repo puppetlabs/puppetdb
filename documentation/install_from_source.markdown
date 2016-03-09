@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2: Installing PuppetDB from source"
+title: "PuppetDB 4.0: Installing PuppetDB from source"
 layout: default
 canonical: "/puppetdb/latest/install_from_source.html"
 ---

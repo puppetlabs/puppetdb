@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2: Summary-stats endpoint"
+title: "PuppetDB 4.0: Summary-stats endpoint"
 layout: default
 canonical "/puppetdb/latest/api/admin/v1/summary-stats.markdown
 ---

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2: Version endpoint"
+title: "PuppetDB 4.0: Version endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/meta/v1/version.html"
 ---

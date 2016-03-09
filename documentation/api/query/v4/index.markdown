@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2: Root endpoint (experimental)"
+title: "PuppetDB 4.0: Root endpoint (experimental)"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/index.html"
 ---

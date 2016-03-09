@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2: Facts endpoint"
+title: "PuppetDB 4.0: Facts endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/facts.html"
 ---

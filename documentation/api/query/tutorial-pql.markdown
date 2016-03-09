@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2: PQL query tutorial"
+title: "PuppetDB 4.0: PQL query tutorial"
 layout: default
 canonical: "/puppetdb/latest/api/query/tutorial-pql.html"
 ---

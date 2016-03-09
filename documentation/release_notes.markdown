@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2: Release notes"
+title: "PuppetDB 4.0: Release notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
@@ -13,7 +13,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 3.2.4
 -----
 
-PuppetDB 3.2.4 is a backward-compatible security and bugfix release that fixes a
+PuppetDB 4.0.4 is a backward-compatible security and bugfix release that fixes a
 directory permissions issue, improves the performance of certain metrics
 queries, and reduces the size of anonymized export tarballs.
 
@@ -64,7 +64,7 @@ Kurt Wall, Russell Mull, Ryan Senior, Sean P. McDonald, and Wyatt Alt
 3.2.3
 -----
 
-PuppetDB 3.2.3 is a bugfix release that addresses an issue affecting new
+PuppetDB 4.0.3 is a bugfix release that addresses an issue affecting new
 installs on non-english PostgreSQL installations, as well as submission
 failures that can occur on catalogs containing large amounts of binary data.
 
@@ -101,7 +101,7 @@ Senior, and Wyatt Alt
 3.2.2
 -----
 
-PuppetDB 3.2.2 is a bugfix release that should improve query
+PuppetDB 4.0.2 is a bugfix release that should improve query
 performance for some fields, and changes ssl-setup to not depend on
 the `puppet master` command.
 
@@ -132,12 +132,12 @@ Ryan Senior, Wayne Warren, and Wyatt Alt.
 3.2.1
 -----
 
-PuppetDB 3.2.1 was not publicly released.
+PuppetDB 4.0.1 was not publicly released.
 
 3.2.0
 -----
 
-PuppetDB 3.2.0 is a backward-compatible feature release that introduces some new
+PuppetDB 4.0.0 is a backward-compatible feature release that introduces some new
 API fields and parameters, better UTF-8 handling, a new experimental way of
 performing subqueries, and many more enhancements and bug fixes.
 

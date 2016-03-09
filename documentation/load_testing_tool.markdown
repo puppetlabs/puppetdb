@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2: Load testing"
+title: "PuppetDB 4.0: Load testing"
 layout: default
 canonical: "/puppetdb/latest/load_testing_tool.html"
 ---
