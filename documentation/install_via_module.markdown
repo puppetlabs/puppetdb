@@ -6,15 +6,18 @@ canonical: "/puppetdb/latest/install_via_module.html"
 
 [module]: http://forge.puppetlabs.com/puppetlabs/puppetdb
 [config_with_module]: ./configure.html#playing-nice-with-the-puppetdb-module
-[migrating]: ./migrate.html
 
-> **Note:** If you are running Puppet Enterprise version 3.0 or later, you do not need to install PuppetDB, as it is already installed as part of PE.
+You can install and configure all of PuppetDB's components and prerequisites
+(including PuppetDB itself, PostgreSQL, firewall rules on RedHat-like systems,
+and the PuppetDB-termini for your Puppet master) using
+[the PuppetDB module][module] from the Puppet Forge.
 
-You can install and configure all of PuppetDB's components and prerequisites (including PuppetDB itself, PostgreSQL, firewall rules on RedHat-like systems, and the
-PuppetDB-termini for your Puppet master) using [the PuppetDB module][module] from the Puppet Forge.
-
-* If you are **already familiar with Puppet** and have a working Puppet deployment, this is the easiest method for installing PuppetDB. In this guide, we expect that you already know how to assign Puppet classes to nodes.
-* If you are **just getting started with Puppet,** you may find it easier to follow our guide to [installing PuppetDB from packages](./install_from_packages.html).
+* If you are **already familiar with Puppet** and have a working Puppet
+  deployment, this is the easiest method for installing PuppetDB. In this guide,
+  we expect that you already know how to assign Puppet classes to nodes.
+* If you are **just getting started with Puppet,** you may find it easier to
+  follow our guide to
+  [installing PuppetDB from packages](./install_from_packages.html).
 
 Step 1: Enable the Puppet Labs package repository
 -----

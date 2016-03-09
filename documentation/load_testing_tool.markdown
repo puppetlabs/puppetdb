@@ -4,7 +4,7 @@ layout: default
 canonical: "/puppetdb/latest/load_testing_tool.html"
 ---
 
-[export]: ./migrate.html
+[export]: ./anonymization.html
 
 A basic tool for simulating PuppetDB loads is included with
 the standard PuppetDB distribution. **This tool is currently experimental
