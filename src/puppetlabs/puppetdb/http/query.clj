@@ -88,7 +88,9 @@
       ["extract" columns crit]
 
       [["extract" columns subquery]]
-      ["extract" columns (add-criteria crit subquery)]
+      (if (= "group_by" (first subquery))
+        ["extract" columns crit subquery]
+        ["extract" columns ["and" subquery crit]])
 
       [["extract" columns subquery clauses]]
       ["extract" columns (add-criteria crit subquery) clauses]

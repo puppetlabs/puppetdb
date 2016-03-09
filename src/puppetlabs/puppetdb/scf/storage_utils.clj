@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.scf.storage-utils
   (:require [clojure.java.jdbc :as sql]
+            [clojure.tools.logging :as log]
             [honeysql.core :as hcore]
             [honeysql.format :as hfmt]
             [clojure.string :as str]
@@ -281,3 +282,18 @@
           (= answer 42)))
       (catch Exception _
         false))))
+
+(defn async-vacuum-analyze
+  "We don't want to stay in maintenance mode while we vaccum analyze,
+  i.e. refuse http requests as this can take quite some time on large
+  databases"
+  [db-connection-pool]
+  (future
+    (jdbc/with-db-connection db-connection-pool
+      (log/info "Analyzing database")
+      (try
+        (jdbc/do-commands-outside-txn "vacuum (analyze, verbose)")
+        (catch java.sql.SQLException e
+          (log/error e "Caught SQLException during migration")
+          (when-let [next (.getNextException e)]
+            (log/error next "Unravelled exception")))))))

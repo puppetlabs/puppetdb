@@ -882,28 +882,21 @@
   [[name {:keys [field]}] entity]
   [field name])
 
-(defn merge-function-options
-  "Optionally merge call and grouping into an existing query map.
-   For instance, (merge-function-options {} ['count' :*] ['status'])"
-  [selection call grouping]
-  (cond-> selection
-    call (hsql/merge-select [(apply hcore/call call) (first call)])
-    grouping (assoc :group-by (map keyword grouping))))
-
 (defn honeysql-from-query
   "Convert a query to honeysql format"
   [{:keys [projected-fields group-by call selection projections entity]}]
-  (let [call (when-let [[f & args] (some-> call utils/vector-maybe)]
-               (apply vector f (or (seq (map keyword args)) [:*])))
-        new-select (if (and call (empty? projected-fields))
-                     []
-                     (->> (sort projections)
-                          (remove (comp :query-only? val))
-                          (mapv #(extract-fields % entity))))]
-    (-> selection
-        (assoc :select new-select)
-        (merge-function-options call group-by)
-        log/spy)))
+  (let [fs (seq (map (fn [f]
+                       [(apply hcore/call f) (first f)]) call))
+        select (if (and fs
+                        (empty? projected-fields))
+                 (vec fs)
+                 (vec (concat (->> (sort projections)
+                                   (remove (comp :query-only? val))
+                                   (mapv #(extract-fields % entity)))
+                              fs)))
+        new-selection (cond-> (assoc selection :select select)
+                        group-by (assoc :group-by group-by))]
+    (log/spy new-selection)))
 
 (pls/defn-validated sql-from-query :- String
   "Convert a query to honeysql, then to sql"
@@ -1257,7 +1250,7 @@
   (contains? (ks/keyset user-name->query-rec-name)
              (first expr)))
 
-(defn create-extract-node
+(defn create-extract-node*
   "Returns a `query-rec` that has the correct projection for the given
    `column-list`. Updating :projected-fields causes the select in the SQL query
    to be modified."
@@ -1265,7 +1258,7 @@
   (if (or (nil? expr)
           (not (subquery-expression? expr)))
     (assoc query-rec :where (user-node->plan-node query-rec expr)
-      :projected-fields column-list)
+           :projected-fields column-list)
     (let [[subquery-name & subquery-expression] expr]
       (assoc (user-query->logical-obj subquery-name)
         :projected-fields column-list
@@ -1342,14 +1335,33 @@
 
 (defn strip-function-calls
   [column-or-columns]
-  (let [columns (utils/vector-maybe column-or-columns)
-        {[function-call] true nonfunctions false} (group-by #(= "function" (first %)) columns)]
-    [(vec (rest function-call))
+  (let [{functions true
+         nonfunctions false} (->> column-or-columns
+                                  utils/vector-maybe
+                                  (group-by (comp #(= "function" %) first)))]
+    [(vec (map rest functions))
      (vec nonfunctions)]))
 
-(defn replace-numeric-args
-  [fargs]
-  (mapv #(str/replace % #"value" "COALESCE(value_integer,value_float)") fargs))
+(defn create-extract-node
+  [query-rec column expr]
+  (let [[fcols cols] (strip-function-calls column)]
+    (if-let [calls (seq
+                    (map (fn [[name & args]]
+                           (apply vector
+                                  name
+                                  (if (empty? args)
+                                    [:*]
+                                    (map (fn [col]
+                                           (if (and (= "facts" (:source-table query-rec))
+                                                    (= "value" col))
+                                             (h/coalesce :fv.value_integer :fv.value_float)
+                                             (get-in query-rec [:projections col :field])))
+                                         args))))
+                         fcols))]
+      (-> query-rec
+          (assoc :call calls)
+          (create-extract-node* cols expr))
+      (create-extract-node* query-rec cols expr))))
 
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
@@ -1471,32 +1483,20 @@
             (create-from-node entity expr clauses)
 
             [["extract" column]]
-            (let [[fargs cols] (strip-function-calls column)
-                  call (replace-numeric-args fargs)
-                  query-rec-with-call (cond-> query-rec
-                                        (not (empty? call)) (assoc :call call))]
-              (create-extract-node query-rec-with-call cols nil))
+            (create-extract-node query-rec column nil)
 
             [["extract" column ["group_by" & clauses]]]
-            (let [[fargs cols] (strip-function-calls column)
-                  call (replace-numeric-args fargs)
-                  query-rec-with-call (cond-> (assoc query-rec :group-by clauses)
-                                        (not (empty? call)) (assoc :call call))]
-              (create-extract-node query-rec-with-call cols nil))
+            (-> query-rec
+                (assoc :group-by (columns->fields query-rec clauses))
+                (create-extract-node column nil))
 
             [["extract" column expr]]
-            (let [[fargs cols] (strip-function-calls column)
-                  call (replace-numeric-args fargs)
-                  query-rec-with-call (cond-> query-rec
-                                        (not (empty? call)) (assoc :call call))]
-              (create-extract-node query-rec-with-call cols expr))
+            (create-extract-node query-rec column expr)
 
             [["extract" column expr ["group_by" & clauses]]]
-            (let [[fargs cols] (strip-function-calls column)
-                  call (replace-numeric-args fargs)
-                  query-rec-with-call (cond-> (assoc query-rec :group-by clauses)
-                                        (not (empty? call)) (assoc :call call))]
-              (create-extract-node query-rec-with-call cols expr))
+            (-> query-rec
+                (assoc :group-by (columns->fields query-rec clauses))
+                (create-extract-node column expr))
 
             :else nil))
 

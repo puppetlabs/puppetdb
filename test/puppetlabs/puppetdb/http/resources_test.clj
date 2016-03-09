@@ -214,6 +214,13 @@ to the result of the form supplied to this method."
                           :path    endpoint
                           :limit   2
                           :total   (count expected)
+                          :params {:order_by (json/generate-string
+                                              [{:field :certname
+                                                :order :desc}
+                                               {:field :type
+                                                :order :desc}
+                                               {:field :title
+                                                :order :desc}])}
                           :include_total  count?})]
             (is (= (count results) (count expected)))
             (is (= (set (vals expected))

@@ -95,6 +95,18 @@
                                             ["not" ["=" "certname" (:certname basic)]]])
              #{{:hash bar-report-hash}})))
 
+    (testing "projected aggregate count call"
+      (is (= (query-result method endpoint ["extract" [["function" "count"] "status"]
+                                            ["~" "certname" ".*"]
+                                            ["group_by" "status"]])
+             #{{:status "unchanged", :count 2}})))
+
+    (testing "projected aggregate count call"
+      (is (= (query-result method endpoint ["extract" [["function" "count" "certname"]
+                                                       ["function" "min" "producer_timestamp"]]])
+             #{{:count 2
+                :min "2011-01-01T15:11:00.000Z"}})))
+
     (testing "projected aggregate sum call"
       (is (= (query-result method endpoint ["extract" ["status"]
                                             ["group_by" "status"]])
@@ -194,22 +206,24 @@
 (deftest-http-app query-with-paging
   [[version endpoint] endpoints
    method [:get :post]]
-
   (let [basic1 (:basic reports)
-        _      (store-example-report! basic1 (now))
+        _ (store-example-report! basic1 (now))
         basic2 (:basic2 reports)
-        _      (store-example-report! basic2 (now))]
+        _ (store-example-report! basic2 (now))]
 
     (doseq [[label count?] [["without" false]
                             ["with" true]]]
       (testing (str "should support paging through reports " label " counts")
-        (let [results       (paged-results
-                             {:app-fn  *app*
-                              :path    endpoint
-                              :query   ["=" "certname" (:certname basic1)]
-                              :limit   1
-                              :total   2
-                              :include_total  count?})]
+        (let [results (paged-results
+                       {:app-fn *app*
+                        :path endpoint
+                        :query ["=" "certname" (:certname basic1)]
+                        :limit 1
+                        :total 2
+                        :params {:order_by (json/generate-string
+                                            [{:field :transaction_uuid
+                                              :order :desc}])}
+                        :include_total count?})]
           (is (= 2 (count results)))
           (is (= (munge-reports-for-comparison [basic1 basic2])
                  (munge-reports-for-comparison results))))))))
@@ -218,11 +232,12 @@
   [[version endpoint] endpoints
   method [:get :post]]
 
-  (let [basic1 (:basic reports)
+  (let [munge (fn [d] (set (map #(update-in % [:resource_events :data] set) d)))
+        basic1 (:basic reports)
         _ (store-example-report! basic1 (now))
         basic2 (assoc (:basic2 reports) :certname "bar.local")
         _ (store-example-report! basic2 (now))
-        initial-response (query-result method endpoint)]
+        initial-response (munge (query-result method endpoint))]
 
     (testing "response is the same with logs split between json and jsonb"
       (jdbc/do-commands
@@ -232,7 +247,7 @@
             where reports.certname='foo.local'"
        "update reports set logs=null where certname='foo.local'")
 
-      (is (= (query-result method endpoint) initial-response)))
+      (is (= (munge (query-result method endpoint)) initial-response)))
 
     (testing "response is the same with all logs in json column"
       (jdbc/do-commands
@@ -242,7 +257,7 @@
             where reports.certname='bar.local'"
         "update reports set logs=null where certname='bar.local'")
 
-      (is (= (query-result method endpoint) initial-response)))))
+      (is (= (munge (query-result method endpoint)) initial-response)))))
 
 (def my-reports
   (-> reports

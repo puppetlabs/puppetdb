@@ -195,13 +195,16 @@
 
 (defn initialize-schema
   "Ensure the database is migrated to the latest version, and warn if
-  it's deprecated, log and exit if it's unsupported."
+  it's deprecated, log and exit if it's unsupported.
+
+  This function will return true iff any migrations were run."
   [db-conn-pool config]
   (jdbc/with-db-connection db-conn-pool
     (scf-store/validate-database-version #(System/exit 1))
     @sutils/db-metadata
-    (migrate! db-conn-pool)
-    (indexes! config)))
+    (let [migrated? (migrate! db-conn-pool)]
+      (indexes! config)
+      migrated?)))
 
 (defn init-with-db
   "All initialization operations needing a database connection should
@@ -209,7 +212,9 @@
   `write-db-config` that will hang until it is able to make a
   connection to the database. This covers the case of the database not
   being fully started when PuppetDB starts. This connection pool will
-  be opened and closed within the body of this function."
+  be opened and closed within the body of this function.
+
+  This function will return true iff any migrations were run."
   [write-db-config config]
   (loop [db-spec (assoc write-db-config
                         ;; Block waiting to grab a connection
@@ -251,7 +256,8 @@
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
 
-    (init-with-db database config)
+    (when (init-with-db database config)
+      (sutils/async-vacuum-analyze write-db))
 
     (let [population-registry (get-in metrics/metrics-registries [:population :registry])]
       (pop/initialize-population-metrics! population-registry read-db))

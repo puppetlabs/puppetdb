@@ -4,8 +4,7 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [clojure.test :refer :all]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.testutils :refer [paged-results
-                                                   parse-result]]
+            [puppetlabs.puppetdb.testutils :refer [parse-result]]
             [puppetlabs.puppetdb.testutils.db :refer [*db*]]
             [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
                                                         query-response
