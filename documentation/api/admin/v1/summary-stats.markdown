@@ -1,7 +1,6 @@
 ---
 title: "PuppetDB 4.0: Summary-stats endpoint"
 layout: default
-canonical "/puppetdb/latest/api/admin/v1/summary-stats.markdown
 ---
 
 > **Experimental Endpoint**: The summary-stats endpoint is designated
