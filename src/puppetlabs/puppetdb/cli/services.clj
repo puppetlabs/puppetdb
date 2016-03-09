@@ -194,13 +194,16 @@
   it's deprecated, log and exit if it's unsupported. We do this in a
   single connection because HSQLDB seems to get confused if the
   database doesn't exist but we open and close a connection without
-  creating anything."
+  creating anything.
+
+  This function will return true iff any migrations were run."
   [db-conn-pool config]
   (jdbc/with-db-connection db-conn-pool
     (scf-store/validate-database-version #(System/exit 1))
     @sutils/db-metadata
-    (migrate! db-conn-pool)
-    (indexes! config)))
+    (let [migrated? (migrate! db-conn-pool)]
+      (indexes! config)
+      migrated?)))
 
 (defn init-with-db
   "All initialization operations needing a database connection should
@@ -208,7 +211,9 @@
   `write-db-config` that will hang until it is able to make a
   connection to the database. This covers the case of the database not
   being fully started when PuppetDB starts. This connection pool will
-  be opened and closed within the body of this function."
+  be opened and closed within the body of this function.
+
+  This function will return true iff any migrations were run."
   [write-db-config config]
   (with-open [init-db-pool (jdbc/make-connection-pool
                             (assoc write-db-config
@@ -241,7 +246,9 @@
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
 
-    (init-with-db database config)
+    (when (init-with-db database config)
+      (sutils/async-vacuum-analyze write-db))
+
     (pop/initialize-metrics read-db)
 
     (when (.exists discard-dir)

@@ -1615,7 +1615,9 @@
   "Migrates database to the latest schema version. Does nothing if
   database is already at the latest schema version.  Requires a
   connection pool because some operations may require an indepdendent
-  database connection."
+  database connection.
+
+  This function will return true iff any migrations were run."
   [db-connection-pool]
   (if-let [unexpected (first (difference (applied-migrations) (kitchensink/keyset migrations)))]
     (throw (IllegalStateException.
@@ -1624,31 +1626,13 @@
   (if-let [pending (seq (pending-migrations))]
     (do
       (jdbc/with-db-transaction []
-       (doseq [[version migration] pending]
-         (log/infof "Applying database migration version %d" version)
-         (sql-or-die (fn [] (migration) (record-migration! version)))))
-      (when (sutils/postgres?)
-        ;; Make sure all tables (even small static tables) are
-        ;; analyzed at least once.  Note that vacuum cannot be
-        ;; called from within a transaction block.
-        ;; Make sure we're creating a new connection (the new
-        ;; clojure.jdbc API will re-use an existing one).
-        (assert (not (:connection db-connection-pool)))
-        ;; We don't want to stay in maintenance mode while we vaccum analyze,
-        ;; i.e. refuse http requests as this can take quite some time on large
-        ;; databases
-        (future
-          (jdbc/with-db-connection db-connection-pool
-            (log/info "Analyzing database")
-            (try
-              (-> (doto (:connection (jdbc/db)) (.setAutoCommit true))
-                  .createStatement
-                  (.execute "vacuum (analyze, verbose)"))
-              (catch java.sql.SQLException e
-                (log/error e "Caught SQLException during migration")
-                (when-let [next (.getNextException e)]
-                  (log/error next "Unravelled exception")))))))
-      (log/info "There are no pending migrations"))))
+        (doseq [[version migration] pending]
+          (log/infof "Applying database migration version %d" version)
+          (sql-or-die (fn [] (migration) (record-migration! version)))))
+      true)
+    (do
+      (log/info "There are no pending migrations")
+      false)))
 
 ;; SPECIAL INDEX HANDLING
 
