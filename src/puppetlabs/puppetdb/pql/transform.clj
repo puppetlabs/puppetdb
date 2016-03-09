@@ -1,19 +1,44 @@
 (ns puppetlabs.puppetdb.pql.transform
   (:require [clojure.string :as str]
-            [puppetlabs.puppetdb.cheshire :as json]))
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.zip :as zip]
+            [clojure.core.match :as cm]))
 
 (defn paging-clause?
   [v]
   (contains? #{"limit" "offset" "order_by"} (first v)))
 
+(defn strip-and-move-groupedfields
+  [v]
+  (let [result (zip/post-order-visit
+                 (zip/tree-zipper v)
+                 #{}
+                 [(fn [node state]
+                    (cm/match node
+                              [:groupedfield field]
+                              {:node field :state (conj state field)}
+
+                              :else nil))
+                  (fn  [node state]
+                    (when (seq state)
+                      (cm/match node
+                                ["extract" & _]
+                                {:node (conj node (vec (cons "group_by" state)))}
+
+                                :else nil)))])]
+    (vec (:node result))))
+
 (defn slurp-expr->extract
   [clauses]
   (let [paging-groups (group-by paging-clause? clauses)
         paging-clauses (get paging-groups true)
-        other-clauses (get paging-groups false)]
-    (if (and (= (ffirst other-clauses) "extract") (second other-clauses))
-      (cons (vec (concat (first other-clauses) (rest other-clauses))) (vec paging-clauses))
-      clauses)))
+        other-clauses (get paging-groups false)
+        result (if (and (= (ffirst other-clauses) "extract") (second other-clauses))
+                 (cons (vec (concat (first other-clauses) (rest other-clauses)))
+                       (vec paging-clauses))
+                 clauses)]
+    (-> result
+        strip-and-move-groupedfields)))
 
 (defn transform-from
   [entity & args]
@@ -25,9 +50,18 @@
   ([entity arg2]
    ["subquery" entity arg2]))
 
+(defn assume-groupedfield-in-function-case
+  [args]
+  (if (some #(= (first %) "function") args)
+    (for [arg args]
+      (if (not (contains? #{"function" :groupedfield} (first arg)))
+        [:groupedfield arg]
+        arg))
+    args))
+
 (defn transform-extract
   [& args]
-  ["extract" (vec args)])
+  ["extract" (vec (assume-groupedfield-in-function-case args))])
 
 (defn transform-expr-or
   ;; Single arg? collapse
@@ -103,10 +137,6 @@
   ([mod int]
    (str "E" mod int)))
 
-(defn transform-groupby
-  [& args]
-  (vec (concat ["group_by"] args)))
-
 (defn transform-limit
   [arg]
   ["limit" arg])
@@ -143,7 +173,6 @@
    :integer            transform-integer
    :real               transform-real
    :exp                transform-exp
-   :groupby            transform-groupby
    :limit              transform-limit
    :offset             transform-offset
    :orderby            transform-orderby})

@@ -200,23 +200,23 @@
        ["<" "value" 100]]]]
 
     ;; Modifiers
-    "facts[name, count()] { group by name }"
+    "facts[<name>, count()] {}"
     ["from" "facts"
      ["extract"
       ["name" ["function" "count"]]
       ["group_by" "name"]]]
 
-    "facts[name, count(value)] { certname ~ 'web.*' group by name }"
+    "facts[<name>, count(value)] { certname ~ 'web.*'}"
     ["from" "facts"
      ["extract" ["name" ["function" "count" "value"]]
       ["~" "certname" "web.*"]
       ["group_by" "name"]]]
 
-    "events[count(), status, certname] { certname ~ 'web.*' group by status, certname }"
+    "events[count(), <status>, <certname>] { certname ~ 'web.*'}"
     ["from" "events"
      ["extract", [["function" "count"] "status" "certname"],
       ["~" "certname" "web.*"]
-      ["group_by" "status" "certname"]]]
+      ["group_by" "certname" "status"]]]
 
 
     ;; Paging

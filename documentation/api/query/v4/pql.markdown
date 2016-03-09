@@ -35,7 +35,7 @@ And the following example shows how to execute a `POST` request:
 
 A PQL query has the following structure:
 
-    <entity> [<projection>] { <filter> <modifiers> }
+    entity [projection] { filter modifiers }
 
 Which is broken up into the following parts:
 
@@ -71,15 +71,31 @@ The entity context can also be used within a subquery, see the [subquery] sectio
 ## Projection
 
 The projection part of a query provides a mechanism to choose a subset of fields that are returned
-or to modify the way those fields are displayed with the usage of functions.
+or to modify the way those fields are displayed with the usage of functions
 
 The projection lives within the brackets of a query:
 
-    nodes[<projection>] {}
+    nodes[projection] {}
 
-And is a comma separated list of fields and functions:
+Projections are a comma-separated list of fields and functions. When a field is
+surrounded in angle brackets (`<`, `>`), the results will be grouped by that
+field. When angle brackets are used without a function, the result will be a
+list of distinct combinations of the bracketed field(s). When a function is
+supplied, the function will be applied to the results of the filter expression
+grouped by the specified fields.
 
-    facts[name, count()] { group by name }
+For example,
+
+    facts[<name>] {}
+
+will return a list of all unique fact names stored in PuppetDB. Alternatively,
+
+    facts[<name>, count()] {}
+
+will return a list of all unique fact names and the number of times they occur.
+In SQL terms, the latter is conceptually equivalent to
+
+    select name, count(*) from facts group by name;
 
 If you provide a projection with no fields or functions, then all fields will be displayed. So
 the following two examples are equivalent:
@@ -131,19 +147,19 @@ There are only a few functions that are supported today by PQL, see the list bel
 
 Returns the number of objects returned by the query, instead of returning the actual results.
 
-#### `avg(<field>)`
+#### `avg(field)`
 
 Returns the average value for the values held in the `<field>` argument.
 
-#### `sum(<field>)`
+#### `sum(field)`
 
 Returns the sum of values for the values held in the `<field>` argument.
 
-#### `min(<field>)`
+#### `min(field)`
 
 Returns the minimum value for all the values held in the `<field>` argument.
 
-#### `max(<field>)`
+#### `max(field)`
 
 Returns the maximum value for all the values held in the `<field>` argument.
 
@@ -151,7 +167,7 @@ Returns the maximum value for all the values held in the `<field>` argument.
 
 Filtering a query allows you to reduce the number of responses from PuppetDB based on a filter.
 
-In a basic query, a filter is optional, and is provided in the `<filter>` area as a set of boolean
+In a basic query, a filter is optional, and is provided in the `filter` area as a set of boolean
 and conditional operators that make up a filter. For example:
 
     entity { field1 = 'mystring' and field2 < 3 }
@@ -375,17 +391,26 @@ query combined everything before, but with a `resource` subquery for `Package[to
 
 ## Group By
 
-A `group by` clause will condense into a single row all selected rows that share the same values for the grouped expressions.
+As explained above in the `projections` section, a `group by` clause is
+effected by surrounding a projection in angle brackets. When a function is
+supplied in the projection, however, angle brackets are assumed on the other
+fields. In other words,
 
-For example, to only show a list of fact names, you can group by the `name` field:
+    facts[<name>, count(value)] {certname ~ 'web.*'}
 
-    facts[name] { group by name }
+and
 
-Combined with aggregate functions, you can effectively rollup of results and aggregate the rolled
-up values, for example to return how many facts exist for each fact name across all facts, where the certame
-starts with `web`:
+    facts[name, count(value)] {certname ~ 'web.*'}
 
-    facts[name, count(value)] { certname ~ "^web.*" group by name }
+are equivalent, whereas
+
+    facts[<name>]{}
+
+and
+   
+    facts[name]{}
+
+are not, since the first will only return a list of distinct fact names.
 
 ## Paging
 PQL supports restriction of the result set via the SQL-like paging clauses

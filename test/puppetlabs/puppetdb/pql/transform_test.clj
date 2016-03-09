@@ -22,12 +22,6 @@
        ["extract" ["a" "b" "c"]
         ["=" "a" 1]]]
 
-      ["nodes" ["extract" ["a" "b" "c"]] ["=" "a" 1] ["group_by" "a"]]
-      ["from" "nodes"
-       ["extract" ["a" "b" "c"]
-        ["=" "a" 1]
-        ["group_by" "a"]]]
-
       ["nodes" ["extract" ["a" "b" "c"]] ["=" "a" 1] ["limit" 1]]
       ["from" "nodes"
        ["extract" ["a" "b" "c"]
@@ -44,7 +38,22 @@
       ["from" "nodes"
        ["extract" ["a" "b" "c"]
         ["=" "a" 1]]
-       ["order_by" [["certname" "desc"]]]]))
+       ["order_by" [["certname" "desc"]]]]
+
+      ["nodes" ["extract" [[:groupedfield "a"]] ["=" "a" 1]]]
+      ["from" "nodes" ["extract" ["a"] ["=" "a" 1] ["group_by" "a"]]]
+
+      ["nodes" ["extract" [[:groupedfield "a"] "b"] ["=" "a" 1]]]
+      ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a"]]]
+
+      ["nodes" ["extract" [[:groupedfield "a"] "b"] ["=" "a" 1]]]
+      ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a"]]]
+
+      ["nodes" ["extract" [[:groupedfield "a"] "b"] ["=" "a" 1]] ["limit" 1]]
+      ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a"]] ["limit" 1]]
+
+      ["nodes" ["extract" [[:groupedfield "a"] [:groupedfield "b"]] ["=" "a" 1]] ["limit" 1]]
+      ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a" "b"]] ["limit" 1]]))
 
   (testing "transform"
     (are [in expected] (= (transform in) expected)
@@ -133,7 +142,16 @@
   (testing "function"
     (are [in expected] (= (apply transform-extract in) expected)
       ["a" "b" "c"]
-      ["extract" ["a" "b" "c"]]))
+      ["extract" ["a" "b" "c"]]
+      
+      [[:groupedfield "a"] ["function" "count"]]
+      ["extract" [[:groupedfield "a"] ["function" "count"]]]
+      
+      ["a" ["function" "count"]]
+      ["extract" [[:groupedfield "a"] ["function" "count"]]]
+
+      [[:groupedfield "b"] "a" ["function" "count"]]
+      ["extract" [[:groupedfield "b"] [:groupedfield "a"] ["function" "count"]]]))
 
   (testing "transform"
     (are [in expected] (= (transform in) expected)
@@ -390,13 +408,3 @@
       [:real "1" "." "1" [:exp "-" "45"]] 1.1E-45
       [:real "1" "." "1" [:exp "+" "45"]] 1.1E45
       [:real "-" "1" "." "1"] -1.1)))
-
-(deftest test-groupby
-  (testing "function"
-    (are [in expected] (= (apply transform-groupby in) expected)
-      ["a"] ["group_by" "a"]
-      ["a" "b"] ["group_by" "a" "b"]))
-
-  (testing "transform"
-    (are [in expected] (= (transform in) expected)
-      [:groupby "a"] ["group_by" "a"])))

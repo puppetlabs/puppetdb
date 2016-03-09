@@ -28,7 +28,7 @@ extract = <lbracket>, [<whitespace>], [extractfields], [<whitespace>], <rbracket
 <extractfields> = fieldlist;
 
 (* Filtering *)
-<where> = <lbrace>, [<whitespace>], [expression], [<whitespace>], [groupbyclause | {pagingclause, [<whitespace>]}], {<whitespace>}, <rbrace>;
+<where> = <lbrace>, [<whitespace>], [expression], [<whitespace>], [{pagingclause, [<whitespace>]}], {<whitespace>}, <rbrace>;
 
 (* Static list of entity types *)
 <entity> = 'facts' |
@@ -72,7 +72,7 @@ condisnotnull = <'is not null'>;
 
 (* Conditional expression parts *)
 groupedfieldlist = <lbracket>, [<whitespace>], fieldlist, [<whitespace>], <rbracket>;
-<fieldlist>      = (field | function), [ [<whitespace>], <','>, [<whitespace>], fieldlist ];
+<fieldlist>      = (field | function | groupedfield), [ [<whitespace>], <','>, [<whitespace>], fieldlist ];
 function         = functionname, [<whitespace>], groupedarglist;
 <functionname>   = 'count' | 'avg' | 'sum' | 'min' | 'max';
 
@@ -80,6 +80,7 @@ groupedarglist = <lparens>, [<whitespace>], [arglist], [<whitespace>], <rparens>
 <arglist>      = field, [ [<whitespace>], <','>, [<whitespace>], arglist ];
 
 (* Represents a field from an entity *)
+groupedfield = <langle>, field, <rangle>;
 <field> = #'[a-zA-Z_]+\??';
 
 <condregexp>      = '~';
@@ -119,10 +120,6 @@ sqstring = (<singlequote>, stringwithoutsinglequotes, <singlequote>);
 <stringwithoutsinglequotes> = #'(?:[^\'\\]|\\.)*';
 <singlequote> = "'";
 
-(* Group By *)
-<groupbyclause> = groupby;
-groupby  = <'group by'>, <whitespace>, fieldlist;
-
 (* Paging *)
 <pagingclause> = limit | offset | orderby;
 limit = <'limit'>, <whitespace>, integer;
@@ -143,6 +140,10 @@ orderparam = !('asc' | 'desc') field, [<whitespace> direction], [<whitespace>];
 (* Bracket *)
 <lbracket> = '[';
 <rbracket> = ']';
+
+(* Angle Brackets *)
+<langle> = '<';
+<rangle> = '>';
 
 (* Booleans *)
 boolean = true | false;
