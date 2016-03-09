@@ -176,4 +176,5 @@
                                    :tags ["file" "class" "foobar"]
                                    :parameters {:ensure "directory"
                                                 :group  "root"
+                                                :source "my_file_source"
                                                 :user   "root"}}))}})

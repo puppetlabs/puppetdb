@@ -38,6 +38,10 @@
       factsets/factsets-query->wire-v4
       vec))
 
+(defn get-summary-stats []
+  (-> (svc-utils/pdb-admin-url)
+      (svc-utils/get-summary-stats)))
+
 (def example-certname "foo.local")
 
 (def example-facts
