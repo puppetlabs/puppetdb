@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2 » Maintaining and tuning"
+title: "PuppetDB 4.0 » Maintaining and tuning"
 layout: default
 canonical: "/puppetdb/latest/maintain_and_tune.html"
 ---

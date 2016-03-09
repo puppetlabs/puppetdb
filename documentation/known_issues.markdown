@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2: Known issues"
+title: "PuppetDB 4.0: Known issues"
 layout: default
 canonical: "/puppetdb/latest/known_issues.html"
 ---

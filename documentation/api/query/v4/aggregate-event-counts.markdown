@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 3.2: Aggregate event counts endpoint"
+title: "PuppetDB 4.0: Aggregate event counts endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/aggregate-event-counts.html"
 ---
