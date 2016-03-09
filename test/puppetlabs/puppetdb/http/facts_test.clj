@@ -696,6 +696,11 @@
     :query   query
     :limit   limit
     :total   total
+    :params {:order_by (json/generate-string
+                        [{:field :certname
+                          :order :desc}
+                         {:field :name
+                          :order :desc}])}
     :include_total include_total}))
 
 (deftestseq fact-query-paging
