@@ -1,7 +1,6 @@
 ---
 title: "PuppetDB 4.0: Data anonymization"
 layout: default
-canonical: "/puppetdb/latest/anonymization.html"
 ---
 
 The export tool has the ability to anonymize the PuppetDB archive before returning the archive. This is particularly useful when sharing PuppetDB data that contains sensitive items.
@@ -12,12 +11,12 @@ Using the `export` command
 To create an anonymized PuppetDB archive directly, use the Puppet `db` subcommand
 from any node with puppet-client-tools installed:
 
-    $ puppet db export --outfile my-puppetdb-export.tar.gz --anonymization moderate
+    $ puppet db export my-puppetdb-export.tar.gz --anonymization moderate
 
 PuppetDB also supports the deprecated CLI export command, which may be run on
 the PuppetDB node:
 
-    $ puppetdb export --outfile ./my-puppetdb-export.tar.gz --anonymization moderate
+    $ puppetdb export --outfile ./my-puppetdb-export.tar.gz --profile moderate
 
 Using the `import` command
 -----
@@ -25,7 +24,7 @@ Using the `import` command
 To import an anonymized PuppetDB tarball, use the Puppet `db` subcommand from
 any node with puppet-client-tools installed:
 
-    $ puppet db import --infile my-puppetdb-export.tar.gz
+    $ puppet db import my-puppetdb-export.tar.gz
 
 PuppetDB also supports the deprecated CLI import command, which may be run on
 the PuppetDB node:
@@ -48,7 +47,7 @@ You may not need to anonymize all data in every case, so we have provided a numb
 
 The profile can be specified on the command line when the command is run. For example, to choose the `low` profile, enter:
 
-    $ sudo puppetdb export --outfile ./my-puppetdb-anonymized-export.tar.gz --profile low
+    $ puppet db export ./my-puppetdb-anonymized-export.tar.gz --anonymization low
 
 ### Profile: full
 
