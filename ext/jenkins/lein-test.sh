@@ -16,6 +16,9 @@ export PUPPETDB_DBPASSWORD="puppetdb137"
 export PGPASSWORD="puppetdb137"
 export PUPPETDB_DBSUBNAME="//${DBHOST}:${DBPORT}/${DBNAME}"
 
+export PDB_TEST_DB_ADMIN=pdb_test_admin
+export PDB_TEST_DB_USER_PASSWORD=optuwaeg6ujzo
+
 rm -f testreports.xml *.war *.jar
 
 export HTTP_CLIENT="wget --no-check-certificate -O"
