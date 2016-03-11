@@ -873,26 +873,20 @@
   [{:keys [projections]}]
   (->> projections
        (remove (comp :query-only? val))
-       keys
-       sort))
-
-(defn extract-fields
-  "Returns all fields from a projection.  Returns nil for fields which
-  are query-only? since these can't be projected either."
-  [[name {:keys [field]}] entity]
-  [field name])
+       keys))
 
 (defn honeysql-from-query
   "Convert a query to honeysql format"
-  [{:keys [projected-fields group-by call selection projections entity]}]
+  [{:keys [projected-fields group-by call selection projections]}]
   (let [fs (seq (map (fn [f]
                        [(apply hcore/call f) (first f)]) call))
         select (if (and fs
                         (empty? projected-fields))
                  (vec fs)
-                 (vec (concat (->> (sort projections)
+                 (vec (concat (->> projections
                                    (remove (comp :query-only? val))
-                                   (mapv #(extract-fields % entity)))
+                                   (mapv (fn [[name {:keys [field]}]]
+                                           [field name])))
                               fs)))
         new-selection (cond-> (assoc selection :select select)
                         group-by (assoc :group-by group-by))]
@@ -1331,7 +1325,7 @@
   ; and had the InExpression use that to generate the sql, but as it is the zipper we
   ; use to walk the plan won't see instances of hashes and uuids among fields that have
   ; gone through this function
-  (map #(get-in query-rec [:projections % :field]) (sort columns)))
+  (map #(get-in query-rec [:projections % :field]) columns))
 
 (defn strip-function-calls
   [column-or-columns]
