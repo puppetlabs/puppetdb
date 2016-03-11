@@ -884,7 +884,7 @@
                         (empty? projected-fields))
                  (vec fs)
                  (vec (concat (->> projections
-                                   (remove (comp :query-only? val))
+                                   (remove (comp :query-only? second))
                                    (mapv (fn [[name {:keys [field]}]]
                                            [field name])))
                               fs)))
@@ -909,9 +909,22 @@
   (-plan->sql [query]
     (let [has-where? (boolean (:where query))
           has-projections? (not (empty? (:projected-fields query)))
+          projections (:projections query)
           sql (-> query
-                  (utils/update-cond has-where? [:selection] #(hsql/merge-where % (-plan->sql (:where query))))
-                  (utils/update-cond has-projections? [:projections] #(select-keys % (:projected-fields query)))
+                  (utils/update-cond has-where?
+                                     [:selection]
+                                     #(hsql/merge-where % (-plan->sql (:where query))))
+                  ;; Note that even if has-projections? is false, the
+                  ;; projections are still relevant.
+                  ;; i.e. projected-fields doesn't tell the
+                  ;; whole story.  It's only relevant if it's not
+                  ;; empty? and then it's decisive.
+                  (utils/update-cond has-projections?
+                                     [:projections]
+                                     (fn [prev]
+                                       (mapv (fn [name]
+                                               [name (projections name)])
+                                             (:projected-fields query))))
                   sql-from-query)]
 
       (if (:subquery? query)
