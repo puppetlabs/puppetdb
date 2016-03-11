@@ -61,12 +61,22 @@
               (dissoc :environment :containing_class :certname)))
         resource-events)))
 
+(defn munge-resources-for-comparison [resources]
+  (let [resources-sort-fn (partial sort-by (juxt :resource_type :resource_title))
+        events-sort-fn (partial sort-by :property)]
+    (->> resources
+         (map (fn [resource]
+                (-> resource
+                    (update :events events-sort-fn))))
+         resources-sort-fn)))
+
 (defn munge-children
   "Strips out expanded data from the wire format if the database is HSQLDB"
   [report]
   (if (sutils/postgres?)
     (-> report
         (update :resource_events munge-resource-events-for-comparison)
+        (update :resources munge-resources-for-comparison)
         (update :metrics set)
         (update :logs set))
     (dissoc report :resource_events :metrics :logs)))
@@ -109,7 +119,7 @@
   [report]
   (-> report
       keywordize-keys
-      (update-in [:resource_events :data] munge-resource-events)
+      (utils/update-when [:resource_events :data] munge-resource-events)
       normalize-time))
 
 (defn munge-reports [reports]

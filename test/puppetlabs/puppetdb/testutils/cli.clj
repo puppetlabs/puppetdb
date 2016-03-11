@@ -82,6 +82,6 @@
       (dissoc "export-metadata.json")
       (update "facts" #(kitchensink/mapvals tuf/munge-facts %))
       (update "reports" #(kitchensink/mapvals (comp stringify-keys
-                                                   tur/munge-report
-                                                   keywordize-keys) %))
+                                                    tur/munge-report-for-comparison
+                                                    keywordize-keys) %))
       (update "catalogs" #(kitchensink/mapvals tuc/munge-catalog %))))
