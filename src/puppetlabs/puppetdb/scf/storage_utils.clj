@@ -110,10 +110,20 @@
   (let [extensions (pg-installed-extensions)]
     (not= (get extensions extension) nil)))
 
+(defn current-schema
+  "Returns the current schema of the database connection on postgres."
+  []
+  (if (postgres?)
+    (->> (jdbc/query-to-vec "select current_schema")
+         first
+         :current_schema)
+    "public"))
+
 (pls/defn-validated index-exists? :- s/Bool
   "Returns true if the index exists. Only supported on PostgreSQL currently."
   ([index :- s/Str]
-     (index-exists? index "public"))
+   (let [schema (current-schema)]
+     (index-exists? index schema)))
   ([index :- s/Str
     namespace :- s/Str]
      {:pre [(postgres?)]}
@@ -349,7 +359,6 @@ must be supplied as the value to be matched."
     (if (postgres?)
       (str->pgobject "jsonb" json-str)
       json-str)))
-
 
 (defn async-vacuum-analyze [db-connection-pool]
   (when (postgres?)

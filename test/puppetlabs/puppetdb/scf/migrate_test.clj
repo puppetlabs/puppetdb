@@ -462,17 +462,28 @@
 
 (deftest migration-in-different-schema
   (jdbc/with-db-connection *db*
-    (clear-db-for-testing!)
-    (jdbc/do-commands
-     ;; Cleaned up in clear-db-for-testing!
-     "CREATE SCHEMA pdbtestschema"
-     (format "SET SCHEMA %s" (if (postgres?) "'pdbtestschema'" "pdbtestschema")))
-    ((migrations 1))
-    (record-migration! 1)
-    (let [tables (sutils/sql-current-connection-table-names)]
+    (let [config {:database *db*}]
+      (clear-db-for-testing!)
+      (jdbc/do-commands
+        ;; Cleaned up in clear-db-for-testing!
+        "CREATE SCHEMA pdbtestschema"
+        (format "SET SCHEMA %s" (if (postgres?) "'pdbtestschema'" "pdbtestschema")))
+      (when (postgres?)
+        (let [admin-config (-> *db*
+                               (assoc :user (or (System/getenv "PDB_TEST_DB_ADMIN") "pdb_test_admin"))
+                               (assoc :password (System/getenv "PDB_TEST_DB_ADMIN_PASSWORD")))]
+          (jdbc/with-db-connection admin-config
+            (jdbc/do-commands
+              "SET SCHEMA 'pdbtestschema'"
+              "CREATE EXTENSION pg_trgm"))))
+      ((migrations 1))
+      (record-migration! 1)
       ;; Currently sql-current-connection-table-names only looks in public.
       (is (empty? (sutils/sql-current-connection-table-names)))
-      (migrate! *db*))))
+      (migrate! *db*)
+      ;; run indexes! twice to ensure idempotency
+      (indexes! config)
+      (indexes! config))))
 
 (deftest test-coalesce-fact-values
   (jdbc/with-db-connection *db*
