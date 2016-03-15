@@ -12,43 +12,45 @@
             [puppetlabs.puppetdb.scf.storage-utils :as su]))
 
 (deftest test-plan-sql
-  (are [sql plan] (= sql (plan->sql plan))
+  (let [col1 {:type :string :field :foo}
+        col2 {:type :string :field :bar}]
+    (are [sql plan] (= sql (plan->sql plan))
 
-       [:or [:= :foo "?"]]
-       (->BinaryExpression := :foo "?")
+         [:or [:= (:field col1) "?"]]
+         (->BinaryExpression := col1 "?")
 
-       (su/sql-regexp-match :foo)
-       (->RegexExpression :foo "?")
+         (su/sql-regexp-match (:field col1))
+         (->RegexExpression col1 "?")
 
-       (su/sql-array-query-string :foo)
-       (->ArrayBinaryExpression :foo "?")
+         (su/sql-array-query-string (:field col1))
+         (->ArrayBinaryExpression col1 "?")
 
-       [:and [:or [:= :foo "?"]] [:or [:= :bar "?"]]]
-       (->AndExpression [(->BinaryExpression := :foo "?")
-                         (->BinaryExpression := :bar "?")])
+         [:and [:or [:= (:field col1) "?"]] [:or [:= (:field col2) "?"]]]
+         (->AndExpression [(->BinaryExpression := col1 "?")
+                           (->BinaryExpression := col2 "?")])
 
-       [:or [:or [:= :foo "?"]] [:or [:= :bar "?"]]]
-       (->OrExpression [(->BinaryExpression := :foo "?")
-                        (->BinaryExpression := :bar "?")])
+         [:or [:or [:= (:field col1) "?"]] [:or [:= (:field col2) "?"]]]
+         (->OrExpression [(->BinaryExpression := col1 "?")
+                          (->BinaryExpression := col2 "?")])
 
-       [:not [:or [:= :foo "?"]]]
-       (->NotExpression (->BinaryExpression := :foo "?"))
+         [:not [:or [:= (:field col1) "?"]]]
+         (->NotExpression (->BinaryExpression := col1 "?"))
 
-       [:is :foo nil]
-       (->NullExpression :foo true)
+         [:is (:field col1) nil]
+         (->NullExpression col1 true)
 
-       [:is-not :foo nil]
-       (->NullExpression :foo false)
+         [:is-not (:field col1) nil]
+         (->NullExpression col1 false)
 
-       "SELECT table.foo AS foo FROM table WHERE (1 = 1)"
-       (map->Query {:projections {"foo" {:type :string
-                                         :queryable? true
-                                         :field :table.foo}}
-                    :alias "thefoo"
-                    :subquery? false
-                    :where (->BinaryExpression := 1 1)
-                    :selection {:from [:table]}
-                    :source-table "table"})))
+         "SELECT table.foo AS foo FROM table WHERE (1 = 1)"
+         (map->Query {:projections {"foo" {:type :string
+                                           :queryable? true
+                                           :field :table.foo}}
+                      :alias "thefoo"
+                      :subquery? false
+                      :where (->BinaryExpression := 1 1)
+                      :selection {:from [:table]}
+                      :source-table "table"}))))
 
 (deftest test-extract-params
 
