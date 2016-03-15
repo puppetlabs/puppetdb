@@ -985,15 +985,13 @@
   (-plan->sql [{:keys [column operator value]}]
     (apply vector
            :or
-           (map #(vector operator
-                         (-plan->sql %1)
-                         (-plan->sql %2))
+           (map #(vector operator (-plan->sql %1) (-plan->sql %2))
                 (cond
                   (map? column) [(:field column)]
                   (vector? column) (mapv :field column)
                   :else [column])
                 (utils/vector-maybe value))))
-  
+
   InArrayExpression
   (-plan->sql [{:keys [column]}]
     (s/validate column-schema column)
@@ -1414,7 +1412,6 @@
     [(vec (map rest functions))
      (vec nonfunctions)]))
 
-;; FIXME: check with AJ?
 (pls/defn-validated create-extract-node
   :- {(s/optional-key :projected-fields) [projection-schema]
       s/Any s/Any}
@@ -1860,18 +1857,24 @@
       :else
       [column projection])))
 
-;; FIXME: perhaps rewrite as reduce
 (defn- fix-in-expr-multi-comparisons
   [node]
-  (let [projected-fields (get-in node [:subquery :projected-fields])
-        column-proj-pairs (map (fn [col field]
-                                 (fix-in-expr-multi-comparison col field))
-                               (:column node)
-                               projected-fields)]
-    (-> node
-        (assoc :column (map first column-proj-pairs))
-        (assoc-in [:subquery :projected-fields]
-                  (mapv second column-proj-pairs)))))
+  (let [columns (:column node)
+        projected-fields (get-in node [:subquery :projected-fields])]
+    (assert (= (count columns) (count projected-fields)))
+    (loop [cols columns
+           fields projected-fields
+           fixed-cols []
+           fixed-fields []]
+      (if-not (seq cols)
+        (-> node
+            (assoc :column fixed-cols)
+            (assoc-in [:subquery :projected-fields] fixed-fields))
+        (let [[fixed-col fixed-field]
+              (fix-in-expr-multi-comparison (first cols) (first fields))]
+          (recur (rest cols) (rest fields)
+                 (conj fixed-cols fixed-col)
+                 (conj fixed-fields fixed-field)))))))
 
 (defn- fix-plan-in-expr-multi-comparisons
   "Returns the plan after changing any :multi types in :multi to
