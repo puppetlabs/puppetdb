@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.http
   (:import [org.apache.http.impl EnglishReasonPhraseCatalog]
            [java.io IOException Writer])
-  (:require [ring.util.response :as rr]
+  (:require [puppetlabs.i18n.core :as i18n]
+            [ring.util.response :as rr]
             [ring.util.io :as rio]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.java.io :as io]
@@ -130,6 +131,12 @@
    (rio/piped-input-stream producer)
    filename))
 
+(defn denied-response
+  [msg status]
+  (-> (i18n/tru "Permission denied: {0}" msg)
+      rr/response
+      (rr/status status)))
+
 (defn json-response
   "Returns a Ring response object with the supplied `body` and response `code`,
   and a JSON content type. If unspecified, `code` will default to 200."
@@ -153,7 +160,7 @@
      (let [msg (if (instance? Throwable error)
                  (.getMessage error)
                  (str error))]
-       (log/debug error "Caught HTTP processing exception")
+       (log/debug error (i18n/trs "Caught HTTP processing exception"))
        (-> msg
            (rr/response)
            (rr/status code)))))
@@ -217,9 +224,9 @@
           (catch IOException e#
             ;; IOException includes things like broken pipes due to
             ;; client disconnect, so no need to spam the log normally.
-            (log/debug e# "Error streaming response"))
+            (log/debug e# (i18n/trs "Error streaming response")))
           (catch Exception e#
-            (log/error e# "Error streaming response")))))))
+            (log/error e# (i18n/trs "Error streaming response"))))))))
 
 (defn parse-boolean-query-param
   "Utility method for parsing a query parameter whose value is expected to be
@@ -277,7 +284,7 @@
 (defn status-not-found-response
   "Produces a json response for when an entity (catalog/nodes/environment/...) is not found."
   [type id]
-  (json-response {:error (format "No information is known about %s %s" type id)} status-not-found))
+  (json-response {:error (i18n/tru "No information is known about {0} {1}" type id)} status-not-found))
 
 (defn bad-request-response
   "Produce a json 400 response with an :error key holding message."
