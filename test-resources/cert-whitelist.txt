@@ -1,0 +1,2 @@
+alpha-rho.corp.puppetlabs.net
+localhost

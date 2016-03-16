@@ -27,4 +27,4 @@ declare -rx PDB_TEST_ID
 
 lein --version
 lein clean
-exec lein test
+exec lein do test, with-profile dev,rbac test :only puppetlabs.pe-puppetdb-extensions.rbac-test

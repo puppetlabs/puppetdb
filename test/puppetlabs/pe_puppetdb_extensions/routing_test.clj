@@ -1,9 +1,9 @@
 (ns puppetlabs.pe-puppetdb-extensions.routing-test
   (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [sync-config with-ext-instances]]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.testutils.log
              :refer [with-log-suppressed-unless-notable notable-pdb-event?]]))
 
