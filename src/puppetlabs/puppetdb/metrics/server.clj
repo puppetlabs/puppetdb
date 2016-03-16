@@ -30,8 +30,8 @@
   should be a message describing the reason that access was denied."
   [cert-whitelist]
   (-> routes
-      mid/make-pdb-handler 
+      mid/make-pdb-handler
       mid/verify-accepts-json
       mid/validate-no-query-params
-      (mid/wrap-with-puppetdb-middleware cert-whitelist)))
+      (mid/wrap-with-puppetdb-middleware {:cert-whitelist cert-whitelist})))
 

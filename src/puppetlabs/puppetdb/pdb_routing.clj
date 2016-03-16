@@ -54,19 +54,22 @@
            "/admin" (admin/build-app enqueue-command-fn query-fn db-cfg)
            (route/not-found "Not Found")]))))
 
-(defn pdb-app [root defaulted-config maint-mode-fn app-routes]
+(defn pdb-app [root
+               auth-config
+               maint-mode-fn
+               app-routes]
   (-> (compojure/context root []
-                         resource-request-handler
-                         (maint-mode-handler maint-mode-fn)
-                         (compojure/GET "/" req
-                                        (->> req
-                                             rreq/request-url
-                                             (format "%s/dashboard/index.html")
-                                             rr/redirect))
-                         (apply compojure/routes
-                                (concat app-routes
-                                        [(route/not-found "Not Found")])))
-      (mid/wrap-with-puppetdb-middleware (get-in defaulted-config [:puppetdb :certificate-whitelist]))))
+        resource-request-handler
+        (maint-mode-handler maint-mode-fn)
+        (compojure/GET "/" req
+          (->> req
+               rreq/request-url
+               (format "%s/dashboard/index.html")
+               rr/redirect))
+        (apply compojure/routes
+               (concat app-routes
+                       [(route/not-found "Not Found")])))
+      (mid/wrap-with-puppetdb-middleware auth-config)))
 
 (defprotocol MaintenanceMode
   (enable-maint-mode [this])
@@ -158,11 +161,12 @@
               config (get-config)
               augmented-globals #(-> (shared-globals)
                                      (assoc :url-prefix query-prefix)
-                                     (assoc :warn-experimental true))]
+                                     (assoc :warn-experimental true))
+              cert-whitelist (get-in config [:puppetdb :certificate-whitelist])]
           (set-url-prefix query-prefix)
           (log/info "Starting PuppetDB, entering maintenance mode")
           (add-ring-handler this (pdb-app context-root
-                                          config
+                                          {:cert-whitelist cert-whitelist}
                                           maint-mode?
                                           (pdb-core-routes config
                                                            augmented-globals

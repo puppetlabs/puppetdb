@@ -53,7 +53,7 @@
   {:scheme :https
    :ssl-client-cn hostname})
 
-(deftest wrapping-authorization
+(deftest wrapping-authorization-with-rbac
   (testing "Should only allow authorized requests"
     ;; Setup an app that only lets through odd numbers
     (let [wl (.getAbsolutePath (temp-file "whitelist-log-reject"))
@@ -62,7 +62,47 @@
                                     (rr/status http/status-ok)))
 
           message     "The client certificate name"
-          app (wrap-with-authorization handler wl)]
+          app (wrap-with-authorization handler {:cert-whitelist wl
+                                                :rbac-fns
+                                                {:valid-token->subject
+                                                 (fn [jwt-str]
+                                                   (when-not (or (not jwt-str) (= "invalid-token" jwt-str))
+                                                     {:login "test_user"
+                                                      :id (java.util.UUID/fromString
+                                                           "751a8f7e-b53a-4ccd-9f4f-e93db6aa38ec")}))
+                                                 :is-permitted? (fn [_ permission-str]
+                                                                  (when (= permission-str "puppetdb:use:*")
+                                                                    true))}})
+
+          unauthorized-response (app (create-authorizing-request "baz"))
+          authorized-response (app (create-authorizing-request "foobar"))
+          unauthorized-token-response (app (assoc-in (create-authorizing-request "baz")
+                                                     [:headers "x-authentication"] "invalid-token"))
+          authorized-token-response (app (assoc-in (create-authorizing-request "baz")
+                                                   [:headers "x-authentication"] "valid-token"))]
+
+      ;; Authorized tokens should get through
+      (is (= http/status-ok (:status authorized-token-response)))
+      ;; Unauthorized tokens should be rejected
+      (is (= 401 (:status unauthorized-token-response)))
+
+      ;; Even numbers should trigger an unauthorized response
+      (is (= http/status-forbidden (:status unauthorized-response)))
+      ;; The failure reason should be shown to the user
+      (is (.contains (:body unauthorized-response) message))
+      ;; Odd numbers should get through fine
+      (is (= http/status-ok (:status authorized-response))))))
+
+(deftest wrapping-authorization-with-whitelist-only
+  (testing "Should only allow authorized requests"
+    ;; Setup an app that only lets through odd numbers
+    (let [wl (.getAbsolutePath (temp-file "whitelist-log-reject"))
+          _ (spit wl "foobar")
+          handler     (fn [req] (-> (rr/response nil)
+                                    (rr/status http/status-ok)))
+
+          message     "The client certificate name"
+          app (wrap-with-authorization handler {:cert-whitelist wl})]
       ;; Even numbers should trigger an unauthorized response
       (is (= http/status-forbidden (:status (app (create-authorizing-request "baz")))))
       ;; The failure reason should be shown to the user
@@ -144,9 +184,9 @@
     (let [wl (temp-file "whitelist-log-reject")]
       (spit wl "foobar")
       (let [authorizer-fn (build-whitelist-authorizer (fs/absolute-path wl))]
-        (is (= :authorized (authorizer-fn {:ssl-client-cn "foobar"})))
+        (is (nil? (authorizer-fn {:ssl-client-cn "foobar"})))
         (with-log-output logz
-          (is (string? (authorizer-fn {:ssl-client-cn "badguy"})))
+          (is (= 403 (:status (authorizer-fn {:ssl-client-cn "badguy"}))))
           (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
 
 (deftest test-fail-when-payload-too-large

@@ -19,6 +19,7 @@
             [metrics.meters :refer [meter mark!]]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.utils :as utils]
+            [slingshot.slingshot :refer [try+]]
             [bidi.bidi :as bidi]
             [bidi.ring :as bring]
             [bidi.schema :as bidi-schema]
@@ -47,36 +48,78 @@
    :post [(fn? %)]}
   (let [allowed? (kitchensink/cn-whitelist->authorizer whitelist)]
     (fn [{:keys [ssl-client-cn] :as req}]
-      (if (allowed? req)
-        :authorized
-        (do
-          (log/warnf "%s rejected by certificate whitelist %s" ssl-client-cn whitelist)
-          (format (str "The client certificate name (%s) doesn't "
-                       "appear in the certificate whitelist. Is your "
-                       "master's (or other PuppetDB client's) certname "
-                       "listed in PuppetDB's certificate-whitelist file?")
-                  ssl-client-cn))))))
+      (when-not (allowed? req)
+        (log/warnf "%s rejected by certificate whitelist %s" ssl-client-cn whitelist)
+        (http/json-response {:error (format (str "Permission denied: The client "
+                                                 "certificate name (%s) doesn't "
+                                                 "appear in the certificate whitelist. "
+                                                 "Is your master's (or other PuppetDB client's) "
+                                                 "certname listed in PuppetDB's "
+                                                 "certificate-whitelist file?")
+                                            ssl-client-cn)}
+                            http/status-forbidden)))))
+
+(def puppetdb-use-permission "puppetdb:use:*")
+
+(defn build-rbac-authorizer
+  [{:keys [valid-token->subject
+           is-permitted?]}]
+  {:pre  [(fn? valid-token->subject)
+          (fn? is-permitted?)]}
+  (when (and valid-token->subject is-permitted?)
+    (fn [token]
+      (try+
+       (if-let [subject (valid-token->subject token)]
+         (when-not (is-permitted? subject puppetdb-use-permission)
+           (http/json-response {:error
+                                (str "Permission denied: User does "
+                                     "not have permission to access PuppetDB")} 403))
+         (http/json-response {:error "Permission denied: Invalid token"} 401))
+       (catch [:kind :puppetlabs.rbac/token-expired] {subject :subject msg :msg}
+         (log/infof "The provided token for %s has expired." subject)
+         (http/json-response
+          {:error (format (str "Permission denied: The provided token for %s has expired. "
+                               "Use `puppet access login` to generate another.")
+                          (:login subject))} 401))))))
+
 
 (defn wrap-with-authorization
-  "Ring middleware that will only pass through a request if the
-  supplied authorization function allows it. Otherwise an HTTP 403 is
-  returned to the client.  If get-authorizer is nil or false, all
-  requests will be accepted.  Otherwise it must accept no arguments
-  and return an authorize function that accepts a request.  The
-  request will be allowed only if authorize returns :authorized.
-  Otherwise, the return value should be a message describing the
-  reason that access was denied."
-  [app cert-whitelist]
-  (let [authorize (and cert-whitelist (build-whitelist-authorizer cert-whitelist))]
-    (if-not authorize
-      app
+  "Ring middleware which when given a cert-whitelist will only permit requests
+  to PuppetDB whose ssl-client-cn's match the values on the whitelist. When
+  given a cert-whitelist AND rbac-fns, a map containing the
+  keys :valid-token->subject and :is-permitted?, we will fallback to checking
+  for an `X-Authentication` header, i.e. RBAC token, and try validate the
+  request with RBAC."
+  [app {:keys [cert-whitelist rbac-fns]}]
+
+  (if-let [cert-authorize-fn (some-> cert-whitelist
+                                     build-whitelist-authorizer)]
+
+    (if-let [rbac-authorize-fn (some-> rbac-fns
+                                       build-rbac-authorizer)]
+
+      ;; If we have an rbac-authorize-fn we fallback to that if the user
+      ;; supplied an 'X-Authentication' header and the ssl-client-cn lookup on
+      ;; the certificate-whitelist failed
+      (fn [{:keys [headers] :as req}]
+        (if-let [cert-auth-result (cert-authorize-fn req)]
+          (if-let [token (get headers "x-authentication")]
+            (if-let [rbac-auth-result (rbac-authorize-fn token)]
+              rbac-auth-result
+              (app req))
+            (if (:ssl-client-cn req)
+              cert-auth-result
+              (http/json-response
+               {:error (str "Permission denied: Must supply a certificate or "
+                            "token to access PuppetDB.")} http/status-forbidden)))
+          (app req)))
+
       (fn [req]
-        (let [auth-result (authorize req)]
-          (if (= :authorized auth-result)
-            (app req)
-            (-> (str "Permission denied: " auth-result)
-                (rr/response)
-                (rr/status http/status-forbidden))))))))
+        (if-let [cert-auth-result (cert-authorize-fn req)]
+          cert-auth-result
+          (app req))))
+
+    app))
 
 (defn wrap-with-certificate-cn
   "Ring middleware that will annotate the request with an
@@ -85,7 +128,7 @@
   the key's value is set to nil."
   [app]
   (fn [{:keys [ssl-client-cert] :as req}]
-    (let [cn  (if ssl-client-cert
+    (let [cn  (when ssl-client-cert
                 (kitchensink/cn-for-cert ssl-client-cert))
           req (assoc req :ssl-client-cn cn)]
       (app req))))
@@ -288,10 +331,10 @@
 
 (defn wrap-with-puppetdb-middleware
   "Default middleware for puppetdb webservers."
-  [app cert-whitelist]
+  [app auth-config]
   (-> app
       wrap-params
-      (wrap-with-authorization cert-whitelist)
+      (wrap-with-authorization auth-config)
       wrap-with-certificate-cn
       wrap-with-default-body
       wrap-with-debug-logging))
