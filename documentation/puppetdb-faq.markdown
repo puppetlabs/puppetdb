@@ -6,7 +6,7 @@ canonical: "/puppetdb/latest/puppetdb-faq.html"
 ---
 
 [trouble_kahadb]: ./trouble_kahadb_corruption.html
-[migrating]: ./migrate.html
+[migrating]: ./anonymization.html
 [maintaining_tuning]: ./maintain_and_tune.html
 [connect_puppet_apply]: ./connect_puppet_apply.html
 [low_catalog_dupe]: ./trouble_low_catalog_duplication.html
