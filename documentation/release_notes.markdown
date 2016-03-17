@@ -10,9 +10,9 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrading]: ./api/query/v4/upgrading-from-v3.html
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
 [migrate]: https://docs.puppetlabs.com/puppetdb/3.2/migrate.html
-[upgrades][./upgrade.html]
-[metrics][./api/metrics/v1/changes-from-puppetdb-v3.html]
-[pqltutorial][./api/query/pql-tutorial.html]
+[upgrades]: ./upgrade.html
+[metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
+[pqltutorial]: ./api/query/pql-tutorial.html
 
 4.0.0
 -----
@@ -22,9 +22,6 @@ some breaking changes. Highlights of the new features include a new
 query language called PQL that is intended to be easier and simpler to
 use along with several new query operators. Notable breaking changes
 are dropping support for HyperSQL, Ruby 1.8.x and Puppet 3.x.
-
-**NOTE** RedHat
-
 
 ### Contributors
 
