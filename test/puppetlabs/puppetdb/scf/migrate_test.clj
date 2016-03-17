@@ -272,21 +272,29 @@
 
 (deftest migration-in-different-schema
   (jdbc/with-db-connection *db*
-    (clear-db-for-testing!)
-    (jdbc/with-db-connection (tdb/db-admin-config)
-      (let [db (tdb/subname->validated-db-name (:subname *db*))
-            user (get-in tdb/test-env [:user :name])]
-        (assert (tdb/valid-sql-id? db))
-        (jdbc/do-commands (format "grant create on database %s to %s"
-                                  db (get-in tdb/test-env [:user :name])))))
-    (jdbc/do-commands
-     ;; Cleaned up in clear-db-for-testing!
-     "CREATE SCHEMA pdbtestschema"
-     "SET SCHEMA 'pdbtestschema'")
-    (let [tables (sutils/sql-current-connection-table-names)]
+    (let [db-config {:database *db*}
+          test-db-name (tdb/subname->validated-db-name (:subname *db*))]
+      (clear-db-for-testing!)
+      (jdbc/with-db-connection (tdb/db-admin-config)
+        (let [db (tdb/subname->validated-db-name (:subname *db*))
+              user (get-in tdb/test-env [:user :name])]
+          (assert (tdb/valid-sql-id? db))
+          (jdbc/do-commands
+            (format "grant create on database %s to %s"
+                    db (get-in tdb/test-env [:user :name])))))
+      (jdbc/do-commands
+        "CREATE SCHEMA pdbtestschema"
+        "SET SCHEMA 'pdbtestschema'")
+      (jdbc/with-db-connection (tdb/db-admin-config test-db-name)
+        (jdbc/do-commands
+          "DROP EXTENSION pg_trgm"
+          "CREATE EXTENSION pg_trgm WITH SCHEMA pdbtestschema"))
+
       ;; Currently sql-current-connection-table-names only looks in public.
       (is (empty? (sutils/sql-current-connection-table-names)))
-      (migrate! *db*))))
+      (migrate! *db*)
+      (indexes! db-config)
+      (indexes! db-config))))
 
 (deftest test-hash-field-not-nullable
   (jdbc/with-db-connection *db*
