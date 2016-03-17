@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.0: Support and Troublshooting Guide"
+title: "PuppetDB 4.0: Support and Troubleshooting Guide"
 layout: default
 ---
 
