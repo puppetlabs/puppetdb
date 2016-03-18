@@ -1,122 +1,120 @@
-{% capture puppetdb_version %}master{% endcapture %}
-
-<h2 id="puppetdb">PuppetDB {{ puppetdb_version }}</h2>
+<h2 id="puppetdb">PuppetDB {{ page.doc.version }}</h2>
 
 <ul>
   <li><strong>General information</strong>
     <ul>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/index.html">Overview and requirements</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/puppetdb-faq.html">Frequently asked questions</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/release_notes.html">Release notes</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/versioning_policy.html">Versioning policy</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/known_issues.html">Known issues</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/community_add_ons.html">Community add-ons</a></li>
+      <li><a href="{{puppetdb}}/index.html">Overview and requirements</a></li>
+      <li><a href="{{puppetdb}}/puppetdb-faq.html">Frequently asked questions</a></li>
+      <li><a href="{{puppetdb}}/release_notes.html">Release notes</a></li>
+      <li><a href="{{puppetdb}}/versioning_policy.html">Versioning policy</a></li>
+      <li><a href="{{puppetdb}}/known_issues.html">Known issues</a></li>
+      <li><a href="{{puppetdb}}/community_add_ons.html">Community add-ons</a></li>
     </ul>
   </li>
   <li><strong>Installation</strong>
     <ul>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/migrate.html">Migrating data</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/install_via_module.html">Installing via Puppet module</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/install_from_packages.html">Installing from packages</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/install_from_source.html">Installing from source</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/upgrade.html">Upgrading PuppetDB</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/connect_puppet_master.html">Connecting Puppet masters</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/connect_puppet_apply.html">Connecting standalone Puppet nodes</a></li>
+      <li><a href="{{puppetdb}}/migrate.html">Migrating data</a></li>
+      <li><a href="{{puppetdb}}/install_via_module.html">Installing via Puppet module</a></li>
+      <li><a href="{{puppetdb}}/install_from_packages.html">Installing from packages</a></li>
+      <li><a href="{{puppetdb}}/install_from_source.html">Installing from source</a></li>
+      <li><a href="{{puppetdb}}/upgrade.html">Upgrading PuppetDB</a></li>
+      <li><a href="{{puppetdb}}/connect_puppet_master.html">Connecting Puppet masters</a></li>
+      <li><a href="{{puppetdb}}/connect_puppet_apply.html">Connecting standalone Puppet nodes</a></li>
     </ul>
   </li>
   <li><strong>Configuration</strong>
     <ul>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/configure.html">Configuring PuppetDB</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/puppetdb_connection.html">puppetdb.conf: Configuring a Puppet/PuppetDB connection</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/postgres_ssl.html">Setting up SSL for PostgreSQL</a></li>
+      <li><a href="{{puppetdb}}/configure.html">Configuring PuppetDB</a></li>
+      <li><a href="{{puppetdb}}/puppetdb_connection.html">puppetdb.conf: Configuring a Puppet/PuppetDB connection</a></li>
+      <li><a href="{{puppetdb}}/postgres_ssl.html">Setting up SSL for PostgreSQL</a></li>
     </ul>
   <li><strong>Usage/admin</strong>
     <ul>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/using.html">Using PuppetDB</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/maintain_and_tune.html">Maintaining and tuning</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/migrate.html">Migrating data</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/anonymization.html">Data anonymization</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/scaling_recommendations.html">Scaling recommendations</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/repl.html">Debugging with remote REPL</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/load_testing_tool.html">Load testing</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/resource_statuses.html">Resource statuses (PE only)</a></li>
+      <li><a href="{{puppetdb}}/using.html">Using PuppetDB</a></li>
+      <li><a href="{{puppetdb}}/maintain_and_tune.html">Maintaining and tuning</a></li>
+      <li><a href="{{puppetdb}}/migrate.html">Migrating data</a></li>
+      <li><a href="{{puppetdb}}/anonymization.html">Data anonymization</a></li>
+      <li><a href="{{puppetdb}}/scaling_recommendations.html">Scaling recommendations</a></li>
+      <li><a href="{{puppetdb}}/repl.html">Debugging with remote REPL</a></li>
+      <li><a href="{{puppetdb}}/load_testing_tool.html">Load testing</a></li>
+      <li><a href="{{puppetdb}}/resource_statuses.html">Resource statuses (PE only)</a></li>
     </ul>
   </li>
   <li><strong>Troubleshooting</strong>
     <ul>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/pdb_support_guide.html">General Support Guide</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/trouble_kahadb_corruption.html">KahaDB Corruption</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/trouble_low_catalog_duplication.html">Low catalog duplication</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/trouble_session_logging.html">Session logging</a></li>
+      <li><a href="{{puppetdb}}/pdb_support_guide.html">General Support Guide</a></li>
+      <li><a href="{{puppetdb}}/trouble_kahadb_corruption.html">KahaDB Corruption</a></li>
+      <li><a href="{{puppetdb}}/trouble_low_catalog_duplication.html">Low catalog duplication</a></li>
+      <li><a href="{{puppetdb}}/trouble_session_logging.html">Session logging</a></li>
     </ul>
   </li>
   <li><strong>API</strong>
     <ul>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/index.html">Overview</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/tutorial.html">Query tutorial</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/tutorial-pql.html">PQL Query tutorial (experimental)</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/curl.html">Curl tips</a></li>
+      <li><a href="{{puppetdb}}/api/index.html">Overview</a></li>
+      <li><a href="{{puppetdb}}/api/query/tutorial.html">Query tutorial</a></li>
+      <li><a href="{{puppetdb}}/api/query/tutorial-pql.html">PQL Query tutorial (experimental)</a></li>
+      <li><a href="{{puppetdb}}/api/query/curl.html">Curl tips</a></li>
     </ul>
   </li>
   <li><strong>Query API version 4</strong>
     <ul>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/upgrading-from-v3.html">Upgrading from version 3</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/query.html">Query structure</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/entities.html">Entities</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/ast.html">AST query language</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/pql.html">Puppet query language (PQL)</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/paging.html">Query paging</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/index.html">Root endpoint (experimental)</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/nodes.html">Nodes endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/environments.html">Environments endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/factsets.html">Factsets endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/facts.html">Facts endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/fact-names.html">Fact-names endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/fact-paths.html">Fact-paths endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/fact-contents.html">Fact-contents endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/catalogs.html">Catalogs endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/resources.html">Resources endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/edges.html">Edges endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/reports.html">Reports endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/events.html">Events endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/event-counts.html">Event counts endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/query/v4/aggregate-event-counts.html">Aggregate event counts endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/upgrading-from-v3.html">Upgrading from version 3</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/query.html">Query structure</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/entities.html">Entities</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/ast.html">AST query language</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/pql.html">Puppet query language (PQL)</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/paging.html">Query paging</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/index.html">Root endpoint (experimental)</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/nodes.html">Nodes endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/environments.html">Environments endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/factsets.html">Factsets endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/facts.html">Facts endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/fact-names.html">Fact-names endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/fact-paths.html">Fact-paths endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/fact-contents.html">Fact-contents endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/catalogs.html">Catalogs endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/resources.html">Resources endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/edges.html">Edges endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/reports.html">Reports endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/events.html">Events endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/event-counts.html">Event counts endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/query/v4/aggregate-event-counts.html">Aggregate event counts endpoint</a></li>
     </ul>
   </li>
   <li><strong>Admin API version 1</strong>
     <ul>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/admin/v1/archive.html">Archive endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/admin/v1/summary-stats.html">Summary stats endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/admin/v1/archive.html">Archive endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/admin/v1/summary-stats.html">Summary stats endpoint</a></li>
     </ul>
   </li>
   <li><strong>Command API version 1</strong>
     <ul>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/command/v1/commands.html">Commands endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/command/v1/commands.html">Commands endpoint</a></li>
     </ul>
   </li>
   <li><strong>Status API version 1</strong>
       <ul>
-          <li><a href="/puppetdb/{{ puppetdb_version }}/api/status/v1/status.html">Status endpoint</a></li>
+          <li><a href="{{puppetdb}}/api/status/v1/status.html">Status endpoint</a></li>
       </ul>
   </li>
   <li><strong>Metadata API version 1</strong>
     <ul>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/meta/v1/version.html">Version endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/meta/v1/server-time.html">Server time endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/meta/v1/version.html">Version endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/meta/v1/server-time.html">Server time endpoint</a></li>
     </ul>
   </li>
   <li><strong>Metrics API version 1</strong>
     <ul>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/metrics/v1/mbeans.html">Metrics endpoint</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/metrics/v1/changes-from-puppetdb-v3.html">Changes from PuppetDB version 3</a></li>
+      <li><a href="{{puppetdb}}/api/metrics/v1/mbeans.html">Metrics endpoint</a></li>
+      <li><a href="{{puppetdb}}/api/metrics/v1/changes-from-puppetdb-v3.html">Changes from PuppetDB version 3</a></li>
     </ul>
   </li>
   <li><strong>Wire formats</strong>
     <ul>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/wire_format/catalog_format_v6.html">Catalog wire format - v6</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/wire_format/facts_format_v4.html">Facts wire format - v4</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/wire_format/report_format_v5.html">Report wire format - v5</a></li>
-      <li><a href="/puppetdb/{{ puppetdb_version }}/api/wire_format/deactivate_node_format_v3.html">Deactivate node wire format - v3</a></li>
+      <li><a href="{{puppetdb}}/api/wire_format/catalog_format_v6.html">Catalog wire format - v6</a></li>
+      <li><a href="{{puppetdb}}/api/wire_format/facts_format_v4.html">Facts wire format - v4</a></li>
+      <li><a href="{{puppetdb}}/api/wire_format/report_format_v5.html">Report wire format - v5</a></li>
+      <li><a href="{{puppetdb}}/api/wire_format/deactivate_node_format_v3.html">Deactivate node wire format - v3</a></li>
     </ul>
   </li>
 </ul>
