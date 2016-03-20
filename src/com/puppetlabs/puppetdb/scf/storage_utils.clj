@@ -134,6 +134,12 @@
          (into-array Object)
          (.createArrayOf connection "varchar"))))
 
+(defn array-to-param
+  [col-type java-type values]
+  (.createArrayOf (sql/connection)
+                  col-type
+                  (into-array java-type values)))
+
 (defmulti sql-array-type-string
   "Returns a string representing the correct way to declare an array
   of the supplied base database type."
