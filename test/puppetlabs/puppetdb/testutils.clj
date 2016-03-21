@@ -128,11 +128,11 @@
 (defn json-content-type? [response]
   (= http/json-response-content-type (get-in response [:headers "Content-Type"])))
 
-(defmacro =-after?
+(defmacro is-equal-after
   "Checks equality of `args` after
    the `func` has been applied to them"
   [func & args]
-  `(= ~@(map #(list func %) args)))
+  `(is (= ~@(map #(list func %) args))))
 
 (defn assert-success!
   "Given a Ring response, verify that the status
