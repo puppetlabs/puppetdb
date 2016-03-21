@@ -14,7 +14,7 @@
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.testutils.log :refer [with-log-level with-logging-to-atom]]
             [puppetlabs.puppetdb.testutils
-             :refer [=-after? block-until-results with-alt-mq]]
+             :refer [is-equal-after block-until-results with-alt-mq]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
             [puppetlabs.puppetdb.cheshire :as json]
             [slingshot.slingshot :refer [throw+]]
@@ -36,11 +36,11 @@
       (submit-report pdb1 report))
     (with-alt-mq (:mq-name pdb2)
       (sync :from pdb1 :to pdb2))
-    (is (=-after?
-         #(dissoc % :receive_time :producer_timestamp
-                  :resources :resource_events)
-         (first (svcs/get-reports (:query-url pdb1) (:certname report)))
-         (first (svcs/get-reports (:query-url pdb2) (:certname report)))))))
+    (is-equal-after
+     #(dissoc % :receive_time :producer_timestamp
+              :resources :resource_events)
+     (first (svcs/get-reports (:query-url pdb1) (:certname report)))
+     (first (svcs/get-reports (:query-url pdb2) (:certname report))))))
 
 (deftest end-to-end-factset-replication
   (with-ext-instances [pdb1 (sync-config nil) pdb2 (sync-config nil)]
@@ -48,10 +48,10 @@
       (submit-factset pdb1 facts))
     (with-alt-mq (:mq-name pdb2)
       (sync :from pdb1 :to pdb2))
-    (is (=-after?
-         without-timestamp
-         (first (svcs/get-factsets (:query-url pdb1) (:certname facts)))
-         (first (svcs/get-factsets (:query-url pdb2) (:certname facts)))))))
+    (is-equal-after
+     without-timestamp
+     (first (svcs/get-factsets (:query-url pdb1) (:certname facts)))
+     (first (svcs/get-factsets (:query-url pdb2) (:certname facts))))))
 
 (defn get-historical-catalogs [base-url certname]
   (svcs/get-json
@@ -136,9 +136,10 @@
                                  "replace facts" 4 facts)
           @(block-until-results 100 (facts-from master)))
         @(block-until-results 100 (facts-from mirror))
-        (is (=-after? without-timestamp
-                      (facts-from mirror)
-                      (facts-from master)))))))
+        (is-equal-after
+         without-timestamp
+         (facts-from mirror)
+         (facts-from master))))))
 
 (deftest pull-record-that-wouldnt-be-expired-locally
   (let [certname (:certname catalog)]
@@ -185,11 +186,11 @@
       (sync :from pdb1 :to pdb2))
     (with-alt-mq (:mq-name pdb3)
       (sync :from pdb2 :to pdb3))
-    (is (=-after?
-          without-timestamp
-          (first (svcs/get-factsets (:query-url pdb1) (:certname facts)))
-          (first (svcs/get-factsets (:query-url pdb2) (:certname facts)))))
-          (first (svcs/get-factsets (:query-url pdb3) (:certname facts)))))
+    (is-equal-after
+     without-timestamp
+     (first (svcs/get-factsets (:query-url pdb1) (:certname facts)))
+     (first (svcs/get-factsets (:query-url pdb2) (:certname facts)))
+     (first (svcs/get-factsets (:query-url pdb3) (:certname facts))))))
 
 (defn- event->map [event]
   {:level (str (.getLevel event))
