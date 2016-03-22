@@ -1527,6 +1527,10 @@
          resources-1
          resources-2)))
 
+(deftest giant-resources-exist
+  (testing "resources-exist?"
+    (is (= #{} (resources-exist? (set (take 40000 (repeatedly random/random-string))))))))
+
 (deftest test-merge-resource-hash
   (let [ref->resource {{:type "File" :title "/tmp/foo"}
                        {:line 10}
