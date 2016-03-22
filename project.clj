@@ -57,7 +57,7 @@
                  ;; Database connectivity
                  [com.zaxxer/HikariCP "2.4.3"]
                  [org.clojure/java.jdbc "0.4.2"]
-                 [org.postgresql/postgresql "9.4.1208"]
+                 [org.postgresql/postgresql "9.4.1208.jre7"]
 
                  ;; MQ connectivity
                  [org.apache.activemq/activemq-broker "5.13.2" :exclusions [org.slf4j/slf4j-api]]
