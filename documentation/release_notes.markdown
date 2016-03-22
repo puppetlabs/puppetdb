@@ -9,10 +9,10 @@ canonical: "/puppetdb/latest/release_notes.html"
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
 [upgrading]: ./api/query/v4/upgrading-from-v3.html
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
-[migrate]: https://docs.puppetlabs.com/puppetdb/3.2/migrate.html
+[migrate]: /puppetdb/3.2/migrate.html
 [upgrades]: ./upgrade.html
 [metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
-[pqltutorial]: ./api/query/pql-tutorial.html
+[pqltutorial]: ./api/query/tutorial-pql.html
 
 4.0.0
 -----
