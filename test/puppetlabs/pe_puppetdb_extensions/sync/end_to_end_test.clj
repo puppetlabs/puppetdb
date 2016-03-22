@@ -37,10 +37,12 @@
     (with-alt-mq (:mq-name pdb2)
       (sync :from pdb1 :to pdb2))
     (is-equal-after
-     #(dissoc % :receive_time :producer_timestamp
-              :resources :resource_events)
-     (first (svcs/get-reports (:query-url pdb1) (:certname report)))
-     (first (svcs/get-reports (:query-url pdb2) (:certname report))))))
+     #(-> %
+          first
+          (dissoc :receive_time :producer_timestamp
+                  :resources :resource_events))
+     (svcs/get-reports (:query-url pdb1) (:certname report))
+     (svcs/get-reports (:query-url pdb2) (:certname report)))))
 
 (deftest end-to-end-factset-replication
   (with-ext-instances [pdb1 (sync-config nil) pdb2 (sync-config nil)]
@@ -49,9 +51,12 @@
     (with-alt-mq (:mq-name pdb2)
       (sync :from pdb1 :to pdb2))
     (is-equal-after
-     without-timestamp
-     (first (svcs/get-factsets (:query-url pdb1) (:certname facts)))
-     (first (svcs/get-factsets (:query-url pdb2) (:certname facts))))))
+     #(-> %
+          first
+          (update-in [:facts :data] set)
+          without-timestamp)
+     (svcs/get-factsets (:query-url pdb1) (:certname facts))
+     (svcs/get-factsets (:query-url pdb2) (:certname facts)))))
 
 (defn get-historical-catalogs [base-url certname]
   (svcs/get-json
@@ -137,7 +142,9 @@
           @(block-until-results 100 (facts-from master)))
         @(block-until-results 100 (facts-from mirror))
         (is-equal-after
-         without-timestamp
+         #(-> %
+              (update-in [:facts :data] set)
+              without-timestamp)
          (facts-from mirror)
          (facts-from master))))))
 
@@ -187,10 +194,13 @@
     (with-alt-mq (:mq-name pdb3)
       (sync :from pdb2 :to pdb3))
     (is-equal-after
-     without-timestamp
-     (first (svcs/get-factsets (:query-url pdb1) (:certname facts)))
-     (first (svcs/get-factsets (:query-url pdb2) (:certname facts)))
-     (first (svcs/get-factsets (:query-url pdb3) (:certname facts))))))
+     #(-> %
+          first
+          (update-in [:facts :data] set)
+          without-timestamp)
+     (svcs/get-factsets (:query-url pdb1) (:certname facts))
+     (svcs/get-factsets (:query-url pdb2) (:certname facts))
+     (svcs/get-factsets (:query-url pdb3) (:certname facts)))))
 
 (defn- event->map [event]
   {:level (str (.getLevel event))
