@@ -1,7 +1,6 @@
 ---
 title: "PuppetDB 4.0 » API » v4 » Puppet query language (PQL)"
 layout: default
-canonical: "/puppetdb/latest/api/query/v4/pql.html"
 ---
 
 [entities]: ./entities.html
@@ -11,25 +10,40 @@ canonical: "/puppetdb/latest/api/query/v4/pql.html"
 > **Experimental Feature**: This featureset is experimental, and it may be altered or removed in
 > a future release.
 
-Puppet Query Language (PQL) is a query language designed with PuppetDB and Puppet data in mind. It
-provides a string based query language as an alternative to the [AST query language][ast] PuppetDB has
-always supported.
+Puppet Query Language (PQL) is a query language designed with PuppetDB and
+Puppet data in mind. It provides a string based query language as an alternative
+to the [AST query language][ast] PuppetDB has always supported.
 
-## Executing PQL queries using curl
+## Executing PQL queries using the PuppetDB CLI
 
-PQL queries are always made against the index endpoint, using either a `GET` or a `POST`. The query
-string is provided as a value provided to the `query` parameter.
+[See the PuppetDB CLI installation page for more information about using the PuppetDB CLI.][cli_install]
 
-The following example shows using `curl` to execute a `GET` request:
+The following examples use the PuppetDB CLI to execute a query:
 
-    curl -X GET http://localhost:8080/pdb/query/v4 \
-      --data-urlencode 'query=nodes { certname = "macbook-pro.local" }'
+**Without SSL:**
 
-And the following example shows how to execute a `POST` request:
+    puppet query 'nodes { certname = \"macbook-pro.local\" }' \
+      --urls http://puppetdb.example.com:8080/pdb/query/v4
 
-    curl -X POST http://localhost:8080/pdb/query/v4 \
-      -H 'Content-Type: application/json'
-      -d '{"query":"nodes { certname = \"macbook-pro.local\" }"}'
+This requires that PuppetDB be
+[configured to accept non-SSL connections][config_jetty]. By default, it will
+only accept unencrypted traffic from `localhost`.
+
+**With SSL:**
+
+    puppet query 'nodes { certname = \"macbook-pro.local\" }' \
+      --urls https://puppetdb.example.com:8081/pdb/query/v4 \
+      --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
+      --cert /etc/puppetlabs/puppet/ssl/certs/thisnode.pem \
+      --key /etc/puppetlabs/puppet/ssl/private_keys/thisnode.pem
+
+This requires that you specify a certificate (issued by the same CA PuppetDB
+trusts), a private key, and a CA certificate.
+
+**Note**: The PuppetDB CLI can be configured using a config file at
+`$HOME/.puppetlabs/client-tools/puppetdb.conf` with default values. We will
+assume for the rest of this tutorial that your SSL credentials and server urls
+are set in the configuration file.
 
 ## Query Structure
 

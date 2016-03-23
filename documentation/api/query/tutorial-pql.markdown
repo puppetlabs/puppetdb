@@ -1,7 +1,6 @@
 ---
 title: "PuppetDB 4.0: PQL query tutorial"
 layout: default
-canonical: "/puppetdb/latest/api/query/tutorial-pql.html"
 ---
 
 [lists]: ./v4/pql.html#lists
@@ -14,6 +13,7 @@ canonical: "/puppetdb/latest/api/query/tutorial-pql.html"
 [regexp]: ./v4/pql.html#regexp-
 [in]: ./v4/pql.html#array-match-in
 [implicit]: ./v4/pql.html#implicit-subqueries
+[cli_install]: ../../pdb_client_tools.html
 
 > **Experimental Feature**: PQL is experimental, and it may be altered or
 > removed in a future release.
@@ -31,7 +31,31 @@ payload in the POST case, which contains the query to execute. Results are
 always returned in `application/json` form.
 
 Queries are usually issued from code, but you can easily issue them from the
-command line by using curl.
+command line by using the [PuppetDB CLI][cli_install] or using [curl][curl].
+
+### Querying with the PuppetDB CLI
+
+[See the PuppetDB CLI installation page for more information about using the PuppetDB CLI.][cli_install]
+
+**Without SSL:**
+
+    puppet query '<PQL query>' \
+      --urls http://puppetdb.example.com:8080/pdb/query/v4
+
+This requires that PuppetDB be
+[configured to accept non-SSL connections][config_jetty]. By default, it will
+only accept unencrypted traffic from `localhost`.
+
+**With SSL:**
+
+    puppet query '<PQL query>' \
+      --urls https://puppetdb.example.com:8081/pdb/query/v4 \
+      --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
+      --cert /etc/puppetlabs/puppet/ssl/certs/thisnode.pem \
+      --key /etc/puppetlabs/puppet/ssl/private_keys/thisnode.pem
+
+This requires that you specify a certificate (issued by the same CA PuppetDB
+trusts), a private key, and a CA certificate.
 
 ### Querying with curl
 
