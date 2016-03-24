@@ -40,7 +40,7 @@ If you didn't already use it to install Puppet, you will need to
 
 Use Puppet to install the PuppetDB CLI:
 
-  $ puppet resource package puppet-client-tools ensure=latest
+    $ puppet resource package puppet-client-tools ensure=latest
   
 If the node you installed the CLI on is not the same node as your PuppetDB
 server, you will need to add the CLI node's certname to the PuppetDB
@@ -51,7 +51,7 @@ To configure the PuppetDB CLI to talk to your PuppetDB with flags, add a
 configuration file at `$HOME/.puppetlabs/client-tools/puppetdb.conf`. For more
 details see the installed man page:
 
-  $ man puppetdb_conf
+    $ man puppetdb_conf
   
 ### Step 4: Enjoy!
 
@@ -61,28 +61,28 @@ Here are some examples of using the CLI.
 
 Query PuppetDB using PQL:
 
-  $ puppet query 'nodes [ certname ]{ limit 1 }'
+    $ puppet query 'nodes [ certname ]{ limit 1 }'
   
 Or query PuppetDB using the AST syntax:
 
-  $ puppet query '["from", "nodes", ["extract", "certname"], ["limit", "1"]]'
+    $ puppet query '["from", "nodes", ["extract", "certname"], ["limit", "1"]]'
   
 For more information on the `query` command: 
 
-  $ man puppet-query
+    $ man puppet-query
   
 #### Using `puppet db`
   
 Handle your PuppetDB exports:
 
-  $ puppet db export pdb-archive.tgz --anonymization full
+    $ puppet db export pdb-archive.tgz --anonymization full
 
 Or handle your PuppetDB imports:
 
-  $ puppet db import pdb-archive.tgz
+    $ puppet db import pdb-archive.tgz
 
 For more information on the `db` command:
 
-  $ man puppet-db
+    $ man puppet-db
   
 For more information about PuppetDB exports and imports [see][export].

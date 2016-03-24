@@ -41,9 +41,8 @@ This requires that you specify a certificate (issued by the same CA PuppetDB
 trusts), a private key, and a CA certificate.
 
 **Note**: The PuppetDB CLI can be configured using a config file at
-`$HOME/.puppetlabs/client-tools/puppetdb.conf` with default values. We will
-assume for the rest of this tutorial that your SSL credentials and server urls
-are set in the configuration file.
+`$HOME/.puppetlabs/client-tools/puppetdb.conf` with default values for the
+server urls and SSL credentials.
 
 ## Query Structure
 

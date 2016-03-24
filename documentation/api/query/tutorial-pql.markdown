@@ -57,6 +57,10 @@ only accept unencrypted traffic from `localhost`.
 This requires that you specify a certificate (issued by the same CA PuppetDB
 trusts), a private key, and a CA certificate.
 
+**Note**: The PuppetDB CLI can be configured using a config file at
+`$HOME/.puppetlabs/client-tools/puppetdb.conf` with default values for the
+server urls and SSL credentials.
+
 ### Querying with curl
 
 [See the curl tips page for more information about constructing curl commands.][curl]
