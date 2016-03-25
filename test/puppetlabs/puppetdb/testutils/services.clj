@@ -12,9 +12,9 @@
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
             [puppetlabs.trapperkeeper.services.status.status-service :refer [status-service]]
+            [puppetlabs.trapperkeeper.services.metrics.metrics-service :refer [metrics-webservice]]
             [puppetlabs.puppetdb.client :as pdb-client]
             [puppetlabs.puppetdb.cli.services :as svcs]
-            [puppetlabs.puppetdb.metrics :as metrics]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
             [puppetlabs.puppetdb.command :refer [command-service] :as dispatch]
@@ -67,8 +67,8 @@
    #'svcs/puppetdb-service
    #'message-listener-service
    #'command-service
-   #'metrics/metrics-service
    #'status-service
+   #'metrics-webservice
    #'dashboard-redirect-service
    #'pdb-routing-service
    #'maint-mode-service
