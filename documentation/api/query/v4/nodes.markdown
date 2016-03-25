@@ -61,6 +61,9 @@ The below fields are allowed as filter criteria and are returned in all response
 * `latest_report_status` (string): the status of the latest report. Possible values
   come from Puppet's report status, which can be found [here][statuses].
 
+* `latest_report_noop` (boolean): indicates whether the most recent report for
+  the node was a noop run.
+
 * `latest_report_hash` (string): a hash of the latest report for the node.
 
 * `["fact", <FACT NAME>]` (string, number, Boolean): the value of `<FACT NAME>` for a node. Inequality operators are allowed, and will skip non-numeric values.
@@ -97,6 +100,7 @@ The response is a JSON array of hashes, where each hash has the form:
      "facts_environment": <string or null>,
      "report_environment": <string or null>,
      "latest_report_status": <string>,
+     "latest_report_noop": <boolean>,
      "latest_report_hash": <string>
     }
 
@@ -144,6 +148,7 @@ of `["=", "certname", "<NODE>"]`.
         "certname" : "mbp.local",
         "catalog_timestamp" : "2015-06-19T23:03:43.007Z",
         "latest_report_status": "success",
+        "latest_report_noop": false,
         "latest_report_hash": "2625d1b601e98ed1e281ccd79ca8d16b9f74fea6"
     }
 

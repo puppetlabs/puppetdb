@@ -94,6 +94,9 @@
                                                    :queryable? true
                                                    :field (hsql-hash-as-str
                                                             :reports.hash)}
+                             "latest_report_noop" {:type :boolean
+                                                   :queryable? true
+                                                   :field :reports.noop}
                              "latest_report_status" {:type :string
                                                      :queryable? true
                                                      :field :report_statuses.status}
