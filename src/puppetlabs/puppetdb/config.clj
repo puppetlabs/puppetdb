@@ -334,7 +334,7 @@
 
 (defn add-web-routing-service-config
   [config-data]
-  (let [default-web-router-service {:puppetlabs.puppetdb.metrics/metrics-service "/metrics"
+  (let [default-web-router-service {:puppetlabs.trapperkeeper.services.metrics.metrics-service/metrics-webservice "/metrics"
                                     :puppetlabs.trapperkeeper.services.status.status-service/status-service "/status"
                                     :puppetlabs.puppetdb.pdb-routing/pdb-routing-service "/pdb"}
         bootstrap-cfg (-> (find-bootstrap-config config-data)
@@ -347,9 +347,11 @@
         (-> (format "Configuration of the `%s` route is not allowed. This setting defaults to `%s`." svc route)
             utils/println-err)))
     ;; We override the users settings as to make the above routes *not* configurable
-    (update config-data :web-router-service merge default-web-router-service
-            (when dashboard-redirect?
-              {:puppetlabs.puppetdb.dashboard/dashboard-redirect-service "/"}))))
+    (-> config-data
+        (assoc-in [:metrics :reporters :jmx :enabled] true)
+        (update :web-router-service merge default-web-router-service
+                (when dashboard-redirect?
+                  {:puppetlabs.puppetdb.dashboard/dashboard-redirect-service "/"})))))
 
 (defn- add-mq-defaults
   [config-data]

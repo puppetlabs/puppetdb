@@ -44,7 +44,6 @@
      maintain acceptable performance."
   (:require [clj-time.core :refer [ago]]
             [clojure.java.io :as io]
-            [clojure.java.jmx :as jmx]
             [clojure.tools.logging :as log]
             [compojure.core :as compojure]
             [metrics.reporters.jmx :as jmx-reporter]

@@ -43,7 +43,6 @@
                  [clj-stacktrace "0.2.8"]
                  [metrics-clojure "2.6.1" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
                  [clj-time "0.11.0"]
-                 [org.clojure/java.jmx "0.3.1"]
                  ;; Filesystem utilities
                  [me.raynes/fs "1.4.5"]
                  [org.apache.commons/commons-lang3 "3.3.1"]
@@ -77,6 +76,7 @@
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
                  [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]
+                 [puppetlabs/trapperkeeper-metrics "0.2.0"]
                  [prismatic/schema "1.0.4"]
                  [trptcolin/versioneer "0.2.0"]
                  [puppetlabs/trapperkeeper-status ~tk-status-version]
