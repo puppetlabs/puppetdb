@@ -130,6 +130,15 @@ active nodes:
       ["null?", "deactivated", true],
       ["group_by", "facts_environment"]]
 
+This query, which includes a subquery against the fact-contents endpoint, will
+return all nodes with at least 10 days of uptime:
+
+    ["in", "certname",
+      ["extract", "certname",
+        ["select_fact_contents",
+          ["and", ["=", "path", ["system_uptime", "days"]],
+                  [">=", "value", 10]]]]]
+
 ## `/pdb/query/v4/nodes/<NODE>`
 
 This will return status information for the given node, active or
