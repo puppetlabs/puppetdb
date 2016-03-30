@@ -1,14 +1,13 @@
 ---
 title: "PuppetDB 4.0: Load testing"
 layout: default
-canonical: "/puppetdb/latest/load_testing_tool.html"
 ---
 
-[export]: ./migrate.html
+[export]: ./anonymization.html
 
-A basic tool for simulating PuppetDB loads is included with
-the standard PuppetDB distribution. **This tool is currently experimental
-and is likely to change in future releases**.  
+A basic tool for simulating PuppetDB loads is included with the standard
+PuppetDB distribution. **This tool is currently experimental
+and is likely to change in future releases**.
 
 The load testing tool can submit catalogs, facts, and/or reports at a defined interval, for a
 specified number of nodes. It is also able to vary the submitted

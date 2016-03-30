@@ -6,20 +6,20 @@ canonical: "/puppetdb/latest/puppetdb-faq.html"
 ---
 
 [trouble_kahadb]: ./trouble_kahadb_corruption.html
-[migrating]: ./migrate.html
 [maintaining_tuning]: ./maintain_and_tune.html
 [connect_puppet_apply]: ./connect_puppet_apply.html
 [low_catalog_dupe]: ./trouble_low_catalog_duplication.html
-[puppetdb3]: /puppetdb/3.1/migrate.html
+[puppetdb3]: /puppetdb/3.2/migrate.html
 
 ## Can I migrate my data from ActiveRecord storeconfigs?
 
 Yes, but you must use PuppetDB 3.x to do so. Please consult the
 [PuppetDB 3.x documentiation][puppetdb3] for more details.
 
-## Can I migrate from an existing PuppetDB to a new instance?
+## Can I migrate from an HSQL PuppetDB to PostgreSQL PuppetDB instance?
 
-Yes. See [Migrating Data][migrating] for more information.
+Yes, but you must use PuppetDB 3.x to do so. Please consult the
+[Migrating Data][puppetdb3] for more information.
 
 ## The PuppetDB dashboard gives me a weird SSL error when I visit it. What gives?
 

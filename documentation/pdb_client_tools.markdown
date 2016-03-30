@@ -85,4 +85,5 @@ For more information on the `db` command:
 
     $ man puppet-db
   
-For more information about PuppetDB exports and imports [see][export].
+For more information about PuppetDB exports, imports, and anonymization
+[see][export].

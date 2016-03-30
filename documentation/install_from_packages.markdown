@@ -12,8 +12,6 @@ canonical: "/puppetdb/latest/install_from_packages.html"
 [configure_jetty]: ./configure.html#jetty-http-settings
 [requirements]: ./index.html#standard-install-rhel-centos-debian-ubuntu-or-fedora
 [module]: ./install_via_module.html
-[migrating]: ./migrate.html
-
 
 > **Note:** If you are running Puppet Enterprise version 3.0 or later, you do not need to install PuppetDB, as it is already installed as part of PE.
 
