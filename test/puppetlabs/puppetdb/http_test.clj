@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.http-test
-  (:import [java.io InputStream StringWriter])
-  (:require [clj-http.client :as client]
-            [cheshire.core :as json]
+  (:import [java.io InputStream StringWriter]
+           [sun.nio.cs UTF_8])
+  (:require [cheshire.core :as json]
+            [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.trapperkeeper.testutils.webserver :refer [with-test-webserver]]
             [ring.mock.request :as mock]
             [puppetlabs.puppetdb.http :refer :all]
@@ -122,11 +123,11 @@
   (testing "JSON responses should be encoded as utf-8"
     (let [app  (fn [req] (json-response "N�rnberg"))]
       (with-test-webserver app port
-        (let [resp (client/get (format "http://localhost:%s" port))]
-          (is (re-find #"charset=utf-8" (get-in resp [:headers "content-type"])))
+        (let [resp (pl-http/get (format "http://localhost:%s" port) {:as :text})]
+          (is (instance? UTF_8 (get-in resp [:content-type :charset])))
           (is (= (-> resp
-                     (:body)
-                     (json/parse-string))
+                     :body
+                     json/parse-string)
                  "N�rnberg")))))))
 
 (deftest streaming-json

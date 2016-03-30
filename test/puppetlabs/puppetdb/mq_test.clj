@@ -2,6 +2,7 @@
   (:import [org.apache.activemq ScheduledMessage]
            [org.apache.activemq.broker BrokerService])
   (:require [me.raynes.fs :as fs]
+            [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.mq :refer :all :as mq]
             [puppetlabs.puppetdb.testutils :refer :all]
             [clojure.test :refer :all]
@@ -114,9 +115,12 @@
 (deftest test-jmx-enabled
   (without-jmx
    (svc-utils/with-puppetdb-instance
-     (is (thrown-with-msg? clojure.lang.ExceptionInfo
-                           #"status 404"
-                           (svc-utils/current-queue-depth))))))
+     (let [{:keys [host] :as base-url} svc-utils/*base-url*
+           resp (-> base-url
+                    (svc-utils/mbeans-url-str (svc-utils/command-mbean-name host))
+                    (pl-http/get {:as :text})
+                    :body)]
+       (is (.contains resp "No mbean"))))))
 
 (deftest test-queue-size
   (with-test-broker "test" conn

@@ -70,7 +70,6 @@
                  [org.slf4j/jcl-over-slf4j "1.7.14" :exclusions [org.slf4j/slf4j-api]]
                  ;; WebAPI support libraries.
                  [compojure "1.4.0"]
-                 [clj-http "2.0.1"]
                  [ring/ring-core "1.4.0" :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
                  [org.apache.commons/commons-compress "1.10"]
                  [puppetlabs/kitchensink ~ks-version]
@@ -87,9 +86,7 @@
                  [honeysql "0.6.3"]
                  [com.rpl/specter "0.5.7"]
                  [org.clojure/core.async "0.2.374"]
-                 [puppetlabs/http-client "0.5.0" :exclusions [org.apache.httpcomponents/httpclient
-                                                              org.apache.httpcomponents/httpcore
-                                                              org.slf4j/slf4j-api]]
+                 [puppetlabs/http-client "0.5.0" :exclusions [org.slf4j/slf4j-api]]
                  [com.taoensso/nippy "2.10.0" :exclusions [org.clojure/tools.reader]]
                  [bidi "1.25.1" :exclusions [org.clojure/clojurescript]]
                  [puppetlabs/comidi "0.3.1"]]

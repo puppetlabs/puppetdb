@@ -1,11 +1,9 @@
 (ns puppetlabs.puppetdb.dashboard-test
   (:require [puppetlabs.puppetdb.dashboard :refer :all]
-            [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
+            [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [clojure.java.io :refer [file]]
-            [clj-http.client :as client]
             [puppetlabs.puppetdb.utils :refer [base-url->str-with-prefix]]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.dashboard :as dtu]
@@ -24,6 +22,6 @@
      (let [root-resp (-> svc-utils/*base-url*
                          (assoc :prefix "/")
                          base-url->str-with-prefix
-                         client/get)]
+                         (pl-http/get {:as :text}))]
        (tu/assert-success! root-resp)
        (is (dtu/dashboard-page? root-resp))))))

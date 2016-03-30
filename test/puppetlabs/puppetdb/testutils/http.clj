@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.http
-  (:require [clj-http.client :as client]
-            [clojure.test :refer :all]
+  (:require [clojure.test :refer :all]
+            [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
@@ -12,15 +12,23 @@
   (:import
    [java.io ByteArrayInputStream]))
 
+(defn multipart-get [url]
+  (pl-http/get url {:headers {"Accept" "application/octet-stream"}
+                    :as :stream}))
+
+(defn json-content-type? [response]
+  (= "application/json"
+     (get-in response [:content-type :mime-type])))
+
 (defn pdb-get
   "Makes a GET reqeust using to the PuppetDB instance at `base-url`
   with `url-suffix`. Will parse the body of the response if it has a
   json content type."
   [base-url url-suffix]
-  (let [resp (client/get (str (utils/base-url->str base-url)
-                              url-suffix)
-                         {:throw-exceptions false})]
-    (if (tu/json-content-type? resp)
+  (let [resp (pl-http/get (str (utils/base-url->str base-url)
+                               url-suffix)
+                          {:as :text})]
+    (if (json-content-type? resp)
       (update resp :body #(json/parse-string % true))
       resp)))
 

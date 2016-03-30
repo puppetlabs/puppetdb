@@ -1,8 +1,8 @@
 (ns puppetlabs.puppetdb.command-test
   (:require [me.raynes.fs :as fs]
-            [clj-http.client :as client]
             [clojure.java.jdbc :as sql]
             [cheshire.core :as json]
+            [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.catalogs :as catalog]
@@ -1397,15 +1397,13 @@
                :repeatable-read
                (from-sql-date (scf-store/node-deactivated-time "foo.local")))))
       (is (= expected-stamp
-             (-> (client/get (str (utils/base-url->str svc-utils/*base-url*)
-                                  "/nodes")
-                             {:accept :json
-                              :throw-exceptions true
-                              :throw-entire-message true
-                              :query-params {"query"
-                                             (json/generate-string
-                                              ["or" ["=" ["node" "active"] true]
-                                               ["=" ["node" "active"] false]])}})
+             (-> (pl-http/get (str (utils/base-url->str svc-utils/*base-url*) "/nodes")
+                              {:headers {"Accept" "application/json"}
+                               :as :text
+                               :query-params {"query"
+                                              (json/generate-string
+                                               ["or" ["=" ["node" "active"] true]
+                                                ["=" ["node" "active"] false]])}})
                  :body
                  json/parse-string
                  first

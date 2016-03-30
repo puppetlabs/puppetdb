@@ -6,7 +6,7 @@
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.testutils :as tu]
-            [clj-http.client :as http-client]
+            [puppetlabs.puppetdb.testutils.http :as tuh]
             [clojure.java.io :as io]
             [puppetlabs.puppetdb.testutils.cli :refer [get-nodes example-catalog
                                                        example-report example-facts
@@ -79,9 +79,7 @@
   [{:keys [host port]} filename]
   (let [admin-base-url (utils/pdb-admin-base-url host port)
         url (str (utils/base-url->str admin-base-url) "/archive")
-        response (http-client/get url {:throw-exceptions false
-                                       :accept :octet-stream
-                                       :as :stream})]
+        response (tuh/multipart-get url)]
     (io/copy (:body response) (io/file filename))))
 
 (deftest archive-flag-works

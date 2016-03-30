@@ -2,7 +2,7 @@
   (:require [puppetlabs.puppetdb.http :as http]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.reports :as reports]
-            [clj-http.client :as http-client]
+            [puppetlabs.http.client.sync :as http-client]
             [clojure.string :as str]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -35,10 +35,8 @@
                           (str/replace command #" " "_") version certname)
                   (when timeout (format "&secondsToWaitForCompletion=%s" timeout)))]
      (http-client/post url {:body body
-                            :throw-exceptions false
-                            :content-type :json
-                            :character-encoding "UTF-8"
-                            :accept :json}))))
+                            :headers {"Content-Type" "application/json"
+                                      "Accept" "application/json"}}))))
 
 (defn-validated submit-catalog
   "Send the given wire-format `catalog` (associated with `host`) to a

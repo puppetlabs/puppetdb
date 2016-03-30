@@ -2,6 +2,7 @@
   (:require [clj-time.core :as t]
             [clj-time.coerce :as time-coerce]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.testutils :as testutils]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils.log
@@ -22,8 +23,6 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
-            [clj-http.util :refer [url-encode]]
-            [clj-http.client :as client]
             [clojure.string :as str]
             [me.raynes.fs :as fs]
             [slingshot.slingshot :refer [throw+]]
@@ -129,10 +128,9 @@
   (assoc *base-url* :prefix "/pdb/admin" :version :v1))
 
 (defn get-url [base-url suffix & [opts]]
-  (let [opts (or opts {:throw-exceptions true
-                       :throw-entire-message? true})]
+  (let [opts (utils/assoc-when opts :as :text)]
     (-> (str (base-url->str base-url) suffix)
-        (client/get opts)
+        (pl-http/get opts)
         :body)))
 
 (defn get-json [base-url suffix & [opts]]
@@ -140,15 +138,15 @@
 
 (defn get-reports [base-url certname]
   (get-json base-url "/reports"
-            {:query-params {:query (json/generate-string [:= :certname certname])}}))
+            {:query-params {"query" (json/generate-string [:= :certname certname])}}))
 
 (defn get-factsets [base-url certname]
   (get-json base-url "/factsets"
-            {:query-params {:query (json/generate-string [:= :certname certname])}}))
+            {:query-params {"query" (json/generate-string [:= :certname certname])}}))
 
 (defn get-catalogs [base-url certname]
   (get-json base-url "/catalogs"
-            {:query-params {:query (json/generate-string [:= :certname certname])}}))
+            {:query-params {"query" (json/generate-string [:= :certname certname])}}))
 
 (defn get-summary-stats [base-url]
   (get-json base-url "/summary-stats"))
@@ -183,7 +181,7 @@
 (defn command-mbean-name
   "The full mbean name of the MQ destination used for commands"
   [host]
-  (str "org.apache.activemq:type=Broker,brokerName=" (url-encode host)
+  (str "org.apache.activemq:type=Broker,brokerName=" (java.net.URLEncoder/encode host "UTF-8")
        ",destinationType=Queue"
        ",destinationName=" conf/default-mq-endpoint))
 
@@ -213,10 +211,10 @@
   []
   (loop [attempts 0]
     (let [{:keys [status body] :as response}
-          (client/get (mbeans-url-str *base-url*) {:as :json :throw-exceptions false})]
+          (pl-http/get (mbeans-url-str *base-url*) {:as :text})]
       (cond
         (and (= 200 status)
-             (mq-mbeans-found? body))
+             (mq-mbeans-found? (json/parse-string body true)))
         true
 
         (<= max-attempts attempts)
@@ -244,8 +242,9 @@
   ;; initialized, so querying for queue metrics fails.  This check
   ;; ensures it has started.
   (-> (mbeans-url-str *base-url* (command-mbean-name (:host *base-url*)))
-      (client/get {:as :json})
-      :body))
+      (pl-http/get {:as :text})
+      :body
+      (json/parse-string true)))
 
 (defn current-queue-depth
   "Returns current PuppetDB instance's queue depth."
@@ -257,8 +256,10 @@
   the current PuppetDB instance."
   []
   (-> (mbeans-url-str *base-url* "puppetlabs.puppetdb.command:type=global,name=discarded")
-      (client/get {:as :json})
-      (get-in [:body :Count])))
+      (pl-http/get {:as :text})
+      :body
+      (json/parse-string true)
+      :Count))
 
 (defn until-consumed
   "Invokes `f` and blocks until the `num-messages` have been consumed
@@ -319,8 +320,10 @@
   "Returns the dispatch count for the currently running PuppetDB instance."
   [dest-name]
   (-> (mbeans-url-str *base-url* (command-mbean-name (:host *base-url*)))
-      (client/get {:as :json})
-      (get-in [:body :DispatchCount])))
+      (pl-http/get {:as :text})
+      :body
+      (json/parse-string true)
+      :DispatchCount))
 
 (defn sync-command-post
   "Syncronously post a command to PDB by blocking until the message is consumed

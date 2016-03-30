@@ -1,9 +1,9 @@
 (ns puppetlabs.puppetdb.status-test
   (:require [clojure.test :refer :all]
+            [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.utils :refer [base-url->str-with-prefix]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [clj-http.client :as client]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]))
 
 (deftest status-test
@@ -12,7 +12,7 @@
       (let [{:keys [body] :as pdb-resp} (-> svc-utils/*base-url*
                                             (assoc :prefix "/status/v1/services")
                                             base-url->str-with-prefix
-                                            client/get)
+                                            (pl-http/get {:as :text}))
             pdb-status (:puppetdb-status (json/parse-string body true))]
         (tu/assert-success! pdb-resp)
         (is (= "running" (:state pdb-status)))
@@ -28,7 +28,7 @@
         (let [{:keys [body status]} (-> svc-utils/*base-url*
                                         (assoc :prefix "/status/v1/services")
                                         base-url->str-with-prefix
-                                        (client/get {:throw-exceptions false}))
+                                        (pl-http/get {:as :text}))
               pdb-status (:puppetdb-status (json/parse-string body true))]
           (is (= 503 status))
           (is (= "starting" (:state pdb-status)))
