@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.middleware
   "Ring middleware"
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
+  (:require [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query-eng :as qe]
             [puppetlabs.puppetdb.utils.metrics :refer [multitime!]]
@@ -34,7 +35,7 @@
   `<logger name=\"puppetlabs.puppetdb.middleware\" level=\"debug\"/>`"
   [app]
   (fn [req]
-    (log/debug (str "Processing HTTP request to URI: '" (:uri req) "'"))
+    (log/debug (i18n/trs "Processing HTTP request to URI: '{0}'" (:uri req)))
     (app req)))
 
 (defn build-whitelist-authorizer
@@ -50,12 +51,9 @@
       (if (allowed? req)
         :authorized
         (do
-          (log/warnf "%s rejected by certificate whitelist %s" ssl-client-cn whitelist)
-          (format (str "The client certificate name (%s) doesn't "
-                       "appear in the certificate whitelist. Is your "
-                       "master's (or other PuppetDB client's) certname "
-                       "listed in PuppetDB's certificate-whitelist file?")
-                  ssl-client-cn))))))
+          (log/warnf (i18n/trs "{0} rejected by certificate whitelist {1}" ssl-client-cn whitelist))
+          (i18n/tru "The client certificate name {0} doesn't appear in the certificate whitelist. Is your master's (or other PuppetDB client's) certname listed in PuppetDB's certificate-whitelist file?"
+                    ssl-client-cn))))))
 
 (defn wrap-with-authorization
   "Ring middleware that will only pass through a request if the
@@ -74,8 +72,8 @@
         (let [auth-result (authorize req)]
           (if (= :authorized auth-result)
             (app req)
-            (-> (str "Permission denied: " auth-result)
-                (rr/response)
+            (-> (i18n/tru "Permission denied: {0}" auth-result)
+                rr/response
                 (rr/status http/status-forbidden))))))))
 
 (defn wrap-with-certificate-cn
@@ -128,7 +126,7 @@
          content-type
          (headers "accept"))
       (app req)
-      (rr/status (rr/response (str "must accept " content-type))
+      (rr/status (rr/response (i18n/tru "must accept {0}" content-type))
                  http/status-not-acceptable))))
 
 (defn verify-content-type
@@ -142,15 +140,14 @@
                         (str (media/base-type content-type)))]
       (if (or (nil? mediatype) (some #{mediatype} content-types))
         (app req)
-        (rr/status (rr/response (str "content type " mediatype " not supported"))
+        (rr/status (rr/response (i18n/tru "content type {0} not supported" mediatype))
                    http/status-unsupported-type)))))
 
 (defn validate-query-params
-  "Ring middleware that verifies that the query params in the request
-  are legal based on the map `param-specs`, which contains a list of
-  `:required` and `:optional` query parameters.  If the validation fails,
-  a 400 Bad Request is returned, with an explanation of the invalid
-  parameters."
+  "Ring middleware that verifies that the query params in the request are legal
+  based on the map `param-specs`, which contains a list of `:required` and
+  `:optional` query parameters. If the validation fails, a 400 Bad Request is
+  returned, with an explanation of the invalid parameters."
   [app param-specs]
   {:pre [(map? param-specs)
          (= #{} (kitchensink/keyset (dissoc param-specs :required :optional)))
@@ -159,13 +156,13 @@
   (fn [{:keys [params] :as req}]
     (kitchensink/cond-let [p]
                           (kitchensink/excludes-some params (:required param-specs))
-                          (http/error-response (str "Missing required query parameter '" p "'"))
+                          (http/error-response (i18n/tru "Missing required query parameter '{0}'" p))
 
                           (let [diff (set/difference (kitchensink/keyset params)
                                                      (set (:required param-specs))
                                                      (set (:optional param-specs)))]
                             (seq diff))
-                          (http/error-response (str "Unsupported query parameter '" (first p) "'"))
+                          (http/error-response (i18n/tru "Unsupported query parameter '{0}'" (first p)))
 
                           :else
                           (app req))))
@@ -268,20 +265,19 @@
       (let [length-in-bytes (request/content-length req)]
 
         (if length-in-bytes
-          (log/debugf "Processing command with a content-length of %s bytes" length-in-bytes)
-          (log/warn (str "No content length found for POST. "
-                         "POST bodies that are too large could cause memory-related failures.")))
+          (log/debugf (i18n/trs "Processing command with a content-length of {0} bytes") length-in-bytes)
+          (log/warn (i18n/trs "No content length found for POST. POST bodies that are too large could cause memory-related failures.")))
 
         (if (and length-in-bytes
                  reject-large-commands?
                  (> length-in-bytes max-command-size))
           (do
-            (log/warnf "content-length of command is %s bytes and is larger than the maximum allowed command size of %s bytes"
+            (log/warnf (i18n/trs "content-length of command is {0} bytes and is larger than the maximum allowed command size of {1} bytes")
                        length-in-bytes
                        max-command-size)
             (consume-and-close (:body req) length-in-bytes)
             (http/error-response
-             "Command rejected due to size exceeding max-command-size"
+             (i18n/tru "Command rejected due to size exceeding max-command-size")
              http/status-entity-too-large))
           (app req)))
       (app req))))
@@ -294,7 +290,8 @@
       (wrap-with-authorization cert-whitelist)
       wrap-with-certificate-cn
       wrap-with-default-body
-      wrap-with-debug-logging))
+      wrap-with-debug-logging
+      i18n/locale-negotiator))
 
 (defn parent-check
   "Middleware that checks the parent exists before serving the rest of the

@@ -48,3 +48,8 @@ checkouts
 # RVM files for localised setups
 .ruby-gemset
 .ruby-version
+
+# clj-i18n
+*.class
+/resources/locales.clj
+mp-*
