@@ -427,22 +427,14 @@
    already exist in the database."
   [resource-hashes :- #{String}]
   (if (seq resource-hashes)
-    (if (sutils/postgres?)
-      (let [resource-array (->> (vec resource-hashes)
-                                (map sutils/munge-hash-for-storage)
-                                (sutils/array-to-param "bytea" org.postgresql.util.PGobject))
-            query (format "SELECT DISTINCT %s as resource FROM resource_params_cache WHERE resource=ANY(?)"
-                          (sutils/sql-hash-as-str "resource"))
-            sql-params [query resource-array]]
-        (jdbc/query-with-resultset sql-params
-                                   #(set (map :resource (sql/result-set-seq %)))))
-      (let [query (apply vector
-                         (format "SELECT DISTINCT %s AS resource FROM resource_params_cache WHERE resource %s"
-                                 (sutils/sql-hash-as-str "resource")
-                                 (jdbc/in-clause resource-hashes))
-                         (map sutils/munge-hash-for-storage resource-hashes))]
-        (jdbc/query-with-resultset query
-                                   #(set (map :resource (sql/result-set-seq %))))))
+    (let [resource-array (->> (vec resource-hashes)
+                              (map sutils/munge-hash-for-storage)
+                              (sutils/array-to-param "bytea" org.postgresql.util.PGobject))
+          query (format "SELECT DISTINCT %s as resource FROM resource_params_cache WHERE resource=ANY(?)"
+                        (sutils/sql-hash-as-str "resource"))
+          sql-params [query resource-array]]
+      (jdbc/query-with-resultset sql-params
+                                 #(set (map :resource (sql/result-set-seq %)))))
     #{}))
 
 ;;The schema definition of this function should be

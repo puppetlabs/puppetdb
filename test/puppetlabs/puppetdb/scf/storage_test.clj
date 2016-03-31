@@ -1564,11 +1564,11 @@
   []
   (shash/generic-identity-hash (random/random-string)))
 
-(deftest giant-resources-exist
+(deftest-db giant-resources-exist
   (testing "resources-exist?"
     (is (= #{} (resources-exist? (set (take 40000 (repeatedly fake-hash))))))))
 
-(deftest test-merge-resource-hash
+(deftest-db test-merge-resource-hash
   (let [ref->resource {{:type "File" :title "/tmp/foo"}
                        {:line 10}
 
@@ -1589,4 +1589,4 @@
 
 (deftest-db test-resources-exist?
   (testing "With empty input"
-    (is (= #{}  (resources-exist? #{})))))
+    (is (= #{} (resources-exist? #{})))))
