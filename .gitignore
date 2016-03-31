@@ -14,28 +14,25 @@ junit
 # Emacs files
 *#
 
-# Local overide for testing config
-test-resources/config/local.clj
+# VIM swap files
+*.swp
 
 # Vagrant cache folder & vagrantfile if used
 .vagrant
 Vagrantfile
+
+# Used by Puppet Labs packaging system
+ext/packaging/*
+
+# Bundler files
+vendor
+Gemfile.lock
 
 # A generalized temporary area for local use, tmp for
 # general temporary items, and scripts for any local
 # scripts.
 tmp
 /scripts
-
-# Bundler files
-vendor
-Gemfile.lock
-
-# Used by Puppet Labs packaging system
-ext/packaging/*
-
-# VIM swap files
-*.swp
 
 # The leiningen temporary/local files
 .lein-failures
@@ -50,6 +47,6 @@ checkouts
 .ruby-version
 
 # clj-i18n
-*.class
+/resources/puppetlabs/puppetdb/*.class
 /resources/locales.clj
-mp-*
+/mp-*
