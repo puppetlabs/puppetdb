@@ -194,10 +194,10 @@
     (with-alt-mq (:mq-name pdb3)
       (sync :from pdb2 :to pdb3))
     (is-equal-after
-     #(-> %
-          first
-          (update-in [:facts :data] set)
-          without-timestamp)
+     #(->> %
+           (map (fn [row] (update-in row [:facts :data] set)))
+           (map without-timestamp)
+           (into #{}))
      (svcs/get-factsets (:query-url pdb1) (:certname facts))
      (svcs/get-factsets (:query-url pdb2) (:certname facts))
      (svcs/get-factsets (:query-url pdb3) (:certname facts)))))
