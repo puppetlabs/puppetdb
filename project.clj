@@ -10,6 +10,7 @@
 
 (def tk-version "1.1.1")
 (def ks-version "1.0.0")
+(def i18n-version "0.2.1")
 
 (def pdb-jvm-opts
   (case (System/getProperty "java.specification.version")
@@ -53,6 +54,9 @@
                       :version ~pe-pdb-version
                       :name "pe-puppetdb"}
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
+
+  :plugins [[puppetlabs/i18n ~i18n-version]]
+
   :lein-release {:scm :git, :deploy-via :lein-deploy}
 
   :jvm-opts ~pdb-jvm-opts

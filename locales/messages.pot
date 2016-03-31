@@ -1,0 +1,26 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR Puppet Labs <docs@puppetlabs.com>
+# This file is distributed under the same license as the puppetlabs.pe_puppetdb_extensions package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: puppetlabs.pe_puppetdb_extensions \n"
+"Report-Msgid-Bugs-To: docs@puppetlabs.com\n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src//puppetlabs/pe_puppetdb_extensions/config.clj:119
+msgid "Allowing unsafe sync triggers"
+msgstr ""
+
+#: src//puppetlabs/pe_puppetdb_extensions/config.clj:121
+msgid "Allowing unsafe cleartext sync"
+msgstr ""
