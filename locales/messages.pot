@@ -18,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 #: src//puppetlabs/puppetdb/middleware.clj:38
-msgid "Processing HTTP request to URI: '{0}'"
+msgid "Processing HTTP request to URI: ''{0}''"
 msgstr ""
 
 #: src//puppetlabs/puppetdb/middleware.clj:54
@@ -27,9 +27,9 @@ msgstr ""
 
 #: src//puppetlabs/puppetdb/middleware.clj:55
 msgid ""
-"The client certificate name {0} doesn't appear in the certificate whitelist. "
-"Is your master's (or other PuppetDB client's) certname listed in PuppetDB's "
-"certificate-whitelist file?"
+"The client certificate name {0} doesn''t appear in the certificate "
+"whitelist. Is your master''s (or other PuppetDB client''s) certname listed "
+"in PuppetDB's certificate-whitelist file?"
 msgstr ""
 
 #: src//puppetlabs/puppetdb/middleware.clj:75
@@ -45,11 +45,11 @@ msgid "content type {0} not supported"
 msgstr ""
 
 #: src//puppetlabs/puppetdb/middleware.clj:159
-msgid "Missing required query parameter '{0}'"
+msgid "Missing required query parameter ''{0}''"
 msgstr ""
 
 #: src//puppetlabs/puppetdb/middleware.clj:165
-msgid "Unsupported query parameter '{0}'"
+msgid "Unsupported query parameter ''{0}''"
 msgstr ""
 
 #: src//puppetlabs/puppetdb/middleware.clj:268
@@ -70,4 +70,8 @@ msgstr ""
 
 #: src//puppetlabs/puppetdb/middleware.clj:280
 msgid "Command rejected due to size exceeding max-command-size"
+msgstr ""
+
+#: src//puppetlabs/puppetdb/middleware.clj:310
+msgid "No information is known about {0} {1}"
 msgstr ""

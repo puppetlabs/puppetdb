@@ -35,7 +35,7 @@
   `<logger name=\"puppetlabs.puppetdb.middleware\" level=\"debug\"/>`"
   [app]
   (fn [req]
-    (log/debug (i18n/trs "Processing HTTP request to URI: '{0}'" (:uri req)))
+    (log/debug (i18n/trs "Processing HTTP request to URI: ''{0}''" (:uri req)))
     (app req)))
 
 (defn build-whitelist-authorizer
@@ -52,7 +52,7 @@
         :authorized
         (do
           (log/warnf (i18n/trs "{0} rejected by certificate whitelist {1}" ssl-client-cn whitelist))
-          (i18n/tru "The client certificate name {0} doesn't appear in the certificate whitelist. Is your master's (or other PuppetDB client's) certname listed in PuppetDB's certificate-whitelist file?"
+          (i18n/tru "The client certificate name {0} doesn''t appear in the certificate whitelist. Is your master''s (or other PuppetDB client''s) certname listed in PuppetDB''s certificate-whitelist file?"
                     ssl-client-cn))))))
 
 (defn wrap-with-authorization
@@ -156,13 +156,13 @@
   (fn [{:keys [params] :as req}]
     (kitchensink/cond-let [p]
                           (kitchensink/excludes-some params (:required param-specs))
-                          (http/error-response (i18n/tru "Missing required query parameter '{0}'" p))
+                          (http/error-response (i18n/tru "Missing required query parameter ''{0}''" p))
 
                           (let [diff (set/difference (kitchensink/keyset params)
                                                      (set (:required param-specs))
                                                      (set (:optional param-specs)))]
                             (seq diff))
-                          (http/error-response (i18n/tru "Unsupported query parameter '{0}'" (first p)))
+                          (http/error-response (i18n/tru "Unsupported query parameter ''{0}''" (first p)))
 
                           :else
                           (app req))))
@@ -307,7 +307,7 @@
       (if (jdbc/with-transacted-connection scf-read-db
             (qe/object-exists? parent (get route-params route-param-key)))
         (app req)
-        (http/json-response {:error (str "No information is known about " (name parent) " " (get route-params route-param-key))} http/status-not-found)))))
+        (http/json-response {:error (i18n/tru "No information is known about {0} {1}" (name parent) (get route-params route-param-key))} http/status-not-found)))))
 
 (pls/defn-validated url-decode :- s/Str
   [x :- s/Str]
