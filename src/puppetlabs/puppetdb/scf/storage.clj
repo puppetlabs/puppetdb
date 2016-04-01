@@ -766,27 +766,33 @@
            (let [hash (time! (:catalog-hash performance-metrics)
                              (shash/catalog-similarity-hash catalog))
                  {certname-id :certname_id
+                  stored-hash :catalog_hash
                   latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
              (inc! (:updated-catalog performance-metrics))
              (time! (:add-new-catalog performance-metrics)
-                    (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
+                    (time! (get performance-metrics
+                                (if (= stored-hash hash)
+                                  (do (inc! (:duplicate-catalog performance-metrics))
+                                      :catalog-hash-match)
+                                  :catalog-hash-miss))
+                           (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
 
-                      (when-not (some-> latest-producer-timestamp
-                                        (.after (to-timestamp producer_timestamp)))
-                        (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
-                                                    (kitchensink/mapvals shash/resource-identity-hash resources))]
-                          (if-not latest-producer-timestamp
-                            (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
-                            (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id]))
-                          (update-catalog-associations! certname-id catalog refs-to-hashes)))
-                      (jdbc/delete! :catalogs
-                                    [(str "certname = ? AND "
-                                          "id NOT IN (SELECT id FROM catalogs "
-                                          "           WHERE certname=?"
-                                          "           ORDER BY producer_timestamp DESC LIMIT ?)")
-                                     certname
-                                     certname
-                                     historical-catalogs-limit])))
+                             (when-not (some-> latest-producer-timestamp
+                                               (.after (to-timestamp producer_timestamp)))
+                               (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
+                                                           (kitchensink/mapvals shash/resource-identity-hash resources))]
+                                 (if-not latest-producer-timestamp
+                                   (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
+                                   (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id]))
+                                 (update-catalog-associations! certname-id catalog refs-to-hashes)))
+                             (jdbc/delete! :catalogs
+                                           [(str "certname = ? AND "
+                                                 "id NOT IN (SELECT id FROM catalogs "
+                                                 "           WHERE certname=?"
+                                                 "           ORDER BY producer_timestamp DESC LIMIT ?)")
+                                            certname
+                                            certname
+                                            historical-catalogs-limit]))))
              hash))))
 
 (pls/defn-validated replace-catalog!
