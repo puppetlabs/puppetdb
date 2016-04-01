@@ -373,7 +373,8 @@
             conn-max-age
             conn-lifetime
             read-only?
-            pool-name]
+            pool-name
+            maximum-pool-size]
      :as db-spec}
     metrics-registry]
    (let [conn-lifetime-ms (some-> conn-max-age pl-time/to-millis)
@@ -385,6 +386,7 @@
        (.setInitializationFailFast false))
      (some->> pool-name (.setPoolName config))
      (some->> connection-timeout (.setConnectionTimeout config))
+     (some->> maximum-pool-size (.setMaximumPoolSize config))
      (when (and conn-max-age-ms conn-lifetime-ms (> conn-max-age-ms conn-lifetime-ms))
        (some->> conn-max-age-ms (.setIdleTimeout config)))
      (some->> conn-lifetime-ms (.setMaxLifetime config))

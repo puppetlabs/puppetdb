@@ -49,7 +49,24 @@
                          ""
                          (catch java.sql.SQLException ex
                            (full-sql-exception-msg ex)))]
-               (is (re-find #"read-only.*transaction" msg))))))))))
+               (is (re-find #"read-only.*transaction" msg)))))))))
+
+  (testing "max connections setting defaults to 20"
+    (call-with-antonym-test-database
+      (fn []
+        (let [pool (-> *db*
+                       defaulted-read-db-config
+                       subject/pooled-datasource)]
+          (is (= 20 (.getMaximumPoolSize (:datasource pool))))))))
+
+  (testing "max connections setting takes effect"
+    (call-with-antonym-test-database
+      (fn []
+        (let [pool (-> *db*
+                       defaulted-read-db-config
+                       (assoc :maximum-pool-size 5)
+                       subject/pooled-datasource)]
+          (is (= 5 (.getMaximumPoolSize (:datasource pool)))))))))
 
 (deftest-antonyms query-to-vec
   (testing "query string only"
