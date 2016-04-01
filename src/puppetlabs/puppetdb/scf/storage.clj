@@ -766,8 +766,11 @@
            (let [hash (time! (:catalog-hash performance-metrics)
                              (shash/catalog-similarity-hash catalog))
                  {certname-id :certname_id
+                  stored-hash :catalog_hash
                   latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
              (inc! (:updated-catalog performance-metrics))
+             (when (= stored-hash hash)
+               (inc! (:duplicate-catalog performance-metrics)))
              (time! (:add-new-catalog performance-metrics)
                     (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
 
