@@ -66,11 +66,10 @@
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
 (defn create-metrics [prefix]
-  (let [to-metric-name-fn (fn [metric-name]
-                            (->> metric-name
-                                 (conj prefix)
-                                 (mapv name)))]
+  (let [to-metric-name-fn #(metrics/keyword->metric-name prefix %)]
     {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
+     :retry-persistence-time (timer mq-metrics-registry (to-metric-name-fn :retry-persistence-time))
+     :generate-retry-message-time (timer mq-metrics-registry (to-metric-name-fn :generate-retry-message-time))
      :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
      :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
      :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
@@ -295,8 +294,8 @@
     (if (> n (/ maximum-allowable-retries 4))
       (log/error e error-msg)
       (log/debug e error-msg))
-
-    (publish-fn (json/generate-string msg) (mq/delay-property delay :seconds))))
+     (time! (global-metric :retry-persistence-time)
+            (publish-fn (json/generate-string msg) (mq/delay-property delay :seconds)))))
 
 (defn create-message-handler
   [publish discarded-dir message-fn]
