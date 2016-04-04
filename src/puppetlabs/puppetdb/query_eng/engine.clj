@@ -19,18 +19,59 @@
             [puppetlabs.puppetdb.zip :as zip]
             [schema.core :as s])
   (:import [honeysql.types SqlCall SqlRaw]))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
 
-(defrecord Query [projections selection source-table alias where
-                  subquery? entity call group-by limit offset order-by])
-(defrecord BinaryExpression [operator column value])
-(defrecord InArrayExpression [table column value])
-(defrecord RegexExpression [column value])
-(defrecord ArrayRegexExpression [column value])
-(defrecord NullExpression [column null?])
-(defrecord ArrayBinaryExpression [column value])
-(defrecord InExpression [column subquery])
+(def field-schema (s/cond-pre s/Keyword
+                              SqlCall SqlRaw
+                              {:select s/Any s/Any s/Any}))
+
+(def column-schema
+  "Column information: [\"value\" {:type :string :field fv.value_string ...}]"
+  {:type s/Keyword :field field-schema s/Any s/Any})
+
+(def projection-schema
+  "Named projection: [\"value\" {:type :string :field fv.value_string ...}]"
+  [(s/one s/Str "name") (s/one column-schema "column")])
+
+(s/defrecord Query
+    [projections :- {s/Str column-schema}
+     selection
+     source-table :- s/Str
+     alias where subquery? entity call
+     group-by limit offset order-by])
+
+(s/defrecord BinaryExpression
+    [operator :- s/Keyword
+     column :- column-schema
+     value])
+
+(s/defrecord InArrayExpression
+    [column :- column-schema
+     value])
+
+(s/defrecord RegexExpression
+    [column :- column-schema
+     value])
+
+(s/defrecord ArrayRegexExpression
+    [column :- column-schema
+     value])
+
+(s/defrecord NullExpression
+    [column :- column-schema
+     null? :- s/Bool])
+
+(s/defrecord ArrayBinaryExpression
+    [column :- column-schema
+     value])
+
+(s/defrecord InExpression
+    [column :- [column-schema]
+     ;; May not want this if it's recursive and not just "instance?"
+     subquery :- Query])
+
 (defrecord AndExpression [clauses])
 (defrecord OrExpression [clauses])
 (defrecord NotExpression [clause])
@@ -59,13 +100,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Queryable Entities
-
-(defn augment-for-subquery
-  [{:keys [entity] :as query-rec}]
-  (cond-> query-rec
-    (= :facts entity) (assoc-in [:projections "value" :field]
-                                (h/coalesce :fv.value_string
-                                            (h/scast :fv.value_boolean :text)))))
 
 (def nodes-query
   "Query for nodes entities, mostly used currently for subqueries"
@@ -873,26 +907,20 @@
   [{:keys [projections]}]
   (->> projections
        (remove (comp :query-only? val))
-       keys
-       sort))
-
-(defn extract-fields
-  "Returns all fields from a projection.  Returns nil for fields which
-  are query-only? since these can't be projected either."
-  [[name {:keys [field]}] entity]
-  [field name])
+       keys))
 
 (defn honeysql-from-query
   "Convert a query to honeysql format"
-  [{:keys [projected-fields group-by call selection projections entity]}]
+  [{:keys [projected-fields group-by call selection projections]}]
   (let [fs (seq (map (fn [f]
                        [(apply hcore/call f) (first f)]) call))
         select (if (and fs
                         (empty? projected-fields))
                  (vec fs)
-                 (vec (concat (->> (sort projections)
-                                   (remove (comp :query-only? val))
-                                   (mapv #(extract-fields % entity)))
+                 (vec (concat (->> projections
+                                   (remove (comp :query-only? second))
+                                   (mapv (fn [[name {:keys [field]}]]
+                                           [field name])))
                               fs)))
         new-selection (cond-> (assoc selection :select select)
                         group-by (assoc :group-by group-by))]
@@ -912,12 +940,22 @@
 
 (extend-protocol SQLGen
   Query
-  (-plan->sql [query]
-    (let [has-where? (boolean (:where query))
-          has-projections? (not (empty? (:projected-fields query)))
+  (-plan->sql [{:keys [projections projected-fields where] :as query}]
+    (s/validate [projection-schema] projected-fields)
+    (let [has-where? (boolean where)
+          has-projections? (not (empty? projected-fields))
           sql (-> query
-                  (utils/update-cond has-where? [:selection] #(hsql/merge-where % (-plan->sql (:where query))))
-                  (utils/update-cond has-projections? [:projections] #(select-keys % (:projected-fields query)))
+                  (utils/update-cond has-where?
+                                     [:selection]
+                                     #(hsql/merge-where % (-plan->sql where)))
+                  ;; Note that even if has-projections? is false, the
+                  ;; projections are still relevant.
+                  ;; i.e. projected-fields doesn't tell the
+                  ;; whole story.  It's only relevant if it's not
+                  ;; empty? and then it's decisive.
+                  (utils/update-cond has-projections?
+                                     [:projections]
+                                     (constantly projected-fields))
                   sql-from-query)]
 
       (if (:subquery? query)
@@ -925,37 +963,46 @@
         sql)))
 
   InExpression
-  (-plan->sql [expr]
-    [:in (:column expr) (-plan->sql (:subquery expr))])
+  (-plan->sql [{:keys [column subquery]}]
+    (s/validate [column-schema] column)
+    [:in (mapv :field column)
+     (-plan->sql subquery)])
 
   BinaryExpression
-  (-plan->sql [expr]
-    (concat [:or] (map
-                    #(vector (:operator expr)
-                             (-plan->sql %1)
-                             (-plan->sql %2))
-                    (utils/vector-maybe (:column expr))
-                    (utils/vector-maybe (:value expr)))))
+  (-plan->sql [{:keys [column operator value]}]
+    (apply vector
+           :or
+           (map #(vector operator (-plan->sql %1) (-plan->sql %2))
+                (cond
+                  (map? column) [(:field column)]
+                  (vector? column) (mapv :field column)
+                  :else [column])
+                (utils/vector-maybe value))))
 
   InArrayExpression
-  (-plan->sql [expr]
-    (su/sql-in-array (:column expr)))
+  (-plan->sql [{:keys [column]}]
+    (s/validate column-schema column)
+    (su/sql-in-array (:field column)))
 
   ArrayBinaryExpression
-  (-plan->sql [expr]
-    (su/sql-array-query-string (:column expr)))
+  (-plan->sql [{:keys [column]}]
+    (s/validate column-schema column)
+    (su/sql-array-query-string (:field column)))
 
   RegexExpression
-  (-plan->sql [expr]
-    (su/sql-regexp-match (:column expr)))
+  (-plan->sql [{:keys [column]}]
+    (s/validate column-schema column)
+    (su/sql-regexp-match (:field column)))
 
   ArrayRegexExpression
-  (-plan->sql [expr]
-    (su/sql-regexp-array-match (:column expr)))
+  (-plan->sql [{:keys [column]}]
+    (s/validate column-schema column)
+    (su/sql-regexp-array-match (:field column)))
 
   NullExpression
-  (-plan->sql [expr]
-    (let [lhs (-plan->sql (:column expr))]
+  (-plan->sql [{:keys [column] :as expr}]
+    (s/validate column-schema column)
+    (let [lhs (-plan->sql (:field column))]
       (if (:null? expr)
         [:is lhs nil]
         [:is-not lhs nil])))
@@ -1033,8 +1080,7 @@
    appropriate plan node"
   [subquery]
   (-> (get user-name->query-rec-name subquery)
-      (assoc :subquery? true)
-      augment-for-subquery))
+      (assoc :subquery? true)))
 
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
@@ -1254,17 +1300,23 @@
   "Returns a `query-rec` that has the correct projection for the given
    `column-list`. Updating :projected-fields causes the select in the SQL query
    to be modified."
-  [query-rec column-list expr]
-  (if (or (nil? expr)
-          (not (subquery-expression? expr)))
-    (assoc query-rec :where (user-node->plan-node query-rec expr)
-           :projected-fields column-list)
-    (let [[subquery-name & subquery-expression] expr]
-      (assoc (user-query->logical-obj subquery-name)
-        :projected-fields column-list
-        :where (when (seq subquery-expression)
-                 (user-node->plan-node (user-query->logical-obj subquery-name)
-                                       (first subquery-expression)))))))
+  [{:keys [projections] :as query-rec} column-list expr]
+  (let [names->fields (fn [names projections]
+                        (mapv #(vector % (projections %))
+                              names))]
+    (if (or (nil? expr)
+            (not (subquery-expression? expr)))
+      (assoc query-rec
+             :where (user-node->plan-node query-rec expr)
+             :projected-fields (names->fields column-list projections))
+      (let [[subname & subexpr] expr
+            logobj (user-query->logical-obj subname)
+            projections (:projections logobj)]
+        (assoc logobj
+               :projected-fields (names->fields column-list projections)
+               :where (some->> (seq subexpr)
+                               first
+                               (user-node->plan-node logobj)))))))
 
 (defn extract-expression?
   "Returns true if expr is an extract expression"
@@ -1307,7 +1359,9 @@
     limit (assoc-in [:selection :limit] limit)
     order-by (assoc-in [:selection :order-by] order-by)))
 
-(defn create-from-node
+(pls/defn-validated create-from-node
+  :- {(s/optional-key :projected-fields) [projection-schema]
+      s/Any s/Any}
   "Create an explicit subquery declaration to mimic the select_<entity>
    syntax."
   [entity expr clauses]
@@ -1315,15 +1369,18 @@
         {:keys [limit offset order-by]} (create-paging-map clauses)]
     (if (extract-expression? expr)
       (let [[extract columns remaining-expr] expr
-            column-list (utils/vector-maybe columns)]
+            column-list (utils/vector-maybe columns)
+            projections (:projections query-rec)]
         (-> query-rec
-            (assoc :projected-fields column-list :where (user-node->plan-node query-rec remaining-expr))
+            (assoc :projected-fields (mapv (fn [name] [name (projections name)])
+                                           column-list)
+                   :where (user-node->plan-node query-rec remaining-expr))
             (update-selection offset limit order-by)))
       (-> query-rec
           (assoc :where (user-node->plan-node query-rec expr))
           (update-selection offset limit order-by)))))
 
-(pls/defn-validated columns->fields :- [(s/cond-pre s/Keyword SqlCall SqlRaw)]
+(pls/defn-validated columns->fields :- [field-schema]
   "Convert a list of columns to their true SQL field names."
   [query-rec
    columns :- [s/Str]]
@@ -1331,7 +1388,7 @@
   ; and had the InExpression use that to generate the sql, but as it is the zipper we
   ; use to walk the plan won't see instances of hashes and uuids among fields that have
   ; gone through this function
-  (map #(get-in query-rec [:projections % :field]) (sort columns)))
+  (map #(get-in query-rec [:projections % :field]) columns))
 
 (defn strip-function-calls
   [column-or-columns]
@@ -1342,7 +1399,9 @@
     [(vec (map rest functions))
      (vec nonfunctions)]))
 
-(defn create-extract-node
+(pls/defn-validated create-extract-node
+  :- {(s/optional-key :projected-fields) [projection-schema]
+      s/Any s/Any}
   [query-rec column expr]
   (let [[fcols cols] (strip-function-calls column)]
     (if-let [calls (seq
@@ -1363,73 +1422,85 @@
           (create-extract-node* cols expr))
       (create-extract-node* query-rec cols expr))))
 
+(defn- fv-variant [x]
+  (case x
+    :integer {:type :integer
+              :field :fv.value_integer}
+    :float {:type :float
+            :field :fv.value_float}
+    :string {:type :string
+             :field :fv.value_string}
+    :boolean {:type :boolean
+              :field :fv.value_boolean}))
+
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
   [query-rec node]
   (cm/match [node]
-            [["=" column value]]
-            (let [{:keys [type field]} (get-in query-rec [:projections column])]
-              (case type
+            [["=" column-name value]]
+            (let [cinfo (get-in query-rec [:projections column-name])]
+              (case (:type cinfo)
                :timestamp
                (map->BinaryExpression {:operator :=
-                                       :column field
+                                       :column cinfo
                                        :value (to-timestamp value)})
 
                :array
-               (map->ArrayBinaryExpression {:column field
+               (map->ArrayBinaryExpression {:column cinfo
                                             :value value})
 
                :path
                (map->BinaryExpression {:operator :=
-                                       :column field
+                                       :column cinfo
                                        :value (facts/factpath-to-string value)})
 
                (map->BinaryExpression {:operator :=
-                                       :column field
+                                       :column cinfo
                                        :value value})))
 
-            [["in" column ["array" value]]]
-            (let [{:keys [type field]} (get-in query-rec [:projections column])]
+            [["in" column-name ["array" value]]]
+            (let [cinfo (get-in query-rec [:projections column-name])]
               (when-not (coll? value)
                 (throw (IllegalArgumentException. "Operator 'array' requires a vector argument")))
-              (case type
+              (case (:type cinfo)
                 :array
                 (throw (IllegalArgumentException. "Operator 'in'...'array' is not supported on array types"))
 
                 :timestamp
-                (map->InArrayExpression {:column field
+                (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "timestamp"
                                                                    java.sql.Timestamp
                                                                    (map to-timestamp value))})
 
                 :float
-                (map->InArrayExpression {:column field
+                (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "float4"
                                                                    java.lang.Double
                                                                    (map double value))})
                 :integer
-                (map->InArrayExpression {:column field
+                (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "bigint"
                                                                    java.lang.Integer
                                                                    (map int value))})
 
                 :path
-                (map->InArrayExpression {:column field
+                (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "text"
                                                                    String
                                                                    (map facts/factpath-to-string value))})
 
-                (map->InArrayExpression {:column field
+                (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "text"
                                                                    String
                                                                    (map str value))})))
 
-            [[(op :guard #{">" "<" ">=" "<="}) column value]]
-            (let [{:keys [type field]} (get-in query-rec [:projections column])]
-              (if (or (= :timestamp type) (and (or (= :float type)
-                                                   (= :integer type)) (number? value)))
+            [[(op :guard #{">" "<" ">=" "<="}) column-name value]]
+            (let [{:keys [type] :as cinfo} (get-in query-rec
+                                                   [:projections column-name])]
+              (if (or (= :timestamp type)
+                      (and (number? value) (#{:float :integer} type)))
                 (map->BinaryExpression {:operator (keyword op)
-                                        :column field
+                                        :column cinfo
                                         :value  (if (= :timestamp type)
                                                   (to-timestamp value)
                                                   value)})
@@ -1438,31 +1509,30 @@
                     (format "Argument \"%s\" and operator \"%s\" have incompatible types."
                             value op)))))
 
-            [["null?" column value]]
-            (let [{:keys [field]} (get-in query-rec [:projections column])]
-              (map->NullExpression {:column field
-                                    :null? value}))
+            [["null?" column-name value]]
+            (let [cinfo (get-in query-rec [:projections column-name])]
+              (map->NullExpression {:column cinfo :null? value}))
 
-            [["~" column value]]
-            (let [{:keys [type field]} (get-in query-rec [:projections column])]
-              (case type
+            [["~" column-name value]]
+            (let [cinfo (get-in query-rec [:projections column-name])]
+              (case (:type cinfo)
                 :array
-                (map->ArrayRegexExpression {:column field
-                                            :value value})
+                (map->ArrayRegexExpression {:column cinfo :value value})
 
                 :multi
-                (map->RegexExpression {:column (keyword (str column "_string"))
+                (map->RegexExpression {:column (merge cinfo
+                                                      (fv-variant :string))
                                        :value value})
 
-                (map->RegexExpression {:column field
-                                       :value value})))
+                (map->RegexExpression {:column cinfo :value value})))
 
-            [["~>" column value]]
-            (let [{:keys [type field]} (get-in query-rec [:projections column])]
-              (case type
+            [["~>" column-name value]]
+            (let [cinfo (get-in query-rec [:projections column-name])]
+              (case (:type cinfo)
                 :path
-                (map->RegexExpression {:column field
-                                       :value (facts/factpath-regexp-to-regexp value)})))
+                (map->RegexExpression {:column cinfo
+                                       :value (facts/factpath-regexp-to-regexp
+                                               value)})))
 
             [["and" & expressions]]
             (map->AndExpression {:clauses (map #(user-node->plan-node query-rec %) expressions)})
@@ -1473,9 +1543,13 @@
             [["not" expression]]
             (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
 
-            [["in" column subquery-expression]]
-            (map->InExpression {:column (columns->fields query-rec (utils/vector-maybe column))
-                                :subquery (user-node->plan-node query-rec subquery-expression)})
+            [["in" columns subquery-expr]]
+            (map->InExpression
+             (do
+               (s/validate (s/conditional vector? [s/Str] :else s/Str) columns)
+               {:column (map #(get-in query-rec [:projections %])
+                             (utils/vector-maybe columns))
+                :subquery (user-node->plan-node query-rec subquery-expr)}))
 
             ;; This provides the from capability to replace the select_<entity> syntax from an
             ;; explicit subquery.
@@ -1741,6 +1815,70 @@
 
    :else (throw (IllegalArgumentException. (format "Your initial query must be of the form: [\"from\",<entity>,(<optional-query>)]. Check your query and try again.")))))
 
+(pls/defn-validated ^:private fix-in-expr-multi-comparison
+  "Returns [column projection] after adjusting the type of one of them
+  to match the other if that one is of type :multi and the other
+  isn't."
+  [column :- column-schema
+   projection :- projection-schema]
+  ;; For now we have to assume it's fv.*, etc.
+  (let [[proj-name proj-info] projection
+        multi-col? (= :multi (:type column))
+        multi-proj? (= :multi (:type proj-info))]
+    (cond
+      (and multi-col? multi-proj?)
+      (do
+        (assert (= (:field column) :fv.value))
+        (assert (= (:field proj-info) :fv.value))
+        [column projection])
+      multi-col?
+      (do
+        (assert (= (:field column) :fv.value))
+        [(merge column (fv-variant (:type proj-info)))
+         projection])
+      multi-proj?
+      (do
+        (assert (= (:field proj-info) :fv.value))
+        [column
+         [proj-name (merge proj-info (fv-variant (:type column)))]])
+      :else
+      [column projection])))
+
+(defn- fix-in-expr-multi-comparisons
+  [node]
+  (let [columns (:column node)
+        projected-fields (get-in node [:subquery :projected-fields])]
+    (assert (= (count columns) (count projected-fields)))
+    (loop [cols columns
+           fields projected-fields
+           fixed-cols []
+           fixed-fields []]
+      (if (seq cols)
+        (let [[fixed-col fixed-field]
+              (fix-in-expr-multi-comparison (first cols) (first fields))]
+          (recur (rest cols) (rest fields)
+                 (conj fixed-cols fixed-col)
+                 (conj fixed-fields fixed-field)))
+        (-> node
+            (assoc :column fixed-cols)
+            (assoc-in [:subquery :projected-fields] fixed-fields))))))
+
+(defn- fix-plan-in-expr-multi-comparisons
+  "Returns the plan after changing any :multi types in :multi to
+  non-:multi comparisons to match the type of their non-:multi
+  counterpart.  Currently only affects field to subquery column
+  comparisons in [\"in\" fields subquery] (InExpression) nodes."
+  [plan]
+  (let [fix-node (fn [node]
+                   (if (instance? InExpression node)
+                     (fix-in-expr-multi-comparisons node)
+                     node))]
+    (update plan
+            :where
+            (fn [x]
+              (:node (zip/post-order-transform (zip/tree-zipper x)
+                                               [fix-node]))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -1760,7 +1898,7 @@
                                    expand-user-query
                                    (convert-to-plan query-rec paging-options)
                                    extract-all-params)
-        sql (plan->sql plan)
+        sql (-> plan fix-plan-in-expr-multi-comparisons plan->sql)
         paged-sql (jdbc/paged-sql sql paging-options)]
     (cond-> {:results-query (apply vector paged-sql params)}
       include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))

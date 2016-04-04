@@ -1,21 +1,25 @@
 (ns puppetlabs.puppetdb.http.index-test
   (:require [clj-time.core :refer [now]]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.examples :refer :all]
+            [puppetlabs.puppetdb.examples :as examples]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
-            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
-                                                        ordered-query-result
-                                                        query-response
-                                                        query-result
-                                                        vector-param]]))
+            [puppetlabs.puppetdb.testutils :refer [dotestseq]]
+            [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
+            [puppetlabs.puppetdb.testutils.http
+             :refer [deftest-http-app
+                     ordered-query-result
+                     query-response
+                     query-result
+                     vector-param
+                     with-http-app]]))
 
 (def endpoints [[:v4 "/v4"]])
 
 (deftest-http-app index-queries
   [[version endpoint] endpoints
    method [:get :post]]
-  (let [catalog (:basic catalogs)
+  (let [catalog (:basic examples/catalogs)
         facts   {"kernel"          "Linux"
                  "operatingsystem" "Debian"}
         facts1  (assoc facts "fqdn" "host1")
@@ -241,3 +245,128 @@
         (let [results (query-result method endpoint query)]
           (is (= 2 (count results)))
           (is (= (set (map :certname results)) #{"host1" "host2"})))))))
+
+(deftest ast-multi-comparisons
+  (let [right-now (now)
+        facts {:certname "foo.local"
+               :environment "dev"
+               :values {"foo" 1
+                        "bar" 2
+                        "baz" 3
+                        "match" "match"}
+               :timestamp right-now
+               :producer_timestamp right-now}]
+    (with-test-db
+      (scf-store/add-certname! "foo.local")
+      (scf-store/add-facts! facts)
+      (with-http-app
+        (dotestseq [[version endpoint] endpoints
+                    method [:get :post]]
+          (let [query (partial query-result method endpoint)]
+            (testing "that \"in\" fields can be duplicated"
+              (is (= #{{:name "match" :value "match"}}
+                     (query ["from" "facts"
+                             ["extract" ["name" "value"]
+                              ["in" ["value" "value"]
+                               ["extract" ["name" "value"]
+                                ["select_facts"]]]]]))))
+            (testing "that \"in\" field order is respected"
+              (is (= #{{:name "foo" :value 1}
+                       {:name "bar" :value 2}
+                       {:name "baz" :value 3}
+                       {:name "match" :value "match"}}
+                     (query ["from" "facts"
+                             ["extract" ["name" "value"]
+                              ["in" ["name" "value"]
+                               ["extract" ["name" "value"]
+                                ["select_facts"]]]]])))
+              (is (= #{{:name "match" :value "match"}}
+                     (query ["from" "facts"
+                             ["extract" ["name" "value"]
+                              ["in" ["name" "value"]
+                               ["extract" ["value" "name"]
+                                ["select_facts"]]]]]))))
+            (testing "that rx match works across types"
+              (is (= #{{:name "match" :value "match"}}
+                     (query ["from" "facts"
+                             ["extract" ["name" "value"]
+                              ["~" "name" "match"]]]))))
+            (testing "that \"in\" works if only the field is a multi"
+              (is (= #{{:name "match" :value "match"}}
+                     (query ["from" "facts"
+                             ["extract" ["name" "value"]
+                              ["in" ["value"]
+                               ["extract" ["name"]
+                                ["select_facts"]]]]]))))
+            (testing "that \"in\" works if only the subquery projection is a multi"
+              (is (= #{{:name "match" :value "match"}}
+                     (query ["from" "facts"
+                             ["extract" ["name" "value"]
+                              ["in" ["name"]
+                               ["extract" ["value"]
+                                ["select_facts"]]]]]))))
+            (testing "that \"in\" works if field and subquery projection are multi"
+              (is (= #{{:name "foo" :value 1}
+                       {:name "bar" :value 2}
+                       {:name "baz" :value 3}
+                       {:name "match" :value "match"}}
+                     (query ["from" "facts"
+                             ["extract" ["name" "value"]
+                              ["in" ["value"]
+                               ["extract" ["value"]
+                                ["select_facts"]]]]])))))))))
+
+  (deftest ast-fact-value-resource-title-join
+    (let [certname "foo.local"
+          environment "dev"
+          right-now (now)
+          facts {:certname certname
+                 :environment environment
+                 :values {"apache_conf" "/etc/apache/apache2.conf"
+                          "foo" 1
+                          "bar" 2
+                          "baz" 3}
+                 :timestamp right-now
+                 :producer_timestamp right-now}
+          resource {:type "File"
+                    :title "/etc/apache/apache2.conf"
+                    :exported false
+                    :file "/tmp/foo"
+                    :line 10
+                    :tags #{"file" "class" "blarg"}
+                    :parameters {:ensure "directory"
+                                 :group "root"
+                                 :source "my_file_source"
+                                 :user "root"}}
+          resources (-> (:empty examples/catalogs)
+                        (assoc :certname certname)
+                        (assoc :environment environment)
+                        (update :resources
+                                conj
+                                [(select-keys resource [:type :title])
+                                 resource]))]
+      (with-test-db
+        (scf-store/add-certname! certname)
+        (scf-store/add-facts! facts)
+        (scf-store/replace-catalog! resources (now))
+        (with-http-app
+          (dotestseq [[version endpoint] endpoints
+                      method [:get :post]]
+            (testing "that joins from resource title to fact value work"
+              (is (= #{(-> resource
+                           (update :tags set)
+                           (dissoc :parameters) ;; don't care
+                           (merge {:certname certname
+                                   :environment environment}))}
+                     (set (map #(-> %
+                                    (dissoc :parameters :resource)
+                                    (update :tags set))
+                               (query-result
+                                method endpoint
+                                ["from" "resources"
+                                 ["and"
+                                  ["=" "type" "File"]
+                                  ["in" ["title"]
+                                   ["extract" ["value"]
+                                    ["select_facts"
+                                     ["=" "name" "apache_conf"]]]]]]))))))))))))
