@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.middleware-test
   (:import [java.io ByteArrayInputStream])
   (:require [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
             [cheshire.core :as json]
@@ -106,7 +107,13 @@
     (testing "should return an error response if unknown parameters are present"
       (let [{:keys [status body]} (wrapped-fn {:params {"foo" 1 "bar" 2 "wazzup" 3}})]
         (is (= http/status-bad-request status))
-        (is (= "Unsupported query parameter 'wazzup'" body))))))
+        (is (= "Unsupported query parameter 'wazzup'" body))))
+    (testing "error responses with unknown parameters are translated"
+      (let [es (i18n/string-as-locale "es")]
+        (i18n/with-user-locale es
+          (let [{:keys [status body]} (wrapped-fn {:params {"foo" 1 "bar" 2 "wazzup" 3}})]
+            (is (= http/status-bad-request status))
+            (is (= "Parámetro no admitido 'wazzup'" body))))))))
 
 (deftest verify-content-type-test
   (testing "with content-type of application/json"
@@ -139,6 +146,22 @@
         (let [wrapped-fn   (verify-content-type identity ["application/json"])]
           (is (= (wrapped-fn test-req) test-req)))))))
 
+(defmacro with-system-locale
+  "Evaluate body with the user locale set to locale.
+  TODO This code should be moved to the clj-i18n repo."
+  [locale & body]
+  `(let [locale# ~locale
+         default# (i18n/system-locale)]
+     (if (instance? java.util.Locale locale#)
+       (try
+         (. java.util.Locale setDefault locale#)
+         ~@body
+         (finally
+           (. java.util.Locale setDefault default#)))
+       (throw (IllegalArgumentException.
+               (str "Expected java.util.Locale but got "
+                    (.getName (.getClass locale#))))))))
+
 (deftest whitelist-middleware
   (testing "should log on reject"
     (let [wl (temp-file "whitelist-log-reject")]
@@ -147,7 +170,18 @@
         (is (= :authorized (authorizer-fn {:ssl-client-cn "foobar"})))
         (with-log-output logz
           (is (string? (authorizer-fn {:ssl-client-cn "badguy"})))
-          (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
+          (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz))))))))
+
+  (let [es (i18n/string-as-locale "es")]
+    (with-system-locale es
+      (testing "should log in Spanish on reject"
+        (let [wl (temp-file "whitelist-log-reject")]
+          (spit wl "foobar")
+          (let [authorizer-fn (build-whitelist-authorizer (fs/absolute-path wl))]
+            (is (= :authorized (authorizer-fn {:ssl-client-cn "foobar"})))
+            (with-log-output logz
+              (is (string? (authorizer-fn {:ssl-client-cn "badguy"})))
+              (is (= 1 (count (logs-matching #"^badguy fue rechazado por el certificado de la lista blanca " @logz)))))))))))
 
 (deftest test-fail-when-payload-too-large
   (testing "max-command-size-fail disabled should allow commands of any size"
