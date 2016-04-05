@@ -402,7 +402,7 @@ When the pool reaches this size, and no idle connections are available, attempts
 to get a connection will wait for `connection-timeout` milliseconds before timing
 out.
 
-The default value is 20.
+The default value is 25.
 
 ### `conn-max-age`
 

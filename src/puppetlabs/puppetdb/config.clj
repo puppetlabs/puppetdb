@@ -54,7 +54,7 @@
      :conn-max-age (pls/defaulted-maybe s/Int 60)
      :conn-keep-alive (pls/defaulted-maybe s/Int 45)
      :conn-lifetime (s/maybe s/Int)
-     :maximum-pool-size (pls/defaulted-maybe s/Int 20)
+     :maximum-pool-size (pls/defaulted-maybe s/Int 25)
      :classname (pls/defaulted-maybe String "org.postgresql.Driver")
      :subprotocol (pls/defaulted-maybe String "postgresql")
      :subname (s/maybe String)
