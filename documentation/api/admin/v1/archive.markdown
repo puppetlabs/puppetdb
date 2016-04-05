@@ -27,7 +27,7 @@ The request should be a multipart POST and have `Content-Type: multipart/mixed`.
 ### Response format
 
 The response will be in `application/json`, and will return a JSON map upon
-successful completion of the importation:
+successful completion of the import:
 
     {"ok": true}
 

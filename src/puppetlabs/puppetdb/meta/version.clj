@@ -4,7 +4,6 @@
    This namespace contains some utility functions relating to checking version
    numbers of various fun things."
   (:require [clojure.string :as string]
-            [clj-http.client :as client]
             [ring.util.codec :as ring-codec]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]

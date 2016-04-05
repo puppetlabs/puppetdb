@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.pdb-routing-test
   (:require [clojure.test :refer :all]
-            [clj-http.client :as client]
+            [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -42,7 +42,7 @@
     (let [pdb-resp (-> svc-utils/*base-url*
                        (assoc :prefix "/pdb")
                        utils/base-url->str-with-prefix
-                       client/get)]
+                       (pl-http/get {:as :text}))]
       (tu/assert-success! pdb-resp)
       (is (dtu/dashboard-page? pdb-resp))
 
@@ -52,7 +52,7 @@
 
       (let [resp (export svc-utils/*base-url*)]
         (tu/assert-success! resp)
-        (is (.contains (get-in resp [:headers "Content-Disposition"]) "puppetdb-export"))
+        (is (.contains (get-in resp [:headers "content-disposition"]) "puppetdb-export"))
         (is (:body resp))))))
 
 (deftest maintenance-mode

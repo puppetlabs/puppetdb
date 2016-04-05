@@ -13,7 +13,6 @@
             [puppetlabs.trapperkeeper.services.status.status-core :as status-core]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.http.command :as cmd]
-            [clj-http.client :as client]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.http.server :as server]
             [clojure.tools.logging :as log]

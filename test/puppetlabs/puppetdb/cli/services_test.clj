@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.cli.services-test
   (:import [java.security KeyStore])
   (:require [me.raynes.fs :as fs]
-            [clj-http.client :as client]
             [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
@@ -115,15 +114,15 @@
 (deftest api-retirements
   (svc-utils/with-puppetdb-instance
     (letfn [(ping [v]
-              (client/get
+              (pl-http/get
                (str (utils/base-url->str (assoc *base-url* :version v))
                     "/facts")
-               {:throw-exceptions false}))
+               {:as :text}))
             (retirement-response? [v response]
               (and (= 404 (:status response))
                    (= (format "The %s API has been retired; please use v4"
                               (name v))
-                      (:body  response))))]
+                      (:body response))))]
       (is (= 200 (:status (ping :v4))))
       (doseq [v [:v1 :v2 :v3]]
         (testing (format "%s requests are refused" (name v)))
@@ -148,7 +147,7 @@
          (pl-http/get (str (utils/base-url->str (assoc *base-url* :version :v4))
                            "/facts")
                       (merge cert-config
-                             {:headers {"accept" "application/json"}
+                             {:headers {"Accept" "application/json"}
                               :as :text})))))))
 
 (deftest cert-whitelists

@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.acceptance.node-ttl
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [clj-http.client :as client]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils.http :as tuhttp]
@@ -32,12 +31,12 @@
              (Thread/sleep 1000)
              (run-expire-nodes)
 
-             (is (= 0 (count (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes")))))
+             (is (= [] (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes"))))
              (is (:expired (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes/foo.com"))))
              (Thread/sleep 1000)
              (run-purge-nodes)
 
-             (is (= 0 (count (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes")))))
+             (is (= [] (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes"))))
              (is (= {:error "No information is known about node foo.com"}
                     (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes/foo.com")))))))))))
 
