@@ -13,6 +13,7 @@
 (def tk-jetty9-version "1.5.0")
 (def ks-version "1.2.0")
 (def tk-status-version "0.3.1")
+(def i18n-version "0.2.1")
 
 (def pdb-jvm-opts
   (case (System/getProperty "java.specification.version")
@@ -33,6 +34,7 @@
   :pedantic? :abort
 
   :dependencies [[org.clojure/clojure "1.8.0"]
+                 [puppetlabs/i18n ~i18n-version]
                  [cheshire "5.5.0"]
                  [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
                  [org.clojure/math.combinatorics "0.1.1"]
@@ -99,8 +101,9 @@
   :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
                  ["snapshots" "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
 
-  :plugins [[lein-release "1.0.5"]
-            [lein-cloverage "1.0.6" :exclusions [org.clojure/clojure]]]
+  :plugins [[lein-release "1.0.5" :exclusions [org.clojure/clojure]]
+            [lein-cloverage "1.0.6" :exclusions [org.clojure/clojure]]
+            [puppetlabs/i18n ~i18n-version]]
 
   :lein-release {:scm        :git
                  :deploy-via :lein-deploy}

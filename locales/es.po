@@ -1,0 +1,78 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR Puppet Labs <docs@puppetlabs.com>
+# This file is distributed under the same license as the puppetlabs.puppetdb package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: puppetlabs.puppetdb\n"
+"Report-Msgid-Bugs-To: docs@puppetlabs.com\n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: 2016-04-04 15:56-0700\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 1.8.7\n"
+"Last-Translator: \n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: es\n"
+
+#: src//puppetlabs/puppetdb/middleware.clj:38
+msgid "Processing HTTP request to URI: ''{0}''"
+msgstr ""
+
+#: src//puppetlabs/puppetdb/middleware.clj:54
+msgid "{0} rejected by certificate whitelist {1}"
+msgstr "{0} fue rechazado por el certificado de la lista blanca {1}"
+
+#: src//puppetlabs/puppetdb/middleware.clj:55
+msgid ""
+"The client certificate name {0} doesn''t appear in the certificate "
+"whitelist. Is your master''s (or other PuppetDB client''s) certname listed "
+"in PuppetDB''s certificate-whitelist file?"
+msgstr ""
+
+#: src//puppetlabs/puppetdb/middleware.clj:75
+msgid "Permission denied: {0}"
+msgstr "Permiso denegado: {0}"
+
+#: src//puppetlabs/puppetdb/middleware.clj:129
+msgid "must accept {0}"
+msgstr "debe aceptar {0}"
+
+#: src//puppetlabs/puppetdb/middleware.clj:143
+msgid "content type {0} not supported"
+msgstr ""
+
+#: src//puppetlabs/puppetdb/middleware.clj:159
+msgid "Missing required query parameter ''{0}''"
+msgstr ""
+
+#: src//puppetlabs/puppetdb/middleware.clj:165
+msgid "Unsupported query parameter ''{0}''"
+msgstr "Parámetro no admitido ''{0}''"
+
+#: src//puppetlabs/puppetdb/middleware.clj:268
+msgid "Processing command with a content-length of {0} bytes"
+msgstr ""
+
+#: src//puppetlabs/puppetdb/middleware.clj:269
+msgid ""
+"No content length found for POST. POST bodies that are too large could cause "
+"memory-related failures."
+msgstr ""
+
+#: src//puppetlabs/puppetdb/middleware.clj:275
+msgid ""
+"content-length of command is {0} bytes and is larger than the maximum "
+"allowed command size of {1} bytes"
+msgstr ""
+
+#: src//puppetlabs/puppetdb/middleware.clj:280
+msgid "Command rejected due to size exceeding max-command-size"
+msgstr ""
+
+#: src//puppetlabs/puppetdb/middleware.clj:310
+msgid "No information is known about {0} {1}"
+msgstr ""
