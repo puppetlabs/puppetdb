@@ -21,12 +21,12 @@ and the PuppetDB-termini for your Puppet master) using
   follow our guide to
   [installing PuppetDB from packages](./install_from_packages.html).
 
-Step 1: Enable the Puppet Labs package repository
+Step 1: Enable the Puppet package repository
 -----
 
 If you haven't done so already, you will need to do **one** of the following:
 
-* [Enable the Puppet Labs package repository](/guides/puppetlabs_package_repositories.html)
+* [Enable the Puppet package repository](/guides/puppetlabs_package_repositories.html)
   on your PuppetDB server and Puppet master server.
 * Grab the PuppetDB and PuppetDB-termini packages, and import them into your
   site's local package repos.
