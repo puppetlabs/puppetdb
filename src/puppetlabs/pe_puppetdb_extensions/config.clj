@@ -1,5 +1,6 @@
 (ns puppetlabs.pe-puppetdb-extensions.config
   (:require
+   [puppetlabs.i18n.core :as i18n]
    [clojure.core.match :as cm]
    [clojure.tools.logging :as log]
    [com.rpl.specter :as sp]
@@ -115,9 +116,9 @@
                            recursive-underscore->dash-keys
                            coerce-to-hocon-style-config)]
      (when (:allow-unsafe-sync-triggers parsed-config)
-       (log/warn "Allowing unsafe sync triggers"))
+       (log/warn (i18n/trs "Allowing unsafe sync triggers")))
      (when (:allow-unsafe-cleartext-sync parsed-config)
-       (log/warn "Allowing unsafe cleartext sync"))
+       (log/warn (i18n/trs "Allowing unsafe cleartext sync")))
      parsed-config)
    (catch [:type :schema.core/error] ex
      (throw+ (merge ex {:type ::utils/cli-error
