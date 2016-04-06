@@ -84,4 +84,4 @@ If you are saturating your CPU, we recommend [lowering the number of threads][th
 
 If you've recently changed the certificates in use by the PuppetDB server, you'll also need to update the SSL configuration for PuppetDB itself.
 
-If you've installed PuppetDB from Puppet Labs packages, you can simply re-run the `puppetdb ssl-setup` command. Otherwise, you'll need to again perform all the SSL configuration steps outlined in [the installation instructions](./install_from_source.html).
+If you've installed PuppetDB from Puppet packages, you can simply re-run the `puppetdb ssl-setup` command. Otherwise, you'll need to again perform all the SSL configuration steps outlined in [the installation instructions](./install_from_source.html).

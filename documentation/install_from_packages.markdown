@@ -43,10 +43,10 @@ Your PuppetDB server should be running puppet agent and have a signed certificat
 
 > Note: If Puppet doesn't have a valid certificate when PuppetDB is installed, you will have to [run the SSL config script and edit the config file][ssl_script], or [manually configure PuppetDB's SSL credentials][keystore_instructions] before the puppet master will be able to connect to PuppetDB.
 
-Step 2: Enable the Puppet Labs Package Repository
+Step 2: Enable the Puppet Package Repository
 -----
 
-If you didn't already use it to install Puppet, you will need to [enable the Puppet Labs package repository](/guides/puppetlabs_package_repositories.html) for your system.
+If you didn't already use it to install Puppet, you will need to [enable the Puppet package repository](/guides/puppetlabs_package_repositories.html) for your system.
 
 
 Step 3: Install PuppetDB

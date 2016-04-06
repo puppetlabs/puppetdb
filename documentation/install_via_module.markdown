@@ -20,12 +20,12 @@ PuppetDB termini for your Puppet master) using [the PuppetDB module][module] fro
 >
 > If you'd like to migrate existing exported resources from your ActiveRecord storeconfigs database, please see the documentation on [Migrating Data][migrating].
 
-Step 1: Enable the Puppet Labs Package Repository
+Step 1: Enable the Puppet Package Repository
 -----
 
 If you haven't already, you will need to do **one** of the following:
 
-* [Enable the Puppet Labs package repository](/guides/puppetlabs_package_repositories.html) on your PuppetDB server and puppet master server.
+* [Enable the Puppet package repository](/guides/puppetlabs_package_repositories.html) on your PuppetDB server and puppet master server.
 * Grab the PuppetDB and termini packages, and import them into your site's local package repos.
 
 Step 2: Assign Classes to Nodes

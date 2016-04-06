@@ -1,8 +1,8 @@
 PuppetDB - Centralized Puppet Storage
-Copyright 2011-2013 Puppet Labs Inc
+Copyright 2011-2013 Puppet Inc
 
 This product includes software developed at
-Puppet Labs Inc (http://puppetlabs.com/).
+Puppet Inc (http://puppetlabs.com/).
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this software except in compliance with the License.

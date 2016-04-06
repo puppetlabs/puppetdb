@@ -20,7 +20,7 @@ EC2 Setup
         :aws_secret_access_key: <your AWS secret key>
 
 * The included configuration files in `acceptance/config` refer to resources
-  (security groups, VPCs, etc) that exist in the Puppet Labs AWS account. If
+  (security groups, VPCs, etc) that exist in the Puppet AWS account. If
   you're using your own AWS account, you'll have to create the appropriate
   resources and modify the appropriate configuration file to refer to them.
 
