@@ -1,11 +1,15 @@
 ---
-title: "PuppetDB 4.0: Data anonymization"
+title: "PuppetDB 4.0: Export, import and anonymization"
 layout: default
 ---
 
-The export tool has the ability to anonymize the PuppetDB archive before
-returning the archive. This is particularly useful when sharing PuppetDB data
-that contains sensitive items.
+This document covers using the export, import and anonymization tools for
+PuppetDB.
+
+The export tool will return an archive of all of your PuppetDB data which can be
+uploaded to another PuppetDB via the import tool. The export tool also has the
+ability to anonymize the archive before returning it. This is particularly
+useful when sharing PuppetDB data that contains sensitive items.
 
 Using the `export` command
 -----
