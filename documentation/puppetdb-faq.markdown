@@ -1,8 +1,7 @@
 ---
-layout: default
 title: "PuppetDB 4.0 » FAQ"
+layout: default
 subtitle: "Frequently asked questions"
-canonical: "/puppetdb/latest/puppetdb-faq.html"
 ---
 
 [trouble_kahadb]: ./trouble_kahadb_corruption.html
@@ -94,31 +93,42 @@ FAILED org.eclipse.jetty.server.Server@6b2c636d: java.net.BindException: Cannot 
 java.net.BindException: Cannot assign requested address
 ~~~
 
-PuppetDB will error with this message if the IP address associated with the ssl-host parameter in the
-jetty.ini isn't linked to a known interface or resolvable.
+PuppetDB will error with this message if the IP address associated with the
+ssl-host parameter in the jetty.ini isn't linked to a known interface or
+resolvable.
 
 ## Why is the load so high on the database server?
 
-There are many possible reasons for a high load on the database server, including the total number of nodes managed by Puppet, the frequency of the
-agent runs, and the number of changes to the nodes on each run. One
-possible cause of execessive load on the database server is a low
-catalog duplication rate. See the [PuppetDB dashboard][maintaining_tuning]
-to find this rate for your PuppetDB instance. If this rate is
-significantly lower than 90%, see [Why is my catalog duplication rate so low?](#why-is-my-catalog-duplication-rate-so-low).
+There are many possible reasons for a high load on the database server,
+including the total number of nodes managed by Puppet, the frequency of the
+agent runs, and the number of changes to the nodes on each run. One possible
+cause of execessive load on the database server is a low catalog duplication
+rate. See the [PuppetDB dashboard][maintaining_tuning] to find this rate for
+your PuppetDB instance. If this rate is significantly lower than 90%, see
+[Why is my catalog duplication rate so low?](#why-is-my-catalog-duplication-rate-so-low).
 
 ## Why is my catalog duplication rate so low?
 
 The catalog duplication rate can be found on the
-[dashboard][maintaining_tuning]. Typically, the duplication rate should be
-90% or above. If the duplication rate is lower, it might cause a much
-heavier I/O load on the database. Refer to the [low
-catalog duplication troubleshooting guide][low_catalog_dupe] for help diagnosing the
-problem.
+[dashboard][maintaining_tuning]. Typically, the duplication rate should be 90%
+or above. If the duplication rate is lower, it might cause a much heavier I/O
+load on the database. Refer to the
+[low catalog duplication troubleshooting guide][low_catalog_dupe] for help
+diagnosing the problem.
 
 ## My Puppet master is running slower since I enabled PuppetDB. How can I profile it?
 
-Puppet 3.x introduced a new profiling capability that we leveraged in the puppetdb-termini client code. By simply adding `profile=true` to your `puppet.conf`, you can enable detailed profiling of all aspects of Puppet, including puppetdb-termini. For this to work, you must enable debugging on your master instance as well.
+Puppet 3.x introduced a new profiling capability that we leveraged in the
+puppetdb-termini client code. By simply adding `profile=true` to your
+`puppet.conf`, you can enable detailed profiling of all aspects of Puppet,
+including puppetdb-termini. For this to work, you must enable debugging on your
+master instance as well.
 
-**Note:** We encourage all users to use common sense when working with profiling mechanisms. Using these tools will add more load, which can increase speed problems in a limited capacity environment. Enabling profiling in production environments should only be done with care and for a very short period of time.
+**Note:** We encourage all users to use common sense when working with profiling
+mechanisms. Using these tools will add more load, which can increase speed
+problems in a limited capacity environment. Enabling profiling in production
+environments should only be done with care and for a very short period of time.
 
-To enable easy searching, all PuppetDB profiling events are prefixed with `PuppetDB:`. This information is also helpful to our developers, so feel free to include these details when reporting issues with PuppetDB.
+To enable easy searching, all PuppetDB profiling events are prefixed with
+`PuppetDB:`. This information is also helpful to our developers, so feel free to
+include these details when reporting issues with PuppetDB.
