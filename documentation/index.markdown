@@ -70,9 +70,9 @@ System requirements
 
 #### Standard install: RHEL, CentOS, Debian, and Ubuntu
 
-Puppet Labs provides packages and a Puppet module for PuppetDB which simplify
-setup of its SSL certificates and init scripts. These packages are available for
-the following operating systems:
+Puppet provides packages and a Puppet module for PuppetDB which simplify setup
+of its SSL certificates and init scripts. These packages are available for the
+following operating systems:
 
 * Red Hat Enterprise Linux 6.6+ and 7 (and any derived distro that includes Java
   1.8)

@@ -51,7 +51,9 @@ You will have to sign a certificate for every new node you add to your site.
 
 Currently, Puppet needs extra Ruby plugins in order to use PuppetDB. Unlike custom facts or functions, these cannot be loaded from a module and must be installed in Puppet's main source directory.
 
-* First, ensure that the appropriate [Puppet Labs package repository][package_repos] is enabled. You can use a [package][] resource to do this or use the `apt::source` (from the [puppetlabs-apt][apt] module) and [`yumrepo`][] types.
+* First, ensure that the appropriate [Puppet package repository][package_repos]
+  is enabled. You can use a [package][] resource to do this or use the
+  `apt::source` (from the [puppetlabs-apt][apt] module) and [`yumrepo`][] types.
 * Next, use Puppet to ensure that the `puppetdb-termini` package is installed:
 
 ~~~ ruby

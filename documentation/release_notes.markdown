@@ -581,7 +581,7 @@ performance.
  * Upgrade to clojure.java.jdbc 0.3.7.
    ([PDB-1739](https://tickets.puppetlabs.com/browse/PDB-1739))
 
- * Switched to the Puppet Labs version-checking library.
+ * Switched to the Puppet version-checking library.
    ([PDB-1823](https://tickets.puppetlabs.com/browse/PDB-1823))
 
  * Cache database metadata on startup. Previously, code involving query
@@ -643,7 +643,7 @@ for RPM-based systems.
 ### Bug fixes and maintenance
 
 * As part of the PuppetDB 3.0.0 release, the puppetdb-terminus package was
-  renamed puppetdb-termini for consistency with other Puppet Labs products. A
+  renamed puppetdb-termini for consistency with other Puppet products. A
   flawed dependency in the puppetdb-termini package prevented installation of
   the older 2.3.x puppetdb-terminus package on RPM-based platforms. This release
   fixes that dependency, allowing the older version to be installed.
@@ -675,7 +675,7 @@ Wayne Warren, and Wyatt Alt.
 ### Upgrading
 
 * This version of PuppetDB adopts the AIO layout to be consistent with
-  other Puppet Labs layouts, such as Puppet Server. We recommend the
+  other Puppet layouts, such as Puppet Server. We recommend the
   using the [PuppetDB module][puppetdb-module] version 5, as
   it will automate much of this kind of management and has been
   modified specifically for PuppetDB 3 support by default.
