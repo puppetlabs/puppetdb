@@ -37,9 +37,9 @@ EC2 build with packages on Debian 6:
     PUPPETDB_EXPECTED_DEB_VERSION="1.3.3.73-1puppetlabs1" \
     rake beaker:acceptance
 
-Note that the tests currently depend on the Puppet Labs internal
+Note that the tests currently depend on the Puppet internal
 lein-ezbake project, so running them requires either access to the
-Puppet Labs VPN during the test run, or a local copy of lein-ezbake.
+Puppet VPN during the test run, or a local copy of lein-ezbake.
 For the latter, run these commands once, while connected to the VPN:
 
     repo='http://nexus.delivery.puppetlabs.net/content/repositories/releases/'
