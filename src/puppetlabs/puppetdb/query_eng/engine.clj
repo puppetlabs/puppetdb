@@ -146,6 +146,9 @@
                              "latest_report_status" {:type :string
                                                      :queryable? true
                                                      :field :report_statuses.status}
+                             "cached_catalog_status" {:type :string
+                                                      :queryable? true
+                                                      :field :reports.cached_catalog_status}
                              "catalog_environment" {:type :string
                                                     :queryable? true
                                                     :field :catalog_environment.environment}

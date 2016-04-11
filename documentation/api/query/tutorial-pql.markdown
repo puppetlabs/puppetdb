@@ -343,6 +343,7 @@ The result of this query is:
         "catalog_timestamp" : "2015-06-22T17:25:12.023Z",
         "latest_report_hash" : "754b0b87af9ee647507b5aa3001f44f8e8843216",
         "latest_report_noop": true,
+        "cached_catalog_status": "not_used",
         "latest_report_status" : "unchanged"
     } ]
 
@@ -446,6 +447,7 @@ across facts relating to the node:
         "catalog_timestamp" : "2015-06-22T17:25:12.023Z",
         "latest_report_hash" : "754b0b87af9ee647507b5aa3001f44f8e8843216",
         "latest_report_noop": true,
+        "cached_catalog_status": "not_used",
         "latest_report_status" : "unchanged"
     } ]
 
