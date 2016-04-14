@@ -143,7 +143,7 @@
   (testing "should log on reject"
     (let [wl (temp-file "whitelist-log-reject")]
       (spit wl "foobar")
-      (let [authorizer-fn (build-whitelist-authorizer (fs/absolute-path wl))]
+      (let [authorizer-fn (build-whitelist-authorizer (kitchensink/absolute-path wl))]
         (is (= :authorized (authorizer-fn {:ssl-client-cn "foobar"})))
         (with-log-output logz
           (is (string? (authorizer-fn {:ssl-client-cn "badguy"})))
