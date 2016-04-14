@@ -63,7 +63,7 @@
 (defn -main
   [& args]
   (let [{:keys [infile base-url]} (validate-cli! args)
-        import-archive (fs/normalized-path infile)
+        import-archive (fs/normalized infile)
         command-versions (:command_versions (parse-metadata import-archive))]
     (try
       (println (str "[deprecated] The PuppetDB import command is deprecated in "

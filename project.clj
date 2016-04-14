@@ -9,9 +9,9 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def tk-version "1.2.0")
+(def tk-version "1.3.1")
 (def tk-jetty9-version "1.5.0")
-(def ks-version "1.2.0")
+(def ks-version "1.3.0")
 (def tk-status-version "0.3.1")
 (def i18n-version "0.2.2")
 
@@ -46,7 +46,7 @@
                  [metrics-clojure "2.6.1" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
                  [clj-time "0.11.0"]
                  ;; Filesystem utilities
-                 [me.raynes/fs "1.4.5"]
+                 [me.raynes/fs "1.4.6"]
                  [org.apache.commons/commons-lang3 "3.3.1"]
                  ;; Version information
                  [puppetlabs/dujour-version-check "0.1.3"]

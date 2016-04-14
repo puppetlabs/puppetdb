@@ -152,7 +152,7 @@
 
 (defn- call-with-log-suppressed-unless-notable [notable-event? f]
   (let [problem (atom false)
-        log-path (fs/absolute-path (temp-file "pdb-suppressed" ".log"))]
+        log-path (kitchensink/absolute-path (temp-file "pdb-suppressed" ".log"))]
     (try
       (with-started
         [appender (suppressing-file-appender log-path)

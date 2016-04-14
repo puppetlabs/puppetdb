@@ -20,7 +20,7 @@
             [ring.mock.request :as mock]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset mapvals]]
+            [puppetlabs.kitchensink.core :refer [parse-int excludes? keyset mapvals absolute-path]]
             [environ.core :refer [env]]
             [clojure.test :refer :all]
             [clojure.set :refer [difference]]
@@ -52,7 +52,7 @@
   duration of the call.  Wrap with without-jmx to disable JMX."
   [name conn-var & body]
   `(with-log-output broker-logs#
-     (let [dir#                   (fs/absolute-path (fs/temp-dir "test-broker"))
+     (let [dir#                   (absolute-path (fs/temp-dir "test-broker"))
            broker-name#           ~name
            conn-str#              (str "vm://" ~name)
            size-megs#              50

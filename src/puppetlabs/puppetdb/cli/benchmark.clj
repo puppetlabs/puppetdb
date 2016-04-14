@@ -412,7 +412,7 @@
   (count [this] @queue-count))
 
 (defn amq-broker-buffer [broker-name endpoint-name]
-  (let [dir (fs/absolute-path broker-name)
+  (let [dir (kitchensink/absolute-path broker-name)
         conn-str (str "vm://" broker-name
                       "?broker.useJmx=false"
                       "&broker.enableStatistics=false"
