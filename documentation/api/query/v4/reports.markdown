@@ -385,6 +385,25 @@ Get counts of reports grouped by status:
       "count" : 20
     } ]
 
+Get counts of reports grouped by status and day of the week received:
+
+    curl -X GET http://localhost:8080/pdb/query/v4/reports -d
+    'query=["extract",["status", ["function", "count"], ["function", "to_string","receive_time", "FMDay"]],["group_by","status",["function","to_string","receive_time", "FMDay"]]]'
+
+    [ {
+      "status" : "failed",
+      "count" : 10,
+      "to_string" : "Thursday"
+    }, {
+      "status" : "changed",
+       "count" : 60,
+       "to_string" : "Thursday"
+    }, {
+      "status" : "unchanged",
+       "count" : 30,
+       "to_string" : "Thursday"
+    } ]
+
 ## `/pdb/query/v4/reports/<HASH>/events`
 
 Returns all events for a particular report, designated by its unique hash.

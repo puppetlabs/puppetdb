@@ -113,7 +113,7 @@
 
     "fact_contents"
     ["fact_contents"])
- 
+
   (are [in] (insta/failure? (insta/parse parse in :start :entity))
     "foobar"
     "hyphen-ated"
@@ -126,7 +126,7 @@
     "[ a ]" [:extract "a"]
     "[a]" [:extract "a"]
     "[]" [:extract])
- 
+
   (are [in] (insta/failure? (insta/parse parse in :start :extract))
     "[a b]"
     "[ab.cd]"
@@ -444,7 +444,10 @@
 
     (are [in] (insta/failure? (insta/parse parse in :start :function))
       "count"
-      ""))
+      "")
+
+    (are [in] (insta/failure? (insta/parse parse in :start :function))
+         "to_string(receive_time, HH24)"))
 
   (testing "functionname"
     (are [in expected] (= (parse in :start :functionname) expected)
@@ -457,16 +460,25 @@
 
   (testing "groupedarglist"
     (are [in expected] (= (parse in :start :groupedarglist) expected)
-      "(certname, value)" [:groupedarglist "certname" "value"]
-      "()" [:groupedarglist])
+      "(receive_time)" [:groupedarglist "receive_time"]
+      "(receive_time, \"HH24\")" [:groupedarglist "receive_time" [:dqstring "HH24"]]
+      "(receive_time, \"HH24\", \"DAY\")" [:groupedarglist "receive_time" [:dqstring "HH24"] [:dqstring "DAY"]]
+      "()" [:groupedarglist]))
 
-    (are [in] (insta/failure? (insta/parse parse in :start :groupedarglist))
-      "('a')"
-      ""))
+  (testing "groupedarglist"
+    (are [in expected] (= (parse in :start :groupedarglist) expected)
+         "(receive_time)" [:groupedarglist "receive_time"]
+         "(receive_time, \"HH24\")" [:groupedarglist "receive_time" [:dqstring "HH24"]]
+         "(receive_time, \"HH24\", \"DAY\")" [:groupedarglist "receive_time" [:dqstring "HH24"] [:dqstring "DAY"]]
+         "()" [:groupedarglist])
+
+    (are [in]
+         (insta/failure? (insta/parse parse in :start :groupedarglist))
+         "(receive_time, certname)"))
 
   (testing "arglist"
     (are [in expected] (= (parse in :start :arglist) expected)
-      "certname, value" ["certname" "value"]
+      "certname, \"HH24\"" ["certname" [:dqstring "HH24"]]
       "certname" ["certname"])
 
     (are [in] (insta/failure? (insta/parse parse in :start :arglist))
@@ -722,8 +734,15 @@
 (deftest test-groupbyclause
   (testing "groupbyclause"
     (are [in expected] (= (parse in :start :groupbyclause) expected)
-      "group by name" [[:groupby "name"]]
-      "group by name, value" [[:groupby "name" "value"]])
+         "group by name"
+         [[:groupby "name"]]
+
+         "group by name, value"
+         [[:groupby "name" "value"]]
+
+         "group by name, to_string(receive_time, \"HH24\")"
+         [[:groupby "name" [:function "to_string" [:groupedarglist "receive_time"
+                                                   [:dqstring "HH24"]]]]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :groupbyclause))
       "group by 'name'"
@@ -742,11 +761,11 @@
   (testing "offset"
     (are [in expected] (= (parse in :start :pagingclause) expected)
          "offset 1" [[:offset [:integer "1"]]]))
-  
+
   (testing "limit"
     (are [in expected] (= (parse in :start :pagingclause) expected)
          "limit 1" [[:limit [:integer "1"]]]))
-  
+
   (testing "order by"
     (are [in expected] (= (parse in :start :pagingclause) expected)
          "order by name" [[:orderby [:orderparam "name"]]]
