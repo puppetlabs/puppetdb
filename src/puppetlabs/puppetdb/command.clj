@@ -75,7 +75,15 @@
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [clj-time.core :refer [now]]
             [clojure.set :as set]
-            [clojure.core.async :as async]))
+            [clojure.core.async :as async]
+            [puppetlabs.puppetdb.mq :as mq]
+            [metrics.timers :refer [timer time!]]
+            [puppetlabs.puppetdb.metrics.core :as metrics]))
+
+(def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
+
+(def metrics (atom {:command-parse-time (timer mq-metrics-registry
+                                               (metrics/keyword->metric-name [:global] :command-parse-time))}))
 
 (defn fatality
   "Create an object representing a fatal command-processing exception
@@ -194,9 +202,10 @@
           (string? (:command %))
           (number? (:version %))
           (map? (:annotations %))]}
-  (if (:command headers)
-    (parse-new-command message)
-    (parse-queue-command message)))
+  (time! (get @metrics :command-parse-time)
+         (if (:command headers)
+           (parse-new-command message)
+           (parse-queue-command message))))
 
 ;; ## Command submission
 

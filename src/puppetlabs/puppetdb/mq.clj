@@ -10,7 +10,14 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [schema.core :as s]
-            [slingshot.slingshot :refer [throw+]]))
+            [slingshot.slingshot :refer [throw+]]
+            [metrics.timers :refer [timer time!]]
+            [puppetlabs.puppetdb.metrics.core :as metrics]))
+
+(def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
+
+(def metrics (atom {:message-persistence-time (timer mq-metrics-registry
+                                                     (metrics/keyword->metric-name [:global] :message-persistence-time))}))
 
 (defn- set-usage!*
   "Internal helper function for setting `SystemUsage` values on a `BrokerService`
@@ -240,10 +247,11 @@
   ([connection endpoint message]
    (send-message! connection endpoint message {}))
   ([connection endpoint message attributes]
-   (with-open [s (.createSession connection true 0)
-               pro (.createProducer s (.createQueue s endpoint))]
-     (commit-or-rollback s
-       (.send pro (to-jms-message s message attributes))))))
+   (time! (get @metrics :message-persistence-time)
+          (with-open [s (.createSession connection true 0)
+                      pro (.createProducer s (.createQueue s endpoint))]
+            (commit-or-rollback s
+                                (.send pro (to-jms-message s message attributes)))))))
 
 (defn-validated timed-drain-into-vec! :- [jms-message-schema]
   "Drains messages from the indicated endpoint into a vector via connection.
