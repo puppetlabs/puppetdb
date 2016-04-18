@@ -43,7 +43,8 @@
     (doseq [res result]
       (is (= #{:certname :deactivated :expired :catalog_timestamp :facts_timestamp :report_timestamp
                :catalog_environment :facts_environment :report_environment
-               :latest_report_status :latest_report_hash :latest_report_noop} (keyset res))
+               :latest_report_status :latest_report_hash :latest_report_noop
+               :cached_catalog_status} (keyset res))
           (str "Query was: " query))
       (is (= (set expected) (set (mapv :certname result)))
           (str "Query was: " query)))
@@ -99,6 +100,10 @@
     (testing "querying on latest report noop works"
       (is-query-result' ["=" "latest_report_noop" true] [])
       (is-query-result' ["=" "latest_report_noop" false] [web1 db puppet]))
+
+    (testing "querying on latest cached catalog status works"
+      (is-query-result' ["=" "cached_catalog_status" "not_used"] [web1 db puppet])
+      (is-query-result' ["=" "cached_catalog_status" nil] [web2]))
 
     (testing "basic equality works for facts, and is based on string equality"
       (is-query-result' ["=" ["fact" "operatingsystem"] "Debian"] [db web1 web2])

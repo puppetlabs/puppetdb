@@ -64,6 +64,10 @@ The below fields are allowed as filter criteria and are returned in all response
 * `latest_report_noop` (boolean): indicates whether the most recent report for
   the node was a noop run.
 
+* `cached_catalog_status` (string): Cached catalog status of the
+  last puppet run for the node. Possible values are `explicitly_requested`,
+  `on_failure`, `not_used` or `null`.
+
 * `latest_report_hash` (string): a hash of the latest report for the node.
 
 * `["fact", <FACT NAME>]` (string, number, Boolean): the value of `<FACT NAME>` for a node. Inequality operators are allowed, and will skip non-numeric values.

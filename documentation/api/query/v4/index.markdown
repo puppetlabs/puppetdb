@@ -53,6 +53,7 @@ object results based on the [entity][entities] provided in the top-level [`from`
         "latest_report_hash": "0b2aa3bbb1deb71a5328c1d934eadbba5f52d733",
         "latest_report_status": "unchanged",
         "latest_report_noop": true,
+        "cached_catalog_status": "not_used",
         "report_environment": "production",
         "report_timestamp": "2015-11-23T19:25:23.394Z"
       }
@@ -74,6 +75,7 @@ The same query can also be executed using [PQL][pql]:
         "latest_report_hash": "0b2aa3bbb1deb71a5328c1d934eadbba5f52d733",
         "latest_report_status": "unchanged",
         "latest_report_noop": true,
+        "cached_catalog_status": "not_used",
         "report_environment": "production",
         "report_timestamp": "2015-11-23T19:25:23.394Z"
       }
