@@ -49,75 +49,77 @@
 
 (defn with-latest-events
   "CTE to wrap unioned queries when distinct_resources is used"
-  [query]
-  (str
-   "WITH latest_events AS
-      (SELECT certname,
-              configuration_version,
-              start_time as run_start_time,
-              end_time as run_end_time,
-              receive_time as report_receive_time,
-              hash,
-              status,
-              distinct_events.latest_timestamp AS timestamp,
-              distinct_events.resource_type AS resource_type,
-              distinct_events.resource_title AS resource_title,
-              distinct_events.property as property,
-              new_value,
-              old_value,
-              message,
-              file,
-              line,
-              containment_path,
-              containing_class,
-              environment
-      FROM
-      (SELECT certname_id,
-              resource_type COLLATE \"C\" AS resource_type,
-              resource_title COLLATE \"C\" AS resource_title,
-              property COLLATE \"C\" AS property,
-              MAX(resource_events.timestamp) AS latest_timestamp
-      FROM resource_events
-      WHERE resource_events.timestamp >= ?
-            AND resource_events.timestamp <= ?
-      GROUP BY certname_id,
-               resource_type COLLATE \"C\",
-               resource_title COLLATE \"C\",
-               property COLLATE \"C\") distinct_events
-      INNER JOIN resource_events
-      ON resource_events.resource_type = distinct_events.resource_type
-         AND resource_events.resource_title = distinct_events.resource_title
-         AND ((resource_events.property = distinct_events.property) OR
-              (resource_events.property IS NULL
-               AND distinct_events.property IS NULL))
-      AND resource_events.timestamp = distinct_events.latest_timestamp
-      AND resource_events.certname_id = distinct_events.certname_id
-      INNER JOIN reports ON resource_events.report_id = reports.id
-      LEFT OUTER JOIN environments
-        ON reports.environment_id = environments.id) "
-   query))
+  ([query where]
+   (with-latest-events query where nil))
+  ([query where latest-report-clause]
+   (let [where-clause (if where (format "WHERE %s" where) "")
+         latest-report (if latest-report-clause
+                         (format "AND %s" latest-report-clause)
+                         "")]
+     (str
+       (format "WITH latest_events AS
+                    (SELECT certname,
+                            report_id,
+                            configuration_version,
+                            start_time as run_start_time,
+                            end_time as run_end_time,
+                            receive_time as report_receive_time,
+                            hash,
+                            status,
+                            distinct_events.latest_timestamp AS timestamp,
+                            distinct_events.resource_type AS resource_type,
+                            distinct_events.resource_title AS resource_title,
+                            distinct_events.property as property,
+                            new_value,
+                            old_value,
+                            message,
+                            file,
+                            line,
+                            containment_path,
+                            containing_class,
+                            environment
+                FROM
+                (SELECT certname_id,
+                        resource_type COLLATE \"C\" AS resource_type,
+                        resource_title COLLATE \"C\" AS resource_title,
+                        property COLLATE \"C\" AS property,
+                        MAX(resource_events.timestamp) AS latest_timestamp
+                FROM resource_events
+                WHERE resource_events.timestamp >= ?
+                      AND resource_events.timestamp <= ?
+                      %s
+                GROUP BY certname_id,
+                         resource_type COLLATE \"C\",
+                         resource_title COLLATE \"C\",
+                         property COLLATE \"C\") distinct_events
+                INNER JOIN resource_events
+                ON resource_events.resource_type = distinct_events.resource_type
+                   AND resource_events.resource_title = distinct_events.resource_title
+                   AND ((resource_events.property = distinct_events.property) OR
+                        (resource_events.property IS NULL
+                         AND distinct_events.property IS NULL))
+                AND resource_events.timestamp = distinct_events.latest_timestamp
+                AND resource_events.certname_id = distinct_events.certname_id
+                INNER JOIN reports ON resource_events.report_id = reports.id
+                LEFT OUTER JOIN environments
+                  ON reports.environment_id = environments.id
+                %s)" latest-report where-clause)
+       query))))
 
 (defn distinct-select
   "Build the SELECT statement that we use in the `distinct-resources` case (where
    we are filtering out multiple events on the same resource on the same node).
    Returns a two-item vector whose first value is the SQL string and whose second value
    is a list of parameters for the SQL query."
-  [select-fields where params distinct-start-time distinct-end-time]
+  [select-fields params distinct-start-time distinct-end-time]
   {:pre [(string? select-fields)
-         ( (some-fn nil? string?) where)
          ((some-fn nil? sequential?) params)]
    :post [(vector? %)
           (= 2 (count %))
           (string? (first %))
           ((some-fn nil? sequential?) (second %))]}
-  (let [where-clause (if where (format "WHERE %s" where) "")]
-    [(format
-       "SELECT %s
-        FROM latest_events
-        %s"
-       select-fields
-       where-clause)
-     (concat [distinct-start-time distinct-end-time] params)]))
+  [(format "SELECT %s FROM latest_events" select-fields)
+   (concat [distinct-start-time distinct-end-time] params)])
 
 (defn legacy-query->sql
   "Compile a resource event `query` into an SQL expression."
@@ -131,7 +133,9 @@
           (or
            (not (:include_total query-options))
            (jdbc/valid-jdbc-query? (:count-query %)))]}
-  (let [{:keys [where params]}  (query/compile-term (query/resource-event-ops version) query)
+  (let [{:keys [where params latest-report-clause]} (query/compile-term
+                                                      (query/resource-event-ops
+                                                        version) query)
         select-fields           (string/join ", "
                                              (map
                                               (fn [[column [table alias]]]
@@ -141,7 +145,7 @@
                                                      (if alias (format " AS %s" alias) "")))
                                               query/resource-event-columns))
         [sql params]            (if (:distinct_resources query-options)
-                                  (distinct-select select-fields where params
+                                  (distinct-select select-fields params
                                                    (:distinct_start_time query-options)
                                                    (:distinct_end_time query-options))
                                   (default-select select-fields where params))
@@ -149,10 +153,10 @@
                        ;; if the caller is aggregate-event-counts, this is one
                        ;; of potentially three unioned queries, and
                        ;; with-latest-events must be applied higher up
-                       (not will-union?) with-latest-events)
+                       (not will-union?) (with-latest-events where latest-report-clause))
         result {:results-query (apply vector paged-select params)}]
     (if (:include_total query-options)
-      (let [count-sql (jdbc/count-sql (with-latest-events sql))]
+      (let [count-sql (jdbc/count-sql (with-latest-events sql where latest-report-clause))]
         (assoc result :count-query (apply vector count-sql params)))
       result)))
 

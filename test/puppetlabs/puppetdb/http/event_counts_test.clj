@@ -268,6 +268,53 @@
                                :distinct_end_time (now)})
                 result))
 
+
+         ["=" "latest_report?" true]
+         #{{:failures 0
+            :successes 1
+            :noops 0
+            :skips 0
+            :subject_type "resource"
+            :subject {:type "Notify"
+                      :title "notify, yo"}}
+           {:failures 1
+            :successes 0
+            :noops 0
+            :skips 0
+            :subject_type "resource"
+            :subject {:type "Notify"
+                      :title "notify, yar"}}
+           {:failures 0
+            :successes 0
+            :noops 0
+            :skips 1
+            :subject_type "resource"
+            :subject {:type "Notify"
+                      :title "hi"}}}
+
+         ["=" "latest_report?" false]
+         #{{:failures 0
+            :successes 1
+            :noops 0
+            :skips 0
+            :subject_type "resource"
+            :subject {:type "Notify"
+                      :title "notify, yo"}}
+           {:failures 0
+            :successes 1
+            :noops 0
+            :skips 0
+            :subject_type "resource"
+            :subject {:type "Notify"
+                      :title "notify, yar"}}
+           {:failures 0
+            :successes 0
+            :noops 0
+            :skips 1
+            :subject_type "resource"
+            :subject {:type "Notify"
+                      :title "hi"}}}
+
          ["=" "certname" "foo.local"]
          #{{:subject_type "resource"
             :subject {:type "Notify" :title "notify, yo"}

@@ -260,6 +260,15 @@
                                     munge-event-values)]
         (is (= response expected))))
 
+    (testing "distinct resources should work with latest_report?"
+      (let [expected (expected-resource-events basic3-events basic3)
+            response (query-result method endpoint ["=" "latest_report?" true]
+                                   {:distinct_resources true
+                                    :distinct_start_time 0
+                                    :distinct_end_time (now)}
+                                   munge-event-values)]
+        (is (= response expected))))
+
     (testing "events should be contained within distinct resource timestamps"
       (let [expected  (expected-resource-events basic-events basic)
             response  (query-result method endpoint ["=" "certname" "foo.local"]
