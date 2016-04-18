@@ -429,6 +429,10 @@ each fact name across all facts, where the certame starts with `web`:
 
     facts[name, count(value)] { certname ~ "^web.*" group by name }
 
+Grouping on function results is also supported:
+
+    reports[count(), to_string(receive_time, "DAY")]{group by to_string(receive_time, "DAY")}
+
 ## Paging
 
 PQL supports restriction of the result set via the SQL-like paging clauses

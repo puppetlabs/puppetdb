@@ -74,13 +74,14 @@ condisnotnull = <'is not null'>;
 groupedfieldlist = <lbracket>, [<whitespace>], fieldlist, [<whitespace>], <rbracket>;
 <fieldlist>      = (field | function), [ [<whitespace>], <','>, [<whitespace>], fieldlist ];
 function         = functionname, [<whitespace>], groupedarglist;
-<functionname>   = 'count' | 'avg' | 'sum' | 'min' | 'max';
+<functionname>   = 'count' | 'avg' | 'sum' | 'min' | 'max' | 'to_string';
 
 groupedarglist = <lparens>, [<whitespace>], [arglist], [<whitespace>], <rparens>;
-<arglist>      = field, [ [<whitespace>], <','>, [<whitespace>], arglist ];
+<arglist>      = (field | string), [ [<whitespace>], <','>, [<whitespace>], stringlist ];
+<stringlist>   = string , [ [<whitespace>], <','>, [<whitespace>], stringlist ];
 
 (* Represents a field from an entity *)
-<field> = #'[a-zA-Z_]+\??';
+<field> = #'[a-zA-Z0-9_]+\??';
 
 <condregexp>      = '~';
 <condregexparray> = '~>';

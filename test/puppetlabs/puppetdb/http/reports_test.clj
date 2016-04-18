@@ -107,6 +107,25 @@
              #{{:count 2
                 :min "2011-01-01T15:11:00.000Z"}})))
 
+    (testing "group by function result"
+      (is (= (query-result method endpoint
+                           ["extract" [["function" "to_string" "producer_timestamp" "FMDAY"]
+                                       ["function" "count"]]
+                            ["group_by" ["function" "to_string" "producer_timestamp" "FMDAY"]]])
+
+             #{{:to_string "SATURDAY" :count 2}})))
+
+    (testing "group by function result and a column"
+      (is (= (query-result method endpoint
+                           ["extract" ["certname"
+                                       ["function" "to_string" "producer_timestamp" "FMDAY"]
+                                       ["function" "count"]]
+                            ["group_by" "certname"
+                             ["function" "to_string" "producer_timestamp" "FMDAY"]]])
+
+             #{{:count 1 :certname "foo.local" :to_string "SATURDAY"}
+               {:count 1 :certname "bar.local" :to_string "SATURDAY"}})))
+
     (testing "projected aggregate sum call"
       (is (= (query-result method endpoint ["extract" ["status"]
                                             ["group_by" "status"]])

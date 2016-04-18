@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.query-eng.engine
   (:require [clojure.core.match :as cm]
             [clojure.string :as str]
+            [clojure.set :refer [map-invert]]
             [clojure.tools.logging :as log]
             [honeysql.core :as hcore]
             [honeysql.helpers :as hsql]
@@ -75,9 +76,20 @@
 (defrecord AndExpression [clauses])
 (defrecord OrExpression [clauses])
 (defrecord NotExpression [clause])
+(defrecord FnExpression [function column params args statement])
 
 (def json-agg-row (comp h/json-agg h/row-to-json))
-(def supported-fns #{"sum" "avg" "min" "max" "count"})
+
+(def pdb-fns->pg-fns
+  {"sum" "sum"
+   "avg" "avg"
+   "min" "min"
+   "max" "max"
+   "count" "count"
+   "to_string" "to_char"})
+
+(def pg-fns->pdb-fns
+  (map-invert pdb-fns->pg-fns))
 
 (defn hsql-hash-as-str
   [column-keyword]
@@ -912,11 +924,19 @@
        (remove (comp :query-only? val))
        keys))
 
+(defn compile-fnexpression
+  ([expr]
+   (compile-fnexpression expr true))
+  ([{:keys [function column params] :as foobar} alias?]
+   (let [honeysql-fncall (apply hcore/call function (cons column params))]
+     (hcore/format (if alias?
+                     [honeysql-fncall (get pg-fns->pdb-fns function)]
+                     honeysql-fncall)))))
+
 (defn honeysql-from-query
   "Convert a query to honeysql format"
-  [{:keys [projected-fields group-by call selection projections]}]
-  (let [fs (seq (map (fn [f]
-                       [(apply hcore/call f) (first f)]) call))
+  [{:keys [projected-fields group-by call selection projections entity]}]
+  (let [fs (seq (map (comp hcore/raw :statement) call))
         select (if (and fs
                         (empty? projected-fields))
                  (vec fs)
@@ -1042,11 +1062,15 @@
 
 (defn extract-params
   "Extracts the node's expression value, puts it in state
-  replacing it with `?`, used in a prepared statement"
+   replacing it with `?`, used in a prepared statement"
   [node state]
-  (when (binary-expression? node)
+  (cond
+    (binary-expression? node)
     {:node (assoc node :value "?")
-     :state (conj state (:value node))}))
+     :state (conj state (:value node))}
+
+    (instance? FnExpression node)
+    {:state (apply conj (:params node) state)}))
 
 (defn extract-all-params
   "Zip through the query plan, replacing each user provided query parameter with '?'
@@ -1383,15 +1407,34 @@
           (assoc :where (user-node->plan-node query-rec expr))
           (update-selection offset limit order-by)))))
 
-(pls/defn-validated columns->fields :- [field-schema]
+(defn create-fnexpression
+  [[f & args]]
+  (let [[column params] (if (seq args)
+                          [(first args) (rest args)]
+                          ["*" []])
+        qmarks (repeat (count params) "?")
+        fnmap {:function (pdb-fns->pg-fns f)
+               :column column
+               :params (vec params)
+               :args (vec qmarks)}
+        compiled-fn (first (compile-fnexpression fnmap))]
+    (map->FnExpression (-> fnmap
+                           (assoc :statement compiled-fn)))))
+
+(defn alias-columns
+  "Alias columns with their fully qualified names, and function expressions
+   with the function name."
+  [query-rec c]
+  (or (get-in query-rec [:projections c :field]) (keyword c)))
+
+(pls/defn-validated columns->fields
   "Convert a list of columns to their true SQL field names."
   [query-rec
-   columns :- [s/Str]]
-  ; This case expression here could be eliminated if we just used a projections list
-  ; and had the InExpression use that to generate the sql, but as it is the zipper we
-  ; use to walk the plan won't see instances of hashes and uuids among fields that have
-  ; gone through this function
-  (map #(get-in query-rec [:projections % :field]) columns))
+   columns]
+  (->> columns
+       (map #(if (= "function" (first %)) (second %) %))
+       (sort-by #(if (string? %) % (:column %)))
+       (mapv (partial alias-columns query-rec))))
 
 (defn strip-function-calls
   [column-or-columns]
@@ -1406,23 +1449,24 @@
   :- {(s/optional-key :projected-fields) [projection-schema]
       s/Any s/Any}
   [query-rec column expr]
-  (let [[fcols cols] (strip-function-calls column)]
+  (let [[fcols cols] (strip-function-calls column)
+        coalesce-fact-values (fn [col]
+                               (if (and (= "facts" (:source-table query-rec))
+                                        (= "value" col))
+                                 (h/coalesce :fv.value_integer :fv.value_float)
+                                 (or (get-in query-rec [:projections col :field])
+                                     col)))]
     (if-let [calls (seq
-                    (map (fn [[name & args]]
-                           (apply vector
-                                  name
-                                  (if (empty? args)
-                                    [:*]
-                                    (map (fn [col]
-                                           (if (and (= "facts" (:source-table query-rec))
-                                                    (= "value" col))
-                                             (h/coalesce :fv.value_integer :fv.value_float)
-                                             (get-in query-rec [:projections col :field])))
-                                         args))))
-                         fcols))]
-      (-> query-rec
-          (assoc :call calls)
-          (create-extract-node* cols expr))
+                     (map (fn [[name & args]]
+                            (apply vector
+                                   name
+                                   (if (empty? args)
+                                     [:*]
+                                     (map coalesce-fact-values args))))
+                          fcols))]
+          (-> query-rec
+              (assoc :call (map create-fnexpression calls))
+              (create-extract-node* cols expr))
       (create-extract-node* query-rec cols expr))))
 
 (defn- fv-variant [x]
@@ -1594,7 +1638,7 @@
 
 (defn unsupported-fields
   [field allowed-fields]
-  (let [supported-calls (set (map #(vector "function" %) supported-fns))]
+  (let [supported-calls (set (map #(vector "function" %) (keys pdb-fns->pg-fns)))]
     (remove #(or (contains? (set allowed-fields) %) (contains? supported-calls (take 2 %)))
             (ks/as-collection field))))
 
