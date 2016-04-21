@@ -6,6 +6,7 @@ layout: default
 [entities]: ./entities.html
 [subquery]: #subqueries
 [ast]: ./ast.html
+[client-tools]: ../../../pdb_client_tools.html
 
 > **Experimental Feature**: This featureset is experimental and is subject to rapid development and change.
 
@@ -15,7 +16,7 @@ to the [AST query language][ast] PuppetDB has always supported.
 
 ## Executing PQL queries using the PuppetDB CLI
 
-[See the PuppetDB CLI installation page for more information about using the PuppetDB CLI.][cli_install]
+[See the PuppetDB CLI documentation for more on its usage.][client-tools]
 
 The following examples use the PuppetDB CLI to execute a query:
 
