@@ -7,8 +7,7 @@ layout: default
 [subquery]: #subqueries
 [ast]: ./ast.html
 
-> **Experimental Feature**: This featureset is experimental, and it may be
-> altered or removed in a future release.
+> **Experimental Feature**: This featureset is experimental and is subject to rapid development and change.
 
 Puppet Query Language (PQL) is a query language designed with PuppetDB and
 Puppet data in mind. It provides a string based query language as an alternative
