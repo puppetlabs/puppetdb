@@ -459,71 +459,82 @@
 (def certname (:certname catalog))
 (def current-time (str (now)))
 
+(defmacro with-historical-catalogs-enabled [limit & body]
+  `(let [orig-limit# @historical-catalogs-limit
+         orig-jsonb-setting# @store-catalogs-jsonb-columns?]
+     (try
+       (reset! historical-catalogs-limit ~limit)
+       (reset! store-catalogs-jsonb-columns? true)
+       ~@body
+       (finally
+         (reset! historical-catalogs-limit orig-limit#)
+         (reset! store-catalogs-jsonb-columns? orig-jsonb-setting#)))))
+
 (deftest-db historical-catalogs-storage-test
-  (add-certname! "basic.catalogs.com")
+  (with-historical-catalogs-enabled 3
 
-  (reset! historical-catalogs-limit 3)
-  (reset! store-catalogs-jsonb-columns? true)
-  (testing "stores JSONB resources and edges fields"
-    (store-catalog! (assoc catalog :producer_timestamp (-> 2 days ago)) (now))
-    (is (= [{:count 1}]
-           (query-to-vec [(str "SELECT COUNT(*) FROM catalogs WHERE resources IS NOT NULL"
-                               " AND edges IS NOT NULL")])))
-    (is (= #{{:source_type "Class" :source_title "foobar"
-              :target_type "File" :target_title "/etc/foobar"
-              :relationship "contains"}
-             {:source_type "Class" :source_title "foobar"
-              :target_type "File" :target_title "/etc/foobar/baz"
-              :relationship "contains"}
-             {:source_type "File" :source_title "/etc/foobar"
-              :target_type "File" :target_title "/etc/foobar/baz"
-              :relationship "required-by"}}
-           (->> (query-to-vec [(str "SELECT edges FROM catalogs")])
-                (mapcat (comp sutils/parse-db-json :edges))
-                set)))
-    (is (= #{{:type "Class" :title "foobar" :exported false
-              :tags #{"class" "foobar"} :file nil :line nil :parameters {}}
-             {:type "File" :title "/etc/foobar" :exported false
-              :file "/tmp/foo" :line 10 :tags #{"file" "class" "foobar"}
-              :parameters {:ensure "directory" :group "root" :user "root"}}
-             {:type "File" :title "/etc/foobar/baz" :exported false
-              :file "/tmp/bar" :line 20 :tags #{"file" "class" "foobar"}
-              :parameters {:ensure "directory" :group "root" :user "root"
-                           :require "File[/etc/foobar]"}}}
-           (->> (query-to-vec [(str "SELECT resources FROM catalogs")])
-                (mapcat (comp sutils/parse-db-json :resources))
-                (map #(update % :tags set))
-                set))))
+    (add-certname! "basic.catalogs.com")
 
-  (testing "stores a second catalog"
-    (store-catalog! (assoc catalog :producer_timestamp current-time) (now))
-    (is (= [{:count 2}]
-           (query-to-vec ["SELECT COUNT(*) FROM catalogs"]))))
+    (testing "stores JSONB resources and edges fields"
+      (store-catalog! (assoc catalog :producer_timestamp (-> 2 days ago)) (now))
+      (is (= [{:count 1}]
+             (query-to-vec [(str "SELECT COUNT(*) FROM catalogs WHERE resources IS NOT NULL"
+                                 " AND edges IS NOT NULL")])))
+      (is (= #{{:source_type "Class" :source_title "foobar"
+                :target_type "File" :target_title "/etc/foobar"
+                :relationship "contains"}
+               {:source_type "Class" :source_title "foobar"
+                :target_type "File" :target_title "/etc/foobar/baz"
+                :relationship "contains"}
+               {:source_type "File" :source_title "/etc/foobar"
+                :target_type "File" :target_title "/etc/foobar/baz"
+                :relationship "required-by"}}
+             (->> (query-to-vec [(str "SELECT edges FROM catalogs")])
+                  (mapcat (comp sutils/parse-db-json :edges))
+                  set)))
+      (is (= #{{:type "Class" :title "foobar" :exported false
+                :tags #{"class" "foobar"} :file nil :line nil :parameters {}}
+               {:type "File" :title "/etc/foobar" :exported false
+                :file "/tmp/foo" :line 10 :tags #{"file" "class" "foobar"}
+                :parameters {:ensure "directory" :group "root" :user "root"}}
+               {:type "File" :title "/etc/foobar/baz" :exported false
+                :file "/tmp/bar" :line 20 :tags #{"file" "class" "foobar"}
+                :parameters {:ensure "directory" :group "root" :user "root"
+                             :require "File[/etc/foobar]"}}}
+             (->> (query-to-vec [(str "SELECT resources FROM catalogs")])
+                  (mapcat (comp sutils/parse-db-json :resources))
+                  (map #(update % :tags set))
+                  set))))
 
-  (testing "storing an older catalog doesn't change the latest id"
-    (store-catalog! (assoc catalog :producer_timestamp (-> 1 days ago)) (now))
-    (is (= [{:count 3}]
-           (query-to-vec ["SELECT COUNT(*) FROM catalogs"])))
+    (testing "stores a second catalog"
+      (store-catalog! (assoc catalog :producer_timestamp current-time) (now))
+      (is (= [{:count 2}]
+             (query-to-vec ["SELECT COUNT(*) FROM catalogs"]))))
 
-    (is (= [{:producer_timestamp (to-timestamp current-time)}]
-           (query-to-vec [(str "SELECT catalogs.producer_timestamp FROM certnames"
-                               " JOIN latest_catalogs ON certnames.id = latest_catalogs.certname_id"
-                               " JOIN catalogs ON catalogs.id = latest_catalogs.catalog_id"
-                               " WHERE certnames.certname = 'basic.catalogs.com'")]))))
+    (testing "storing an older catalog doesn't change the latest id"
+      (store-catalog! (assoc catalog :producer_timestamp (-> 1 days ago)) (now))
+      (is (= [{:count 3}]
+             (query-to-vec ["SELECT COUNT(*) FROM catalogs"])))
 
-  (testing "only stores up to three catalogs a certname"
-    (store-catalog! (assoc catalog :producer_timestamp (-> 3 days ago)) (now))
-    (store-catalog! (assoc catalog :producer_timestamp (-> 4 days ago)) (now))
-    (store-catalog! (assoc catalog :producer_timestamp (-> 5 days ago)) (now))
-    (store-catalog! (assoc catalog :producer_timestamp (-> 6 days ago)) (now))
-    (is (= [{:count 3}] (query-to-vec ["SELECT COUNT(*) FROM catalogs"]))))
+      (is (= [{:producer_timestamp (to-timestamp current-time)}]
+             (query-to-vec [(str "SELECT catalogs.producer_timestamp FROM certnames"
+                                 " JOIN latest_catalogs ON certnames.id = latest_catalogs.certname_id"
+                                 " JOIN catalogs ON catalogs.id = latest_catalogs.catalog_id"
+                                 " WHERE certnames.certname = 'basic.catalogs.com'")]))))
 
-  (testing "storing a new certname doesn't delete other certname's catalogs"
-    (add-certname! "bar.bazz.com")
-    (store-catalog! (assoc catalog
-                           :certname "bar.bazz.com"
-                           :producer_timestamp (-> 1 days ago)) (now))
-    (is (= [{:count 4}] (query-to-vec ["SELECT COUNT(*) FROM catalogs"])))))
+    (testing "only stores up to three catalogs a certname"
+      (store-catalog! (assoc catalog :producer_timestamp (-> 3 days ago)) (now))
+      (store-catalog! (assoc catalog :producer_timestamp (-> 4 days ago)) (now))
+      (store-catalog! (assoc catalog :producer_timestamp (-> 5 days ago)) (now))
+      (store-catalog! (assoc catalog :producer_timestamp (-> 6 days ago)) (now))
+      (is (= [{:count 3}] (query-to-vec ["SELECT COUNT(*) FROM catalogs"]))))
+
+    (testing "storing a new certname doesn't delete other certname's catalogs"
+      (add-certname! "bar.bazz.com")
+      (store-catalog! (assoc catalog
+                             :certname "bar.bazz.com"
+                             :producer_timestamp (-> 1 days ago)) (now))
+      (is (= [{:count 4}] (query-to-vec ["SELECT COUNT(*) FROM catalogs"]))))))
 
 (deftest-db catalog-persistence
   (testing "Persisted catalogs"
