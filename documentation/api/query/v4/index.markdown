@@ -12,7 +12,7 @@ canonical: "/puppetdb/latest/api/query/v4/index.html"
 [pql]: ./pql.html
 [ast]: ./ast.html
 
-*Note:* This endpoint is experimental. It may be altered or removed in a future release.
+*Note:* This endpoint is experimental and is subject to rapid development and change.
 
 The root query endpoint can be used to retrieve any known entities from a
 single endpoint.
