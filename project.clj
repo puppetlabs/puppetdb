@@ -132,7 +132,10 @@
                                   [org.clojure/test.check "0.5.9"]
                                   [environ "1.0.2"]
                                   [org.clojure/tools.cli "0.3.3"] ; prevents dependency clash caused by lein-cloverage
-                                  [riddley "0.1.12"]]}
+                                  [riddley "0.1.12"]]
+                   :injections [(do
+                                  (require 'schema.core)
+                                  (schema.core/set-fn-validation! true))]}
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"
