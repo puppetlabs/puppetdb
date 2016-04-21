@@ -1235,7 +1235,7 @@
                                    reports/resources->resource-events
                                    (map normalize-resource-event)))))
 
-(pls/defn-validated add-report!*
+(s/defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
   the transaction.  This should always be set to `true`, except during some very specific testing
@@ -1393,7 +1393,7 @@
              (log/warnf "Not updating facts for certname %s because local data is newer." certname))
            (add-facts! fact-data))))
 
-(pls/defn-validated add-report!
+(s/defn add-report!
   "Add a report and all of the associated events to the database."
   [report :- reports/report-wireformat-schema
    received-timestamp :- pls/Timestamp]

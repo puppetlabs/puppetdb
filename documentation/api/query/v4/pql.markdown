@@ -6,9 +6,9 @@ layout: default
 [entities]: ./entities.html
 [subquery]: #subqueries
 [ast]: ./ast.html
+[client-tools]: ../../../pdb_client_tools.html
 
-> **Experimental Feature**: This featureset is experimental, and it may be
-> altered or removed in a future release.
+> **Experimental Feature**: This featureset is experimental and is subject to rapid development and change.
 
 Puppet Query Language (PQL) is a query language designed with PuppetDB and
 Puppet data in mind. It provides a string based query language as an alternative
@@ -16,7 +16,7 @@ to the [AST query language][ast] PuppetDB has always supported.
 
 ## Executing PQL queries using the PuppetDB CLI
 
-[See the PuppetDB CLI installation page for more information about using the PuppetDB CLI.][cli_install]
+[See the PuppetDB CLI documentation for more on its usage.][client-tools]
 
 The following examples use the PuppetDB CLI to execute a query:
 
