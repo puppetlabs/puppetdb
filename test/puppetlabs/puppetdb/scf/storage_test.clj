@@ -1240,14 +1240,73 @@
         (dorun (map #(%) func-set))
         (is (= (stale-nodes (-> 1 days ago)) ["node1"]))))))
 
-(deftest-db node-stale-reports
-  (testing "should not return a node with a recent report and nothing else"
-    (let [report (-> (:basic reports)
-                     (assoc :environment "ENV2")
-                     (assoc :end_time (now))
-                     (assoc :producer_timestamp (now)))]
-      (store-example-report! report (now))
-      (is (= (stale-nodes (-> 1 days ago)) [])))))
+(deftest stale-nodes-behavior-for-reports
+  (let [report-at #(assoc (:basic reports)
+                          :environment "ENV2"
+                          :end_time %
+                          :producer_timestamp %)
+        stamp (now)
+        stale-stamp-1 (-> 2 days ago)
+        stale-stamp-2 (-> 3 days ago)]
+    (with-test-db
+      (testing "doesn't return node with a recent report and nothing else"
+        (store-example-report! (report-at stamp) stamp)
+        (is (= (stale-nodes (-> 1 days ago)) [])))
+      (testing "doesn't return node with a recent report and a stale report"
+        (store-example-report! (report-at stale-stamp-1) stale-stamp-1)
+        (is (= (stale-nodes (-> 1 days ago)) []))))
+    (with-test-db
+      (testing "returns a node with only stale reports"
+        (store-example-report! (report-at stale-stamp-1) stale-stamp-1)
+        (store-example-report! (report-at stale-stamp-2) stale-stamp-2)
+        (is (= (stale-nodes (-> 1 days ago)) ["foo.local"]))))))
+
+(deftest-db stale-nodes-behavior-for-catalogs
+  (let [repcat (fn [type stamp]
+                 (replace-catalog! (assoc (type catalogs)
+                                          :certname "node1"
+                                          :producer_timestamp stamp)
+                                   stamp))
+        stamp (now)
+        stale-stamp (-> 2 days ago)]
+    (with-test-db
+      (testing "doesn't return node with a recent catalog and nothing else"
+        (add-certname! "node1")
+        (repcat :empty stamp)
+        (is (= (stale-nodes (-> 1 days ago)) []))))
+    (with-test-db
+      (testing "returns a node with only a stale catalog"
+        (add-certname! "node1")
+        (repcat :empty stale-stamp)
+        (is (= (stale-nodes (-> 1 days ago)) ["node1"])))))
+
+  (with-historical-catalogs-enabled 3
+    (let [history-limit @historical-catalogs-limit
+          addcat (fn [type stamp]
+                   (add-catalog! (assoc (type catalogs)
+                                        :certname "node1"
+                                        :producer_timestamp stamp)
+                                 stamp
+                                 history-limit))
+          stamp (now)
+          stale-stamp (-> 2 days ago)]
+      (testing "with historical"
+        (with-test-db
+          (testing "doesn't return node with a recent catalog and nothing else"
+            (add-certname! "node1")
+            (addcat :empty stamp)
+            (is (= (stale-nodes (-> 1 days ago)) []))))
+        (with-test-db
+          (testing "returns a node with only a stale catalog"
+            (add-certname! "node1")
+            (addcat :empty stale-stamp)
+            (is (= (stale-nodes (-> 1 days ago)) ["node1"]))))
+        (with-test-db
+          (testing "doesn't return node with a recent report and a stale report"
+            (add-certname! "node1")
+            (addcat :empty stale-stamp)
+            (addcat :basic stamp)
+            (is (= (stale-nodes (-> 1 days ago)) []))))))))
 
 (deftest-db node-max-age
   (testing "should only return nodes older than max age, and leave others alone"
