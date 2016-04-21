@@ -223,16 +223,20 @@
   {:pre  [(kitchensink/datetime? time)]
    :post [(coll? %)]}
   (let [ts (to-timestamp time)]
-    (map :certname (jdbc/query-to-vec "SELECT c.certname FROM certnames c
-                                       LEFT OUTER JOIN catalogs clogs ON c.certname=clogs.certname
-                                       LEFT OUTER JOIN factsets fs ON c.certname=fs.certname
-                                       LEFT OUTER JOIN reports r ON c.certname=r.certname
-                                       WHERE c.deactivated IS NULL
-                                       AND c.expired IS NULL
-                                       AND (clogs.producer_timestamp IS NULL OR clogs.producer_timestamp < ?)
-                                       AND (fs.producer_timestamp IS NULL OR fs.producer_timestamp < ?)
-                                       AND (r.producer_timestamp IS NULL OR r.producer_timestamp < ?)"
-                                      ts ts ts))))
+    (map
+     :certname
+     (jdbc/query-to-vec
+      "select c.certname from certnames c
+         left outer join latest_catalogs lcats on lcats.certname_id = c.id
+         left outer join catalogs cats on cats.id = lcats.catalog_id
+         left outer join factsets fs on c.certname = fs.certname
+         left outer join reports r on c.latest_report_id = r.id
+         where c.deactivated is null
+           and c.expired is null
+           and (cats.producer_timestamp is null or cats.producer_timestamp < ?)
+           and (fs.producer_timestamp is null or fs.producer_timestamp < ?)
+           and (r.producer_timestamp is null or r.producer_timestamp < ?)"
+           ts ts ts))))
 
 (defn node-deactivated-time
   "Returns the time the node specified by `certname` was deactivated, or nil if
