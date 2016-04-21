@@ -138,6 +138,11 @@
          resources response (get-response "resources/Foobar")
          (is (= resources []))))
 
+      (testing "colon allowed in resource type param"
+        (check-json-response
+          resources response (get-response "resources/foo::bar")
+          (is (= resources []))))
+
       (testing "/resources/<type>/<title> should return all resources matching the supplied type/title"
         (check-json-response
          resources response (get-response "resources/File/%2Fetc%2Ffoobar")
