@@ -91,9 +91,8 @@
      (format "sweep of stale nodes (threshold: %s)"
              (format-period node-ttl))
      (jdbc/with-transacted-connection db
-       (doseq [node (scf-store/stale-nodes (ago node-ttl))]
-         (log/infof "Auto-expiring node %s" node)
-         (scf-store/expire-node! node))))
+       (doseq [node (scf-store/expire-stale-nodes node-ttl)]
+         (log/infof "Auto-expired node %s" node))))
     (catch Exception e
       (log/error e "Error while deactivating stale nodes"))))
 
