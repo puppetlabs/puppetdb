@@ -1330,12 +1330,11 @@
     (add-certname! "node2")
     (add-certname! "node3")
     (deactivate-node! "node1")
-    (with-redefs [now (constantly (-> 10 days ago))]
-      (deactivate-node! "node2"))
-
+    (deactivate-node! "node2" (-> 10 days ago))
     (purge-deactivated-and-expired-nodes! (-> 5 days ago))
-
-    (is (= (map :certname (query-to-vec "SELECT certname FROM certnames ORDER BY certname ASC"))
+    (is (= (map :certname
+                (query-to-vec
+                 "select certname from certnames order by certname asc"))
            ["node1" "node3"]))))
 
 (deftest-db purge-expired-nodes
@@ -1343,13 +1342,12 @@
     (add-certname! "node1")
     (add-certname! "node2")
     (add-certname! "node3")
-    (expire-node! "node1")
-    (with-redefs [now (constantly (-> 10 days ago))]
-      (expire-node! "node2"))
-
+    (expire-node! "node1" (now))
+    (expire-node! "node2" (-> 10 days ago))
     (purge-deactivated-and-expired-nodes! (-> 5 days ago))
-
-    (is (= (map :certname (query-to-vec "SELECT certname FROM certnames ORDER BY certname ASC"))
+    (is (= (map :certname
+                (query-to-vec
+                 "select certname from certnames order by certname asc"))
            ["node1" "node3"]))))
 
 (deftest-db report-sweep-nullifies-latest-report
