@@ -10,7 +10,7 @@
                      with-ext-instances with-related-ext-instances]]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.scf.storage :as scf-store]
+            [puppetlabs.puppetdb.scf.storage-test :refer [expire-node!]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.testutils.log :refer [with-log-level with-logging-to-atom]]
             [puppetlabs.puppetdb.testutils
@@ -156,7 +156,7 @@
         (submit-catalog pdb1 catalog))
       ;; expire it manually
       (jdbc/with-transacted-connection (:db pdb1)
-        (scf-store/expire-node! certname))
+        (expire-node! certname (t/now)))
       (with-alt-mq (:mq-name pdb2)
         (sync :from pdb1 :to pdb2)
         ;; the node shouldn't be expired from pdb2's perspective, so it
