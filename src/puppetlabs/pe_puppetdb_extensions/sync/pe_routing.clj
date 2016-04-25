@@ -68,4 +68,8 @@
   (start [this context]
          (log/info "PuppetDB finished starting, disabling maintenance mode")
          (disable-maint-mode)
-         context))
+         context)
+
+  (stop [this context]
+        (enable-maint-mode)
+        context))

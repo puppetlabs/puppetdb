@@ -8,8 +8,8 @@
 (def pdb-version "4.1.0-SNAPSHOT")
 (def pe-pdb-version "4.1.0-SNAPSHOT")
 
-(def tk-version "1.1.1")
-(def ks-version "1.0.0")
+(def tk-version "1.3.1")
+(def ks-version "1.3.0")
 (def i18n-version "0.2.2")
 
 (def pdb-jvm-opts
@@ -25,7 +25,8 @@
                  ["snapshots"  "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
   :source-paths ["src"]
   :dependencies [[puppetlabs/puppetdb ~pdb-version]
-                 [net.logstash.logback/logstash-logback-encoder "4.2"]
+                 [net.logstash.logback/logstash-logback-encoder "4.4"
+                  :exclusions  [com.fasterxml.jackson.core/jackson-core]]
                  [puppetlabs/structured-logging "0.1.0" :exclusions [org.slf4j/slf4j-api]]]
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
