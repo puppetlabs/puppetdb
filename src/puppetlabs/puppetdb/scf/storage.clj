@@ -36,7 +36,7 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
-            [clj-time.core :refer [now]]
+            [clj-time.core :refer [ago now]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [metrics.counters :refer [counter inc! value]]
             [metrics.gauges :refer [gauge-fn]]
@@ -45,7 +45,8 @@
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [honeysql.core :as hcore])
-  (:import [org.postgresql.util PGobject]))
+  (:import [org.postgresql.util PGobject]
+           [org.joda.time Period]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
@@ -215,28 +216,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Node activation/deactivation
-
-(defn stale-nodes
-  "Return a list of nodes that have seen no activity between
-  (now-`time` and now)"
-  [time]
-  {:pre  [(kitchensink/datetime? time)]
-   :post [(coll? %)]}
-  (let [ts (to-timestamp time)]
-    (map
-     :certname
-     (jdbc/query-to-vec
-      "select c.certname from certnames c
-         left outer join latest_catalogs lcats on lcats.certname_id = c.id
-         left outer join catalogs cats on cats.id = lcats.catalog_id
-         left outer join factsets fs on c.certname = fs.certname
-         left outer join reports r on c.latest_report_id = r.id
-         where c.deactivated is null
-           and c.expired is null
-           and (cats.producer_timestamp is null or cats.producer_timestamp < ?)
-           and (fs.producer_timestamp is null or fs.producer_timestamp < ?)
-           and (r.producer_timestamp is null or r.producer_timestamp < ?)"
-           ts ts ts))))
 
 (defn node-deactivated-time
   "Returns the time the node specified by `certname` was deactivated, or nil if
@@ -1374,14 +1353,31 @@
                               AND (deactivated IS NULL OR deactivated < ?)"
                          [sql-timestamp certname sql-timestamp])))))
 
-(pls/defn-validated expire-node!
-  "Expire the given host, recording the current time. If the node is
-  currently expired, no change is made."
-  [certname :- String & [timestamp :- pls/Timestamp]]
-  (let [timestamp (to-timestamp (or timestamp (now)))]
-    (jdbc/do-prepared "UPDATE certnames SET expired = ?
-                         WHERE certname=? AND expired IS NULL"
-                      [timestamp certname])))
+(pls/defn-validated expire-stale-nodes [horizon :- Period]
+  "Expires nodes with no activity within the provided horizon (prior
+  to now) and returns a collection of the affected certnames."
+  (let [stale-start-ts (to-timestamp (ago horizon))
+        expired-ts (to-timestamp (now))]
+    (map :certname
+         (jdbc/query-to-vec
+          (str
+           "update certnames set expired = ?"
+           "  where id in"
+           "    (select c.id from certnames c
+                     left outer join latest_catalogs lcats on lcats.certname_id = c.id
+                     left outer join catalogs cats on cats.id = lcats.catalog_id
+                     left outer join factsets fs on c.certname = fs.certname
+                     left outer join reports r on c.latest_report_id = r.id
+                   where c.deactivated is null
+                     and c.expired is null
+                     and (cats.producer_timestamp is null
+                          or cats.producer_timestamp < ?)
+                     and (fs.producer_timestamp is null
+                          or fs.producer_timestamp < ?)
+                     and (r.producer_timestamp is null
+                          or r.producer_timestamp < ?))"
+           "  returning certname")
+          expired-ts stale-start-ts stale-start-ts stale-start-ts))))
 
 (pls/defn-validated replace-facts!
   "Updates the facts of an existing node, if the facts are newer than the current set of facts.

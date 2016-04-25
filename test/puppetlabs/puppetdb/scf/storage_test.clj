@@ -25,12 +25,20 @@
             [puppetlabs.puppetdb.scf.storage :refer :all]
             [clojure.test :refer :all]
             [clojure.math.combinatorics :refer [combinations subsets]]
-            [clj-time.core :refer [ago from-now now days]]
+            [clj-time.core :refer [ago before? from-now now days]]
             [clj-time.coerce :refer [to-timestamp to-string]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]))
 
 (def reference-time "2014-10-28T20:26:21.727Z")
 (def previous-time "2014-10-26T20:26:21.727Z")
+
+(defn-validated expire-node!
+  "Expire the given host, recording expire-time. If the node is
+  already expired, no change is made."
+  [certname :- String expire-time :- pls/Timestamp]
+  (jdbc/do-prepared
+   "update certnames set expired = ? where certname=? and expired is null"
+   [(to-timestamp expire-time) certname]))
 
 ;; When only one db is needed.
 (defmacro deftest-db [name & body]
@@ -1215,32 +1223,44 @@
           (is (= false (maybe-activate-node! certname (now))))
           (is (= (query-certnames) [{:certname certname :deactivated nil}])))))))
 
-(deftest-db node-staleness-age
-  (testing "retrieving stale nodes based on age"
-    (let [query-certnames #(query-to-vec ["select name, deactivated from certnames order by name"])
-          deactivated?    #(instance? java.sql.Timestamp (:deactivated %))]
+(deftest-db fresh-node-not-expired
+  (testing "fresh nodes are not expired"
+    (let [catalog (:empty catalogs)
+          certname (:certname catalog)]
+      (add-certname! certname)
+      (replace-catalog! (assoc catalog :producer_timestamp (now)) (now))
+      (is (= [] (expire-stale-nodes (-> 3 days .toPeriod))))
+      (is (= (map :certname (query-to-vec "select certname from certnames"))
+             [certname])))))
 
-      (testing "should return nothing if all nodes are more recent than max age"
-        (let [catalog (:empty catalogs)
-              certname (:certname catalog)]
-          (add-certname! certname)
-          (replace-catalog! (assoc catalog :producer_timestamp (now)) (now))
-          (is (= (stale-nodes (-> 1 days ago)) [])))))))
+(deftest expire-nodes-with-stale-catalogs-and-facts-or-none
+  (testing "nodes with only stale facts/catalogs or no facts/catalogs expire"
+    (let [mutators {:rc #(replace-catalog!
+                          (assoc (:empty catalogs) :certname "node1")
+                          (-> 2 days ago))
+                    :rf #(replace-facts!
+                          {:certname "node1"
+                           :values {"foo" "bar"}
+                           :environment "DEV"
+                           :producer_timestamp (-> 10 days ago)
+                           :timestamp (-> 2 days ago)})}]
+      (doseq [ops (subsets (keys mutators))]
+        (with-test-db
+          (add-certname! "node1")
+          (dorun (map #((mutators %)) ops))
+          (is (= [ops ["node1"]]
+                 [ops (expire-stale-nodes (-> 1 days .toPeriod))])))))))
 
-(deftest-db node-stale-catalogs-facts
-  (testing "should return nodes with a mixture of stale catalogs and facts (or neither)"
-    (let [mutators [#(replace-catalog! (assoc (:empty catalogs) :certname "node1") (-> 2 days ago))
-                    #(replace-facts! {:certname "node1"
-                                      :values {"foo" "bar"}
-                                      :environment "DEV"
-                                      :producer_timestamp "2014-07-10T22:33:54.781Z"
-                                      :timestamp (-> 2 days ago)})]]
-      (add-certname! "node1")
-      (doseq [func-set (subsets mutators)]
-        (dorun (map #(%) func-set))
-        (is (= (stale-nodes (-> 1 days ago)) ["node1"]))))))
+(deftest-db node-with-only-fresh-report-is-not-expired
+  (testing "does not expire a node with a recent report and nothing else"
+    (let [report (-> (:basic reports)
+                     (assoc :environment "ENV2")
+                     (assoc :end_time (now))
+                     (assoc :producer_timestamp (now)))]
+      (store-example-report! report (now))
+      (is (= [] (expire-stale-nodes (-> 1 days .toPeriod)))))))
 
-(deftest stale-nodes-behavior-for-reports
+(deftest stale-nodes-expiration-via-reports
   (let [report-at #(assoc (:basic reports)
                           :environment "ENV2"
                           :end_time %
@@ -1251,17 +1271,17 @@
     (with-test-db
       (testing "doesn't return node with a recent report and nothing else"
         (store-example-report! (report-at stamp) stamp)
-        (is (= (stale-nodes (-> 1 days ago)) [])))
+        (is (= []  (expire-stale-nodes (-> 1 days .toPeriod)))))
       (testing "doesn't return node with a recent report and a stale report"
         (store-example-report! (report-at stale-stamp-1) stale-stamp-1)
-        (is (= (stale-nodes (-> 1 days ago)) []))))
+        (is (= []  (expire-stale-nodes (-> 1 days .toPeriod))))))
     (with-test-db
       (testing "returns a node with only stale reports"
         (store-example-report! (report-at stale-stamp-1) stale-stamp-1)
         (store-example-report! (report-at stale-stamp-2) stale-stamp-2)
-        (is (= (stale-nodes (-> 1 days ago)) ["foo.local"]))))))
+        (is (= ["foo.local"] (expire-stale-nodes (-> 1 days .toPeriod))))))))
 
-(deftest-db stale-nodes-behavior-for-catalogs
+(deftest-db stale-nodes-expiration-via-catalogs
   (let [repcat (fn [type stamp]
                  (replace-catalog! (assoc (type catalogs)
                                           :certname "node1"
@@ -1273,12 +1293,12 @@
       (testing "doesn't return node with a recent catalog and nothing else"
         (add-certname! "node1")
         (repcat :empty stamp)
-        (is (= (stale-nodes (-> 1 days ago)) []))))
+        (is (= [] (expire-stale-nodes (-> 1 days .toPeriod))))))
     (with-test-db
       (testing "returns a node with only a stale catalog"
         (add-certname! "node1")
         (repcat :empty stale-stamp)
-        (is (= (stale-nodes (-> 1 days ago)) ["node1"])))))
+        (is (= ["node1"] (expire-stale-nodes (-> 1 days .toPeriod)))))))
 
   (with-historical-catalogs-enabled 3
     (let [history-limit @historical-catalogs-limit
@@ -1295,20 +1315,20 @@
           (testing "doesn't return node with a recent catalog and nothing else"
             (add-certname! "node1")
             (addcat :empty stamp)
-            (is (= (stale-nodes (-> 1 days ago)) []))))
+            (is (= [] (expire-stale-nodes (-> 1 days .toPeriod))))))
         (with-test-db
           (testing "returns a node with only a stale catalog"
             (add-certname! "node1")
             (addcat :empty stale-stamp)
-            (is (= (stale-nodes (-> 1 days ago)) ["node1"]))))
+            (is (= ["node1"] (expire-stale-nodes (-> 1 days .toPeriod))))))
         (with-test-db
           (testing "doesn't return node with a recent report and a stale report"
             (add-certname! "node1")
             (addcat :empty stale-stamp)
             (addcat :basic stamp)
-            (is (= (stale-nodes (-> 1 days ago)) []))))))))
+            (is (=  [] (expire-stale-nodes (-> 1 days .toPeriod))))))))))
 
-(deftest-db node-max-age
+(deftest-db only-nodes-older-than-max-age-expired
   (testing "should only return nodes older than max age, and leave others alone"
     (let [catalog (:empty catalogs)]
       (add-certname! "node1")
@@ -1321,8 +1341,7 @@
                                :certname "node2"
                                :producer_timestamp (now))
                         (now))
-
-      (is (= (set (stale-nodes (-> 1 days ago))) #{"node1"})))))
+      (is (= ["node1"] (expire-stale-nodes (-> 1 days .toPeriod)))))))
 
 (deftest-db node-purge
   (testing "should purge nodes which were deactivated before the specified date"
@@ -1330,12 +1349,11 @@
     (add-certname! "node2")
     (add-certname! "node3")
     (deactivate-node! "node1")
-    (with-redefs [now (constantly (-> 10 days ago))]
-      (deactivate-node! "node2"))
-
+    (deactivate-node! "node2" (-> 10 days ago))
     (purge-deactivated-and-expired-nodes! (-> 5 days ago))
-
-    (is (= (map :certname (query-to-vec "SELECT certname FROM certnames ORDER BY certname ASC"))
+    (is (= (map :certname
+                (query-to-vec
+                 "select certname from certnames order by certname asc"))
            ["node1" "node3"]))))
 
 (deftest-db purge-expired-nodes
@@ -1343,13 +1361,12 @@
     (add-certname! "node1")
     (add-certname! "node2")
     (add-certname! "node3")
-    (expire-node! "node1")
-    (with-redefs [now (constantly (-> 10 days ago))]
-      (expire-node! "node2"))
-
+    (expire-node! "node1" (now))
+    (expire-node! "node2" (-> 10 days ago))
     (purge-deactivated-and-expired-nodes! (-> 5 days ago))
-
-    (is (= (map :certname (query-to-vec "SELECT certname FROM certnames ORDER BY certname ASC"))
+    (is (= (map :certname
+                (query-to-vec
+                 "select certname from certnames order by certname asc"))
            ["node1" "node3"]))))
 
 (deftest-db report-sweep-nullifies-latest-report
