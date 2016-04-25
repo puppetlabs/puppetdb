@@ -47,7 +47,7 @@
             [clojure.tools.logging :as log]
             [compojure.core :as compojure]
             [metrics.reporters.jmx :as jmx-reporter]
-            [overtone.at-at :refer [mk-pool interspaced]]
+            [overtone.at-at :refer [mk-pool interspaced stop-and-reset-pool!]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
@@ -174,6 +174,8 @@
     (.close ds))
   (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
     (.close ds))
+  (when-let [pool (:job-pool context)]
+    (stop-and-reset-pool! pool))
   context)
 
 (defn- transfer-old-messages! [mq-endpoint]
@@ -254,8 +256,7 @@
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
 
-    (when (init-with-db database config)
-      (sutils/async-vacuum-analyze write-db))
+    (init-with-db database config)
 
     (let [population-registry (get-in metrics/metrics-registries [:population :registry])]
       (pop/initialize-population-metrics! population-registry read-db))
@@ -302,10 +303,11 @@
         (when (pos? dlo-compression-interval-millis)
           (interspaced dlo-compression-interval-millis
                        #(compress-dlo! dlo-compression-threshold discard-dir)
-                       job-pool)))
-      (assoc context
-             :broker broker
-             :shared-globals globals))))
+                       job-pool))
+        (assoc context
+               :job-pool job-pool
+               :broker broker
+               :shared-globals globals)))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
