@@ -61,6 +61,7 @@
    another `SELECT` to pull out only the desired columns. Similarly for
    applying ordering constraints."
   (:require [clojure.string :as str]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.honeysql :as h]
@@ -156,12 +157,16 @@
     {:where nil :params nil}
 
     (not op)
-    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must contain at least one operator" (vec term))))
+    (throw (IllegalArgumentException.
+            (i18n/tru "{0} is not well-formed: queries must contain at least one operator"
+                      (vec term))))
 
     :else
     (if-let [f (ops op)]
       (apply f args)
-      (throw (IllegalArgumentException. (format "%s is not well-formed: query operator '%s' is unknown" (vec term) op))))))
+      (throw (IllegalArgumentException.
+              (i18n/tru "{0} is not well-formed: query operator ''{1}'' is unknown"
+                        (vec term) op))))))
 
 (defn compile-boolean-operator*
   "Compile a term for the boolean operator `op` (AND or OR) applied to
@@ -172,7 +177,8 @@
   {:pre  [(every? coll? terms)]
    :post [(string? (:where %))]}
   (when (empty? terms)
-    (throw (IllegalArgumentException. (str op " requires at least one term"))))
+    (throw (IllegalArgumentException.
+            (i18n/tru "{0} requires at least one term" op))))
   (let [compiled-terms (map #(compile-term ops %) terms)
         params (mapcat :params compiled-terms)
         query  (->> (map :where compiled-terms)
@@ -203,7 +209,8 @@
   [version ops & terms]
   {:post [(string? (:where %))]}
   (when-not (= (count terms) 1)
-    (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %d were supplied" (count terms)))))
+    (throw (IllegalArgumentException.
+            (i18n/tru "''not'' takes exactly one argument, but {0} were supplied" (count terms)))))
   (negate-term* ops (first terms)))
 
 ;; This map's keys are the queryable fields for facts, and the values are the
@@ -343,9 +350,13 @@
   (let [[subselect & params] (compile-term ops subquery)
         subquery-type (subquery->type (first subquery))]
     (when-not subquery-type
-      (throw (IllegalArgumentException. (format "The argument to extract must be a select operator, not '%s'" (first subquery)))))
+      (throw (IllegalArgumentException.
+              (i18n/tru "The argument to extract must be a select operator, not ''{0}''"
+                        (first subquery)))))
     (when-not (get (queryable-fields subquery-type query-api-version) field)
-      (throw (IllegalArgumentException. (format "Can't extract unknown %s field '%s'. Acceptable fields are: %s" (name subquery-type) field (str/join ", " (sort (queryable-fields subquery-type query-api-version)))))))
+      (throw (IllegalArgumentException.
+              (i18n/tru "Can't extract unknown {0} field ''{1}''. Acceptable fields are: {2}"
+                        (name subquery-type) field (str/join ", " (sort (queryable-fields subquery-type query-api-version)))))))
     {:where (format "SELECT r1.%s FROM (%s) r1" field subselect)
      :params params}))
 
@@ -360,11 +371,12 @@
           (string? (:where %))]}
   (when-not (get (queryable-fields kind query-api-version) field)
     (throw (IllegalArgumentException.
-             (format "Can't match on unknown %s field '%s' for 'in'. Acceptable fields are: %s"
-                     (name kind) field (str/join ", " (sort (queryable-fields kind query-api-version)))))))
+             (i18n/tru "Can''t match on unknown {0} field ''{1}'' for ''in''. Acceptable fields are: {2}"
+                       (name kind) field (str/join ", " (sort (queryable-fields kind query-api-version)))))))
   (when-not (= (first subquery) "extract")
     (throw (IllegalArgumentException.
-             (format "The subquery argument of 'in' must be an 'extract', not '%s'" (first subquery)))))
+            (i18n/tru "The subquery argument of ''in'' must be an ''extract'', not ''{0}''"
+                      (first subquery)))))
   (let [{:keys [where] :as compiled-subquery} (compile-term ops subquery)
         columns (case kind
                   :fact fact-columns
@@ -428,7 +440,9 @@
   {:post [(map? %)
           (:where %)]}
   (when-not (= (count args) 2)
-    (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
+    (throw (IllegalArgumentException.
+            (i18n/tru "= requires exactly two arguments, but {0} were supplied"
+                      (count args)))))
   (match [path]
          ;; tag join. Tags are case-insensitive but always lowercase, so
          ;; lowercase the query value.
@@ -461,7 +475,8 @@
 
          ;; ...else, failure
          :else (throw (IllegalArgumentException.
-                       (format "'%s' is not a queryable object for resources in the version %s API" path (last (name version)))))))
+                       (i18n/tru "''{0}'' is not a queryable object for resources in the version {1} API"
+                                 path (last (name version)))))))
 
 (defn compile-resource-regexp
   "Compile an '~' predicate for a resource query, which does regexp matching.
@@ -492,7 +507,8 @@
 
          ;; ...else, failure
          :else (throw (IllegalArgumentException.
-                       (format "'%s' cannot be the target of a regexp match for version %s of the resources API" path (last (name version)))))))
+                       (i18n/tru "''{0}'' cannot be the target of a regexp match for version {1} of the resources API"
+                                 path (last (name version)))))))
 
 (defn compile-fact-equality
   "Compile an = predicate for a fact query. `path` represents the field to
@@ -523,8 +539,8 @@
 
            :else
            (throw (IllegalArgumentException.
-                   (format "%s is not a queryable object for version %s of the facts query api"
-                           path (last (name version))))))))
+                   (i18n/tru "{0} is not a queryable object for version {1} of the facts query api"
+                             path (last (name version))))))))
 
 (defn compile-fact-regexp
   "Compile an '~' predicate for a fact query, which does regexp matching.  This
@@ -554,7 +570,8 @@
               :params [pattern]}
 
              :else (throw (IllegalArgumentException.
-                           (format "%s is not a valid version %s operand for regexp comparison" path (last (name version)))))))))
+                           (i18n/tru "{0} is not a valid version {1} operand for regexp comparison"
+                                     path (last (name version)))))))))
 
 (defn compile-fact-inequality
   "Compile a numeric inequality for a fact query (> < >= <=). The `value` for
@@ -573,9 +590,9 @@
             :params [number]}
 
            :else (throw (IllegalArgumentException.
-                         (str path " is not a queryable object for facts"))))
+                         (i18n/tru "{0} is not a queryable object for facts" path))))
     (throw (IllegalArgumentException.
-            (format "Value %s must be a number for %s comparison." value op)))))
+            (i18n/tru "Value {0} must be a number for {1} comparison." value op)))))
 
 (defn compile-resource-event-inequality
   "Compile a timestamp inequality for a resource event query (> < >= <=).
@@ -585,8 +602,9 @@
   {:post [(map? %)
           (string? (:where %))]}
   (when-not (= (count args) 3)
-    (throw (IllegalArgumentException. (format "%s requires exactly two arguments, but %d were supplied" op (dec (count
-                                                                                                                 args))))))
+    (throw (IllegalArgumentException.
+            (i18n/tru "{0} requires exactly two arguments, but {1} were supplied"
+                      op (dec (count args))))))
 
   (let [timestamp-fields {"timestamp"           "resource_events.timestamp"
                           "run_start_time"      "latest_events.run_start_time"
@@ -597,10 +615,12 @@
            (if-let [timestamp (to-timestamp value)]
              {:where (format "%s %s ?" (timestamp-fields field) op)
               :params [(to-timestamp value)]}
-             (throw (IllegalArgumentException. (format "'%s' is not a valid timestamp value" value))))
+             (throw (IllegalArgumentException.
+                     (i18n/tru "''{0}'' is not a valid timestamp value" value))))
 
            :else (throw (IllegalArgumentException.
-                         (str op " operator does not support object '" path "' for resource events"))))))
+                         (i18n/tru "{0} operator does not support object ''{1}'' for resource events"
+                                   op path))))))
 
 (defn compile-resource-event-equality
   "Compile an = predicate for resource event query. `path` represents the field to
@@ -610,7 +630,9 @@
     {:post [(map? %)
             (string? (:where %))]}
     (when-not (= (count args) 2)
-      (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
+      (throw (IllegalArgumentException.
+              (i18n/tru "= requires exactly two arguments, but {0} were supplied"
+                        (count args)))))
     (let [path (utils/dashes->underscores path)]
       (match [path]
              ["certname"]
@@ -650,7 +672,8 @@
               :params [(db-serialize value)] }
 
              :else (throw (IllegalArgumentException.
-                           (format "'%s' is not a queryable object for version %s of the resource events API" path (last (name version)))))))))
+                           (i18n/tru "''{0}'' is not a queryable object for version {1} of the resource events API"
+                                     path (last (name version)))))))))
 
 (defn compile-resource-event-regexp
   "Compile an ~ predicate for resource event query. `path` represents the field
@@ -661,7 +684,7 @@
             (string? (:where %))]}
     (when-not (= (count args) 2)
       (throw (IllegalArgumentException.
-               (format "~ requires exactly two arguments, but %d were supplied" (count args)))))
+               (i18n/tru "~ requires exactly two arguments, but {0} were supplied" (count args)))))
     (let [path (utils/dashes->underscores path)]
       (match [path]
              ["certname"]
@@ -686,7 +709,8 @@
               :params [pattern]}
 
              :else (throw (IllegalArgumentException.
-                           (format "'%s' is not a queryable object for version %s of the resource events API" path (last (name version)))))))))
+                           (i18n/tru "''{0}'' is not a queryable object for version {1} of the resource events API"
+                                     path (last (name version)))))))))
 
 (defn compile-event-count-equality
   "Compile an = predicate for event-count query.  The `path` represents
@@ -695,14 +719,16 @@
   {:post [(map? %)
           (string? (:where %))]}
   (when-not (= (count args) 2)
-    (throw (IllegalArgumentException. (format "= requires exactly two arguments, but %d were supplied" (count args)))))
+    (throw (IllegalArgumentException.
+            (i18n/tru "= requires exactly two arguments, but {0} were supplied" (count args)))))
   (let [db-field (utils/dashes->underscores path)]
     (match [db-field]
            [(field :guard #{"successes" "failures" "noops" "skips"})]
            {:where (format "%s = ?" field)
             :params [value]}
 
-           :else (throw (IllegalArgumentException. (str path " is not a queryable object for event counts"))))))
+           :else (throw (IllegalArgumentException.
+                         (i18n/tru "{0} is not a queryable object for event counts" path))))))
 
 (defn compile-event-count-inequality
   "Compile an inequality for an event-counts query (> < >= <=).  The `path`
@@ -711,13 +737,17 @@
   {:post [(map? %)
           (string? (:where %))]}
   (when-not (= (count args) 3)
-    (throw (IllegalArgumentException. (format "%s requires exactly two arguments, but %d were supplied" op (dec (count args))))))
+    (throw (IllegalArgumentException.
+            (i18n/tru "{0} requires exactly two arguments, but {1} were supplied"
+                      op (dec (count args))))))
   (match [path]
          [(field :guard #{"successes" "failures" "noops" "skips"})]
          {:where (format "%s %s ?" field op)
           :params [value]}
 
-         :else (throw (IllegalArgumentException. (format "%s operator does not support object '%s' for event counts" op path)))))
+         :else (throw (IllegalArgumentException.
+                       (i18n/tru "{0} operator does not support object ''{1}'' for event counts"
+                                 op path)))))
 
 (declare fact-operators)
 
