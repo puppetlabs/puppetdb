@@ -23,6 +23,7 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.scf.migrate :as migrate]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [com.rpl.specter :as sp]
@@ -1269,12 +1270,29 @@
                (when update-latest-report?
                  (update-latest-report! certname)))))))
 
-(defn delete-reports-older-than!
-  "Delete all reports in the database which have an `producer-timestamp` that is prior to
-   the specified date/time."
-  [time]
-  {:pre [(kitchensink/datetime? time)]}
-  (jdbc/delete! :reports ["producer_timestamp < ?" (to-timestamp time)]))
+(defn-validated delete-reports-older-than!
+  "Delete all reports in the database that have a `producer-timestamp`
+   older than the cutoff."
+  [cutoff :- pls/Timestamp]
+  (jdbc/with-db-transaction []
+    (jdbc/do-prepared
+     "select id into temp table obsolete_reports from reports r
+        where r.producer_timestamp < ?"
+     [(to-timestamp cutoff)])
+    (jdbc/do-commands
+     "set constraints all deferred"
+     "analyze obsolete_reports"
+     "alter table certnames drop constraint certnames_reports_id_fkey"
+     "alter table resource_events
+        drop constraint resource_events_report_id_fkey"
+     "delete from resource_events
+          where report_id in (select id from obsolete_reports)"
+     "update certnames set latest_report_id = null
+          where latest_report_id in (select id from obsolete_reports)"
+     "delete from reports where id in (select id from obsolete_reports)"
+     "drop table obsolete_reports"
+     migrate/add-certnames-reports-id-fkey-constraint-cmd
+     migrate/add-resource-events-report-id-fkey-constraint-cmd)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database support/deprecation

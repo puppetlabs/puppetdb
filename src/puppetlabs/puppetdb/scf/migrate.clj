@@ -439,6 +439,15 @@
     "ALTER TABLE ONLY resource_params
         ADD CONSTRAINT resource_params_resource_fkey FOREIGN KEY (resource) REFERENCES resource_params_cache(resource) ON DELETE CASCADE"))
 
+(def add-resource-events-report-id-fkey-constraint-cmd
+  "alter table resource_events add constraint resource_events_report_id_fkey
+     foreign key (report_id) references reports(id) on delete cascade")
+
+(def add-certnames-reports-id-fkey-constraint-cmd
+  "alter table certnames add constraint certnames_reports_id_fkey
+     foreign key (latest_report_id) references reports(id)
+     on delete set null")
+
 (defn version-2yz-to-300-migration
   ;; This migration includes:
   ;;   Insertion of the factsets hash column
@@ -745,8 +754,8 @@
 
       "ALTER TABLE resource_events ADD CONSTRAINT resource_events_unique
          UNIQUE (report_id, resource_type, resource_title, property)"
-      "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey
-         FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"
+
+      add-resource-events-report-id-fkey-constraint-cmd
 
       "ALTER TABLE certnames ADD CONSTRAINT certnames_pkey
          PRIMARY KEY (certname)"
@@ -765,9 +774,7 @@
          FOREIGN KEY (certname) REFERENCES certnames(certname)
          ON DELETE CASCADE"
 
-      "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey
-         FOREIGN KEY (latest_report_id) REFERENCES reports(id)
-         ON DELETE SET NULL")))
+      add-certnames-reports-id-fkey-constraint-cmd)))
 
 (defn add-expired-to-certnames
   "Add a 'expired' column to the 'certnames' table, to track
