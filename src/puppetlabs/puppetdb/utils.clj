@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.utils
   (:require [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.i18n.core :as i18n]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [schema.core :as s]
@@ -33,7 +34,7 @@
   "Returns error message instructing the user to switch to JDK 1.7"
   []
   (attention-msg
-   (format "JDK 1.6 is no longer supported. PuppetDB requires JDK 1.7+, currently running: %s" kitchensink/java-version)))
+   (i18n/trs "JDK 1.6 is no longer supported. PuppetDB requires JDK 1.7+, currently running: {0}" kitchensink/java-version)))
 
 (defn println-err
   "Redirects output to standard error before invoking println"

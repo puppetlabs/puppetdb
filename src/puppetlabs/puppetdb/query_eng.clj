@@ -4,6 +4,7 @@
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -61,7 +62,9 @@
   [entity]
   (if-let [munge-result (get-in @entity-fn-idx [entity :munge])]
     munge-result
-    (throw (IllegalArgumentException. (format "Invalid entity '%s' in query" (utils/dashes->underscores (name entity)))))))
+    (throw (IllegalArgumentException.
+            (i18n/tru "Invalid entity '{0}' in query"
+                      (utils/dashes->underscores (name entity)))))))
 
 (defn orderable-columns
   [query-rec]
@@ -185,18 +188,20 @@
             (cond-> (http/json-response* resp)
                     count-query (http/add-headers {:count (jdbc/get-result-count count-query)})))))
       (catch com.fasterxml.jackson.core.JsonParseException e
-        (log/errorf e (str "Error executing query '%s' "
-                           "with query options '%s'. Returning a 400 error code.")
-                    (name entity) query query-options)
+        (log/error
+         e
+         (i18n/trs "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 error code."
+                   query query-options))
         (http/error-response e))
       (catch IllegalArgumentException e
-        (log/errorf e (str "Error executing query '%s' "
-                           "with query options '%s'. Returning a 400 error code.")
-                    (name entity) query query-options)
+        (log/error
+         e
+         (i18n/trs "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 error code."
+                   query query-options))
         (http/error-response e))
       (catch org.postgresql.util.PSQLException e
         (if (= (.getSQLState e) "2201B")
-          (do (log/debug e "Caught PSQL processing exception")
+          (do (log/debug e (i18n/trs "Caught PSQL processing exception"))
               (http/error-response (.getMessage e)))
           (throw e))))))
 

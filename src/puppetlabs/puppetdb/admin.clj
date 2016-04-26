@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.admin
   (:require [compojure.core :as compojure]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.export :as export]
             [puppetlabs.puppetdb.import :as import]
             [puppetlabs.puppetdb.http :as http]

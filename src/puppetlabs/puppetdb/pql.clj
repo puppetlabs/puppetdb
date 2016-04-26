@@ -5,6 +5,7 @@
             [instaparse.core :as insta]
             [instaparse.failure :as failure]
             [instaparse.print :as print]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.pql.transform :as transform]))
 
@@ -20,7 +21,7 @@
 (defn pql->ast
   "Convert a PQL string to AST format."
   [pql]
-  (log/warn "The syntax for PQL is still experimental, and may change in the future.")
+  (log/warn (i18n/trs "The syntax for PQL is still experimental, and may change in the future."))
   (transform (parse pql)))
 
 (defn print-reason
@@ -64,7 +65,7 @@
     (json/parse-strict-string query true)
     (catch JsonParseException e
       (throw (IllegalArgumentException.
-              (str "Malformed JSON for query: " query)
+              (i18n/tru "Malformed JSON for query: {0}" query)
               e)))))
 
 (defn parse-pql-query
