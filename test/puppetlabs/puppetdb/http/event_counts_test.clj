@@ -33,10 +33,12 @@
                 :failures 0 :successes 0 :noops 0 :skips 1}]
 
   (testing "summarize_by rejects unsupported values"
-    (let [{:keys [body status]} (query-response method endpoint
-                                                ["=" "certname" "foo.local"]
-                                                {:summarize_by "illegal-summarize-by"})]
+    (let [{:keys [body status headers]}
+          (query-response method endpoint
+                          ["=" "certname" "foo.local"]
+                          {:summarize_by "illegal-summarize-by"})]
       (is (= status http/status-bad-request))
+      (is (= headers {"Content-Type" http/error-response-content-type}))
       (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'"
                    body))))
 
@@ -53,12 +55,14 @@
           (is (= expected (count result))))))
 
     (testing "order_by rejects invalid fields"
-      (let [{:keys [status body]} (query-response
-                                    method endpoint
-                                    nil
-                                    {:summarize_by "certname"
-                                     :order_by "invalid"})]
+      (let [{:keys [status body headers]}
+            (query-response
+             method endpoint
+             nil
+             {:summarize_by "certname"
+              :order_by "invalid"})]
         (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/error-response-content-type}))
         (is (re-find #"Illegal value 'invalid' for :order_by" body))))
 
     (testing "numerical fields"
@@ -76,12 +80,14 @@
 
   (testing "count_by"
     (testing "count_by rejects unsupported values"
-      (let [{:keys [status body]}  (query-response
-                                     method endpoint
-                                     ["=" "certname" "foo.local"]
-                                     {:summarize_by "certname"
-                                      :count_by "illegal-count-by"})]
+      (let [{:keys [status body headers]}
+            (query-response
+             method endpoint
+             ["=" "certname" "foo.local"]
+             {:summarize_by "certname"
+              :count_by "illegal-count-by"})]
         (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/error-response-content-type}))
         (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'"
                      body))))
 

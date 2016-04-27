@@ -52,17 +52,21 @@
     (scf-store/deactivate-node! "host3")
 
     (testing "invalid from query"
-      (let [{:keys [status body]} (query-response method endpoint ["from" "foobar"])]
+      (let [{:keys [status body headers]} (query-response method endpoint ["from" "foobar"])]
         (is (re-find #"Invalid entity" body))
+        (is (= headers {"Content-Type" http/error-response-content-type
+                        "Warning" "The root endpoint is experimental"}))
         (is (= status http/status-bad-request)))
 
       ;; Ensure we parse anything that looks like AST/JSON as JSON not PQL
-      (let [{:keys [status body]} (query-response method endpoint "[\"from\",\"foobar\"")]
+      (let [{:keys [status body headers]} (query-response method endpoint "[\"from\",\"foobar\"")]
         (is (= "Malformed JSON for query: [\"from\",\"foobar\"" body))
+        (is (= headers {"Content-Type" http/error-response-content-type}))
         (is (= http/status-bad-request status)))
 
-      (let [{:keys [status body]} (query-response method endpoint "foobar {}")]
+      (let [{:keys [status body headers]} (query-response method endpoint "foobar {}")]
         (is (re-find #"PQL parse error at line 1, column 1" body))
+        (is (= headers {"Content-Type" http/error-response-content-type}))
         (is (= status http/status-bad-request))))
 
     (testing "pagination"

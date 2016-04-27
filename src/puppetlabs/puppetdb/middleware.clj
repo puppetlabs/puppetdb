@@ -5,7 +5,6 @@
             [puppetlabs.puppetdb.query-eng :as qe]
             [puppetlabs.puppetdb.utils.metrics :refer [multitime!]]
             [puppetlabs.puppetdb.http :as http]
-            [ring.util.response :as rr]
             [ring.util.request :as request]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -74,9 +73,8 @@
         (let [auth-result (authorize req)]
           (if (= :authorized auth-result)
             (app req)
-            (-> (str "Permission denied: " auth-result)
-                (rr/response)
-                (rr/status http/status-forbidden))))))))
+            (http/error-response (str "Permission denied: " auth-result)
+                                 http/status-forbidden)))))))
 
 (defn wrap-with-certificate-cn
   "Ring middleware that will annotate the request with an
@@ -128,8 +126,8 @@
          content-type
          (headers "accept"))
       (app req)
-      (rr/status (rr/response (str "must accept " content-type))
-                 http/status-not-acceptable))))
+      (http/error-response (str "must accept " content-type)
+                           http/status-not-acceptable))))
 
 (defn verify-content-type
   "Verification for the specified list of content-types."
@@ -142,8 +140,8 @@
                         (str (media/base-type content-type)))]
       (if (or (nil? mediatype) (some #{mediatype} content-types))
         (app req)
-        (rr/status (rr/response (str "content type " mediatype " not supported"))
-                   http/status-unsupported-type)))))
+        (http/error-response (str "content type " mediatype " not supported")
+                             http/status-unsupported-type)))))
 
 (defn validate-query-params
   "Ring middleware that verifies that the query params in the request

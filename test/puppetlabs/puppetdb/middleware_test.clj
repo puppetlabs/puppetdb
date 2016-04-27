@@ -100,13 +100,15 @@
     (testing "should do nothing if the params are valid"
       (is (= test-string (wrapped-fn {:params {"foo" 1 "bar" 2 "bam" 3}}))))
     (testing "should return an error response if a required parameter is missing"
-      (let [{:keys [status body]} (wrapped-fn {:params {"foo" 1}})]
-        (is (= http/status-bad-request status))
-        (is (= "Missing required query parameter 'bar'" body))))
+      (is (= (wrapped-fn {:params {"foo" 1}})
+             {:status http/status-bad-request
+              :headers {"Content-Type" http/error-response-content-type}
+              :body "Missing required query parameter 'bar'"})))
     (testing "should return an error response if unknown parameters are present"
-      (let [{:keys [status body]} (wrapped-fn {:params {"foo" 1 "bar" 2 "wazzup" 3}})]
-        (is (= http/status-bad-request status))
-        (is (= "Unsupported query parameter 'wazzup'" body))))))
+      (is (= (wrapped-fn {:params {"foo" 1 "bar" 2 "wazzup" 3}})
+             {:status http/status-bad-request
+              :headers {"Content-Type" http/error-response-content-type}
+              :body "Unsupported query parameter 'wazzup'"})))))
 
 (deftest verify-content-type-test
   (testing "with content-type of application/json"
@@ -120,7 +122,8 @@
       (testing "should fail with no matching content type"
         (let [wrapped-fn   (verify-content-type identity ["application/bson" "application/msgpack"])]
           (is (= (wrapped-fn test-req)
-                 {:status 415 :headers {}
+                 {:status 415
+                  :headers {"Content-Type" http/error-response-content-type}
                   :body "content type application/json not supported"}))))))
 
   (testing "with content-type of APPLICATION/JSON"
@@ -174,7 +177,7 @@
 
           (is (number? (.available (:body post-req))))
           (is (= {:status 413
-                  :headers {}
+                  :headers {"Content-Type" http/error-response-content-type}
                   :body "Command rejected due to size exceeding max-command-size"}
                  (middleware-fn post-req)))
 

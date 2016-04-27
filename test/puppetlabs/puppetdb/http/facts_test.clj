@@ -265,9 +265,10 @@
    method [:get :post]]
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body]} (query-response method endpoint query)]
+      (let [{:keys [status body headers]} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))))))
+        (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/error-response-content-type}))))))
 
 (def pg-versioned-invalid-regexps
   (omap/ordered-map
@@ -284,9 +285,10 @@
 
   (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body]} (query-response method endpoint query)]
+      (let [{:keys [status body headers]} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))))))
+        (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/error-response-content-type}))))))
 
 (def common-well-formed-tests
   (omap/ordered-map
@@ -570,14 +572,16 @@
 
       (testing "malformed, yo"
         (let [request (get-request endpoint (json/generate-string []))
-              {:keys [status body]} (*app* request)]
+              {:keys [status body headers]} (*app* request)]
           (is (= status http/status-bad-request))
+          (is (= headers {"Content-Type" http/error-response-content-type}))
           (is (= body "[] is not well-formed: queries must contain at least one operator"))))
 
       (testing "'not' with too many arguments"
         (let [request (get-request endpoint (json/generate-string ["not" ["=" "name" "ipaddress"] ["=" "name" "operatingsystem"]]))
-              {:keys [status body]} (*app* request)]
+              {:keys [status body headers]} (*app* request)]
           (is (= status http/status-bad-request))
+          (is (= headers {"Content-Type" http/error-response-content-type}))
           (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
 
 (deftest-http-app fact-subqueries
@@ -618,9 +622,10 @@
     (doseq [[query msg] (get versioned-invalid-subqueries endpoint)]
       (testing (str "query: " query " should fail with msg: " msg)
         (let [request (get-request endpoint (json/generate-string query))
-              {:keys [status body] :as result} (*app* request)]
+              {:keys [status body headers] :as result} (*app* request)]
           (is (= body msg))
-          (is (= status http/status-bad-request)))))))
+          (is (= status http/status-bad-request))
+          (is (= headers {"Content-Type" http/error-response-content-type})))))))
 
 (deftest-http-app two-database-fact-query-config
   [[version endpoint] facts-endpoints

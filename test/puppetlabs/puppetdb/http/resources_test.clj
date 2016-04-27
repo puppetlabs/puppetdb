@@ -106,6 +106,7 @@ to the result of the form supplied to this method."
       (let [response (query-response method endpoint ["="])
             body     (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
+        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
         (is (re-find #"= requires exactly two arguments" body))))
 
     (testing "query with filter should exclude deactivated nodes"
@@ -174,14 +175,17 @@ to the result of the form supplied to this method."
       (let [query ["=" "sourceline" 22]
             response (query-response method endpoint query)]
         (is (= http/status-bad-request (:status response)))
+        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
         (is (re-find #"'sourceline' is not a queryable object for resources, known queryable objects are" (:body response))))
       (let [query ["~" "sourcefile" "foo"]
             response (query-response method endpoint query)]
         (is (= http/status-bad-request (:status response)))
+        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
         (is (re-find #"'sourcefile' is not a queryable object for resources, known queryable objects are" (:body response))))
       (let [query ["=" "sourcefile" "/foo/bar"]
             response (query-response method endpoint query)]
         (is (= http/status-bad-request (:status response)))
+        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
         (is (re-find #"'sourcefile' is not a queryable object for resources, known queryable objects are" (:body response)))))
 
     (testing "query by file and line is supported"
@@ -336,6 +340,7 @@ to the result of the form supplied to this method."
 
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body] :as result} (query-response method endpoint query)]
+      (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))))))
+        (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/error-response-content-type}))))))
