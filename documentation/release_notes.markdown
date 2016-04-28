@@ -14,6 +14,101 @@ canonical: "/puppetdb/latest/release_notes.html"
 [metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
 [pqltutorial]: ./api/query/tutorial-pql.html
 
+4.0.2
+-----
+
+PuppetDB 4.0.2 is a backward-compatible bugfix release that should
+improve report processing performance, and fix a node-expiration bug,
+a bug in the handling of some correlated subqueries, and a bug that
+disallowed colons in request routes.
+
+### Bug Fixes and Maintenance
+
+* Report processing should be more efficient, after the removal of
+  some redundant validations.
+  ([PDB-2620](https://tickets.puppetlabs.com/browse/PDB-2620))
+
+* Colons in routes should be allowed again (e.g. resources
+  types/titles, etc.).  This was broken by the 4.0.0 release.
+  ([PDB-2624](https://tickets.puppetlabs.com/browse/PDB-2624))
+
+* Correlated subqueries (PQL or AST) involving fact values should work
+  better.  Previously a query like this this would fail
+  ([PDB-2474](https://tickets.puppetlabs.com/browse/PDB-2474)):
+
+```
+    resource {
+      type = 'Package'
+      and title in facts [value] { name = 'apache_package_name' }
+    }
+```
+
+* Nodes should no longer be incorrectly eligible for expiration in an
+  unlikely corner case.
+  ([PDB-2617](https://tickets.puppetlabs.com/browse/PDB-2617))
+
+* PuppetDB has migrated to ezbake 0.3.24.
+  ([PDB-2645](https://tickets.puppetlabs.com/browse/PDB-2645))
+
+* Debian 6 has reached End Of Life upstream and so is no longer being
+  tested. ([PDB-2629](https://tickets.puppetlabs.com/browse/PDB-2629))
+
+
+### Documentation
+
+* "Puppet Labs" has been changed to "Puppet" where relevant.
+  ([PDB-2592](https://tickets.puppetlabs.com/browse/PDB-2592))
+
+* Various other documentation issues have been fixed.
+
+### Contributors
+
+Andrew Roetker, Ken Barber, Melissa Stone, Michelle Fredette, Morgan
+Rhodes, Rob Browning, Ryan Senior, and Wyatt Alt
+
+4.0.1
+-----
+
+PuppetDB 4.0.1 is a backward-compatible release that fixes database
+connection issues related to the maximum-pool-size, and fixes a bug
+that could cause a command involving a very large number of resources
+to fail.  This version was not publicly released.
+
+### Bug Fixes and Maintenance
+
+* The maximum-pool-size configuration option should now work as
+  intended.  It was ignored
+  in 4.0.0. ([PDB-2581](https://tickets.puppetlabs.com/browse/PDB-2581))
+
+* An unintentional limit on the number of resources in an internal
+  resources-exists? call has been fixed.  The previous arrangement
+  could cause a command involving a very large number of resources to
+  fail.  ([PDB-2548](https://tickets.puppetlabs.com/browse/PDB-2548))
+
+* The indirector tests now have access to the environment.
+  ([PDB-2577](https://tickets.puppetlabs.com/browse/PDB-2577))
+
+* A test for the idempotency of indexes! with alternate schemas has
+  been added.
+  ([PDB-2537](https://tickets.puppetlabs.com/browse/PDB-2537))
+
+### Documentation
+
+* The fact path query documentation has been improved.
+  ([PDB-2570](https://tickets.puppetlabs.com/browse/PDB-2570))
+
+* The release note links have been fixed.
+  ([PDB-2567](https://tickets.puppetlabs.com/browse/PDB-2567))
+
+* The web sidebar is now version-agnostic.
+
+* Various other documentation issues have been fixed.
+
+### Contributors
+
+Andrew Roetker, Garrett Guillotte, Ken Barber, Nick Fagerlund, Ryan
+Senior, and Wyatt Alt
+
 4.0.0
 -----
 
