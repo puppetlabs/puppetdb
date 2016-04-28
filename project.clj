@@ -10,7 +10,7 @@
 
 (def tk-version "1.1.1")
 (def ks-version "1.0.0")
-(def i18n-version "0.2.1")
+(def i18n-version "0.2.2")
 
 (def pdb-jvm-opts
   (case (System/getProperty "java.specification.version")

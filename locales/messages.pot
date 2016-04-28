@@ -17,10 +17,18 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src//puppetlabs/pe_puppetdb_extensions/config.clj:119
+#: src/puppetlabs/pe_puppetdb_extensions/config.clj:119
 msgid "Allowing unsafe sync triggers"
 msgstr ""
 
-#: src//puppetlabs/pe_puppetdb_extensions/config.clj:121
+#: src/puppetlabs/pe_puppetdb_extensions/config.clj:121
 msgid "Allowing unsafe cleartext sync"
+msgstr ""
+
+#: src/puppetlabs/pe_puppetdb_extensions/config.clj:125
+msgid "Invalid sync config: {0}"
+msgstr ""
+
+#: src/puppetlabs/pe_puppetdb_extensions/sync/core.clj:200
+msgid "HTTP {0} {1} {2}"
 msgstr ""

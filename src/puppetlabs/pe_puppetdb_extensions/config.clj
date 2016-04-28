@@ -122,7 +122,7 @@
      parsed-config)
    (catch [:type :schema.core/error] ex
      (throw+ (merge ex {:type ::utils/cli-error
-                        :message (str "Invalid sync config: " ex)})))))
+                        :message (i18n/trs "Invalid sync config: {0}" (str ex))})))))
 
 (def config-service
   (conf/create-defaulted-config-service

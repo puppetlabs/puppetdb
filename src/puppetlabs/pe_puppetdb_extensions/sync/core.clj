@@ -1,6 +1,7 @@
 (ns puppetlabs.pe-puppetdb-extensions.sync.core
   (:import [org.joda.time Period])
   (:require [clojure.java.jdbc :as sql]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.utils :as utils]
             [clj-http.util :refer [url-encode]]
             [clj-http.client :as client]
@@ -196,10 +197,10 @@
   (try
     (let [full-url (url-on-remote-server remote-server path)
           request-opts (merge {:as :text} opts)
-          _ (log/debugf "HTTP %s %s %s"
-                        (clojure.string/upper-case (name method))
-                        (url-on-remote-server remote-server path)
-                        request-opts)
+          _ (log/debug (i18n/trs "HTTP {0} {1} {2}"
+                                 (clojure.string/upper-case (name method))
+                                 (url-on-remote-server remote-server path)
+                                 request-opts))
           request-fn (case method
                        :get http/get
                        :post http/post)
