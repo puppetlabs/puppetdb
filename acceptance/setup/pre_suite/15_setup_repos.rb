@@ -1,9 +1,14 @@
-def initialize_repo_on_host(host, os)
+def initialize_repo_on_host(host, os, use_nightlies)
   case os
   when :debian
     if options[:type] == 'aio' then
-      on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-pc1-$(lsb_release -sc).deb"
-      on host, "dpkg -i puppetlabs-release-pc1-$(lsb_release -sc).deb"
+      if use_nightlies
+        on host, "curl -o /etc/apt/sources.list.d/pl-puppetserver-latest-$(lsb_release -sc).list http://nightlies.puppetlabs.com/puppetserver-latest/repo_configs/deb/pl-puppetserver-latest-$(lsb_release -sc).list"
+        on host, "curl -o /etc/apt/sources.list.d/pl-puppet-agent-latest-$(lsb_release -sc).list http://nightlies.puppetlabs.com/puppet-agent-latest/repo_configs/deb/pl-puppet-agent-latest-$(lsb_release -sc).list"
+      else
+        on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-pc1-$(lsb_release -sc).deb"
+        on host, "dpkg -i puppetlabs-release-pc1-$(lsb_release -sc).deb"
+      end
     else
       on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-$(lsb_release -sc).deb"
       on host, "dpkg -i puppetlabs-release-$(lsb_release -sc).deb"
@@ -15,9 +20,15 @@ def initialize_repo_on_host(host, os)
       /^(el|centos)-(\d+)-(.+)$/.match(host.platform)
       variant = ($1 == 'centos') ? 'el' : $1
       version = $2
+      arch = $3
 
-      on host, "curl -O http://yum.puppetlabs.com/puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
-      on host, "rpm -i puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
+      if use_nightlies
+        on host, "curl -o /etc/yum.repos.d/pl-puppetserver-latest-#{variant}-#{version}-#{arch}.repo http://nightlies.puppetlabs.com/puppetserver-latest/repo_configs/rpm/pl-puppetserver-latest-#{variant}-#{version}-#{arch}.repo"
+        on host, "curl -o /etc/yum.repos.d/pl-puppet-agent-latest-#{variant}-#{version}-#{arch}.repo http://nightlies.puppetlabs.com/puppet-agent-latest/repo_configs/rpm/pl-puppet-agent-latest-#{variant}-#{version}-#{arch}.repo"
+      else
+        on host, "curl -O http://yum.puppetlabs.com/puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
+        on host, "rpm -i puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
+      end
     else
       on host, "yum clean all -y"
       on host, "yum upgrade -y"
@@ -75,7 +86,7 @@ end
 unless (test_config[:skip_presuite_provisioning])
   step "Install Puppet Labs repositories" do
     hosts.each do |host|
-      initialize_repo_on_host(host, test_config[:os_families][host.name])
+      initialize_repo_on_host(host, test_config[:os_families][host.name], test_config[:use_nightlies])
     end
   end
 end

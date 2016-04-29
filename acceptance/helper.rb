@@ -98,6 +98,9 @@ module PuppetDBExtensions
     puppetdb_git_ref = get_option_value(options[:puppetdb_git_ref],
       nil, "git revision of puppetdb to test against", "REF", nil)
 
+    use_nightlies = get_option_value(options[:use_nightlies], [:true, :false],
+      "source puppet-agent and puppetserver from nightly builds", "USE_NIGHTLIES", :false)
+
     @config = {
       :base_dir => base_dir,
       :acceptance_data_dir => File.join(base_dir, "acceptance", "data"),
@@ -118,6 +121,7 @@ module PuppetDBExtensions
       :repo_facter => puppetdb_repo_facter,
       :git_ref => puppetdb_git_ref,
       :skip_presuite_provisioning => skip_presuite_provisioning == :true,
+      :use_nightlies => use_nightlies == :true
     }
 
     pp_config = PP.pp(@config, "")
