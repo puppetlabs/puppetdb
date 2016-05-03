@@ -481,6 +481,11 @@ This setting sets the maximum amount of space in megabytes that PuppetDB's Activ
 
 This setting sets the maximum amount of space in megabytes that PuppetDB's ActiveMQ can use for temporary message storage.
 
+### `memory-usage`
+
+This setting sets the maximum amount of memory in megabytes available for
+PuppetDB's ActiveMQ Broker.
+
 ### `max-frame-size`
 
 This setting sets the maximum frame size for persisted activemq messages

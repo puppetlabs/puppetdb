@@ -127,6 +127,7 @@
      :threads (pls/defaulted-maybe s/Int half-the-cores)
      :store-usage s/Int
      :max-frame-size (pls/defaulted-maybe s/Int 209715200)
+     :memory-usage s/Int
      :temp-usage s/Int}))
 
 (def command-processing-out
@@ -134,6 +135,7 @@
   {:dlo-compression-threshold Period
    :threads s/Int
    :max-frame-size s/Int
+   (s/optional-key :memory-usage) s/Int
    (s/optional-key :store-usage) s/Int
    (s/optional-key :temp-usage) s/Int})
 
