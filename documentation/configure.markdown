@@ -621,6 +621,17 @@ PuppetDB's ActiveMQ can use for persistent message storage.
 This setting sets the maximum amount of space in megabytes that
 PuppetDB's ActiveMQ can use for temporary message storage.
 
+### `memory-usage`
+
+This setting sets the maximum amount of memory in megabytes available for
+PuppetDB's ActiveMQ Broker.
+
+**Warning** Setting this value too high (such that memory-usage exceeds the size
+of the heap) can cause out of memory (OOM) errors. ActiveMQ does not treat this
+as a hard limit. In testing, we've seen it use up to `125%` of the specified
+value, and overall memory usage will also be affected by the `max-command-size`
+and `threads` parameters.
+
 ### `max-frame-size`
 
 This setting sets the maximum frame size for persisted activemq messages
