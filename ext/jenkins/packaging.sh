@@ -60,7 +60,7 @@ echo "BUCKET_NAME IS: ${BUCKET_NAME}"
 
 time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_CONFIGS}/*  ${S3_BRANCH_PATH}/repo_configs/
 
-time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_DIR}/apt/{jessie,lucid,precise,trusty,wheezy,wily}  ${S3_BRANCH_PATH}/repos/apt/
+time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_DIR}/apt/{jessie,lucid,precise,trusty,wheezy,wily,xenial}  ${S3_BRANCH_PATH}/repos/apt/
 
 time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_DIR}/el/{5,6,7}  ${S3_BRANCH_PATH}/repos/el/
 
