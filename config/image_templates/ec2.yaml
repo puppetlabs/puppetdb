@@ -23,6 +23,12 @@ AMI:
       :foss: ami-c0b9daf0
     :region: us-west-2
 
+  ubuntu-16.04-amd64-west:
+    :image:
+      :pe: ami-7a47b41a
+      :foss: ami-7a47b41a
+    :region: us-west-2
+
   ubuntu-15.10-amd64-west:
     :image:
       :pe: ami-ddad4dbd
