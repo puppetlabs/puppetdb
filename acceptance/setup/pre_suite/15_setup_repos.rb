@@ -3,6 +3,11 @@ def initialize_repo_on_host(host, os, use_nightlies)
   when :debian
     if options[:type] == 'aio' then
       if use_nightlies
+        ## PC1 repos
+        on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-pc1-$(lsb_release -sc).deb"
+        on host, "dpkg -i puppetlabs-release-pc1-$(lsb_release -sc).deb"
+
+        ## Nightly repos
         on host, "curl -o /etc/apt/sources.list.d/pl-puppetserver-latest-$(lsb_release -sc).list http://nightlies.puppetlabs.com/puppetserver-latest/repo_configs/deb/pl-puppetserver-latest-$(lsb_release -sc).list"
         on host, "curl -o /etc/apt/sources.list.d/pl-puppet-agent-latest-$(lsb_release -sc).list http://nightlies.puppetlabs.com/puppet-agent-latest/repo_configs/deb/pl-puppet-agent-latest-$(lsb_release -sc).list"
       else
@@ -23,6 +28,11 @@ def initialize_repo_on_host(host, os, use_nightlies)
       arch = $3
 
       if use_nightlies
+        ## PC1 repos
+        on host, "curl -O http://yum.puppetlabs.com/puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
+        on host, "rpm -i puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
+
+        ## Nightly repos
         on host, "curl -o /etc/yum.repos.d/pl-puppetserver-latest-#{variant}-#{version}-#{arch}.repo http://nightlies.puppetlabs.com/puppetserver-latest/repo_configs/rpm/pl-puppetserver-latest-#{variant}-#{version}-#{arch}.repo"
         on host, "curl -o /etc/yum.repos.d/pl-puppet-agent-latest-#{variant}-#{version}-#{arch}.repo http://nightlies.puppetlabs.com/puppet-agent-latest/repo_configs/rpm/pl-puppet-agent-latest-#{variant}-#{version}-#{arch}.repo"
       else
