@@ -283,6 +283,27 @@
    "containing_class"       ["latest_events"]
    "environment"            ["latest_events" "environment"]})
 
+(def resource-event-in-columns
+  {"certname"               ["reports"]
+   "configuration_version"  ["reports"]
+   "run_start_time"         ["reports" "start_time"]
+   "run_end_time"           ["reports" "end_time"]
+   "report_receive_time"    ["reports" "receive_time"]
+   "hash"                   ["reports"]
+   "status"                 ["resource_events"]
+   "timestamp"              ["resource_events"]
+   "resource_type"          ["resource_events"]
+   "resource_title"         ["resource_events"]
+   "property"               ["resource_events"]
+   "new_value"              ["resource_events"]
+   "old_value"              ["resource_events"]
+   "message"                ["resource_events"]
+   "file"                   ["resource_events"]
+   "line"                   ["resource_events"]
+   "containment_path"       ["resource_events"]
+   "containing_class"       ["resource_events"]
+   "environment"            ["environments"]})
+
 (def report-columns
   "Return the queryable set of fields and corresponding table names where they reside"
   {"hash"                  "reports"
@@ -381,7 +402,7 @@
         columns (case kind
                   :fact fact-columns
                   :resource resource-columns
-                  :event resource-event-columns
+                  :event resource-event-in-columns
                   :report report-columns
                   :factset factset-columns)
         qualified-field (qualified-column field columns)]
@@ -607,9 +628,9 @@
                       op (dec (count args))))))
 
   (let [timestamp-fields {"timestamp"           "resource_events.timestamp"
-                          "run_start_time"      "latest_events.run_start_time"
-                          "run_end_time"        "latest_events.run_end_time"
-                          "report_receive_time" "latest_events.report_receive_time"}]
+                          "run_start_time"      "reports.start_time"
+                          "run_end_time"        "reports.end_time"
+                          "report_receive_time" "reports.receive_time"}]
     (match [path]
            [(field :guard (kitchensink/keyset timestamp-fields))]
            (if-let [timestamp (to-timestamp value)]
@@ -636,23 +657,25 @@
     (let [path (utils/dashes->underscores path)]
       (match [path]
              ["certname"]
-             {:where "latest_events.certname = ?"
+             {:where "reports.certname = ?"
               :params [value]}
 
              ["report"]
-             {:where (format "%s = ?" (sutils/sql-hash-as-str "latest_events.hash"))
+             {:where (format "%s = ?" (sutils/sql-hash-as-str "reports.hash"))
               :params [value]}
 
              ["latest_report?"]
-             {:where (format "latest_report.report_id %s (SELECT certnames.latest_report FROM certnames)"
-                             (if value "IN" "NOT IN"))}
+             (let [latest-report-clause (format "resource_events.report_id %s (SELECT certnames.latest_report_id FROM certnames)"
+                                                (if value "IN" "NOT IN"))]
+               {:where latest-report-clause
+                :latest-report-clause latest-report-clause})
 
              ["environment"]
-             {:where "latest_events.environment = ?"
+             {:where "environments.environment = ?"
               :params [value]}
 
              [(field :guard #{"report" "resource_type" "resource_title" "status"})]
-             {:where (format "latest_events.%s = ?" field)
+             {:where (format "resource_events.%s = ?" field)
               :params [value] }
 
              ;; these fields allow NULL, which causes a change in semantics when
@@ -660,9 +683,9 @@
              ;; about the NULL case.
              [(field :guard #{"property" "message" "file" "line" "containing_class"})]
              (if-not (nil? value)
-               {:where (format "latest_events.%s = ? AND latest_events.%s IS NOT NULL" field field)
+               {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
                 :params [value] }
-               {:where (format "latest_events.%s IS NULL" field)
+               {:where (format "resource_events.%s IS NULL" field)
                 :params nil })
 
              ;; these fields require special treatment for NULL (as described above),
@@ -688,11 +711,11 @@
     (let [path (utils/dashes->underscores path)]
       (match [path]
              ["certname"]
-             {:where (legacy-sql-regexp-match "latest_events.certname")
+             {:where (legacy-sql-regexp-match "reports.certname")
               :params [pattern]}
 
              ["environment"]
-             {:where (legacy-sql-regexp-match "latest_events.environment")
+             {:where (legacy-sql-regexp-match "environments.environment")
               :params [pattern]}
 
              [(field :guard #{"report" "resource_type" "resource_title" "status"})]
@@ -703,8 +726,8 @@
              ;; wrapped in a NOT(...) clause, so we have to be very explicit
              ;; about the NULL case.
              [(field :guard #{"property" "message" "file" "line" "containing_class"})]
-             {:where (format "%s AND latest_events.%s IS NOT NULL"
-                             (legacy-sql-regexp-match (format "latest_events.%s" field))
+             {:where (format "%s AND resource_events.%s IS NOT NULL"
+                             (legacy-sql-regexp-match (format "resource_events.%s" field))
                              field)
               :params [pattern]}
 

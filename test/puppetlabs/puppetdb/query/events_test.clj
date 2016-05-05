@@ -22,7 +22,7 @@
         ops (query/resource-event-ops version)]
     (testing "should succesfully compile a valid equality query"
       (is (= (query/compile-term ops ["=" "report" "blah"])
-             {:where   (format "%s = ?" (sutils/sql-hash-as-str "latest_events.hash"))
+             {:where   (format "%s = ?" (sutils/sql-hash-as-str "reports.hash"))
               :params  ["blah"]})))
     (testing "should fail with an invalid equality query"
       (is (thrown-with-msg?

@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.query.aggregate-event-counts
   (:require [puppetlabs.puppetdb.query.event-counts :as event-counts]
+            [puppetlabs.puppetdb.query :as query]
             [clojure.string :as str]
             [puppetlabs.puppetdb.query.events :as events]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -22,7 +23,7 @@
 (defn- assemble-aggregate-sql
   "Convert an aggregate-event-counts `query` and a value to `summarize_by`
    into a SQL string."
-  [version query {:keys [summarize_by] :as query-options}]
+  [version query {:keys [summarize_by distinct_resources] :as query-options}]
   {:pre  [((some-fn nil? sequential?) query)
           (string? summarize_by)
           ((some-fn map? nil?) query-options)]}
@@ -31,7 +32,7 @@
                                (event-counts/query->sql
                                  true
                                  version
-                                 query
+                                 (when-not distinct_resources query)
                                  query-options))]
     (vector (get-aggregate-sql count-sql summarize_by) params)))
 
@@ -49,18 +50,15 @@
                         version query (assoc query-options :summarize_by %))
         aggregated-sql-and-params (map aggregate-fn summary-vec)
         common-params (or (second (first aggregated-sql-and-params)) [])
-        params (if distinct_resources
-                 ;; when distinct resources is used, the first two parameters
-                 ;; are the distinct start/end times.
-                 ;; extract the distinct start/end times and duplicate the rest
-                 ;; as many times as there are summarize_by's
-                 (concat (take 2 common-params)
-                         (flatten (repeat nsummarized (drop 2 common-params))))
-                 ;; repeat all params as many times as there are summarize_by's
-                 (flatten (repeat nsummarized common-params)))
+        {:keys [where params latest-report-clause]} (query/compile-term
+                                                      (query/resource-event-ops version)
+                                                      query)
         unioned-sql (cond-> (str/join " UNION ALL " (map first aggregated-sql-and-params))
-                      distinct_resources events/with-latest-events)]
-    {:results-query (apply vector unioned-sql params)}))
+                      distinct_resources (events/with-latest-events where latest-report-clause))
+        query-params (if distinct_resources
+                       (concat common-params params)
+                       (flatten (repeat nsummarized common-params)))]
+    {:results-query (apply vector unioned-sql query-params)}))
 
 (defn- perform-query
   "Given a SQL query and its parameters, return a vector of matching results."

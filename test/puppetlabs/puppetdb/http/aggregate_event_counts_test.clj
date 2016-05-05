@@ -91,7 +91,48 @@
          ["=" "certname" "foo.local"]
          ["<=" "report_receive_time" current-time-str]
          ["<=" "run_start_time" current-time-str]
-         ["<=" "run_end_time" current-time-str])))
+         ["<=" "run_end_time" current-time-str]))
+
+  (store-example-report! (:basic2 reports) (coerce/to-string (now)))
+
+  (are [result query] (= result
+                         (query-result method endpoint query
+                                       {:summarize_by "resource"
+                                        :distinct_resources true
+                                        :distinct_start_time 0
+                                        :distinct_end_time (now)}))
+
+       #{{:summarize_by "resource"
+          :successes 3
+          :failures 0
+          :noops 0
+          :skips 0
+          :total 3}}
+       ["=" "latest_report?" true]
+
+       #{{:summarize_by "resource"
+          :successes 4
+          :failures 1
+          :noops 0
+          :skips 1
+          :total 6}}
+       []
+
+       #{{:summarize_by "resource"
+          :successes 1
+          :failures 1
+          :noops 0
+          :skips 1
+          :total 3}}
+       ["=" "latest_report?" false]
+
+       #{{:summarize_by "resource"
+          :successes 3
+          :failures 0
+          :noops 0
+          :skips 0
+          :total 3}}
+       ["and" ["=" "latest_report?" true] ["=" "certname" "foo.local"]]))
 
 (deftest-http-app query-with-environment
   [[version endpoint] endpoints
@@ -168,4 +209,12 @@
           :noops 0
           :total 0
           :summarize_by "resource"}}
-       ["<" "timestamp" 0]))
+       ["<" "timestamp" 0]
+
+       #{{:summarize_by "resource"
+          :successes 5
+          :failures 0
+          :noops 0
+          :skips 1
+          :total 6}}
+       ["=" "latest_report?" true]))
