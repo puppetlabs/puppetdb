@@ -105,7 +105,8 @@
                                               :scf-write-db *db*
                                               :url-prefix ""})]
      (binding [*app* (wrap-with-puppetdb-middleware
-                      (server/build-app get-shared-globals))]
+                      (server/build-app get-shared-globals)
+                      nil)]
        (f)))))
 
 (defmacro with-http-app
