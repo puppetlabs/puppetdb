@@ -82,17 +82,9 @@
           (types wildcard)
           (types candidate)))))
 
-(defn must-accept-type
-  "Ring middleware that ensures that only requests with a given
-  'Accept' header are let through. If no matching header is found,
-  we return an HTTP 406."
-  [f content-type]
-  (fn [{:keys [headers] :as req}]
-    (if (acceptable-content-type content-type (headers "accept"))
-      (f req)
-      (-> (format "must accept %s" content-type)
-          rr/response
-          (rr/status status-not-acceptable)))))
+(def json-response-content-type "application/json; charset=utf-8")
+
+(def error-response-content-type "text/plain; charset=utf-8")
 
 (defn json-response*
   "Returns a Ring response object with the supplied `body`, response
@@ -104,8 +96,7 @@
   ([body code]
      (-> body
          rr/response
-         (rr/header "Content-Type" "application/json")
-         (rr/charset "utf-8")
+         (rr/content-type json-response-content-type)
          (rr/status code))))
 
 (defn upload-file!
@@ -119,9 +110,9 @@
   [body filename]
   (-> body
       rr/response
-      (rr/header "Content-Type" "application/octet-stream")
-      (rr/header "Content-Disposition" (str "attachment; filename=" filename))
+      (rr/content-type "application/octet-stream")
       (rr/charset "utf-8")
+      (rr/header "Content-Disposition" (str "attachment; filename=" filename))
       (rr/status status-ok)))
 
 (defn streamed-tar-response
@@ -140,8 +131,6 @@
          json/generate-pretty-string
          (json-response* code))))
 
-(def json-response-content-type "application/json; charset=utf-8")
-
 (defn error-response
   "Returns a Ring response object with the status code specified by `code`.
    If `error` is a Throwable, its message is used as the body of the response.
@@ -150,13 +139,24 @@
   ([error]
      (error-response error status-bad-request))
   ([error code]
-     (let [msg (if (instance? Throwable error)
-                 (.getMessage error)
-                 (str error))]
-       (log/debug error "Caught HTTP processing exception")
-       (-> msg
-           (rr/response)
-           (rr/status code)))))
+   (log/debug error "Caught HTTP processing exception")
+   (-> (if (instance? Throwable error)
+         (.getMessage error)
+         (str error))
+       rr/response
+       (rr/content-type error-response-content-type)
+       (rr/status code))))
+
+(defn must-accept-type
+  "Ring middleware that ensures that only requests with a given
+  'Accept' header are let through. If no matching header is found,
+  we return an HTTP 406."
+  [f content-type]
+  (fn [{:keys [headers] :as req}]
+    (if (acceptable-content-type content-type (headers "accept"))
+      (f req)
+      (error-response (str "must accept " content-type)
+                      status-not-acceptable))))
 
 (defn uri-segments
   "Converts the given URI into a seq of path segments. Empty segments

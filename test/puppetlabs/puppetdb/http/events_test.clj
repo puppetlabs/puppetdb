@@ -198,6 +198,7 @@
                                                                 [{:field "resource-title"}])})
               body (get response :body "null")]
           (is (= (:status response) http/status-bad-request))
+          (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
           (is (re-find #"Unrecognized column 'resource-title' specified in :order_by" body)))))))
 
 (deftest-http-app query-distinct-resources
@@ -215,6 +216,7 @@
                                       {:distinct_resources true})
             body (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
+        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
              body)))
@@ -222,6 +224,7 @@
                                      {:distinct_resources true :distinct_start_time 0})
             body (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
+        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
              body)))
@@ -229,6 +232,7 @@
                                      {:distinct_resources true :distinct_end_time 0})
             body (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
+        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
              body)))
@@ -237,6 +241,7 @@
                                       {:distinct_start_time 0 :distinct_end_time 0})
             body      (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
+        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
         (is (re-find
              #"'distinct_resources' query parameter must accompany parameters 'distinct_start_time' and 'distinct_end_time'"
              body))))
@@ -468,10 +473,12 @@
 
   (doseq [[query msg] (get versioned-invalid-subqueries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body] :as result} (query-response
-                                               method endpoint query)]
+      (let [{:keys [status body headers]}
+            (query-response
+             method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))))))
+        (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/error-response-content-type}))))))
 
 (def versioned-invalid-queries
   (omap/ordered-map
@@ -493,9 +500,11 @@
 
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body] :as result} (query-response method endpoint query)]
+      (let [{:keys [status body headers]}
+            (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))))))
+        (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/error-response-content-type}))))))
 
 (def pg-versioned-invalid-regexps
   (omap/ordered-map
@@ -512,6 +521,8 @@
 
   (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body] :as result} (query-response method endpoint query)]
+      (let [{:keys [status body headers]}
+            (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))))))
+        (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/error-response-content-type}))))))

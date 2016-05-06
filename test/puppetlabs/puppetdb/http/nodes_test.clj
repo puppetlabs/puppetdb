@@ -393,8 +393,9 @@
 
                          (re-pattern (format "'sourcefile' is not a queryable object.*" (last (name version))))}]
       (testing (str endpoint " query: " query " should fail with msg: " msg)
-        (let [{:keys [status body]} (query-response method endpoint query)]
+        (let [{:keys [status body headers]} (query-response method endpoint query)]
           (is (= status http/status-bad-request))
+          (is (= headers {"Content-Type" http/error-response-content-type}))
           (is (re-find msg body)))))))
 
 (deftest-http-app query-with-pretty-printing
@@ -555,9 +556,10 @@
    method [:get :post]
    [query msg] invalid-projection-queries]
   (testing (str "query: " query " should fail with msg: " msg)
-    (let [{:keys [status body] :as result} (query-response method endpoint query)]
+    (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
       (is (re-find msg body))
-      (is (= status http/status-bad-request)))))
+      (is (= status http/status-bad-request))
+      (is (= headers {"Content-Type" http/error-response-content-type})))))
 
 (def pg-versioned-invalid-regexps
   (omap/ordered-map
