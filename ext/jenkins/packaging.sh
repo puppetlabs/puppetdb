@@ -12,7 +12,7 @@ echo "**********************************************"
 
 set -x
 
-export COW="base-jessie-amd64.cow base-precise-amd64.cow base-trusty-amd64.cow base-wheezy-amd64.cow"
+export COW="base-jessie-amd64.cow base-precise-amd64.cow base-trusty-amd64.cow base-wheezy-amd64.cow base-wily-amd64.cow base-xenial-amd64.cow"
 export MOCK="pl-el-6-x86_64 pl-el-7-x86_64"
 tmp_m2=$(pwd)/$(mktemp -d m2-local.XXXX)
 
@@ -60,7 +60,7 @@ echo "BUCKET_NAME IS: ${BUCKET_NAME}"
 
 time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_CONFIGS}/*  ${S3_BRANCH_PATH}/repo_configs/
 
-time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_DIR}/apt/{jessie,lucid,precise,trusty,wheezy,stable,testing}  ${S3_BRANCH_PATH}/repos/apt/
+time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_DIR}/apt/{jessie,lucid,precise,trusty,wheezy,wily,xenial}  ${S3_BRANCH_PATH}/repos/apt/
 
 time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_DIR}/el/{5,6,7}  ${S3_BRANCH_PATH}/repos/el/
 
