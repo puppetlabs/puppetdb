@@ -44,29 +44,27 @@
          (partition
           2
           ;; The remaining get-shared-globals args are for wrap-with-globals.
-          ["/meta" (meta/build-app db-cfg defaulted-config)
+          ["/" (fn [req]
+                 (->> req
+                      rreq/request-url
+                      (format "%s/dashboard/index.html")
+                      rr/redirect))
+           "/meta" (meta/build-app db-cfg defaulted-config)
            "/cmd" (cmd/command-app get-shared-globals
                                    enqueue-raw-command-fn
                                    get-response-pub
                                    (conf/reject-large-commands? defaulted-config)
                                    (conf/max-command-size defaulted-config))
            "/query" (server/build-app get-shared-globals)
-           "/admin" (admin/build-app enqueue-command-fn query-fn db-cfg)
-           (route/not-found "Not Found")]))))
+           "/admin" (admin/build-app enqueue-command-fn query-fn db-cfg)]))))
 
-(defn pdb-app [root defaulted-config maint-mode-fn app-routes]
-  (-> (compojure/context root []
-                         resource-request-handler
-                         (maint-mode-handler maint-mode-fn)
-                         (compojure/GET "/" req
-                                        (->> req
-                                             rreq/request-url
-                                             (format "%s/dashboard/index.html")
-                                             rr/redirect))
-                         (apply compojure/routes
-                                (concat app-routes
-                                        [(route/not-found "Not Found")])))
-      (mid/wrap-with-puppetdb-middleware (get-in defaulted-config [:puppetdb :certificate-whitelist]))))
+(defn pdb-app [root maint-mode-fn app-routes]
+  (compojure/context root []
+    resource-request-handler
+    (maint-mode-handler maint-mode-fn)
+    (apply compojure/routes
+           (concat app-routes
+                   [(route/not-found "Not Found")]))))
 
 (defprotocol MaintenanceMode
   (enable-maint-mode [this])
@@ -157,19 +155,24 @@
               query-prefix (str context-root "/query")
               config (get-config)
               augmented-globals #(-> (shared-globals)
-                                     (assoc :url-prefix query-prefix)
-                                     (assoc :warn-experimental true))]
+                                     (assoc :url-prefix query-prefix
+                                            :warn-experimental true))
+              cert-whitelist (get-in config [:puppetdb :certificate-whitelist])]
           (set-url-prefix query-prefix)
+
           (log/info "Starting PuppetDB, entering maintenance mode")
-          (add-ring-handler this (pdb-app context-root
-                                          config
-                                          maint-mode?
-                                          (pdb-core-routes config
-                                                           augmented-globals
-                                                           enqueue-command
-                                                           query
-                                                           enqueue-raw-command
-                                                           response-pub)))
+          (add-ring-handler
+           this
+           (-> (pdb-app context-root
+                        maint-mode?
+                        (pdb-core-routes config
+                                         augmented-globals
+                                         enqueue-command
+                                         query
+                                         enqueue-raw-command
+                                         response-pub))
+               (mid/wrap-cert-authn cert-whitelist)
+               mid/wrap-with-puppetdb-middleware))
 
           (enable-maint-mode)
           (enable-status-service))
