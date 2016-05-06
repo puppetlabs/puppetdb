@@ -11,7 +11,7 @@ canonical: "/puppetdb/latest/api/query/v4/fact-paths.html"
 [subqueries]: ./ast.html#subquery-operators
 [ast]: ./ast.html
 [facts]: ./facts.html
-[fact-contents]: ./fact_contents.html
+[fact-contents]: ./fact-contents.html
 
 The `/fact-paths` endpoint retrieves the set of all known fact paths for all
 known nodes, and is intended as a counterpart to the [fact-names][fact-names]
