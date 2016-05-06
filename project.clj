@@ -35,7 +35,7 @@
 
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [puppetlabs/i18n ~i18n-version]
-                 [cheshire "5.6.1"]
+                 [cheshire "5.5.0"]
                  [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
                  [org.clojure/math.combinatorics "0.1.1"]
                  [org.clojure/math.numeric-tower "0.0.4"]
@@ -58,7 +58,7 @@
                  ;; Database connectivity
                  [com.zaxxer/HikariCP "2.4.3"]
                  [org.clojure/java.jdbc "0.4.2"]
-                 [org.postgresql/postgresql "9.4.1208.jre7"]
+                 [org.postgresql/postgresql "9.4-1206-jdbc4"]
 
                  ;; MQ connectivity
                  [org.apache.activemq/activemq-broker "5.13.2" :exclusions [org.slf4j/slf4j-api]]

@@ -29,7 +29,8 @@
               (meta/build-app (fn [] shared-globals-overrides)
                               {:global (merge {:product-name "puppetdb"
                                                :update-server "FOO"}
-                                              config-overrides)}))]
+                                              config-overrides)})
+              nil)]
      (app request))))
 
 (deftest test-latest-version
