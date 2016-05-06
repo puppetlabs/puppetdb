@@ -1,8 +1,8 @@
-def initialize_repo_on_host(host, os, use_nightlies)
+def initialize_repo_on_host(host, os, nightly)
   case os
   when :debian
     if options[:type] == 'aio' then
-      if use_nightlies
+      if nightly
         ## PC1 repos
         on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-pc1-$(lsb_release -sc).deb"
         on host, "dpkg -i puppetlabs-release-pc1-$(lsb_release -sc).deb"
@@ -27,7 +27,7 @@ def initialize_repo_on_host(host, os, use_nightlies)
       version = $2
       arch = $3
 
-      if use_nightlies
+      if nightly
         ## PC1 repos
         on host, "curl -O http://yum.puppetlabs.com/puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
         on host, "rpm -i puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
@@ -96,7 +96,7 @@ end
 unless (test_config[:skip_presuite_provisioning])
   step "Install Puppet Labs repositories" do
     hosts.each do |host|
-      initialize_repo_on_host(host, test_config[:os_families][host.name], test_config[:use_nightlies])
+      initialize_repo_on_host(host, test_config[:os_families][host.name], test_config[:nightly])
     end
   end
 end
