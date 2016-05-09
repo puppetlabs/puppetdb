@@ -440,6 +440,5 @@
                                       default-mq-endpoint)
                              (fn [] nil)
                              false
-                             nil)
-                            nil)]
+                             nil))]
      (f))))

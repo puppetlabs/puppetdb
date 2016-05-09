@@ -17,63 +17,81 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/puppetlabs/puppetdb/middleware.clj:38
-msgid "Processing HTTP request to URI: ''{0}''"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/middleware.clj:54
-msgid "{0} rejected by certificate whitelist {1}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/middleware.clj:55
+#: src/puppetlabs/puppetdb/config.clj:364
 msgid ""
-"The client certificate name {0} doesn''t appear in the certificate "
-"whitelist. Is your master''s (or other PuppetDB client''s) certname listed "
-"in PuppetDB''s certificate-whitelist file?"
+"Configuring the route for `{0}` is not allowed. The default route is `{1}` "
+"and server is `{2}`."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:75
+#: src/puppetlabs/puppetdb/http.clj:143
+msgid "Caught HTTP processing exception"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http.clj:153
 msgid "Permission denied: {0}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:129
+#: src/puppetlabs/puppetdb/http.clj:164
+#: src/puppetlabs/puppetdb/middleware.clj:113
 msgid "must accept {0}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:143
+#. IOException includes things like broken pipes due to
+#. client disconnect, so no need to spam the log normally.
+#: src/puppetlabs/puppetdb/http.clj:226 src/puppetlabs/puppetdb/http.clj:228
+msgid "Error streaming response"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/http.clj:286
+#: src/puppetlabs/puppetdb/middleware.clj:293
+msgid "No information is known about {0} {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj:37
+msgid "Processing HTTP request to URI: ''{0}''"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj:51
+msgid "{0} rejected by certificate whitelist {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj:52
+msgid ""
+"The client certificate name {0} doesn't appear in the certificate whitelist. "
+"Is your master''s (or other PuppetDB client''s) certname listed in "
+"PuppetDB''s certificate-whitelist file?"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj:127
 msgid "content type {0} not supported"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:159
+#: src/puppetlabs/puppetdb/middleware.clj:143
 msgid "Missing required query parameter ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:165
+#: src/puppetlabs/puppetdb/middleware.clj:149
 msgid "Unsupported query parameter ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:268
+#: src/puppetlabs/puppetdb/middleware.clj:252
 msgid "Processing command with a content-length of {0} bytes"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:269
+#: src/puppetlabs/puppetdb/middleware.clj:253
 msgid ""
 "No content length found for POST. POST bodies that are too large could cause "
 "memory-related failures."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:275
+#: src/puppetlabs/puppetdb/middleware.clj:259
 msgid ""
 "content-length of command is {0} bytes and is larger than the maximum "
 "allowed command size of {1} bytes"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:280
+#: src/puppetlabs/puppetdb/middleware.clj:264
 msgid "Command rejected due to size exceeding max-command-size"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/middleware.clj:310
-msgid "No information is known about {0} {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/pql.clj:24
@@ -100,81 +118,81 @@ msgstr ""
 msgid "''not'' takes exactly one argument, but {0} were supplied"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:354
+#: src/puppetlabs/puppetdb/query.clj:375
 msgid "The argument to extract must be a select operator, not ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:358
+#: src/puppetlabs/puppetdb/query.clj:379
 msgid "Can't extract unknown {0} field ''{1}''. Acceptable fields are: {2}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:374
+#: src/puppetlabs/puppetdb/query.clj:395
 msgid ""
 "Can''t match on unknown {0} field ''{1}'' for ''in''. Acceptable fields are: "
 "{2}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:378
+#: src/puppetlabs/puppetdb/query.clj:399
 msgid "The subquery argument of ''in'' must be an ''extract'', not ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:444 src/puppetlabs/puppetdb/query.clj:634
-#: src/puppetlabs/puppetdb/query.clj:723
+#: src/puppetlabs/puppetdb/query.clj:465 src/puppetlabs/puppetdb/query.clj:655
+#: src/puppetlabs/puppetdb/query.clj:746
 msgid "= requires exactly two arguments, but {0} were supplied"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:478
+#: src/puppetlabs/puppetdb/query.clj:499
 msgid "''{0}'' is not a queryable object for resources in the version {1} API"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:510
+#: src/puppetlabs/puppetdb/query.clj:531
 msgid ""
 "''{0}'' cannot be the target of a regexp match for version {1} of the "
 "resources API"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:542
+#: src/puppetlabs/puppetdb/query.clj:563
 msgid "{0} is not a queryable object for version {1} of the facts query api"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:573
+#: src/puppetlabs/puppetdb/query.clj:594
 msgid "{0} is not a valid version {1} operand for regexp comparison"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:593
+#: src/puppetlabs/puppetdb/query.clj:614
 msgid "{0} is not a queryable object for facts"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:595
+#: src/puppetlabs/puppetdb/query.clj:616
 msgid "Value {0} must be a number for {1} comparison."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:606 src/puppetlabs/puppetdb/query.clj:741
+#: src/puppetlabs/puppetdb/query.clj:627 src/puppetlabs/puppetdb/query.clj:764
 msgid "{0} requires exactly two arguments, but {1} were supplied"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:619
+#: src/puppetlabs/puppetdb/query.clj:640
 msgid "''{0}'' is not a valid timestamp value"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:622
+#: src/puppetlabs/puppetdb/query.clj:643
 msgid "{0} operator does not support object ''{1}'' for resource events"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:675 src/puppetlabs/puppetdb/query.clj:712
+#: src/puppetlabs/puppetdb/query.clj:698 src/puppetlabs/puppetdb/query.clj:735
 msgid ""
 "''{0}'' is not a queryable object for version {1} of the resource events API"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:687
+#: src/puppetlabs/puppetdb/query.clj:710
 msgid "~ requires exactly two arguments, but {0} were supplied"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:731
+#: src/puppetlabs/puppetdb/query.clj:754
 msgid "{0} is not a queryable object for event counts"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:749
+#: src/puppetlabs/puppetdb/query.clj:772
 msgid "{0} operator does not support object ''{1}'' for event counts"
 msgstr ""
 

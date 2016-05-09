@@ -47,32 +47,19 @@
    :post [(fn? %)]}
   (let [allowed? (kitchensink/cn-whitelist->authorizer whitelist)]
     (fn [{:keys [ssl-client-cn] :as req}]
-      (if (allowed? req)
-        :authorized
-        (do
-          (log/warnf (i18n/trs "{0} rejected by certificate whitelist {1}" ssl-client-cn whitelist))
-          (i18n/tru "The client certificate name {0} doesn''t appear in the certificate whitelist. Is your master''s (or other PuppetDB client''s) certname listed in PuppetDB''s certificate-whitelist file?"
-                    ssl-client-cn))))))
+      (when-not (allowed? req)
+        (log/warn (i18n/trs "{0} rejected by certificate whitelist {1}" ssl-client-cn whitelist))
+        (http/denied-response (i18n/tru "The client certificate name {0} doesn't appear in the certificate whitelist. Is your master''s (or other PuppetDB client''s) certname listed in PuppetDB''s certificate-whitelist file?" ssl-client-cn)
+                         http/status-forbidden)))))
 
-(defn wrap-with-authorization
-  "Ring middleware that will only pass through a request if the
-  supplied authorization function allows it. Otherwise an HTTP 403 is
-  returned to the client.  If get-authorizer is nil or false, all
-  requests will be accepted.  Otherwise it must accept no arguments
-  and return an authorize function that accepts a request.  The
-  request will be allowed only if authorize returns :authorized.
-  Otherwise, the return value should be a message describing the
-  reason that access was denied."
+(defn wrap-cert-authn
   [app cert-whitelist]
-  (let [authorize (and cert-whitelist (build-whitelist-authorizer cert-whitelist))]
-    (if-not authorize
-      app
-      (fn [req]
-        (let [auth-result (authorize req)]
-          (if (= :authorized auth-result)
-            (app req)
-            (http/error-response (i18n/tru "Permission denied: {0}" auth-result)
-                                 http/status-forbidden)))))))
+  (if-let [cert-authorize-fn (some-> cert-whitelist build-whitelist-authorizer)]
+    (fn [req]
+      (if-let [cert-auth-result (cert-authorize-fn req)]
+        cert-auth-result
+        (app req)))
+    app))
 
 (defn wrap-with-certificate-cn
   "Ring middleware that will annotate the request with an
@@ -81,8 +68,7 @@
   the key's value is set to nil."
   [app]
   (fn [{:keys [ssl-client-cert] :as req}]
-    (let [cn  (if ssl-client-cert
-                (kitchensink/cn-for-cert ssl-client-cert))
+    (let [cn  (some-> ssl-client-cert kitchensink/cn-for-cert)
           req (assoc req :ssl-client-cn cn)]
       (app req))))
 
@@ -263,16 +249,16 @@
       (let [length-in-bytes (request/content-length req)]
 
         (if length-in-bytes
-          (log/debugf (i18n/trs "Processing command with a content-length of {0} bytes") length-in-bytes)
+          (log/debug (i18n/trs "Processing command with a content-length of {0} bytes" length-in-bytes))
           (log/warn (i18n/trs "No content length found for POST. POST bodies that are too large could cause memory-related failures.")))
 
         (if (and length-in-bytes
                  reject-large-commands?
                  (> length-in-bytes max-command-size))
           (do
-            (log/warnf (i18n/trs "content-length of command is {0} bytes and is larger than the maximum allowed command size of {1} bytes")
-                       length-in-bytes
-                       max-command-size)
+            (log/warn (i18n/trs "content-length of command is {0} bytes and is larger than the maximum allowed command size of {1} bytes"
+                                length-in-bytes
+                                max-command-size))
             (consume-and-close (:body req) length-in-bytes)
             (http/error-response
              (i18n/tru "Command rejected due to size exceeding max-command-size")
@@ -282,10 +268,9 @@
 
 (defn wrap-with-puppetdb-middleware
   "Default middleware for puppetdb webservers."
-  [app cert-whitelist]
+  [app]
   (-> app
       wrap-params
-      (wrap-with-authorization cert-whitelist)
       wrap-with-certificate-cn
       wrap-with-default-body
       wrap-with-debug-logging

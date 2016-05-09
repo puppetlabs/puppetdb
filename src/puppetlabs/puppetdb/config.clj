@@ -6,7 +6,8 @@
    and the format expected by the rest of the application."
   (:import [java.security KeyStore]
            [org.joda.time Minutes Days Period])
-  (:require [clojure.tools.logging :as log]
+  (:require [puppetlabs.i18n.core :as i18n]
+            [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.trapperkeeper.bootstrap :refer [find-bootstrap-config]]
             [clj-time.core :as time]
@@ -332,26 +333,41 @@
     (System/exit 1)) ; cf. PDB-2053
   config-data)
 
+(def default-web-router-config
+  {:puppetlabs.trapperkeeper.services.metrics.metrics-service/metrics-webservice
+   {:route "/metrics"
+    :server "default"}
+   :puppetlabs.trapperkeeper.services.status.status-service/status-service
+   {:route "/status"
+    :server "default"}
+   :puppetlabs.puppetdb.pdb-routing/pdb-routing-service
+   {:route "/pdb"
+    :server "default"}
+   :puppetlabs.puppetdb.dashboard/dashboard-redirect-service
+   {:route "/"
+    :server "default"}})
+
 (defn add-web-routing-service-config
   [config-data]
-  (let [default-web-router-service {:puppetlabs.trapperkeeper.services.metrics.metrics-service/metrics-webservice "/metrics"
-                                    :puppetlabs.trapperkeeper.services.status.status-service/status-service "/status"
-                                    :puppetlabs.puppetdb.pdb-routing/pdb-routing-service "/pdb"}
-        bootstrap-cfg (-> (find-bootstrap-config config-data)
+  (let [bootstrap-cfg (-> (find-bootstrap-config config-data)
                           slurp
-                          str/split-lines)
-        dashboard-redirect? (contains? (set bootstrap-cfg)
-                                       "puppetlabs.puppetdb.dashboard/dashboard-redirect-service")]
-    (doseq [[svc route] default-web-router-service]
+                          str/split-lines
+                          set)
+        ;; If a user didn't specify one of the services in their bootstrap.cfg
+        ;; we remove the web-router-config for that service
+        filtered-web-router-config (into {} (for [[svc route] default-web-router-config
+                                                  :when (contains? bootstrap-cfg (utils/kwd->str svc))]
+                                              [svc route]))]
+    (doseq [[svc route] filtered-web-router-config]
       (when (get-in config-data [:web-router-service svc])
-        (-> (format "Configuration of the `%s` route is not allowed. This setting defaults to `%s`." svc route)
-            utils/println-err)))
-    ;; We override the users settings as to make the above routes *not* configurable
+        (utils/println-err
+         (i18n/trs "Configuring the route for `{0}` is not allowed. The default route is `{1}` and server is `{2}`."
+                   svc (:route route) (:server route)))))
+    ;; We override the users settings as to make the above routes *not*
+    ;; configurable
     (-> config-data
         (assoc-in [:metrics :reporters :jmx :enabled] true)
-        (update :web-router-service merge default-web-router-service
-                (when dashboard-redirect?
-                  {:puppetlabs.puppetdb.dashboard/dashboard-redirect-service "/"})))))
+        (update :web-router-service merge filtered-web-router-config))))
 
 (defn- add-mq-defaults
   [config-data]

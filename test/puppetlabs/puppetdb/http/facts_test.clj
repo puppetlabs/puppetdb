@@ -497,8 +497,7 @@
     (server/build-app #(hash-map :scf-read-db read-db
                                  :scf-write-db write-db
                                  :product-name "puppetdb"
-                                 :url-prefix "/pdb"))
-    nil)))
+                                 :url-prefix "/pdb")))))
 
 (deftest-http-app fact-queries
   [[version endpoint] facts-endpoints

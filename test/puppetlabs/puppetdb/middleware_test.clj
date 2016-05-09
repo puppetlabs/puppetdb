@@ -62,7 +62,7 @@
                                     (rr/status http/status-ok)))
 
           message     "The client certificate name"
-          app (wrap-with-authorization handler wl)]
+          app (wrap-cert-authn handler wl)]
       ;; Even numbers should trigger an unauthorized response
       (is (= http/status-forbidden (:status (app (create-authorizing-request "baz")))))
       ;; The failure reason should be shown to the user
@@ -147,9 +147,9 @@
     (let [wl (temp-file "whitelist-log-reject")]
       (spit wl "foobar")
       (let [authorizer-fn (build-whitelist-authorizer (kitchensink/absolute-path wl))]
-        (is (= :authorized (authorizer-fn {:ssl-client-cn "foobar"})))
+        (is (nil? (authorizer-fn {:ssl-client-cn "foobar"})))
         (with-log-output logz
-          (is (string? (authorizer-fn {:ssl-client-cn "badguy"})))
+          (is (= 403 (:status (authorizer-fn {:ssl-client-cn "badguy"}))))
           (is (= 1 (count (logs-matching #"^badguy rejected by certificate whitelist " @logz)))))))))
 
 (deftest test-fail-when-payload-too-large
