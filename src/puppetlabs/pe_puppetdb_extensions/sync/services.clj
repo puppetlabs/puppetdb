@@ -320,33 +320,25 @@
                            remotes-config)]
                (let [pool (atat/mk-pool)
                      nremotes (count remotes-config)]
-                 (assoc context
-                        :scheduled-sync
-                        (doall
-                          (for [{:keys [interval] :as remote-config} remotes-config]
-                            (let [interval-millis (to-millis interval)]
-                              (with-open [remote-server (make-remote-server remote-config jetty-config)]
-                                {:job (atat/interspaced interval-millis
-                                                        #(with-open [remote-server (make-remote-server remote-config jetty-config)]
-                                                            (sync-with! remote-server query
-                                                                     (partial bucketed-summary-query this)
-                                                                     enqueue-command node-ttl))
-                                                        pool :initial-delay (rand-int interval-millis))
-                                 :remote (remote-url->server-url (:url remote-server))})))))))
+                 (doseq [{:keys [interval] :as remote-config} remotes-config]
+                   (let [interval-millis (to-millis interval)]
+                     (atat/interspaced interval-millis
+                                       #(with-open [remote-server (make-remote-server remote-config jetty-config)]
+                                          (sync-with! remote-server query
+                                                      (partial bucketed-summary-query this)
+                                                      enqueue-command node-ttl))
+                                       pool :initial-delay (rand-int interval-millis))))
+                 (assoc context :job-pool pool)))
              context)))
 
   (stop [this context]
         (jmx-reporter/stop (:reporter events/sync-metrics))
-        (when-let [scheduled-syncs (:scheduled-sync context)]
-          (doseq [{:keys [job remote]} scheduled-syncs]
-            (log/infof "Stopping pe-puppetdb sync with %s" remote)
-            (atat/stop job)
-            (log/infof "Stopped pe-puppetdb sync with %s" remote)))
+        (when-let [pool (:job-pool context)]
+          (log/info "Stopping pe-puppetdb sync with remotes")
+          (atat/stop-and-reset-pool! pool))
         (when-let [stop-fn (:cache-invalidation-job-stop-fn context)]
           (stop-fn))
-        (dissoc context
-                :scheduled-sync
-                :cache-invalidation-job-stop-fn))
+        (dissoc context :cache-invalidation-job-stop-fn))
 
   (bucketed-summary-query [this entity]
     (bucketed-summary/bucketed-summary-query
