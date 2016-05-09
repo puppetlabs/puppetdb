@@ -4,7 +4,6 @@
    [clojure.tools.logging :as log]
    [com.rpl.specter :as sp]
    [slingshot.slingshot :refer [try+ throw+]]
-   [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote!]]
    [puppetlabs.puppetdb.config :as conf]
    [puppetlabs.puppetdb.time :refer [parse-period period?]]
    [puppetlabs.puppetdb.utils :as utils :refer [throw+-cli-error!]]
