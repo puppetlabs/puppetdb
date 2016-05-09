@@ -21,18 +21,22 @@
   (store-example-report! (:basic reports) (now))
 
   (testing "summarize_by rejects unsupported values"
-    (let [{:keys [body status]} (query-response method endpoint
-                                                ["=" "certname" "foo.local"]
-                                                {:summarize_by "illegal-summarize-by"})]
+    (let [{:keys [body headers status]}
+          (query-response method endpoint
+                          ["=" "certname" "foo.local"]
+                          {:summarize_by "illegal-summarize-by"})]
       (is (= status http/status-bad-request))
+      (is (= headers {"Content-Type" http/error-response-content-type}))
       (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'" body))))
 
   (testing "count_by rejects unsupported values"
-    (let [{:keys [status body]}  (query-response method endpoint
-                                                 ["=" "certname" "foo.local"]
-                                                 {:summarize_by "certname"
-                                                  :count_by "illegal-count-by"})]
+    (let [{:keys [status body headers]}
+          (query-response method endpoint
+                          ["=" "certname" "foo.local"]
+                          {:summarize_by "certname"
+                           :count_by "illegal-count-by"})]
       (is (= status http/status-bad-request))
+      (is (= headers {"Content-Type" http/error-response-content-type}))
       (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'" body))))
 
   (testing "summarize_by accepts multiple parameters"

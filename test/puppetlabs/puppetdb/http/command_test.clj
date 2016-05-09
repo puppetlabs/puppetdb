@@ -66,9 +66,12 @@
         (is (uuid-in-response? response))))
 
     (testing "should return status-bad-request when missing payload"
-      (let [response (*command-app* (post-request* endpoint nil nil))]
-        (is (= (:status response)
-               http/status-bad-request))))
+      (let [{:keys [status body headers]}
+            (*command-app* (post-request* endpoint nil nil))]
+        (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/json-response-content-type}))
+        (is (= (:error (json/parse-string body true))
+               "Supported commands are deactivate node, replace catalog, replace facts, store report. Received 'null'."))))
 
     (testing "should not do checksum verification if no checksum is provided"
       (let [payload (form-command "deactivate node"
@@ -80,13 +83,13 @@
     (testing "should 400 when the command is invalid"
       (let [invalid-command (form-command "foo" 100 {})
             invalid-checksum (kitchensink/utf8-string->sha1 invalid-command)
-            {:keys [status body]} (*command-app*
-                                   (post-request* endpoint
-                                                  {"checksum" invalid-checksum}
-                                                  invalid-command))]
-        (is (= status
-               http/status-bad-request))
-
+            {:keys [status body headers]}
+            (*command-app*
+             (post-request* endpoint
+                            {"checksum" invalid-checksum}
+                            invalid-command))]
+        (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/json-response-content-type}))
         (is (= (:error (json/parse-string body true))
                (format "Supported commands are %s. Received 'foo'."
                        valid-commands-str)))))
@@ -97,13 +100,14 @@
                                                (dec min-supported-version)
                                                {})
             misversioned-checksum (kitchensink/utf8-string->sha1 misversioned-command)
-            {:keys [status body]} (*command-app*
-                                   (post-request* endpoint
-                                                  {"checksum" misversioned-checksum}
-                                                  misversioned-command))]
+            {:keys [status body headers]}
+            (*command-app*
+             (post-request* endpoint
+                            {"checksum" misversioned-checksum}
+                            misversioned-command))]
 
-        (is (= status
-               http/status-bad-request))
+        (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/json-response-content-type}))
         (is (= (:error (json/parse-string body true))
                (format (str "replace facts version %s is retired. "
                             "The minimum supported version is %s.")

@@ -203,10 +203,12 @@
                 {:path ["domain"], :type "string"}]))))
 
     (testing "invalid query throws an error"
-      (let [{:keys [status body]} (query-response
-                                    method endpoint ["=" "myfield" "myval"])
+      (let [{:keys [status body headers]}
+            (query-response
+             method endpoint ["=" "myfield" "myval"])
             result (parse-result body)]
         (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/error-response-content-type}))
         (is (re-find #"is not a queryable object" result))))
 
     (testing "subqueries"

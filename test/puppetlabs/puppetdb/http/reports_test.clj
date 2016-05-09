@@ -11,7 +11,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.http :as http :refer [status-bad-request]]
+            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -721,9 +721,10 @@
 
   (doseq [[query msg] invalid-projection-queries]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body] :as result} (query-response method endpoint query)]
+      (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status status-bad-request))))))
+        (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/error-response-content-type}))))))
 
 (def pg-versioned-invalid-regexps
   (omap/ordered-map
@@ -740,9 +741,10 @@
 
   (doseq [[query msg] (get pg-versioned-invalid-regexps endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
-      (let [{:keys [status body] :as result} (query-response method endpoint query)]
+      (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
         (is (re-find msg body))
-        (is (= status http/status-bad-request))))))
+        (is (= status http/status-bad-request))
+        (is (= headers {"Content-Type" http/error-response-content-type}))))))
 
 (def no-parent-endpoints [[:v4 "/v4/reports/foo/events"]
                           [:v4 "/v4/reports/foo/metrics"]
@@ -751,8 +753,9 @@
 (deftest-http-app unknown-parent-handling
   [[version endpoint] no-parent-endpoints
    method [:get :post]]
-  (let [{:keys [status body]} (query-response method endpoint)]
+  (let [{:keys [status body headers]} (query-response method endpoint)]
     (is (= status http/status-not-found))
+    (is (= headers {"Content-Type" http/json-response-content-type}))
     (is (= {:error "No information is known about report foo"} (json/parse-string body true)))))
 
 (deftest reports-retrieval
