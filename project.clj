@@ -71,7 +71,7 @@
                  ;; bridge to allow some spring/activemq stuff to log over slf4j
                  [org.slf4j/jcl-over-slf4j "1.7.14" :exclusions [org.slf4j/slf4j-api]]
                  ;; WebAPI support libraries.
-                 [compojure "1.4.0"]
+                 [compojure "1.5.0"]
                  [clj-http "2.0.1"]
                  [ring/ring-core "1.4.0" :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
                  [org.apache.commons/commons-compress "1.10"]
