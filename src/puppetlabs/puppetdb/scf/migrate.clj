@@ -1138,7 +1138,8 @@
   [db-connection-pool]
   (let [applied-migration-versions (applied-migrations)
         latest-applied-migration (last applied-migration-versions)
-        known-migrations (apply sorted-set (keys migrations))]
+        known-migrations (apply sorted-set (keys migrations))
+        small-tables ["value_types" "report_statuses"]]
 
     (when (and latest-applied-migration
                (< latest-applied-migration (first known-migrations)))
@@ -1159,8 +1160,8 @@
           (doseq [[version migration] pending]
             (log/infof "Applying database migration version %d" version)
             (sql-or-die (fn [] (migration) (record-migration! version)))))
-        true
-        )
+        (sutils/analyze-small-tables small-tables)
+        true)
       (do
         (log/info "There are no pending migrations")
         false))))

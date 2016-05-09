@@ -26,7 +26,7 @@
          (string? config)
          (fs/exists? config)]}
   (let [new-config-file (testutils/temp-file "config" ".ini")
-        config-path (fs/absolute-path new-config-file)]
+        config-path (kitchensink/absolute-path new-config-file)]
     (println "Writing current config to" config-path)
     (kitchensink/spit-ini new-config-file (merge-with merge (kitchensink/ini-to-map config) config-overrides))
     (svcs/-main "--config" config-path)))

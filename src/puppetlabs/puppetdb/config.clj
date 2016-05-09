@@ -258,7 +258,7 @@
   [config]
   (let [vardir (some-> (get-in config [:global :vardir])
                        io/file
-                       fs/absolute-path
+                       kitchensink/absolute-path
                        fs/file)]
     (cond
      (nil? vardir)
