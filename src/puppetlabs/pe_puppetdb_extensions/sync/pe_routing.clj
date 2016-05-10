@@ -1,12 +1,14 @@
 (ns puppetlabs.pe-puppetdb-extensions.sync.pe-routing
   (:import [org.joda.time Period])
   (:require [puppetlabs.trapperkeeper.core :as tk]
+            [puppetlabs.i18n.core :as i18n]
             [clout.core :as cc]
             [compojure.route :as route]
             [puppetlabs.trapperkeeper.services :as tksvc]
             [ring.middleware.resource :refer [wrap-resource resource-request]]
             [ring.util.request :as rreq]
             [ring.util.response :as rr]
+            [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.puppetdb.meta :as meta]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.http.command :as cmd]
@@ -45,23 +47,24 @@
                jetty-config :jetty} config
               shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
           (set-url-prefix query-prefix)
-          (log/info "Starting PuppetDB, entering maintenance mode")
           (turn-on-unchanged-resources!)
           (turn-on-historical-catalogs!
            (:historical-catalogs-limit puppetdb-config 3))
           (add-ring-handler
            this
-           (pdb-app context-root config maint-mode?
-                    (concat (reports-resources-routes shared-with-prefix)
-                            (pdb-core-routes config
-                                             shared-with-prefix
-                                             enqueue-command
-                                             query
-                                             enqueue-raw-command
-                                             response-pub)
-                            (pe-routes get-config shared-with-prefix
-                                       query bucketed-summary-query enqueue-command (response-mult))
-                            [(route/not-found "Not Found")]))))
+           (-> (pdb-app context-root
+                        maint-mode?
+                        (concat (reports-resources-routes shared-with-prefix)
+                                (pdb-core-routes config
+                                                 shared-with-prefix
+                                                 enqueue-command
+                                                 query
+                                                 enqueue-raw-command
+                                                 response-pub)
+                                (pe-routes get-config shared-with-prefix
+                                           query bucketed-summary-query enqueue-command (response-mult))))
+               (mid/wrap-cert-authn (:certificate-whitelist puppetdb-config))
+               mid/wrap-with-puppetdb-middleware)))
         (enable-maint-mode)
         (enable-status-service)
         context)
