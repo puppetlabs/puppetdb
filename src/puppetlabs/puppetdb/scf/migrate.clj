@@ -439,9 +439,29 @@
     "ALTER TABLE ONLY resource_params
         ADD CONSTRAINT resource_params_resource_fkey FOREIGN KEY (resource) REFERENCES resource_params_cache(resource) ON DELETE CASCADE"))
 
+(def add-factset-id-fk-constraint-cmd
+  "alter table facts add constraint factset_id_fk
+     foreign key (factset_id) references factsets(id)
+     on update cascade on delete cascade")
+
 (def add-resource-events-report-id-fkey-constraint-cmd
   "alter table resource_events add constraint resource_events_report_id_fkey
      foreign key (report_id) references reports(id) on delete cascade")
+
+(def add-catalogs-certname-fkey-constraint-cmd
+  "alter table catalogs add constraint catalogs_certname_fkey
+     foreign key (certname) references certnames(certname)
+     on update no action on delete cascade")
+
+(def add-factsets-certname-fk-constraint-cmd
+  "alter table factsets add constraint factsets_certname_fk
+     foreign key (certname) references certnames(certname)
+     on update cascade on delete cascade")
+
+(def add-reports-certname-fk-constraint-cmd
+  "alter table reports add constraint reports_certname_fkey
+     foreign key (certname) references certnames(certname)
+     on delete cascade")
 
 (def add-certnames-reports-id-fkey-constraint-cmd
   "alter table certnames add constraint certnames_reports_id_fkey
@@ -745,9 +765,9 @@
       "ALTER TABLE factsets ADD CONSTRAINT factsets_environment_id_fk
        FOREIGN KEY (environment_id) REFERENCES environments(id)
        ON UPDATE RESTRICT ON DELETE RESTRICT"
-      "ALTER TABLE facts ADD CONSTRAINT factset_id_fk
-       FOREIGN KEY (factset_id) REFERENCES factsets(id)
-       ON UPDATE CASCADE ON DELETE CASCADE"
+
+      add-factset-id-fk-constraint-cmd
+
       "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_idx
          UNIQUE (certname)"
       "ALTER TABLE factsets ADD CONSTRAINT factsets_hash_key UNIQUE (hash)"
@@ -764,16 +784,10 @@
       "ALTER TABLE edges ADD CONSTRAINT edges_certname_fkey
          FOREIGN KEY (certname) REFERENCES certnames(certname)
          ON UPDATE NO ACTION ON DELETE CASCADE"
-      "ALTER TABLE catalogs ADD CONSTRAINT catalogs_certname_fkey
-         FOREIGN KEY (certname) REFERENCES certnames(certname)
-         ON UPDATE NO ACTION ON DELETE CASCADE"
-      "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_fk
-         FOREIGN KEY (certname) REFERENCES certnames(certname)
-         ON UPDATE CASCADE ON DELETE CASCADE"
-      "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey
-         FOREIGN KEY (certname) REFERENCES certnames(certname)
-         ON DELETE CASCADE"
 
+      add-catalogs-certname-fkey-constraint-cmd
+      add-factsets-certname-fk-constraint-cmd
+      add-reports-certname-fk-constraint-cmd
       add-certnames-reports-id-fkey-constraint-cmd)))
 
 (defn add-expired-to-certnames
@@ -867,8 +881,14 @@
    "ALTER TABLE catalog_resources RENAME TO catalog_resources_tmp"
    ;; CREATE certnames and catalog_resources transform tables
    "CREATE TABLE catalog_resources (LIKE catalog_resources_tmp INCLUDING ALL)"
+   ;; Make sure to update the constraints in
+   ;; purge-deactivated-and-expired-nodes-new! if you change
+   ;; the columns here.
    "CREATE TABLE latest_catalogs (catalog_id BIGINT NOT NULL UNIQUE REFERENCES catalogs(id) ON DELETE CASCADE, certname_id BIGINT PRIMARY KEY REFERENCES certnames(id) ON DELETE CASCADE)"
    "ALTER TABLE catalog_resources DROP COLUMN catalog_id"
+   ;; Make sure to update the constraint in
+   ;; purge-deactivated-and-expired-nodes-new! if you change
+   ;; the columns here.
    "ALTER TABLE catalog_resources ADD COLUMN certname_id BIGINT NOT NULL REFERENCES certnames(id) ON DELETE CASCADE"
    "ALTER TABLE catalog_resources ADD PRIMARY KEY (certname_id, type, title)"
 
@@ -958,19 +978,11 @@
    "ALTER TABLE certnames DROP CONSTRAINT certnames_pkey CASCADE"
    "DROP TABLE certnames"
    "ALTER TABLE certnames_transform RENAME to certnames"
-   "ALTER TABLE catalogs ADD CONSTRAINT catalogs_certname_fkey
-     FOREIGN KEY (certname) REFERENCES certnames(certname)
-     ON UPDATE NO ACTION ON DELETE CASCADE"
-   "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_fk
-     FOREIGN KEY (certname) REFERENCES certnames(certname)
-     ON UPDATE CASCADE ON DELETE CASCADE"
-   "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey
-     FOREIGN KEY (certname)
-     REFERENCES certnames(certname) ON DELETE CASCADE"
 
-   "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey
-      FOREIGN KEY (latest_report_id)
-      REFERENCES reports(id) ON DELETE SET NULL"))
+   add-catalogs-certname-fkey-constraint-cmd
+   add-factsets-certname-fk-constraint-cmd
+   add-reports-certname-fk-constraint-cmd
+   add-certnames-reports-id-fkey-constraint-cmd))
 
 (defn add-certname-id-to-resource-events
   []
@@ -1020,8 +1032,8 @@
      ON resource_events(resource_title)"
    "CREATE INDEX resource_events_status_idx ON resource_events(status)"
    "CREATE INDEX resource_events_timestamp_idx ON resource_events(timestamp)"
-   "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey
-     FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
+
+   add-resource-events-report-id-fkey-constraint-cmd))
 
 (defn add-catalog-uuid-to-reports-and-catalogs
   []

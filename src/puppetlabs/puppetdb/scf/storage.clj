@@ -236,12 +236,88 @@
    ["SELECT expired FROM certnames WHERE certname=?" certname]
    (comp :expired first sql/result-set-seq)))
 
-(defn purge-deactivated-and-expired-nodes!
-  "Delete nodes from the database which were deactivated before `time`."
-  [time]
-  {:pre [(kitchensink/datetime? time)]}
-  (let [ts (to-timestamp time)]
-    (jdbc/delete! :certnames ["deactivated < ? OR expired < ?" ts ts])))
+(defn-validated purge-deactivated-and-expired-nodes!
+  "Delete nodes from the database which were deactivated before cutoff."
+  [cutoff :- pls/Timestamp]
+  ;; If this code is eventually adjusted to not manipulate the schema,
+  ;; then delete storage-test/node-expiration-does-not-change-schema.
+
+  (let [cutoff (to-timestamp cutoff)]
+    (jdbc/with-db-transaction []
+      (jdbc/do-prepared
+       "select id, certname into temp table obsolete_nodes from certnames
+          where deactivated < ? or expired < ?"
+       [cutoff cutoff])
+      (apply
+       jdbc/do-commands
+       (concat
+        ["set constraints all deferred"
+         "analyze obsolete_nodes"]
+
+        ;; Drop constraints
+        (map (fn [[t c]]
+               (format "alter table %s drop constraint %s" t c))
+             [["catalogs" "catalogs_certname_fkey"]
+              ["factsets" "factsets_certname_fk"]
+              ["reports" "reports_certname_fkey"]
+              ["latest_catalogs" "latest_catalogs_certname_id_fkey"]
+              ["catalog_resources" "catalog_resources_certname_id_fkey"]
+              ["latest_catalogs" "latest_catalogs_catalog_id_fkey"]
+              ["facts" "factset_id_fk"]
+              ["certnames" "certnames_reports_id_fkey"]
+              ["resource_events" "resource_events_report_id_fkey"]])
+
+        ;; remove nodes
+        ["delete from resource_events
+           where certname_id in (select id from obsolete_nodes)"
+         "delete from reports
+           where certname in (select certname from obsolete_nodes)"
+
+         "delete from resource_params_cache rpc using catalog_resources cr
+            where cr.certname_id in (select id from obsolete_nodes)
+                  and rpc.resource = cr.resource"
+         "delete from resource_params rp using catalog_resources cr
+            where cr.certname_id in (select id from obsolete_nodes)
+                  and rp.resource = cr.resource"
+         "delete from catalog_resources
+           where certname_id in (select id from obsolete_nodes)"
+
+         "delete from latest_catalogs
+           where certname_id in (select id from obsolete_nodes)"
+         "delete from edges
+           where certname in (select certname from obsolete_nodes)"
+         "delete from catalogs
+           where certname in (select certname from obsolete_nodes)"
+
+         "delete from facts f using factsets fs
+           where f.factset_id = fs.id
+                 and fs.certname in (select certname from obsolete_nodes)"
+         "delete from factsets
+           where certname in (select certname from obsolete_nodes)"
+
+         "delete from certnames where id in (select id from obsolete_nodes)"
+
+         ;; Restore constraints
+         migrate/add-catalogs-certname-fkey-constraint-cmd
+         migrate/add-certnames-reports-id-fkey-constraint-cmd
+         migrate/add-factset-id-fk-constraint-cmd
+         migrate/add-factsets-certname-fk-constraint-cmd
+         migrate/add-reports-certname-fk-constraint-cmd
+         migrate/add-resource-events-report-id-fkey-constraint-cmd
+         ;; The following constraints are implicit in migrate, and must
+         ;; be manually kept in sync with the relevant column declarations.
+         "alter table latest_catalogs
+           add constraint latest_catalogs_certname_id_fkey
+             foreign key (certname_id) references certnames(id)
+             on delete cascade"
+         "alter table catalog_resources
+           add constraint catalog_resources_certname_id_fkey
+             foreign key (certname_id) references certnames(id)
+             on delete cascade"
+         "alter table latest_catalogs add constraint latest_catalogs_catalog_id_fkey
+           foreign key (catalog_id) references catalogs(id) on delete cascade"
+
+         "drop table obsolete_nodes"])))))
 
 (defn activate-node!
   "Reactivate the given host. Adds the host to the database if it was not
@@ -1274,6 +1350,8 @@
   "Delete all reports in the database that have a `producer-timestamp`
    older than the cutoff."
   [cutoff :- pls/Timestamp]
+  ;; If this code is eventually adjusted to not manipulate the schema,
+  ;; then delete storage-test/report-deletion-does-not-change-schema.
   (jdbc/with-db-transaction []
     (jdbc/do-prepared
      "select id into temp table obsolete_reports from reports r
