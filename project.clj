@@ -9,7 +9,7 @@
 (def pe-pdb-version "4.1.0-SNAPSHOT")
 
 (def tk-version "1.3.1")
-(def ks-version "1.3.0")
+(def ks-version "1.3.1")
 (def i18n-version "0.2.2")
 
 (def pdb-jvm-opts
