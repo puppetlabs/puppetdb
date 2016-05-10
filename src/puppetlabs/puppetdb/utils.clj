@@ -323,3 +323,11 @@
      result#))
 
 (def byte-array-class (Class/forName "[B"))
+
+(defmacro nil-on-failure
+  "Executes `body` and if an exception is thrown, returns nil"
+  [& body]
+  `(try
+     ~@body
+     (catch Exception _#
+       nil)))

@@ -4,7 +4,6 @@
             [compojure.route :as route]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.trapperkeeper.services :as tksvc]
-            [puppetlabs.puppetdb.mq :as mq]
             [ring.middleware.resource :refer [resource-request]]
             [ring.util.request :as rreq]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -13,13 +12,13 @@
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.http.command :as cmd]
             [clj-http.client :as client]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.http.server :as server]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
             [trptcolin.versioneer.core :as versioneer]
-            [puppetlabs.kitchensink.core :as ks]))
+            [puppetlabs.kitchensink.core :as ks]
+            [puppetlabs.puppetdb.status :as pdb-status]))
 
 
 (defn resource-request-handler [req]
@@ -104,27 +103,6 @@
                  artifact-id))))
     version))
 
-(defn pdb-status [config shared-globals-fn maint-mode?]
-  (fn [level]
-    (let [globals (shared-globals-fn)
-          queue-depth (try (->> [:command-processing :mq :endpoint]
-                                (get-in config)
-                                (mq/queue-size "localhost"))
-                           (catch Exception _
-                             nil))
-          read-db-up? (sutils/db-up? (:scf-read-db globals))
-          write-db-up? (sutils/db-up? (:scf-write-db globals))
-          maintenance-mode? (maint-mode?)
-          state (cond
-                  maintenance-mode? :starting
-                  (and read-db-up? write-db-up?) :running
-                  :else :error)]
-      {:state state
-       :status {:maintenance_mode? maintenance-mode?
-                :queue_depth queue-depth
-                :read_db_up? read-db-up?
-                :write_db_up? write-db-up?}})))
-
 (tk/defservice pdb-routing-service
   [[:WebroutingService add-ring-handler get-route]
    [:PuppetDBServer shared-globals query set-url-prefix]
@@ -158,11 +136,12 @@
                mid/wrap-with-puppetdb-middleware))
 
           (enable-maint-mode)
-          (let [config (get-config)]
-            (register-status "puppetdb-status"
-                             (get-artifact-version "puppetlabs" "puppetdb")
-                             1
-                             (pdb-status config shared-globals maint-mode?))))
+          (register-status "puppetdb-status"
+                           (get-artifact-version "puppetlabs" "puppetdb")
+                           1
+                           (fn [level]
+                             (pdb-status/create-status-map
+                              (pdb-status/status-details config shared-globals maint-mode?)))))
         context)
   (start [this context]
          (log/info "PuppetDB finished starting, disabling maintenance mode")
