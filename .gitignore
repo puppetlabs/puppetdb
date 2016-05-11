@@ -11,8 +11,10 @@ pom.xml
 version
 junit
 
-# Emacs files
+# Emacs
 *#
+*~
+.#*
 
 # Local overide for testing config
 test-resources/config/local.clj
