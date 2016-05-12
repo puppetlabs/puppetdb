@@ -50,3 +50,5 @@ checkouts
 /resources/puppetlabs/pe_puppetdb_extensions/*.class
 /resources/locales.clj
 /mp-*
+
+/dev-var/*

@@ -1,33 +1,69 @@
 (ns puppetlabs.pe-puppetdb-extensions.sync.pe-routing
   (:import [org.joda.time Period])
-  (:require [puppetlabs.trapperkeeper.core :as tk]
+  (:require [clout.core :as cc]
+            [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :as i18n]
-            [clout.core :as cc]
-            [compojure.route :as route]
+            [puppetlabs.rbac-client.middleware.authentication :as mid-authn]
+            [puppetlabs.rbac-client.protocols.rbac :as prot-rbac]
             [puppetlabs.trapperkeeper.services :as tksvc]
-            [ring.middleware.resource :refer [wrap-resource resource-request]]
-            [ring.util.request :as rreq]
-            [ring.util.response :as rr]
-            [puppetlabs.puppetdb.middleware :as mid]
+            [puppetlabs.trapperkeeper.core :as tk]
             [puppetlabs.puppetdb.meta :as meta]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.http.command :as cmd]
             [puppetlabs.puppetdb.cli.services :as query]
             [puppetlabs.puppetdb.http.server :as server]
-            [clojure.tools.logging :as log]
+            [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.puppetdb.pdb-routing
              :refer [pdb-app pdb-core-routes wrap-with-context]]
             [puppetlabs.pe-puppetdb-extensions.server :as pe-server]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as sync-svcs]
             [puppetlabs.puppetdb.time :refer [parse-period]]
-            [puppetlabs.pe-puppetdb-extensions.catalogs :refer [turn-on-historical-catalogs!]]
+            [puppetlabs.pe-puppetdb-extensions.catalogs
+             :refer [turn-on-historical-catalogs!]]
             [puppetlabs.pe-puppetdb-extensions.reports
              :refer [reports-resources-routes turn-on-unchanged-resources!]]))
 
-(defn pe-routes [get-config get-shared-globals query bucketed-summary-query enqueue-command response-mult]
+(def view-permission "nodes:view_data:*")
+(def edit-permission "nodes:edit_data:*")
+
+(defn rbac-permission
+  [uri]
+  (condp #(.startsWith %2 %1) uri
+    "/pdb/meta" view-permission
+    "/pdb/query" view-permission
+    "/pdb/ext" view-permission
+    "/pdb/sync" edit-permission
+    "/pdb/admin" edit-permission
+    "/pdb/cmd" edit-permission))
+
+(defn wrap-cert-and-token-authn
+  [cert-whitelist rbac-consumer-svc app]
+  (if-let [cert-authorize-fn (some-> cert-whitelist mid/build-whitelist-authorizer)]
+    (fn [{:keys [uri ssl-client-cn] :as req}]
+      (if-let [cert-auth-result (cert-authorize-fn req)]
+        (if-let [rbac-subject (get req :puppetlabs.rbac-client.middleware.authentication/rbac-subject)]
+          (if (prot-rbac/is-permitted? rbac-consumer-svc rbac-subject (rbac-permission uri))
+            (app req)
+            (http/denied-response (i18n/tru "User does not have permission to access PuppetDB")
+                                  http/status-forbidden))
+          (if ssl-client-cn
+            cert-auth-result
+            (http/denied-response (i18n/tru "Must supply a certificate or token to access PuppetDB.")
+                                  http/status-forbidden)))
+        (app req)))
+    app))
+
+(defn pe-routes [get-config get-shared-globals query
+                 bucketed-summary-query enqueue-command response-mult]
   (map #(apply wrap-with-context %)
        (partition 2
-                  ["/sync" (sync-svcs/sync-handler get-config query bucketed-summary-query enqueue-command response-mult get-shared-globals)
+                  ["/sync" (sync-svcs/sync-handler get-config
+                                                   query
+                                                   bucketed-summary-query
+                                                   enqueue-command
+                                                   response-mult
+                                                   get-shared-globals)
                    "/ext" (pe-server/build-app query get-shared-globals)])))
 
 (tk/defservice pe-routing-service
@@ -35,9 +71,12 @@
    [:PuppetDBServer shared-globals query set-url-prefix]
    [:DefaultedConfig get-config]
    [:PuppetDBSync bucketed-summary-query]
-   [:PuppetDBCommandDispatcher enqueue-command enqueue-raw-command response-pub response-mult]
-   [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]
-   [:PuppetDBStatus enable-status-service]]
+   [:PuppetDBCommandDispatcher
+    enqueue-command enqueue-raw-command response-pub response-mult]
+   [:MaintenanceMode
+    enable-maint-mode maint-mode? disable-maint-mode]
+   [:PuppetDBStatus enable-status-service]
+   RbacConsumerService]
   (init [this context]
         (let [context-root (get-route this)
               query-prefix (str context-root "/query")
@@ -45,31 +84,44 @@
               {sync-config :sync
                puppetdb-config :puppetdb
                jetty-config :jetty} config
-              shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)]
+              shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)
+              rbac-consumer-svc (tksvc/get-service this :RbacConsumerService)]
           (set-url-prefix query-prefix)
+
           (turn-on-unchanged-resources!)
-          (turn-on-historical-catalogs!
-           (:historical-catalogs-limit puppetdb-config 3))
+          (turn-on-historical-catalogs! (:historical-catalogs-limit puppetdb-config 3))
+
+          (log/info (i18n/trs "Starting PuppetDB, entering maintenance mode"))
           (add-ring-handler
            this
-           (-> (pdb-app context-root
-                        maint-mode?
-                        (concat (reports-resources-routes shared-with-prefix)
-                                (pdb-core-routes config
-                                                 shared-with-prefix
-                                                 enqueue-command
-                                                 query
-                                                 enqueue-raw-command
-                                                 response-pub)
-                                (pe-routes get-config shared-with-prefix
-                                           query bucketed-summary-query enqueue-command (response-mult))))
-               (mid/wrap-cert-authn (:certificate-whitelist puppetdb-config))
-               mid/wrap-with-puppetdb-middleware)))
-        (enable-maint-mode)
-        (enable-status-service)
-        context)
+           (->> (pdb-app context-root
+                         maint-mode?
+                         (concat (reports-resources-routes shared-with-prefix)
+                                 (pdb-core-routes config
+                                                  shared-with-prefix
+                                                  enqueue-command
+                                                  query
+                                                  enqueue-raw-command
+                                                  response-pub)
+                                 (pe-routes get-config
+                                            shared-with-prefix
+                                            query
+                                            bucketed-summary-query
+                                            enqueue-command
+                                            (response-mult))))
+                (wrap-cert-and-token-authn (:certificate-whitelist puppetdb-config)
+                                           rbac-consumer-svc)
+                ;; This function is mistakenly private in the RBAC client we
+                ;; should make it public and remove the `#'` here
+                (#'mid-authn/wrap-token-access* rbac-consumer-svc)
+                mid/wrap-with-puppetdb-middleware))
+
+          (enable-maint-mode)
+          (enable-status-service)
+          context))
+
   (start [this context]
-         (log/info "PuppetDB finished starting, disabling maintenance mode")
+         (log/info (i18n/trs "PuppetDB finished starting, disabling maintenance mode"))
          (disable-maint-mode)
          context)
 

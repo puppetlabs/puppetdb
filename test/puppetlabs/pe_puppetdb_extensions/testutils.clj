@@ -1,5 +1,6 @@
 (ns puppetlabs.pe-puppetdb-extensions.testutils
   (:require [clojure.test :refer [deftest]]
+            [puppetlabs.rbac-client.testutils.dummy-rbac-service :refer [dummy-rbac-service]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [service-context service-id]]
@@ -41,6 +42,7 @@
 (def pe-services
   (conj (remove #{#'pdb-routing-service #'pdbconf/config-service}
                 svcs/default-services)
+        #'dummy-rbac-service
         #'extconf/config-service
         #'puppetdb-sync-service
         #'stub-server-service

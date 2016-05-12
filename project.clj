@@ -7,6 +7,9 @@
 
 (def pdb-version "4.1.0-SNAPSHOT")
 (def pe-pdb-version "4.1.0-SNAPSHOT")
+(def rbac-client-version "0.1.2")
+(def rbac-version "1.2.12")
+(def activity-version"0.5.1")
 
 (def tk-version "1.3.1")
 (def ks-version "1.3.1")
@@ -25,9 +28,16 @@
                  ["snapshots"  "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
   :source-paths ["src"]
   :dependencies [[puppetlabs/puppetdb ~pdb-version]
-                 [net.logstash.logback/logstash-logback-encoder "4.4"
-                  :exclusions  [com.fasterxml.jackson.core/jackson-core]]
-                 [puppetlabs/structured-logging "0.1.0" :exclusions [org.slf4j/slf4j-api]]]
+                 [net.logstash.logback/logstash-logback-encoder "4.6"]
+                 [puppetlabs/structured-logging "0.1.0" :exclusions [org.slf4j/slf4j-api]]
+                 [puppetlabs/rbac-client ~rbac-client-version
+                  :exclusions [puppetlabs/http-client
+                               commons-codec
+                               org.apache.httpcomponents/httpclient
+                               prismatic/schema
+                               org.clojure/clojure
+                               org.clojure/tools.macro
+                               puppetlabs/trapperkeeper]]]
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
   :resource-paths ["resources"]
@@ -39,14 +49,44 @@
                        :main-namespace "puppetlabs.puppetdb.main"}
                 :config-dir "ext/config/pe"}
 
+  :puppetdb ~pdb-version
+  :pe-rbac-service ~rbac-version
+  :rbac-client ~rbac-client-version
+  :pe-activity-service ~activity-version
+  :liberator-util "fa1005928d58625704ea48126ee8840c6bbb1399"
+  :schema-tools "schema-tools-0.1.0"
+
   :profiles {:dev {:resource-paths ["test-resources"]
                    :dependencies [[org.flatland/ordered "1.5.2"]
+                                  [puppetlabs/pe-rbac-service ~rbac-version
+                                   :exclusions [hiccup
+                                                puppetlabs/http-client
+                                                org.apache.httpcomponents/httpclient
+                                                puppetlabs/pe-activity-service]]
+                                  [puppetlabs/pe-rbac-service ~rbac-version
+                                   :classifier "test"
+                                   :exclusions [hiccup
+                                                puppetlabs/http-client
+                                                org.apache.httpcomponents/httpclient
+                                                puppetlabs/pe-activity-service]]
+                                  [puppetlabs/pe-activity-service ~activity-version
+                                   :exclusions [org.slf4j/slf4j-api
+                                                puppetlabs/pe-rbac-service]]
+                                  [puppetlabs/rbac-client ~rbac-client-version
+                                   :classifier "test"
+                                   :exclusions [puppetlabs/http-client
+                                                org.apache.httpcomponents/httpclient
+                                                prismatic/schema
+                                                org.clojure/clojure
+                                                org.clojure/tools.macro
+                                                puppetlabs/trapperkeeper]]
                                   [org.clojure/test.check "0.5.9"]
                                   [ring-mock "0.1.5"]
                                   [puppetlabs/puppetdb ~pdb-version :classifier "test"]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [environ "1.0.0"]]}
+             :rbac {:test-paths ["test" "test-rbac"]}
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]
                                                [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]]
@@ -54,11 +94,15 @@
                                 :exclusions [org.clojure/clojure]]]
                       :version ~pe-pdb-version
                       :name "pe-puppetdb"}
-             :ci {:plugins [[lein-pprint "1.1.1"]]}}
+             :ci {:plugins [[lein-pprint "1.1.2"]]}}
 
   :plugins [[puppetlabs/i18n ~i18n-version]]
 
   :lein-release {:scm :git, :deploy-via :lein-deploy}
+  :aliases {"pdb" ["trampoline"
+                   "run" "services"
+                   "--config" "test-resources/local.conf"
+                   "--bootstrap-config" "test-resources/bootstrap.cfg"]}
 
   :jvm-opts ~pdb-jvm-opts
 

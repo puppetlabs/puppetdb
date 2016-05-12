@@ -1,7 +1,18 @@
 # pe-puppetdb-extensions
 
-A library intended to be ran along with PuppetDB to support replication between PuppetDB instances. This allows have two PuppetDB instances mirror each other which would support fail over.
+Closed source extensions for PuppetDB.
 
-## Usage
+This includes (but is not limited too):
+- Support for HA PuppetDB (replication between PDB instances). This allows users
+  to have PuppetDB instances mirror each other which to support fail over.
+- Support for historical catalog storage.
+- Support for unchanged resource storage on reports.
+- Support for RBAC authentication when querying PuppetDB.
 
-Still TBD
+## Development
+
+```sh
+createuser -DRSP puppetdb
+./test-resources/create-dev-db.sh
+lein pdb
+```
