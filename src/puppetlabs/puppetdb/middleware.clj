@@ -48,7 +48,8 @@
   (let [allowed? (kitchensink/cn-whitelist->authorizer whitelist)]
     (fn [{:keys [ssl-client-cn] :as req}]
       (when-not (allowed? req)
-        (log/warn (i18n/trs "{0} rejected by certificate whitelist {1}" ssl-client-cn whitelist))
+        (when ssl-client-cn
+          (log/warn (i18n/trs "{0} rejected by certificate whitelist {1}" ssl-client-cn whitelist)))
         (http/denied-response (i18n/tru "The client certificate name {0} doesn't appear in the certificate whitelist. Is your master''s (or other PuppetDB client''s) certname listed in PuppetDB''s certificate-whitelist file?" ssl-client-cn)
                          http/status-forbidden)))))
 
