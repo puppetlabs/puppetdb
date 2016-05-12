@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.mq
   (:import [org.apache.activemq.broker BrokerService]
            [org.apache.activemq ScheduledMessage]
-           [org.apache.activemq.usage SystemUsage]
+           [org.apache.activemq.usage SystemUsage MemoryUsage]
            [javax.jms Connection Message TextMessage BytesMessage Session]
            [org.apache.activemq ActiveMQConnectionFactory]
            [org.apache.activemq.pool PooledConnectionFactory])
@@ -52,6 +52,17 @@
   Returns the (potentially modified) `broker` object."
   [broker megabytes]
   (set-usage!* broker megabytes #(.getStoreUsage %) "StoreUsage"))
+
+(defn- set-memory-usage!
+  "Configures the `MemoryUsage` setting for an instance of `BrokerService`.
+
+  `broker`     - the `BrokerService` to configure
+  `megabytes ` - the maximum amount of memory usage to allow for the
+  BrokerService, or `nil` to use the default value of 1GB.
+
+  Returns the (potentially modified) `broker` object."
+  [broker megabytes]
+  (set-usage!* broker megabytes #(.getMemoryUsage %) "MemoryUsage"))
 
 (defn- set-temp-usage!
   "Configures the `TempUsage` setting for an instance of `BrokerService`.
@@ -110,6 +121,7 @@
               (.setSchedulerSupport true)
               (.setPersistent true)
               (enable-jmx true)
+              (set-memory-usage! (:memory-usage config))
               (set-store-usage! (:store-usage config))
               (set-temp-usage!  (:temp-usage config)))
          mc (doto (.getManagementContext mq)

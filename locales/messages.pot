@@ -17,7 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/puppetlabs/puppetdb/config.clj:364
+#: src/puppetlabs/puppetdb/config.clj:366
 msgid ""
 "Configuring the route for `{0}` is not allowed. The default route is `{1}` "
 "and server is `{2}`."
