@@ -38,7 +38,7 @@ Puppet::Reports.register_report(:puppetdb) do
       end
 
       resources = build_resources_list
-      is_noop = resources.any? { |rs| has_noop_event?(rs) } and resources.none? { |rs| has_failed_event?(rs) }
+      is_noop = resources.any? { |rs| has_noop_event?(rs) } && resources.none? { |rs| has_enforcement_event?(rs) }
 
 
       defaulted_catalog_uuid = defined?(catalog_uuid) ? catalog_uuid : transaction_uuid
@@ -74,8 +74,8 @@ Puppet::Reports.register_report(:puppetdb) do
 
   # @return TrueClass
   # @api private
-  def has_failed_event?(resource)
-    resource["events"].any? { |event| event["status"] == 'failed' }
+  def has_enforcement_event?(resource)
+    resource["events"].any? { |event| event["status"] != 'noop' }
   end
 
   # @return Array[Hash]
