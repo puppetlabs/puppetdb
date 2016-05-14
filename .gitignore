@@ -1,38 +1,38 @@
-# Build files
-pom.xml
-*jar
-/lib/
-/classes/
+
+# Leiningen
 /target/
-/docs/
-/pkg/
+/pom.xml
+
+# Acceptance tests
+/junit/
 /log/
-*.tar.gz
-version
-junit
 
-# Emacs files
+# Emacs
 *#
+*~
+.#*
 
-# VIM swap files
-*.swp
+# Local overide for testing config
+/test-resources/config/local.clj
 
-# Vagrant cache folder & vagrantfile if used
-.vagrant
-Vagrantfile
-
-# Used by Puppet Labs packaging system
-ext/packaging/*
-
-# Bundler files
-vendor
-Gemfile.lock
+# Vagrant
+/.vagrant/
 
 # A generalized temporary area for local use, tmp for
 # general temporary items, and scripts for any local
 # scripts.
-tmp
+/tmp
 /scripts
+
+# Bundler files
+/vendor
+/Gemfile.lock
+
+# Used by Puppet Labs packaging system
+/ext/packaging/
+
+# VIM swap files
+*.swp
 
 # The leiningen temporary/local files
 .lein-failures
