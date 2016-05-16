@@ -8,7 +8,7 @@
 (def pdb-version "4.1.0-SNAPSHOT")
 (def pe-pdb-version "4.1.0-SNAPSHOT")
 (def rbac-client-version "0.1.2")
-(def rbac-version "1.2.12")
+(def rbac-version "1.2.17")
 (def activity-version"0.5.1")
 
 (def tk-version "1.3.1")
@@ -86,7 +86,6 @@
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [environ "1.0.0"]]}
-             :rbac {:test-paths ["test" "test-rbac"]}
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]
                                                [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]]
