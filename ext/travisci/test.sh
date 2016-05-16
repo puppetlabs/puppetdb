@@ -94,4 +94,4 @@ pdb-env()
 }
 
 java -version
-pdb-env "$LEIN" do test, with-profile dev,rbac test :only puppetlabs.pe-puppetdb-extensions.rbac-test
+pdb-env "$LEIN" test
