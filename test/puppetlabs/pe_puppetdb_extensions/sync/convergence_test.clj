@@ -20,6 +20,7 @@
             [puppetlabs.puppetdb.http.command :as command]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.puppetdb.testutils.reports :as tur]
+            [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as services]
@@ -250,22 +251,28 @@
         false)
       true)))
 
-(def ^:private convergence-test-count
-  "Number of generative convergence trials to run."
-  (if-let [n (System/getenv "PDB_CONVERGENCE_TEST_COUNT")]
-    (Integer/parseInt n)
-    3))
+(def ^:private gen-test-options
+  "Test options that can be overriden by environment variables."
+  {:num-tests
+   (if-let [n (System/getenv "PDB_CONVERGENCE_TEST_COUNT")]
+     (Integer/parseInt n)
+     3)
+   :seed
+   (when-let [n (System/getenv "GEN_SEED")]
+     (Long/parseLong n))})
 
 (def ^:private convergence-trials-run (atom 0))
 
 (defn- run-convergence-test [commands]
   (with-ext-instances [pdb1 (sync-config nil) pdb2 (sync-config nil)]
     (let [pdb1-url (base-url->str (:server-url pdb1))
-          pdb2-url (base-url->str (:server-url pdb2))]
+          pdb2-url (base-url->str (:server-url pdb2))
+          old-limit @scf-storage/historical-catalogs-limit]
+      (reset! scf-storage/historical-catalogs-limit command-sequence-size)
       (swap! convergence-trials-run inc)
       (binding [*out* *err*]
         (print (format "Trial %d/%d\r"
-                       @convergence-trials-run convergence-test-count))
+                       @convergence-trials-run (:num-tests gen-test-options)))
         (flush))
       (do ;; svcs/with-log-level :sync :debug
         (doseq [cmd commands]
@@ -282,12 +289,13 @@
         ;;(semlog/logp [:sync :info] "===== PDB2 synced")
         (let [s1 (check-sync :to-x pdb1 pdb2-url commands)
               s2 (check-sync :to-y pdb2 pdb1-url commands)]
-          (and s1 s2))))))
+          (and s1 s2)))
+      (reset! scf-storage/historical-catalogs-limit old-limit))))
 
-(defspec convergence convergence-test-count
+(defspec convergence gen-test-options
   ;; Given the cycle time and the number of possible test
   ;; sets (particularly given the current timestamp arrangement),
   ;; shrinking is disabled for now.
   (prop/for-all [commands (gen/no-shrink (gen/vector gen-convergence-cmd
                                                      command-sequence-size))]
-    (run-convergence-test commands)))
+                (run-convergence-test commands)))

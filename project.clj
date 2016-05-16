@@ -80,7 +80,7 @@
                                                 org.clojure/clojure
                                                 org.clojure/tools.macro
                                                 puppetlabs/trapperkeeper]]
-                                  [org.clojure/test.check "0.5.9"]
+                                  [org.clojure/test.check "0.9.0"]
                                   [ring-mock "0.1.5"]
                                   [puppetlabs/puppetdb ~pdb-version :classifier "test"]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
