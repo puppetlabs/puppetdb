@@ -5,6 +5,7 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
+            [clojure.test.check.impl :as impl]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.pe-puppetdb-extensions.sync.core :refer [sync-from-remote!]]
             [puppetlabs.pe-puppetdb-extensions.sync.sync-test-utils
@@ -258,8 +259,11 @@
      (Integer/parseInt n)
      3)
    :seed
-   (when-let [n (System/getenv "GEN_SEED")]
-     (Long/parseLong n))})
+   (if-let [n (System/getenv "GEN_SEED")]
+     (Long/parseLong n)
+     ;; Here we use the internal method for generating the seed that test.check uses, so we
+     ;; can print it out ourselves early, to catch deadlocked tests and such.
+     (impl/get-current-time-millis))})
 
 (def ^:private convergence-trials-run (atom 0))
 
@@ -296,6 +300,9 @@
   ;; Given the cycle time and the number of possible test
   ;; sets (particularly given the current timestamp arrangement),
   ;; shrinking is disabled for now.
-  (prop/for-all [commands (gen/no-shrink (gen/vector gen-convergence-cmd
-                                                     command-sequence-size))]
-                (run-convergence-test commands)))
+  (do
+    (print "test.check configuration: ")
+    (clojure.pprint/pprint gen-test-options)
+    (prop/for-all [commands (gen/no-shrink (gen/vector gen-convergence-cmd
+                                                       command-sequence-size))]
+                  (run-convergence-test commands))))
