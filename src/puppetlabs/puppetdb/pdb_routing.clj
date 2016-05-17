@@ -16,7 +16,6 @@
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
-            [trptcolin.versioneer.core :as versioneer]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.status :as pdb-status]))
 
@@ -90,19 +89,6 @@
                    true
                    @maint-mode-atom))))
 
-;; This is vendored from the tk-status-service because version checking fails
-;; semver validation on PDB snapshots. When we address this upstream we can put
-;; the tk version back in.
-(defn get-artifact-version
-  [group-id artifact-id]
-  (let [version (versioneer/get-version group-id artifact-id)]
-    (when (empty? version)
-      (throw (IllegalStateException.
-               (format "Unable to find version number for '%s/%s'"
-                 group-id
-                 artifact-id))))
-    version))
-
 (tk/defservice pdb-routing-service
   [[:WebroutingService add-ring-handler get-route]
    [:PuppetDBServer shared-globals query set-url-prefix]
@@ -136,12 +122,10 @@
                mid/wrap-with-puppetdb-middleware))
 
           (enable-maint-mode)
-          (register-status "puppetdb-status"
-                           (get-artifact-version "puppetlabs" "puppetdb")
-                           1
-                           (fn [level]
-                             (pdb-status/create-status-map
-                              (pdb-status/status-details config shared-globals maint-mode?)))))
+          (pdb-status/register-pdb-status register-status
+                                          (fn [level]
+                                            (pdb-status/create-status-map
+                                             (pdb-status/status-details config shared-globals maint-mode?)))))
         context)
   (start [this context]
          (log/info "PuppetDB finished starting, disabling maintenance mode")
