@@ -100,8 +100,8 @@
   :lein-release {:scm :git, :deploy-via :lein-deploy}
   :aliases {"pdb" ["trampoline"
                    "run" "services"
-                   "--config" "test-resources/local.conf"
-                   "--bootstrap-config" "test-resources/bootstrap.cfg"]}
+                   "--config" "dev-resources/example.conf"
+                   "--bootstrap-config" "dev-resources/bootstrap.cfg"]}
 
   :jvm-opts ~pdb-jvm-opts
 
