@@ -14,6 +14,83 @@ canonical: "/puppetdb/latest/release_notes.html"
 [metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
 [pqltutorial]: ./api/query/tutorial-pql.html
 
+4.1.0
+-----
+
+PuppetDB 4.1.0 is a backward-compatible feature release that adds packages for
+Ubuntu Xenial - 16.04, adds preliminary support for HUP signal handling, and
+improves the speed of removing old reports and node expiration and purging.
+
+### New features / Enhancements
+
+* PuppetDB now has packages for Ubuntu Xenial - 16.04
+  ([PDB-2475](https://tickets.puppetlabs.com/browse/PDB-2475)).
+
+* Allow configuration of AciveMQ Broker's memoryLimit. For PuppetDB instances
+  with larger amount of memory and heavy load, this can improve performance.
+  More information in the [config docs][./configure.html#memory-usage]
+  ([PDB-2726](https://tickets.puppetlabs.com/browse/PDB-2726)).
+
+* Preliminary support for HUP signal handling. Note that due to
+  [AMQ-5263][https://issues.apache.org/jira/browse/AMQ-5263] there is
+  a possibility of a crash when HUPed. We've observed this race
+  condition when under heavy load and repeatedly HUPed. This will be
+  fixed and more robust in a future release
+  ([PDB-2546](https://tickets.puppetlabs.com/browse/PDB-2546)).
+
+* Added a `to\_string` function to format strings in both PQL and the AST query
+  language ([PDB-2494](https://tickets.puppetlabs.com/browse/PDB-2494)).
+
+* Added more metrics related to command processing. The most useful is probably
+  `message-persistence-time`, which tracks the time take to write the command to
+  disk ([PDB-2485](https://tickets.puppetlabs.com/browse/PDB-2485)).
+
+* Added the ability to use `latest\_report?` when querying the older event query
+  endpoints ([PDB-2527](https://tickets.puppetlabs.com/browse/PDB-2527)).
+
+* Added a `cached\_catalog\_status` field to the nodes endpoint
+  ([PDB-2586](https://tickets.puppetlabs.com/browse/PDB-2586)).
+
+* Added a `latest\_report\_noop` field to the nodes endpoint
+  ([PDB-2490](https://tickets.puppetlabs.com/browse/PDB-2490)).
+
+* (PE Only) Added token-based authentication (RBAC support)
+  ([PDB-2482](https://tickets.puppetlabs.com/browse/PDB-2482)).
+
+### Bug fixes and maintenance
+
+* Added scaffolding for internationization of PuppetDB log and error messages.
+  This is the first step in supporting multiple languages in PuppetDB
+  ([PDB-2547](https://tickets.puppetlabs.com/browse/PDB-2547)).
+
+* Node expiration is now done in a single query, previously this required a
+  database round-trip for each exipring node
+  ([PDB-2576](https://tickets.puppetlabs.com/browse/PDB-2576)).
+
+* Removing old reports (reports past their `report-ttl`) and purged nodes
+  (`node-purge-ttl`) is now significantly faster due to pushing much of this
+  work to the database and being more efficient with how constraints are applied
+  ([PDB-2477](https://tickets.puppetlabs.com/browse/PDB-2477)).
+
+* Added validation of the query parameter in the `puppetdb\_query()` function
+  included in the terminus
+  ([PDB-2648](https://tickets.puppetlabs.com/browse/PDB-2648)).
+
+* Error responses now include a proper content type of text/plain 
+  ([PDB-2621](https://tickets.puppetlabs.com/browse/PDB-2621)).
+
+* Only set the noop flag on a report to true if all it's resource events are
+  noops ([PDB-2586](https://tickets.puppetlabs.com/browse/PDB-2586)).
+
+* PuppetDB has switched to using the trapperkeeper-metrics webservices. This
+  should not change functionality as the code from PuppetDB has been moved into
+  that shared library
+  ([PDB-2573](https://tickets.puppetlabs.com/browse/PDB-2573)).
+
+* PuppetDB is now testing against nightly puppetserver packages in addition to
+  released puppetserver packages
+  ([PDB-2501](https://tickets.puppetlabs.com/browse/PDB-2501)).
+
 4.0.2
 -----
 
