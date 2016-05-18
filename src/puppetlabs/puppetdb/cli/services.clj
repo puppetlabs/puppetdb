@@ -63,14 +63,17 @@
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.time :refer [to-seconds to-millis parse-period
                                               format-period period?]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [robert.hooke :as rh]
+            [schema.core :as s]
             [slingshot.slingshot :refer [throw+ try+]])
-  (:import [javax.jms ExceptionListener]))
+  (:import [javax.jms ExceptionListener]
+           [org.joda.time Period]))
 
 (def cli-description "Main PuppetDB daemon")
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
@@ -97,7 +100,8 @@
       (log/error e "Error while deactivating stale nodes"))))
 
 (defn purge-nodes!
-  "Delete nodes which have been *deactivated or expired* longer than `node-purge-ttl`."
+  "Delete nodes which have been *deactivated or expired* longer than
+  `node-purge-ttl`."
   [node-purge-ttl db]
   {:pre [(map? db)
          (period? node-purge-ttl)]}
@@ -147,6 +151,33 @@
       (scf-store/garbage-collect! db))
     (catch Exception e
       (log/error e "Error during garbage collection"))))
+
+(def clean-options #{"expire_nodes" "purge_nodes" "purge_reports" "other"})
+
+(def clean-request-schema
+  [(apply s/enum clean-options)])
+
+(defn-validated clean-up
+  "Cleans up the resources specified by request, or everything if
+  request is empty?."
+  [db
+   {:keys [node-ttl node-purge-ttl report-ttl]} :- {:node-ttl Period
+                                                    :node-purge-ttl Period
+                                                    :report-ttl Period
+                                                    s/Keyword s/Any}
+   ;; Later, the values might be maps, i.e. {:limit 1000}
+   request :- clean-request-schema]
+  (let [request (if (empty? request) clean-options (set request))]
+    (when (request "expire_nodes")
+      (auto-expire-nodes! node-ttl db))
+    (when (request "purge_nodes")
+      (purge-nodes! node-purge-ttl db))
+    (when (request "purge_reports")
+      (sweep-reports! report-ttl db))
+    ;; It's important that this go last to ensure anything referencing
+    ;; an env or resource param is purged first.
+    (when (request "other")
+      (garbage-collect! db))))
 
 (defn maybe-check-for-updates
   [config read-db]
@@ -242,8 +273,7 @@
                 database read-database
                 puppetdb command-processing]} config
         {:keys [pretty-print]} developer
-        {:keys [gc-interval dlo-compression-interval node-ttl
-                node-purge-ttl report-ttl]} database
+        {:keys [gc-interval dlo-compression-interval]} database
         {:keys [dlo-compression-threshold]} command-processing
         {:keys [disable-update-checking]} puppetdb
 
@@ -285,21 +315,26 @@
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)
             gc-interval-millis (to-millis gc-interval)
-            dlo-compression-interval-millis (to-millis dlo-compression-interval)
-            seconds-pos? (comp pos? to-seconds)
-            db-maintenance-tasks (fn []
-                                   (do
-                                     (when (seconds-pos? node-ttl) (auto-expire-nodes! node-ttl write-db))
-                                     (when (seconds-pos? node-purge-ttl) (purge-nodes! node-purge-ttl write-db))
-                                     (when (seconds-pos? report-ttl) (sweep-reports! report-ttl write-db))
-                                     ;; Order is important here to ensure
-                                     ;; anything referencing an env or resource
-                                     ;; param is purged first
-                                     (garbage-collect! write-db)))]
+            dlo-compression-interval-millis (to-millis dlo-compression-interval)]
         (when (pos? gc-interval-millis)
-          ;; Run database maintenance tasks seqentially to avoid
-          ;; competition. Each task must handle its own errors.
-          (interspaced gc-interval-millis db-maintenance-tasks job-pool))
+          (let [seconds-pos? (comp pos? to-seconds)
+                what (filter identity
+                             [(when-let [node-ttl (:node-ttl database)]
+                                (when (seconds-pos? node-ttl)
+                                  "expire_nodes"))
+                              (when-let [node-purge-ttl (:node-purge-ttl database)]
+                                (when (seconds-pos? node-purge-ttl)
+                                  "purge_nodes"))
+                              (when-let [report-ttl (:report-ttl database)]
+                                (when (seconds-pos? report-ttl)
+                                  "purge_reports"))
+                              "other"])]
+            (interspaced gc-interval-millis
+                         #(try
+                            (clean-up write-db database what)
+                            (catch Exception ex
+                              (log/error ex)))
+                         job-pool)))
         (when (pos? dlo-compression-interval-millis)
           (interspaced dlo-compression-interval-millis
                        #(compress-dlo! dlo-compression-threshold discard-dir)
