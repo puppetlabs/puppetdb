@@ -1425,7 +1425,7 @@
                        {:certname "foo.local" :producer_timestamp (java.util.Date.)}
                        command-uuid)
       (let [received-uuid (async/alt!! response-chan ([msg] (:id msg))
-                                       (async/timeout 2000) ::timeout)]
+                                       (async/timeout 10000) ::timeout)]
        (is (= command-uuid received-uuid))))))
 
 ;; Local Variables:
