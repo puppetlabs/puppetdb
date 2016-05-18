@@ -1,13 +1,13 @@
 ---
-title: "PuppetDB 4.0 » Metrics API » v1 » Upgrading to PuppetDB 4.0"
+title: "PuppetDB 4.1 » Metrics API » v1 » Upgrading to PuppetDB 4"
 layout: default
 canonical: "/puppetdb/latest/api/metrics/v1/changes-from-puppetdb-v3.html"
 ---
 
-Most of the metrics' names have changed in PuppetDB 4.0 to standardize with
-other Puppet components and provide a more intuitive naming scheme. This
-document details the correspondence between the metric names before and after
-PuppetDB 4.0.
+Most of the metrics' names have changed in PuppetDB 4 to standardize with other
+Puppet components and provide a more intuitive naming scheme. This document
+details the correspondence between the metric names before and after PuppetDB
+4.
 
 ### Population metrics
 
@@ -38,7 +38,8 @@ puppetlabs.puppetdb.population:name=pct-resource-dupes
 
 ### HTTP metrics
 
-Prior to PuppetDB 4.0 the HTTP metrics were scattered in different namespaces. All the HTTP metrics are now grouped under the same namespace.
+Prior to PuppetDB 4 the HTTP metrics were scattered in different namespaces. All
+the HTTP metrics are now grouped under the same namespace.
 
 ```
 # Before
