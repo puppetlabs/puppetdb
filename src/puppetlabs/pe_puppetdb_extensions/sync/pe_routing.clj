@@ -22,7 +22,10 @@
             [puppetlabs.pe-puppetdb-extensions.catalogs
              :refer [turn-on-historical-catalogs!]]
             [puppetlabs.pe-puppetdb-extensions.reports
-             :refer [reports-resources-routes turn-on-unchanged-resources!]]))
+             :refer [reports-resources-routes turn-on-unchanged-resources!]]
+            [puppetlabs.puppetdb.status :as pdb-status]
+            [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.trapperkeeper.services.status.status-core :as status-core]))
 
 (def view-permission "nodes:view_data:*")
 (def edit-permission "nodes:edit_data:*")
@@ -54,6 +57,38 @@
         (app req)))
     app))
 
+(defn check-rbac-status
+  "Check the status of RBAC, returning a state map with an `:error`
+  state if some exception is raised when asking for the status"
+  [rbac-svc]
+  (try
+    (prot-rbac/status rbac-svc :critical)
+    (catch Exception e
+      (log/error e "Error getting RBAC status information")
+      {:state :error})))
+
+(defn pe-status-details
+  "Create the PE version of status details that includes the status of RBAC"
+  [config shared-globals-fn maint-mode-fn? rbac-consumer-svc]
+  (-> (pdb-status/status-details config shared-globals-fn maint-mode-fn?)
+      (assoc :rbac_status (:state (check-rbac-status rbac-consumer-svc)))))
+
+(pls/defn-validated create-pe-status-map :- status-core/StatusCallbackResponse
+  "Returns a status map containing the state of the currently running
+  system (starting/running/error etc), note that RBAC being down
+  currently triggers an `:unknown` error. When TK Status has a
+  degraded state, we should switch to that"
+  [{:keys [maintenance_mode? read_db_up? write_db_up? rbac_status]
+    :as status-details}]
+  (let [rbac-up? (= rbac_status :running)
+        state (cond
+                maintenance_mode? :starting
+                (and read_db_up? write_db_up? rbac-up?) :running
+                (and read_db_up? write_db_up? (false? rbac-up?)) :unknown
+                :else :error)]
+    {:state state
+     :status status-details}))
+
 (defn pe-routes [get-config get-shared-globals query
                  bucketed-summary-query enqueue-command response-mult]
   (map #(apply wrap-with-context %)
@@ -75,7 +110,7 @@
     enqueue-command enqueue-raw-command response-pub response-mult]
    [:MaintenanceMode
     enable-maint-mode maint-mode? disable-maint-mode]
-   [:PuppetDBStatus enable-status-service]
+   [:StatusService register-status]
    RbacConsumerService]
   (init [this context]
         (let [context-root (get-route this)
@@ -117,7 +152,10 @@
                 mid/wrap-with-puppetdb-middleware))
 
           (enable-maint-mode)
-          (enable-status-service)
+          (pdb-status/register-pdb-status register-status
+                                          (fn [level]
+                                            (create-pe-status-map
+                                             (pe-status-details config shared-with-prefix maint-mode? rbac-consumer-svc))))
           context))
 
   (start [this context]

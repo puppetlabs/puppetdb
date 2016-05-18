@@ -7,8 +7,10 @@
 
 (def pdb-version "4.1.0-SNAPSHOT")
 (def pe-pdb-version "4.1.0-SNAPSHOT")
-(def rbac-client-version "0.1.2")
-(def rbac-version "1.2.17")
+
+(def rbac-client-version "0.1.4")
+(def rbac-version "1.2.19")
+
 (def activity-version"0.5.1")
 
 (def tk-version "1.3.1")
