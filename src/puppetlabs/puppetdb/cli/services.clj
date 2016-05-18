@@ -73,6 +73,7 @@
             [schema.core :as s]
             [slingshot.slingshot :refer [throw+ try+]])
   (:import [javax.jms ExceptionListener]
+           [java.util.concurrent.locks ReentrantLock]
            [org.joda.time Period]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -161,12 +162,15 @@
   "Cleans up the resources specified by request, or everything if
   request is empty?."
   [db
+   lock :- ReentrantLock
    {:keys [node-ttl node-purge-ttl report-ttl]} :- {:node-ttl Period
                                                     :node-purge-ttl Period
                                                     :report-ttl Period
                                                     s/Keyword s/Any}
    ;; Later, the values might be maps, i.e. {:limit 1000}
    request :- clean-request-schema]
+  (when-not (.isHeldByCurrentThread lock)
+    (throw (IllegalStateException. "cleanup lock is not already held")))
   (let [request (if (empty? request) clean-options (set request))]
     (when (request "expire_nodes")
       (auto-expire-nodes! node-ttl db))
@@ -306,7 +310,8 @@
                      (throw e)))
           globals {:scf-read-db read-db
                    :scf-write-db write-db
-                   :pretty-print pretty-print}]
+                   :pretty-print pretty-print}
+          clean-lock (ReentrantLock.)]
       (transfer-old-messages! (conf/mq-endpoint config))
 
       (when-not disable-update-checking
@@ -330,10 +335,15 @@
                                   "purge_reports"))
                               "other"])]
             (interspaced gc-interval-millis
-                         #(try
-                            (clean-up write-db database what)
-                            (catch Exception ex
-                              (log/error ex)))
+                         (fn []
+                           (.lock clean-lock)
+                           (try
+                             (try
+                               (clean-up write-db clean-lock database what)
+                               (catch Exception ex
+                                 (log/error ex)))
+                             (finally
+                               (.unlock clean-lock))))
                          job-pool)))
         (when (pos? dlo-compression-interval-millis)
           (interspaced dlo-compression-interval-millis
@@ -342,7 +352,8 @@
         (assoc context
                :job-pool job-pool
                :broker broker
-               :shared-globals globals)))))
+               :shared-globals globals
+               :clen-up-lock clean-lock)))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
