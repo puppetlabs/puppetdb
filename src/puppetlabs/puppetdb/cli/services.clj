@@ -183,6 +183,20 @@
     (when (request "other")
       (garbage-collect! db))))
 
+(defn- clean-puppetdb [context config what]
+  "Implements the PuppetDBServer clean method, see the protocol for
+  further information."
+  (let [lock (:clean-lock context)]
+    (when (.tryLock lock)
+      (try
+        (clean-up (get-in context [:shared-globals :scf-write-db])
+                  lock
+                  (:database config)
+                  what)
+        true
+        (finally
+          (.unlock lock))))))
+
 (defn maybe-check-for-updates
   [config read-db]
   (if (conf/foss? config)
@@ -353,14 +367,23 @@
                :job-pool job-pool
                :broker broker
                :shared-globals globals
-               :clen-up-lock clean-lock)))))
+               :clean-lock clean-lock)))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
   (set-url-prefix [this url-prefix])
   (query [this version query-expr paging-options row-callback-fn]
     "Call `row-callback-fn' for matching rows.  The `paging-options' should
-    be a map containing :order_by, :offset, and/or :limit."))
+    be a map containing :order_by, :offset, and/or :limit.")
+  (clean [this] [this what]
+    "Performs maintenance.  If specified, what requests a subset of
+    the normal operations, and must itself be a subset of
+    #{\"expire_nodes\" \"purge_nodes\" \"purge_reports\" \"other\"}.
+    If what is not specified or is empty, performs all maintenance.
+    Returns false if some kind of maintenance was already in progress,
+    true otherwise.  Although the latter does not imply that all of
+    the operations were successful; consult the logs for more
+    information."))
 
 (defservice puppetdb-service
   "Defines a trapperkeeper service for PuppetDB; this service is responsible
@@ -395,7 +418,13 @@
                query-options (-> (get sc :shared-globals)
                                  (select-keys [:scf-read-db :warn-experimental])
                                  (assoc :url-prefix @(get sc :url-prefix)))]
-           (qeng/stream-query-result version query-expr paging-options query-options row-callback-fn))))
+           (qeng/stream-query-result version
+                                     query-expr
+                                     paging-options query-options
+                                     row-callback-fn)))
+
+  (clean [this] (clean this #{}))
+  (clean [this what] (clean-puppetdb (service-context this) (get-config) what)))
 
 (def ^{:arglists `([& args])
        :doc "Starts PuppetDB as a service via Trapperkeeper.  Aguments
