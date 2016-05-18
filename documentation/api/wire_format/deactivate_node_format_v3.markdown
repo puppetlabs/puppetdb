@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.0: Deactivate node wire format, version 3"
+title: "PuppetDB 4.1: Deactivate node wire format, version 3"
 layout: default
 canonical: "/puppetdb/latest/api/wire_format/deactivate_node_format_v3.html"
 ---
