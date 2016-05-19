@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.0 » Resource statuses (PE Only)"
+title: "PuppetDB 4.1 » Resource statuses (PE Only)"
 layout: default
 canonical: "/puppetdb/latest/resource_statuses.html"
 ---

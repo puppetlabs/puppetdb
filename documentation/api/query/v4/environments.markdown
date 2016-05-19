@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.0: Environments endpoint"
+title: "PuppetDB 4.1: Environments endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/environments.html"
 ---
