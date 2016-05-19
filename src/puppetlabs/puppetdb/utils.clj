@@ -331,3 +331,12 @@
      ~@body
      (catch Exception _#
        nil)))
+
+(defmacro noisy-future [& body]
+  `(future
+     (try
+       ~@body
+       (catch Exception ex#
+         (binding [*out* *err*]
+           (println ex#))
+         (throw ex#)))))
