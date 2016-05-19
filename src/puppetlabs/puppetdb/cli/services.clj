@@ -289,14 +289,20 @@
             dlo-compression-interval-millis (to-millis dlo-compression-interval)
             seconds-pos? (comp pos? to-seconds)
             db-maintenance-tasks (fn []
-                                   (do
-                                     (when (seconds-pos? node-ttl) (auto-expire-nodes! node-ttl write-db))
-                                     (when (seconds-pos? node-purge-ttl) (purge-nodes! node-purge-ttl write-db))
-                                     (when (seconds-pos? report-ttl) (sweep-reports! report-ttl write-db))
+                                   (try
+                                     (when (seconds-pos? node-ttl)
+                                       (auto-expire-nodes! node-ttl write-db))
+                                     (when (seconds-pos? node-purge-ttl)
+                                       (purge-nodes! node-purge-ttl write-db))
+                                     (when (seconds-pos? report-ttl)
+                                       (sweep-reports! report-ttl write-db))
                                      ;; Order is important here to ensure
                                      ;; anything referencing an env or resource
                                      ;; param is purged first
-                                     (garbage-collect! write-db)))]
+                                     (garbage-collect! write-db)
+                                     (catch Exception ex
+                                       (log/error ex)
+                                       (throw ex))))]
         (when (pos? gc-interval-millis)
           ;; Run database maintenance tasks seqentially to avoid
           ;; competition. Each task must handle its own errors.
