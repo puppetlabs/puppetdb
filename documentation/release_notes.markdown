@@ -18,12 +18,12 @@ canonical: "/puppetdb/latest/release_notes.html"
 -----
 
 PuppetDB 4.1.0 is a backward-compatible feature release that adds packages for
-Ubuntu Xenial - 16.04, adds preliminary support for HUP signal handling, and
-improves the speed of removing old reports and node expiration and purging.
+Ubuntu Xenial - 16.04, Ubuntu Wily - 15.10, adds preliminary support for HUP signal 
+handling, and improves the speed of removing old reports and node expiration and purging.
 
 ### New features / Enhancements
 
-* PuppetDB now has packages for Ubuntu Xenial - 16.04
+* PuppetDB now has packages for Ubuntu Xenial - 16.04 and Ubuntu Wily - 15.10
   ([PDB-2475](https://tickets.puppetlabs.com/browse/PDB-2475)).
 
 * Allow configuration of AciveMQ Broker's memoryLimit. For PuppetDB instances
