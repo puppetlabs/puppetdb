@@ -44,8 +44,12 @@
      maintain acceptable performance."
   (:require [clj-time.core :refer [ago]]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [compojure.core :as compojure]
+            [metrics.counters :as counters :refer [counter]]
+            [metrics.gauges :refer [gauge-fn]]
+            [metrics.timers :refer [time! timer]]
             [metrics.reporters.jmx :as jmx-reporter]
             [overtone.at-at :refer [mk-pool interspaced stop-and-reset-pool!]]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -155,8 +159,40 @@
 
 (def clean-options #{"expire_nodes" "purge_nodes" "purge_reports" "other"})
 
+(defn clean-options->status [options]
+  (str/join " " (map {"expire_nodes" "expiring-nodes"
+                      "purge_nodes" "purging-nodes"
+                      "purge_reports" "purging-reports"
+                      "other" "other"}
+                     (sort options))))
+
+(def admin-metrics-registry
+  (get-in metrics/metrics-registries [:admin :registry]))
+
+(def clean-status (atom ""))
+
+(def admin-metrics
+  {;;"expiring-nodes" | "expiring-nodes purging-reports" | ...
+   :cleaning (gauge-fn admin-metrics-registry ["cleaning"]
+                       #(deref clean-status))
+
+   :node-expirations (counter admin-metrics-registry "node-expirations")
+   :node-purges (counter admin-metrics-registry "node-purges")
+   :report-purges (counter admin-metrics-registry "report-purges")
+   :other-cleans (counter admin-metrics-registry "other-cleans")
+
+   :node-expiration-time (timer admin-metrics-registry ["node-expiration-time"])
+   :node-purge-time (timer admin-metrics-registry ["node-purge-time"])
+   :report-purge-time (timer admin-metrics-registry ["report-purge-time"])
+   :other-clean-time (timer admin-metrics-registry ["other-clean-time"])})
+
 (def clean-request-schema
   [(apply s/enum clean-options)])
+
+(defn- finishing-clean-up
+  "Normally does nothing, but supports testing."
+  []
+  true)
 
 (defn-validated clean-up
   "Cleans up the resources specified by request, or everything if
@@ -171,17 +207,31 @@
    request :- clean-request-schema]
   (when-not (.isHeldByCurrentThread lock)
     (throw (IllegalStateException. "cleanup lock is not already held")))
-  (let [request (if (empty? request) clean-options (set request))]
-    (when (request "expire_nodes")
-      (auto-expire-nodes! node-ttl db))
-    (when (request "purge_nodes")
-      (purge-nodes! node-purge-ttl db))
-    (when (request "purge_reports")
-      (sweep-reports! report-ttl db))
-    ;; It's important that this go last to ensure anything referencing
-    ;; an env or resource param is purged first.
-    (when (request "other")
-      (garbage-collect! db))))
+  (let [request (if (empty? request) clean-options (set request))
+        status (clean-options->status request)]
+    (try
+      (reset! clean-status status)
+      (when (request "expire_nodes")
+        (time! (:node-expiration-time admin-metrics)
+               (auto-expire-nodes! node-ttl db))
+        (counters/inc! (:node-expirations admin-metrics)))
+      (when (request "purge_nodes")
+        (time! (:node-purge-time admin-metrics)
+               (purge-nodes! node-purge-ttl db))
+        (counters/inc! (:node-purges admin-metrics)))
+      (when (request "purge_reports")
+        (time! (:report-purge-time admin-metrics)
+               (sweep-reports! report-ttl db))
+        (counters/inc! (:report-purges admin-metrics)))
+      ;; It's important that this go last to ensure anything referencing
+      ;; an env or resource param is purged first.
+      (when (request "other")
+        (time! (:other-clean-time admin-metrics)
+               (garbage-collect! db))
+        (counters/inc! (:other-cleans admin-metrics)))
+      (finally
+        (finishing-clean-up)
+        (reset! clean-status "")))))
 
 (defn- clean-puppetdb [context config what]
   "Implements the PuppetDBServer clean method, see the protocol for
