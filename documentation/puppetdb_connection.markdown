@@ -8,7 +8,6 @@ canonical: "/puppetdb/latest/puppetdb_connection.html"
 [connect_to_puppetdb]: ./connect_puppet_master.html
 [confdir]: /puppet/latest/reference/dirs_confdir.html
 [puppetdb_conf]: ./connect_puppet_master.html#edit-puppetdb\.conf
-[ha_guide]: ./ha_guide.html
 
 The `puppetdb.conf` file contains the hostname and port of the [PuppetDB][puppetdb_root] server. It is only used if you are using PuppetDB and have [connected your Puppet master to it][connect_to_puppetdb].
 
@@ -87,10 +86,6 @@ want to store information about unchanged resources in a report, set this value
 to `false`.
 
 The default value in PE is true.
-
-### High availability configuration (PE only)
-
-These settings are designed for use in a high-availability deployment of PuppetDB, available in Puppet Enterprise. While they may appear to work in other configurations, their use is discouraged. In particular, absent the synchronization support in Puppet Enterprise, multiple PuppetDB instances can easily diverge from each other due to normal transient network issues. See the [guide to PuppetDB high availability configuration][ha_guide] for detailed configuration information.
 
 #### `sticky_read_failover`
 
