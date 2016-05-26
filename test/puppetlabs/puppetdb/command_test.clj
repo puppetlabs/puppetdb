@@ -32,7 +32,8 @@
             [puppetlabs.puppetdb.time :as pt]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [clojure.core.async :as async]
-            [puppetlabs.kitchensink.core :as ks])
+            [puppetlabs.kitchensink.core :as ks]
+            [clojure.string :as str])
   (:import [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
 
@@ -185,15 +186,45 @@
             (let [log-output (atom [])]
               (binding [*logger-factory* (atom-logger log-output)]
                 (mql/handle-command-retry (make-cmd 1) nil publish))
-
               (is (= (get-in @log-output [0 1]) :debug))))
+
+          (testing "includes certname in retry log"
+            (let [log-output (atom [])]
+              (binding [*logger-factory* (atom-logger log-output)]
+                (mql/handle-command-retry (assoc (make-cmd 1) :payload {:certname "cats"}) nil publish))
+              (is (str/includes? (get-in @log-output [0 3]) "cats"))))
 
           (testing "to ERROR for later retries"
             (let [log-output (atom [])]
               (binding [*logger-factory* (atom-logger log-output)]
                 (mql/handle-command-retry (make-cmd mql/maximum-allowable-retries) nil publish))
-
               (is (= (get-in @log-output [0 1]) :error)))))))))
+
+(deftest command-failure-handler
+  (testing "Failure handler"
+    (with-redefs [mql/annotate-with-attempt (call-counter)]
+
+          (testing "includes certname in failure log"
+            (let [log-output (atom [])
+                  cmd (-> (make-cmd 1)
+                          (assoc :command {} :payload {:certname "cats"})
+                          (assoc-in [:annotations :id] 100))]
+              (binding [*logger-factory* (atom-logger log-output)]
+                (mql/handle-command-failure cmd (RuntimeException. "foo") (fn [msg e] nil)))
+              (is (str/includes? (get-in @log-output [0 3]) "cats")))))))
+
+(deftest command-discard-handler
+  (testing "Discard handler"
+    (with-redefs [mql/annotate-with-attempt (call-counter)]
+
+          (testing "includes certname in discard log"
+            (let [log-output (atom [])
+                  cmd (-> (make-cmd 1)
+                          (assoc :command {} :payload {:certname "cats"})
+                          (assoc-in [:annotations :id] 100))]
+              (binding [*logger-factory* (atom-logger log-output)]
+                (mql/handle-command-discard cmd (fn [msg e] nil)))
+              (is (str/includes? (get-in @log-output [0 3]) "cats")))))))
 
 (deftest test-error-with-stacktrace
   (with-redefs [metrics.meters/mark!  (call-counter)]
