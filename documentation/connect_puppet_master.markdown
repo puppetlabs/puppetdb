@@ -33,7 +33,7 @@ Currently, Puppet masters need additional Ruby plug-ins in order to use PuppetDB
 
 ### On platforms with packages
 
-[Enable the Puppet repo](/guides/puppetlabs_package_repositories.html#open-source-repositories) and then install the `puppetdb-termini` package:
+[Enable the Puppet Collection repo](/puppet/latest/reference/puppet_collections.html) and then install the `puppetdb-termini` package:
 
     $ sudo puppet resource package puppetdb-termini ensure=latest
 
