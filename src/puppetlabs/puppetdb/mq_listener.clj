@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.mq-listener
   (:import [javax.jms ExceptionListener JMSException MessageListener Session])
   (:require [clojure.tools.logging :as log]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -244,13 +245,14 @@
 (defn handle-command-discard
   [{:keys [command annotations] :as msg} discard]
   (let [attempts (count (:attempts annotations))
-        id       (:id annotations)]
-    (log/errorf "[%s] [%s] Exceeded max %d attempts" id command attempts)
+        id       (:id annotations)
+        certname (get-in msg [:payload :certname])]
+    (log/error (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command attempts certname))
     (discard msg nil)))
 
 (defn handle-parse-error
   [msg e discard]
-  (log/errorf e "Fatal error parsing command: %s" msg)
+  (log/error e (i18n/trs "Fatal error parsing command: {0}" msg))
   (discard msg e))
 
 (defn handle-command-failure
@@ -259,8 +261,9 @@
   [{:keys [command annotations] :as msg} e discard]
   (let [attempt (count (:attempts annotations))
         id      (:id annotations)
+        certname (get-in msg [:payload :certname])
         msg     (annotate-with-attempt msg e)]
-    (log/errorf e "[%s] [%s] Fatal error on attempt %d" id command attempt)
+    (log/error e (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command attempt certname))
     (discard msg e)))
 
 ;; The number of times a message can be retried before we discard it
@@ -285,12 +288,13 @@
   (mark! (cmd-metric command version :retried))
   (let [attempt (count (:attempts annotations))
         id      (:id annotations)
+        certname (get-in msg [:payload :certname])
         msg     (annotate-with-attempt msg e)
         n       (inc attempt)
         delay   (+ (Math/pow 2 (dec n))
                    (rand-int (Math/pow 2 n)))
-        error-msg (format "[%s] [%s] Retrying after attempt %d, due to: %s"
-                          id command attempt e)]
+        error-msg (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
+                            id command attempt certname e)]
     (if (> n (/ maximum-allowable-retries 4))
       (log/error e error-msg)
       (log/debug e error-msg))
