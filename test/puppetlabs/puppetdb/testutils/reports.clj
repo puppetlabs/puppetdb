@@ -44,7 +44,7 @@
   ([example-report timestamp]
    (store-example-report! example-report timestamp true))
   ([example-report timestamp update-latest-report?]
-   (let [example-report (reports/report-query->wire-v7 example-report)
+   (let [example-report (reports/report-query->wire-v8 example-report)
          report-hash (shash/report-identity-hash
                       (scf-store/normalize-report example-report))]
      (scf-store/maybe-activate-node! (:certname example-report) timestamp)

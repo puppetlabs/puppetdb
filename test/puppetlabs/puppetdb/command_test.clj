@@ -1247,9 +1247,20 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(def v8-report
+  (-> (:basic report-examples/reports)
+      reports/report-query->wire-v8))
+
+(def v7-report
+  (-> v8-report
+    (dissoc :producer)))
+
+(def v6-report
+  (-> v7-report
+    (dissoc :catalog_uuid :cached_catalog_status :code_id)))
+
 (def v5-report
   (-> (:basic report-examples/reports)
-      (assoc :environment "DEV")
       reports/report-query->wire-v5))
 
 (def v4-report
@@ -1259,11 +1270,35 @@
 
 (def store-report-name (command-names :store-report))
 
+(deftest store-v8-report-test
+  (let [command {:command store-report-name
+                 :version 8
+                 :payload v8-report}]
+    (with-test-db
+      (test-msg-handler command publish discard-dir
+        (is (= [(select-keys v8-report [:certname :producer])]
+               (-> (str "select certname, producer"
+                        "  from reports")
+                   query-to-vec)))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))))))
+
+(deftest store-v7-report-test
+  (let [command {:command store-report-name
+                 :version 7
+                 :payload v7-report}]
+    (with-test-db
+      (test-msg-handler command publish discard-dir
+        (is (= [(select-keys v7-report [:certname :catalog_uuid :cached_catalog_status :code_id])]
+               (->> (str "select certname, catalog_uuid, cached_catalog_status, code_id"
+                        "  from reports")
+                   query-to-vec
+                   (map (fn [row] (update row :catalog_uuid sutils/parse-db-uuid))))))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))))))
+
 (deftest store-v6-report-test
-  (let [v6-report (-> v5-report
-                      (update :resource_events reports/resource-events-v5->resources)
-                      (clojure.set/rename-keys {:resource_events :resources}))
-        command {:command store-report-name
+  (let [command {:command store-report-name
                  :version 6
                  :payload v6-report}]
     (with-test-db

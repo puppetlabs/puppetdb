@@ -458,6 +458,10 @@
       "producer_timestamp" {:type :timestamp
                             :queryable? true
                             :field :reports.producer_timestamp}
+      "producer"        {:type :string
+                         :queryable? true
+                         :field :reports.producer}
+
       "metrics" {:type :json
                  :queryable? false
                  :field {:select [(h/row-to-json :t)]
