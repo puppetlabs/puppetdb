@@ -34,7 +34,7 @@
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                     "replace catalog" 8 example-catalog)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "store report" 7 example-report)
+                                    "store report" 8 example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                     "replace facts" 4 example-facts)
 
@@ -78,7 +78,7 @@
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                       "replace catalog" 8 example-catalog)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "store report" 7 example-report)
+                                      "store report" 8 example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                     "replace facts" 4 example-facts)
 
@@ -116,7 +116,7 @@
                                      example-catalog2)
 
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                     "store report" 7 example-report)
+                                     "store report" 8 example-report)
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                      "replace facts" 4 example-facts)
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "bar.com"

@@ -29,7 +29,7 @@
   (-> (svc-utils/pdb-query-url)
       (svc-utils/get-reports certname)
       tur/munge-reports
-      reports/reports-query->wire-v7
+      reports/reports-query->wire-v8
       vec))
 
 (defn get-factsets [certname]
@@ -64,7 +64,7 @@
       :basic
       (assoc :certname example-certname)
       tur/munge-report
-      reports/report-query->wire-v7))
+      reports/report-query->wire-v8))
 
 (defn munge-tar-map
   [tar-map]

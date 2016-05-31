@@ -460,6 +460,21 @@
                   (map #(dissoc % :same))
                   set))))))
 
+(deftest test-add-producer-to-reports-catalogs-and-factsets-migration
+  (clear-db-for-testing!)
+  (fast-forward-to-migration! 45)
+  (let [before-migration (schema-info-map *db*)]
+    (apply-migration-for-testing! 46)
+    (let [schema-diff (diff-schema-maps before-migration (schema-info-map *db*))]
+      (is (= (set [{:same nil :left-only nil
+                    :right-only {:numeric_scale nil :column_default nil
+                                 :character_octet_length 1073741824 :datetime_precision nil
+                                 :nullable? "YES" :character_maximum_length nil
+                                 :numeric_precision nil :numeric_precision_radix nil
+                                 :data_type "text" :column_name "producer"
+                                 :table_name "reports"}}])
+             (set (:table-diff schema-diff)))))))
+
 (deftest test-migrate-from-unsupported-version
   (clear-db-for-testing!)
   (fast-forward-to-migration! 28)
