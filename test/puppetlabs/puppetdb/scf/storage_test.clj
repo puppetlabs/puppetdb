@@ -72,13 +72,15 @@
           timestamp1 (-> 2 days ago)
           facts2 (zipmap (take 11000 (repeatedly #(random/random-string 10)))
                          (take 11000 (repeatedly #(random/random-string 10))))
-          timestamp2 (-> 1 days ago)]
+          timestamp2 (-> 1 days ago)
+          producer "bar.com"]
       (add-certname! certname)
       (add-facts! {:certname certname
                    :values facts1
                    :timestamp timestamp1
                    :environment nil
-                   :producer_timestamp timestamp1})
+                   :producer_timestamp timestamp1
+                   :producer producer})
 
       (testing "10000 facts stored"
         (is (= 10000
@@ -90,7 +92,8 @@
                       :values facts2
                       :timestamp timestamp2
                       :environment nil
-                      :producer_timestamp timestamp2})
+                      :producer_timestamp timestamp2
+                      :producer producer})
 
       (testing "11000 facts stored"
         (is (= 11000
@@ -105,14 +108,16 @@
                  "foo#~bar" "baz"
                  "\"foo" "bar"
                  "foo#~" "bar"
-                 "foo" "bar"}]
+                 "foo" "bar"}
+          producer "bar.com"]
       (add-certname! certname)
 
       (add-facts! {:certname certname
                    :values facts
                    :timestamp previous-time
                    :environment nil
-                   :producer_timestamp previous-time})
+                   :producer_timestamp previous-time
+                   :producer producer})
       (let [stored-names (->> (jdbc/query ["SELECT name from fact_paths"])
                               (map :name)
                               set)]
@@ -125,7 +130,8 @@
                  "fqdn" "myhost.mydomain.com"
                  "hostname" "myhost"
                  "kernel" "Linux"
-                 "operatingsystem" "Debian"}]
+                 "operatingsystem" "Debian"}
+          producer "bar.com"]
       (add-certname! certname)
 
       (is (nil?
@@ -137,7 +143,8 @@
                    :values facts
                    :timestamp previous-time
                    :environment nil
-                   :producer_timestamp previous-time})
+                   :producer_timestamp previous-time
+                   :producer producer})
       (testing "should have entries for each fact"
         (is (= (query-to-vec
                 "SELECT fp.path as name,
@@ -181,7 +188,8 @@
                              :values new-facts
                              :environment "DEV"
                              :producer_timestamp reference-time
-                             :timestamp reference-time})
+                             :timestamp reference-time
+                             :producer producer})
             (testing "should have only the new facts"
               (is (= (query-to-vec
                       "SELECT fp.path as name,
@@ -230,7 +238,8 @@
                          :values facts
                          :environment "DEV"
                          :producer_timestamp (now)
-                         :timestamp (now)})
+                         :timestamp (now)
+                         :producer producer})
         (is (= facts (factset-map "some_certname"))))
 
       (testing "replacing all facts with new ones"
@@ -239,12 +248,14 @@
                      :values facts
                      :timestamp previous-time
                      :environment nil
-                     :producer_timestamp previous-time})
+                     :producer_timestamp previous-time
+                     :producer nil})
         (replace-facts! {:certname certname
                          :values {"foo" "bar"}
                          :environment "DEV"
                          :producer_timestamp (now)
-                         :timestamp (now)})
+                         :timestamp (now)
+                         :producer producer})
         (is (= {"foo" "bar"} (factset-map "some_certname"))))
 
       (testing "replace-facts with only additions"
@@ -253,7 +264,8 @@
                            :values (assoc fact-map "one more" "here")
                            :environment "DEV"
                            :producer_timestamp (now)
-                           :timestamp (now)})
+                           :timestamp (now)
+                           :producer producer})
           (is (= (assoc fact-map  "one more" "here")
                  (factset-map "some_certname")))))
 
@@ -263,7 +275,8 @@
                            :values fact-map
                            :environment "DEV"
                            :producer_timestamp (now)
-                           :timestamp (now)})
+                           :timestamp (now)
+                           :producer producer})
           (is (= fact-map
                  (factset-map "some_certname")))))
       (testing "stable hash when no facts change"
@@ -273,14 +286,16 @@
                            :values fact-map
                            :environment "DEV"
                            :producer_timestamp (now)
-                           :timestamp (now)})
+                           :timestamp (now)
+                           :producer producer})
           (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
             (is (= old-hash new-hash)))
           (replace-facts! {:certname certname
                            :values (assoc fact-map "another thing" "goes here")
                            :environment "DEV"
                            :producer_timestamp (now)
-                           :timestamp (now)})
+                           :timestamp (now)
+                           :producer producer})
           (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
             (is (not= old-hash new-hash))))))))
 
@@ -291,7 +306,8 @@
                  "fqdn" "myhost.mydomain.com"
                  "hostname" "myhost"
                  "kernel" "Linux"
-                 "operatingsystem" "Debian"}]
+                 "operatingsystem" "Debian"}
+          producer "bar.com"]
       (add-certname! certname)
 
       (is (nil?
@@ -304,7 +320,8 @@
                    :values facts
                    :timestamp previous-time
                    :environment "PROD"
-                   :producer_timestamp previous-time})
+                   :producer_timestamp previous-time
+                   :producer producer})
 
       (testing "should have entries for each fact"
         (is (= facts
@@ -334,7 +351,8 @@
         :values facts
         :timestamp (-> 1 days ago)
         :environment "DEV"
-        :producer_timestamp (-> 1 days ago)})
+        :producer_timestamp (-> 1 days ago)
+        :producer producer})
 
       (testing "should have the same entries for each fact"
         (is (= facts
@@ -360,7 +378,7 @@
 (deftest fact-path-value-gc
   (letfn [(facts-now [c v]
             {:certname c :values v
-             :environment nil :timestamp (now) :producer_timestamp (now)})
+             :environment nil :timestamp (now) :producer_timestamp (now) :producer nil})
           (paths [& fact-sets]
             (set (for [k (mapcat keys fact-sets)] {:path k :name k :depth 0})))
           (values [& fact-sets] (set (mapcat vals fact-sets)))
@@ -761,7 +779,8 @@
                  :values facts
                  :timestamp (-> 2 days ago)
                  :environment "ENV3"
-                 :producer_timestamp (-> 2 days ago)}))
+                 :producer_timestamp (-> 2 days ago)
+                 :producer "bar.com"}))
   (let [factset-id (:id (first (query-to-vec ["SELECT id from factsets"])))
         fact-value-ids (set (map :id (query-to-vec ["SELECT id from fact_values"])))]
 
@@ -1244,7 +1263,8 @@
                            :values {"foo" "bar"}
                            :environment "DEV"
                            :producer_timestamp (-> 10 days ago)
-                           :timestamp (-> 2 days ago)})}]
+                           :timestamp (-> 2 days ago)
+                           :producer "baz.com"})}]
       (doseq [ops (subsets (keys mutators))]
         (with-test-db
           (add-certname! "node1")

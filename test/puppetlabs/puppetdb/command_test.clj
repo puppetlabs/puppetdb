@@ -616,6 +616,7 @@
                                      :values {"x" "24" "y" "25" "z" "26"}
                                      :timestamp yesterday
                                      :producer_timestamp yesterday
+                                     :producer "bar.com"
                                      :environment "DEV"}))
 
         (testing "should replace the facts"
@@ -658,6 +659,7 @@
                                  :values {"x" "24" "y" "25" "z" "26"}
                                  :timestamp tomorrow
                                  :producer_timestamp (to-timestamp (now))
+                                 :producer "bar.com"
                                  :environment "DEV"}))
 
         (testing "should ignore the message"
@@ -828,7 +830,20 @@
 
 (deftest replace-facts-bad-payload
   (let [bad-command {:command (command-names :replace-facts)
-                     :version 4
+                     :version 5
+                     :payload "bad stuff"}]
+    (dotestseq [version fact-versions
+                :let [command bad-command]]
+      (testing "should discard the message"
+        (with-test-db
+          (test-msg-handler command publish discard-dir
+            (is (empty? (query-to-vec "SELECT * FROM facts")))
+            (is (= 0 (times-called publish)))
+            (is (seq (fs/list-dir discard-dir)))))))))
+
+(deftest replace-facts-bad-payload-v2
+  (let [bad-command {:command (command-names :replace-facts)
+                     :version 2
                      :payload "bad stuff"}]
     (dotestseq [version fact-versions
                 :let [command bad-command]]
@@ -878,7 +893,8 @@
                                  :values (:values facts)
                                  :timestamp (-> 2 days ago)
                                  :environment nil
-                                 :producer_timestamp (-> 2 days ago)}))
+                                 :producer_timestamp (-> 2 days ago)
+                                 :producer "bar.com"}))
 
         (with-redefs [scf-store/update-facts!
                       (fn [fact-data]
@@ -921,6 +937,8 @@
   ;; violation when the two updates left behind an orphaned row.
   (let [certname-1 "some_certname1"
         certname-2 "some_certname2"
+        producer-1 "some_producer1"
+        producer-2 "some_producer2"
         ;; facts for server 1, has the same "mytimestamp" value as the
         ;; facts for server 2
         facts-1a {:certname certname-1
@@ -928,13 +946,15 @@
                   :values {"domain" "mydomain1.com"
                            "operatingsystem" "Debian"
                            "mytimestamp" "1"}
-                  :producer_timestamp (-> 2 days ago)}
+                  :producer_timestamp (-> 2 days ago)
+                  :producer producer-1}
         facts-2a {:certname certname-2
                   :environment nil
                   :values {"domain" "mydomain2.com"
                            "operatingsystem" "Debian"
                            "mytimestamp" "1"}
-                  :producer_timestamp (-> 2 days ago)}
+                  :producer_timestamp (-> 2 days ago)
+                  :producer producer-2}
 
         ;; same facts as before, but now certname-1 has a different
         ;; fact value for mytimestamp (this will force a new fact_value
@@ -944,7 +964,8 @@
                   :values {"domain" "mydomain1.com"
                            "operatingsystem" "Debian"
                            "mytimestamp" "1b"}
-                  :producer_timestamp (-> 1 days ago)}
+                  :producer_timestamp (-> 1 days ago)
+                  :producer producer-1}
 
         ;; with this, certname-1 and certname-2 now have their own
         ;; fact_value for mytimestamp that is different from the
@@ -954,7 +975,8 @@
                   :values {"domain" "mydomain2.com"
                            "operatingsystem" "Debian"
                            "mytimestamp" "2b"}
-                  :producer_timestamp (-> 1 days ago)}
+                  :producer_timestamp (-> 1 days ago)
+                  :producer producer-2}
 
         ;; this fact set will disassociate mytimestamp from the facts
         ;; associated to certname-1, it will do the same thing for
@@ -963,12 +985,14 @@
                   :environment nil
                   :values {"domain" "mydomain1.com"
                            "operatingsystem" "Debian"}
-                  :producer_timestamp (now)}
+                  :producer_timestamp (now)
+                  :producer producer-1}
         facts-2c {:certname certname-2
                   :environment nil
                   :values {"domain" "mydomain2.com"
                            "operatingsystem" "Debian"}
-                  :producer_timestamp (now)}
+                  :producer_timestamp (now)
+                  :producer producer-2}
         command-1b   {:command (command-names :replace-facts)
                       :version 4
                       :payload facts-1b}
@@ -1001,12 +1025,14 @@
                                :values (:values facts-1a)
                                :timestamp (now)
                                :environment nil
-                               :producer_timestamp (:producer_timestamp facts-1a)})
+                               :producer_timestamp (:producer_timestamp facts-1a)
+                               :producer producer-1})
         (scf-store/add-facts! {:certname certname-2
                                :values (:values facts-2a)
                                :timestamp (now)
                                :environment nil
-                               :producer_timestamp (:producer_timestamp facts-2a)}))
+                               :producer_timestamp (:producer_timestamp facts-2a)
+                               :producer producer-2}))
       ;; At this point, there will be 4 fact_value rows, 1 for
       ;; mytimestamp, 1 for the operatingsystem, 2 for domain
       (with-redefs [scf-store/delete-pending-path-id-orphans!

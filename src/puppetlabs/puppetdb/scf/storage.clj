@@ -1140,7 +1140,7 @@
   "Given a certname and a map of fact names to values, store records for those
   facts associated with the certname."
   ([fact-data] (add-facts! fact-data true))
-  ([{:keys [certname values environment timestamp producer_timestamp]
+  ([{:keys [certname values environment timestamp producer_timestamp producer]
      :as fact-data} :- facts-schema
     include-hash? :- s/Bool]
    (jdbc/with-db-transaction []
@@ -1150,11 +1150,11 @@
        {:certname certname
         :timestamp (to-timestamp timestamp)
         :environment_id (ensure-environment environment)
-        :producer_timestamp (to-timestamp producer_timestamp)}
+        :producer_timestamp (to-timestamp producer_timestamp)
+        :producer producer}
        (when include-hash?
          {:hash (sutils/munge-hash-for-storage
-                 (shash/generic-identity-hash
-                  (dissoc fact-data :timestamp :producer_timestamp)))})))
+                 (shash/fact-identity-hash fact-data))})))
     ;; Ensure that all the required paths and values exist, and then
     ;; insert the new facts.
     (let [paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
@@ -1172,7 +1172,7 @@
   "Given a certname, querys the DB for existing facts for that
    certname and will update, delete or insert the facts as necessary
    to match the facts argument. (cf. add-facts!)"
-  [{:keys [certname values environment timestamp producer_timestamp] :as fact-data}
+  [{:keys [certname values environment timestamp producer_timestamp producer] :as fact-data}
    :- facts-schema]
 
   (jdbc/with-db-transaction []
@@ -1220,8 +1220,8 @@
                    {:timestamp (to-timestamp timestamp)
                     :environment_id (ensure-environment environment)
                     :producer_timestamp (to-timestamp producer_timestamp)
-                    :hash (-> (dissoc fact-data :timestamp :producer_timestamp)
-                              shash/generic-identity-hash
+                    :hash (-> fact-data
+                              shash/fact-identity-hash
                               sutils/munge-hash-for-storage)}
                    ["id=?" factset-id]))))
 
@@ -1304,7 +1304,7 @@
    received-timestamp :- pls/Timestamp
    update-latest-report? :- s/Bool]
   (time! (:store-report performance-metrics)
-         (let [{:keys [puppet_version certname report_format configuration_version producer 
+         (let [{:keys [puppet_version certname report_format configuration_version producer
                        producer_timestamp start_time end_time transaction_uuid environment
                        status noop metrics logs resources resource_events catalog_uuid
                        code_id cached_catalog_status]

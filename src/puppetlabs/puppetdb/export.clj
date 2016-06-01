@@ -27,7 +27,7 @@
   ;;  version of a command is.  We should improve that.
   {:replace_catalog 7
    :store_report 8
-   :replace_facts 4})
+   :replace_facts 5})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utility Functions
@@ -64,7 +64,7 @@
    "reports" {:query->wire-fn reports/reports-query->wire-v8
              :anonymize-fn anon/anonymize-report
              :json-encoded-fields [:metrics :logs :resource_events :resources]}
-   "factsets" {:query->wire-fn factsets/factsets-query->wire-v4
+   "factsets" {:query->wire-fn factsets/factsets-query->wire-v5
               :anonymize-fn anon/anonymize-facts
               :json-encoded-fields [:facts]}})
 

@@ -7,7 +7,8 @@
             [puppetlabs.puppetdb.examples :refer [catalogs]]
             [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
-            [puppetlabs.puppetdb.reports :as reports]))
+            [puppetlabs.puppetdb.reports :as reports]
+            [clj-time.core :refer [now]]))
 
 (deftest hash-computation
   (testing "generic-identity-*"
@@ -155,7 +156,24 @@
 
       (testing "should return the same value twice"
         (is (= (report-identity-hash sample)
-               (report-identity-hash sample)))))))
+               (report-identity-hash sample))))))
+
+  (testing "fact-identity-hash"
+    (let [sample {:certname "foo.com"
+                  :values {"domain" "mydomain.com"
+                           "fqdn" "myhost.mydomain.com"
+                           "hostname" "myhost"
+                           "kernel" "Linux"
+                           "operatingsystem" "Debian"}
+                  :environment nil}]
+
+      (testing "should return sorted predictable string output"
+        (is (= "d132145bbef13a1e6d615a6d8db22fbfe870ecf2"
+               (fact-identity-hash sample))))
+
+      (testing "should return the same value twice"
+        (is (= (fact-identity-hash sample)
+               (fact-identity-hash sample)))))))
 
 (deftest catalog-dedupe
   (testing "Catalogs with the same metadata but different content should have different hashes"

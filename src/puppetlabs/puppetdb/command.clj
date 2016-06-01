@@ -104,7 +104,7 @@
   (set (range min-version (inc max-version))))
 
 (def supported-command-versions
-  {"replace facts" (version-range 2 4)
+  {"replace facts" (version-range 2 5)
    "replace catalog" (version-range 4 8)
    "store report" (version-range 3 8)
    "deactivate node" (version-range 1 3)})
@@ -276,12 +276,12 @@
 
 (defn replace-facts [{:keys [payload version annotations] :as command} db]
   (let [{received-timestamp :received} annotations
-        latest-version-of-payload (case version
-                                    2 (fact/wire-v2->wire-v4 payload received-timestamp)
-                                    3 (fact/wire-v3->wire-v4 payload)
-                                    payload)
         validated-payload (upon-error-throw-fatality
-                           (-> latest-version-of-payload
+                           (-> (case version
+                                 2 (fact/wire-v2->wire-v5 payload received-timestamp)
+                                 3 (fact/wire-v3->wire-v5 payload)
+                                 4 (fact/wire-v4->wire-v5 payload)
+                                 payload)
                                (update :values utils/stringify-keys)
                                (update :producer_timestamp to-timestamp)
                                (assoc :timestamp received-timestamp)))]

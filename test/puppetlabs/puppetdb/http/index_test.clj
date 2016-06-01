@@ -38,17 +38,20 @@
                            :values facts1
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo1"})
     (scf-store/add-facts! {:certname "host2"
                            :values facts2
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo2"})
     (scf-store/add-facts! {:certname "host3"
                            :values facts3
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo3"})
     (scf-store/deactivate-node! "host3")
 
     (testing "invalid from query"
@@ -259,7 +262,8 @@
                         "baz" 3
                         "match" "match"}
                :timestamp right-now
-               :producer_timestamp right-now}]
+               :producer_timestamp right-now
+               :producer "bar.com"}]
     (with-test-db
       (scf-store/add-certname! "foo.local")
       (scf-store/add-facts! facts)
