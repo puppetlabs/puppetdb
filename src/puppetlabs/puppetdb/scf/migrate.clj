@@ -1052,8 +1052,8 @@
   []
   (jdbc/do-commands
     "ALTER TABLE reports ADD COLUMN producer TEXT"
-    "ALTER TABLE catalogs ADD COLUMN producer TEXT"
-    "ALTER TABLE factsets ADD COLUMN producer TEXT"))
+    #_"ALTER TABLE catalogs ADD COLUMN producer TEXT"
+    #_"ALTER TABLE factsets ADD COLUMN producer TEXT"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
