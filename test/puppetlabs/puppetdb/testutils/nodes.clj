@@ -51,7 +51,8 @@
                                     "uptime_seconds" 10000}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
     (scf-store/add-facts! {:certname web2
                            :values {"ipaddress" "192.168.1.101"
                                     "hostname" "web2"
@@ -59,21 +60,24 @@
                                     "uptime_seconds" 13000}
                            :timestamp (plus (now) (seconds 1))
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
     (scf-store/add-facts! {:certname puppet
                            :values {"ipaddress" "192.168.1.110"
                                     "hostname" "puppet" "operatingsystem"
                                     "RedHat" "uptime_seconds" 15000}
                            :timestamp (plus (now) (seconds 2))
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
     (scf-store/add-facts! {:certname db
                            :values {"ipaddress" "192.168.1.111"
                                     "hostname" "db"
                                     "operatingsystem" "Debian"}
                            :timestamp (plus (now) (seconds 3))
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
     (scf-store/replace-catalog! (assoc web1-catalog :certname web1) (now))
     (scf-store/replace-catalog! (assoc puppet-catalog :certname puppet) (plus (now) (seconds 1)))
     (scf-store/replace-catalog! (assoc db-catalog :certname db) (plus (now) (seconds 2)))

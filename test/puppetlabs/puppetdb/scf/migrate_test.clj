@@ -472,7 +472,14 @@
                                  :nullable? "YES" :character_maximum_length nil
                                  :numeric_precision nil :numeric_precision_radix nil
                                  :data_type "text" :column_name "producer"
-                                 :table_name "reports"}}])
+                                 :table_name "reports"}}
+                    {:same nil :left-only nil
+                    :right-only {:numeric_scale nil :column_default nil
+                                 :character_octet_length 1073741824 :datetime_precision nil
+                                 :nullable? "YES" :character_maximum_length nil
+                                 :numeric_precision nil :numeric_precision_radix nil
+                                 :data_type "text" :column_name "producer"
+                                 :table_name "factsets"}}])
              (set (:table-diff schema-diff)))))))
 
 (deftest test-migrate-from-unsupported-version

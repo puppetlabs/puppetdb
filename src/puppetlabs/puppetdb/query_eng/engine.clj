@@ -886,6 +886,9 @@
       "producer_timestamp" {:type :timestamp
                             :queryable? true
                             :field :factsets.producer_timestamp}
+      "producer" {:type :string
+                  :queryable? true
+                  :field :factsets.producer}
       "environment" {:type :string
                      :queryable? true
                      :field :environments.environment}}

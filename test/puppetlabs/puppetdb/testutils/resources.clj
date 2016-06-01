@@ -54,7 +54,8 @@
                              "uptime_seconds" 50000}
                     :timestamp (to-timestamp (to-timestamp (now)))
                     :environment "DEV"
-                    :producer_timestamp (to-timestamp (now))})
+                    :producer_timestamp (to-timestamp (now))
+                    :producer "foo.com"})
        (add-facts! {:certname "two.local"
                     :values {"operatingsystem" "Ubuntu"
                              "kernel" "Linux"
@@ -62,7 +63,8 @@
                              "message" "hello"}
                     :timestamp (to-timestamp (now))
                     :environment "DEV"
-                    :producer_timestamp (to-timestamp (now))})
+                    :producer_timestamp (to-timestamp (now))
+                    :producer "foo.com"})
 
        (jdbc/insert! :latest_catalogs {:catalog_id 1 :certname_id 1})
        (jdbc/insert! :latest_catalogs {:catalog_id 2 :certname_id 2})
