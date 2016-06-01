@@ -50,3 +50,7 @@ checkouts
 /resources/puppetlabs/puppetdb/*.class
 /resources/locales.clj
 /mp-*
+
+# OS-generated
+.DS_Store
+.DS_Store?

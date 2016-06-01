@@ -151,7 +151,7 @@
   configuration version, timestamps, events).
   "
   [{:keys [certname puppet_version report_format configuration_version
-           start_time end_time producer_timestamp resource_events transaction_uuid] :as report}]
+           start_time end_time producer_timestamp producer resource_events transaction_uuid] :as report}]
   (generic-identity-hash
    {:certname certname
     :puppet_version puppet_version
@@ -160,5 +160,6 @@
     :start_time start_time
     :end_time end_time
     :producer_timestamp producer_timestamp
+    :producer producer
     :resource_events (sort (map resource-event-identity-string resource_events))
     :transaction_uuid transaction_uuid}))

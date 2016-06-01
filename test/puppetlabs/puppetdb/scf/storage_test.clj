@@ -1404,7 +1404,7 @@
 (let [timestamp (now)
       {:keys [certname] :as report} (:basic reports)
       report-hash (-> report
-                      report/report-query->wire-v7
+                      report/report-query->wire-v8
                       normalize-report
                       shash/report-identity-hash)]
 
@@ -1442,6 +1442,13 @@
     (is (= (query-to-vec ["SELECT certname, environment_id FROM reports"])
            [{:certname (:certname report)
              :environment_id (environment-id "DEV")}])))
+
+ (deftest-db report-storage-with-producer
+   (store-example-report! (assoc report :producer "bar.com") timestamp)
+
+   (is (= (query-to-vec ["SELECT certname, producer FROM reports"])
+          [{:certname (:certname report)
+            :producer "bar.com"}])))
 
   (deftest-db report-storage-with-status
     (is (nil? (status-id "unchanged")))

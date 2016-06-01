@@ -1048,6 +1048,13 @@
   (jdbc/do-commands
     "CREATE INDEX idx_certnames_latest_report_id on certnames(latest_report_id)"))
 
+(defn add-producer-to-reports-catalogs-and-factsets
+  []
+  (jdbc/do-commands
+    "ALTER TABLE reports ADD COLUMN producer TEXT"
+    #_"ALTER TABLE catalogs ADD COLUMN producer TEXT"
+    #_"ALTER TABLE factsets ADD COLUMN producer TEXT"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1070,7 +1077,8 @@
    42 add-support-for-historical-catalogs
    43 add-indexes-for-reports-summary-query
    44 add-catalog-uuid-to-reports-and-catalogs
-   45 index-certnames-latest-report-id})
+   45 index-certnames-latest-report-id
+   46 add-producer-to-reports-catalogs-and-factsets})
 
 (def desired-schema-version (apply max (keys migrations)))
 

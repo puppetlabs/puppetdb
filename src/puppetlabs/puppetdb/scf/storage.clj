@@ -1304,7 +1304,7 @@
    received-timestamp :- pls/Timestamp
    update-latest-report? :- s/Bool]
   (time! (:store-report performance-metrics)
-         (let [{:keys [puppet_version certname report_format configuration_version
+         (let [{:keys [puppet_version certname report_format configuration_version producer 
                        producer_timestamp start_time end_time transaction_uuid environment
                        status noop metrics logs resources resource_events catalog_uuid
                        code_id cached_catalog_status]
@@ -1325,6 +1325,7 @@
                             :certname certname
                             :report_format report_format
                             :configuration_version configuration_version
+                            :producer producer
                             :producer_timestamp producer_timestamp
                             :start_time start_time
                             :end_time end_time
