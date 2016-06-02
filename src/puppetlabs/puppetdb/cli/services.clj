@@ -44,8 +44,12 @@
      maintain acceptable performance."
   (:require [clj-time.core :refer [ago]]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [compojure.core :as compojure]
+            [metrics.counters :as counters :refer [counter]]
+            [metrics.gauges :refer [gauge-fn]]
+            [metrics.timers :refer [time! timer]]
             [metrics.reporters.jmx :as jmx-reporter]
             [overtone.at-at :refer [mk-pool interspaced stop-and-reset-pool!]]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -63,14 +67,18 @@
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.time :refer [to-seconds to-millis parse-period
                                               format-period period?]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.trapperkeeper.core :refer [defservice] :as tk]
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [robert.hooke :as rh]
+            [schema.core :as s]
             [slingshot.slingshot :refer [throw+ try+]])
-  (:import [javax.jms ExceptionListener]))
+  (:import [javax.jms ExceptionListener]
+           [java.util.concurrent.locks ReentrantLock]
+           [org.joda.time Period]))
 
 (def cli-description "Main PuppetDB daemon")
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
@@ -97,7 +105,8 @@
       (log/error e "Error while deactivating stale nodes"))))
 
 (defn purge-nodes!
-  "Delete nodes which have been *deactivated or expired* longer than `node-purge-ttl`."
+  "Delete nodes which have been *deactivated or expired* longer than
+  `node-purge-ttl`."
   [node-purge-ttl db]
   {:pre [(map? db)
          (period? node-purge-ttl)]}
@@ -147,6 +156,96 @@
       (scf-store/garbage-collect! db))
     (catch Exception e
       (log/error e "Error during garbage collection"))))
+
+(def clean-options #{"expire_nodes" "purge_nodes" "purge_reports" "other"})
+
+(defn clean-options->status [options]
+  (str/join " " (map {"expire_nodes" "expiring-nodes"
+                      "purge_nodes" "purging-nodes"
+                      "purge_reports" "purging-reports"
+                      "other" "other"}
+                     (sort options))))
+
+(def admin-metrics-registry
+  (get-in metrics/metrics-registries [:admin :registry]))
+
+(def clean-status (atom ""))
+
+(def admin-metrics
+  {;;"expiring-nodes" | "expiring-nodes purging-reports" | ...
+   :cleaning (gauge-fn admin-metrics-registry ["cleaning"]
+                       #(deref clean-status))
+
+   :node-expirations (counter admin-metrics-registry "node-expirations")
+   :node-purges (counter admin-metrics-registry "node-purges")
+   :report-purges (counter admin-metrics-registry "report-purges")
+   :other-cleans (counter admin-metrics-registry "other-cleans")
+
+   :node-expiration-time (timer admin-metrics-registry ["node-expiration-time"])
+   :node-purge-time (timer admin-metrics-registry ["node-purge-time"])
+   :report-purge-time (timer admin-metrics-registry ["report-purge-time"])
+   :other-clean-time (timer admin-metrics-registry ["other-clean-time"])})
+
+(def clean-request-schema
+  [(apply s/enum clean-options)])
+
+(defn- finishing-clean-up
+  "Normally does nothing, but supports testing."
+  []
+  true)
+
+(defn-validated clean-up
+  "Cleans up the resources specified by request, or everything if
+  request is empty?."
+  [db
+   lock :- ReentrantLock
+   {:keys [node-ttl node-purge-ttl report-ttl]} :- {:node-ttl Period
+                                                    :node-purge-ttl Period
+                                                    :report-ttl Period
+                                                    s/Keyword s/Any}
+   ;; Later, the values might be maps, i.e. {:limit 1000}
+   request :- clean-request-schema]
+  (when-not (.isHeldByCurrentThread lock)
+    (throw (IllegalStateException. "cleanup lock is not already held")))
+  (let [request (if (empty? request) clean-options (set request))
+        status (clean-options->status request)]
+    (try
+      (reset! clean-status status)
+      (when (request "expire_nodes")
+        (time! (:node-expiration-time admin-metrics)
+               (auto-expire-nodes! node-ttl db))
+        (counters/inc! (:node-expirations admin-metrics)))
+      (when (request "purge_nodes")
+        (time! (:node-purge-time admin-metrics)
+               (purge-nodes! node-purge-ttl db))
+        (counters/inc! (:node-purges admin-metrics)))
+      (when (request "purge_reports")
+        (time! (:report-purge-time admin-metrics)
+               (sweep-reports! report-ttl db))
+        (counters/inc! (:report-purges admin-metrics)))
+      ;; It's important that this go last to ensure anything referencing
+      ;; an env or resource param is purged first.
+      (when (request "other")
+        (time! (:other-clean-time admin-metrics)
+               (garbage-collect! db))
+        (counters/inc! (:other-cleans admin-metrics)))
+      (finally
+        (finishing-clean-up)
+        (reset! clean-status "")))))
+
+(defn- clean-puppetdb [context config what]
+  "Implements the PuppetDBServer clean method, see the protocol for
+  further information."
+  (let [lock (:clean-lock context)]
+    (when (.tryLock lock)
+      (try
+        (clean-up (get-in context [:shared-globals :scf-write-db])
+                  lock
+                  (:database config)
+                  what)
+        true
+        (finally
+          (.unlock lock))))))
 
 (defn maybe-check-for-updates
   [config read-db]
@@ -242,8 +341,7 @@
                 database read-database
                 puppetdb command-processing]} config
         {:keys [pretty-print]} developer
-        {:keys [gc-interval dlo-compression-interval node-ttl
-                node-purge-ttl report-ttl]} database
+        {:keys [gc-interval dlo-compression-interval]} database
         {:keys [dlo-compression-threshold]} command-processing
         {:keys [disable-update-checking]} puppetdb
 
@@ -276,7 +374,8 @@
                      (throw e)))
           globals {:scf-read-db read-db
                    :scf-write-db write-db
-                   :pretty-print pretty-print}]
+                   :pretty-print pretty-print}
+          clean-lock (ReentrantLock.)]
       (transfer-old-messages! (conf/mq-endpoint config))
 
       (when-not disable-update-checking
@@ -285,21 +384,31 @@
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)
             gc-interval-millis (to-millis gc-interval)
-            dlo-compression-interval-millis (to-millis dlo-compression-interval)
-            seconds-pos? (comp pos? to-seconds)
-            db-maintenance-tasks (fn []
-                                   (do
-                                     (when (seconds-pos? node-ttl) (auto-expire-nodes! node-ttl write-db))
-                                     (when (seconds-pos? node-purge-ttl) (purge-nodes! node-purge-ttl write-db))
-                                     (when (seconds-pos? report-ttl) (sweep-reports! report-ttl write-db))
-                                     ;; Order is important here to ensure
-                                     ;; anything referencing an env or resource
-                                     ;; param is purged first
-                                     (garbage-collect! write-db)))]
+            dlo-compression-interval-millis (to-millis dlo-compression-interval)]
         (when (pos? gc-interval-millis)
-          ;; Run database maintenance tasks seqentially to avoid
-          ;; competition. Each task must handle its own errors.
-          (interspaced gc-interval-millis db-maintenance-tasks job-pool))
+          (let [seconds-pos? (comp pos? to-seconds)
+                what (filter identity
+                             [(when-let [node-ttl (:node-ttl database)]
+                                (when (seconds-pos? node-ttl)
+                                  "expire_nodes"))
+                              (when-let [node-purge-ttl (:node-purge-ttl database)]
+                                (when (seconds-pos? node-purge-ttl)
+                                  "purge_nodes"))
+                              (when-let [report-ttl (:report-ttl database)]
+                                (when (seconds-pos? report-ttl)
+                                  "purge_reports"))
+                              "other"])]
+            (interspaced gc-interval-millis
+                         (fn []
+                           (.lock clean-lock)
+                           (try
+                             (try
+                               (clean-up write-db clean-lock database what)
+                               (catch Exception ex
+                                 (log/error ex)))
+                             (finally
+                               (.unlock clean-lock))))
+                         job-pool)))
         (when (pos? dlo-compression-interval-millis)
           (interspaced dlo-compression-interval-millis
                        #(compress-dlo! dlo-compression-threshold discard-dir)
@@ -307,14 +416,24 @@
         (assoc context
                :job-pool job-pool
                :broker broker
-               :shared-globals globals)))))
+               :shared-globals globals
+               :clean-lock clean-lock)))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])
   (set-url-prefix [this url-prefix])
   (query [this version query-expr paging-options row-callback-fn]
     "Call `row-callback-fn' for matching rows.  The `paging-options' should
-    be a map containing :order_by, :offset, and/or :limit."))
+    be a map containing :order_by, :offset, and/or :limit.")
+  (clean [this] [this what]
+    "Performs maintenance.  If specified, what requests a subset of
+    the normal operations, and must itself be a subset of
+    #{\"expire_nodes\" \"purge_nodes\" \"purge_reports\" \"other\"}.
+    If what is not specified or is empty, performs all maintenance.
+    Returns false if some kind of maintenance was already in progress,
+    true otherwise.  Although the latter does not imply that all of
+    the operations were successful; consult the logs for more
+    information."))
 
 (defservice puppetdb-service
   "Defines a trapperkeeper service for PuppetDB; this service is responsible
@@ -349,7 +468,13 @@
                query-options (-> (get sc :shared-globals)
                                  (select-keys [:scf-read-db :warn-experimental])
                                  (assoc :url-prefix @(get sc :url-prefix)))]
-           (qeng/stream-query-result version query-expr paging-options query-options row-callback-fn))))
+           (qeng/stream-query-result version
+                                     query-expr
+                                     paging-options query-options
+                                     row-callback-fn)))
+
+  (clean [this] (clean this #{}))
+  (clean [this what] (clean-puppetdb (service-context this) (get-config) what)))
 
 (def ^{:arglists `([& args])
        :doc "Starts PuppetDB as a service via Trapperkeeper.  Aguments

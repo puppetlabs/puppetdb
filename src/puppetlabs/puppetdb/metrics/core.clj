@@ -7,7 +7,8 @@
     {:registry registry
      :reporter (reporter registry {:domain domain})}))
 
-(def metrics-registries {:mq (new-metrics "puppetlabs.puppetdb.mq")
+(def metrics-registries {:admin (new-metrics "puppetlabs.puppetdb.admin")
+                         :mq (new-metrics "puppetlabs.puppetdb.mq")
                          :dlo (new-metrics "puppetlabs.puppetdb.dlo")
                          :http (new-metrics "puppetlabs.puppetdb.http")
                          :population (new-metrics "puppetlabs.puppetdb.population")
