@@ -577,6 +577,9 @@
       "producer_timestamp" {:type :timestamp
                             :queryable? true
                             :field :c.producer_timestamp}
+      "producer" {:type :string
+                  :queryable? true
+                  :field :c.producer}
       "resources" {:type :json
                    :queryable? false
                    :field {:select [(h/row-to-json :resource_data)]

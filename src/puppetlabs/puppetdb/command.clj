@@ -105,7 +105,7 @@
 
 (def supported-command-versions
   {"replace facts" (version-range 2 5)
-   "replace catalog" (version-range 4 8)
+   "replace catalog" (version-range 4 9)
    "store report" (version-range 3 8)
    "deactivate node" (version-range 1 3)})
 

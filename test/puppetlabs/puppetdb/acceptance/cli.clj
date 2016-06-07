@@ -23,7 +23,7 @@
          (is (empty? (get-nodes)))
 
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "replace catalog" 7 example-catalog)
+                                      "replace catalog" 9 example-catalog)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                       "store report" 8 example-report)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname

@@ -246,13 +246,13 @@
 
 (def catalog-versions
   "Currently supported catalog versions"
-  [:v8])
+  [:v8 :v9])
 
 (deftest replace-catalog-test
   (dotestseq [version catalog-versions
               :let [raw-command {:command (command-names :replace-catalog)
-                                 :version 8
-                                 :payload (-> (get-in wire-catalogs [8 :empty])
+                                 :version (version-kwd->num version)
+                                 :payload (-> (get-in wire-catalogs [(version-kwd->num version) :empty])
                                               (assoc :producer_timestamp (now)))}]]
     (testing (str (command-names :replace-catalog) " " version)
       (let [certname (get-in raw-command [:payload :certname])
@@ -441,12 +441,12 @@
                        resources)))))
 
 (def basic-wire-catalog
-  (get-in wire-catalogs [7 :basic]))
+  (get-in wire-catalogs [9 :basic]))
 
 (deftest catalog-with-updated-resource-line
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 7
+                             :version 9
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -473,7 +473,7 @@
 (deftest catalog-with-updated-resource-file
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 7
+                             :version 9
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -500,7 +500,7 @@
 (deftest catalog-with-updated-resource-exported
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 7
+                             :version 9
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -525,7 +525,7 @@
 (deftest catalog-with-updated-resource-tags
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 7
+                             :version 9
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
