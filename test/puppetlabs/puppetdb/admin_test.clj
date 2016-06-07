@@ -32,7 +32,7 @@
        (is (empty? (get-nodes)))
 
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace catalog" 8 example-catalog)
+                                    "replace catalog" 9 example-catalog)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                     "store report" 8 example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
@@ -76,7 +76,7 @@
          (is (empty? (get-nodes)))
 
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "replace catalog" 8 example-catalog)
+                                      "replace catalog" 9 example-catalog)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                       "store report" 8 example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
@@ -100,7 +100,7 @@
 (deftest test-sample-statistics
   (svc-utils/call-with-single-quiet-pdb-instance
     (fn []
-      (let [example-catalog2 (-> (get-in examples/wire-catalogs [8 :basic])
+      (let [example-catalog2 (-> (get-in examples/wire-catalogs [9 :basic])
                                  (assoc :certname "bar.com"))
             example-facts2 (-> example-facts
                                (dissoc-in [:values :baz])
@@ -109,10 +109,10 @@
         (is (empty? (get-nodes)))
 
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                     "replace catalog" 8 example-catalog)
+                                     "replace catalog" 9 example-catalog)
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url)
                                      "bar.com"
-                                     "replace catalog" 8
+                                     "replace catalog" 9
                                      example-catalog2)
 
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname

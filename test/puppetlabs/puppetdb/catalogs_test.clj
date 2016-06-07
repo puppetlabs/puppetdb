@@ -88,10 +88,12 @@
 
     (testing "key validation"
       (let [catalog (dissoc (:basic catalogs) :api_version)
-            v7-catalog (dissoc catalog :catalog_uuid)
+            v8-catalog (dissoc catalog :producer)
+            v7-catalog (dissoc v8-catalog :catalog_uuid)
             v6-catalog (dissoc v7-catalog :code_id)]
         (testing "should accept catalogs with the correct set of keys"
           (= catalog (s/validate catalog-wireformat-schema catalog))
+          (= v8-catalog (s/validate catalog-v8-wireformat-schema v8-catalog))
           (= v7-catalog (s/validate catalog-v7-wireformat-schema v7-catalog))
           (= v6-catalog (s/validate catalog-v6-wireformat-schema v6-catalog)))
 
@@ -103,7 +105,7 @@
 
         (testing "should fail if the catalog is missing a key"
           (is (thrown-with-msg? ExceptionInfo #"Value does not match schema"
-                              (s/validate catalog-wireformat-schema (dissoc catalog :resources))))
+                              (s/validate catalog-wireformat-schema (dissoc catalog :producer))))
           (is (thrown-with-msg? ExceptionInfo #"Value does not match schema"
                               (s/validate catalog-v6-wireformat-schema (dissoc v6-catalog :resources)))))))))
 
@@ -147,17 +149,35 @@
       ;; pre-created resource maps aren't allow
       (is (thrown? AssertionError (transform-resources {:resources {}}))))))
 
-(deftest test-v7-conversion
-  (testing "v6->v7"
+(deftest test-v9-conversion
+  (testing "v8->v9"
+    (let [v8-catalog (get-in wire-catalogs [8 :empty])]
+      (are [pred key] (pred (contains? v8-catalog key))
+        false? :producer)
+
+      (let [v9-catalog (parse-catalog v8-catalog 8 (now))]
+        (are [pred key] (pred (contains? v9-catalog key))
+          true? :producer))))
+
+  (testing "v7->v9"
+    (let [v7-catalog (get-in wire-catalogs [7 :empty])]
+      (are [pred key] (pred (contains? v7-catalog key))
+        false? :catalog_uuid)
+
+      (let [v9-catalog (parse-catalog v7-catalog 7 (now))]
+        (are [pred key] (pred (contains? v9-catalog key))
+          true? :catalog_uuid))))
+
+  (testing "v6->v9"
     (let [v6-catalog (get-in wire-catalogs [6 :empty])]
       (are [pred key] (pred (contains? v6-catalog key))
         false? :code_id)
 
-      (let [v7-catalog (parse-catalog v6-catalog 6 (now))]
-        (are [pred key] (pred (contains? v7-catalog key))
+      (let [v9-catalog (parse-catalog v6-catalog 6 (now))]
+        (are [pred key] (pred (contains? v9-catalog key))
           true? :code_id))))
 
-  (testing "v5->v7"
+  (testing "v5->v9"
     (let [v5-catalog (get-in wire-catalogs [5 :empty])]
       (are [pred key] (pred (contains? v5-catalog key))
            true? :name
@@ -165,15 +185,15 @@
            false? :code_id
            true? :transaction-uuid)
 
-      (let [v7-catalog (parse-catalog v5-catalog 5 (now))]
-        (are [pred key] (pred (contains? v7-catalog key))
+      (let [v9-catalog (parse-catalog v5-catalog 5 (now))]
+        (are [pred key] (pred (contains? v9-catalog key))
              false? :name
              true? :code_id
              true? :certname
              false? :transaction-uuid
              true? :transaction_uuid))))
 
-  (testing "v4->v7"
+  (testing "v4->v9"
     (let [v4-catalog (get-in wire-catalogs [4 :empty])]
       (are [pred key] (pred (contains? v4-catalog key))
            true? :name
@@ -183,8 +203,8 @@
            false? :producer_timestamp
            false? :producer-timestamp)
 
-      (let [v7-catalog (parse-catalog v4-catalog 4 (now))]
-        (are [pred key] (pred (contains? v7-catalog key))
+      (let [v9-catalog (parse-catalog v4-catalog 4 (now))]
+        (are [pred key] (pred (contains? v9-catalog key))
              false? :name
              true? :certname
              false? :transaction-uuid

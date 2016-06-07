@@ -22,7 +22,7 @@
 (defn get-catalogs [certname]
   (-> (svc-utils/pdb-query-url)
       (svc-utils/get-catalogs certname)
-      catalogs/catalogs-query->wire-v8
+      catalogs/catalogs-query->wire-v9
       vec))
 
 (defn get-reports [certname]
@@ -58,7 +58,7 @@
 
 (def example-catalog
   (-> examples/wire-catalogs
-      (get-in [8 :empty])
+      (get-in [9 :empty])
       (assoc :certname example-certname
              :producer_timestamp (time/now))))
 

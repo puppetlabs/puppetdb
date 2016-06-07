@@ -117,6 +117,7 @@
    :transaction_uuid (s/maybe s/Str)
    :catalog_uuid (s/maybe s/Str)
    :producer_timestamp pls/Timestamp
+   :producer (s/maybe s/Str)
    :code_id (s/maybe s/Str)
 
 
@@ -134,8 +135,11 @@
    :resources (s/cond-pre [{s/Any s/Any}]
                           {s/Any {s/Any s/Any}})})
 
+(def catalog-v8-wireformat-schema
+  (dissoc catalog-wireformat-schema :producer))
+
 (def catalog-v7-wireformat-schema
-  (dissoc catalog-wireformat-schema :catalog_uuid))
+  (dissoc catalog-v8-wireformat-schema :catalog_uuid))
 
 (def catalog-v6-wireformat-schema
   (dissoc catalog-v7-wireformat-schema :code_id))
@@ -181,6 +185,7 @@
    (s/optional-key :environment) (s/maybe s/Str)
    (s/optional-key :hash) s/Str
    (s/optional-key :producer_timestamp) (s/maybe pls/Timestamp)
+   (s/optional-key :producer) (s/maybe s/Str)
    (s/optional-key :resources) resources-expanded-query-schema
    (s/optional-key :transaction_uuid) (s/maybe s/Str)
    (s/optional-key :catalog_uuid) (s/maybe s/Str)
@@ -198,23 +203,30 @@
                     :transaction_uuid nil
                     :environment nil))
 
-(defn wire-v7->wire-v8 [{:keys [transaction_uuid] :as catalog}]
-  (assoc catalog :catalog_uuid transaction_uuid))
+(defn wire-v8->wire-v9 [catalog]
+  (assoc catalog :producer nil))
 
-(defn wire-v6->wire-v7 [catalog]
-  (assoc catalog :code_id nil))
+(defn wire-v7->wire-v9 [{:keys [transaction_uuid] :as catalog}]
+  (-> catalog
+      (assoc :catalog_uuid transaction_uuid)
+      wire-v8->wire-v9))
 
-(defn wire-v5->wire-v7 [catalog]
+(defn wire-v6->wire-v9 [catalog]
+  (-> catalog
+      (assoc :code_id nil)
+      wire-v7->wire-v9))
+
+(defn wire-v5->wire-v9 [catalog]
   (-> catalog
       (set/rename-keys {:name :certname})
       utils/dash->underscore-keys
       (dissoc :api_version)
-      wire-v6->wire-v7))
+      wire-v6->wire-v9))
 
-(defn wire-v4->wire-v7 [catalog received-time]
+(defn wire-v4->wire-v9 [catalog received-time]
   (-> catalog
       (assoc :producer_timestamp received-time)
-      wire-v5->wire-v7))
+      wire-v5->wire-v9))
 
 (def ^:const valid-relationships
   #{:contains :required-by :notifies :before :subscription-of})
@@ -336,7 +348,7 @@
     catalog))
 
 (defn validate
-  "Function for validating v7- of the catalogs"
+  "Function for validating v9- of the catalogs"
   [catalog]
   (->> catalog
        (s/validate catalog-wireformat-schema)
@@ -384,31 +396,38 @@
   [catalog version received-time]
   {:pre [(map? catalog)]
    :post [(map? %)]}
-  (parse-catalog (wire-v4->wire-v7 catalog received-time)
-                 7 nil))
+  (parse-catalog (wire-v4->wire-v9 catalog received-time)
+                 9 nil))
 
 (defmethod parse-catalog 5
   [catalog version _]
   {:pre [(map? catalog)]
    :post [(map? %)]}
-  (parse-catalog (wire-v5->wire-v7 catalog)
-                 7 nil))
+  (parse-catalog (wire-v5->wire-v9 catalog)
+                 9 nil))
 
 (defmethod parse-catalog 6
   [catalog version _]
   {:pre [(map? catalog)]
    :post [(map? %)]}
-  (parse-catalog (wire-v6->wire-v7 catalog)
-                7 nil))
+  (parse-catalog (wire-v6->wire-v9 catalog)
+                9 nil))
 
 (defmethod parse-catalog 7
   [catalog version _]
   {:pre [(map? catalog)]
    :post [(map? %)]}
-  (parse-catalog (wire-v7->wire-v8 catalog)
-                 8 nil))
+  (parse-catalog (wire-v7->wire-v9 catalog)
+                 9 nil))
 
 (defmethod parse-catalog 8
+  [catalog version _]
+  {:pre [(map? catalog)]
+   :post [(map? %)]}
+  (parse-catalog (wire-v8->wire-v9 catalog)
+                 9 nil))
+
+(defmethod parse-catalog 9
   [catalog version _]
   {:pre [(map? catalog)]
    :post [(map? %)]}
@@ -425,7 +444,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Query -> Wire format conversions
 
-(pls/defn-validated edge-query->wire-v8
+(pls/defn-validated edge-query->wire-v9
   [edge :- edge-query-schema]
   {:source
    {:title (:source_title edge)
@@ -435,28 +454,28 @@
     :type (:target_type edge)}
    :relationship (:relationship edge)})
 
-(pls/defn-validated edges-expanded->wire-v8
+(pls/defn-validated edges-expanded->wire-v9
   [edges :- edges-expanded-query-schema]
-  (map edge-query->wire-v8
+  (map edge-query->wire-v9
        (:data edges)))
 
-(pls/defn-validated resource-query->wire-v8
+(pls/defn-validated resource-query->wire-v9
   [resource :- resource-query-schema]
   (-> resource
       (dissoc :resource :certname :environment)
       (kitchensink/dissoc-if-nil :file :line)))
 
-(pls/defn-validated resources-expanded->wire-v8
+(pls/defn-validated resources-expanded->wire-v9
   [resources :- resources-expanded-query-schema]
-  (map resource-query->wire-v8
+  (map resource-query->wire-v9
        (:data resources)))
 
-(pls/defn-validated catalog-query->wire-v8 :- catalog-wireformat-schema
+(pls/defn-validated catalog-query->wire-v9 :- catalog-wireformat-schema
   [catalog :- catalog-query-schema]
   (-> catalog
       (dissoc :hash)
-      (update :edges edges-expanded->wire-v8)
-      (update :resources resources-expanded->wire-v8)))
+      (update :edges edges-expanded->wire-v9)
+      (update :resources resources-expanded->wire-v9)))
 
-(defn catalogs-query->wire-v8 [catalogs]
-  (map catalog-query->wire-v8 catalogs))
+(defn catalogs-query->wire-v9 [catalogs]
+  (map catalog-query->wire-v9 catalogs))

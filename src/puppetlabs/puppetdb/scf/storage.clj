@@ -446,7 +446,8 @@
            transaction_uuid
            catalog_uuid
            environment
-           producer_timestamp]} :- catalog-schema
+           producer_timestamp
+           producer]} :- catalog-schema
    received-timestamp :- pls/Timestamp]
   (let [catalogs-jsonb? @store-catalogs-jsonb-columns?]
     {:hash (sutils/munge-hash-for-storage hash)
@@ -459,6 +460,7 @@
      :code_id code_id
      :environment_id (ensure-environment environment)
      :producer_timestamp (to-timestamp producer_timestamp)
+     :producer producer
      :api_version 1}))
 
 (pls/defn-validated update-catalog-metadata!
