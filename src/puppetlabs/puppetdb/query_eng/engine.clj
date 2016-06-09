@@ -460,7 +460,7 @@
                             :field :reports.producer_timestamp}
       "producer"        {:type :string
                          :queryable? true
-                         :field :reports.producer}
+                         :field :producers.name}
 
       "metrics" {:type :json
                  :queryable? false
@@ -529,6 +529,9 @@
                  :left-join [:environments
                              [:= :environments.id :reports.environment_id]
 
+                             :producers
+                              [:= :producers.id :reports.producer_id]
+
                              :report_statuses
                              [:= :reports.status_id :report_statuses.id]]}
 
@@ -536,6 +539,8 @@
                      "nodes" {:columns ["certname"]}
                      "environments" {:local-columns ["environment"]
                                      :foreign-columns ["name"]}
+                     "producers" {:local-columns ["producer"]
+                                  :foreign-columns ["name"]}
 
                      ;; Children - direct
                      "events" {:local-columns ["hash"]
@@ -576,7 +581,7 @@
                             :field :c.producer_timestamp}
       "producer" {:type :string
                   :queryable? true
-                  :field :c.producer}
+                  :field :producers.name}
       "resources" {:type :json
                    :queryable? false
                    :field {:select [(h/row-to-json :resource_data)]
@@ -617,12 +622,16 @@
                  :join [[:catalogs :c]
                         [:= :latest_catalogs.catalog_id :c.id]]
                  :left-join [[:environments :e]
-                             [:= :c.environment_id :e.id]]}
+                             [:= :c.environment_id :e.id]
+                             :producers
+                             [:= :producers.id :c.producer_id]]}
 
      :relationships {;; Parents - direct
                      "node" {:columns ["certname"]}
                      "environments" {:local-columns ["environment"]
                                      :foreign-columns ["name"]}
+                     "producers" {:local-columns ["producer"]
+                                  :foreign-columns ["name"]}
 
                      ;; Children - direct
                      "edges" {:columns ["certname"]}
@@ -860,6 +869,25 @@
                :subquery? false
                :source-table "environments"}))
 
+(def producers-query
+  "Basic producers query, more useful when used with subqueries"
+  (map->Query {:projections {"name" {:type :string
+                                    :queryable? true
+                                    :field :name}}
+              :selection {:from [:producers]}
+
+              :relationships {;; Children - direct
+                              "factsets" {:local-columns ["name"]
+                                          :foreign-columns ["producer"]}
+                              "catalogs" {:local-columns ["name"]
+                                          :foreign-columns ["producer"]}
+                              "reports" {:local-columns ["name"]
+                                         :foreign-columns ["producer"]}}
+
+              :alias "producers"
+              :subquery? false
+              :source-table "producers"}))
+
 (def factsets-query
   "Query for the top level facts query"
   (map->Query
@@ -891,19 +919,23 @@
                             :field :factsets.producer_timestamp}
       "producer" {:type :string
                   :queryable? true
-                  :field :factsets.producer}
+                  :field :producers.name}
       "environment" {:type :string
                      :queryable? true
                      :field :environments.environment}}
 
      :selection {:from [:factsets]
                  :left-join [:environments
-                             [:= :factsets.environment_id :environments.id]]}
+                             [:= :factsets.environment_id :environments.id]
+                             :producers
+                             [:= :producers.id :factsets.producer_id]]}
 
      :relationships {;; Parents - direct
                      "nodes" {:columns ["certname"]}
                      "environments" {:local-columns ["environment"]
                                      :foreign-columns ["name"]}
+                     "producers" {:local-columns ["producer"]
+                                  :foreign-columns ["name"]}
 
                      ;; Children - direct
                      "facts" {:columns ["certname"]}
@@ -1104,6 +1136,7 @@
   {"select_catalogs" catalog-query
    "select_edges" edges-query
    "select_environments" environments-query
+   "select_producers" producers-query
    "select_events" report-events-query
    "select_facts" facts-query
    "select_factsets" factsets-query

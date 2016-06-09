@@ -1051,9 +1051,28 @@
 (defn add-producer-to-reports-catalogs-and-factsets
   []
   (jdbc/do-commands
-    "ALTER TABLE reports ADD COLUMN producer TEXT"
-    "ALTER TABLE factsets ADD COLUMN producer TEXT"
-    "ALTER TABLE catalogs ADD COLUMN producer TEXT"))
+    "CREATE TABLE producers (
+        id bigint PRIMARY KEY,
+        name text NOT NULL UNIQUE)"
+    "CREATE SEQUENCE producers_id_seq
+        START WITH 1
+        INCREMENT BY 1
+        NO MINVALUE
+        NO MAXVALUE
+        CACHE 1"
+    "ALTER TABLE ONLY producers ALTER COLUMN id SET DEFAULT nextval('producers_id_seq'::regclass)"
+    "ALTER TABLE reports ADD COLUMN producer_id bigint"
+    "ALTER TABLE factsets ADD COLUMN producer_id bigint"
+    "ALTER TABLE catalogs ADD COLUMN producer_id bigint"
+    "ALTER TABLE ONLY reports
+        ADD CONSTRAINT reports_prod_fkey FOREIGN KEY (producer_id) REFERENCES producers(id)"
+    "ALTER TABLE ONLY factsets
+        ADD CONSTRAINT factsets_prod_fk FOREIGN KEY (producer_id) REFERENCES producers(id)"
+    "ALTER TABLE ONLY catalogs
+        ADD CONSTRAINT catalogs_prod_fkey FOREIGN KEY (producer_id) REFERENCES producers(id)"
+    "CREATE INDEX idx_reports_prod ON reports(producer_id)"
+    "CREATE INDEX idx_factsets_prod ON factsets(producer_id)"
+    "CREATE INDEX idx_catalogs_prod ON catalogs(producer_id)"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."

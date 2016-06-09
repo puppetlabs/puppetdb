@@ -466,27 +466,139 @@
   (let [before-migration (schema-info-map *db*)]
     (apply-migration-for-testing! 46)
     (let [schema-diff (diff-schema-maps before-migration (schema-info-map *db*))]
-      (is (= (set [{:same nil :left-only nil
-                    :right-only {:numeric_scale nil :column_default nil
-                                 :character_octet_length 1073741824 :datetime_precision nil
-                                 :nullable? "YES" :character_maximum_length nil
-                                 :numeric_precision nil :numeric_precision_radix nil
-                                 :data_type "text" :column_name "producer"
-                                 :table_name "reports"}}
-                    {:same nil :left-only nil
-                    :right-only {:numeric_scale nil :column_default nil
-                                 :character_octet_length 1073741824 :datetime_precision nil
-                                 :nullable? "YES" :character_maximum_length nil
-                                 :numeric_precision nil :numeric_precision_radix nil
-                                 :data_type "text" :column_name "producer"
-                                 :table_name "factsets"}}
-                    {:same nil :left-only nil
-                    :right-only {:numeric_scale nil :column_default nil
-                                 :character_octet_length 1073741824 :datetime_precision nil
-                                 :nullable? "YES" :character_maximum_length nil
-                                 :numeric_precision nil :numeric_precision_radix nil
-                                 :data_type "text" :column_name "producer"
-                                 :table_name "catalogs"}}])
+      (is (= (set [{:left-only nil,
+                    :right-only
+                    {:schema "public",
+                     :table "producers",
+                     :index "producers_pkey",
+                     :index_keys ["id"],
+                     :type "btree",
+                     :unique? true,
+                     :functional? false,
+                     :is_partial false,
+                     :primary? true},
+                    :same nil}
+                   {:left-only nil,
+                    :right-only
+                    {:schema "public",
+                     :table "producers",
+                     :index "producers_name_key",
+                     :index_keys ["name"],
+                     :type "btree",
+                     :unique? true,
+                     :functional? false,
+                     :is_partial false,
+                     :primary? false},
+                    :same nil}
+                   {:left-only nil,
+                    :right-only
+                    {:schema "public",
+                     :table "catalogs",
+                     :index "idx_catalogs_prod",
+                     :index_keys ["producer_id"],
+                     :type "btree",
+                     :unique? false,
+                     :functional? false,
+                     :is_partial false,
+                     :primary? false},
+                    :same nil}
+                   {:left-only nil,
+                    :right-only
+                    {:schema "public",
+                     :table "reports",
+                     :index "idx_reports_prod",
+                     :index_keys ["producer_id"],
+                     :type "btree",
+                     :unique? false,
+                     :functional? false,
+                     :is_partial false,
+                     :primary? false},
+                    :same nil}
+                   {:left-only nil,
+                    :right-only
+                    {:schema "public",
+                     :table "factsets",
+                     :index "idx_factsets_prod",
+                     :index_keys ["producer_id"],
+                     :type "btree",
+                     :unique? false,
+                     :functional? false,
+                     :is_partial false,
+                     :primary? false},
+                    :same nil}])
+             (->> (:index-diff schema-diff)
+                  (map #(kitchensink/mapvals (fn [idx] (dissoc idx :user)) %))
+                  set)))
+      (is (= (set [{:left-only nil,
+                    :right-only
+                    {:numeric_scale 0,
+                     :column_default nil,
+                     :character_octet_length nil,
+                     :datetime_precision nil,
+                     :nullable? "YES",
+                     :character_maximum_length nil,
+                     :numeric_precision 64,
+                     :numeric_precision_radix 2,
+                     :data_type "bigint",
+                     :column_name "producer_id",
+                     :table_name "reports"},
+                    :same nil}
+                   {:left-only nil,
+                    :right-only
+                    {:numeric_scale 0,
+                     :column_default "nextval('producers_id_seq'::regclass)",
+                     :character_octet_length nil,
+                     :datetime_precision nil,
+                     :nullable? "NO",
+                     :character_maximum_length nil,
+                     :numeric_precision 64,
+                     :numeric_precision_radix 2,
+                     :data_type "bigint",
+                     :column_name "id",
+                     :table_name "producers"},
+                    :same nil}
+                    {:left-only nil,
+                     :right-only
+                     {:numeric_scale 0,
+                      :column_default nil,
+                      :character_octet_length nil,
+                      :datetime_precision nil,
+                      :nullable? "YES",
+                      :character_maximum_length nil,
+                      :numeric_precision 64,
+                      :numeric_precision_radix 2,
+                      :data_type "bigint",
+                      :column_name "producer_id",
+                      :table_name "catalogs"},
+                     :same nil}
+                    {:left-only nil,
+                     :right-only
+                     {:numeric_scale nil,
+                      :column_default nil,
+                      :character_octet_length 1073741824,
+                      :datetime_precision nil,
+                      :nullable? "NO",
+                      :character_maximum_length nil,
+                      :numeric_precision nil,
+                      :numeric_precision_radix nil,
+                      :data_type "text",
+                      :column_name "name",
+                      :table_name "producers"},
+                     :same nil}
+                    {:left-only nil,
+                     :right-only
+                     {:numeric_scale 0,
+                      :column_default nil,
+                      :character_octet_length nil,
+                      :datetime_precision nil,
+                      :nullable? "YES",
+                      :character_maximum_length nil,
+                      :numeric_precision 64,
+                      :numeric_precision_radix 2,
+                      :data_type "bigint",
+                      :column_name "producer_id",
+                      :table_name "factsets"},
+                     :same nil}])
              (set (:table-diff schema-diff)))))))
 
 (deftest test-migrate-from-unsupported-version
