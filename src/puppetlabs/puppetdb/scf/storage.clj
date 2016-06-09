@@ -377,6 +377,21 @@
     (ensure-row :environments {:environment env-name})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Producers querying/updating
+
+(pls/defn-validated producer-id :- (s/maybe s/Int)
+  "Returns the id (primary key) from the producers table for the given `prod-name`"
+  [prod-name :- s/Str]
+  (query-id :producers {:name prod-name}))
+
+(pls/defn-validated ensure-producer :- (s/maybe s/Int)
+  "Check if the given `prod-name` exists, creates it if it does not. Always returns
+   the id of the `prod-name` (whether created or existing)"
+  [prod-name :- (s/maybe s/Str)]
+  (when prod-name
+    (ensure-row :producers {:name prod-name})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Status querying/updating
 
 (pls/defn-validated status-id :- (s/maybe s/Int)
@@ -460,7 +475,7 @@
      :code_id code_id
      :environment_id (ensure-environment environment)
      :producer_timestamp (to-timestamp producer_timestamp)
-     :producer producer
+     :producer_id (ensure-producer producer)
      :api_version 1}))
 
 (pls/defn-validated update-catalog-metadata!
@@ -1153,7 +1168,7 @@
         :timestamp (to-timestamp timestamp)
         :environment_id (ensure-environment environment)
         :producer_timestamp (to-timestamp producer_timestamp)
-        :producer producer}
+        :producer_id (ensure-producer producer)}
        (when include-hash?
          {:hash (sutils/munge-hash-for-storage
                  (shash/fact-identity-hash fact-data))})))
@@ -1327,7 +1342,7 @@
                             :certname certname
                             :report_format report_format
                             :configuration_version configuration_version
-                            :producer producer
+                            :producer_id (ensure-producer producer)
                             :producer_timestamp producer_timestamp
                             :start_time start_time
                             :end_time end_time

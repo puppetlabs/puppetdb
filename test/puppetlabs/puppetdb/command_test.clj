@@ -229,6 +229,11 @@
   [row-map]
   (assoc row-map :environment_id (scf-store/environment-id "DEV")))
 
+(defn with-producer
+  "Updates the `row-map` to include producer information."
+  [row-map]
+  (assoc row-map :producer_id (scf-store/producer-id "bar.com")))
+
 (defn version-kwd->num
   "Converts a version keyword into a correct number (expected by the command).
    i.e. :v4 -> 4"
@@ -1302,8 +1307,8 @@
                  :payload v8-report}]
     (with-test-db
       (test-msg-handler command publish discard-dir
-        (is (= [(select-keys v8-report [:certname :producer])]
-               (-> (str "select certname, producer"
+        (is (= [(with-producer (select-keys v8-report [:certname]))]
+               (-> (str "select certname, producer_id"
                         "  from reports")
                    query-to-vec)))
         (is (= 0 (times-called publish)))

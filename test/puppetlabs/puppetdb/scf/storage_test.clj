@@ -45,6 +45,15 @@
 (defmacro deftest-db [name & body]
   `(deftest ~name (with-test-db ~@body)))
 
+(deftest-db ensure-producer-test
+  (let [prod1 "foo.com"
+        prod2 "bar.com"]
+    (ensure-producer prod1)
+    (testing "doesn't create new row for existing producer"
+      (is (= 1 (ensure-producer prod1))))
+    (testing "creates new row for non-existing producer"
+      (is (= 2 (ensure-producer prod2))))))
+
 (defn-validated factset-map :- {s/Str s/Str}
   "Return all facts and their values for a given certname as a map"
   [certname :- String]
@@ -1464,11 +1473,12 @@
              :environment_id (environment-id "DEV")}])))
 
  (deftest-db report-storage-with-producer
-   (store-example-report! (assoc report :producer "bar.com") timestamp)
+   (let [prod-id (ensure-producer "bar.com")]
+     (store-example-report! (assoc report :producer "bar.com") timestamp)
 
-   (is (= (query-to-vec ["SELECT certname, producer FROM reports"])
-          [{:certname (:certname report)
-            :producer "bar.com"}])))
+     (is (= (query-to-vec ["SELECT certname, producer_id FROM reports"])
+            [{:certname (:certname report)
+              :producer_id prod-id}]))))
 
   (deftest-db report-storage-with-status
     (is (nil? (status-id "unchanged")))
