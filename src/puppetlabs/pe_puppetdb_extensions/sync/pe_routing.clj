@@ -103,7 +103,7 @@
 
 (tk/defservice pe-routing-service
   [[:WebroutingService add-ring-handler get-route]
-   [:PuppetDBServer shared-globals query set-url-prefix]
+   [:PuppetDBServer clean shared-globals query set-url-prefix]
    [:DefaultedConfig get-config]
    [:PuppetDBSync bucketed-summary-query]
    [:PuppetDBCommandDispatcher
@@ -137,7 +137,8 @@
                                                   enqueue-command
                                                   query
                                                   enqueue-raw-command
-                                                  response-pub)
+                                                  response-pub
+                                                  clean)
                                  (pe-routes get-config
                                             shared-with-prefix
                                             query
