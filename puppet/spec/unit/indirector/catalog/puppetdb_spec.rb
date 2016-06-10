@@ -109,6 +109,14 @@ describe Puppet::Resource::Catalog::Puppetdb do
       end
     end
 
+    describe "#add_producer" do
+      it "should add the producer key" do
+        result = subject.add_producer(catalog_data_hash, "foo")
+        result.has_key?('producer').should be_truthy
+        result['producer'].should == "foo"
+      end
+    end
+
     describe "#add_parameters_if_missing" do
       it "should create an empty parameters hash if none exists" do
         result = subject.add_parameters_if_missing(catalog_data_hash)
@@ -673,7 +681,8 @@ describe Puppet::Resource::Catalog::Puppetdb do
         result = subject.munge_catalog(catalog)
 
         result.keys.should =~ ['certname', 'version', 'edges', 'resources',
-          'transaction_uuid', 'environment', 'producer_timestamp', "code_id", "catalog_uuid"]
+          'transaction_uuid', 'environment', 'producer_timestamp', "code_id",
+          "catalog_uuid", "producer"]
       end
     end
   end

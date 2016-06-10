@@ -97,6 +97,12 @@ describe processor do
       end
     end
 
+    it "should include the producer or nil" do
+      Puppet[:node_name_value] = "foo"
+      result = subject.send(:report_to_hash)
+      result["producer"].should == "foo"
+    end
+
     it "should include the cached_catalog_status or nil" do
       if defined?(subject.cached_catalog_status) then
         subject.cached_catalog_status = 'not_used'

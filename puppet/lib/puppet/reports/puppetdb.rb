@@ -19,7 +19,7 @@ Puppet::Reports.register_report(:puppetdb) do
   # @return [void]
   def process
     profile("report#process", [:puppetdb, :report, :process]) do
-      submit_command(self.host, report_to_hash, CommandStoreReport, 7)
+      submit_command(self.host, report_to_hash, CommandStoreReport, 8)
     end
 
     nil
@@ -62,6 +62,7 @@ Puppet::Reports.register_report(:puppetdb) do
         "catalog_uuid" => defaulted_catalog_uuid,
         "code_id" => defaulted_code_id,
         "cached_catalog_status" => defaulted_cached_catalog_status,
+        "producer" => Puppet[:node_name_value]
       }
     end
   end

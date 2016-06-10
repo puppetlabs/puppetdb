@@ -31,10 +31,11 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           # legacy storeconfigs.
           "environment" => request.options[:environment] || request.environment.to_s,
           "producer_timestamp" => request.options[:producer_timestamp] || Time.now.iso8601(5),
+          "producer" => Puppet[:node_name_value]
         }
       end
 
-      submit_command(request.key, payload, CommandReplaceFacts, 4)
+      submit_command(request.key, payload, CommandReplaceFacts, 5)
     end
   end
 
