@@ -65,7 +65,7 @@ Query PuppetDB using PQL:
 
 Or query PuppetDB using the AST syntax:
 
-    $ puppet query '["from", "nodes", ["extract", "certname"], ["limit", "1"]]'
+    $ puppet query '["from", "nodes", ["extract", "certname"], ["limit", 1]]'
 
 For more information on the `query` command:
 
