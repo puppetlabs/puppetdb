@@ -37,6 +37,7 @@ See [the AST query language page][ast].
 
 * `path` (path): the path associated with a fact node.
 * `type` (string): the type of the value a the fact node.
+* `depth` (integer): the depth of the paths returned
 
 ### Subquery relationships
 

@@ -184,6 +184,19 @@
                [{:path ["my_SF" "baz" 0], :type "float"}
                 {:path ["my_SF" "baz" 1], :type "float"}
                 {:path ["my_SF" "foo"], :type "string"}]))))
+
+    (testing "querying for depth"
+      (let [{:keys [status body]} (query-response
+                                    method
+                                    endpoint
+                                    [">" "depth" 0])
+            result (parse-result body)]
+        (is (= status http/status-ok))
+        (is (= result
+               [{:path ["my_SF" "baz" 0], :type "float"}
+                {:path ["my_SF" "baz" 1], :type "float"}
+                {:path ["my_SF" "foo"], :type "string"}]))))
+
     (testing "paging for fact-paths"
       (let [{:keys [status body]} (query-response
                                     method endpoint nil

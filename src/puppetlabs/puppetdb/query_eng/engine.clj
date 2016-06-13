@@ -221,7 +221,11 @@
                                      :field :type}
                              "path" {:type :path
                                      :queryable? true
-                                     :field :path}}
+                                     :field :path}
+                             "depth" {:type :integer
+                                      :queryable? true
+                                      :query-only? true
+                                      :field :fp.depth}}
                :selection {:from [[:fact_paths :fp]]
                            :join [[:facts :f]
                                   [:= :f.fact_path_id :fp.id]
