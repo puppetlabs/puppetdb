@@ -50,6 +50,7 @@
    :start_time pls/Timestamp
    :end_time pls/Timestamp
    :producer_timestamp pls/Timestamp
+   :producer (s/maybe s/Str)
    :resources [resource-wireformat-schema]
    :noop (s/maybe s/Bool)
    :transaction_uuid (s/maybe s/Str)
@@ -61,8 +62,12 @@
    :environment s/Str
    :status (s/maybe s/Str)})
 
+(def report-v7-wireformat-schema
+ (-> report-wireformat-schema
+     (dissoc :producer)))
+
 (def report-v6-wireformat-schema
-  (-> report-wireformat-schema
+  (-> report-v7-wireformat-schema
       (dissoc :catalog_uuid :cached_catalog_status :code_id)))
 
 (def resource-event-v5-wireformat-schema
@@ -133,6 +138,7 @@
    (s/optional-key :start_time) pls/Timestamp
    (s/optional-key :end_time) pls/Timestamp
    (s/optional-key :producer_timestamp) pls/Timestamp
+   (s/optional-key :producer) (s/maybe s/Str)
    (s/optional-key :noop) (s/maybe s/Bool)
    (s/optional-key :report_format) s/Int
    (s/optional-key :configuration_version) s/Str
@@ -188,21 +194,27 @@
          :let [events (mapv #(dissoc % :file :line :resource_type :resource_title :containment_path) resource-events)]]
      (assoc resource :events events))))
 
-(defn wire-v6->wire-v7
-  [{:keys [transaction_uuid] :as report}]
-  (utils/assoc-when report
-                    :catalog_uuid transaction_uuid
-                    :cached_catalog_status nil
-                    :code_id nil))
+ (defn wire-v7->wire-v8
+   [{:keys [transaction_uuid] :as report}]
+   (utils/assoc-when report
+                     :producer nil))
 
-(defn wire-v5->wire-v7
+(defn wire-v6->wire-v8
+  [{:keys [transaction_uuid] :as report}]
+  (-> report
+    (utils/assoc-when :catalog_uuid transaction_uuid
+                      :cached_catalog_status nil
+                      :code_id nil)
+    wire-v7->wire-v8))
+
+(defn wire-v5->wire-v8
   [report]
   (-> report
       (update :resource_events resource-events-v5->resources)
       (clojure.set/rename-keys {:resource_events :resources})
-      wire-v6->wire-v7))
+      wire-v6->wire-v8))
 
-(defn wire-v4->wire-v7
+(defn wire-v4->wire-v8
   [report received-time]
   (-> report
       dash->underscore-report-keys
@@ -210,23 +222,23 @@
              :logs nil
              :noop nil
              :producer_timestamp received-time)
-      wire-v5->wire-v7))
+      wire-v5->wire-v8))
 
 
-(defn wire-v3->wire-v7
+(defn wire-v3->wire-v8
   [report received-time]
   (-> report
       (assoc :status nil)
-      (wire-v4->wire-v7 received-time)))
+      (wire-v4->wire-v8 received-time)))
 
-(pls/defn-validated report-query->wire-v7 :- report-wireformat-schema
+(pls/defn-validated report-query->wire-v8 :- report-wireformat-schema
   [report :- report-query-schema]
   (-> report
       report-query->wire-v5
-      wire-v5->wire-v7))
+      wire-v5->wire-v8))
 
-(defn reports-query->wire-v7 [reports]
-  (map report-query->wire-v7 reports))
+(defn reports-query->wire-v8 [reports]
+  (map report-query->wire-v8 reports))
 
 (defn- resource->skipped-resource-events
   "Fabricate a skipped resource-event"

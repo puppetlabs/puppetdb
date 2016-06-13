@@ -182,18 +182,21 @@
                            :values facts2
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "bar2"})
     (scf-store/add-facts! {:certname "foo3"
                            :values facts3
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "bar3"})
     (scf-store/deactivate-node! "foo1")
     (scf-store/add-facts! {:certname "foo1"
                            :values  facts1
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)}))
+                           :producer_timestamp (now)
+                           :producer "bar1"}))
 
   (let [expected-result ["domain" "hostname" "kernel" "memorysize"
                          "operatingsystem" "uptime_seconds"]]

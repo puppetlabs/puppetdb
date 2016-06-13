@@ -42,7 +42,7 @@
 
 ;; TRANSFORMATIONS
 
-(pls/defn-validated fact-query->wire-v4
+(pls/defn-validated fact-query->wire-v5
   [fact :- fact-query-schema]
   (-> fact
       (dissoc :environment :certname)))
@@ -52,16 +52,16 @@
   (zipmap (map (comp keyword :name) facts)
           (map :value facts)))
 
-(pls/defn-validated facts-expanded->wire-v4 :- {s/Keyword s/Any}
+(pls/defn-validated facts-expanded->wire-v5 :- {s/Keyword s/Any}
   [facts :- facts-expanded-query-schema]
   (facts-list-to-map
-   (map fact-query->wire-v4
+   (map fact-query->wire-v5
         (:data facts))))
 
-(defn factsets-query->wire-v4 [factsets]
+(defn factsets-query->wire-v5 [factsets]
   (map
    #(-> %
         (dissoc :hash :timestamp)
-        (update :facts facts-expanded->wire-v4)
+        (update :facts facts-expanded->wire-v5)
         (set/rename-keys {:facts :values}))
    factsets))

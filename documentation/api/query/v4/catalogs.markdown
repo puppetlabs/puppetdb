@@ -47,6 +47,7 @@ See [the AST query language page][ast].
   recent catalog.
 * `producer_timestamp` (string): a string representing the time at which the
   `replace_catalog` command for a given catalog was submitted from the master.
+* `producer` (string): the certname of the Puppet master that sends the catalog to PuppetDB.
 
 ### Subquery relationships
 
@@ -74,6 +75,7 @@ the form:
       "transaction_uuid" : <string to identify puppet run>,
       "code_id" : <string to identify puppet code>,
       "producer_timestamp": <time of transmission by master>,
+      "producer": <master certname>
       "resources" : <expanded resources>,
       "edges" : <expanded edges>
     }
@@ -121,6 +123,7 @@ This query will return the complete list of catalogs:
       "transaction_uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
       "code_id" : null,
       "producer_timestamp": "2014-10-13T20:46:00.000Z",
+      "producer": "dad.puppetlabs.net",
       "environment" : "production",
       "edges" : {...},
       "resources" : {...}
@@ -132,6 +135,7 @@ This query will return the complete list of catalogs:
       "transaction_uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
       "code_id" : null,
       "producer_timestamp": "2014-11-20T02:15:20.861Z",
+      "producer": "mom.puppetlabs.net",
       "environment" : "production",
       "edges" : {...},
       "resources" : {...}
@@ -149,6 +153,7 @@ This query will return all catalogs with producer_timestamp after 2014-11-19:
       "transaction_uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
       "code_id" : null,
       "producer_timestamp": "2014-11-20T02:15:20.861Z",
+      "producer": "mom.puppetlabs.net",
       "environment" : "production",
       "edges" : {...},
       "resources" : {...}
@@ -176,6 +181,7 @@ a JSON error message if the catalog is not found.
      "code_id" : null,
      "catalog_uuid" : null,
      "producer_timestamp": "2014-10-13T20:46:00.000Z",
+     "producer": "dad.puppetlabs.net",
      "environment" : "production",
      "edges" : {...},
      "resources" : {...}

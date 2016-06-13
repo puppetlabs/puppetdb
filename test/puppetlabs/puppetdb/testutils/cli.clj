@@ -22,20 +22,20 @@
 (defn get-catalogs [certname]
   (-> (svc-utils/pdb-query-url)
       (svc-utils/get-catalogs certname)
-      catalogs/catalogs-query->wire-v8
+      catalogs/catalogs-query->wire-v9
       vec))
 
 (defn get-reports [certname]
   (-> (svc-utils/pdb-query-url)
       (svc-utils/get-reports certname)
       tur/munge-reports
-      reports/reports-query->wire-v7
+      reports/reports-query->wire-v8
       vec))
 
 (defn get-factsets [certname]
   (-> (svc-utils/pdb-query-url)
       (svc-utils/get-factsets certname)
-      factsets/factsets-query->wire-v4
+      factsets/factsets-query->wire-v5
       vec))
 
 (defn get-summary-stats []
@@ -44,6 +44,8 @@
 
 (def example-certname "foo.local")
 
+(def example-producer "bar.com")
+
 (def example-facts
   {:certname example-certname
    :environment "DEV"
@@ -51,11 +53,12 @@
             :bar "the bar"
             :baz "the baz"
             :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
-   :producer_timestamp (time-coerce/to-string (time/now))})
+   :producer_timestamp (time-coerce/to-string (time/now))
+   :producer example-producer})
 
 (def example-catalog
   (-> examples/wire-catalogs
-      (get-in [8 :empty])
+      (get-in [9 :empty])
       (assoc :certname example-certname
              :producer_timestamp (time/now))))
 
@@ -64,7 +67,7 @@
       :basic
       (assoc :certname example-certname)
       tur/munge-report
-      reports/report-query->wire-v7))
+      reports/report-query->wire-v8))
 
 (defn munge-tar-map
   [tar-map]

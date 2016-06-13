@@ -533,22 +533,26 @@
                              :values facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)})
+                             :producer_timestamp (now)
+                             :producer "bar1"})
       (scf-store/add-facts! {:certname  "foo2"
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)})
+                             :producer_timestamp (now)
+                             :producer "bar2"})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)})
+                             :producer_timestamp (now)
+                             :producer "bar3"})
       (scf-store/add-facts! {:certname "foo4"
                              :values facts4
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)})
+                             :producer_timestamp (now)
+                             :producer "bar4"})
       (scf-store/deactivate-node! "foo4"))
 
     (testing "query without param should not fail"
@@ -594,17 +598,20 @@
                          :values {"ipaddress" "192.168.1.100" "operatingsystem" "Debian" "osfamily" "Debian" "uptime_seconds" 11000}
                          :timestamp (now)
                          :environment "DEV"
-                         :producer_timestamp (now)})
+                         :producer_timestamp (now)
+                         :producer "mom"})
   (scf-store/add-facts! {:certname "bar"
                          :values {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu" "osfamily" "Debian" "uptime_seconds" 12}
                          :timestamp (now)
                          :environment "DEV"
-                         :producer_timestamp (now)})
+                         :producer_timestamp (now)
+                         :producer "mom"})
   (scf-store/add-facts! {:certname "baz"
                          :values {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS" "osfamily" "RedHat" "uptime_seconds" 50000}
                          :timestamp (now)
                          :environment "DEV"
-                         :producer_timestamp (now)})
+                         :producer_timestamp (now)
+                         :producer "mom"})
 
   (let [catalog (:empty catalogs)
         apache-resource {:type "Class" :title "Apache"}
@@ -664,7 +671,8 @@
                                      :values facts1
                                      :timestamp (now)
                                      :environment "DEV"
-                                     :producer_timestamp (now)}))
+                                     :producer_timestamp (now)
+                                     :producer "bar1"}))
 
             (testing "queries only use the read database"
               (let [request (get-request endpoint)
@@ -732,12 +740,14 @@
                              :values facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)})
+                             :producer_timestamp (now)
+                             :producer "bar1"})
       (scf-store/add-facts! {:certname "foo2"
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)}))
+                             :producer_timestamp (now)
+                             :producer "bar2"}))
 
     (testing "should support fact paging"
       (doseq [[label counts?] [["without" false]
@@ -809,31 +819,36 @@
                            :values {"hostname" "c-host"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
     (scf-store/add-certname! "a.local")
     (scf-store/add-facts! {:certname "a.local"
                            :values {"hostname" "a-host"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
     (scf-store/add-certname! "d.local")
     (scf-store/add-facts! {:certname "d.local"
                            :values {"uptime_days" "2"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
     (scf-store/add-certname! "b.local")
     (scf-store/add-facts! {:certname "b.local"
                            :values {"uptime_days" "4"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
     (scf-store/add-certname! "e.local")
     (scf-store/add-facts! {:certname "e.local"
                            :values {"my_structured_fact" (:value f5)}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
 
     (testing "include total results count"
       (let [actual (:count (raw-query-endpoint endpoint nil {:include_total true}))]
@@ -943,31 +958,36 @@
                            :values {"my_structured_fact" (:value f3)}
                            :timestamp (now)
                            :environment "C"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
     (scf-store/add-certname! "a.local")
     (scf-store/add-facts! {:certname "a.local"
                            :values {"hostname" "a-host"}
                            :timestamp (now)
                            :environment "A"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
     (scf-store/add-certname! "b.local")
     (scf-store/add-facts! {:certname "b.local"
                            :values {"uptime_days" "4"}
                            :timestamp (now)
                            :environment "B"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
     (scf-store/add-certname! "b2.local")
     (scf-store/add-facts! {:certname "b2.local"
                            :values {"max" "4"}
                            :timestamp (now)
                            :environment "B"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
     (scf-store/add-certname! "d.local")
     (scf-store/add-facts! {:certname "d.local"
                            :values {"min" "-4"}
                            :timestamp (now)
                            :environment "D"
-                           :producer_timestamp (now)})
+                           :producer_timestamp (now)
+                           :producer "foo.com"})
 
     (testing "ordering by environment should work"
       (doseq [[[env-order name-order] expected] [[["DESC" "ASC"]  [f5 f3 f4 f2 f1]]
@@ -1095,22 +1115,26 @@
                              :values facts1
                              :timestamp test-time
                              :environment "DEV"
-                             :producer_timestamp test-time})
+                             :producer_timestamp test-time
+                             :producer "bar1"})
       (scf-store/add-facts! {:certname  "foo2"
                              :values facts2
                              :timestamp (to-timestamp "2013-01-01")
                              :environment "DEV"
-                             :producer_timestamp (to-timestamp "2013-01-01")})
+                             :producer_timestamp (to-timestamp "2013-01-01")
+                             :producer "bar2"})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp test-time
                              :environment "PROD"
-                             :producer_timestamp test-time})
+                             :producer_timestamp test-time
+                             :producer "bar3"})
       (scf-store/add-facts! {:certname "foo4"
                              :values facts4
                              :timestamp test-time
                              :environment "PROD"
-                             :producer_timestamp test-time})
+                             :producer_timestamp test-time
+                             :producer "bar4"})
       (scf-store/deactivate-node! "foo4"))))
 
 (def db {:classname "org.postgresql.Driver"
@@ -1148,6 +1172,7 @@
                                     "f" nil, "b" 3.14, "a" 1}}]},
          "environment" "DEV"
          "certname" "foo1"
+         "producer" "bar1"
          "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}
 
         {"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
@@ -1162,6 +1187,7 @@
          "environment" "DEV"
          "certname" "foo2"
          "producer_timestamp" "2013-01-01T00:00:00.000Z"
+         "producer" "bar2"
          "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}
 
         {"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo3/facts")
@@ -1174,6 +1200,7 @@
                                     "d" {"n" ""}, "" "g?", "c" ["a" "b" "c"]}}]},
          "environment" "PROD"
          "certname" "foo3"
+         "producer" "bar3"
          "hash" "f1122885dd4393bd1b786751384728bd1ca97bab"}]))
 
 (deftest-http-app factset-paging-results
@@ -1295,7 +1322,8 @@
                    ["<" "timestamp" "2014-01-01"]
                    ["<" "producer_timestamp" "2014-01-01"]
                    ["extract" ["certname" "hash"]
-                    ["=" "certname" "foo1"]]]
+                   ["=" "certname" "foo1"]]
+                   ["=" "producer" "bar2"]]
           responses (map (comp json/parse-string
                                slurp
                                :body
@@ -1320,6 +1348,7 @@
                                  "value" "4000"}]}
                "timestamp" reference-time
                "producer_timestamp" reference-time
+               "producer" "bar1"
                "environment" "DEV"
                "certname" "foo1"
                "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"})))
@@ -1342,6 +1371,7 @@
                                       "value" "foo"}]}
                     "timestamp" reference-time
                     "producer_timestamp" reference-time
+                    "producer" "bar1"
                     "environment" "DEV"
                     "certname" "foo1"
                     "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}
@@ -1360,6 +1390,7 @@
                                       "value" "6000"}]}
                     "timestamp" (to-string (to-timestamp "2013-01-01"))
                     "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer" "bar2"
                     "environment" "DEV"
                     "certname" "foo2"
                     "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}])))
@@ -1380,6 +1411,7 @@
                                       "value" "6000"}]}
                     "timestamp" (to-string (to-timestamp "2013-01-01"))
                     "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer" "bar2"
                     "environment" "DEV"
                     "certname" "foo2"
                     "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}])))
@@ -1399,12 +1431,33 @@
                                       "value" "6000"}]}
                     "timestamp" (to-string (to-timestamp "2013-01-01"))
                     "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
+                    "producer" "bar2"
                     "environment" "DEV"
                     "certname" "foo2"
                     "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}])))
       (is (= (into [] (nth responses 4))
              [{"certname" "foo1"
-               "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}])))))
+               "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}]))
+     (is (= (munge-factsets-response (into [] (nth responses 5)))
+            (map munge-factset-response
+                 [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
+                            "data" [{"name" "my_structured_fact"
+                                     "value"
+                                     {"a" 1
+                                      "b" 3.14
+                                      "c" ["a" "b" "c"]
+                                      "d" {"n" ""}
+                                      "e" "1"}}
+                                    {"name" "domain"
+                                     "value" "testing.com"}
+                                    {"name" "uptime_seconds"
+                                     "value" "6000"}]}
+                   "timestamp" (to-string (to-timestamp "2013-01-01"))
+                   "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
+                   "producer" "bar2"
+                   "environment" "DEV"
+                   "certname" "foo2"
+                   "hash" "28ea981ebb992fa97a1ba509790fd213d0f98411"}]))))))
 
 (deftest-http-app factset-subqueries
   [[version endpoint] factsets-endpoints
@@ -1504,6 +1557,7 @@
                         "href" "/pdb/query/v4/factsets/foo1/facts"}
                "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"
                "producer_timestamp" "2014-10-28T20:26:21.727Z"
+               "producer" "bar1"
                "timestamp" "2014-10-28T20:26:21.727Z"}))))))
 
 
@@ -1669,22 +1723,26 @@
                              :values facts1
                              :timestamp reference-time
                              :environment "DEV"
-                             :producer_timestamp reference-time})
+                             :producer_timestamp reference-time
+                             :producer "bar1"})
       (scf-store/add-facts! {:certname  "foo2"
                              :values facts2
                              :timestamp (to-timestamp "2013-01-01")
                              :environment "DEV"
-                             :producer_timestamp reference-time})
+                             :producer_timestamp reference-time
+                             :producer "bar2"})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp reference-time
                              :environment "PROD"
-                             :producer_timestamp reference-time})
+                             :producer_timestamp reference-time
+                             :producer "bar3"})
       (scf-store/add-facts! {:certname "foo4"
                              :values facts4
                              :timestamp reference-time
                              :environment "PROD"
-                             :producer_timestamp reference-time})
+                             :producer_timestamp reference-time
+                             :producer "bar4"})
       (scf-store/deactivate-node! "foo4"))
 
     (testing "query without param should not fail"
@@ -1729,7 +1787,8 @@
                              :values facts1
                              :timestamp reference-time
                              :environment "DEV"
-                             :producer_timestamp reference-time}))
+                             :producer_timestamp reference-time
+                             :producer "bar1"}))
 
     (let [result (query-result method endpoint ["=" "certname" "foo1"])]
       (is (= (set (map :name result))
@@ -1885,6 +1944,7 @@
                                        :timestamp reference-time
                                        :environment "DEV"
                                        :producer_timestamp reference-time
+                                       :producer "bar"
                                        :values{"foo" "bar"
                                                "baz" "bax"}}]
                             (jdbc/with-transacted-connection *db*
