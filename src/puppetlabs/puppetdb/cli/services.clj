@@ -189,10 +189,10 @@
 (def clean-request-schema
   [(apply s/enum clean-options)])
 
-(defn- finishing-clean-up
-  "Normally does nothing, but supports testing."
+(defn- clear-clean-status!
+  "Clears the clean status (as a separate function to support tests)."
   []
-  true)
+  (reset! clean-status ""))
 
 (defn-validated clean-up
   "Cleans up the resources specified by request, or everything if
@@ -230,8 +230,7 @@
                (garbage-collect! db))
         (counters/inc! (:other-cleans admin-metrics)))
       (finally
-        (finishing-clean-up)
-        (reset! clean-status "")))))
+        (clear-clean-status!)))))
 
 (defn- clean-puppetdb [context config what]
   "Implements the PuppetDBServer clean method, see the protocol for

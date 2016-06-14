@@ -51,16 +51,6 @@
 (defn- post-clean [what]
   (post-admin "cmd" (clean-cmd what)))
 
-(defmacro with-blocked-clean [what in-clean test-finished & body]
-  `(do
-     (utils/noisy-future
-      (checked-admin-post "cmd" (clean-cmd ~what)))
-     (try
-       (.await ~in-clean)
-       ~@body
-       (finally
-         (.await ~test-finished)))))
-
 (deftest admin-clean-basic
   (with-pdb-with-no-gc
     (let [pdb (get-service *server* :PuppetDBServer)]
@@ -81,8 +71,12 @@
                                        (.await in-clean)
                                        (.await test-finished)
                                        (apply orig-clean args))]
-        (with-blocked-clean [] in-clean test-finished
-          (is (= http/status-conflict (:status (post-clean [])))))))))
+        (utils/noisy-future (checked-admin-post "cmd" (clean-cmd [])))
+        (try
+          (.await in-clean)
+          (is (= http/status-conflict (:status (post-clean []))))
+          (finally
+            (.await test-finished)))))))
 
 (defn- clean-status []
   (gauges/value (:cleaning cli-svc/admin-metrics)))
@@ -90,24 +84,28 @@
 (deftest admin-clean-status
   (with-pdb-with-no-gc
     (let [pdb (get-service *server* :PuppetDBServer)
-          clean-serializer (Object.)  ; Ensures previous iteration has unlocked
           orig-clean @#'cli-svc/clean-puppetdb
-          orig-finish @#'cli-svc/finishing-clean-up
-          in-clean (CyclicBarrier. 2)
-          test-finished (CyclicBarrier. 2)]
-      (with-redefs [cli-svc/clean-puppetdb #(locking clean-serializer
-                                              (apply orig-clean %&))
-                    cli-svc/finishing-clean-up (fn [& args]
-                                                 (.await in-clean)
-                                                 (.await test-finished)
-                                                 (apply orig-finish args))]
+          orig-clear @#'cli-svc/clear-clean-status!
+          before-clear (CyclicBarrier. 2)
+          after-test (CyclicBarrier. 2)
+          after-clear (CyclicBarrier. 2)]
+      (with-redefs [cli-svc/clear-clean-status! (fn [& args]
+                                                  (.await before-clear)
+                                                  (.await after-test)
+                                                  (apply orig-clear args)
+                                                  (.await after-clear))]
         (doseq [what (combinations ["expire_nodes" "purge_nodes"
                                     "purge_reports"
                                     "other"]
                                    3)]
           (let [expected (cli-svc/clean-options->status what)]
-            (with-blocked-clean what in-clean test-finished
-              (is (= expected (clean-status))))))))))
+            (utils/noisy-future (checked-admin-post "cmd" (clean-cmd what)))
+            (try
+              (.await before-clear)
+              (is (= expected (clean-status)))
+              (finally
+                (.await after-test)
+                (.await after-clear)))))))))
 
 (defn- inc-requested [counts requested]
   (into {}
