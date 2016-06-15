@@ -2,7 +2,8 @@
   (:import [javax.jms ExceptionListener JMSException MessageListener Session
             ConnectionFactory Connection Queue Message]
            [java.util.concurrent Semaphore ThreadPoolExecutor TimeUnit SynchronousQueue
-            RejectedExecutionException ExecutorService])
+            RejectedExecutionException ExecutorService]
+           [org.apache.commons.lang3.concurrent BasicThreadFactory BasicThreadFactory$Builder])
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.mq :as mq]
@@ -370,17 +371,18 @@
   "Create and return a command handler. This function does the work of
   consuming/storing a command. Handled commands are acknowledged here"
   [{:keys [discard-dir] :as mq-context} command-handler]
-  (let [message-handler (wrap-message-handler-middleware (send-delayed-message mq-context)
-                                                         discard-dir
-                                                         command-handler)]
+  (let [handle-message (wrap-message-handler-middleware (send-delayed-message mq-context)
+                                                        discard-dir
+                                                        command-handler)]
     (fn [^Message message]
       ;; When the queue is shutting down, it sends nil message
       (when message
         (try
-          (message-handler (mq/convert-jms-message message))
+          (handle-message (mq/convert-jms-message message))
           (.acknowledge message)
           (catch Exception ex
-            (log/error ex "Exception raised from processing message, message is not acknowledged and will be retried")))))))
+            (.rollback message)
+            (log/error ex "Unable to process message. Message not acknowledged and will be retried")))))))
 
 (defn create-mq-receiver
   "Infinite loop, intended to be run in an isolated thread that
@@ -403,6 +405,27 @@
       (catch Exception e
         (log/error e)))))
 
+(def logging-exception-handler
+  "Exception handler that ensures any uncaught exception that occurs
+  on this thread is logged"
+  (reify Thread$UncaughtExceptionHandler
+    (uncaughtException [_ thread throwable]
+      (log/error throwable "Error processing command"))))
+
+(defn command-thread-factory
+  "Creates a command thread factory, wrapping the
+  `pool-thread-factory`. Using this thread factory ensures that we
+  have distinguishable names for threads in this pool and that all
+  uncaught exceptions are logged as errors. Without this uncaught
+  exceptions get the default which is standard error"
+  [pool-thread-factory]
+  (-> (BasicThreadFactory$Builder.)
+      (.wrappedFactory pool-thread-factory)
+      (.namingPattern "cmd-proc-thread-%d")
+      (.uncaughtExceptionHandler logging-exception-handler)
+      (.daemon true)
+      .build))
+
 (defn create-command-handler-threadpool
   "Creates an unbounded threadpool with the intent that access to the
   threadpool is bounded by the semaphore. Implicitly the threadpool is
@@ -410,12 +433,18 @@
   it's more efficient to use an unbounded pool and not duplicate the
   constraint in both the semaphore and the threadpool"
   [size]
-  {:semaphore (Semaphore. size)
-   :threadpool (ThreadPoolExecutor. 1
-                                    Integer/MAX_VALUE
-                                    1
-                                    TimeUnit/MINUTES
-                                    (SynchronousQueue.))})
+  (let [threadpool (ThreadPoolExecutor. 1
+                                        Integer/MAX_VALUE
+                                        1
+                                        TimeUnit/MINUTES
+                                        (SynchronousQueue.))]
+    (->> threadpool
+         .getThreadFactory
+         command-thread-factory
+         (.setThreadFactory threadpool))
+
+    {:semaphore (Semaphore. size)
+     :threadpool threadpool}))
 
 (defn command-submission-handler
   "Creates a message handler that submits the message to
@@ -433,6 +462,7 @@
                                (finally
                                  (.release semaphore)))))
       (catch RejectedExecutionException e
+        (log/error e "Message not submitted to command processing threadpool")
         (.release semaphore)))))
 
 (defn run-mq-listener-thread
