@@ -138,7 +138,7 @@
         (with-alt-mq (:mq-name master)
           (is (nil? (facts-from mirror)))
           (blocking-command-post (:command-url master) certname
-                                 "replace facts" 4 facts)
+                                 "replace facts" 5 facts)
           @(block-until-results 100 (facts-from master)))
         @(block-until-results 100 (facts-from mirror))
         (is-equal-after

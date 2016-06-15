@@ -61,11 +61,11 @@
   (with-ext-instances [pdb (utils/sync-config nil)]
     (let [timestamps [(now) (-> 1 days ago) (-> 2 days ago)]
           certname "foo.local"
-          example-catalog (-> (get-in wire-catalogs [8 :basic])
+          example-catalog (-> (get-in wire-catalogs [9 :basic])
                               (assoc :certname certname))
           example-report (-> (:basic reports)
                              (assoc :certname certname)
-                             reports/report-query->wire-v7
+                             reports/report-query->wire-v8
                              (unify-report-with-catalog example-catalog))]
       (doseq [timestamp timestamps
               :let [tx-uuid (ks/uuid)
@@ -75,13 +75,13 @@
                     :catalog_uuid catalog-uuid
                     :producer_timestamp timestamp)
              (blocking-command-post (utils/pdb-cmd-url) example-certname
-                                    "store report" 7))
+                                    "store report" 8))
         (->> (assoc example-catalog
                     :transaction_uuid tx-uuid
                     :catalog_uuid catalog-uuid
                     :producer_timestamp timestamp)
              (blocking-command-post (utils/pdb-cmd-url) example-certname
-                                    "replace catalog" 8)))
+                                    "replace catalog" 9)))
       (testing "historical catalogs views have the right amount of data"
        (let [historical-catalogs (get-json (utils/pe-pdb-url) "/historical-catalogs")
              resource-graphs (get-json (utils/pe-pdb-url) "/resource-graphs")]
@@ -151,7 +151,7 @@
                       :certname "bar.example.com"
                       :producer_timestamp (-> 3 days ago))
                (blocking-command-post (utils/pdb-cmd-url) "bar.example.com"
-                                      "replace catalog" 8))
+                                      "replace catalog" 9))
 
           (let [resource-graphs
                 (get-json (utils/pe-pdb-url) "/resource-graphs"
@@ -165,7 +165,7 @@
                       :certname "baz.lan"
                       :producer_timestamp (-> 3 days ago))
                (blocking-command-post (utils/pdb-cmd-url) "baz.lan"
-                                      "store report" 6))
+                                      "store report" 8))
 
           (let [resource-graphs
                 (get-json (utils/pe-pdb-url) "/resource-graphs"
@@ -187,11 +187,11 @@
        (is (empty? (get-nodes)))
 
        (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
-                              "replace catalog" 8 example-catalog)
+                              "replace catalog" 9 example-catalog)
        (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
-                              "store report" 7 example-report)
+                              "store report" 8 example-report)
        (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
-                              "replace facts" 4 example-facts)
+                              "replace facts" 5 example-facts)
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))

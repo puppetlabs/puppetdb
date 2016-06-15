@@ -49,7 +49,9 @@
                                                        :href]]} :t]]}}})
        (assoc :selection {:from [[:catalogs :c]]
                           :left-join [[:environments :e]
-                                      [:= :c.environment_id :e.id]]}
+                                      [:= :c.environment_id :e.id]
+                                      :producers
+                                      [:= :c.producer_id :producers.id]]}
               :alias "historical_catalogs"))))
 
 
