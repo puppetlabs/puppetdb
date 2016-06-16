@@ -11,8 +11,7 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.testutils.db
-             :refer [*db* diff-schema-maps schema-info-map with-test-db]]
+            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [metrics.histograms :refer [sample histogram]]
             [metrics.counters :as counters]
             [schema.core :as s]
@@ -1370,15 +1369,6 @@
                  "select certname from certnames order by certname asc"))
            ["node1" "node3"]))))
 
-(deftest-db node-expiration-does-not-change-schema
-  (add-certname! "node1")
-  (let [initial-schema (schema-info-map *db*)]
-    (expire-node! "node1" (-> 3 days ago))
-    (purge-deactivated-and-expired-nodes! (now))
-    (is (= {:index-diff nil, :table-diff nil}
-           (diff-schema-maps initial-schema
-                             (schema-info-map *db*))))))
-
 (deftest-db report-sweep-nullifies-latest-report
   (testing "ensure that if the latest report is swept, latest_report_id is updated to nil"
     (let [report1 (assoc (:basic reports) :end_time (-> 12 days ago))
@@ -1516,16 +1506,7 @@
         (store-example-report! report2 timestamp)
         (delete-reports-older-than! (-> 3 days ago))
         (is (= #{}
-               (set (query-resource-events :latest ["=" "report" report1-hash] {})))))))
-
-  (deftest-db report-deletion-does-not-change-schema
-    (let [initial-schema (schema-info-map *db*)
-          report1 (assoc report :end_time (to-string (-> 3 days ago)))]
-      (store-example-report! report1 timestamp)
-      (delete-reports-older-than! (now))
-      (is (= {:index-diff nil, :table-diff nil}
-             (diff-schema-maps initial-schema
-                               (schema-info-map *db*)))))))
+               (set (query-resource-events :latest ["=" "report" report1-hash] {}))))))))
 
 (defn with-db-version [db version f]
   (with-redefs [sutils/db-metadata (delay {:database db
