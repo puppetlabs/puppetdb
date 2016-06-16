@@ -13,6 +13,7 @@ canonical: "/puppetdb/latest/api/query/v4/factsets.html"
 [facts]: ./facts.html
 [fact-contents]: ./fact_contents.html
 [environments]: ./environments.html
+[producers]: ./producers.html
 [nodes]: ./nodes.html
 
 You can query factsets by making an HTTP request to the `/factsets` endpoint.
@@ -53,6 +54,7 @@ The following list contains related entities that can be used to constrain the r
 * [`facts`][facts]: fact names and values received from a factset.
 * [`fact_contents`][fact-contents]: factset paths and values received from a factset.
 * [`nodes`][nodes]: the node that a factset was received from.
+* [`producers`][producers]: the master that sent the factset to PuppetDB.
 
 ### Response format
 
