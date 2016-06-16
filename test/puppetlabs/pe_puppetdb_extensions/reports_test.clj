@@ -13,10 +13,10 @@
       (let [report (:basic reports)
             certname (:certname report)]
         (->> report
-             reports/report-query->wire-v7
-             (blocking-command-post (utils/pdb-cmd-url) certname "store report" 7))
+             reports/report-query->wire-v8
+             (blocking-command-post (utils/pdb-cmd-url) certname "store report" 8))
         (let [expected (->> report
-                            reports/report-query->wire-v7
+                            reports/report-query->wire-v8
                             :resources
                             keywordize-keys)
               reports-response (first (get-json (utils/pdb-query-url) "/reports"))]

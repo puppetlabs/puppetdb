@@ -13,10 +13,10 @@
           report2 (-> (:basic2 reports)
                       (merge {:certname "bar.local" :end_time (now)}))]
       (blocking-command-post (utils/pdb-cmd-url) (:certname report)
-                             "store report" 7 (reports/report-query->wire-v7 report))
+                             "store report" 8 (reports/report-query->wire-v8 report))
       (blocking-command-post (utils/pdb-cmd-url) (:certname report2)
-                             "store report" 7
-                             (reports/report-query->wire-v7 report2))
+                             "store report" 8
+                             (reports/report-query->wire-v8 report2))
       (testing "query with no parameters returns correct counts"
         (let [actual (svcs/get-json (utils/pe-pdb-url) "/state-overview")
               expected {:unchanged 0

@@ -35,7 +35,7 @@
 (def ^:private example-resource-uuid (kitchensink/uuid))
 
 (defn- make-test-catalog [stamp n]
-  (-> (get-in examples/wire-catalogs [8 :basic])
+  (-> (get-in examples/wire-catalogs [9 :basic])
       (assoc :certname example-certname
              :producer_timestamp (DateTime. stamp)
              :transaction_uuid (kitchensink/uuid))
@@ -56,13 +56,14 @@
       (assoc-in [:resource_events :data 0 :line] n)
       (assoc :producer_timestamp (DateTime. stamp)
              :transaction_uuid (kitchensink/uuid))
-      reports/report-query->wire-v7))
+      reports/report-query->wire-v8))
 
 (defn- make-test-facts [stamp n]
   {:certname example-certname
    :environment "DEV"
    :values (assoc tuf/base-facts "operatingsystem" (str "datamangler/" n))
-   :producer_timestamp (DateTime. stamp)})
+   :producer_timestamp (DateTime. stamp)
+   :producer "mom.com"})
 
 (def ^:private startup-time (t/now))
 
@@ -153,13 +154,13 @@
                                         command version data)))]
     (ccm/match command
       {:cmd :replace-catalog :target target :stamp stamp :seed n}
-      (submit pdb-x pdb-y target "replace catalog" 8 (make-test-catalog stamp n))
+      (submit pdb-x pdb-y target "replace catalog" 9 (make-test-catalog stamp n))
 
       {:cmd :replace-facts :target target :stamp stamp :seed n}
-      (submit pdb-x pdb-y target "replace facts" 4 (make-test-facts stamp n))
+      (submit pdb-x pdb-y target "replace facts" 5 (make-test-facts stamp n))
 
       {:cmd :store-report :target target :stamp stamp :seed n}
-      (submit pdb-x pdb-y target "store report" 7 (make-test-report stamp n))
+      (submit pdb-x pdb-y target "store report" 8 (make-test-report stamp n))
 
       {:cmd :deactivate-node :target target :stamp stamp}
       (submit pdb-x pdb-y target "deactivate node" 3 {:certname example-certname

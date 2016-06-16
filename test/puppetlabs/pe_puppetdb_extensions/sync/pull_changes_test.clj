@@ -46,7 +46,7 @@
             (json-response @content-atom)))
 
 (deftest pull-reports-test
-  (let [report-1 (-> reports :basic reports/report-query->wire-v7)
+  (let [report-1 (-> reports :basic reports/report-query->wire-v8)
         report-2 (assoc report-1 :certname "bar.local")
         cert1 (:certname report-1)
         cert2 (:certname report-2)
@@ -60,8 +60,8 @@
     (with-log-suppressed-unless-notable notable-pull-changes-event?
       (with-ext-instances [pdb (sync-config stub-handler)]
         ;; store two reports in PDB Y
-        (blocking-command-post (utils/pdb-cmd-url) cert1 "store report" 7 report-1)
-        (blocking-command-post (utils/pdb-cmd-url) cert2 "store report" 7 report-2)
+        (blocking-command-post (utils/pdb-cmd-url) cert1 "store report" 8 report-1)
+        (blocking-command-post (utils/pdb-cmd-url) cert2 "store report" 8 report-2)
 
         (let [created-report-1 (first (svcs/get-reports (utils/pdb-query-url) cert1))
               created-report-2 (first (svcs/get-reports (utils/pdb-query-url) cert2))]
@@ -104,7 +104,7 @@
         ;; store factsets in PDB Y
         (doseq [c (map char (range (int \a) (int \g)))]
           (let [certname (str c ".local")]
-            (blocking-command-post (utils/pdb-cmd-url) certname "replace facts" 4
+            (blocking-command-post (utils/pdb-cmd-url) certname "replace facts" 5
                                    (assoc facts :certname certname))))
 
         (let [local-factsets (index-by :certname (get-json (utils/pdb-query-url)
@@ -191,7 +191,7 @@
         ;; store catalogs in PDB Y
         (doseq [c ["a" "b"]]
           (let [certname (str c ".local")]
-            (blocking-command-post (utils/pdb-cmd-url) certname "replace catalog" 8
+            (blocking-command-post (utils/pdb-cmd-url) certname "replace catalog" 9
                                    (assoc catalog :certname certname))))
 
         (let [local-catalogs (index-by :certname (get-json (utils/pe-pdb-url)

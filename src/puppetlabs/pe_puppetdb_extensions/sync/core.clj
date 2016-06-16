@@ -94,7 +94,7 @@
     ;; When a record is out-of-date, the whole thing is
     ;; downloaded and then stored with this command
     :submit-command {:command :store-report
-                     :version 7}}
+                     :version 8}}
 
    {:entity :factsets
     :summary-query {:version :v4
@@ -111,7 +111,7 @@
                               (assoc :values (into {} (for [{:keys [name value]} (:facts factset)]
                                                         [name value])))))
     :submit-command {:command :replace-facts
-                     :version 4}}
+                     :version 5}}
 
    {:entity :historical_catalogs
     ;; Bucketed summary queries are disabled for catalogs, for now, since we're
@@ -131,7 +131,7 @@
                               (utils/update-when [:edges] #(map clean-up-edge %))
                               (utils/update-when [:resources] #(map clean-up-resource %))))
     :submit-command {:command :replace-catalog
-                     :version 8}}
+                     :version 9}}
 
    {:entity :nodes
     :summary-query {:version :v4
