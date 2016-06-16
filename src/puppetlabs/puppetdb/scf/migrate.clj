@@ -1029,6 +1029,11 @@
   (jdbc/do-commands
     "CREATE INDEX idx_certnames_latest_report_id on certnames(latest_report_id)"))
 
+(defn drop-certnames-latest-id-index
+  []
+  (jdbc/do-commands
+    "DROP INDEX idx_certnames_latest_report_id"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1051,7 +1056,8 @@
    42 add-support-for-historical-catalogs
    43 add-indexes-for-reports-summary-query
    44 add-catalog-uuid-to-reports-and-catalogs
-   45 index-certnames-latest-report-id})
+   45 index-certnames-latest-report-id
+   46 drop-certnames-latest-id-index})
 
 (def desired-schema-version (apply max (keys migrations)))
 
