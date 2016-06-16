@@ -1370,15 +1370,6 @@
                  "select certname from certnames order by certname asc"))
            ["node1" "node3"]))))
 
-(deftest-db node-expiration-does-not-change-schema
-  (add-certname! "node1")
-  (let [initial-schema (schema-info-map *db*)]
-    (expire-node! "node1" (-> 3 days ago))
-    (purge-deactivated-and-expired-nodes! (now))
-    (is (= {:index-diff nil, :table-diff nil}
-           (diff-schema-maps initial-schema
-                             (schema-info-map *db*))))))
-
 (deftest-db report-sweep-nullifies-latest-report
   (testing "ensure that if the latest report is swept, latest_report_id is updated to nil"
     (let [report1 (assoc (:basic reports) :end_time (-> 12 days ago))
