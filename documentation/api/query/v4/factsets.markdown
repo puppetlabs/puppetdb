@@ -41,6 +41,7 @@ See [the AST query language page][ast].
    associated certname.
 * `producer_timestamp` (string): the most recent time of fact submission for
   the relevant certname from the master.
+* `producer` (string): the certname of the Puppet master that sent the factset to PuppetDB.
 * `hash` (string): a hash of the factset's certname, environment,
   timestamp, facts, and producer_timestamp.
 
@@ -66,6 +67,7 @@ the form:
       "environment": <node environment>,
       "timestamp": <time of last fact submission>,
       "producer_timestamp": <time of command submission from master>,
+      "producer": <master certname>
       "facts": <expanded facts>,
       "hash": <sha1 sum of "facts" value>
     }
@@ -140,6 +142,7 @@ Which returns:
           ...
         ]
       },
+      "producer" : "master.localdomain",
       "producer_timestamp" : "2015-03-06T00:20:14.833Z",
       "timestamp" : "2015-03-06T00:20:14.918Z",
       "environment" : "production",
@@ -166,6 +169,7 @@ a JSON error message if the factset is not found.
       "environment" : "production",
       "facts" : {...},
       "hash" : "93253d31af6d718cf81f5bc028be2a671f23ed78",
+      "producer" : "foo.local",
       "producer_timestamp" : "2015-06-04T15:27:56.893Z",
       "timestamp" : "2015-06-04T15:27:56.979Z"
     }

@@ -10,7 +10,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def save(request)
     profile("catalog#save", [:puppetdb, :catalog, :save, request.key]) do
       catalog = munge_catalog(request.instance, extract_extra_request_data(request))
-      submit_command(request.key, catalog, CommandReplaceCatalog, 8)
+      submit_command(request.key, catalog, CommandReplaceCatalog, 9)
     end
   end
 
@@ -53,6 +53,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       add_transaction_uuid(data, extra_request_data[:transaction_uuid])
       add_environment(data, extra_request_data[:environment])
       add_producer_timestamp(data, extra_request_data[:producer_timestamp])
+      add_producer(data, Puppet[:node_name_value])
 
       data
     end
@@ -138,6 +139,18 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # @api private
   def add_catalog_uuid_if_missing(hash, default)
     hash['catalog_uuid'] = hash['catalog_uuid'] || default
+
+    hash
+  end
+
+  # Include producer in hash, returning the complete hash.
+  #
+  # @param hash [Hash] original data hash
+  # @param producer [String or nil] producer
+  # @return [Hash] returns original hash augmented with producer
+  # @api private
+  def add_producer(hash, producer)
+    hash['producer'] = producer
 
     hash
   end

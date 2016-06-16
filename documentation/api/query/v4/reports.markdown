@@ -91,6 +91,9 @@ responses.
 * `receive_time` (timestamp): the time at which PuppetDB received the report.
   Timestamps are always [ISO-8601][8601] compatible date/time strings.
 
+* `producer` (string): the certname of the Puppet master that sent the report
+  to PuppetDB.
+
 * `transaction_uuid` (string): a string used to identify a Puppet run.
 
 * `catalog_uuid` (string): a string used to tie a catalog to a report to the
@@ -131,6 +134,8 @@ is of the form:
       "report_format": <report wireformat version>,
       "start_time": <start of run timestamp>,
       "end_time": <end of run timestamp>,
+      "producer_timestamp": <time of transmission by master>,
+      "producer": <master certname>,
       "transaction_uuid": <string to identify puppet run>,
       "status": <status of node after report's associated puppet run>,
       "noop": <boolean flag indicating noop run>,
@@ -180,7 +185,7 @@ The `<expanded resources>` object is of the following form:
         "resource_type": <type of resource event occurred on>,
         "resource_title": <title of resource event occurred on>,
         "containment_path": <containment heirarchy of resource within catalog>
-        "skipped" : <boolean for whether or not the resource was skipped>, 
+        "skipped" : <boolean for whether or not the resource was skipped>,
         "events" : [<event> ...]
       } ... ]
     }
@@ -234,7 +239,7 @@ File and line may each be null if the log does not concern a resource.
 >In the resource_event schema above, `containment_path`, `new_value`, `old_value`, `property`, `file`, `line`, `status`, and `message` may all be null.
 
 >**Note: On querying resource events, metrics, and logs**
-> 
+>
 >The `reports` endpoint does not support querying on the value of `resource_events`, `logs`, or `metrics`. For `resource_events`, the same information can be accessed by querying the `events` endpoint for events with field `report` equal to a given report's `hash`. Making metrics and logs queryable may be the target of future work.
 
 ### Examples
@@ -254,6 +259,8 @@ Query for all reports:
       "report_format" : 4,
       "start_time" : "2015-02-19T16:23:09.810Z",
       "end_time" : "2015-02-19T16:23:10.287Z",
+      "producer_timestamp" : "2015-02-19T16:23:11.000Z",
+      "producer" : "master.localdomain",
       "resource_events" : {
         "href": "/pdb/query/v4/reports/32c821673e647b0650717db467abc51d9949fd9a/events",
         "data": [ {
@@ -435,4 +442,3 @@ route.
 This query endpoint supports paged results via the common PuppetDB paging URL
 parameters. For more information, please see the documentation on
 [paging][paging].
-

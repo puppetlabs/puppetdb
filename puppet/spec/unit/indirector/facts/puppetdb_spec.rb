@@ -42,12 +42,14 @@ describe Puppet::Node::Facts::Puppetdb do
 
       trusted_data = {"foo" => "foobar", "certname" => "testing_posting"}
       subject.stubs(:get_trusted_info).returns trusted_data
+      Puppet[:node_name_value] = "mom"
 
       payload = {
         "certname" => facts.name,
         "values" => facts.values.merge({"trusted" => trusted_data}),
         "environment" => "my_environment",
         "producer_timestamp" => "a test",
+        "producer" => "mom"
       }.to_pson
 
       http.expects(:post).with do |uri, body, headers|

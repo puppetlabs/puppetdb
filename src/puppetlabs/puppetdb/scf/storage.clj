@@ -377,6 +377,21 @@
     (ensure-row :environments {:environment env-name})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Producers querying/updating
+
+(pls/defn-validated producer-id :- (s/maybe s/Int)
+  "Returns the id (primary key) from the producers table for the given `prod-name`"
+  [prod-name :- s/Str]
+  (query-id :producers {:name prod-name}))
+
+(pls/defn-validated ensure-producer :- (s/maybe s/Int)
+  "Check if the given `prod-name` exists, creates it if it does not. Always returns
+   the id of the `prod-name` (whether created or existing)"
+  [prod-name :- (s/maybe s/Str)]
+  (when prod-name
+    (ensure-row :producers {:name prod-name})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Status querying/updating
 
 (pls/defn-validated status-id :- (s/maybe s/Int)
@@ -446,7 +461,8 @@
            transaction_uuid
            catalog_uuid
            environment
-           producer_timestamp]} :- catalog-schema
+           producer_timestamp
+           producer]} :- catalog-schema
    received-timestamp :- pls/Timestamp]
   (let [catalogs-jsonb? @store-catalogs-jsonb-columns?]
     {:hash (sutils/munge-hash-for-storage hash)
@@ -459,6 +475,7 @@
      :code_id code_id
      :environment_id (ensure-environment environment)
      :producer_timestamp (to-timestamp producer_timestamp)
+     :producer_id (ensure-producer producer)
      :api_version 1}))
 
 (pls/defn-validated update-catalog-metadata!
@@ -1140,7 +1157,7 @@
   "Given a certname and a map of fact names to values, store records for those
   facts associated with the certname."
   ([fact-data] (add-facts! fact-data true))
-  ([{:keys [certname values environment timestamp producer_timestamp]
+  ([{:keys [certname values environment timestamp producer_timestamp producer]
      :as fact-data} :- facts-schema
     include-hash? :- s/Bool]
    (jdbc/with-db-transaction []
@@ -1150,11 +1167,11 @@
        {:certname certname
         :timestamp (to-timestamp timestamp)
         :environment_id (ensure-environment environment)
-        :producer_timestamp (to-timestamp producer_timestamp)}
+        :producer_timestamp (to-timestamp producer_timestamp)
+        :producer_id (ensure-producer producer)}
        (when include-hash?
          {:hash (sutils/munge-hash-for-storage
-                 (shash/generic-identity-hash
-                  (dissoc fact-data :timestamp :producer_timestamp)))})))
+                 (shash/fact-identity-hash fact-data))})))
     ;; Ensure that all the required paths and values exist, and then
     ;; insert the new facts.
     (let [paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
@@ -1172,7 +1189,7 @@
   "Given a certname, querys the DB for existing facts for that
    certname and will update, delete or insert the facts as necessary
    to match the facts argument. (cf. add-facts!)"
-  [{:keys [certname values environment timestamp producer_timestamp] :as fact-data}
+  [{:keys [certname values environment timestamp producer_timestamp producer] :as fact-data}
    :- facts-schema]
 
   (jdbc/with-db-transaction []
@@ -1220,8 +1237,8 @@
                    {:timestamp (to-timestamp timestamp)
                     :environment_id (ensure-environment environment)
                     :producer_timestamp (to-timestamp producer_timestamp)
-                    :hash (-> (dissoc fact-data :timestamp :producer_timestamp)
-                              shash/generic-identity-hash
+                    :hash (-> fact-data
+                              shash/fact-identity-hash
                               sutils/munge-hash-for-storage)}
                    ["id=?" factset-id]))))
 
@@ -1304,7 +1321,7 @@
    received-timestamp :- pls/Timestamp
    update-latest-report? :- s/Bool]
   (time! (:store-report performance-metrics)
-         (let [{:keys [puppet_version certname report_format configuration_version
+         (let [{:keys [puppet_version certname report_format configuration_version producer
                        producer_timestamp start_time end_time transaction_uuid environment
                        status noop metrics logs resources resource_events catalog_uuid
                        code_id cached_catalog_status]
@@ -1325,6 +1342,7 @@
                             :certname certname
                             :report_format report_format
                             :configuration_version configuration_version
+                            :producer_id (ensure-producer producer)
                             :producer_timestamp producer_timestamp
                             :start_time start_time
                             :end_time end_time
