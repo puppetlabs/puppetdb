@@ -16,7 +16,7 @@ canonical: "/puppetdb/latest/connect_puppet_apply.html"
 [jetty]: ./configure.html#jetty-http-settings
 [settings_namespace]: /puppet/latest/reference/lang_facts_and_builtin_vars.html#variables-set-by-the-puppet-master
 [ssl_script]: ./install_from_source.html#step-3-option-a-run-the-ssl-configuration-script
-[package_repos]: /guides/puppetlabs_package_repositories.html
+[package_repos]: /puppet/latest/reference/puppet_collections.html
 
 > Note: To use PuppetDB, the nodes at your site must be running Puppet version 3.8.1 or later.
 
@@ -51,8 +51,8 @@ You will have to sign a certificate for every new node you add to your site.
 
 Currently, Puppet needs extra Ruby plugins in order to use PuppetDB. Unlike custom facts or functions, these cannot be loaded from a module and must be installed in Puppet's main source directory.
 
-* First, ensure that the appropriate [Puppet package repository][package_repos]
-  is enabled. You can use a [package][] resource to do this or use the
+* First, ensure that the appropriate [Puppet Collection repository][package_repos]
+  repository is enabled. You can use a [package][] resource to do this or the
   `apt::source` (from the [puppetlabs-apt][apt] module) and [`yumrepo`][] types.
 * Next, use Puppet to ensure that the `puppetdb-termini` package is installed:
 

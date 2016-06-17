@@ -38,20 +38,20 @@ handling, and improves the speed of removing old reports and node expiration and
   fixed and more robust in a future release
   ([PDB-2546](https://tickets.puppetlabs.com/browse/PDB-2546)).
 
-* Added a `to\_string` function to format strings in both PQL and the AST query
+* Added a `to_string` function to format strings in both PQL and the AST query
   language ([PDB-2494](https://tickets.puppetlabs.com/browse/PDB-2494)).
 
 * Added more metrics related to command processing. The most useful is probably
   `message-persistence-time`, which tracks the time take to write the command to
   disk ([PDB-2485](https://tickets.puppetlabs.com/browse/PDB-2485)).
 
-* Added the ability to use `latest\_report?` when querying the older event query
+* Added the ability to use `latest_report?` when querying the older event query
   endpoints ([PDB-2527](https://tickets.puppetlabs.com/browse/PDB-2527)).
 
-* Added a `cached\_catalog\_status` field to the nodes endpoint
+* Added a `cached_catalog_status` field to the nodes endpoint
   ([PDB-2586](https://tickets.puppetlabs.com/browse/PDB-2586)).
 
-* Added a `latest\_report\_noop` field to the nodes endpoint
+* Added a `latest_report_noop` field to the nodes endpoint
   ([PDB-2490](https://tickets.puppetlabs.com/browse/PDB-2490)).
 
 * (PE Only) Added token-based authentication (RBAC support)
@@ -72,7 +72,7 @@ handling, and improves the speed of removing old reports and node expiration and
   work to the database and being more efficient with how constraints are applied
   ([PDB-2477](https://tickets.puppetlabs.com/browse/PDB-2477)).
 
-* Added validation of the query parameter in the `puppetdb\_query()` function
+* Added validation of the query parameter in the `puppetdb_query()` function
   included in the terminus
   ([PDB-2648](https://tickets.puppetlabs.com/browse/PDB-2648)).
 

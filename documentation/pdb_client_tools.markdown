@@ -4,7 +4,7 @@ layout: default
 ---
 
 [installpuppet]: /puppet/latest/reference/install_pre.html
-[repos]: /guides/puppetlabs_package_repositories.html
+[repos]: /puppet/latest/reference/puppet_collections.html
 [export]: ./anonymization.html
 
 # PuppetDB CLI
@@ -27,32 +27,32 @@ seconds`.
 
     $ export PATH=/opt/puppetlabs/bin:$PATH
     $ export MANPATH=/opt/puppetlabs/client/tools/share/man:$MANPATH
-    
+
 The rest of this documentation assumes that these two directories have been
 added to their proper path configurations.
 
-### Step 2: Enable the Puppet Labs package repository
+### Step 2: Enable the Puppet Collection package repository
 
 If you didn't already use it to install Puppet, you will need to
-[enable the Puppet Labs package repository][repos] for your system.
+[enable the Puppet Collection package repository][repos] for your system.
 
 ### Step 3: Install and configure the PuppetDB CLI
 
 Use Puppet to install the PuppetDB CLI:
 
     $ puppet resource package puppet-client-tools ensure=latest
-  
+
 If the node you installed the CLI on is not the same node as your PuppetDB
 server, you will need to add the CLI node's certname to the PuppetDB
 certificate-whitelist and specify the paths to the CLI node's cacert, cert, and
 private key when using the CLI either with flags or a configuration file.
-  
+
 To configure the PuppetDB CLI to talk to your PuppetDB with flags, add a
 configuration file at `$HOME/.puppetlabs/client-tools/puppetdb.conf`. For more
 details see the installed man page:
 
     $ man puppetdb_conf
-  
+
 ### Step 4: Enjoy!
 
 Here are some examples of using the CLI.
@@ -62,17 +62,17 @@ Here are some examples of using the CLI.
 Query PuppetDB using PQL:
 
     $ puppet query 'nodes [ certname ]{ limit 1 }'
-  
+
 Or query PuppetDB using the AST syntax:
 
-    $ puppet query '["from", "nodes", ["extract", "certname"], ["limit", "1"]]'
-  
-For more information on the `query` command: 
+    $ puppet query '["from", "nodes", ["extract", "certname"], ["limit", 1]]'
+
+For more information on the `query` command:
 
     $ man puppet-query
-  
+
 #### Using `puppet db`
-  
+
 Handle your PuppetDB exports:
 
     $ puppet db export pdb-archive.tgz --anonymization full
@@ -84,6 +84,6 @@ Or handle your PuppetDB imports:
 For more information on the `db` command:
 
     $ man puppet-db
-  
+
 For more information about PuppetDB exports, imports, and anonymization
 [see][export].

@@ -3,7 +3,7 @@ title: "PuppetDB 4.1: Installing PuppetDB via Puppet module"
 layout: default
 ---
 
-[module]: http://forge.puppetlabs.com/puppetlabs/puppetdb
+[module]: http://forge.puppet.com/puppetlabs/puppetdb
 [config_with_module]: ./configure.html#playing-nice-with-the-puppetdb-module
 
 > **Note:** If you are running Puppet Enterprise version 3.0 or later, you do
@@ -21,12 +21,12 @@ and the PuppetDB-termini for your Puppet master) using
   follow our guide to
   [installing PuppetDB from packages](./install_from_packages.html).
 
-Step 1: Enable the Puppet package repository
+Step 1: Enable the Puppet Collection package repository
 -----
 
 If you haven't done so already, you will need to do **one** of the following:
 
-* [Enable the Puppet package repository](/guides/puppetlabs_package_repositories.html)
+* [Enable the Puppet Collection package repository](/puppet/latest/reference/puppet_collections.html)
   on your PuppetDB server and Puppet master server.
 * Grab the PuppetDB and PuppetDB-termini packages, and import them into your
   site's local package repos.

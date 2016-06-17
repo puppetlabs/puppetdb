@@ -17,6 +17,14 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#: src/puppetlabs/puppetdb/admin.clj:40
+msgid "Invalid command {0}: {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/admin.clj:50
+msgid "Another cleanup is already in progress"
+msgstr ""
+
 #: src/puppetlabs/puppetdb/config.clj:366
 msgid ""
 "Configuring the route for `{0}` is not allowed. The default route is `{1}` "
@@ -32,7 +40,7 @@ msgid "Permission denied: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http.clj:164
-#: src/puppetlabs/puppetdb/middleware.clj:113
+#: src/puppetlabs/puppetdb/middleware.clj:114
 msgid "must accept {0}"
 msgstr ""
 
@@ -43,7 +51,7 @@ msgid "Error streaming response"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http.clj:286
-#: src/puppetlabs/puppetdb/middleware.clj:293
+#: src/puppetlabs/puppetdb/middleware.clj:294
 msgid "No information is known about {0} {1}"
 msgstr ""
 
@@ -51,47 +59,63 @@ msgstr ""
 msgid "Processing HTTP request to URI: ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:51
+#: src/puppetlabs/puppetdb/middleware.clj:52
 msgid "{0} rejected by certificate whitelist {1}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:52
+#: src/puppetlabs/puppetdb/middleware.clj:53
 msgid ""
 "The client certificate name {0} doesn't appear in the certificate whitelist. "
 "Is your master''s (or other PuppetDB client''s) certname listed in "
 "PuppetDB''s certificate-whitelist file?"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:127
+#: src/puppetlabs/puppetdb/middleware.clj:128
 msgid "content type {0} not supported"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:143
+#: src/puppetlabs/puppetdb/middleware.clj:144
 msgid "Missing required query parameter ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:149
+#: src/puppetlabs/puppetdb/middleware.clj:150
 msgid "Unsupported query parameter ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:252
+#: src/puppetlabs/puppetdb/middleware.clj:253
 msgid "Processing command with a content-length of {0} bytes"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:253
+#: src/puppetlabs/puppetdb/middleware.clj:254
 msgid ""
 "No content length found for POST. POST bodies that are too large could cause "
 "memory-related failures."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:259
+#: src/puppetlabs/puppetdb/middleware.clj:260
 msgid ""
 "content-length of command is {0} bytes and is larger than the maximum "
 "allowed command size of {1} bytes"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:264
+#: src/puppetlabs/puppetdb/middleware.clj:265
 msgid "Command rejected due to size exceeding max-command-size"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/mq_listener.clj:250
+msgid "[{0}] [{1}] Exceeded max {2} attempts for {3}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/mq_listener.clj:255
+msgid "Fatal error parsing command: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/mq_listener.clj:266
+msgid "[{0}] [{1}] Fatal error on attempt {2} for {3}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/mq_listener.clj:296
+msgid "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/pql.clj:24

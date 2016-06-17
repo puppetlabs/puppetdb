@@ -462,9 +462,9 @@
 
 (deftest test-add-producer-to-reports-catalogs-and-factsets-migration
   (clear-db-for-testing!)
-  (fast-forward-to-migration! 45)
+  (fast-forward-to-migration! 46)
   (let [before-migration (schema-info-map *db*)]
-    (apply-migration-for-testing! 46)
+    (apply-migration-for-testing! 47)
     (let [schema-diff (diff-schema-maps before-migration (schema-info-map *db*))]
       (is (= (set [{:left-only nil,
                     :right-only
