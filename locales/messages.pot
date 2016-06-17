@@ -17,15 +17,15 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/puppetlabs/pe_puppetdb_extensions/config.clj:119
+#: src/puppetlabs/pe_puppetdb_extensions/config.clj:118
 msgid "Allowing unsafe sync triggers"
 msgstr ""
 
-#: src/puppetlabs/pe_puppetdb_extensions/config.clj:121
+#: src/puppetlabs/pe_puppetdb_extensions/config.clj:120
 msgid "Allowing unsafe cleartext sync"
 msgstr ""
 
-#: src/puppetlabs/pe_puppetdb_extensions/config.clj:125
+#: src/puppetlabs/pe_puppetdb_extensions/config.clj:124
 msgid "Invalid sync config: {0}"
 msgstr ""
 
@@ -33,18 +33,18 @@ msgstr ""
 msgid "HTTP {0} {1} {2}"
 msgstr ""
 
-#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:48
+#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:51
 msgid "User does not have permission to access PuppetDB"
 msgstr ""
 
-#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:52
+#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:55
 msgid "Must supply a certificate or token to access PuppetDB."
 msgstr ""
 
-#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:94
+#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:129
 msgid "Starting PuppetDB, entering maintenance mode"
 msgstr ""
 
-#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:124
+#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:162
 msgid "PuppetDB finished starting, disabling maintenance mode"
 msgstr ""
