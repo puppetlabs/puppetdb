@@ -9,7 +9,7 @@
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
-            [slingshot.slingshot :refer [try+]]
+            [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [metrics.meters :refer [meter mark!]]
             [metrics.histograms :refer [histogram update!]]
@@ -154,6 +154,13 @@
    (catch Throwable e
      e)))
 
+(defn parse-command
+  [msg]
+  (try+
+   (cmd/parse-command msg)
+   (catch Throwable e
+     (throw+ {:kind ::parse-error} e "Error parsing command"))))
+
 (defn annotate-with-attempt
   "Adds an `attempt` annotation to `msg` indicating there was a failed attempt
   at handling the message, including the error and trace from `e`."
@@ -296,11 +303,45 @@
         on-parse-error #(handle-parse-error %1 %2 discard)
         on-fatal       #(handle-command-failure %1 %2 discard)
         on-retry       #(handle-command-retry %1 %2 send-delayed-msg-fn)]
-    (-> message-fn
-        (wrap-with-discard on-discard maximum-allowable-retries)
-        (wrap-with-exception-handling on-retry on-fatal)
-        (wrap-with-command-parser on-parse-error)
-        (wrap-with-meter (global-metric :seen)))))
+    (fn [msg]
+      (mark! (global-metric :seen))
+      (try+
+       (let [{:keys [command version annotations] :as parsed-result} (parse-command msg)]
+
+         (try+
+
+          (mark! (global-metric :seen))
+          (time! (global-metric :processing-time)
+                 (let [retries (count (:attempts annotations))]
+                   (create-metrics-for-command! command version)
+                   (mark! (cmd-metric command version :seen))
+                   (update! (global-metric :retry-counts) retries)
+                   (update! (cmd-metric command version :retry-counts) retries)
+
+                   (when (>= retries maximum-allowable-retries)
+                     (mark! (global-metric :discarded))
+                     (mark! (cmd-metric command version :discarded))
+                     (on-discard parsed-result))
+
+                   (when (< retries maximum-allowable-retries)
+                     (let [result (time! (cmd-metric command version :processing-time)
+                                         (message-fn parsed-result))]
+                       (mark! (cmd-metric command version :processed))
+                       result))))
+          (mark! (global-metric :processed))
+
+          (catch fatal? {:keys [cause]}
+            (on-fatal parsed-result cause)
+            (mark! (global-metric :fatal)))
+       
+          (catch Throwable exception
+            (on-retry parsed-result exception)
+            (mark! (global-metric :retried)))))
+
+       (catch [:kind ::parse-error] _
+         (mark! (global-metric :fatal))
+         (log/errorf (:throwable &throw-context) "Fatal error parsing command: %s" msg)
+         (discard msg (:throwable &throw-context)))))))
 
 (defprotocol MessageListenerService
   (register-listener [this schema listener-fn])
