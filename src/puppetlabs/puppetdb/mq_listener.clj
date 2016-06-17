@@ -233,19 +233,6 @@
           (mark! (cmd-metric command version :processed))
           result)))))
 
-(defn wrap-with-thread-name
-  "Wrap a message processor `f` such that the calling thread's name is
-  set to `<prefix>-<thread-id>`. This is useful for situations where
-  thread names are ordinarily duplicated across multiple threads, or
-  if the default names aren't descriptive enough."
-  [f prefix]
-  (fn [msg]
-    (let [t    (Thread/currentThread)
-          name (format "%s-%d" prefix (.getId t))]
-      (when-not (= (.getName t) name)
-        (.setName t name))
-      (f msg))))
-
 (defn handle-command-discard
   [{:keys [command annotations] :as msg} discard]
   (let [attempts (count (:attempts annotations))
@@ -313,8 +300,7 @@
         (wrap-with-discard on-discard maximum-allowable-retries)
         (wrap-with-exception-handling on-retry on-fatal)
         (wrap-with-command-parser on-parse-error)
-        (wrap-with-meter (global-metric :seen))
-        (wrap-with-thread-name "command-proc"))))
+        (wrap-with-meter (global-metric :seen)))))
 
 (defprotocol MessageListenerService
   (register-listener [this schema listener-fn])
