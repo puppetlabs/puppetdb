@@ -115,28 +115,36 @@ describe processor do
       end
     end
 
-    it "should include truthy noop flag" do
-      if defined?(subject.noop) then
-        subject.noop = true
-      else
-        event = Puppet::Transaction::Event.new
-        event.status = "noop"
-        status.add_event(event)
+    context "noop run" do
+      before :all do
+        Puppet[:noop] = true
       end
-      result = subject.send(:report_to_hash)
-      result["noop"].should == true
+
+      it "should include truthy noop flag" do
+        unless defined?(subject.noop) then
+          event = Puppet::Transaction::Event.new
+          event.status = "noop"
+          status.add_event(event)
+        end
+        result = subject.send(:report_to_hash)
+        result["noop"].should == true
+      end
     end
 
-    it "should include falsey noop flag" do
-      if defined?(subject.noop) then
-        subject.noop = false
-      else
-        event = Puppet::Transaction::Event.new
-        event.status = "success"
-        status.add_event(event)
+    context "enforcement run" do
+      before :all do
+        Puppet[:noop] = false
       end
-      result = subject.send(:report_to_hash)
-      result["noop"].should == false
+
+      it "should include falsey noop flag" do
+        unless defined?(subject.noop) then
+          event = Puppet::Transaction::Event.new
+          event.status = "success"
+          status.add_event(event)
+        end
+        result = subject.send(:report_to_hash)
+        result["noop"].should == false
+      end
     end
 
     context "start/end time" do
