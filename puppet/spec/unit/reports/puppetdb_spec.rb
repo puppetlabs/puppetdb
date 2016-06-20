@@ -74,6 +74,7 @@ describe processor do
       if defined?(subject.catalog_uuid) then
         subject.catalog_uuid = 'bde432'
       end
+
       result = subject.send(:report_to_hash)
       result["transaction_uuid"].should == 'abc123'
 
@@ -101,6 +102,18 @@ describe processor do
       Puppet[:node_name_value] = "foo"
       result = subject.send(:report_to_hash)
       result["producer"].should == "foo"
+    end
+
+    it "should include noop_pending or nil" do
+      if defined?(subject.noop_pending) then
+        subject["noop_pending"] = false
+      end
+      result = subject.send(:report_to_hash)
+      if defined?(subject.noop_pending) then
+        result["noop_pending"].should == false
+      else
+        result["noop_pending"].should == nil
+      end
     end
 
     it "should include the cached_catalog_status or nil" do

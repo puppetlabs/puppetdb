@@ -1056,6 +1056,12 @@
   (jdbc/do-commands
     "DROP INDEX idx_certnames_latest_report_id"))
 
+(defn add-noop-pending-to-reports
+  []
+  (jdbc/do-commands
+    "ALTER TABLE reports ADD COLUMN noop_pending boolean"
+    "CREATE INDEX idx_reports_noop_pending on reports using btree (noop_pending) where (noop_pending = true)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1080,7 +1086,8 @@
    44 add-catalog-uuid-to-reports-and-catalogs
    45 index-certnames-latest-report-id
    46 drop-certnames-latest-id-index
-   47 add-producer-to-reports-catalogs-and-factsets})
+   47 add-producer-to-reports-catalogs-and-factsets
+   48 add-noop-pending-to-reports})
 
 (def desired-schema-version (apply max (keys migrations)))
 

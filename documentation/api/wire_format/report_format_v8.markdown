@@ -27,7 +27,8 @@ noted, `null` is not allowed anywhere in the report.
         "code_id": <string>,
         "cached_catalog_status": <string>,
         "status": <string>,
-        "noop": <boolean>
+        "noop": <boolean>,
+        "noop_pending": <boolean>
     }
 
 All keys are mandatory unless otherwise noted, though values that are lists may be empty lists.
@@ -75,6 +76,10 @@ error or not. This field may be `null`.
 `"status"` is a string used to identify the status of the Puppet run.
 
 `"noop"` is a flag that indicates whether the report was produced with a `--noop` run.
+
+`"noop_pending"` is a flag that indicates whether the report contained "noop"
+events. These may result from use of the `--noop` flag, or from resources
+tagged with the `noop` parameter. This field may be `null`.
 
 `"resources"` is an array of objects of the following form:
 

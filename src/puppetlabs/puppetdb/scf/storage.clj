@@ -1247,7 +1247,7 @@
          (let [{:keys [puppet_version certname report_format configuration_version producer
                        producer_timestamp start_time end_time transaction_uuid environment
                        status noop metrics logs resources resource_events catalog_uuid
-                       code_id cached_catalog_status]
+                       code_id cached_catalog_status noop_pending]
                 :as report} (normalize-report orig-report)
                 report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
@@ -1261,6 +1261,7 @@
                             :logs (sutils/munge-jsonb-for-storage logs)
                             :resources (sutils/munge-jsonb-for-storage resources)
                             :noop noop
+                            :noop_pending noop_pending
                             :puppet_version puppet_version
                             :certname certname
                             :report_format report_format

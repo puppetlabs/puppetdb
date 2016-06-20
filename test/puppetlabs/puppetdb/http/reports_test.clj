@@ -40,7 +40,7 @@
 
     (doseq [field ["certname" "hash" "puppet_version" "report_format"
                    "configuration_version" "start_time" "end_time"
-                   "transaction_uuid" "status" "producer"]
+                   "transaction_uuid" "status" "producer" "noop_pending"]
             :let [field-kwd (keyword field)]]
       (testing (format "should return all reports for a %s" field)
         (let [result (query-response method endpoint ["=" field (get basic-with-hash field-kwd)])
