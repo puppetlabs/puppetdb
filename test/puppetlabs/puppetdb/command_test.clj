@@ -16,7 +16,8 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils
-             :refer [args-supplied call-counter dotestseq times-called]]
+             :refer [args-supplied call-counter dotestseq times-called mock-fn]]
+            [puppetlabs.puppetdb.test-protocols :refer [called?]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
@@ -32,7 +33,8 @@
             [puppetlabs.puppetdb.time :as pt]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [clojure.core.async :as async]
-            [puppetlabs.kitchensink.core :as ks])
+            [puppetlabs.kitchensink.core :as ks]
+            [clojure.string :as str])
   (:import [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
 
@@ -99,8 +101,8 @@
   `(let [log-output#     (atom [])
          publish#        (call-counter)
          discard-dir#    (fs/temp-dir "test-msg-handler")
-         handle-message# (mql/wrap-message-handler-middleware
-                          publish# discard-dir# #(process-command! % ~db))
+         handle-message# (mql/message-handler-with-retries
+                          publish# (mql/discard-message discard-dir#) #(process-command! % ~db))
          msg#            {:headers {:id "foo-id-1"
                                     :received (tfmt/unparse (tfmt/formatters :date-time) (now))}
                           :body (json/generate-string ~command)}]
@@ -145,16 +147,14 @@
           (with-redefs [process-command! (fn [cmd db] (throw+ (Exception. "non-fatal error")))]
             (test-msg-handler command publish discard-dir
               (is (empty? (fs/list-dir discard-dir)))
-              (let [[msg & _] (first (args-supplied publish))
-                    published (parse-command {:body msg})
-                    attempt   (first (get-in published [:annotations :attempts]))]
-                (is (re-find #"java.lang.Exception: non-fatal error" (:error attempt)))
-                (is (:trace attempt)))))))
+              (let [[msg exception] (first (args-supplied publish))]
+                (is (instance? Exception exception))
+                (is (re-find #"non-fatal error" (.getMessage exception))))))))
 
       (testing "should be discarded if expired"
         (let [command (assoc-in command [:annotations :attempts] (repeat mql/maximum-allowable-retries {}))
               process-counter (call-counter)]
-          (with-redefs [process-command! process-counter]
+          (with-redefs [process-command! (fn [_ _] (throw (RuntimeException. "Expected failure")) )]
             (test-msg-handler command publish discard-dir
               (is (= 0 (times-called publish)))
               (is (= 1 (count (fs/list-dir discard-dir))))
@@ -172,45 +172,47 @@
 (defn make-cmd
   "Create a command pre-loaded with `n` attempts"
   [n]
-  {:command nil :version nil :annotations {:attempts (repeat n {})}})
+  {:headers {:id "foo-id-1"
+             :received (tfmt/unparse (tfmt/formatters :date-time) (now))}
+   :body (json/generate-string  {:command "some catalog"
+                                 :payload "foo"
+                                 :version 10
+                                 :annotations {:attempts (repeat n {})}})})
 
 (deftest command-retry-handler
-  (testing "Retry handler"
-    (with-redefs [metrics.meters/mark!  (call-counter)
-                  mql/annotate-with-attempt (call-counter)]
+  (testing "Should log retries as debug for less than 4 attempts"
+    (let [process-message (fn [_] (throw (RuntimeException. "retry me")))]
+      
+      (doseq [i (range 0 mql/maximum-allowable-retries)
+              :let [log-output (atom [])
+                    delay-message (mock-fn)
+                    discard-message (mock-fn)
+                    mh (mql/message-handler-with-retries delay-message discard-message process-message)]]
+        (binding [*logger-factory* (atom-logger log-output)]
+          (mh (make-cmd i))
+          (is (called? delay-message))
+          (is (not (called? discard-message)))
 
-      (testing "should log errors"
-        (let [publish  (call-counter)]
-          (testing "to DEBUG for initial retries"
-            (let [log-output (atom [])]
-              (binding [*logger-factory* (atom-logger log-output)]
-                (mql/handle-command-retry (make-cmd 1) nil publish))
-
-              (is (= (get-in @log-output [0 1]) :debug))))
-
-          (testing "to ERROR for later retries"
-            (let [log-output (atom [])]
-              (binding [*logger-factory* (atom-logger log-output)]
-                (mql/handle-command-retry (make-cmd mql/maximum-allowable-retries) nil publish))
-
-              (is (= (get-in @log-output [0 1]) :error)))))))))
-
-(deftest test-error-with-stacktrace
-  (with-redefs [metrics.meters/mark!  (call-counter)]
-    (let [publish  (call-counter)]
-      (testing "Exception with stacktrace, no more retries"
-        (let [log-output (atom [])]
-          (binding [*logger-factory* (atom-logger log-output)]
-            (mql/handle-command-retry (make-cmd 1) (RuntimeException. "foo") publish))
-          (is (= (get-in @log-output [0 1]) :debug))
-          (is (instance? Exception (get-in @log-output [0 2])))))
-
-      (testing "Exception with stacktrace, no more retries"
-        (let [log-output (atom [])]
-          (binding [*logger-factory* (atom-logger log-output)]
-            (mql/handle-command-retry (make-cmd mql/maximum-allowable-retries) (RuntimeException. "foo") publish))
+          (if (< i 4)
+            (is (= (get-in @log-output [0 1]) :debug))
+            (is (= (get-in @log-output [0 1]) :error)))
+          
+          (is (instance? Exception (get-in @log-output [0 2])))
+          (is (str/includes? (last (first @log-output))
+                             "Retrying after attempt"))))
+      
+      (let [log-output (atom [])
+            delay-message (mock-fn)
+            discard-message (mock-fn)
+            mh (mql/message-handler-with-retries delay-message discard-message process-message)]
+        (binding [*logger-factory* (atom-logger log-output)]
+          (mh (make-cmd mql/maximum-allowable-retries))
+          (is (not (called? delay-message)))
+          (is (called? discard-message))
           (is (= (get-in @log-output [0 1]) :error))
-          (is (instance? Exception (get-in @log-output [0 2]))))))))
+          (is (instance? Exception (get-in @log-output [0 2])))
+          (is (str/includes? (last (first @log-output))
+                             "Exceeded max")))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -859,18 +861,15 @@
             (is (= 0 (times-called publish)))
             (is (seq (fs/list-dir discard-dir)))))))))
 
-(defn extract-error-message
-  "Pulls the error message from the publish var of a test-msg-handler"
+(defn extract-error
+  "Pulls the error from the publish var of a test-msg-handler"
   [publish]
   (-> publish
       meta
       :args
       deref
-      ffirst
-      json/parse-string
-      (get-in ["annotations" "attempts"])
       first
-      (get "error")))
+      second))
 
 (deftest concurrent-fact-updates
   (testing "Should allow only one replace facts update for a given cert at a time"
@@ -927,7 +926,7 @@
               (reset! second-message? true)
               (is (re-matches
                    #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
-                   (extract-error-message publish))))
+                   (.getMessage (extract-error publish)))))
             @fut
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
@@ -1081,7 +1080,7 @@
           ;; that fact path, when the mytimestamp 1 value is still in
           ;; there.
           (test-msg-handler command-2c publish discard-dir
-            (is (not (extract-error-message publish))))
+            (is (not (extract-error publish))))
 
           ;; Can we see the orphaned value '1', and does the global gc remove it.
           (is (= 1 (count
@@ -1134,8 +1133,8 @@
             (test-msg-handler new-catalog-cmd publish discard-dir
               (reset! second-message? true)
               (is (empty? (fs/list-dir discard-dir)))
-              (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
-                              (extract-error-message publish))))
+              (is (instance? java.sql.BatchUpdateException (extract-error publish))))
+
             @fut
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
@@ -1188,8 +1187,8 @@
             (test-msg-handler new-catalog-cmd publish discard-dir
               (reset! second-message? true)
               (is (empty? (fs/list-dir discard-dir)))
-              (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
-                              (extract-error-message publish))))
+              (is (instance? java.sql.BatchUpdateException (extract-error publish))))
+
             @fut
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
