@@ -14,11 +14,46 @@ canonical: "/puppetdb/latest/release_notes.html"
 [metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
 [pqltutorial]: ./api/query/tutorial-pql.html
 
+4.1.2
+-----
+
+PuppetDB 4.1.2 is a backward-compatible bugfix release that speeds up node
+queries, fixes a bug that slowed garbage collection, and improves error logging.
+
+### Bug Fixes and Maintenance
+
+* Queries to the /nodes endpoint should be faster, due to the removal of the
+  index on certnames(latest_report_id).
+  ([PDB-2789](https://tickets.puppetlabs.com/browse/PDB-2789))
+
+* Reverted the drop of constraints while sweeping reports and nodes
+  ([PDB-2477](https://tickets.puppetlabs.com/browse/PDB-2477)), which had slowed
+  down garbage collection.
+
+* Command failure messages now log the certname of the node from which the
+  command originated in order to track problematic commands to individual nodes.
+  ([PDB-2580](https://tickets.puppetlabs.com/browse/PDB-2580))
+
+* At-at exceptions are now logged as errors.
+  ([PDB-2704](https://tickets.puppetlabs.com/browse/PDB-2704))
+
+### Documentation
+
+* Documentation for how to use RBAC tokens (PE only) with PuppetDB has been added.
+  ([PDB-2762](https://tickets.puppetlabs.com/browse/PDB-2762))
+
+* Various other documentation issues have been fixed.
+
+### Contributors
+
+Andrew Roetker, Chris Cowell, Garrett Guillotte, Molly Waggett, Rob Browning,
+Ryan Senior, and Wyatt Alt
+
 4.1.0
 -----
 
 PuppetDB 4.1.0 is a backward-compatible feature release that adds packages for
-Ubuntu Xenial - 16.04, Ubuntu Wily - 15.10, adds preliminary support for HUP signal 
+Ubuntu Xenial - 16.04, Ubuntu Wily - 15.10, adds preliminary support for HUP signal
 handling, and improves the speed of removing old reports and node expiration and purging.
 
 ### New features / Enhancements
@@ -76,7 +111,7 @@ handling, and improves the speed of removing old reports and node expiration and
   included in the terminus
   ([PDB-2648](https://tickets.puppetlabs.com/browse/PDB-2648)).
 
-* Error responses now include a proper content type of text/plain 
+* Error responses now include a proper content type of text/plain
   ([PDB-2621](https://tickets.puppetlabs.com/browse/PDB-2621)).
 
 * Only set the noop flag on a report to true if all it's resource events are
@@ -214,7 +249,7 @@ Russell Mull, Ryan Senior, Wyatt Alt
   uninstall `puppetdb-terminus` before installing `puppetdb-termini`, or `yum
   update puppetdb-terminus` will bring you to the latest `puppetdb-termini`
   instead of the one you want.
-  
+
   No matter what OS you use, you will need to restart Puppet Server after
   installing puppetdb-termini. These steps (including the RedHat terminus
   uninstallation) are handled automatically in the version 5 [PuppetDB
@@ -307,7 +342,7 @@ details on other breaking changes are below
 * Added deprecation warnings for old command versions. This only affects
   users submitting commands directly to PuppetDB, rather than through
   the terminus ([PDB-2433](https://tickets.puppetlabs.com/browse/PDB-2433))
-  
+
 
 ### New features
 
@@ -374,7 +409,7 @@ details on other breaking changes are below
   ([PDB-2070](https://tickets.puppetlabs.com/browse/PDB-2070))
 
 * Added support relative paths to the `vardir`
-  ([PDB-2271](https://tickets.puppetlabs.com/browse/PDB-2271)) 
+  ([PDB-2271](https://tickets.puppetlabs.com/browse/PDB-2271))
 
 
 #### Performance
@@ -399,7 +434,7 @@ details on other breaking changes are below
 
 * We are no longer deleting unassociated report statuses which can be expensive
   on larger PuppetDB installs
-  ([PDB-2321](https://tickets.puppetlabs.com/browse/PDB-2321)) 
+  ([PDB-2321](https://tickets.puppetlabs.com/browse/PDB-2321))
 
 * (PE Only) Added an index to support faster PuppetDB HA syncing
   ([PDB-2072](https://tickets.puppetlabs.com/browse/PDB-2072))
