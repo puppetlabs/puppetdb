@@ -285,7 +285,8 @@
                                         "%s. Received HTTP status code %s with the "
                                         "error message '%s'")
                                    (url-on-remote-server remote-server path) status (slurp body)))]
-    (with-open [body (:body (http-request :get remote-server path {:as :stream}
+    (with-open [body (:body (http-request :get remote-server path
+                                          {:as :unbuffered-stream}
                                           error-message-fn))
                 body-reader (clojure.java.io/reader body)]
       (ks/mapkeys to-date-time
@@ -357,7 +358,7 @@
                        :finished [:debug "    --> transferred {entity} record for query {query} via {remote} in {elapsed} ms"]
                        :error [:warn "    *** failed to sync {entity} record for query {query} via {remote} in {elapsed} ms"]}
       (with-open [body-stream (-> (http-request :post remote-server ""
-                                                {:as :stream
+                                                {:as :unbuffered-stream
                                                  :body (json/generate-string {:query query})
                                                  :headers {"Content-Type" "application/json"}}
                                                 qerr-msg)
@@ -442,7 +443,7 @@
                                         "Received HTTP status code %s with the error message '%s'")
                                    remote-server entity-name status body))]
     (-> (http-request :post remote-server ""
-                      {:as :stream
+                      {:as :unbuffered-stream
                        :body (json/generate-string
                               {:query query
                                :order_by (order-by-clause-to-wire-format order)})}
