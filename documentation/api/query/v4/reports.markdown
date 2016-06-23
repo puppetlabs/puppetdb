@@ -112,6 +112,9 @@ run used a cached catalogs and whether or not the cached catalog was used due to
 an error or not. Possible values include `explicitly_requested`, `on_failure`,
 `not_used` or `null`.
 
+* `corrective_change`: (Boolean): a flag indicating whether any of the report's
+  events remediated configuration drift. This field is only populated in PE.
+
 * `latest_report?` (Boolean): return only reports associated with the most
   recent Puppet run for each node. **Note:** this field does not appear in the
   response.

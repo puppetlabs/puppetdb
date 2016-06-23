@@ -67,6 +67,10 @@ The below fields are allowed as filter criteria and are returned in all response
 * `latest_report_noop_pending` (boolean): indicates whether the most recent
   report for the node contained noop events.
 
+* `latest_report_corrective_change` (boolean): a flag indicating whether the latest
+  report for the node included events that remediated configuration drift. This
+  field is only populated in PE.
+
 * `cached_catalog_status` (string): Cached catalog status of the
   last puppet run for the node. Possible values are `explicitly_requested`,
   `on_failure`, `not_used` or `null`.

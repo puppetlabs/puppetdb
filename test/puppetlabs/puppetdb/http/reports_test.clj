@@ -552,6 +552,19 @@
     (is (= basic2-result-body
            (munge-reports-for-comparison [basic basic2])))))
 
+(deftest-http-app query-for-corrective_change
+  [[version endpoint] endpoints
+   method [:get :post]]
+  (let [basic (:basic reports)
+        _ (store-example-report! basic (now))
+        basic-result (first (query-result method endpoint))
+        corrective_change-result (query-result method endpoint ["=" "corrective_change" true])]
+
+    (testing "query on corrective_change does not fail"
+      (is (empty? corrective_change-result)))
+    (testing "result contains corrective_change key valued with nil"
+      (is (nil? (get basic-result :corrective_change "oops"))))))
+
 (deftest-http-app query-by-start-and-end-time
   [[version endpoint] endpoints
    method [:get :post]]

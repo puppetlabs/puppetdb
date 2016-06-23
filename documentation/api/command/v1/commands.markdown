@@ -125,8 +125,8 @@ payload of this command.
 
 ### "store report", version 8
 
-* The nullable `producer` property has been added.
-* The nullable `noop_pending` property has been added.
+* The nullable `producer`, `noop_pending`, and `corrective_change` fields have
+  been added.
 
 The payload is expected to be a report, containing events that occurred on
 Puppet resources. It is structured as a JSON object, conforming to the

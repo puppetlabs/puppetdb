@@ -1200,11 +1200,20 @@
       (reverse containment-path)))))
 
 (def store-resources-column? (atom false))
+
 (defn maybe-resources
   [row-map]
   (if @store-resources-column?
     row-map
     (dissoc row-map :resources)))
+
+(def store-corrective-change? (atom false))
+
+(defn maybe-corrective-change
+  [row-map]
+  (if @store-corrective-change?
+    row-map
+    (dissoc row-map :corrective_change)))
 
 (defn maybe-environment
   "This fn is most to help in testing, instead of persisting a value of
@@ -1247,7 +1256,7 @@
          (let [{:keys [puppet_version certname report_format configuration_version producer
                        producer_timestamp start_time end_time transaction_uuid environment
                        status noop metrics logs resources resource_events catalog_uuid
-                       code_id cached_catalog_status noop_pending]
+                       code_id cached_catalog_status noop_pending corrective_change]
                 :as report} (normalize-report orig-report)
                 report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
@@ -1260,6 +1269,7 @@
                             :metrics (sutils/munge-jsonb-for-storage metrics)
                             :logs (sutils/munge-jsonb-for-storage logs)
                             :resources (sutils/munge-jsonb-for-storage resources)
+                            :corrective_change corrective_change
                             :noop noop
                             :noop_pending noop_pending
                             :puppet_version puppet_version
@@ -1276,14 +1286,16 @@
                    [{report-id :id}] (->> row-map
                                           maybe-environment
                                           maybe-resources
+                                          maybe-corrective-change
                                           (jdbc/insert! :reports))
-                   assoc-ids #(assoc %
-                                     :report_id report-id
-                                     :certname_id certname-id)]
+                   adjust-event-metadata #(-> %
+                                              (assoc :report_id report-id
+                                                     :certname_id certname-id)
+                                              maybe-corrective-change)]
                (when-not (empty? resource_events)
                  (->> resource_events
                       (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                      (map assoc-ids)
+                      (map adjust-event-metadata)
                       (apply jdbc/insert! :resource_events)))
                (when update-latest-report?
                  (update-latest-report! certname)))))))

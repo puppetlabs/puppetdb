@@ -212,7 +212,7 @@
         factset (some-> factset
                         (update-factset rand-percentage stamp))]
     (when catalog (>!! command-send-ch [:catalog host 6 catalog]))
-    (when report (>!! command-send-ch [:report host 6 report]))
+    (when report (>!! command-send-ch [:report host 8 report]))
     (when factset (>!! command-send-ch [:factset host 4 factset]))
 
     (assoc state
