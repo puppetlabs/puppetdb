@@ -13,6 +13,7 @@ canonical: "/puppetdb/latest/api/query/v4/reports.html"
 [8601]: http://en.wikipedia.org/wiki/ISO_8601
 [subqueries]: ./ast.html#subquery-operators
 [environments]: ./environments.html
+[producers]: ./producers.html
 [events]: ./events.html
 [nodes]: ./nodes.html
 
@@ -120,6 +121,7 @@ documentation for [subqueries][subqueries].
 * [`environments`][environments]: environment from where a report was received.
 * [`events`][events]: events received in a report.
 * [`nodes`][nodes]: node from where a report was received.
+* [`producers`][producers]: the master that sent the report to PuppetDB.
 
 ### Response format
 

@@ -45,6 +45,8 @@
              :rec eng/nodes-query}
      :environments {:munge (constantly identity)
                     :rec eng/environments-query}
+     :producers {:munge (constantly identity)
+                 :rec eng/producers-query}
      :events {:munge events/munge-result-rows
               :rec eng/report-events-query}
      :edges {:munge edges/munge-result-rows
@@ -63,7 +65,7 @@
   (if-let [munge-result (get-in @entity-fn-idx [entity :munge])]
     munge-result
     (throw (IllegalArgumentException.
-            (i18n/tru "Invalid entity '{0}' in query"
+            (i18n/tru "Invalid entity ''{0}'' in query"
                       (utils/dashes->underscores (name entity)))))))
 
 (defn orderable-columns
@@ -229,6 +231,9 @@
                     :environment "SELECT 1
                                   FROM environments
                                   WHERE environment=?"
+                    :producer "SELECT 1
+                                  FROM producers
+                                  WHERE name=?"
                     :factset "SELECT 1
                               FROM certnames
                               INNER JOIN factsets

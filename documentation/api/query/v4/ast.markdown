@@ -13,6 +13,7 @@ canonical: "/puppetdb/latest/api/query/v4/ast.html"
 [fact-contents]: ./fact-contents.html
 [fact-paths]: ./fact-paths.html
 [nodes]: ./nodes.html
+[producers]: ./producers.html
 [query]: ./query.html
 [reports]: ./reports.html
 [resources]: ./resources.html
@@ -176,7 +177,7 @@ Extract can also be used with a standalone function application:
 
     ["extract", [["function", "count"]], ["~", "certname", ".\*.com"]]
 
-or 
+or
 
     ["extract", [["function", "count"]]]
 
@@ -423,7 +424,7 @@ which is equivalent to the following query:
 The `in`-`array` operators support much of the same syntax as the `=` operator.
 For example, the following query on the `/nodes` endpoint is valid:
 
-    ["in", ["fact", "uptime_seconds"], 
+    ["in", ["fact", "uptime_seconds"],
      ["array",
       [20000.0,
        150.0,
@@ -480,6 +481,7 @@ Each subquery acts as a normal query to one of the PuppetDB endpoints. For info 
 * [`select_fact_contents`][fact-contents]
 * [`select_fact_paths`][fact-paths]
 * [`select_nodes`][nodes]
+* [`select_producers`][producers]
 * [`select_reports`][reports]
 * [`select_resources`][resources]
 

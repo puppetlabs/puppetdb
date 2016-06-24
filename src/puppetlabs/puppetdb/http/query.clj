@@ -153,6 +153,15 @@
   (restrict-query ["=" "environment" (get-in req [:route-params :environment])]
                   req))
 
+(defn restrict-query-to-producer
+  "Restrict the query parameter of the supplied request so that it
+   only returns results for the supplied producer"
+  [req]
+  {:pre  [(string? (get-in req [:route-params :producer]))]
+   :post [(are-queries-different? req %)]}
+  (restrict-query ["=" "producer" (get-in req [:route-params :producer])]
+                  req))
+
 (defn restrict-fact-query-to-name
   "Restrict the query parameter of the supplied request so that it
    only returns facts with the given name"
