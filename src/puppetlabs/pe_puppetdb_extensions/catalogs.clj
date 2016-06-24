@@ -105,6 +105,7 @@
                                                             (hcore/raw "'property'") :re.property
                                                             (hcore/raw "'status'") :re.status
                                                             (hcore/raw "'message'") :re.message
+                                                            (hcore/raw "'corrective_change'") :re.corrective_change
                                                             (hcore/raw "'new_value'") (honeysql/scast :re.new_value :jsonb)
                                                             (hcore/raw "'old_value'") (honeysql/scast :re.old_value :jsonb)
                                                             (hcore/raw "'timestamp'") :re.timestamp)) :events]

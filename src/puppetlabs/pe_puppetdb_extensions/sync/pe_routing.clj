@@ -22,7 +22,8 @@
             [puppetlabs.pe-puppetdb-extensions.catalogs
              :refer [turn-on-historical-catalogs!]]
             [puppetlabs.pe-puppetdb-extensions.reports
-             :refer [reports-resources-routes turn-on-unchanged-resources!]]
+             :refer [reports-resources-routes turn-on-unchanged-resources!
+                     enable-corrective-change!]]
             [puppetlabs.puppetdb.status :as pdb-status]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.trapperkeeper.services.status.status-core :as status-core]))
@@ -124,6 +125,7 @@
           (set-url-prefix query-prefix)
 
           (turn-on-unchanged-resources!)
+          (enable-corrective-change!)
           (turn-on-historical-catalogs! (:historical-catalogs-limit puppetdb-config 3))
 
           (log/info (i18n/trs "Starting PuppetDB, entering maintenance mode"))

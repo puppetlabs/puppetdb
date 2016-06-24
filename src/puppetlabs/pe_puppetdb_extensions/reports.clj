@@ -58,6 +58,10 @@
                               (sutils/sql-hash-as-str "hash") :reports :resources)
                              :href]]} :t]]}})))
 
+(defn enable-corrective-change!
+  []
+  (reset! scf-storage/store-corrective-change? true))
+
 (defn turn-on-unchanged-resources!
   []
   (reset! scf-storage/store-resources-column? true)
