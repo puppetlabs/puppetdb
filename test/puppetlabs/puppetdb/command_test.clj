@@ -1315,7 +1315,7 @@
 
 (def v7-report
   (-> v8-report
-      (dissoc :producer)))
+      (dissoc :producer :noop_pending)))
 
 (def v6-report
   (-> v7-report

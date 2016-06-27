@@ -143,6 +143,9 @@
                              "latest_report_noop" {:type :boolean
                                                    :queryable? true
                                                    :field :reports.noop}
+                             "latest_report_noop_pending" {:type :boolean
+                                                           :queryable? true
+                                                           :field :reports.noop_pending}
                              "latest_report_status" {:type :string
                                                      :queryable? true
                                                      :field :report_statuses.status}
@@ -444,6 +447,9 @@
       "certname"        {:type :string
                          :queryable? true
                          :field :reports.certname}
+      "noop_pending"    {:type :boolean
+                         :queryable? true
+                         :field :reports.noop_pending}
       "puppet_version"  {:type :string
                          :queryable? true
                          :field :reports.puppet_version}

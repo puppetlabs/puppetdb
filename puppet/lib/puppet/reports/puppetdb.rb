@@ -40,10 +40,11 @@ Puppet::Reports.register_report(:puppetdb) do
       resources = build_resources_list
       is_noop = defined?(noop) ? noop : resources.any? { |rs| has_noop_event?(rs) } && resources.none? { |rs| has_enforcement_event?(rs) }
 
-
       defaulted_catalog_uuid = defined?(catalog_uuid) ? catalog_uuid : transaction_uuid
       defaulted_code_id = defined?(code_id) ? code_id : nil
       defaulted_cached_catalog_status = defined?(cached_catalog_status) ? cached_catalog_status : nil
+      defaulted_noop_pending = defined?(noop_pending) ? noop_pending : nil
+
       {
         "certname" => host,
         "puppet_version" => puppet_version,
@@ -56,6 +57,7 @@ Puppet::Reports.register_report(:puppetdb) do
         "transaction_uuid" => transaction_uuid,
         "status" => status,
         "noop" => is_noop,
+        "noop_pending" => defaulted_noop_pending,
         "logs" => build_logs_list,
         "metrics" => build_metrics_list,
         "resources" => resources,

@@ -44,6 +44,7 @@
       (is (= #{:certname :deactivated :expired :catalog_timestamp :facts_timestamp :report_timestamp
                :catalog_environment :facts_environment :report_environment
                :latest_report_status :latest_report_hash :latest_report_noop
+               :latest_report_noop_pending
                :cached_catalog_status} (keyset res))
           (str "Query was: " query))
       (is (= (set expected) (set (mapv :certname result)))

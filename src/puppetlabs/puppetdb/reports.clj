@@ -4,6 +4,7 @@
    Functions that handle conversion of reports from wire format to
    internal PuppetDB format, including validation."
   (:require [schema.core :as s]
+            [clojure.set :as set]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
             [com.rpl.specter :as sp]))
@@ -53,6 +54,7 @@
    :producer (s/maybe s/Str)
    :resources [resource-wireformat-schema]
    :noop (s/maybe s/Bool)
+   :noop_pending (s/maybe s/Bool)
    :transaction_uuid (s/maybe s/Str)
    :catalog_uuid (s/maybe s/Str)
    :code_id (s/maybe s/Str)
@@ -64,7 +66,7 @@
 
 (def report-v7-wireformat-schema
  (-> report-wireformat-schema
-     (dissoc :producer)))
+     (dissoc :producer :noop_pending)))
 
 (def report-v6-wireformat-schema
   (-> report-v7-wireformat-schema
@@ -140,6 +142,7 @@
    (s/optional-key :producer_timestamp) pls/Timestamp
    (s/optional-key :producer) (s/maybe s/Str)
    (s/optional-key :noop) (s/maybe s/Bool)
+   (s/optional-key :noop_pending) (s/maybe s/Bool)
    (s/optional-key :report_format) s/Int
    (s/optional-key :configuration_version) s/Str
    (s/optional-key :resources) (s/maybe resources-expanded-query-schema)
@@ -163,13 +166,21 @@
                      :report :certname :containing_class :configuration_version
                      :run_start_time :run_end_time :report_receive_time :environment))))
 
-(defn report-query->wire-v5
+(defn generic-query->wire-transform
+  "Dissociate query-only and pe-only fields and replace href fields with the
+   corresponding data key."
   [report]
   (-> report
       (dissoc :hash :receive_time :resources)
-      (update :resource_events resource-events-query->wire-v5)
       (update :metrics :data)
       (update :logs :data)))
+
+(defn report-query->wire-v5
+  [report]
+  (-> report
+      generic-query->wire-transform
+      (dissoc :noop_pending)
+      (update :resource_events resource-events-query->wire-v5)))
 
 (pls/defn-validated reports-query->wire-v5 :- [report-v5-wireformat-schema]
   [reports :- [report-query-schema]]
@@ -194,10 +205,11 @@
          :let [events (mapv #(dissoc % :file :line :resource_type :resource_title :containment_path) resource-events)]]
      (assoc resource :events events))))
 
- (defn wire-v7->wire-v8
-   [{:keys [transaction_uuid] :as report}]
-   (utils/assoc-when report
-                     :producer nil))
+(defn wire-v7->wire-v8
+  [report]
+  (utils/assoc-when report
+                    :noop_pending nil
+                    :producer nil))
 
 (defn wire-v6->wire-v8
   [{:keys [transaction_uuid] :as report}]
@@ -211,7 +223,7 @@
   [report]
   (-> report
       (update :resource_events resource-events-v5->resources)
-      (clojure.set/rename-keys {:resource_events :resources})
+      (set/rename-keys {:resource_events :resources})
       wire-v6->wire-v8))
 
 (defn wire-v4->wire-v8
@@ -234,8 +246,10 @@
 (pls/defn-validated report-query->wire-v8 :- report-wireformat-schema
   [report :- report-query-schema]
   (-> report
-      report-query->wire-v5
-      wire-v5->wire-v8))
+      generic-query->wire-transform
+      (update :resource_events (comp resource-events-v5->resources
+                                     resource-events-query->wire-v5))
+      (set/rename-keys {:resource_events :resources})))
 
 (defn reports-query->wire-v8 [reports]
   (map report-query->wire-v8 reports))

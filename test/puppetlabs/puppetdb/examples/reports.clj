@@ -17,6 +17,7 @@
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   false
+    :noop_pending           true
     :logs
     {:href ""
      :data
@@ -108,6 +109,7 @@
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   true
+    :noop_pending           true
     :logs
     {:href ""
      :data
@@ -196,6 +198,7 @@
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   false
+    :noop_pending           false
     :logs
     {:href ""
      :data
@@ -284,6 +287,7 @@
     :environment            "DEV"
     :status                 "unchanged"
     :noop                   false
+    :noop_pending           true
     :logs
     {:href ""
      :data

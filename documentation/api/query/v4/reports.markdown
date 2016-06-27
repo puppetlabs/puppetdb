@@ -71,6 +71,10 @@ responses.
 * `noop` (Boolean): a flag indicating whether the report was produced by a noop
   run.
 
+* `noop_pending` (Boolean): a flag indicating whether the report contains noop
+  events (these can arise from use of `--noop` or from resources with the
+  `noop` parameter set to true).
+
 * `puppet_version` (string): the version of Puppet that generated the report.
 
 * `report_format` (number): the version number of the report format that Puppet
@@ -141,6 +145,7 @@ is of the form:
       "transaction_uuid": <string to identify puppet run>,
       "status": <status of node after report's associated puppet run>,
       "noop": <boolean flag indicating noop run>,
+      "noop_pending": <boolean flag indicating presence of noop events>
       "environment": <report environment>,
       "configuration_version": <catalog identifier>,
       "certname": <node name>,
@@ -258,6 +263,7 @@ Query for all reports:
       "transaction_uuid" : "9a7070e9-840f-446d-b756-6f19bf2e2efc",
       "puppet_version" : "3.7.4",
       "noop" : false,
+      "noop_pending": true,
       "report_format" : 4,
       "start_time" : "2015-02-19T16:23:09.810Z",
       "end_time" : "2015-02-19T16:23:10.287Z",
