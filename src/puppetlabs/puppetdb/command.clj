@@ -108,6 +108,10 @@
    "replace catalog" (version-range 4 9)
    "store report" (version-range 3 8)
    "deactivate node" (version-range 1 3)})
+   
+(def latest-catalog-version (apply max (get supported-command-versions "replace catalog")))
+(def latest-report-version (apply max (get supported-command-versions "store report")))
+(def latest-facts-version (apply max (get supported-command-versions "replace facts")))
 
 (defn- die-on-header-payload-mismatch
   [name in-header in-body]
