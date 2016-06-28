@@ -95,7 +95,7 @@ trusts), a private key, and a CA certificate.
 The PuppetDB terminus includes the `puppetdb_query` function, which can be used
 to query PuppetDB from within a Puppet manifest. For example,
 
-    $debian_nodes_query = 'nodes[certname]{facts{name = "operatingsystem" and value="Debian"}}'
+    $debian_nodes_query = 'nodes[certname]{facts{name = "operatingsystem" and value = "Debian"}}'
     $debian_nodes = puppetdb_query($debian_nodes_query).each |$value| { $value["certname"] }
     Notify {"Debian nodes":
         message => "Your debian nodes are ${join($debian_nodes, ', ')}",
