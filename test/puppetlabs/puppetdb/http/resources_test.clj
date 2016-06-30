@@ -72,14 +72,23 @@ to the result of the form supplied to this method."
                               [["not" ["~" ["parameter" "owner"] "ro.t"]] #{foo2 bar2}]]]
         (is (= (query-result (query-response method endpoint query)) result))))
 
+    (testing "dot-style querying for parameters"
+      (doseq [[query result] [[["=" "parameters.ensure" "file"] #{foo1 bar1}]
+                              [["=" "parameters.owner" "root"] #{foo1 bar1}]
+                              [["=" "parameters.acl" ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
+        (is (= (query-result (query-response method endpoint query)) result))))
+
     (testing "fact subqueries are supported"
-      (let [{:keys [body status]} (query-response method endpoint
-                                                ["and"
-                                                 ["=" "type" "File"]
-                                                 ["in" "certname" ["extract" "certname" ["select_facts"
-                                                                                         ["and"
-                                                                                          ["=" "name" "operatingsystem"]
-                                                                                          ["=" "value" "Debian"]]]]]])]
+      (let [{:keys [body status]}
+            (query-response method endpoint
+                            ["and"
+                             ["=" "type" "File"]
+                             ["in" "certname"
+                              ["extract" "certname"
+                               ["select_facts"
+                                ["and"
+                                 ["=" "name" "operatingsystem"]
+                                 ["=" "value" "Debian"]]]]]])]
         (is (= status http/status-ok))
         (is (= (set (json/parse-string (slurp body) true)) #{foo1})))
 

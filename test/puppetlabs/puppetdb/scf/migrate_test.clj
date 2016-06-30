@@ -625,3 +625,92 @@
                 (str "select encode(md5_agg(val), 'hex') "
                      "from (values (1, 'a'::bytea), (1, 'b'::bytea)) x(gid, val) "
                      "group by gid"))))))))
+
+
+(deftest test-migrate-from-unsupported-version
+  (clear-db-for-testing!)
+  (fast-forward-to-migration! 28)
+  (jdbc/do-commands "DELETE FROM schema_migrations")
+  (record-migration! 27)
+  (is (thrown-with-msg? IllegalStateException
+                        #"Found an old and unuspported database migration.*"
+                        (migrate! *db*))))
+
+(deftest md5-agg-test
+  (with-test-db
+    (jdbc/with-db-connection *db*
+      (testing "dual_md5 function"
+        (is (= [{:encode "187ef4436122d1cc2f40dc2b92f0eba0"}]
+               (query-to-vec "select encode(dual_md5('a', 'b'), 'hex')"))))
+
+      (testing "md5_agg custom aggregator"
+        ;; this hash is different from the above because it starts by executing
+        ;; dual_md5(0::bytea, 'a'::bytea)
+        (is (= [{:encode "bdef73571a96923bdc6b78b5345377d3"}]
+               (query-to-vec
+                (str "select encode(md5_agg(val), 'hex') "
+                     "from (values (1, 'a'::bytea), (1, 'b'::bytea)) x(gid, val) "
+                     "group by gid"))))))))
+
+(deftest test-fact-values-value->jsonb
+  (clear-db-for-testing!)
+  (fast-forward-to-migration! 49)
+  (let [before-migration (schema-info-map *db*)]
+    (apply-migration-for-testing! 50)
+    (is (= {:index-diff nil
+            :table-diff [{:left-only {:data_type "text",
+                                      :character_octet_length 1073741824},
+                          :right-only {:data_type "jsonb",
+                                       :character_octet_length nil},
+                          :same {:table_name "fact_values",
+                                 :column_name "value",
+                                 :numeric_precision_radix nil,
+                                 :numeric_precision nil,
+                                 :character_maximum_length nil,
+                                 :nullable? "YES",
+                                 :datetime_precision nil,
+                                 :column_default nil,
+                                 :numeric_scale nil}}]}
+           (diff-schema-maps before-migration (schema-info-map *db*))))))
+
+(deftest test-resource-params-cache-parameters-to-jsonb
+  (clear-db-for-testing!)
+  (fast-forward-to-migration! 50)
+  (let [before-migration (schema-info-map *db*)]
+    (jdbc/insert! :resource_params_cache
+                  {:resource (sutils/munge-hash-for-storage "a0a0a0")
+                   :parameters (json/generate-string {:a "apple" :b {:1 "bear" :2 "button" :3 "butts"}})})
+    (jdbc/insert! :resource_params_cache
+                  {:resource (sutils/munge-hash-for-storage "b1b1b1")
+                   :parameters (json/generate-string {:c "camel" :d {:1 "dinosaur" :2 "donkey" :3 "daffodil"}})})
+    (apply-migration-for-testing! 51)
+    (testing "should migrate resource_params_cache data correctly"
+      (let [responses
+            (query-to-vec
+              (format "SELECT %s as resource, parameters FROM resource_params_cache"
+                      (sutils/sql-hash-as-str "resource")))
+            parsed-responses (for [response responses] (assoc response :parameters (sutils/parse-db-json (response :parameters))))]
+        (is (= parsed-responses
+               [{:resource "a0a0a0" :parameters {:a "apple" :b {:1 "bear" :2 "button" :3 "butts"}}}
+                {:resource "b1b1b1" :parameters {:c "camel" :d {:1 "dinosaur" :2 "donkey" :3 "daffodil"}}}]))))
+    (testing "should change only value column type"
+      (let [schema-diff (diff-schema-maps before-migration (schema-info-map *db*))]
+        (is (= #{}
+               (->> (:index-diff schema-diff)
+                    (map #(kitchensink/mapvals (fn [idx] (dissoc idx :user)) %))
+                    set)))
+       (is (= #{{:left-only
+                {:data_type "text", :character_octet_length 1073741824},
+                :right-only
+                {:data_type "jsonb", :character_octet_length nil},
+                :same
+                {:table_name "resource_params_cache",
+                 :column_name "parameters",
+                 :numeric_precision_radix nil,
+                 :numeric_precision nil,
+                 :character_maximum_length nil,
+                 :nullable? "YES",
+                 :datetime_precision nil,
+                 :column_default nil,
+                 :numeric_scale nil}}}
+              (set (:table-diff schema-diff))))))))

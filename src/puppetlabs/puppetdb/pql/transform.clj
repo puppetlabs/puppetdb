@@ -123,6 +123,10 @@
             (second arg)
             (vec (rest arg)))))])
 
+(defn transform-field
+  [& args]
+  (str/join "." args))
+
 (def transform-specification
   {:from               transform-from
    :subquery           transform-subquery
@@ -145,5 +149,6 @@
    :exp                transform-exp
    :groupby            transform-groupby
    :limit              transform-limit
+   :field              transform-field
    :offset             transform-offset
    :orderby            transform-orderby})

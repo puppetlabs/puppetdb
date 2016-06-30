@@ -29,6 +29,8 @@
                               :rec nil}
      :event-counts {:munge event-counts/munge-result-rows
                     :rec nil}
+     :inventory {:munge (constantly identity)
+                 :rec eng/inventory-query}
      :facts {:munge facts/munge-result-rows
              :rec eng/facts-query}
      :fact-contents {:munge fact-contents/munge-result-rows
