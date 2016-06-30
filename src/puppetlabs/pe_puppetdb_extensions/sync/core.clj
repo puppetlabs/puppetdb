@@ -508,18 +508,6 @@
                                 (swap! stats (partial merge-with +) batch-transfer-stats)))))))))
         @stats))))
 
-(defn wrap-submit-command-fn
-  "Wrap the given submit-command-fn to first generate a uuid for the command,
-  write it to 'submitted-commands-chan', then finally call the wrapped fn."
-  [submit-command-fn submitted-commands-chan]
-  (fn [command version payload]
-    (let [uuid (ks/uuid)]
-      (maplog [:sync :debug] {:command command :version version :uuid uuid}
-              "Submitting {command} command")
-      (when submitted-commands-chan
-        (async/>!! submitted-commands-chan {:id uuid}))
-      (submit-command-fn command version payload uuid))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
@@ -532,21 +520,8 @@
     submit-command-fn
     remote-server :- remote-server-schema
     node-ttl :- Period]
-   (sync-from-remote! query-fn
-                      bucketed-summary-query-fn
-                      submit-command-fn
-                      remote-server
-                      node-ttl
-                      nil))
-  ([query-fn
-    bucketed-summary-query-fn
-    submit-command-fn
-    remote-server :- remote-server-schema
-    node-ttl :- Period
-    submitted-commands-chan]
    (try
-     (let [submit-command-fn (wrap-submit-command-fn submit-command-fn submitted-commands-chan)
-           now (t/now)]
+     (let [now (t/now)]
        (with-sync-events {:context {:phase "sync"
                                     :remote (url-on-remote-server remote-server "")}
                           :start [:info "syncing with {remote}"]

@@ -164,6 +164,15 @@
 
                   :priority true))))
 
+(defn submit-command-and-write-to-chan [submit-command-fn submitted-commands-chan
+                                        command version payload]
+  (let [uuid (ks/uuid)]
+    (maplog [:sync :debug] {:command command :version version :uuid uuid}
+            "Submitting {command} command")
+    (when submitted-commands-chan
+      (async/>!! submitted-commands-chan {:id uuid}))
+    (submit-command-fn command version payload uuid)))
+
 (defn blocking-sync
   [remote-server query-fn bucketed-summary-query-fn
    enqueue-command-fn node-ttl response-mult]
@@ -171,9 +180,10 @@
         submitted-commands-chan (async/chan)
         processed-commands-chan (async/chan 10000)
         _ (async/tap response-mult processed-commands-chan)
-        finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)]
+        finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)
+        submit-command-fn (partial submit-command-and-write-to-chan enqueue-command-fn submitted-commands-chan)]
     (try
-      (sync-from-remote! query-fn bucketed-summary-query-fn enqueue-command-fn remote-server node-ttl submitted-commands-chan)
+      (sync-from-remote! query-fn bucketed-summary-query-fn submit-command-fn remote-server node-ttl)
       (async/close! submitted-commands-chan)
       (maplog [:sync :info] {:remote remote-url}
               "Done submitting local commands for blocking sync. Waiting for commands to finish processing...")
