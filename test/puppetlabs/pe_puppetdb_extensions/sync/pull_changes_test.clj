@@ -330,7 +330,7 @@
                   events/failed-request! (mock-fn)]
       (with-open [client (http-client-sync/create-client {})]
        (try
-         (sync-core/sync-from-remote! #() #() #() {:url "http://localhost:1234/bogus" :client client} (parse-period "42s"))
+         (sync-core/sync-from-remote! #() #() #() {:url "http://localhost:1234/bogus" :client client} (parse-period "42s") identity)
          (catch Exception _)))
       (is (= false (called? events/successful-sync!)))
       (is (= true (called? events/failed-sync!)))

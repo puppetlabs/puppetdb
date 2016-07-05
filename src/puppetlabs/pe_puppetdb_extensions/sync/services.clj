@@ -25,10 +25,14 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.middleware :as mid]
-            [puppetlabs.http.client.sync :as http-sync]))
+            [puppetlabs.http.client.sync :as http-sync]
+            [puppetlabs.pe-puppetdb-extensions.sync.status :as sync-status]))
 
 (defprotocol PuppetDBSync
-  (bucketed-summary-query [this entity]))
+  (bucketed-summary-query [this entity])
+  (sync-status [this])
+  (pull-records-from [this remote-server])
+  (blocking-pull-records-from [this remote-server]))
 
 (def currently-syncing (atom false))
 
@@ -70,25 +74,32 @@
    query-fn
    bucketed-summary-query-fn
    enqueue-command-fn
-   node-ttl]
+   node-ttl
+   sync-status-atom]
   (if (compare-and-set! currently-syncing false true)
-    (try (sync-from-remote! query-fn bucketed-summary-query-fn
-                            enqueue-command-fn remote-server node-ttl)
-         {:status 200 :body "success"}
-         (catch Exception ex
-           (let [err "Remote sync from %s failed"
-                 url (:url remote-server)]
-             (maplog [:sync :error] ex
-                            {:remote url :phase "sync"}
-                            (format err url))
-             (log/errorf ex err url)
-             {:status 200 :body (format err url)}))
-         (finally (swap! currently-syncing (constantly false))))
+    (try
+      (swap! sync-status-atom sync-status/reset :syncing)
+      (sync-from-remote! query-fn bucketed-summary-query-fn
+                         enqueue-command-fn remote-server node-ttl
+                         #(swap! sync-status-atom sync-status/update-for-status-message %))
+      (swap! sync-status-atom sync-status/reset :idle)
+      {:status 200 :body "success"}
+      (catch Exception ex
+        (let [url (:url remote-server)
+              err (format "Sync from %s failed" url)]
+          (maplog [:sync :error] ex
+                  {:remote url :phase "sync"}
+                  err)
+          (log/errorf ex err url)
+          (swap! sync-status-atom sync-status/update-for-error err)
+          {:status 200 :body err}))
+      (finally
+        (swap! currently-syncing (constantly false))))
     (let [err "Refusing to sync from %s. Sync already in progress."
           url (:url remote-server)]
       (maplog [:sync :info]
-                     {:remote url :phase "sync"}
-                     (format err url))
+              {:remote url :phase "sync"}
+              (format err url))
       (log/infof err url)
       {:status 200 :body (format err url)})))
 
@@ -128,7 +139,7 @@
         (ks/seq-contains? valid-remote-urls (:url remote-server)))))
 
 (defn wait-for-sync
-  [submitted-commands-chan processed-commands-chan process-command-timeout-ms]
+  [submitted-commands-chan processed-commands-chan process-command-timeout-ms sync-status-atom]
   (async/go-loop [pending-commands #{}
                   done-submitting-commands false]
     (cond
@@ -137,14 +148,18 @@
                   ([message]
                    (if message
                      ;; non-nil: a command was submitted
-                     (recur (conj pending-commands (:id message)) done-submitting-commands)
+                     (recur (conj pending-commands (:id message))
+                            done-submitting-commands)
                      ;; the channel was closed, so we're done submitting commands
                      (recur pending-commands true)))
 
                   processed-commands-chan
                   ([message]
                    (if message
-                     (recur (disj pending-commands (:id message)) done-submitting-commands)
+                     (do
+                       (swap! sync-status-atom
+                              sync-status/update-for-command (:command message))
+                       (recur (disj pending-commands (:id message)) done-submitting-commands))
                      :shutting-down))
 
                   :priority true)
@@ -156,7 +171,10 @@
       (async/alt! processed-commands-chan
                   ([message]
                    (if message
-                     (recur (disj pending-commands (:id message)) done-submitting-commands)
+                     (do
+                       (swap! sync-status-atom
+                              sync-status/update-for-command (:command message))
+                       (recur (disj pending-commands (:id message)) done-submitting-commands))
                      :shutting-down))
 
                   (async/timeout process-command-timeout-ms)
@@ -175,37 +193,47 @@
 
 (defn blocking-sync
   [remote-server query-fn bucketed-summary-query-fn
-   enqueue-command-fn node-ttl response-mult]
+   enqueue-command-fn node-ttl response-mult sync-status-atom]
   (let [remote-url (:url remote-server)
         submitted-commands-chan (async/chan)
         processed-commands-chan (async/chan 10000)
         _ (async/tap response-mult processed-commands-chan)
-        finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)
+        finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000 sync-status-atom)
         submit-command-fn (partial submit-command-and-write-to-chan enqueue-command-fn submitted-commands-chan)]
     (try
-      (sync-from-remote! query-fn bucketed-summary-query-fn submit-command-fn remote-server node-ttl)
+      (swap! sync-status-atom sync-status/reset :syncing)
+      (sync-from-remote! query-fn bucketed-summary-query-fn submit-command-fn remote-server node-ttl
+                         #(swap! sync-status-atom sync-status/update-for-status-message %))
       (async/close! submitted-commands-chan)
       (maplog [:sync :info] {:remote remote-url}
               "Done submitting local commands for blocking sync. Waiting for commands to finish processing...")
       (let [result (async/<!! finished-sync)]
         (case result
           :done
-          (maplog [:sync :info] {:remote remote-url :result (name result)}
-                  "Successfully finished blocking sync")
+          (do
+            (maplog [:sync :info] {:remote remote-url :result (name result)}
+                    "Successfully finished blocking sync")
+            (swap! sync-status-atom sync-status/reset :idle))
+
           :shutting-down
-          (maplog [:sync :warn] {:remote remote-url :result (name result)}
-                  "blocking sync interrupted by shutdown")
+          (do
+            (maplog [:sync :warn] {:remote remote-url :result (name result)}
+                    "blocking sync interrupted by shutdown")
+            (swap! sync-status-atom sync-status/update-for-error
+                   "Interrupted by shutdown"))
           :timed-out
-          (throw+ {:type ::message-processing-timeout}
-                  "The blocking sync with the remote system timed out because of slow message processing.")))
+          (do
+            (throw+ {:type ::message-processing-timeout}
+                    "The blocking sync with the remote system timed out because of slow message processing.")
+            (swap! sync-status-atom sync-status/update-for-error
+                   "Timed out due to slow processing"))))
       (finally
         (async/close! submitted-commands-chan)
         (async/untap response-mult processed-commands-chan)))))
 
 (defn sync-handler
   "Top level route for PuppetDB sync"
-  [get-config query-fn bucketed-summary-query-fn
-   enqueue-command-fn response-mult get-shared-globals]
+  [sync-service get-config]
   (let [{{node-ttl :node-ttl} :database
          sync-config :sync
          jetty-config :jetty} (get-config)
@@ -218,11 +246,11 @@
     (mid/make-pdb-handler
      (cmdi/context "/v1"
                    (cmdi/GET "/reports-summary" []
-                             (let [summary-map (bucketed-summary-query-fn :reports)]
+                             (let [summary-map (bucketed-summary-query sync-service :reports)]
                                (http/json-response (ks/mapkeys str summary-map))))
 
                    (cmdi/GET "/catalogs-summary" []
-                     (let [summary-map (bucketed-summary-query-fn :catalogs)]
+                     (let [summary-map (bucketed-summary-query sync-service :catalogs)]
                        (http/json-response (ks/mapkeys str summary-map))))
 
                    (cmdi/POST "/trigger-sync" {:keys [body params] :as request}
@@ -243,14 +271,14 @@
                                       (maplog [:sync :info] {:remote (:url remote-server)}
                                               "Performing blocking sync with timeout of %s ms" completion-timeout-ms)
                                       (async/alt!!
-                                        (async/go (blocking-sync remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl response-mult))
+                                        (async/go (blocking-pull-records-from sync-service remote-server))
                                         (http/json-response {:timed_out false} 200)
 
                                         (async/timeout completion-timeout-ms)
                                         (http/json-response {:timed_out true} 503)))
 
                                     :else
-                                    (sync-with! remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl)))))))))
+                                    (pull-records-from sync-service remote-server)))))))))
 
 (defn start-bucketed-summary-cache-invalidation-job [response-mult cache-atom]
   (let [processed-commands-chan (async/chan)]
@@ -267,7 +295,7 @@
    on exception other than message-processing-timeout, log warning and return
    nil."
   [remote-config jetty-config query-fn shared-globals cache-atom
-   response-mult node-ttl enqueue-command-fn]
+   response-mult node-ttl enqueue-command-fn sync-status-atom]
   (with-open [remote-server (make-remote-server remote-config jetty-config)]
     (let [server-url (remote-url->server-url (:url remote-server))]
       (try+
@@ -277,7 +305,8 @@
                        (partial bucketed-summary/bucketed-summary-query
                                 (:scf-read-db (shared-globals))
                                 cache-atom)
-                       enqueue-command-fn node-ttl response-mult)
+                       enqueue-command-fn node-ttl response-mult
+                       sync-status-atom)
         :success
         (catch [:type ::message-processing-timeout] _
           ;; Something is very wrong if we hit this timeout; rethrow the
@@ -298,7 +327,8 @@
 
   (init [this context]
         (jmx-reporter/start (:reporter events/sync-metrics))
-        context)
+        (assoc context
+               :sync-status-atom (atom sync-status/initial)))
 
   (start [this context]
          (let [{{node-ttl :node-ttl} :database
@@ -326,7 +356,7 @@
            (if (enable-periodic-sync? remotes-config)
              (let [_ (some #(attempt-initial-sync % jetty-config query shared-globals
                                                   cache-atom response-mult
-                                                  node-ttl enqueue-command)
+                                                  node-ttl enqueue-command (:sync-status-atom context))
                            remotes-config)]
                (let [pool (atat/mk-pool)
                      nremotes (count remotes-config)]
@@ -334,9 +364,7 @@
                    (let [interval-millis (to-millis interval)]
                      (atat/interspaced interval-millis
                                        #(with-open [remote-server (make-remote-server remote-config jetty-config)]
-                                          (sync-with! remote-server query
-                                                      (partial bucketed-summary-query this)
-                                                      enqueue-command node-ttl))
+                                          (pull-records-from this remote-server))
                                        pool :initial-delay (rand-int interval-millis))))
                  (assoc context :job-pool pool)))
              context)))
@@ -351,7 +379,25 @@
         (dissoc context :cache-invalidation-job-stop-fn))
 
   (bucketed-summary-query [this entity]
-    (bucketed-summary/bucketed-summary-query
-      (:scf-read-db (shared-globals))
-      (:bucketed-summary-cache-atom (service-context this))
-      entity)))
+                          (bucketed-summary/bucketed-summary-query
+                           (:scf-read-db (shared-globals))
+                           (:bucketed-summary-cache-atom (service-context this))
+                           entity))
+
+  (sync-status [this]
+               @(:sync-status-atom (service-context this)))
+
+  (pull-records-from [this remote-server]
+                     (let [{{node-ttl :node-ttl} :database} (get-config)
+                           {:keys [sync-status-atom cache-atom]} (service-context this)]
+                       (sync-with! remote-server query
+                                   (partial bucketed-summary-query this)
+                                   enqueue-command node-ttl sync-status-atom)))
+
+  (blocking-pull-records-from [this remote-server]
+                              (let [{{node-ttl :node-ttl} :database} (get-config)
+                                    {:keys [sync-status-atom cache-atom]} (service-context this)]
+                                (blocking-sync remote-server query
+                                               (partial bucketed-summary-query this)
+                                               enqueue-command node-ttl (response-mult)
+                                               sync-status-atom))))

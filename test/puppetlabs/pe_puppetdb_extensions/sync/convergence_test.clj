@@ -199,7 +199,8 @@
                          (partial services/bucketed-summary-query sync-service)
                          (partial dispatch/enqueue-command dispatcher)
                          {:url remote-url :client http-client}
-                         Period/ZERO))))
+                         Period/ZERO
+                         identity))))
 
 (defn- count-possible-deactivation-races
   [commands]
