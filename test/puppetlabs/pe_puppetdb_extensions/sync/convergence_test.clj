@@ -139,10 +139,15 @@
   (dispatch/stats (get-service (:server pdb) :PuppetDBCommandDispatcher)))
 
 (defn- wait-for-processing [pdb]
-  (while (not (let [stats (cmd-stats pdb)]
-                (= (:executed-commands stats)
-                   (:received-commands stats))))
-    (Thread/sleep 10)))
+  (loop [n 0]
+    (let [{:keys [received-commands executed-commands]} (cmd-stats pdb)]
+      (when (not= executed-commands received-commands)
+        (when (= n 30000)
+          (throw (-> "command processing not finished after 30s (%d/%d)"
+                     (format executed-commands received-commands)
+                     Exception.)))
+        (Thread/sleep 10)
+        (recur (+ n 10))))))
 
 (defn- exec-convergence-cmd [pdb-x pdb-y command]
   (letfn [(order-targets [x y target]
