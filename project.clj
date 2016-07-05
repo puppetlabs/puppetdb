@@ -39,7 +39,8 @@
                                prismatic/schema
                                org.clojure/clojure
                                org.clojure/tools.macro
-                               puppetlabs/trapperkeeper]]]
+                               puppetlabs/trapperkeeper
+                               org.clojure/tools.reader]]]
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
   :resource-paths ["resources"]
@@ -64,16 +65,22 @@
                                    :exclusions [hiccup
                                                 puppetlabs/http-client
                                                 org.apache.httpcomponents/httpclient
-                                                puppetlabs/pe-activity-service]]
+                                                puppetlabs/pe-activity-service
+                                                org.clojure/tools.reader
+                                                puppetlabs/ring-middleware
+                                                org.clojure/tools.reader]]
                                   [puppetlabs/pe-rbac-service ~rbac-version
                                    :classifier "test"
                                    :exclusions [hiccup
                                                 puppetlabs/http-client
                                                 org.apache.httpcomponents/httpclient
-                                                puppetlabs/pe-activity-service]]
+                                                puppetlabs/pe-activity-service
+                                                puppetlabs/ring-middleware
+                                                org.clojure/tools.reader]]
                                   [puppetlabs/pe-activity-service ~activity-version
                                    :exclusions [org.slf4j/slf4j-api
-                                                puppetlabs/pe-rbac-service]]
+                                                puppetlabs/pe-rbac-service
+                                                puppetlabs/ring-middleware]]
                                   [puppetlabs/rbac-client ~rbac-client-version
                                    :classifier "test"
                                    :exclusions [puppetlabs/http-client
@@ -81,7 +88,8 @@
                                                 prismatic/schema
                                                 org.clojure/clojure
                                                 org.clojure/tools.macro
-                                                puppetlabs/trapperkeeper]]
+                                                puppetlabs/trapperkeeper
+                                                org.clojure/tools.reader]]
                                   [org.clojure/test.check "0.9.0"]
                                   [ring-mock "0.1.5"]
                                   [puppetlabs/puppetdb ~pdb-version :classifier "test"]
