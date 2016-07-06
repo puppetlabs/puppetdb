@@ -31,6 +31,7 @@
     {:status "success"
      :timestamp (now)
      :property field
+     :corrective_change false
      :old_value (random-string (count value))
      :new_value value
      :message (random-string 20)}))
@@ -70,12 +71,14 @@
       (doseq [timestamp timestamps
               :let [tx-uuid (ks/uuid)
                     catalog-uuid (ks/uuid)]]
-        (->> (assoc example-report
-                    :transaction_uuid tx-uuid
-                    :catalog_uuid catalog-uuid
-                    :producer_timestamp timestamp)
-             (blocking-command-post (utils/pdb-cmd-url) example-certname
-                                    "store report" 8))
+        (blocking-command-post (utils/pdb-cmd-url) example-certname
+                               "store report" 8
+                               (-> example-report
+                                   (assoc :transaction_uuid tx-uuid
+                                          :catalog_uuid catalog-uuid
+                                          :producer_timestamp timestamp)
+                                   (update :resources (fn [x] (map #(assoc % :corrective_change true) x)))))
+
         (->> (assoc example-catalog
                     :transaction_uuid tx-uuid
                     :catalog_uuid catalog-uuid
@@ -160,13 +163,14 @@
             (is (empty? resource-graphs))))
 
         (testing "when there is no catalog for a report"
-          (->> (assoc example-report
-                      :transaction_uuid (ks/uuid)
-                      :certname "baz.lan"
-                      :producer_timestamp (-> 3 days ago))
-               (blocking-command-post (utils/pdb-cmd-url) "baz.lan"
-                                      "store report" 8))
 
+          (blocking-command-post (utils/pdb-cmd-url) "baz.lan"
+                                 "store report" 8
+                                 (-> example-report
+                                     (assoc :transaction_uuid (ks/uuid)
+                                            :certname "baz.lan"
+                                            :producer_timestamp (-> 3 days ago))
+                                     (update :resources (fn [x] (map #(assoc % :corrective_change true) x)))))
           (let [resource-graphs
                 (get-json (utils/pe-pdb-url) "/resource-graphs"
                           {:query-params
@@ -189,7 +193,8 @@
        (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
                               "replace catalog" 9 example-catalog)
        (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
-                              "store report" 8 example-report)
+                              "store report" 8 (update example-report :resources
+                                                       (fn [x] (map #(assoc % :corrective_change true)))))
        (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
                               "replace facts" 5 example-facts)
 
