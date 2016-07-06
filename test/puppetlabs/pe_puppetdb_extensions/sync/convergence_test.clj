@@ -301,6 +301,15 @@
           (and s1 s2)))
       (reset! scf-storage/historical-catalogs-limit old-limit))))
 
+(defn duplicate-reports-omitted? [commands]
+  "Indicates whether or not the same report is stored more than once."
+  (->> commands
+       (filter #(= :store-report (:cmd %)))
+       (map #(dissoc % :stamp))
+       frequencies
+       vals
+       (every? #(< % 2))))
+
 (defspec convergence gen-test-options
   ;; Given the cycle time and the number of possible test
   ;; sets (particularly given the current timestamp arrangement),
@@ -308,6 +317,8 @@
   (do
     (print "test.check configuration: ")
     (clojure.pprint/pprint gen-test-options)
-    (prop/for-all [commands (gen/no-shrink (gen/vector gen-convergence-cmd
-                                                       command-sequence-size))]
+    (prop/for-all [commands (->> (gen/vector gen-convergence-cmd
+                                             command-sequence-size)
+                                 (gen/such-that duplicate-reports-omitted?)
+                                gen/no-shrink)]
                   (run-convergence-test commands))))
