@@ -61,9 +61,9 @@
                                "--host" (:host svc-utils/*base-url*)
                                "--port" (str (:port svc-utils/*base-url*)))
 
-           @(tu/block-until-results 100 (first (get-catalogs anon-certname)))
-           @(tu/block-until-results 100 (first (get-reports anon-certname)))
-           @(tu/block-until-results 100 (first (get-factsets anon-certname)))
+           @(tu/block-until-results 200 (first (get-catalogs anon-certname)))
+           @(tu/block-until-results 200 (first (get-reports anon-certname)))
+           @(tu/block-until-results 200 (first (get-factsets anon-certname)))
 
            (is (not (empty? (get-catalogs anon-certname))))
            (is (not (empty? (get-reports anon-certname))))

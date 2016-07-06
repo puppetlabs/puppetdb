@@ -57,9 +57,9 @@
              submit-command-fn (partial enqueue-command dispatcher)]
          (import/import! export-out-file submit-command-fn))
 
-       @(tu/block-until-results 100 (first (get-catalogs example-certname)))
-       @(tu/block-until-results 100 (first (get-reports example-certname)))
-       @(tu/block-until-results 100 (first (get-factsets example-certname)))
+       @(tu/block-until-results 200 (first (get-catalogs example-certname)))
+       @(tu/block-until-results 200 (first (get-reports example-certname)))
+       @(tu/block-until-results 200 (first (get-factsets example-certname)))
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))

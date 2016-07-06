@@ -62,7 +62,7 @@
                                  :baz "the baz"}
                         :producer_timestamp (to-string (now))})
 
-      @(block-until-results 100 (first (get-factsets "foo.local")))
+      @(block-until-results 200 (first (get-factsets "foo.local")))
 
       (check-service-query
        :v4 ["from" "facts" ["=" "certname" "foo.local"]]
@@ -92,7 +92,7 @@
                         :values {:a "a" :b "b" :c "c"}
                         :producer_timestamp (to-string (now))})
 
-      @(block-until-results 100 (first (get-factsets "foo.local")))
+      @(block-until-results 200 (first (get-factsets "foo.local")))
       (let [exp ["a" "b" "c"]
             rexp (reverse exp)]
         (doseq [order [:ascending :descending]
