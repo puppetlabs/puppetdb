@@ -4,6 +4,8 @@
     "configuration_version": "1423833741",
     "end_time": "2015-02-13T13:23:48.963Z",
     "environment": "production",
+    "corrective_change": true,
+    "noop_pending": false,
     "logs": [
         {
             "file": null,
@@ -244,6 +246,7 @@
                     "old_value": "absent",
                     "property": "message",
                     "status": "success",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:23:50.136Z"
                 }
             ],
@@ -251,11 +254,15 @@
             "line": 3,
             "resource_title": "foo",
             "resource_type": "Notify",
+            "corrective_change": false,
             "skipped": false,
             "timestamp": "2015-02-13T13:23:50.136Z"
         }
     ],
     "start_time": "2015-02-13T13:23:48.073Z",
     "status": "changed",
+    "catalog_uuid": "76e7a26a-f7a2-44bc-b0fd-8db6edd8ec9e",
+    "producer": "foo.com",
+    "code_id": "87bf8011-918c-40b3-aded-cee4ec9d5536",
     "transaction_uuid": "d6c4f3f3-afc5-41e6-8b1b-73e84400ca70"
 }

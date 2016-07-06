@@ -142,96 +142,96 @@ msgstr ""
 msgid "''not'' takes exactly one argument, but {0} were supplied"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:375
+#: src/puppetlabs/puppetdb/query.clj:376
 msgid "The argument to extract must be a select operator, not ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:379
+#: src/puppetlabs/puppetdb/query.clj:380
 msgid "Can't extract unknown {0} field ''{1}''. Acceptable fields are: {2}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:395
+#: src/puppetlabs/puppetdb/query.clj:396
 msgid ""
 "Can''t match on unknown {0} field ''{1}'' for ''in''. Acceptable fields are: "
 "{2}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:399
+#: src/puppetlabs/puppetdb/query.clj:400
 msgid "The subquery argument of ''in'' must be an ''extract'', not ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:465 src/puppetlabs/puppetdb/query.clj:655
-#: src/puppetlabs/puppetdb/query.clj:746
+#: src/puppetlabs/puppetdb/query.clj:466 src/puppetlabs/puppetdb/query.clj:656
+#: src/puppetlabs/puppetdb/query.clj:747
 msgid "= requires exactly two arguments, but {0} were supplied"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:499
+#: src/puppetlabs/puppetdb/query.clj:500
 msgid "''{0}'' is not a queryable object for resources in the version {1} API"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:531
+#: src/puppetlabs/puppetdb/query.clj:532
 msgid ""
 "''{0}'' cannot be the target of a regexp match for version {1} of the "
 "resources API"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:563
+#: src/puppetlabs/puppetdb/query.clj:564
 msgid "{0} is not a queryable object for version {1} of the facts query api"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:594
+#: src/puppetlabs/puppetdb/query.clj:595
 msgid "{0} is not a valid version {1} operand for regexp comparison"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:614
+#: src/puppetlabs/puppetdb/query.clj:615
 msgid "{0} is not a queryable object for facts"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:616
+#: src/puppetlabs/puppetdb/query.clj:617
 msgid "Value {0} must be a number for {1} comparison."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:627 src/puppetlabs/puppetdb/query.clj:764
+#: src/puppetlabs/puppetdb/query.clj:628 src/puppetlabs/puppetdb/query.clj:765
 msgid "{0} requires exactly two arguments, but {1} were supplied"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:640
+#: src/puppetlabs/puppetdb/query.clj:641
 msgid "''{0}'' is not a valid timestamp value"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:643
+#: src/puppetlabs/puppetdb/query.clj:644
 msgid "{0} operator does not support object ''{1}'' for resource events"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:698 src/puppetlabs/puppetdb/query.clj:735
+#: src/puppetlabs/puppetdb/query.clj:699 src/puppetlabs/puppetdb/query.clj:736
 msgid ""
 "''{0}'' is not a queryable object for version {1} of the resource events API"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:710
+#: src/puppetlabs/puppetdb/query.clj:711
 msgid "~ requires exactly two arguments, but {0} were supplied"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:754
+#: src/puppetlabs/puppetdb/query.clj:755
 msgid "{0} is not a queryable object for event counts"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:772
+#: src/puppetlabs/puppetdb/query.clj:773
 msgid "{0} operator does not support object ''{1}'' for event counts"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:66
-msgid "Invalid entity '{0}' in query"
+#: src/puppetlabs/puppetdb/query_eng.clj:68
+msgid "Invalid entity ''{0}'' in query"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:193
-#: src/puppetlabs/puppetdb/query_eng.clj:199
+#: src/puppetlabs/puppetdb/query_eng.clj:195
+#: src/puppetlabs/puppetdb/query_eng.clj:201
 msgid ""
 "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 "
 "error code."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:204
+#: src/puppetlabs/puppetdb/query_eng.clj:206
 msgid "Caught PSQL processing exception"
 msgstr ""
 

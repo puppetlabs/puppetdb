@@ -44,8 +44,8 @@
       (is (= #{:certname :deactivated :expired :catalog_timestamp :facts_timestamp :report_timestamp
                :catalog_environment :facts_environment :report_environment
                :latest_report_status :latest_report_hash :latest_report_noop
-               :latest_report_noop_pending
-               :cached_catalog_status} (keyset res))
+               :latest_report_noop_pending :cached_catalog_status
+               :latest_report_corrective_change} (keyset res))
           (str "Query was: " query))
       (is (= (set expected) (set (mapv :certname result)))
           (str "Query was: " query)))
@@ -79,6 +79,12 @@
     (testing "equality is supported on facts_environment"
       (is-query-result' ["=" "facts_environment" "DEV"]
                         [web1 web2 puppet db]))
+
+    (testing "query on last corrective_change status returns an empty result"
+      (is-query-result' ["=" "latest_report_corrective_change" true] []))
+
+    (testing "all nodes have last corrective_change status null"
+      (is-query-result' ["null?" "latest_report_corrective_change" true] [db puppet web1 web2]))
 
     (testing "regular expressions are supported for name"
       (is-query-result' ["~" "certname" "web\\d+.example.com"] [web1 web2])

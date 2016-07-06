@@ -4,6 +4,8 @@
     "configuration_version": "1423833650",
     "end_time": "2015-02-13T13:21:49.346Z",
     "environment": "production",
+    "corrective_change": true,
+    "noop_pending": false,
     "logs": [
         {
             "file": null,
@@ -279,12 +281,14 @@
                     "old_value": "{md5}02d304aace03a918311acc96cd339cc3",
                     "property": "content",
                     "status": "success",
+                    "corrective_change": true,
                     "timestamp": "2015-02-13T13:21:52.052Z"
                 }
             ],
             "file": "/etc/puppet/modules/motd/manifests/init.pp",
             "line": 33,
             "resource_title": "/etc/motd",
+            "corrective_change": true,
             "resource_type": "File",
             "skipped": false,
             "timestamp": "2015-02-13T13:21:52.052Z"
@@ -302,12 +306,14 @@
                     "old_value": "absent",
                     "property": "message",
                     "status": "success",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:21:52.095Z"
                 }
             ],
             "file": "/etc/puppet/modules/loadtest/manifests/init.pp",
             "line": 3,
             "resource_title": "foo",
+            "corrective_change": false,
             "resource_type": "Notify",
             "skipped": false,
             "timestamp": "2015-02-13T13:21:52.095Z"
@@ -315,5 +321,8 @@
     ],
     "start_time": "2015-02-13T13:21:48.201Z",
     "status": "changed",
+    "catalog_uuid": "a86149f6-e0fd-46e4-9080-f873002837bb",
+    "producer": "foo.com",
+    "code_id": "75ffb3e4-ae64-4a58-9017-1d84563852b2",
     "transaction_uuid": "af8d1c1c-f1b9-450a-949d-f6990cf24d63"
 }

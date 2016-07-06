@@ -44,6 +44,7 @@ Puppet::Reports.register_report(:puppetdb) do
       defaulted_code_id = defined?(code_id) ? code_id : nil
       defaulted_cached_catalog_status = defined?(cached_catalog_status) ? cached_catalog_status : nil
       defaulted_noop_pending = defined?(noop_pending) ? noop_pending : nil
+      defaulted_corrective_change = defined?(corrective_change) ? corrective_change : nil
 
       {
         "certname" => host,
@@ -58,6 +59,7 @@ Puppet::Reports.register_report(:puppetdb) do
         "status" => status,
         "noop" => is_noop,
         "noop_pending" => defaulted_noop_pending,
+        "corrective_change" => defaulted_corrective_change,
         "logs" => build_logs_list,
         "metrics" => build_metrics_list,
         "resources" => resources,
@@ -154,12 +156,14 @@ Puppet::Reports.register_report(:puppetdb) do
   # @return Hash[<String, Object>]
   # @api private
   def event_to_hash(event)
+    corrective_change = defined?(event.corrective_change) ? event.corrective_change : nil
     {
       "status"            => event.status,
       "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
       "property"          => event.property,
       "new_value"         => event.desired_value,
       "old_value"         => event.previous_value,
+      "corrective_change" => corrective_change,
       "message"           => event.message,
     }
   end
@@ -177,15 +181,17 @@ Puppet::Reports.register_report(:puppetdb) do
   # @return Hash[<String, Object>]
   # @api private
   def resource_status_to_hash(resource_status)
+    defaulted_corrective_change = defined?(resource_status.corrective_change) ? resource_status.corrective_change : nil
     {
-      "skipped"          => resource_status.skipped,
-      "timestamp"        => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
-      "resource_type"    => resource_status.resource_type,
-      "resource_title"   => resource_status.title.to_s,
-      "file"             => resource_status.file,
-      "line"             => resource_status.line,
-      "containment_path" => resource_status.containment_path,
-      "events"           => build_events_list(resource_status.events),
+      "skipped"           => resource_status.skipped,
+      "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
+      "resource_type"     => resource_status.resource_type,
+      "resource_title"    => resource_status.title.to_s,
+      "file"              => resource_status.file,
+      "line"              => resource_status.line,
+      "containment_path"  => resource_status.containment_path,
+      "corrective_change" => defaulted_corrective_change,
+      "events"            => build_events_list(resource_status.events),
     }
   end
 

@@ -66,6 +66,7 @@
                             receive_time as report_receive_time,
                             hash,
                             status,
+                            resource_events.corrective_change as corrective_change,
                             distinct_events.latest_timestamp AS timestamp,
                             distinct_events.resource_type AS resource_type,
                             distinct_events.resource_title AS resource_title,

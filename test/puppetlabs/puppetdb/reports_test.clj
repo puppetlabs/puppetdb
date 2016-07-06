@@ -39,7 +39,7 @@
 
 (def v7-example-report
   (-> v8-example-report
-      (dissoc :producer :noop_pending)))
+      (dissoc :producer :corrective_change :noop_pending)))
 
 (def v6-example-report
   (-> v7-example-report
@@ -48,7 +48,7 @@
 (def v5-example-report
   (-> reports
       :basic
-      (dissoc :code_id :catalog_uuid :cached_catalog_status :producer)
+      (dissoc :code_id :catalog_uuid :cached_catalog_status :producer :corrective_change)
       report-query->wire-v5))
 
 (def v4-example-report

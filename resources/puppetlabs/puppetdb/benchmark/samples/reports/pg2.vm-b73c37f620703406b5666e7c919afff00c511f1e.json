@@ -4,6 +4,8 @@
     "configuration_version": "1423833741",
     "end_time": "2015-02-13T13:27:14.717Z",
     "environment": "production",
+    "corrective_change": false,
+    "noop_pending": false,
     "logs": [
         {
             "file": null,
@@ -250,12 +252,14 @@
                     "old_value": "absent",
                     "property": "message",
                     "status": "success",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:27:17.956Z"
                 }
             ],
             "file": "/etc/puppet/manifests/site.pp",
             "line": 6,
             "resource_title": "foo",
+            "corrective_change": false,
             "resource_type": "Notify",
             "skipped": false,
             "timestamp": "2015-02-13T13:27:17.956Z"
@@ -263,5 +267,8 @@
     ],
     "start_time": "2015-02-13T13:27:12.891Z",
     "status": "changed",
+    "catalog_uuid": "b7505625-6d8d-4014-beea-b67b785b8b6b",
+    "producer": "foo.com",
+    "code_id": "87680666-21a4-43b1-8c23-cc69f1832d74",
     "transaction_uuid": "5c4f17ad-d6df-4514-881b-e31ef107076e"
 }

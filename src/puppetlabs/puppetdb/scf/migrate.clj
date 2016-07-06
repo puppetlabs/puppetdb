@@ -1062,6 +1062,12 @@
     "ALTER TABLE reports ADD COLUMN noop_pending boolean"
     "CREATE INDEX idx_reports_noop_pending on reports using btree (noop_pending) where (noop_pending = true)"))
 
+(defn add-corrective-change-columns
+  []
+  (jdbc/do-commands
+    "alter table reports add column corrective_change boolean"
+    "alter table resource_events add column corrective_change boolean"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1087,7 +1093,8 @@
    45 index-certnames-latest-report-id
    46 drop-certnames-latest-id-index
    47 add-producer-to-reports-catalogs-and-factsets
-   48 add-noop-pending-to-reports})
+   48 add-noop-pending-to-reports
+   49 add-corrective-change-columns})
 
 (def desired-schema-version (apply max (keys migrations)))
 

@@ -32,7 +32,8 @@
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [example-report] (get-reports example-certname)))
+       (is (= [(tur/update-report-pe-fields example-report)]
+              (get-reports example-certname)))
        (is (= (tuf/munge-facts example-facts)
               (tuf/munge-facts (get-factsets example-certname))))
 
@@ -54,7 +55,8 @@
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [example-report] (get-reports example-certname)))
+       (is (= [(tur/update-report-pe-fields example-report)]
+              (get-reports example-certname)))
        (is (= (tuf/munge-facts example-facts)
               (tuf/munge-facts (get-factsets example-certname))))))))
 
