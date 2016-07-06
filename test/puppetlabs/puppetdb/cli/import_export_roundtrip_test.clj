@@ -49,9 +49,9 @@
                            "--host" (:host svc-utils/*base-url*)
                            "--port" (str (:port svc-utils/*base-url*)))
 
-       @(tu/block-until-results 100 (first (get-catalogs example-certname)))
-       @(tu/block-until-results 100 (first (get-reports example-certname)))
-       @(tu/block-until-results 100 (first (get-factsets example-certname)))
+       @(tu/block-until-results 200 (first (get-catalogs example-certname)))
+       @(tu/block-until-results 200 (first (get-reports example-certname)))
+       @(tu/block-until-results 200 (first (get-factsets example-certname)))
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
@@ -89,7 +89,7 @@
                              "--host" (:host svc-utils/*base-url*)
                              "--port" (str (:port svc-utils/*base-url*)))
 
-         @(tu/block-until-results 100 (first (get-factsets example-certname)))
+         @(tu/block-until-results 200 (first (get-factsets example-certname)))
 
          (is (empty? (get-catalogs example-certname)))
          (is (empty? (get-reports example-certname)))
