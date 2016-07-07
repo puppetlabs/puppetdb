@@ -106,7 +106,7 @@ describe processor do
 
     it "should include noop_pending or nil" do
       if defined?(subject.noop_pending) then
-        subject["noop_pending"] = false
+        subject.noop_pending = false
       end
       result = subject.send(:report_to_hash)
       if defined?(subject.noop_pending) then
