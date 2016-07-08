@@ -15,7 +15,9 @@
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]
-            [slingshot.slingshot :refer [throw+ try+]]))
+            [slingshot.slingshot :refer [throw+ try+]])
+  (:import
+   [java.nio.file Files StandardCopyOption]))
 
 (def admin-api-version :v1)
 
@@ -53,7 +55,9 @@
                          (not= anonymization ::no-anonymization)
                          (assoc :query-params {"anonymization_profile" anonymization})))
       :body
-      (io/copy (io/file filename))))
+      (Files/copy (.toPath (io/file filename))
+                  (into-array StandardCopyOption
+                              [StandardCopyOption/REPLACE_EXISTING]))))
 
 (defn -main
   [& args]
