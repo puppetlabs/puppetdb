@@ -6,7 +6,7 @@
   (s/enum :idle :syncing :error))
 
 (def entity-schema
-  (s/enum :reports :historical_catalogs :factsets :nodes))
+  (s/enum :reports :catalogs :factsets :nodes))
 
 (def phase-schema
   (s/enum :summary :transfer))
@@ -39,7 +39,7 @@
   [current-status :- sync-status-schema command] :- sync-status-schema
   (let [entity (case command
                  "store report" :reports
-                 "replace catalog" :historical_catalogs
+                 "replace catalog" :catalogs
                  "replace facts" :factsets
                  "deactivate node" :nodes)]
     (update-in current-status

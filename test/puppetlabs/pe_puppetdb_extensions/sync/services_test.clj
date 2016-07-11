@@ -46,57 +46,6 @@
     (is (not (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config
                                     {:url "http://baz.buzz:8080/pdb/query/v4"})))))
 
-(deftest test-wait-for-sync
-  (testing "Happy path of processing commands"
-    (let [submitted-commands-chan (async/chan)
-          processed-commands-chan (async/chan 1)
-          status-atom (atom sync-status/initial)
-          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000 status-atom)
-          cmd-1 (ks/uuid)]
-      (async/>!! submitted-commands-chan {:id cmd-1})
-      (async/close! submitted-commands-chan)
-      (async/>!! processed-commands-chan {:id cmd-1 :command "replace catalog"})
-      (is (= :done (async/<!! finished-sync)))
-      (is (= {:state :idle
-              :entity-status {:historical_catalogs {:processed 1}}}
-             @status-atom))))
-
-  (testing "Receiving a processed command before submitted commands channel is closed"
-    (let [submitted-commands-chan (async/chan)
-          processed-commands-chan (async/chan 1)
-          status-atom (atom sync-status/initial)
-          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000 status-atom)
-          cmd-1 (ks/uuid)]
-      (async/>!! submitted-commands-chan {:id cmd-1})
-      (async/>!! processed-commands-chan {:id cmd-1 :command "replace catalog"})
-      (async/close! submitted-commands-chan)
-      (is (= :done (async/<!! finished-sync)))
-      (is (= {:state :idle
-              :entity-status {:historical_catalogs {:processed 1}}}
-             @status-atom))))
-
-  (testing "timeout result when processing of commands is too slow"
-    (let [submitted-commands-chan (async/chan)
-          processed-commands-chan (async/chan 1)
-          status-atom (atom sync-status/initial)
-          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 500 status-atom)
-          cmd-1 (ks/uuid)]
-      (async/>!! submitted-commands-chan {:id cmd-1})
-      (async/close! submitted-commands-chan)
-      (is (= :timed-out (async/<!! finished-sync)))
-      (is (= {:state :idle} @status-atom))))
-
-  (testing "system shutting down during initial sync"
-    (let [submitted-commands-chan (async/chan)
-          processed-commands-chan (async/chan 1)
-          status-atom (atom sync-status/initial)
-          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000 status-atom)
-          cmd-1 (ks/uuid)]
-      (async/>!! submitted-commands-chan {:id cmd-1})
-      (async/close! processed-commands-chan)
-      (is (= :shutting-down (async/<!! finished-sync)))
-      (is (= {:state :idle} @status-atom)))))
-
 (deftest test-reports-summary-query
   (testing "no reports"
     (with-ext-instances [pdb (utils/sync-config nil)]

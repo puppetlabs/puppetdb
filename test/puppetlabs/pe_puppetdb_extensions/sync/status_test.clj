@@ -24,7 +24,7 @@
     [{:severity :info, :message "Transferring reports (123/500)"}]
 
     {:state :syncing
-     :entity-status {:historical_catalogs {:phase :summary}}}
+     :entity-status {:catalogs {:phase :summary}}}
     [{:severity :info, :message "Reconciling catalogs"}]
 
     {:state :syncing
@@ -38,7 +38,7 @@
 
     {:state :syncing
      :entity-status {:reports {:phase :transfer, :total 500, :processed 123}
-                     :historical_catalogs {:phase :summary}}}
+                     :catalogs {:phase :summary}}}
     [{:severity :info, :message "Transferring reports (123/500)"}
      {:severity :info, :message "Reconciling catalogs"}]))
 
