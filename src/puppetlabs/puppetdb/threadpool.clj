@@ -6,7 +6,8 @@
            [org.apache.commons.lang3.concurrent BasicThreadFactory BasicThreadFactory$Builder])
   (:require [clojure.core.async :as async]
             [clojure.tools.logging :as log]
-            [puppetlabs.i18n.core :as i18n]))
+            [puppetlabs.i18n.core :as i18n]
+            [slingshot.slingshot :refer [throw+]]))
 
 (def logging-exception-handler
   "Exception handler that ensures any uncaught exception that occurs
@@ -14,7 +15,7 @@
   (reify Thread$UncaughtExceptionHandler
     (uncaughtException [_ thread throwable]
       (log/error throwable
-                 (i18n/trs "Error processing command")))))
+                 (i18n/trs "Error processing command on thread {0}" (.getName thread))))))
 
 (defn thread-factory
   "Creates a command thread factory, wrapping the
@@ -34,7 +35,7 @@
   "Shuts down the gated threadpool, ensuring in-flight work is
   complete before tearing it down. Waits up to `shutdown-timeout` (in
   milliseconds) for that work to complete before forcibly shutting
-  down the threadpool that work to complete"
+  down the threadpool"
   [{:keys [^Semaphore semaphore ^ExecutorService threadpool shutdown-timeout]}]
 
   ;; Prevent new work from being accepted
@@ -83,8 +84,8 @@
       :shutdown-timeout shutdown-timeout-in-ms})))
 
 (defn call-on-threadpool
-  "Executes `f` on a gated threadpool. Calls `on-complete` with the
-  results of inoking `f`"
+  "Executes `f` on `gated-threadpool`. Will throw
+  RejectedExecutionException if `gated-threadpool` is being shutdown."
   [{:keys [^Semaphore semaphore ^ExecutorService threadpool] :as gated-threadpool}
    f]
   (.acquire semaphore)
@@ -92,27 +93,31 @@
     (.execute threadpool (fn []
                            (try
                              (f)
+                             (catch InterruptedException e
+                               (log/debug e (i18n/trs "Thread interrupted while processing on threadpool")))
                              (finally
                                (.release semaphore)))))
+    ;; RejectedExecutionExceptions only occur when attempting ot
+    ;; excecute new work on a threadpool that is in the process of
+    ;; shutting down or already has been shut down
     (catch RejectedExecutionException e
-      (log/error e (i18n/trs "Message not submitted to command processing threadpool"))
-      (.release semaphore))))
+      (.release semaphore)
+      (throw e))))
 
-(defn exec-from-channel
-  "Executes `on-input` for each input found on `in-chan`, with a
-  threadpool of size `parallelism`. The results of the `on-input`
-  invocations will be put to the `out-chan` in the order it has
-  completed"
-  [gated-threadpool in-chan on-input]
+(defn dochan
+  "Executes `on-input` for each input found on `in-chan`, with the
+  given `gated-threadpool`"
+  [gated-threadpool on-input in-chan]
   (loop [cmd (async/<!! in-chan)]
     (when cmd
-      (call-on-threadpool
-       gated-threadpool
-       (fn []
-         (on-input cmd)))
+      (try
+        (call-on-threadpool
+         gated-threadpool
+         (fn []
+           (on-input cmd)))
+        (catch RejectedExecutionException e
+          (throw+ {:kind ::rejected
+                   :message cmd}
+                  e
+                  (i18n/trs "Threadpool shutting down, message rejected"))))
       (recur (async/<!! in-chan)))))
-
-
-
-
-
