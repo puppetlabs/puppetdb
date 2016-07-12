@@ -37,7 +37,7 @@ top of things.
 * Check for unnecessary whitespace with `git diff --check` before committing.
 * Make sure your commit messages are in the proper format.
 
-````
+```
     (PUP-1234) Make the example in CONTRIBUTING imperative and concrete
 
     Without this patch applied the example commit message in the CONTRIBUTING
@@ -91,7 +91,7 @@ always necessary to create a new ticket in Jira. In this case, it is
 appropriate to start the first line of a commit with '(doc)' instead of
 a ticket number.
 
-````
+```
     (doc) Add documentation commit example to CONTRIBUTING
 
     There is no example for contributing a documentation commit
@@ -102,7 +102,7 @@ a ticket number.
     place of what would have been the ticket number in a
     non-documentation related commit. The body describes the nature of
     the new documentation or comments added.
-````
+```
 
 ## Submitting Changes
 
