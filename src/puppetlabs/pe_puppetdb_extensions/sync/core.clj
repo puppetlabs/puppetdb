@@ -3,6 +3,7 @@
   (:require [clojure.java.jdbc :as sql]
             [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.command :as command]
             [clj-http.util :refer [url-encode]]
             [clj-http.client :as client]
             [puppetlabs.http.client.common :as http]
@@ -94,7 +95,7 @@
     ;; When a record is out-of-date, the whole thing is
     ;; downloaded and then stored with this command
     :submit-command {:command :store-report
-                     :version 8}}
+                     :version command/latest-report-version}}
 
    {:entity :factsets
     :summary-query {:version :v4
@@ -111,7 +112,7 @@
                               (assoc :values (into {} (for [{:keys [name value]} (:facts factset)]
                                                         [name value])))))
     :submit-command {:command :replace-facts
-                     :version 5}}
+                     :version command/latest-facts-version}}
 
    {:entity :historical_catalogs
     ;; Bucketed summary queries are disabled for catalogs, for now, since we're
@@ -131,7 +132,7 @@
                               (utils/update-when [:edges] #(map clean-up-edge %))
                               (utils/update-when [:resources] #(map clean-up-resource %))))
     :submit-command {:command :replace-catalog
-                     :version 9}}
+                     :version command/latest-catalog-version}}
 
    {:entity :nodes
     :summary-query {:version :v4
