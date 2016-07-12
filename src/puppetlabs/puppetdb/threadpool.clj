@@ -5,14 +5,16 @@
             RejectedExecutionException ExecutorService]
            [org.apache.commons.lang3.concurrent BasicThreadFactory BasicThreadFactory$Builder])
   (:require [clojure.core.async :as async]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [puppetlabs.i18n.core :as i18n]))
 
 (def logging-exception-handler
   "Exception handler that ensures any uncaught exception that occurs
   on this thread is logged"
   (reify Thread$UncaughtExceptionHandler
     (uncaughtException [_ thread throwable]
-      (log/error throwable "Error processing command"))))
+      (log/error throwable
+                 (i18n/trs "Error processing command")))))
 
 (defn thread-factory
   "Creates a command thread factory, wrapping the
@@ -30,8 +32,9 @@
 
 (defn shutdown
   "Shuts down the gated threadpool, ensuring in-flight work is
-  complete before tearing it down. Currently waits up to 5 minutes for
-  that work to complete"
+  complete before tearing it down. Waits up to `shutdown-timeout` (in
+  milliseconds) for that work to complete before forcibly shutting
+  down the threadpool that work to complete"
   [{:keys [^Semaphore semaphore ^ExecutorService threadpool shutdown-timeout]}]
 
   ;; Prevent new work from being accepted
@@ -43,12 +46,14 @@
   ;; This will block, waiting for the threadpool to shutdown
   (when-not (.awaitTermination threadpool shutdown-timeout java.util.concurrent.TimeUnit/MILLISECONDS)
 
-    (log/warn "Attempted to shutdown threadpool, not stopped after 5 minutes, forcibly shutting it down")
+    (log/warn
+     (i18n/trs "Threadpool not stopped after {0} milliseconds, forcibly shutting it down" shutdown-timeout))
 
     ;; This will force the shutdown of the threadpool and will
     ;; not allow current threads to finish
     (.shutdownNow threadpool)
-    (log/warn "Threadpool forcibly shutdown")))
+    (log/warn
+     (i18n/trs "Threadpool forcibly shutdown"))))
 
 (defrecord GatedThreadpool [^Semaphore semaphore ^ExecutorService threadpool shutdown-timeout]
   java.io.Closeable
@@ -90,7 +95,7 @@
                              (finally
                                (.release semaphore)))))
     (catch RejectedExecutionException e
-      (log/error e "Message not submitted to command processing threadpool")
+      (log/error e (i18n/trs "Message not submitted to command processing threadpool"))
       (.release semaphore))))
 
 (defn exec-from-channel
