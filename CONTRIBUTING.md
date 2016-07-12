@@ -1,3 +1,11 @@
+
+---
+title: "PuppetDB 4.1: Contributing to PuppetDB"
+layout: default
+---
+
+[configure_postgres]: documentation/configure.html#using-postgresql
+
 # How to contribute
 
 Third-party patches are essential for keeping puppet great. We simply can't
@@ -41,10 +49,38 @@ top of things.
     The first line is a real life imperative statement with a ticket number
     from our issue tracker.  The body describes the behavior without the patch,
     why this is a problem, and how the patch fixes the problem when applied.
-````
+```
 
 * Make sure you have added the necessary tests for your changes.
 * Run _all_ the tests to assure nothing else was accidentally broken.
+
+### Running the tests
+
+In order to run the local test suite, you will first need to have a PostgreSQL
+instance [configured][configure_postgres], and will need to create the test
+users:
+
+    $ createuser -DRSP pdb_test
+    $ createuser -dRsP pdb_test_admin
+
+You will also need to set the following environment variables if the
+default values aren't appropriate:
+
+  * PDB\_TEST\_DB\_HOST (defaults to localhost)
+  * PDB\_TEST\_DB\_PORT (defaults to 5432)
+  * PDB\_TEST\_DB\_USER (defaults to pdb\_test)
+  * PDB\_TEST\_DB\_PASSWORD (defaults to pdb\_test)
+  * PDB\_TEST\_DB\_ADMIN (defaults to pdb\_test\_admin)
+  * PDB\_TEST\_DB\_ADMIN\_PASSWORD (defaults to pdb\_test\_admin)
+
+Then you can run the test suite:
+
+    $ lein test
+
+And if you'd like to preserve the temporary test databases on failure, you can
+set PDB\_TEST\_PRESERVE\_DB\_ON\_FAIL to true:
+
+    $ PDB\_TEST\_KEEP\_DB\_ON\_FAIL=true lein test
 
 ## Making Trivial Changes
 

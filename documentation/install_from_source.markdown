@@ -8,6 +8,7 @@ layout: default
 [configure_heap]: ./configure.html#configuring-the-java-heap-size
 [module]: ./install_via_module.html
 [packages]: ./install_from_packages.html
+[running_tests]: /CONTRIBUTING.html#running-the-tests
 
 > **Note:** If you are running Puppet Enterprise version 3.0 or later, you do
 > not need to install PuppetDB, as it is already installed as part of PE.
@@ -105,31 +106,7 @@ A sample config file is provided in the root of the source repo:
 `config.sample.ini`. You can also provide a conf.d-style directory instead of a
 flat config file.
 
-In order to run the local test suite, you will first need to have a PostgreSQL
-instance [configured][configure_postgres], and will need to create the test
-users:
-
-    $ createuser -DRSP pdb_test
-    $ createuser -dRsP pdb_test_admin
-
-You will also need to set the following environment variables if the
-default values aren't appropriate:
-
-  * PDB\_TEST\_DB\_HOST (defaults to localhost)
-  * PDB\_TEST\_DB\_PORT (defaults to 5432)
-  * PDB\_TEST\_DB\_USER (defaults to pdb\_test)
-  * PDB\_TEST\_DB\_PASSWORD (defaults to pdb\_test)
-  * PDB\_TEST\_DB\_ADMIN (defaults to pdb\_test\_admin)
-  * PDB\_TEST\_DB\_ADMIN\_PASSWORD (defaults to pdb\_test\_admin)
-
-Then you can run the test suite:
-
-    $ lein test
-
-And if you'd like to preserve the temporary test databases on failure, you can
-set PDB\_TEST\_PRESERVE\_DB\_ON\_FAIL to true:
-
-    $ PDB\_TEST\_KEEP\_DB\_ON\_FAIL=true lein test
+Next, you will need to [setup some test users](running_tests) to run the tests locally
 
 Step 3: Configure a database
 -----
