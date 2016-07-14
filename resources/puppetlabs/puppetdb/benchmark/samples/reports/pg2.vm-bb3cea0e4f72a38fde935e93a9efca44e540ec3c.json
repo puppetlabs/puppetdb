@@ -1423,6 +1423,7 @@
             "file": "/etc/puppet/modules/concat/manifests/init.pp",
             "line": 187,
             "resource_title": "concat_/tmp/file",
+            "corrective_change": false,
             "resource_type": "Exec",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.230Z"
@@ -1447,6 +1448,7 @@
             "file": "/etc/puppet/modules/python/manifests/install.pp",
             "line": 59,
             "resource_title": "python-virtualenv",
+            "corrective_change": false,
             "resource_type": "Package",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.885Z"
@@ -1471,6 +1473,7 @@
             "file": "/etc/puppet/modules/git/manifests/init.pp",
             "line": 12,
             "resource_title": "git",
+            "corrective_change": false,
             "resource_type": "Package",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.504Z"
@@ -1495,6 +1498,7 @@
             "file": "/etc/puppet/modules/loadtest/manifests/init.pp",
             "line": 41,
             "resource_title": "etckeeper",
+            "corrective_change": false,
             "resource_type": "Package",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:09.423Z"
