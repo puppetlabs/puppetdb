@@ -56,6 +56,7 @@
    In either case, the command itself, once string-ified, must be a
    JSON-formatted string with the aforementioned structure."
   (:require [clojure.tools.logging :as log]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.reports :as report]
@@ -410,9 +411,24 @@
           :producer-timestamp (-> cmd :payload :producer_timestamp)}
          (when ex {:exception ex})))
 
+(defn call-with-quick-retry [num-retries f]
+  (loop [n num-retries]
+    (let [result (try+
+                  (f)
+                  (catch Throwable e
+                    (if (zero? n)
+                      (throw e)
+                      (do (log/debug e (i18n/trs "Exception throw in L1 retry attempt {0}" (- (inc num-retries) n)))
+                          ::failure))))]
+      (if (= result ::failure)
+        (recur (dec n))
+        result))))
+
 (defn process-command-and-respond! [cmd db response-pub-chan stats-atom]
   (try
-    (let [result (process-command! cmd db)]
+    (let [result (call-with-quick-retry 4
+                  (fn []
+                    (process-command! cmd db)))]
       (swap! stats-atom update :executed-commands inc)
       (async/>!! response-pub-chan
                  (make-cmd-processed-message cmd nil))

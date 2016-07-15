@@ -26,7 +26,7 @@
             [clj-time.core :as t :refer [days ago now seconds]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
-            [slingshot.slingshot :refer [throw+]]
+            [slingshot.slingshot :refer [throw+ try+]]
             [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :as pt]
@@ -177,24 +177,18 @@
 
 (deftest command-retry-handler
   (testing "Retry handler"
-    (with-redefs [metrics.meters/mark!  (call-counter)
+    (with-redefs [metrics.meters/mark! (call-counter)
                   mql/annotate-with-attempt (call-counter)]
 
       (testing "should log errors"
         (let [publish  (call-counter)]
-          (testing "to DEBUG for initial retries"
-            (let [log-output (atom [])]
-              (binding [*logger-factory* (atom-logger log-output)]
-                (mql/handle-command-retry (make-cmd 1) nil publish))
-              (is (= (get-in @log-output [0 1]) :debug))))
-
           (testing "includes certname in retry log"
             (let [log-output (atom [])]
               (binding [*logger-factory* (atom-logger log-output)]
                 (mql/handle-command-retry (assoc (make-cmd 1) :payload {:certname "cats"}) nil publish))
               (is (str/includes? (get-in @log-output [0 3]) "cats"))))
 
-          (testing "to ERROR for later retries"
+          (testing "to ERROR for retries"
             (let [log-output (atom [])]
               (binding [*logger-factory* (atom-logger log-output)]
                 (mql/handle-command-retry (make-cmd mql/maximum-allowable-retries) nil publish))
@@ -227,21 +221,62 @@
               (is (str/includes? (get-in @log-output [0 3]) "cats")))))))
 
 (deftest test-error-with-stacktrace
-  (with-redefs [metrics.meters/mark!  (call-counter)]
-    (let [publish  (call-counter)]
-      (testing "Exception with stacktrace, no more retries"
-        (let [log-output (atom [])]
-          (binding [*logger-factory* (atom-logger log-output)]
-            (mql/handle-command-retry (make-cmd 1) (RuntimeException. "foo") publish))
-          (is (= (get-in @log-output [0 1]) :debug))
-          (is (instance? Exception (get-in @log-output [0 2])))))
-
+  (with-redefs [metrics.meters/mark! (call-counter)]
+    (let [publish (call-counter)]
       (testing "Exception with stacktrace, no more retries"
         (let [log-output (atom [])]
           (binding [*logger-factory* (atom-logger log-output)]
             (mql/handle-command-retry (make-cmd mql/maximum-allowable-retries) (RuntimeException. "foo") publish))
           (is (= (get-in @log-output [0 1]) :error))
           (is (instance? Exception (get-in @log-output [0 2]))))))))
+
+(deftest call-with-quick-retry-test
+  (testing "errors are logged at debug while retrying"
+    (let [log-output (atom [])]
+      (binding [*logger-factory* (atom-logger log-output)]
+        (try (call-with-quick-retry 1
+                                    (fn []
+                                      (throw (RuntimeException. "foo"))))
+             (catch RuntimeException e nil)))
+      (is (= (get-in @log-output [0 1]) :debug))
+      (is (instance? Exception (get-in @log-output [0 2])))))
+
+  (testing "retries the specified number of times"
+    (let [publish (call-counter)
+          num-retries 5
+          counter (atom num-retries)]
+      (try (call-with-quick-retry num-retries
+                                  (fn []
+                                    (if (= @counter 0)
+                                      (publish)
+                                      (do (swap! counter dec)
+                                          (throw (RuntimeException. "foo"))))))
+           (catch RuntimeException e nil))
+      (is (= 1 (times-called publish)))))
+
+  (testing "stops retrying after a success"
+    (let [publish (call-counter)
+          counter (atom 0)]
+      (call-with-quick-retry 5
+                             (fn []
+                               (swap! counter inc)
+                               (publish)))
+      (is (= 1 @counter))
+      (is (= 1 (times-called publish)))))
+
+  (testing "fatal errors are not retried"
+    (let [e (try+ (call-with-quick-retry 0
+                                         (fn []
+                                           (throw+ (fatality (Exception. "fatal error")))))
+                  (catch mql/fatal? e e))]
+      (is (= true (:fatal e)))))
+
+  (testing "errors surfaces when no more retries are left"
+    (let [e (try (call-with-quick-retry 0
+                                        (fn []
+                                          (throw (RuntimeException. "foo"))))
+                 (catch RuntimeException e e))]
+      (is (instance? RuntimeException e)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
