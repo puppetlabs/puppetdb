@@ -482,7 +482,7 @@
 (deftest catalog-with-updated-resource-line
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 9
+                             :version latest-catalog-version
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -509,7 +509,7 @@
 (deftest catalog-with-updated-resource-file
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 9
+                             :version latest-catalog-version
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -536,7 +536,7 @@
 (deftest catalog-with-updated-resource-exported
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 9
+                             :version latest-catalog-version
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -561,7 +561,7 @@
 (deftest catalog-with-updated-resource-tags
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 9
+                             :version latest-catalog-version
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -866,7 +866,7 @@
 
 (deftest replace-facts-bad-payload
   (let [bad-command {:command (command-names :replace-facts)
-                     :version 5
+                     :version latest-facts-version
                      :payload "bad stuff"}]
     (dotestseq [version fact-versions
                 :let [command bad-command]]
