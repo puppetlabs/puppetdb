@@ -21,7 +21,8 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.schema :as pls]
             [clojure.core.async :as async]
-            [puppetlabs.puppetdb.utils.metrics :as mutils]))
+            [puppetlabs.puppetdb.utils.metrics :as mutils]
+            [puppetlabs.puppetdb.threadpool :as gtp]))
 
 ;; ## Performance counters
 
@@ -327,7 +328,7 @@
   "Infinite loop, intended to be run in an isolated thread that
   recieves a message from ActiveMQ, passes it to `mq-message-handler`
   and looks for the next message"
-  [{:keys [^ConnectionFactory conn-pool endpoint]} mq-message-handler mq-connected-promise]
+  [{:keys [^ConnectionFactory conn-pool endpoint]} command-chan mq-connected-promise]
   (with-open [connection (create-connection conn-pool)
               session (create-session connection)
               consumer (.createConsumer session (create-queue session endpoint))]
@@ -337,33 +338,15 @@
       ;; the first startup of PuppetDB)
       (deliver mq-connected-promise true)
       (loop []
-        (mq-message-handler (.receive consumer))
-        (recur))
+        (if-let [msg (.receive consumer)]
+          (do
+            (async/>!! command-chan msg)
+            (recur))
+          (async/close! command-chan)))
       (catch javax.jms.IllegalStateException e
         (log/info "Received IllegalStateException, shutting down"))
       (catch Exception e
         (log/error e)))))
-
-(def logging-exception-handler
-  "Exception handler that ensures any uncaught exception that occurs
-  on this thread is logged"
-  (reify Thread$UncaughtExceptionHandler
-    (uncaughtException [_ thread throwable]
-      (log/error throwable "Error processing command"))))
-
-(defn command-thread-factory
-  "Creates a command thread factory, wrapping the
-  `pool-thread-factory`. Using this thread factory ensures that we
-  have distinguishable names for threads in this pool and that all
-  uncaught exceptions are logged as errors. Without this uncaught
-  exceptions get the default which is standard error"
-  [pool-thread-factory]
-  (-> (BasicThreadFactory$Builder.)
-      (.wrappedFactory pool-thread-factory)
-      (.namingPattern "cmd-proc-thread-%d")
-      (.uncaughtExceptionHandler logging-exception-handler)
-      (.daemon true)
-      .build))
 
 (defn create-command-handler-threadpool
   "Creates an unbounded threadpool with the intent that access to the
@@ -372,37 +355,7 @@
   it's more efficient to use an unbounded pool and not duplicate the
   constraint in both the semaphore and the threadpool"
   [size]
-  (let [threadpool (ThreadPoolExecutor. 1
-                                        Integer/MAX_VALUE
-                                        1
-                                        TimeUnit/MINUTES
-                                        (SynchronousQueue.))]
-    (->> threadpool
-         .getThreadFactory
-         command-thread-factory
-         (.setThreadFactory threadpool))
-
-    {:semaphore (Semaphore. size)
-     :threadpool threadpool}))
-
-(defn command-submission-handler
-  "Creates a message handler that submits the message to
-  `threadpool`. The `threadpool` is guarded by `semaphore` and will
-  block until a semaphore token is available"
-  [{:keys [^Semaphore semaphore ^ExecutorService threadpool]}
-   handler-fn]
-  (fn [message]
-    ;; This call blocks waiting for a semamphore token
-    (.acquire semaphore)
-    (try
-      (.execute threadpool (fn []
-                             (try
-                               (handler-fn message)
-                               (finally
-                                 (.release semaphore)))))
-      (catch RejectedExecutionException e
-        (log/error e "Message not submitted to command processing threadpool")
-        (.release semaphore)))))
+  (gtp/create-threadpool size "cmd-proc-thread-%d" 10000))
 
 (defn run-mq-listener-thread
   "Creates (and starts) an isolated thread to continually receive new
@@ -434,38 +387,27 @@
           mq-context (create-mq-context config)
           command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
           command-handler #(process-message this %)
+          command-chan (async/chan (conf/mq-thread-count config))
           message-handler (create-command-consumer mq-context command-handler)
-          mq-message-handler (command-submission-handler command-threadpool message-handler)
           mq-connected-promise (promise)]
 
-      (run-mq-listener-thread mq-context mq-message-handler mq-connected-promise)
+      (run-mq-listener-thread mq-context command-chan mq-connected-promise)
+
+      (doto (Thread. (fn []
+                       (gtp/dochan command-threadpool message-handler command-chan)))
+        (.setDaemon false)
+        (.start))
 
       @mq-connected-promise
 
       (assoc context
              :conn-pool (:conn-pool mq-context)
+             :command-chan command-chan
              :consumer-threadpool command-threadpool)))
 
-  (stop [this {:keys [conn-pool consumer-threadpool] :as context}]
-
-        ;; Prevent new work from being accepted
-        (.drainPermits (:semaphore consumer-threadpool))
-
-        (let [threadpool (:threadpool consumer-threadpool)]
-          ;; Shutdown the threadpool, allowing in-flight work to finish
-          (.shutdown threadpool)
-
-          ;; This will block, waiting for the threadpool to shutdown
-          (when-not (.awaitTermination threadpool 10 java.util.concurrent.TimeUnit/SECONDS)
-
-            (log/warn "Attempted to shutdown command threadpool, not stopped after 10 seconds, forcibly shutting it down")
-
-            ;; This will force the shutdown of the threadpool and will
-            ;; not allow current threads to finish
-            (.shutdownNow threadpool)
-            (log/warn "Command threadpool forcibly shutdown")))
-
-        ;; Shutdown the ActiveMQ connection pool
+  (stop [this {:keys [conn-pool consumer-threadpool command-chan] :as context}]
+        (async/close! command-chan)
+        (gtp/shutdown consumer-threadpool)
         (.stop conn-pool)
     context)
 
