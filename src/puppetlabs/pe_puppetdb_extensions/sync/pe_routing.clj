@@ -124,7 +124,7 @@
           (set-url-prefix query-prefix)
 
           (turn-on-unchanged-resources!)
-          (turn-on-historical-catalogs! (:historical-catalogs-limit puppetdb-config 3))
+          (turn-on-historical-catalogs! (:historical-catalogs-limit puppetdb-config 1))
 
           (log/info (i18n/trs "Starting PuppetDB, entering maintenance mode"))
           (add-ring-handler
