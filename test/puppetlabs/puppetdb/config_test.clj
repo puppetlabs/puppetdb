@@ -29,7 +29,7 @@
 
     (testing "should allow for `pe-puppetdb`'s historical-catalogs-limit setting"
       (let [config (configure-puppetdb {})]
-        (is (= (get-in config [:puppetdb :historical-catalogs-limit]) 3)))
+        (is (= (get-in config [:puppetdb :historical-catalogs-limit]) 2)))
       (let [config (configure-puppetdb {:puppetdb {:historical-catalogs-limit 5}})]
         (is (= (get-in config [:puppetdb :historical-catalogs-limit]) 5))))
 
