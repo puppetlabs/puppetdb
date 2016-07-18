@@ -24,21 +24,49 @@ If you have allowed unsecured access to other hosts in order to [monitor the das
 
 ## Using `curl` from remote hosts (SSL/HTTPS)
 
-To make secured requests from other hosts, you will need to supply the following via the command line:
+### Using a certifacte/private key pair
+
+To make secured requests from other hosts, you will need to supply the following
+via the command line:
 
 * Your site's CA certificate (`--cacert`)
 * An SSL certificate signed by your site's Puppet CA (`--cert`)
 * The private key for that certificate (`--key`)
 
-Any node managed by Puppet agent will already have all of these, and you can reuse them for contacting PuppetDB. You can also generate a new cert on the CA Puppet master with the `puppet cert generate` command.
+Any node managed by Puppet agent will already have all of these, and you can
+reuse them for contacting PuppetDB. You can also generate a new cert on the CA
+Puppet master with the `puppet cert generate` command.
 
-**Note:** If you have turned on [certificate whitelisting][whitelist], you must make sure to authorize the certificate you are using:
+**Note:** If you have turned on [certificate whitelisting][whitelist], you must
+make sure to authorize the certificate you are using:
 
     curl 'https://<your.puppetdb.server>:8081/pdb/query/v4/nodes' \
       --tlsv1 \
       --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
       --cert /etc/puppetlabs/puppet/ssl/certs/<node>.pem \
       --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem
+      
+      
+### Using an RBAC token (PE only)
+
+To make secured requests from other hosts, you will need to supply the following
+via the command line:
+
+* Your site's CA certificate (`--cacert`)
+* An RBAC token with permission to view and/or edit PuppetDB data (`-H 'X-Authentication: <token>'`)
+
+Any node managed by Puppet agent will already have the CA certificate, and you
+can reuse the CA certificate for contacting PuppetDB. You can read more about
+generating RBAC tokens and how they work in the
+[PE documention](https://docs.puppet.com/pe/latest/rbac_token_auth.html).
+
+**Note:** The token the user is for must have the correct permissions for
+viewing or editting node data depending on the operation.
+
+    curl 'https://<your.puppetdb.server>:8081/pdb/query/v4/nodes' \
+      -H "X-Authentication: <token contents>"
+      --tlsv1 \
+      --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
 
 ### Locating Puppet certificate files
 

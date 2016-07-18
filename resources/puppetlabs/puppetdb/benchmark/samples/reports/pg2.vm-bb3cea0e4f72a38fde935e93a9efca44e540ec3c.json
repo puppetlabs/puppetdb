@@ -1,8 +1,11 @@
 {
+    "cached_catalog_status": "not_used",
     "certname": "pg2.vm",
     "configuration_version": "1423834124",
     "end_time": "2015-02-13T13:29:04.147Z",
     "environment": "production",
+    "corrective_change": false,
+    "noop_pending": false,
     "logs": [
         {
             "file": null,
@@ -1334,12 +1337,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.164Z"
                 }
             ],
             "file": "/etc/puppet/modules/concat/manifests/fragment.pp",
             "line": 113,
             "resource_title": "/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile",
+            "corrective_change": false,
             "resource_type": "File",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.164Z"
@@ -1358,6 +1363,7 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.110Z"
                 }
             ],
@@ -1365,6 +1371,7 @@
             "line": 144,
             "resource_title": "/var/lib/puppet/concat/_tmp_file",
             "resource_type": "File",
+            "corrective_change": false,
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.110Z"
         },
@@ -1381,6 +1388,7 @@
                     "old_value": "{md5}7fda24f62b1c7ae951db0f746dc6e0cc",
                     "property": "content",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.741Z"
                 }
             ],
@@ -1389,6 +1397,7 @@
             "resource_title": "/etc/ntp.conf",
             "resource_type": "File",
             "skipped": false,
+            "corrective_change": false,
             "timestamp": "2015-02-13T13:29:09.741Z"
         },
         {
@@ -1407,12 +1416,14 @@
                     "old_value": "notrun",
                     "property": "returns",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.230Z"
                 }
             ],
             "file": "/etc/puppet/modules/concat/manifests/init.pp",
             "line": 187,
             "resource_title": "concat_/tmp/file",
+            "corrective_change": false,
             "resource_type": "Exec",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.230Z"
@@ -1430,12 +1441,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.885Z"
                 }
             ],
             "file": "/etc/puppet/modules/python/manifests/install.pp",
             "line": 59,
             "resource_title": "python-virtualenv",
+            "corrective_change": false,
             "resource_type": "Package",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.885Z"
@@ -1453,12 +1466,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.504Z"
                 }
             ],
             "file": "/etc/puppet/modules/git/manifests/init.pp",
             "line": 12,
             "resource_title": "git",
+            "corrective_change": false,
             "resource_type": "Package",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.504Z"
@@ -1476,12 +1491,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.423Z"
                 }
             ],
             "file": "/etc/puppet/modules/loadtest/manifests/init.pp",
             "line": 41,
             "resource_title": "etckeeper",
+            "corrective_change": false,
             "resource_type": "Package",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:09.423Z"
@@ -1499,12 +1516,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.325Z"
                 }
             ],
             "file": "/etc/puppet/modules/snmp/manifests/client.pp",
             "line": 76,
             "resource_title": "snmp-client",
+            "corrective_change": false,
             "resource_type": "Package",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:09.325Z"
@@ -1522,11 +1541,13 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.751Z"
                 }
             ],
             "file": "/etc/puppet/modules/snmp/manifests/init.pp",
             "line": 410,
+            "corrective_change": false,
             "resource_title": "var-net-snmp",
             "resource_type": "File",
             "skipped": false,
@@ -1545,11 +1566,13 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.521Z"
                 }
             ],
             "file": "/etc/puppet/modules/snmp/manifests/init.pp",
             "line": 405,
+            "corrective_change": false,
             "resource_title": "snmpd",
             "resource_type": "Package",
             "skipped": false,
@@ -1569,12 +1592,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.158Z"
                 }
             ],
             "file": "/etc/puppet/modules/concat/manifests/init.pp",
             "line": 149,
             "resource_title": "/var/lib/puppet/concat/_tmp_file/fragments",
+            "corrective_change": false,
             "resource_type": "File",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.158Z"
@@ -1592,12 +1617,14 @@
                     "old_value": "stopped",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.275Z"
                 }
             ],
             "file": "/etc/puppet/modules/snmp/manifests/init.pp",
             "line": 517,
             "resource_title": "snmpd",
+            "corrective_change": false,
             "resource_type": "Service",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.275Z"
@@ -1615,12 +1642,14 @@
                     "old_value": "stopped",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.871Z"
                 }
             ],
             "file": "/etc/puppet/modules/ntp/manifests/service.pp",
             "line": 9,
             "resource_title": "ntp",
+            "corrective_change": false,
             "resource_type": "Service",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:09.871Z"
@@ -1638,12 +1667,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.820Z"
                 }
             ],
             "file": "/etc/puppet/modules/python/manifests/install.pp",
             "line": 61,
             "resource_title": "python-devel",
+            "corrective_change": false,
             "resource_type": "Package",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.820Z"
@@ -1661,12 +1692,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.702Z"
                 }
             ],
             "file": "/etc/puppet/modules/snmp/manifests/init.pp",
             "line": 441,
             "resource_title": "snmpd.sysconfig",
+            "corrective_change": false,
             "resource_type": "File",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:09.702Z"
@@ -1684,12 +1717,14 @@
                     "old_value": "{md5}d41d8cd98f00b204e9800998ecf8427e",
                     "property": "content",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.090Z"
                 }
             ],
             "file": "/etc/puppet/modules/motd/manifests/init.pp",
             "line": 33,
             "resource_title": "/etc/motd",
+            "corrective_change": false,
             "resource_type": "File",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:09.090Z"
@@ -1707,12 +1742,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.108Z"
                 }
             ],
             "file": "/etc/puppet/modules/snmp/manifests/init.pp",
             "line": 453,
             "resource_title": "snmptrapd.conf",
+            "corrective_change": false,
             "resource_type": "File",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.108Z"
@@ -1730,6 +1767,7 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.693Z"
                 }
             ],
@@ -1737,6 +1775,7 @@
             "line": 465,
             "resource_title": "snmptrapd.sysconfig",
             "resource_type": "File",
+            "corrective_change": false,
             "skipped": false,
             "timestamp": "2015-02-13T13:29:09.693Z"
         },
@@ -1754,12 +1793,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.160Z"
                 }
             ],
             "file": "/etc/puppet/modules/concat/manifests/fragment.pp",
             "line": 113,
             "resource_title": "/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2",
+            "corrective_change": false,
             "resource_type": "File",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.160Z"
@@ -1777,12 +1818,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.892Z"
                 }
             ],
             "file": "/etc/puppet/modules/snmp/manifests/client.pp",
             "line": 85,
             "resource_title": "snmp.conf",
+            "corrective_change": false,
             "resource_type": "File",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.892Z"
@@ -1801,6 +1844,7 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.114Z"
                 }
             ],
@@ -1808,6 +1852,7 @@
             "line": 164,
             "resource_title": "/var/lib/puppet/concat/_tmp_file/fragments.concat.out",
             "resource_type": "File",
+            "corrective_change": false,
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.114Z"
         },
@@ -1825,11 +1870,13 @@
                     "old_value": null,
                     "property": null,
                     "status": "failure",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.233Z"
                 }
             ],
             "file": "/etc/puppet/modules/concat/manifests/init.pp",
             "line": 169,
+            "corrective_change": false,
             "resource_title": "/tmp/file",
             "resource_type": "File",
             "skipped": false,
@@ -1848,12 +1895,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.235Z"
                 }
             ],
             "file": "/etc/puppet/modules/snmp/manifests/init.pp",
             "line": 429,
             "resource_title": "snmpd.conf",
+            "corrective_change": false,
             "resource_type": "File",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.235Z"
@@ -1871,12 +1920,14 @@
                     "old_value": "absent",
                     "property": "message",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.523Z"
                 }
             ],
             "file": "/etc/puppet/modules/loadtest/manifests/init.pp",
             "line": 3,
             "resource_title": "foo",
+            "corrective_change": false,
             "resource_type": "Notify",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:09.523Z"
@@ -1894,12 +1945,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.786Z"
                 }
             ],
             "file": "/etc/puppet/modules/python/manifests/install.pp",
             "line": 60,
             "resource_title": "python-pip",
+            "corrective_change": false,
             "resource_type": "Package",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.786Z"
@@ -1917,12 +1970,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.749Z"
                 }
             ],
             "file": "/etc/puppet/modules/loadtest/manifests/init.pp",
             "line": 45,
             "resource_title": "sample setting",
+            "corrective_change": false,
             "resource_type": "Ini_setting",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:09.749Z"
@@ -1941,12 +1996,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:10.112Z"
                 }
             ],
             "file": "/etc/puppet/modules/concat/manifests/init.pp",
             "line": 159,
             "resource_title": "/var/lib/puppet/concat/_tmp_file/fragments.concat",
+            "corrective_change": false,
             "resource_type": "File",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:10.112Z"
@@ -1964,12 +2021,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.901Z"
                 }
             ],
             "file": "/etc/puppet/modules/loadtest/manifests/init.pp",
             "line": 69,
             "resource_title": "hkp_server_20BC0A86",
+            "corrective_change": false,
             "resource_type": "Gnupg_key",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:09.901Z"
@@ -1987,12 +2046,14 @@
                     "old_value": "stopped",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:29:09.687Z"
                 }
             ],
             "file": "/etc/puppet/modules/loadtest/manifests/init.pp",
             "line": 4,
             "resource_title": "cron",
+            "corrective_change": false,
             "resource_type": "Service",
             "skipped": false,
             "timestamp": "2015-02-13T13:29:09.687Z"
@@ -2000,5 +2061,8 @@
     ],
     "start_time": "2015-02-13T13:29:01.341Z",
     "status": "failed",
+    "catalog_uuid": "48b574f9-fd1c-4d5d-9dc6-abb8b479e390",
+    "producer": "foo.com",
+    "code_id": "90102f12-0f34-429f-8280-3e7931295784",
     "transaction_uuid": "f2b3642a-27e8-4311-a213-aad48859b9ac"
 }

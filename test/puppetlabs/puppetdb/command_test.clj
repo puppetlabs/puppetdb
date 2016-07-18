@@ -175,14 +175,14 @@
   {:headers {:id "foo-id-1"
              :received (tfmt/unparse (tfmt/formatters :date-time) (now))}
    :body (json/generate-string  {:command "some catalog"
-                                 :payload "foo"
+                                 :payload {:certname "cats"}
                                  :version 10
                                  :annotations {:attempts (repeat n {})}})})
 
 (deftest command-retry-handler
   (testing "Should log retries as debug for less than 4 attempts"
     (let [process-message (fn [_] (throw (RuntimeException. "retry me")))]
-      
+
       (doseq [i (range 0 mql/maximum-allowable-retries)
               :let [log-output (atom [])
                     delay-message (mock-fn)
@@ -196,11 +196,12 @@
           (if (< i 4)
             (is (= (get-in @log-output [0 1]) :debug))
             (is (= (get-in @log-output [0 1]) :error)))
-          
+
+          (is (str/includes? (get-in @log-output [0 3]) "cats"))
           (is (instance? Exception (get-in @log-output [0 2])))
           (is (str/includes? (last (first @log-output))
                              "Retrying after attempt"))))
-      
+
       (let [log-output (atom [])
             delay-message (mock-fn)
             discard-message (mock-fn)
@@ -212,7 +213,8 @@
           (is (= (get-in @log-output [0 1]) :error))
           (is (instance? Exception (get-in @log-output [0 2])))
           (is (str/includes? (last (first @log-output))
-                             "Exceeded max")))))))
+                             "Exceeded max"))
+          (is (str/includes? (get-in @log-output [0 3]) "cats")))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -453,7 +455,7 @@
 (deftest catalog-with-updated-resource-line
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 9
+                             :version latest-catalog-version
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -480,7 +482,7 @@
 (deftest catalog-with-updated-resource-file
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 9
+                             :version latest-catalog-version
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -507,7 +509,7 @@
 (deftest catalog-with-updated-resource-exported
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 9
+                             :version latest-catalog-version
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -532,7 +534,7 @@
 (deftest catalog-with-updated-resource-tags
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 9
+                             :version latest-catalog-version
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -837,7 +839,7 @@
 
 (deftest replace-facts-bad-payload
   (let [bad-command {:command (command-names :replace-facts)
-                     :version 5
+                     :version latest-facts-version
                      :payload "bad stuff"}]
     (dotestseq [version fact-versions
                 :let [command bad-command]]
@@ -1283,7 +1285,7 @@
 
 (def v7-report
   (-> v8-report
-      (dissoc :producer)))
+      (dissoc :producer :noop_pending)))
 
 (def v6-report
   (-> v7-report

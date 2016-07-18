@@ -12,6 +12,7 @@ canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 [ast]: ./ast.html
 [edges]: ./edges.html
 [environments]: ./environments.html
+[producers]: ./producers.html
 [nodes]: ./nodes.html
 [resources]: ./resources.html
 
@@ -56,6 +57,7 @@ result set using implicit subqueries. For more information consult the
 documentation for [subqueries][subqueries].
 
 * [`nodes`][nodes]: node for a catalog.
+* [`producers`][producers]: the master that sent the catalog to PuppetDB.
 * [`environments`][environments]: environment for a catalog.
 * [`edges`][edges]: resource edges received for a catalog.
 * [`resources`][resources]: resources received for a catalog.

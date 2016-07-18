@@ -94,6 +94,19 @@
       normalize-time
       munge-children))
 
+(defn update-event-corrective_changes
+  "replace corrective_change field in events with nil for comparison to foss response"
+  [resources]
+  (for [r resources]
+    (update r :events (fn [x] (map #(assoc % :corrective_change nil) x)))))
+
+(defn update-report-pe-fields
+  "associate nil for pe-only fields in foss response"
+  [report]
+  (-> report
+      (update :resources update-event-corrective_changes)
+      (assoc :corrective_change nil)))
+
 (defn munge-reports-for-comparison
   "Convert actual results for reports queries to wire format ready for comparison."
   [reports]

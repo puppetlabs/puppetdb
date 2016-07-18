@@ -143,9 +143,15 @@
                              "latest_report_noop" {:type :boolean
                                                    :queryable? true
                                                    :field :reports.noop}
+                             "latest_report_noop_pending" {:type :boolean
+                                                           :queryable? true
+                                                           :field :reports.noop_pending}
                              "latest_report_status" {:type :string
                                                      :queryable? true
                                                      :field :report_statuses.status}
+                             "latest_report_corrective_change" {:type :boolean
+                                                                :queryable? true
+                                                                :field :reports.corrective_change}
                              "cached_catalog_status" {:type :string
                                                       :queryable? true
                                                       :field :reports.cached_catalog_status}
@@ -438,33 +444,39 @@
   "Query for the reports entity"
   (map->Query
     {:projections
-     {"hash"            {:type :string
-                         :queryable? true
-                         :field (hsql-hash-as-str :reports.hash)}
-      "certname"        {:type :string
-                         :queryable? true
-                         :field :reports.certname}
-      "puppet_version"  {:type :string
-                         :queryable? true
-                         :field :reports.puppet_version}
-      "report_format"   {:type :integer
-                         :queryable? true
-                         :field :reports.report_format}
+     {"hash" {:type :string
+              :queryable? true
+              :field (hsql-hash-as-str :reports.hash)}
+      "certname" {:type :string
+                  :queryable? true
+                  :field :reports.certname}
+      "noop_pending" {:type :boolean
+                      :queryable? true
+                      :field :reports.noop_pending}
+      "puppet_version" {:type :string
+                        :queryable? true
+                        :field :reports.puppet_version}
+      "report_format" {:type :integer
+                       :queryable? true
+                       :field :reports.report_format}
       "configuration_version" {:type :string
                                :queryable? true
                                :field :reports.configuration_version}
-      "start_time"      {:type :timestamp
-                         :queryable? true
-                         :field :reports.start_time}
-      "end_time"        {:type :timestamp
-                         :queryable? true
-                         :field :reports.end_time}
+      "start_time" {:type :timestamp
+                    :queryable? true
+                    :field :reports.start_time}
+      "end_time" {:type :timestamp
+                  :queryable? true
+                  :field :reports.end_time}
       "producer_timestamp" {:type :timestamp
                             :queryable? true
                             :field :reports.producer_timestamp}
-      "producer"        {:type :string
-                         :queryable? true
-                         :field :producers.name}
+      "producer" {:type :string
+                  :queryable? true
+                  :field :producers.name}
+      "corrective_change" {:type :string
+                           :queryable? true
+                           :field :reports.corrective_change}
       "metrics" {:type :json
                  :queryable? false
                  :field {:select [(h/row-to-json :t)]
@@ -479,33 +491,33 @@
                                [[(h/coalesce :logs (h/scast :logs_json :jsonb)) :data]
                                 [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :logs)
                                  :href]]} :t]]}}
-      "receive_time"    {:type :timestamp
-                         :queryable? true
-                         :field :reports.receive_time}
+      "receive_time" {:type :timestamp
+                      :queryable? true
+                      :field :reports.receive_time}
       "transaction_uuid" {:type :string
                           :queryable? true
                           :field (hsql-uuid-as-str :reports.transaction_uuid)}
       "catalog_uuid" {:type :string
                       :queryable? true
                       :field (hsql-uuid-as-str :reports.catalog_uuid)}
-      "noop"            {:type :boolean
-                         :queryable? true
-                         :field :reports.noop}
+      "noop" {:type :boolean
+              :queryable? true
+              :field :reports.noop}
       "code_id" {:type :string
                  :queryable? true
                  :field :reports.code_id}
       "cached_catalog_status" {:type :string
                                :queryable? true
                                :field :reports.cached_catalog_status}
-      "environment"     {:type :string
-                         :queryable? true
-                         :field :environments.environment}
-      "status"          {:type :string
-                         :queryable? true
-                         :field :report_statuses.status}
-      "latest_report?"   {:type :string
-                          :queryable? true
-                          :query-only? true}
+      "environment" {:type :string
+                     :queryable? true
+                     :field :environments.environment}
+      "status" {:type :string
+                :queryable? true
+                :field :report_statuses.status}
+      "latest_report?" {:type :string
+                        :queryable? true
+                        :query-only? true}
       "resource_events" {:type :json
                          :queryable? false
                          :field {:select [(h/row-to-json :event_data)]
@@ -518,6 +530,7 @@
                                                     :re.resource_type
                                                     :re.resource_title
                                                     :re.property
+                                                    :re.corrective_change
                                                     (h/scast :re.new_value :jsonb)
                                                     (h/scast :re.old_value :jsonb)
                                                     :re.message
@@ -771,6 +784,9 @@
                              "status" {:type :string
                                        :queryable? true
                                        :field :status}
+                             "corrective_change" {:type :boolean
+                                                  :queryable? true
+                                                  :field :events.corrective_change}
                              "timestamp" {:type :timestamp
                                           :queryable? true
                                           :field :timestamp}

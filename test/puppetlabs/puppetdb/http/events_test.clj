@@ -353,6 +353,19 @@
                                     {} munge-event-values)]
         (is (= response expected))))))
 
+(deftest-http-app query-by-corrective_change
+  [[version endpoint] endpoints
+   method [:get :post]]
+  (let [basic (store-example-report! (:basic reports) (now))
+        basic-events (get-in reports [:basic :resource_events :data])
+        expected1 (expected-resource-events basic-events basic)
+        response1 (query-result method endpoint ["null?" "corrective_change" true]
+                                {}  munge-event-values)
+        response2 (query-result method endpoint ["=" "corrective_change" true])]
+    (testing "queries on corrective_change is null"
+      (is (= response1 expected1))
+      (is (= response2 #{})))))
+
 (def versioned-subqueries
   (omap/ordered-map
    "/v4/events"
@@ -363,6 +376,7 @@
                                              ["=" "title" "foobar"]]]]]
 
     #{{:containment_path ["Foo" "" "Bar[Baz]"]
+       :corrective_change nil
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
@@ -388,6 +402,7 @@
                                              ["=" "value" "1.1.1.1"]]]]]
 
     #{{:containment_path ["Foo" "" "Bar[Baz]"]
+       :corrective_change nil
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
@@ -415,6 +430,7 @@
        ["select_resources" ["=" "title" "foobar"]]]]]
 
     #{{:containment_path ["Foo" "" "Bar[Baz]"]
+       :corrective_change nil
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"

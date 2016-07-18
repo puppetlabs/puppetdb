@@ -13,6 +13,7 @@ canonical: "/puppetdb/latest/api/query/v4/reports.html"
 [8601]: http://en.wikipedia.org/wiki/ISO_8601
 [subqueries]: ./ast.html#subquery-operators
 [environments]: ./environments.html
+[producers]: ./producers.html
 [events]: ./events.html
 [nodes]: ./nodes.html
 
@@ -70,6 +71,10 @@ responses.
 * `noop` (Boolean): a flag indicating whether the report was produced by a noop
   run.
 
+* `noop_pending` (Boolean): a flag indicating whether the report contains noop
+  events (these can arise from use of `--noop` or from resources with the
+  `noop` parameter set to true).
+
 * `puppet_version` (string): the version of Puppet that generated the report.
 
 * `report_format` (number): the version number of the report format that Puppet
@@ -107,6 +112,9 @@ run used a cached catalogs and whether or not the cached catalog was used due to
 an error or not. Possible values include `explicitly_requested`, `on_failure`,
 `not_used` or `null`.
 
+* `corrective_change`: (Boolean): a flag indicating whether any of the report's
+  events remediated configuration drift. This field is only populated in PE.
+
 * `latest_report?` (Boolean): return only reports associated with the most
   recent Puppet run for each node. **Note:** this field does not appear in the
   response.
@@ -120,6 +128,7 @@ documentation for [subqueries][subqueries].
 * [`environments`][environments]: environment from where a report was received.
 * [`events`][events]: events received in a report.
 * [`nodes`][nodes]: node from where a report was received.
+* [`producers`][producers]: the master that sent the report to PuppetDB.
 
 ### Response format
 
@@ -139,6 +148,7 @@ is of the form:
       "transaction_uuid": <string to identify puppet run>,
       "status": <status of node after report's associated puppet run>,
       "noop": <boolean flag indicating noop run>,
+      "noop_pending": <boolean flag indicating presence of noop events>
       "environment": <report environment>,
       "configuration_version": <catalog identifier>,
       "certname": <node name>,
@@ -256,6 +266,7 @@ Query for all reports:
       "transaction_uuid" : "9a7070e9-840f-446d-b756-6f19bf2e2efc",
       "puppet_version" : "3.7.4",
       "noop" : false,
+      "noop_pending": true,
       "report_format" : 4,
       "start_time" : "2015-02-19T16:23:09.810Z",
       "end_time" : "2015-02-19T16:23:10.287Z",

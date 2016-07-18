@@ -23,7 +23,6 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.scf.migrate :as migrate]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [com.rpl.specter :as sp]
@@ -236,88 +235,12 @@
    ["SELECT expired FROM certnames WHERE certname=?" certname]
    (comp :expired first sql/result-set-seq)))
 
-(defn-validated purge-deactivated-and-expired-nodes!
-  "Delete nodes from the database which were deactivated before cutoff."
-  [cutoff :- pls/Timestamp]
-  ;; If this code is eventually adjusted to not manipulate the schema,
-  ;; then delete storage-test/node-expiration-does-not-change-schema.
-
-  (let [cutoff (to-timestamp cutoff)]
-    (jdbc/with-db-transaction []
-      (jdbc/do-prepared
-       "select id, certname into temp table obsolete_nodes from certnames
-          where deactivated < ? or expired < ?"
-       [cutoff cutoff])
-      (apply
-       jdbc/do-commands
-       (concat
-        ["set constraints all deferred"
-         "analyze obsolete_nodes"]
-
-        ;; Drop constraints
-        (map (fn [[t c]]
-               (format "alter table %s drop constraint %s" t c))
-             [["catalogs" "catalogs_certname_fkey"]
-              ["factsets" "factsets_certname_fk"]
-              ["reports" "reports_certname_fkey"]
-              ["latest_catalogs" "latest_catalogs_certname_id_fkey"]
-              ["catalog_resources" "catalog_resources_certname_id_fkey"]
-              ["latest_catalogs" "latest_catalogs_catalog_id_fkey"]
-              ["facts" "factset_id_fk"]
-              ["certnames" "certnames_reports_id_fkey"]
-              ["resource_events" "resource_events_report_id_fkey"]])
-
-        ;; remove nodes
-        ["delete from resource_events
-           where certname_id in (select id from obsolete_nodes)"
-         "delete from reports
-           where certname in (select certname from obsolete_nodes)"
-
-         "delete from resource_params_cache rpc using catalog_resources cr
-            where cr.certname_id in (select id from obsolete_nodes)
-                  and rpc.resource = cr.resource"
-         "delete from resource_params rp using catalog_resources cr
-            where cr.certname_id in (select id from obsolete_nodes)
-                  and rp.resource = cr.resource"
-         "delete from catalog_resources
-           where certname_id in (select id from obsolete_nodes)"
-
-         "delete from latest_catalogs
-           where certname_id in (select id from obsolete_nodes)"
-         "delete from edges
-           where certname in (select certname from obsolete_nodes)"
-         "delete from catalogs
-           where certname in (select certname from obsolete_nodes)"
-
-         "delete from facts f using factsets fs
-           where f.factset_id = fs.id
-                 and fs.certname in (select certname from obsolete_nodes)"
-         "delete from factsets
-           where certname in (select certname from obsolete_nodes)"
-
-         "delete from certnames where id in (select id from obsolete_nodes)"
-
-         ;; Restore constraints
-         migrate/add-catalogs-certname-fkey-constraint-cmd
-         migrate/add-certnames-reports-id-fkey-constraint-cmd
-         migrate/add-factset-id-fk-constraint-cmd
-         migrate/add-factsets-certname-fk-constraint-cmd
-         migrate/add-reports-certname-fk-constraint-cmd
-         migrate/add-resource-events-report-id-fkey-constraint-cmd
-         ;; The following constraints are implicit in migrate, and must
-         ;; be manually kept in sync with the relevant column declarations.
-         "alter table latest_catalogs
-           add constraint latest_catalogs_certname_id_fkey
-             foreign key (certname_id) references certnames(id)
-             on delete cascade"
-         "alter table catalog_resources
-           add constraint catalog_resources_certname_id_fkey
-             foreign key (certname_id) references certnames(id)
-             on delete cascade"
-         "alter table latest_catalogs add constraint latest_catalogs_catalog_id_fkey
-           foreign key (catalog_id) references catalogs(id) on delete cascade"
-
-         "drop table obsolete_nodes"])))))
+(defn purge-deactivated-and-expired-nodes!
+  "Delete nodes from the database which were deactivated before `time`."
+  [time]
+  {:pre [(kitchensink/datetime? time)]}
+  (let [ts (to-timestamp time)]
+    (jdbc/delete! :certnames ["deactivated < ? OR expired < ?" ts ts])))
 
 (defn activate-node!
   "Reactivate the given host. Adds the host to the database if it was not
@@ -451,7 +374,7 @@
        (map (partial merge {:file nil :line nil}))
        sutils/munge-jsonb-for-storage))
 
-(pls/defn-validated catalog-row-map
+(s/defn catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
   [hash
    {:keys [edges
@@ -478,7 +401,7 @@
      :producer_id (ensure-producer producer)
      :api_version 1}))
 
-(pls/defn-validated update-catalog-metadata!
+(s/defn update-catalog-metadata!
   "Given some catalog metadata, update the db"
   [id :- Long
    hash :- String
@@ -488,7 +411,7 @@
                 (catalog-row-map hash catalog received-timestamp)
                 ["id=?" id]))
 
-(pls/defn-validated add-catalog-metadata!
+(s/defn add-catalog-metadata!
   "Given some catalog metadata, persist it in the db. Returns a map of the
   inserted data including any autogenerated columns."
   [hash :- String
@@ -499,7 +422,7 @@
                        (assoc (catalog-row-map hash catalog received-timestamp)
                               :certname certname))))
 
-(pls/defn-validated resources-exist? :- #{String}
+(s/defn resources-exist? :- #{String}
   "Given a collection of resource-hashes, return the subset that
    already exist in the database."
   [resource-hashes :- #{String}]
@@ -518,7 +441,7 @@
 ;;resource-ref->resource-schema, but there are a lot of tests that
 ;;have incorrect data. When examples.clj and tests get fixed, this
 ;;should be changed to the correct schema
-(pls/defn-validated catalog-resources
+(s/defn catalog-resources
   "Returns the resource hashes keyed by resource reference"
   [certname-id :- Long]
   (jdbc/query-with-resultset
@@ -532,7 +455,7 @@
        (zipmap (map #(select-keys % [:type :title]) rss)
                (jdbc/convert-result-arrays set rss))))))
 
-(pls/defn-validated new-params-only
+(s/defn new-params-only
   "Returns a map of not persisted parameters, keyed by hash"
   [persisted-params :- #{String}
    refs-to-resources :- resource-ref->resource-schema
@@ -544,14 +467,14 @@
                    (assoc acc resource-hash parameters))))
              {} refs-to-resources))
 
-(pls/defn-validated insert-records*
+(s/defn insert-records*
   "Nil/empty safe insert-records, see java.jdbc's insert-records for more "
   [table :- s/Keyword
    record-coll :- [{s/Keyword s/Any}]]
   (when (seq record-coll)
     (apply jdbc/insert! table record-coll)))
 
-(pls/defn-validated add-params!
+(s/defn add-params!
   "Persists the new parameters found in `refs-to-resources` and populates the
    resource_params_cache."
   [refs-to-resources :- resource-ref->resource-schema
@@ -585,7 +508,7 @@
     (update-in resource [:tags] sutils/to-jdbc-varchar-array)
     resource))
 
-(pls/defn-validated insert-catalog-resources!
+(s/defn insert-catalog-resources!
   "Returns a function that accepts a seq of ref keys to insert"
   [certname-id :- Long
    refs-to-hashes :- {resource-ref-schema String}
@@ -610,7 +533,7 @@
                 :line line})))
           refs-to-insert))))
 
-(pls/defn-validated delete-catalog-resources!
+(s/defn delete-catalog-resources!
   "Returns a function accepts old catalog resources that should be deleted."
   [certname-id :- Long]
   (fn [refs-to-delete]
@@ -653,7 +576,7 @@
                (assoc-in acc [k :resource] (get refs-to-hashes k)))
              refs-to-resources refs-to-resources))
 
-(pls/defn-validated update-catalog-resources!
+(s/defn update-catalog-resources!
   "Returns a function accepting keys that were the same from the old resources and the new resources."
   [certname-id :- Long
    refs-to-hashes :- {resource-ref-schema String}
@@ -680,7 +603,7 @@
   [resource]
   (dissoc resource :parameters))
 
-(pls/defn-validated add-resources!
+(s/defn add-resources!
   "Persist the given resource and associate it with the given catalog."
   [certname-id :- Long
    refs-to-resources :- resource-ref->resource-schema
@@ -695,7 +618,7 @@
                     (insert-catalog-resources! certname-id refs-to-hashes diffable-resources)
                     (update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)))))
 
-(pls/defn-validated catalog-edges-map
+(s/defn catalog-edges-map
   "Return all edges for a given catalog id as a map"
   [certname :- String]
   ;; Transform the result-set into a map with [source,target,type] as the key
@@ -710,7 +633,7 @@
    #(zipmap (map vals (sql/result-set-seq %))
             (repeat nil))))
 
-(pls/defn-validated delete-edges!
+(s/defn delete-edges!
   "Delete edges for a given certname.
 
   Edges must be either nil or a collection of lists containing each element
@@ -734,7 +657,7 @@
                    (sutils/bytea-escape target)
                    type])))
 
-(pls/defn-validated insert-edges!
+(s/defn insert-edges!
   "Insert edges for a given certname.
 
   Edges must be either nil or a collection of lists containing each element
@@ -756,7 +679,7 @@
       (update! (:catalog-volatility performance-metrics) (count rows))
       (apply jdbc/insert! :edges rows))))
 
-(pls/defn-validated replace-edges!
+(s/defn replace-edges!
   "Persist the given edges in the database
 
   Each edge is looked up in the supplied resources map to find a
@@ -782,7 +705,7 @@
                    #(delete-edges! certname %)
                    identity)))
 
-(pls/defn-validated update-existing-catalog
+(s/defn update-existing-catalog
   "When a new incoming catalog has the same hash as an existing catalog, update
    performance-metrics and the transaction id for the new catalog"
   [catalog-id :- Long
@@ -793,7 +716,7 @@
   (time! (:catalog-hash-match performance-metrics)
          (update-catalog-metadata! catalog-id hash catalog received-timestamp)))
 
-(pls/defn-validated update-catalog-associations!
+(s/defn update-catalog-associations!
   "Adds/updates/deletes the edges and resources for the given certname"
   [certname-id :- Long
    {:keys [resources edges certname]} :- catalog-schema
@@ -803,7 +726,7 @@
   (time! (:add-edges performance-metrics)
          (replace-edges! certname edges refs-to-hashes)))
 
-(pls/defn-validated replace-existing-catalog
+(s/defn replace-existing-catalog
   "New catalogs for a given certname needs to have their metadata, resources and
   edges updated."
   [certname-id :- Long
@@ -819,7 +742,7 @@
          (update-catalog-metadata! catalog-id hash catalog received-timestamp)
          (update-catalog-associations! certname-id catalog refs-to-hashes)))
 
-(pls/defn-validated add-new-catalog
+(s/defn add-new-catalog
   "Creates new catalog metadata and adds the proper associations for the edges and resources"
   [certname-id :- Long
    hash :- String
@@ -832,7 +755,7 @@
            (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
            (update-catalog-associations! certname-id catalog refs-to-hashes))))
 
-(pls/defn-validated add-catalog!
+(s/defn add-catalog!
   "Persist the supplied catalog in the database, returning its
    similarity hash."
   [{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
@@ -872,7 +795,7 @@
                                             historical-catalogs-limit]))))
              hash))))
 
-(pls/defn-validated replace-catalog!
+(s/defn replace-catalog!
   "Persist the supplied catalog in the database, returning its
    similarity hash."
   ([catalog :- catalog-schema]
@@ -903,7 +826,7 @@
                     (replace-existing-catalog certname-id catalog-id hash catalog refs-to-hashes received-timestamp))))
               hash)))))
 
-(pls/defn-validated store-catalog!
+(s/defn store-catalog!
   "Persist the supplied catalog in the database, returning its similarity hash.
    On PE we alter the atom 'historical-catalog-limit' to be >0 and we will store
    the catalog in database alongside the other catalogs for the node. On FOSS we
@@ -1277,11 +1200,20 @@
       (reverse containment-path)))))
 
 (def store-resources-column? (atom false))
+
 (defn maybe-resources
   [row-map]
   (if @store-resources-column?
     row-map
     (dissoc row-map :resources)))
+
+(def store-corrective-change? (atom false))
+
+(defn maybe-corrective-change
+  [row-map]
+  (if @store-corrective-change?
+    row-map
+    (dissoc row-map :corrective_change)))
 
 (defn maybe-environment
   "This fn is most to help in testing, instead of persisting a value of
@@ -1324,7 +1256,7 @@
          (let [{:keys [puppet_version certname report_format configuration_version producer
                        producer_timestamp start_time end_time transaction_uuid environment
                        status noop metrics logs resources resource_events catalog_uuid
-                       code_id cached_catalog_status]
+                       code_id cached_catalog_status noop_pending corrective_change]
                 :as report} (normalize-report orig-report)
                 report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
@@ -1337,7 +1269,9 @@
                             :metrics (sutils/munge-jsonb-for-storage metrics)
                             :logs (sutils/munge-jsonb-for-storage logs)
                             :resources (sutils/munge-jsonb-for-storage resources)
+                            :corrective_change corrective_change
                             :noop noop
+                            :noop_pending noop_pending
                             :puppet_version puppet_version
                             :certname certname
                             :report_format report_format
@@ -1352,43 +1286,26 @@
                    [{report-id :id}] (->> row-map
                                           maybe-environment
                                           maybe-resources
+                                          maybe-corrective-change
                                           (jdbc/insert! :reports))
-                   assoc-ids #(assoc %
-                                     :report_id report-id
-                                     :certname_id certname-id)]
+                   adjust-event-metadata #(-> %
+                                              (assoc :report_id report-id
+                                                     :certname_id certname-id)
+                                              maybe-corrective-change)]
                (when-not (empty? resource_events)
                  (->> resource_events
                       (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                      (map assoc-ids)
+                      (map adjust-event-metadata)
                       (apply jdbc/insert! :resource_events)))
                (when update-latest-report?
                  (update-latest-report! certname)))))))
 
-(defn-validated delete-reports-older-than!
-  "Delete all reports in the database that have a `producer-timestamp`
-   older than the cutoff."
-  [cutoff :- pls/Timestamp]
-  ;; If this code is eventually adjusted to not manipulate the schema,
-  ;; then delete storage-test/report-deletion-does-not-change-schema.
-  (jdbc/with-db-transaction []
-    (jdbc/do-prepared
-     "select id into temp table obsolete_reports from reports r
-        where r.producer_timestamp < ?"
-     [(to-timestamp cutoff)])
-    (jdbc/do-commands
-     "set constraints all deferred"
-     "analyze obsolete_reports"
-     "alter table certnames drop constraint certnames_reports_id_fkey"
-     "alter table resource_events
-        drop constraint resource_events_report_id_fkey"
-     "delete from resource_events
-          where report_id in (select id from obsolete_reports)"
-     "update certnames set latest_report_id = null
-          where latest_report_id in (select id from obsolete_reports)"
-     "delete from reports where id in (select id from obsolete_reports)"
-     "drop table obsolete_reports"
-     migrate/add-certnames-reports-id-fkey-constraint-cmd
-     migrate/add-resource-events-report-id-fkey-constraint-cmd)))
+(defn delete-reports-older-than!
+  "Delete all reports in the database which have an `producer-timestamp` that is prior to
+   the specified date/time."
+  [time]
+  {:pre [(kitchensink/datetime? time)]}
+  (jdbc/delete! :reports ["producer_timestamp < ?" (to-timestamp time)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database support/deprecation

@@ -1,8 +1,11 @@
 {
+    "cached_catalog_status": "not_used",
     "certname": "pg2.vm",
     "configuration_version": "1423833741",
     "end_time": "2015-02-13T13:26:57.691Z",
     "environment": "production",
+    "corrective_change": true,
+    "noop_pending": false,
     "logs": [
         {
             "file": null,
@@ -595,11 +598,13 @@
                     "old_value": "notrun",
                     "property": "returns",
                     "status": "success",
+                    "corrective_change": true,
                     "timestamp": "2015-02-13T13:26:57.409Z"
                 }
             ],
             "file": "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
             "line": 83,
+            "corrective_change": true,
             "resource_title": "postgresql_data_directory",
             "resource_type": "Exec",
             "skipped": false,
@@ -618,6 +623,7 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "success",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:26:58.573Z"
                 }
             ],
@@ -625,6 +631,7 @@
             "line": 120,
             "resource_title": "/etc/sysconfig/pgsql/postgresql-8.4",
             "resource_type": "File",
+            "corrective_change": false,
             "skipped": false,
             "timestamp": "2015-02-13T13:26:58.573Z"
         },
@@ -642,11 +649,13 @@
                     "old_value": "need_to_run",
                     "property": "returns",
                     "status": "success",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:26:58.781Z"
                 }
             ],
             "file": "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
             "line": 90,
+            "corrective_change": false,
             "resource_title": "override PGDATA in /etc/sysconfig/pgsql/postgresql",
             "resource_type": "Augeas",
             "skipped": false,
@@ -666,6 +675,7 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "success",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:26:58.814Z"
                 }
             ],
@@ -673,6 +683,7 @@
             "line": 105,
             "resource_title": "data_directory",
             "resource_type": "Postgresql_conf",
+            "corrective_change": false,
             "skipped": false,
             "timestamp": "2015-02-13T13:26:58.814Z"
         },
@@ -690,12 +701,14 @@
                     "old_value": "absent",
                     "property": "message",
                     "status": "success",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:26:58.975Z"
                 }
             ],
             "file": "/etc/puppet/manifests/site.pp",
             "line": 6,
             "resource_title": "foo",
+            "corrective_change": false,
             "resource_type": "Notify",
             "skipped": false,
             "timestamp": "2015-02-13T13:26:58.975Z"
@@ -713,11 +726,13 @@
                     "old_value": "stopped",
                     "property": "ensure",
                     "status": "success",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:26:59.281Z"
                 }
             ],
             "file": "/etc/puppet/modules/postgresql/manifests/server/service.pp",
             "line": 14,
+            "corrective_change": false,
             "resource_title": "postgresqld",
             "resource_type": "Service",
             "skipped": false,
@@ -726,5 +741,8 @@
     ],
     "start_time": "2015-02-13T13:26:52.564Z",
     "status": "changed",
+    "catalog_uuid": "f9e15df3-bbfb-404c-80bd-f29ecdbe5283",
+    "producer": "foo.com",
+    "code_id": "8589ce99-5690-4900-a249-a052e044ca11",
     "transaction_uuid": "9df4e7ce-5646-4178-8ff8-db6add84e9fc"
 }

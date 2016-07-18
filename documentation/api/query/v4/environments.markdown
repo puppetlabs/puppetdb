@@ -37,7 +37,7 @@ See [the AST query language page](./ast.html)
 
 ### Query fields
 
-* `"name"` (string): the name of an environment.
+* `name` (string): the name of an environment.
 
 ### Subquery relationships
 

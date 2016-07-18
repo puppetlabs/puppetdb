@@ -27,7 +27,9 @@ noted, `null` is not allowed anywhere in the report.
         "code_id": <string>,
         "cached_catalog_status": <string>,
         "status": <string>,
-        "noop": <boolean>
+        "noop": <boolean>,
+        "corrective_change": <boolean>,
+        "noop_pending": <boolean>
     }
 
 All keys are mandatory unless otherwise noted, though values that are lists may be empty lists.
@@ -76,6 +78,13 @@ error or not. This field may be `null`.
 
 `"noop"` is a flag that indicates whether the report was produced with a `--noop` run.
 
+`"noop_pending"` is a flag that indicates whether the report contained "noop"
+events. These may result from use of the `--noop` flag, or from resources
+tagged with the `noop` parameter. This field may be `null`.
+
+`"corrective_change"` is a flag that indicates whether the report contained changes
+to correct configuration drift. This field may be `null`.
+
 `"resources"` is an array of objects of the following form:
 
 
@@ -99,6 +108,7 @@ In each `<resource>` object `"events"` is an array of objects of the following f
       "new_value": <new value for resource property>,
       "old_value": <old value of resource property>,
       "message": <description of what happened during event>,
+      "corrective_change": <flag indicating whether the event corrected system drift>
     }
 
 `"metrics"` is either null or an array of metric objects:
@@ -122,7 +132,8 @@ In each `<resource>` object `"events"` is an array of objects of the following f
      }
 
 >**Note: Fields that allow `NULL` values**
->In the resource_event schema above, `containment_path`, `new_value`, `old_value`, `property`, `file`, `line`, `status`, and `message` may all be null.
+>In the resource_event schema above, `containment_path`, `new_value`, `old_value`,
+`property`, `file`, `line`, `status`, `corrective_change`, and `message` may all be null.
 
 ### Encoding
 

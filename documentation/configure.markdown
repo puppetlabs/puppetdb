@@ -402,7 +402,8 @@ When the pool reaches this size, and no idle connections are available, attempts
 to get a connection will wait for `connection-timeout` milliseconds before timing
 out.
 
-The default value is 25.
+The default value is 25. Note that PuppetDB will use one pool for writes and another
+for reads, so the total number of connections used will be twice this setting.
 
 ### `conn-max-age`
 

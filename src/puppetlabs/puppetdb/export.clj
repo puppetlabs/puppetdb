@@ -11,6 +11,7 @@
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.factsets :as factsets]
             [puppetlabs.puppetdb.reports :as reports]
+            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.utils :as utils]
             [clj-time.format :as time-fmt]
             [clj-time.coerce :as time-coerce]
@@ -19,16 +20,10 @@
 
 (def export-metadata-file-name "export-metadata.json")
 (def query-api-version :v4)
-(def ^:private command-versions
-  ;; This is not ideal that we are hard-coding the command version here, but
-  ;;  in our current architecture I don't believe there is any way to introspect
-  ;;  on which version of the `replace catalog` matches up with the current
-  ;;  version of the `catalog` endpoint... or even to query what the latest
-  ;;  version of a command is.  We should improve that.
-  {:replace_catalog 9
-   :store_report 8
-   :replace_facts 5})
-
+(def latest-command-versions
+  {:replace_catalog command/latest-catalog-version
+   :store_report command/latest-report-version
+   :replace_facts command/latest-facts-version})
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utility Functions
 
@@ -108,6 +103,6 @@
    (with-open [tar-writer (archive/tarball-writer outfile)]
      (utils/add-tar-entry
       tar-writer {:file-suffix [export-metadata-file-name]
-                  :contents (json/generate-pretty-string {:timestamp (now) :command_versions command-versions})})
+                  :contents (json/generate-pretty-string {:timestamp (now) :command_versions latest-command-versions})})
      (export!* tar-writer query-fn anonymize-profile))
    (log/infof "Finished exporting PuppetDB")))

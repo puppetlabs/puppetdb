@@ -40,7 +40,7 @@
 
     (doseq [field ["certname" "hash" "puppet_version" "report_format"
                    "configuration_version" "start_time" "end_time"
-                   "transaction_uuid" "status" "producer"]
+                   "transaction_uuid" "status" "producer" "noop_pending"]
             :let [field-kwd (keyword field)]]
       (testing (format "should return all reports for a %s" field)
         (let [result (query-response method endpoint ["=" field (get basic-with-hash field-kwd)])
@@ -551,6 +551,19 @@
     (is (= 2 (count basic2-result-body)))
     (is (= basic2-result-body
            (munge-reports-for-comparison [basic basic2])))))
+
+(deftest-http-app query-for-corrective_change
+  [[version endpoint] endpoints
+   method [:get :post]]
+  (let [basic (:basic reports)
+        _ (store-example-report! basic (now))
+        basic-result (first (query-result method endpoint))
+        corrective_change-result (query-result method endpoint ["=" "corrective_change" true])]
+
+    (testing "query on corrective_change does not fail"
+      (is (empty? corrective_change-result)))
+    (testing "result contains corrective_change key valued with nil"
+      (is (nil? (get basic-result :corrective_change "oops"))))))
 
 (deftest-http-app query-by-start-and-end-time
   [[version endpoint] endpoints

@@ -64,6 +64,13 @@ The below fields are allowed as filter criteria and are returned in all response
 * `latest_report_noop` (boolean): indicates whether the most recent report for
   the node was a noop run.
 
+* `latest_report_noop_pending` (boolean): indicates whether the most recent
+  report for the node contained noop events.
+
+* `latest_report_corrective_change` (boolean): a flag indicating whether the latest
+  report for the node included events that remediated configuration drift. This
+  field is only populated in PE.
+
 * `cached_catalog_status` (string): Cached catalog status of the
   last puppet run for the node. Possible values are `explicitly_requested`,
   `on_failure`, `not_used` or `null`.
@@ -105,6 +112,7 @@ The response is a JSON array of hashes, where each hash has the form:
      "report_environment": <string or null>,
      "latest_report_status": <string>,
      "latest_report_noop": <boolean>,
+     "latest_report_noop_pending": <boolean>,
      "latest_report_hash": <string>
     }
 
@@ -162,6 +170,7 @@ of `["=", "certname", "<NODE>"]`.
         "catalog_timestamp" : "2015-06-19T23:03:43.007Z",
         "latest_report_status": "success",
         "latest_report_noop": false,
+        "latest_report_noop_pending": true,
         "latest_report_hash": "2625d1b601e98ed1e281ccd79ca8d16b9f74fea6"
     }
 

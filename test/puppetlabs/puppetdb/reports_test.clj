@@ -39,7 +39,7 @@
 
 (def v7-example-report
   (-> v8-example-report
-      (dissoc :producer)))
+      (dissoc :producer :corrective_change :noop_pending)))
 
 (def v6-example-report
   (-> v7-example-report
@@ -48,7 +48,7 @@
 (def v5-example-report
   (-> reports
       :basic
-      (dissoc :code_id :catalog_uuid :cached_catalog_status :producer)
+      (dissoc :code_id :catalog_uuid :cached_catalog_status :producer :corrective_change)
       report-query->wire-v5))
 
 (def v4-example-report
@@ -90,6 +90,6 @@
         v3-report (dissoc v4-example-report :status)
         v8-report (wire-v3->wire-v8 v3-report current-time)]
     (is (s/validate report-v3-wireformat-schema v3-report))
-    (is (s/validate report-wireformat-schema (wire-v3->wire-v8 v3-report current-time)))
+    (is (s/validate report-wireformat-schema v8-report))
     (is (= current-time (:producer_timestamp v8-report)))
     (is (nil? (:status v8-report)))))

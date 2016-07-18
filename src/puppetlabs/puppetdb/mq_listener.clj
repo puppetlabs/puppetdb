@@ -5,6 +5,7 @@
             RejectedExecutionException ExecutorService]
            [org.apache.commons.lang3.concurrent BasicThreadFactory BasicThreadFactory$Builder])
   (:require [clojure.tools.logging :as log]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -201,27 +202,28 @@
   [delay-message discard-message process-message]
   (fn [msg]
     (try+
-
      (let [{:keys [command version annotations] :as parsed-result} (parse-command msg)
            retries (count (:attempts annotations))
-           id (:id annotations)]
+           id (:id annotations)
+           certname (get-in parsed-result [:payload :certname])]
 
        (try+
-
         (call-with-command-metrics command version retries
                                    #(process-message parsed-result))
-        
-        (catch fatal? _
+
+        (catch fatal? obj
           (mark! (global-metric :fatal))
-          (let [ex (:throwable &throw-context)]
-            (log/errorf ex "[%s] [%s] Fatal error on attempt %d" id command retries)
+          (let [ex (:cause obj)]
+            (log/error (:wrapper &throw-context) (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
             (-> parsed-result
                 (annotate-with-attempt ex)
                 (discard-message ex))))
-        
+
         (catch Exception exception
-          (let [log-str (format "[%s] [%s] Retrying after attempt %d, due to: %s"
-                                id command retries exception)]
+          (let [certname (get-in parsed-result [:payload :certname])
+                ex (:throwable &throw-context)
+                log-str (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
+                                  id command retries certname ex)]
             (mark-both-metrics! command version :retried)
             (cond
               (< retries 4)
@@ -233,15 +235,15 @@
               (do
                 (log/errorf exception log-str)
                 (delay-message parsed-result exception))
-              
+
               :else
               (do
-                (log/errorf exception "[%s] [%s] Exceeded max %d attempts" id command retries)
+                (log/error ex (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command retries certname))
                 (discard-message parsed-result nil)))))))
 
      (catch [:kind ::parse-error] _
        (mark! (global-metric :fatal))
-       (log/errorf (:throwable &throw-context) "Fatal error parsing command: %s" msg)
+       (log/error (:wrapper &throw-context) (i18n/trs "Fatal error parsing command: {0}" msg))
        (discard-message msg (:throwable &throw-context))))))
 
 (defprotocol MessageListenerService
