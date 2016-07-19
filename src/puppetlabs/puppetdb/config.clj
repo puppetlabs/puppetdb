@@ -167,7 +167,7 @@
   (all-optional
     {:certificate-whitelist s/Str
      ;; The `historical-catalogs-limit` setting is only used by `pe-puppetdb`
-     :historical-catalogs-limit (pls/defaulted-maybe s/Int 2)
+     :historical-catalogs-limit (pls/defaulted-maybe s/Int 0)
      :disable-update-checking (pls/defaulted-maybe String "false")}))
 
 (def puppetdb-config-out
