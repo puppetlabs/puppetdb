@@ -125,6 +125,20 @@
          ["=" "c" 3]]
         ["=" "d" 4]]]]]
 
+    ;; Whitespace around parentheses
+
+    "nodes { ( a = 1 or b = 2) }"
+    ["from" "nodes"
+     ["or"
+      ["=" "a" 1]
+      ["=" "b" 2]]]
+
+    "nodes { (a = 1 or b = 2 ) }"
+    ["from" "nodes"
+     ["or"
+      ["=" "a" 1]
+      ["=" "b" 2]]]
+
     ;; Extractions
 
     "nodes[] {}"
