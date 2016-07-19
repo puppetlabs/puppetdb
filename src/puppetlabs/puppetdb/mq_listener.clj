@@ -258,48 +258,35 @@
 (defn handle-command-failure
   "Dump the error encountered during command-handling to the log and discard
   the message."
-  [{:keys [command annotations] :as msg} e discard]
+  [{:keys [command annotations payload] :as msg} e discard]
   (let [attempt (count (:attempts annotations))
-        id      (:id annotations)
-        certname (get-in msg [:payload :certname])
-        msg     (annotate-with-attempt msg e)]
-    (log/error e (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command attempt certname))
-    (discard msg e)))
+        id (:id annotations)
+        certname (:certname payload)]
+    (log/error e (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}"
+                           id command attempt certname))
+    (-> msg
+        (annotate-with-attempt e)
+        (discard e))))
 
 ;; The number of times a message can be retried before we discard it
-(def maximum-allowable-retries 16)
+(def maximum-allowable-retries 5)
 
 (defn handle-command-retry
   "Dump the error encountered to the log, and re-publish the message,
-  with an incremented retry counter, after a delay.
-
-  The error is logged to DEBUG level during the first `M/4` retries,
-  and ERROR thereafter, where `M` is the maximum number of allowable
-  retries.
-
-  The retry delay is based on the following exponential backoff
-  algorithm:
-
-    2^(n-1) + random(2^n)
-
-  `n` is the number of the current attempt, and `random` is a random
-  number between 0 and the argument."
-  [{:keys [command version annotations] :as msg} e publish-fn]
+  with an incremented retry counter, after a ten minute delay."
+  [{:keys [command version annotations payload] :as msg} e publish-fn]
   (mark! (cmd-metric command version :retried))
   (let [attempt (count (:attempts annotations))
-        id      (:id annotations)
-        certname (get-in msg [:payload :certname])
-        msg     (annotate-with-attempt msg e)
-        n       (inc attempt)
-        delay   (+ (Math/pow 2 (dec n))
-                   (rand-int (Math/pow 2 n)))
-        error-msg (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
-                            id command attempt certname e)]
-    (if (> n (/ maximum-allowable-retries 4))
-      (log/error e error-msg)
-      (log/debug e error-msg))
-     (time! (global-metric :retry-persistence-time)
-            (publish-fn (json/generate-string msg) (mq/delay-property delay :seconds)))))
+        id (:id annotations)
+        certname (:certname payload)
+        delay (mq/delay-property 10 :minutes)]
+    (log/error e (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
+                           id command attempt certname e))
+    (time! (global-metric :retry-persistence-time)
+           (-> msg
+               (annotate-with-attempt e)
+               json/generate-string
+               (publish-fn delay)))))
 
 (defn create-message-handler
   [publish discarded-dir message-fn]
