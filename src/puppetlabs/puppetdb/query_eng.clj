@@ -151,6 +151,18 @@
     (instance? java.io.InputStream obj) (json/parse obj true)
     :else obj))
 
+(defn user-query->engine-query
+  ([version query-map] (user-query->engine-query version query-map false))
+  ([version query-map warn-experimental]
+   (let [query (:query query-map)
+         {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context
+                                                          version query warn-experimental)
+         paging-options (some-> paging-clauses
+                                (rename-keys {:order-by :order_by})
+                                (update :order_by paging/munge-query-ordering))
+         query-options (merge (dissoc query-map :query) paging-options)]
+     {:query query :remaining-query remaining-query :entity entity :query-options query-options})))
+
 (pls/defn-validated produce-streaming-body
   "Given a query, and database connection, return a Ring response with
    the query results. query-map is a clojure map of the form
@@ -162,13 +174,7 @@
   (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print]
          :or {warn-experimental true
               pretty-print false}} options
-        query (:query query-map)
-        {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context
-                                                          version query warn-experimental)
-        paging-options (some-> paging-clauses
-                               (rename-keys {:order-by :order_by})
-                               (update :order_by paging/munge-query-ordering))
-        query-options (merge (dissoc query-map :query) paging-options)]
+        {:keys [query remaining-query entity query-options]} (user-query->engine-query version query-map warn-experimental)]
 
     (try
       (jdbc/with-transacted-connection scf-read-db
