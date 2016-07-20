@@ -6,7 +6,7 @@
             [clj-time.coerce :refer [to-timestamp]]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.cli.services :refer [query]]
-            [puppetlabs.puppetdb.command :refer [enqueue-command]]
+            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.export :as export]
             [puppetlabs.puppetdb.import :as import]
@@ -62,7 +62,7 @@
   (with-ext-instances [pdb (utils/sync-config nil)]
     (let [timestamps [(now) (-> 1 days ago) (-> 2 days ago)]
           certname "foo.local"
-          example-catalog (-> (get-in wire-catalogs [9 :basic])
+          example-catalog (-> (get-in wire-catalogs [command/latest-catalog-version :basic])
                               (assoc :certname certname))
           example-report (-> (:basic reports)
                              (assoc :certname certname)
@@ -72,7 +72,7 @@
               :let [tx-uuid (ks/uuid)
                     catalog-uuid (ks/uuid)]]
         (blocking-command-post (utils/pdb-cmd-url) example-certname
-                               "store report" 8
+                               "store report" command/latest-report-version
                                (-> example-report
                                    (assoc :transaction_uuid tx-uuid
                                           :catalog_uuid catalog-uuid
@@ -84,7 +84,7 @@
                     :catalog_uuid catalog-uuid
                     :producer_timestamp timestamp)
              (blocking-command-post (utils/pdb-cmd-url) example-certname
-                                    "replace catalog" 9)))
+                                    "replace catalog" command/latest-catalog-version)))
       (testing "historical catalogs views have the right amount of data"
        (let [historical-catalogs (get-json (utils/pe-pdb-url) "/historical-catalogs")
              resource-graphs (get-json (utils/pe-pdb-url) "/resource-graphs")]
@@ -154,7 +154,7 @@
                       :certname "bar.example.com"
                       :producer_timestamp (-> 3 days ago))
                (blocking-command-post (utils/pdb-cmd-url) "bar.example.com"
-                                      "replace catalog" 9))
+                                      "replace catalog" command/latest-catalog-version))
 
           (let [resource-graphs
                 (get-json (utils/pe-pdb-url) "/resource-graphs"
@@ -163,9 +163,8 @@
             (is (empty? resource-graphs))))
 
         (testing "when there is no catalog for a report"
-
           (blocking-command-post (utils/pdb-cmd-url) "baz.lan"
-                                 "store report" 8
+                                 "store report" command/latest-report-version
                                  (-> example-report
                                      (assoc :transaction_uuid (ks/uuid)
                                             :certname "baz.lan"
@@ -191,12 +190,13 @@
        (is (empty? (get-nodes)))
 
        (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
-                              "replace catalog" 9 example-catalog)
+                              "replace catalog" command/latest-catalog-version example-catalog)
        (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
-                              "store report" 8 (update example-report :resources
+                              "store report" command/latest-report-version
+                              (update example-report :resources
                                                        (fn [x] (map #(assoc % :corrective_change true)))))
        (blocking-command-post (svc-utils/pdb-cmd-url) example-certname
-                              "replace facts" 5 example-facts)
+                              "replace facts" command/latest-facts-version example-facts)
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
@@ -213,7 +213,7 @@
 
         (let [dispatcher (tk-app/get-service svc-utils/*server*
                                              :PuppetDBCommandDispatcher)
-              submit-command-fn (partial enqueue-command dispatcher)]
+              submit-command-fn (partial command/enqueue-command dispatcher)]
           (import/import! export-out-file submit-command-fn))
 
         @(tu/block-until-results 100 (first (get-catalogs example-certname)))

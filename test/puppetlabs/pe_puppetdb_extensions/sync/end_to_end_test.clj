@@ -16,6 +16,7 @@
             [puppetlabs.puppetdb.testutils
              :refer [is-equal-after block-until-results with-alt-mq]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
+            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.cheshire :as json]
             [slingshot.slingshot :refer [throw+]]
             [slingshot.test]))
@@ -138,7 +139,7 @@
         (with-alt-mq (:mq-name master)
           (is (nil? (facts-from mirror)))
           (blocking-command-post (:command-url master) certname
-                                 "replace facts" 5 facts)
+                                 "replace facts" command/latest-facts-version facts)
           @(block-until-results 100 (facts-from master)))
         @(block-until-results 100 (facts-from mirror))
         (is-equal-after

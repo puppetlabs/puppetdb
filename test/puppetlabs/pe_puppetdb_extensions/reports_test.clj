@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [clojure.string :as str]
             [puppetlabs.puppetdb.testutils.services :refer [get-json]]
+            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [blocking-command-post with-ext-instances]]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
@@ -12,7 +13,8 @@
   []
   (let [report (:basic reports)
         certname (:certname report)]
-    (blocking-command-post (utils/pdb-cmd-url) certname "store report" 8
+    (blocking-command-post (utils/pdb-cmd-url)
+                           certname "store report" command/latest-report-version
                            (-> report
                                reports/report-query->wire-v8
                                (update :resources (fn [x] (map #(assoc % :corrective_change true) x)))))

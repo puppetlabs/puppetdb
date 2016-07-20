@@ -16,6 +16,7 @@
              :refer [with-log-suppressed-unless-notable notable-pdb-event?]]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.testutils.services :as svcs]
+            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.time :refer [parse-period]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]))
 
@@ -102,13 +103,13 @@
                                        (get-service svcs/*server*
                                                     :PuppetDBServer))]
                  (blocking-command-post (utils/pdb-cmd-url) (:certname report)
-                                        "store report" 8 report)
+                                        "store report" command/latest-report-version report)
                  (is (not (empty? (svcs/get-reports (utils/pdb-query-url)
                                                     (:certname report)))))
                  (with-alt-mq "puppetlabs.puppetdb.commands-2"
                    (with-puppetdb-instance config-2
                      (blocking-command-post (utils/pdb-cmd-url) (:certname report)
-                                            "store report" 8 report)
+                                            "store report" command/latest-report-version report)
                      (is (not (empty? (svcs/get-reports
                                        (utils/pdb-query-url)
                                        (:certname report))))))))))))))))
