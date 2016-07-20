@@ -75,10 +75,15 @@
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [robert.hooke :as rh]
             [schema.core :as s]
-            [slingshot.slingshot :refer [throw+ try+]])
+            [slingshot.slingshot :refer [throw+ try+]]
+            [stockpile :as stock]
+            [clojure.core.async :as async])
   (:import [javax.jms ExceptionListener]
+           [java.nio.file Files LinkOption]
            [java.util.concurrent.locks ReentrantLock]
-           [org.joda.time Period]))
+           [org.joda.time Period]
+           [java.nio.file Files]
+           [java.nio.file.attribute FileAttribute]))
 
 (def cli-description "Main PuppetDB daemon")
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
@@ -254,20 +259,12 @@
         (version/check-for-updates! read-db))
     (log/debug "Skipping update check on Puppet Enterprise")))
 
-(defn shutdown-mq
-  "Explicitly shut down the queue `broker`"
-  [{:keys [broker mq-factory mq-connection]}]
-  (when broker
-    (log/info "Shutting down the messsage queues.")
-    (mq/stop-broker! broker)))
-
 (defn stop-puppetdb
   "Shuts down PuppetDB, releasing resources when possible.  If this is
   not a normal shutdown, emergency? must be set, which currently just
   produces a fatal level level log message, instead of info."
   [context]
   (log/info "Shutdown request received; puppetdb exiting.")
-  (shutdown-mq context)
   (when-let [ds (get-in context [:shared-globals :scf-write-db :datasource])]
     (.close ds))
   (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
@@ -275,21 +272,6 @@
   (when-let [pool (:job-pool context)]
     (stop-and-reset-pool! pool))
   context)
-
-(defn- transfer-old-messages! [mq-endpoint]
-  (let [[pending exists?]
-        (try+
-         [(mq/queue-size "localhost" "com.puppetlabs.puppetdb.commands") true]
-         (catch [:type ::mq/queue-not-found] ex [0 false]))]
-    (when (pos? pending)
-      (log/infof "Transferring %d commands from legacy queue" pending)
-      (let [n (mq/transfer-messages! "localhost"
-                                     "com.puppetlabs.puppetdb.commands"
-                                     mq-endpoint)]
-        (log/infof "Transferred %d commands from legacy queue" n)))
-    (when exists?
-      (mq/remove-queue! "localhost" "com.puppetlabs.puppetdb.commands")
-      (log/info "Removed legacy queue"))))
 
 (defn initialize-schema
   "Ensure the database is migrated to the latest version, and warn if
@@ -330,12 +312,20 @@
       result
       (recur db-spec))))
 
+(defn create-or-open-stockpile [queue-dir]
+  (let [stockpile-root (kitchensink/absolute-path queue-dir)
+        queue-path (stock/path-get stockpile-root "cmd")]
+    (if (Files/exists queue-path (make-array LinkOption 0))
+      (stock/open queue-path)
+      (do
+        (Files/createDirectories (stock/path-get stockpile-root) (make-array FileAttribute 0))
+        (stock/create queue-path)))))
+
 (defn start-puppetdb
   [context config service get-registered-endpoints]
   {:pre [(map? context)
          (map? config)]
-   :post [(map? %)
-          (every? (partial contains? %) [:broker])]}
+   :post [(map? %)]}
   (let [{:keys [developer jetty
                 database read-database
                 puppetdb command-processing]} config
@@ -360,22 +350,13 @@
 
     (when (.exists discard-dir)
       (dlo/create-metrics-for-dlo! discard-dir))
-    (let [broker (try
-                   (log/info "Starting broker")
-                   (mq/build-and-start-broker! "localhost"
-                                               (conf/mq-dir config)
-                                               command-processing)
-                   (catch java.io.EOFException e
-                     (log/error
-                      "EOF Exception caught during broker start, this "
-                      "might be due to KahaDB corruption. Consult the "
-                      "PuppetDB troubleshooting guide.")
-                     (throw e)))
-          globals {:scf-read-db read-db
+    ;; Error handling here?
+    (let [globals {:scf-read-db read-db
                    :scf-write-db write-db
-                   :pretty-print pretty-print}
+                   :pretty-print pretty-print
+                   :q (create-or-open-stockpile (conf/stockpile-dir config))
+                   :command-chan (async/chan 10)}
           clean-lock (ReentrantLock.)]
-      (transfer-old-messages! (conf/mq-endpoint config))
 
       (when-not disable-update-checking
         (maybe-check-for-updates config read-db))
@@ -414,7 +395,6 @@
                        job-pool))
         (assoc context
                :job-pool job-pool
-               :broker broker
                :shared-globals globals
                :clean-lock clean-lock)))))
 

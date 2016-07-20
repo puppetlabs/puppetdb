@@ -34,8 +34,7 @@
   (compojure/context uri [] route))
 
 (defn pdb-core-routes [defaulted-config get-shared-globals enqueue-command-fn
-                       query-fn enqueue-raw-command-fn response-pub
-                       clean-fn]
+                       query-fn response-pub clean-fn]
   (let [db-cfg #(select-keys (get-shared-globals) [:scf-read-db])
         get-response-pub #(response-pub)]
     (map #(apply wrap-with-context %)
@@ -49,7 +48,7 @@
                       rr/redirect))
            "/meta" (meta/build-app db-cfg defaulted-config)
            "/cmd" (cmd/command-app get-shared-globals
-                                   enqueue-raw-command-fn
+                                   enqueue-command-fn
                                    get-response-pub
                                    (conf/reject-large-commands? defaulted-config)
                                    (conf/max-command-size defaulted-config))
@@ -96,8 +95,7 @@
 (tk/defservice pdb-routing-service
   [[:WebroutingService add-ring-handler get-route]
    [:PuppetDBServer clean shared-globals query set-url-prefix]
-   [:PuppetDBCommandDispatcher
-    enqueue-command enqueue-raw-command response-pub]
+   [:PuppetDBCommandDispatcher enqueue-command response-pub]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]
    [:DefaultedConfig get-config]
    [:StatusService register-status]]
@@ -120,7 +118,6 @@
                                          augmented-globals
                                          enqueue-command
                                          query
-                                         enqueue-raw-command
                                          response-pub
                                          clean))
                (mid/wrap-cert-authn cert-whitelist)

@@ -94,7 +94,8 @@
                                                               org.slf4j/slf4j-api]]
                  [com.taoensso/nippy "2.10.0" :exclusions [org.clojure/tools.reader]]
                  [bidi "1.25.1" :exclusions [org.clojure/clojurescript]]
-                 [puppetlabs/comidi "0.3.1"]]
+                 [puppetlabs/comidi "0.3.1"]
+                 [stockpile "0.0.1"]]
 
   :jvm-opts ~pdb-jvm-opts
 

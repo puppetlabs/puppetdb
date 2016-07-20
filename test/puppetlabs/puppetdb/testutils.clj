@@ -427,18 +427,17 @@
 
 (def ^:dynamic *command-app* nil)
 
-(defn call-with-command-app
+(defn test-command-app
   "A fixture to build a Command app and make it available as
   *command-app* within tests. This call should be nested within
   with-test-mq."
-  ([f]
-   (binding [*command-app* (wrap-with-puppetdb-middleware
-                            (command-app
-                             (fn [] {})
-                             (partial #'dispatch/do-enqueue-raw-command
-                                      (:connection *mq*)
-                                      default-mq-endpoint)
-                             (fn [] nil)
-                             false
-                             nil))]
-     (f))))
+  [q command-chan]
+  (wrap-with-puppetdb-middleware
+   (command-app
+    (fn [] {})
+    (partial dispatch/do-enqueue-command
+             q
+             command-chan)
+    (fn [] nil)
+    false
+    nil)))

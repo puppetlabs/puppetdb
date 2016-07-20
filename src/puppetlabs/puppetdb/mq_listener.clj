@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.mq-listener
-  (:import [javax.jms ExceptionListener JMSException MessageListener Session
-            ConnectionFactory Connection Queue Message]
-           [java.util.concurrent Semaphore ThreadPoolExecutor TimeUnit SynchronousQueue
+  (:import [java.util.concurrent Semaphore ThreadPoolExecutor TimeUnit SynchronousQueue
             RejectedExecutionException ExecutorService]
            [org.apache.commons.lang3.concurrent BasicThreadFactory BasicThreadFactory$Builder])
   (:require [clojure.tools.logging :as log]
@@ -22,7 +20,9 @@
             [puppetlabs.puppetdb.schema :as pls]
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.utils.metrics :as mutils]
-            [puppetlabs.puppetdb.threadpool :as gtp]))
+            [puppetlabs.puppetdb.threadpool :as gtp]
+            [overtone.at-at :refer [mk-pool stop-and-reset-pool! after]]
+            [puppetlabs.puppetdb.queue :as queue]))
 
 ;; ## Performance counters
 
@@ -200,29 +200,26 @@
   `discard-message-fn` are both functions of two arguments, a
   `message` and an `exception`. `process-message-fn` is a function
   that accepts a message as it's argument"
-  [delay-message discard-message process-message]
-  (fn [msg]
+  [q delay-message discard-message process-message]
+  (fn [entry]
     (try+
-     (let [{:keys [command version annotations] :as parsed-result} (parse-command msg)
-           retries (count (:attempts annotations))
-           id (:id annotations)
-           certname (get-in parsed-result [:payload :certname])]
+     (let [{:keys [certname command version annotations id payload] :as cmd} (queue/entry->cmd q entry)
+           retries (count (:attempts annotations))]
 
        (try+
         (call-with-command-metrics command version retries
-                                   #(process-message parsed-result))
+                                   #(process-message cmd))
 
         (catch fatal? obj
           (mark! (global-metric :fatal))
           (let [ex (:cause obj)]
             (log/error (:wrapper &throw-context) (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
-            (-> parsed-result
+            (-> cmd
                 (annotate-with-attempt ex)
                 (discard-message ex))))
 
         (catch Exception exception
-          (let [certname (get-in parsed-result [:payload :certname])
-                ex (:throwable &throw-context)
+          (let [ex (:throwable &throw-context)
                 log-str (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
                                   id command retries certname ex)]
             (mark-both-metrics! command version :retried)
@@ -230,22 +227,22 @@
               (< retries 4)
               (do
                 (log/debug exception log-str)
-                (delay-message parsed-result exception))
+                (delay-message cmd exception))
 
               (< retries maximum-allowable-retries)
               (do
                 (log/errorf exception log-str)
-                (delay-message parsed-result exception))
+                (delay-message cmd exception))
 
               :else
               (do
                 (log/error ex (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command retries certname))
-                (discard-message parsed-result nil)))))))
+                (discard-message cmd nil)))))))
 
-     (catch [:kind ::parse-error] _
+     (catch [:kind ::queue/parse-error] _
        (mark! (global-metric :fatal))
-       (log/error (:wrapper &throw-context) (i18n/trs "Fatal error parsing command: {0}" msg))
-       (discard-message msg (:throwable &throw-context))))))
+       (log/error (:wrapper &throw-context) (i18n/trs "Fatal error parsing command: {0}" (:id entry)))
+       (discard-message entry (:throwable &throw-context))))))
 
 (defprotocol MessageListenerService
   (register-listener [this schema listener-fn])
@@ -275,78 +272,32 @@
    handler-fn :- message-fn-schema]
   (swap! listener-atom conj [pred handler-fn]))
 
-(defn ^Session create-session [^Connection connection]
-  (.createSession connection false Session/CLIENT_ACKNOWLEDGE))
+(def ten-minutes (* 1000 60 10))
 
-(defn ^Queue create-queue [^Session session endpoint]
-  (.createQueue session endpoint))
+(defn send-delayed-message [command-chan delay-pool]
+  (fn [entry exception]
+    (let [narrowed-entry (select-keys entry [:entry :annotations])]
+      (after ten-minutes #(async/>!! command-chan narrowed-entry) delay-pool))))
 
-(defn ^Connection create-connection [^ConnectionFactory factory]
-  (doto (.createConnection factory)
-    (.setExceptionListener
-     (reify ExceptionListener
-       (onException [this ex]
-         (log/error ex "receiver queue connection error"))))
-    (.start)))
-
-(defn send-delayed-message [{:keys [^ConnectionFactory conn-pool endpoint]}]
+(defn discard-message [q discard-dir]
   (fn [message exception]
-    (time!
-     (global-metric :retry-persistence-time)
-     (with-open [connection (create-connection conn-pool)
-                 session (create-session connection)]
-       (let [q (create-queue session endpoint)
-             message-with-error (-> message
-                                    (annotate-with-attempt exception)
-                                    json/generate-string)]
-         (with-open [producer (.createProducer session q)]
-           (->> (mq/delay-property 1 :seconds)
-                (mq/to-jms-message session message-with-error)
-                (.send producer))))))))
-
-(defn discard-message [discard-dir]
-  (fn [message exception]
-    (dlo/store-failed-message message exception discard-dir)))
+    (dlo/store-failed-message (:payload message) exception discard-dir)))
 
 (defn create-command-consumer
   "Create and return a command handler. This function does the work of
   consuming/storing a command. Handled commands are acknowledged here"
-  [{:keys [discard-dir] :as mq-context} command-handler]
-  (let [handle-message (message-handler-with-retries (send-delayed-message mq-context)
-                                                     (discard-message discard-dir)
+  [q command-chan discard-dir delay-pool command-handler]
+  (let [handle-message (message-handler-with-retries q
+                                                     (send-delayed-message command-chan delay-pool)
+                                                     (discard-message q discard-dir)
                                                      command-handler)]
-    (fn [^Message message]
+    (fn [message]
       ;; When the queue is shutting down, it sends nil message
       (when message
         (try
-          (handle-message (mq/convert-jms-message message))
-          (.acknowledge message)
+          (handle-message message)
           (catch Exception ex
             (log/error ex "Unable to process message. Message not acknowledged and will be retried")))))))
-
-(defn create-mq-receiver
-  "Infinite loop, intended to be run in an isolated thread that
-  recieves a message from ActiveMQ, passes it to `mq-message-handler`
-  and looks for the next message"
-  [{:keys [^ConnectionFactory conn-pool endpoint]} command-chan mq-connected-promise]
-  (with-open [connection (create-connection conn-pool)
-              session (create-session connection)
-              consumer (.createConsumer session (create-queue session endpoint))]
-    (try
-      ;; delivering the promise here we have ensured that we can
-      ;; connect to the MQ and that the queue has been created (for
-      ;; the first startup of PuppetDB)
-      (deliver mq-connected-promise true)
-      (loop []
-        (if-let [msg (.receive consumer)]
-          (do
-            (async/>!! command-chan msg)
-            (recur))
-          (async/close! command-chan)))
-      (catch javax.jms.IllegalStateException e
-        (log/info "Received IllegalStateException, shutting down"))
-      (catch Exception e
-        (log/error e)))))
 
 (defn create-command-handler-threadpool
   "Creates an unbounded threadpool with the intent that access to the
@@ -357,58 +308,39 @@
   [size]
   (gtp/create-threadpool size "cmd-proc-thread-%d" 10000))
 
-(defn run-mq-listener-thread
-  "Creates (and starts) an isolated thread to continually receive new
-  ActiveMQ messages and pass them to the `message-consumer-fn`"
-  [mq-context message-consumer-fn mq-connected-promise]
-  (doto (Thread. (fn []
-                   (create-mq-receiver mq-context message-consumer-fn mq-connected-promise)))
-    (.setDaemon false)
-    (.start)))
-
-(defn create-mq-context
-  "The MQ context contains a connection pool that pools both ActiveMQ
-  connections and sessions"
-  [config]
-  {:discard-dir (conf/mq-discard-dir config)
-   :endpoint (conf/mq-endpoint config)
-   :conn-pool (mq/activemq-connection-factory (conf/mq-broker-url config))})
-
 (defservice message-listener-service
   MessageListenerService
   [[:DefaultedConfig get-config]
-   [:PuppetDBServer]] ; MessageListenerService depends on the broker
+   [:PuppetDBServer shared-globals]] ; MessageListenerService depends on the broker
 
   (init [this context]
-        (assoc context :listeners (atom [])))
+        (assoc context
+               :listeners (atom [])
+               :delay-pool (mk-pool)))
 
   (start [this context]
     (let [config (get-config)
-          mq-context (create-mq-context config)
           command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
           command-handler #(process-message this %)
-          command-chan (async/chan (conf/mq-thread-count config))
-          message-handler (create-command-consumer mq-context command-handler)
-          mq-connected-promise (promise)]
-
-      (run-mq-listener-thread mq-context command-chan mq-connected-promise)
+          command-chan (:command-chan (shared-globals))
+          delay-pool (:delay-pool context)
+          q (:q (shared-globals))
+          message-handler (create-command-consumer q command-chan (conf/mq-discard-dir config) delay-pool command-handler)]
 
       (doto (Thread. (fn []
                        (gtp/dochan command-threadpool message-handler command-chan)))
         (.setDaemon false)
         (.start))
 
-      @mq-connected-promise
-
       (assoc context
-             :conn-pool (:conn-pool mq-context)
              :command-chan command-chan
              :consumer-threadpool command-threadpool)))
 
-  (stop [this {:keys [conn-pool consumer-threadpool command-chan] :as context}]
+  (stop [this {:keys [consumer-threadpool command-chan delay-pool] :as context}]
         (async/close! command-chan)
         (gtp/shutdown consumer-threadpool)
-        (.stop conn-pool)
+        (when delay-pool
+          (stop-and-reset-pool! delay-pool))
     context)
 
   (register-listener [this pred listener-fn]

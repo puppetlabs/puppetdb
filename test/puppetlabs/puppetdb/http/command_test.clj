@@ -8,18 +8,27 @@
              :refer [min-supported-commands valid-commands-str]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils
-             :refer [*command-app*
-                     *mq*
+             :refer [*mq*
                      get-request post-request
                      content-type uuid-in-response?
-                     assert-success! ]]
-            [puppetlabs.puppetdb.testutils.http
-             :refer [deftest-command-app internal-request]]
+                     assert-success!
+                     test-command-app
+                     dotestseq]]
+            [puppetlabs.puppetdb.testutils.http :refer [internal-request]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.mq :as mq]
-            [clj-time.format :as time])
+            [clj-time.format :as time]
+            [clj-time.core :refer [now before?]]
+            [stockpile :as stock]
+            [puppetlabs.puppetdb.testutils.nio :as nio]
+            [clojure.java.io :as io]
+            [clojure.java.shell :as shell]
+            [clojure.core.async :as async]
+            [puppetlabs.puppetdb.middleware
+             :refer [wrap-with-puppetdb-middleware]]
+            [puppetlabs.puppetdb.command :as cmd])
   (:import [clojure.lang ExceptionInfo]
            [java.io ByteArrayInputStream]))
 
@@ -40,106 +49,158 @@
 
 (defn form-command
   [command version payload]
-  (json/generate-string
-    {:command command
-     :version version
-     :payload payload}))
+  (json/generate-string payload))
 
-(deftest-command-app command-endpoint
-  [[version endpoint] endpoints]
+(defn rm-r [pathstr]
+  ;; Life's too short...
+  (assert (zero? (:exit (shell/sh "rm" "-r" pathstr)))))
 
-  (testing "Commands submitted via REST"
+(defmacro with-temp-dir [sym & body]
+  `(let [~sym (-> (nio/path-get "target" "command-test")
+                  (nio/create-temp-dir "stk")
+                  (.resolve "q")
+                  str)]
+     (try
+       ~@body
+       (finally
+         (rm-r ~sym)))))
 
-    (testing "should work when well-formed"
-      (let [payload (form-command "replace facts"
-                                  (get min-supported-commands "replace facts")
-                                  {})
-            checksum (kitchensink/utf8-string->sha1 payload)
-            req (internal-request {"payload" payload "checksum" checksum})
-            response (*command-app* (post-request* endpoint
-                                                   {"checksum" checksum}
-                                                   payload))]
-        (assert-success! response)
+(defn create-handler [tempdir]
+  (let [q (stock/create tempdir)
+        command-chan (async/chan 1)
+        app (test-command-app q command-chan)]
+    [q command-chan app]))
 
-        (is (= (content-type response)
-               http/json-response-content-type))
-        (is (uuid-in-response? response))))
+(defn entry->clj [q entry]
+  (-> (stock/stream q (:entry entry))
+      io/reader
+      json/parse-stream))
 
-    (testing "should return status-bad-request when missing payload"
-      (let [{:keys [status body headers]}
-            (*command-app* (post-request* endpoint nil nil))]
-        (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/json-response-content-type}))
-        (is (= (:error (json/parse-string body true))
-               "Supported commands are deactivate node, replace catalog, replace facts, store report. Received 'null'."))))
+(deftest command-endpoint
+  (dotestseq
+   [[version endpoint] endpoints]
 
-    (testing "should not do checksum verification if no checksum is provided"
-      (let [payload (form-command "deactivate node"
-                                  (get min-supported-commands "deactivate node")
-                                  {})
-            response (*command-app* (post-request* endpoint nil payload))]
-        (assert-success! response)))
+   (testing "Commands submitted via REST"
+     (testing "should work when well-formed"
+       (with-temp-dir tempdir
+         (let [payload (form-command "replace facts"
+                                     (get min-supported-commands "replace facts")
+                                     {:foo 1
+                                      :bar 2})
+               checksum (kitchensink/utf8-string->sha1 payload)
+               req (internal-request {"payload" payload "checksum" checksum})
+               [q command-chan app] (create-handler tempdir)
+               response (app (post-request* endpoint
+                                            {"checksum" checksum
+                                             "version" (str (get min-supported-commands "replace facts"))
+                                             "certname" "foo.com"
+                                             "command" "replace facts"}
+                                            payload))]
+           (assert-success! response)
 
-    (testing "should 400 when the command is invalid"
-      (let [invalid-command (form-command "foo" 100 {})
-            invalid-checksum (kitchensink/utf8-string->sha1 invalid-command)
-            {:keys [status body headers]}
-            (*command-app*
-             (post-request* endpoint
-                            {"checksum" invalid-checksum}
-                            invalid-command))]
-        (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/json-response-content-type}))
-        (is (= (:error (json/parse-string body true))
-               (format "Supported commands are %s. Received 'foo'."
-                       valid-commands-str)))))
+           (let [token (async/<!! command-chan)]
+             (is (= {"foo" 1
+                     "bar" 2}
 
-    (testing "should 400 when version is retired"
-      (let [min-supported-version (get min-supported-commands "replace facts")
-            misversioned-command (form-command "replace facts"
-                                               (dec min-supported-version)
-                                               {})
-            misversioned-checksum (kitchensink/utf8-string->sha1 misversioned-command)
-            {:keys [status body headers]}
-            (*command-app*
-             (post-request* endpoint
-                            {"checksum" misversioned-checksum}
-                            misversioned-command))]
+                 (entry->clj q token))))
 
-        (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/json-response-content-type}))
-        (is (= (:error (json/parse-string body true))
-               (format (str "replace facts version %s is retired. "
-                            "The minimum supported version is %s.")
-                       (dec min-supported-version)
-                       min-supported-version)))))))
+           (is (= (content-type response)
+                  http/json-response-content-type))
+           (is (uuid-in-response? response)))))
 
-(defn round-trip-date-time
-  "Parse a DateTime string, then emits the string from that DateTime"
-  [date]
-  (->> date
-       (time/parse (time/formatters :date-time))
-       (time/unparse (time/formatters :date-time))))
+     (testing "should return status-bad-request when missing payload"
+       (with-temp-dir tempdir
+         (let [[q command-chan app] (create-handler tempdir)
+               {:keys [status body headers]} (app (post-request* endpoint nil nil))]
+           (is (= status http/status-bad-request))
+           (is (= headers {"Content-Type" http/json-response-content-type}))
+           (is (= (:error (json/parse-string body true))
+                  "Supported commands are deactivate node, replace catalog, replace facts, store report. Received 'null'.")))))
 
-(deftest-command-app receipt-timestamping
-  [[version endpoint] endpoints]
+     (testing "should not do checksum verification if no checksum is provided"
+       (with-temp-dir tempdir
+         (let [[q command-chan app] (create-handler tempdir)
+               payload (form-command "deactivate node"
+                                     (get min-supported-commands "deactivate node")
+                                     {})
+               response (app (post-request* endpoint
+                                            {"version" (str (get min-supported-commands "replace facts"))
+                                             "certname" "foo.com"
+                                             "command" "deactivate node"}
+                                            payload))]
+           (assert-success! response))))
 
-  (let [good-payload  (form-command "replace facts"
-                                    (get min-supported-commands "replace facts")
-                                    {})
-        good-checksum (kitchensink/utf8-string->sha1 good-payload)
-        request       (fn [payload checksum]
-                        (post-request* endpoint {"checksum" checksum} payload))]
-    (*command-app* (request good-payload good-checksum))
+     (testing "should 400 when the command is invalid"
+       (with-temp-dir tempdir
+         (let [[q command-chan app] (create-handler tempdir)
+               invalid-command (form-command "foo" 100 {})
+               invalid-checksum (kitchensink/utf8-string->sha1 invalid-command)
+               {:keys [status body headers]}
+               (app (post-request* endpoint
+                                   {"version" "1"
+                                    "certname" "foo.com"
+                                    "command" "foo"
+                                    "checksum" invalid-checksum}
+                                   invalid-command))]
+           (is (= status http/status-bad-request))
+           (is (= headers {"Content-Type" http/json-response-content-type}))
+           (is (= (:error (json/parse-string body true))
+                  (format "Supported commands are %s. Received 'foo'."
+                          valid-commands-str))))))
 
-    (let [[good-msg] (mq/bounded-drain-into-vec!
-                       (:connection *mq*)
-                       conf/default-mq-endpoint
-                       1)
-          good-command (json/parse-string (:body good-msg) true)]
-      (testing "should be timestamped when parseable"
-        (let [timestamp (get-in good-msg [:headers :received])]
-          (time/parse (time/formatters :date-time) timestamp))))))
+     (testing "should 400 when version is retired"
+       (with-temp-dir tempdir
+         (let [[q command-chan app] (create-handler tempdir)
+               min-supported-version (get min-supported-commands "replace facts")
+               misversioned-command (form-command "replace facts"
+                                                  (dec min-supported-version)
+                                                  {})
+               misversioned-checksum (kitchensink/utf8-string->sha1 misversioned-command)
+               {:keys [status body headers]}
+               (app (post-request* endpoint
+                                   {"checksum" misversioned-checksum
+                                    "version" (str (dec min-supported-version))
+                                    "certname" "foo.com"
+                                    "command" "replace facts"}
+                                   misversioned-command))]
+
+           (is (= status http/status-bad-request))
+           (is (= headers {"Content-Type" http/json-response-content-type}))
+           (is (= (:error (json/parse-string body true))
+                  (format (str "replace facts version %s is retired. "
+                               "The minimum supported version is %s.")
+                          (dec min-supported-version)
+                          min-supported-version)))))))))
+
+(deftest receipt-timestamping
+  (dotestseq
+   [[version endpoint] endpoints]
+
+   (with-temp-dir tempdir
+     (let [ms-before-test (System/currentTimeMillis)
+           [q command-chan app] (create-handler tempdir)
+           good-payload  (form-command "replace facts"
+                                       (get min-supported-commands "replace facts")
+                                       {})
+           good-checksum (kitchensink/utf8-string->sha1 good-payload)]
+
+       ;; Sleeping to get ensure a time difference
+       (Thread/sleep 1)
+       (app (post-request* endpoint {"checksum" good-checksum
+                                     "certname" "foo.com"
+                                     "version" "4"
+                                     "command" "replace facts"} good-payload))
+
+       (let [token (async/<!! command-chan)
+             meta-string (stock/entry-meta (:entry token))
+             good-command (entry->clj q token)]
+
+         (testing "should be timestamped when parseable"
+           (is (< ms-before-test
+                  (-> (str/split meta-string #"_")
+                      first
+                      str
+                      Long/parseLong)))))))))
 
 (deftest wrap-with-request-normalization-all-params
   (let [normalize (#'tgt/wrap-with-request-normalization identity)]
@@ -193,48 +254,68 @@
 ;; Right now, this is the only unit test that tests the (eventually
 ;; streaming) command/version/certname params POST.  The acceptance
 ;; tests test it via the altered terminus.
-(deftest-command-app almost-streaming-post
-  [[version endpoint] endpoints]
-  (let [replace-ver (get min-supported-commands "replace facts")
-        payload (form-command "replace facts" replace-ver {})
-        checksum (kitchensink/utf8-string->sha1 payload)
-        req (internal-request {"payload" payload "checksum" checksum})
-        preq (post-request* endpoint
-                            {"command" "replace_facts"
-                             "certname" "foo"
-                             "version" (str replace-ver)
-                             "checksum" checksum}
-                            payload)
-        response (*command-app* preq)]
-    (assert-success! response)
-    (is (= (content-type response)
-           http/json-response-content-type))
-    (is (uuid-in-response? response))))
+(deftest almost-streaming-post
+  (dotestseq
+    [[version endpoint] endpoints]
+    (with-temp-dir tempdir
+      (let [replace-ver (get min-supported-commands "replace facts")
+            payload (form-command "replace facts" replace-ver {})
+            checksum (kitchensink/utf8-string->sha1 payload)
+            req (internal-request {"payload" payload "checksum" checksum})
+            [q command-chan app] (create-handler tempdir)
+            response (app
+                      (post-request* endpoint
+                                     {"command" "replace_facts"
+                                      "certname" "foo"
+                                      "version" (str replace-ver)
+                                      "checksum" checksum}
+                                     payload))]
+        (assert-success! response)
+        (is (= (content-type response)
+               http/json-response-content-type))
+        (is (uuid-in-response? response))))))
+
+(defn handler-with-max [q command-chan max-command-size]
+  (#'tgt/enqueue-command-handler
+   (partial cmd/do-enqueue-command
+            q
+            command-chan)
+   (fn [])
+   max-command-size))
 
 (deftest enqueue-max-command-size
   ;; Does not check blocking-submit-command yet.
-  (testing "size limit"
-    (tgt/with-chan [chan (async/chan)]
-      (let [pub (async/pub chan :id)
-            enqueuer (fn [limit]
-                       (#'tgt/enqueue-command-handler (fn [& args] true)
-                                                      (fn [] pub)
-                                                      limit))
-            req {:request-method :post :body "more than ten characters"}
-            wait-req (assoc req :params {"secondsToWaitForCompletion" "0.001"})]
-
+  (with-temp-dir tempdir
+    (testing "size limit"
+      (let [q (stock/create tempdir)
+            command-chan (async/chan 1)
+            no-max-app (handler-with-max q command-chan false)
+            max-10-app (handler-with-max q command-chan 10)
+            req {:request-method
+                 :post :body "more than ten characters"
+                 :params {"command" "replace catalog"
+                          "version" 4
+                          "certname" "foo.com"}}
+            wait-req (assoc-in req [:params "secondsToWaitForCompletion"] "0.001")]
         ;; These cases differ because we want to skip the processing
         ;; via timeout in the "success" case.
         (testing "when disabled, allows larger size"
           (testing "(without timeout),"
             (is (= http/status-ok
-                   (:status ((enqueuer false) req)))))
+                   (:status (no-max-app req)))))
+
+          (is (= "more than ten characters"
+                 (->> (async/<!! command-chan)
+                      :entry
+                      (stock/stream q)
+                      slurp)))
+
           (testing "(with timeout),"
             (testing "when disabled, allows larger size"
-              (let [response ((enqueuer false) wait-req)]
+              (let [response (no-max-app wait-req)]
                 (is (= http/status-unavailable (:status response)))
                 (is (= true
-                       ((json/parse-string (:body response)) "timed_out")))))))
+                       (get (json/parse-string (:body response)) "timed_out")))))))
 
         ;; These cases should behave the same in the with/without cases
         (doseq [[case-name req] [["(without timeout)," req]
@@ -242,10 +323,10 @@
           (testing case-name
             (testing "when enabled, rejects excessive string requests"
               (is (= http/status-entity-too-large
-                     (:status ((enqueuer 10) req)))))
+                     (:status (max-10-app req)))))
             (testing "when enabled, rejects excessive stream requests"
               (is (= http/status-entity-too-large
-                     (:status ((enqueuer 10)
+                     (:status (max-10-app
                                (assoc req :body
                                       (ByteArrayInputStream.
                                        (.getBytes (:body req)))))))))))))))

@@ -2,7 +2,7 @@
   (:require [me.raynes.fs :as fs]
             [clj-http.client :as client]
             [clojure.java.jdbc :as sql]
-            [cheshire.core :as json]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.catalogs :as catalog]
@@ -34,7 +34,10 @@
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as ks]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [stockpile :as stock]
+            [puppetlabs.puppetdb.testutils.nio :as nio]
+            [puppetlabs.puppetdb.queue :as queue])
   (:import [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
 
@@ -96,19 +99,41 @@
       ;; Non-UTF-8 byte array
       (is (thrown? Exception (parse-command {:body (.getBytes "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}" "UTF-16")}))))))
 
+(defn create-stockpile-dir []
+  (-> (nio/path-get "target" "command-test")
+      (nio/create-temp-dir "stk")
+      (.resolve "q")
+      str))
+
+(defn unroll-old-command [{:keys [command version payload]}]
+  [command
+   version
+   (or (:certname payload)
+       (:name payload))
+   (-> payload
+       json/generate-string
+       (.getBytes "UTF-8")
+       java.io.ByteArrayInputStream.)])
+
 (defmacro test-msg-handler*
   [command publish-var discard-var db & body]
   `(let [log-output#     (atom [])
          publish#        (call-counter)
+         stockpile-dir#   (create-stockpile-dir)
+         q#               (stock/create stockpile-dir#)
          discard-dir#    (fs/temp-dir "test-msg-handler")
          handle-message# (mql/message-handler-with-retries
-                          publish# (mql/discard-message discard-dir#) #(process-command! % ~db))
-         msg#            {:headers {:id "foo-id-1"
-                                    :received (tfmt/unparse (tfmt/formatters :date-time) (now))}
-                          :body (json/generate-string ~command)}]
+                          q#
+                          publish#
+                          (mql/discard-message q# discard-dir#)
+                          #(process-command! % ~db))
+         command# ~command
+         entry# (update (apply queue/store-command q# (unroll-old-command command#))
+                        :annotations merge (:annotations command#))]
+
      (try
        (binding [*logger-factory* (atom-logger log-output#)]
-         (handle-message# msg#))
+         (handle-message# entry#))
        (let [~publish-var publish#
              ~discard-var discard-dir#]
          ~@body
@@ -161,9 +186,10 @@
               (is (= 0 (times-called process-counter))))))))
 
     (testing "should be discarded if incorrectly formed"
-      (let [command (dissoc command :payload)
+      (let [command (assoc command :payload "{\"malformed\": \"with no closing brace\"")
             process-counter (call-counter)]
-        (with-redefs [process-command! process-counter]
+        (with-redefs [json/generate-string identity
+                      process-command! process-counter]
           (test-msg-handler command publish discard-dir
             (is (= 0 (times-called publish)))
             (is (= 1 (count (fs/list-dir discard-dir))))
@@ -179,17 +205,31 @@
                                  :version 10
                                  :annotations {:attempts (repeat n {})}})})
 
+(defn make-cmd'
+  "Create a command pre-loaded with `n` attempts"
+  [n]
+  {:entry (stock/entry 0 (queue/metadata-str (System/currentTimeMillis) "replace catalog" 10 "cats"))
+   :annotations {:attempts (repeat n {})}})
+
+(defn append-attempts [n command]
+  (assoc-in command [:annotations :attempts] (repeat n {})))
+
 (deftest command-retry-handler
   (testing "Should log retries as debug for less than 4 attempts"
-    (let [process-message (fn [_] (throw (RuntimeException. "retry me")))]
+    (let [process-message (fn [_] (throw (RuntimeException. "retry me")))
+          stockpile-dir (create-stockpile-dir)
+          q (stock/create stockpile-dir)]
 
       (doseq [i (range 0 mql/maximum-allowable-retries)
               :let [log-output (atom [])
                     delay-message (mock-fn)
                     discard-message (mock-fn)
-                    mh (mql/message-handler-with-retries delay-message discard-message process-message)]]
+                    mh (mql/message-handler-with-retries q delay-message discard-message process-message)]]
         (binding [*logger-factory* (atom-logger log-output)]
-          (mh (make-cmd i))
+          (mh (append-attempts i (queue/store-command q "replace catalog" 10 "cats" (-> {:certname "cats"}
+                                                                                      json/generate-string
+                                                                                      (.getBytes "UTF-8")
+                                                                                      java.io.ByteArrayInputStream.))))
           (is (called? delay-message))
           (is (not (called? discard-message)))
 
@@ -205,9 +245,12 @@
       (let [log-output (atom [])
             delay-message (mock-fn)
             discard-message (mock-fn)
-            mh (mql/message-handler-with-retries delay-message discard-message process-message)]
+            mh (mql/message-handler-with-retries q delay-message discard-message process-message)]
         (binding [*logger-factory* (atom-logger log-output)]
-          (mh (make-cmd mql/maximum-allowable-retries))
+          (mh (append-attempts mql/maximum-allowable-retries (queue/store-command q "replace catalog" 10 "cats" (-> {:certname "cats"}
+                                                                                      json/generate-string
+                                                                                      (.getBytes "UTF-8")
+                                                                                      java.io.ByteArrayInputStream.))))
           (is (not (called? delay-message)))
           (is (called? discard-message))
           (is (= (get-in @log-output [0 1]) :error))
@@ -267,14 +310,13 @@
       (let [certname (get-in raw-command [:payload :certname])
             catalog-hash (shash/catalog-similarity-hash
                           (catalog/parse-catalog (:payload raw-command) (version-kwd->num version) (now)))
-            command (stringify-payload raw-command)
             one-day      (* 24 60 60 1000)
             yesterday    (to-timestamp (- (System/currentTimeMillis) one-day))
             tomorrow     (to-timestamp (+ (System/currentTimeMillis) one-day))]
 
         (testing "with no catalog should store the catalog"
           (with-test-db
-            (test-msg-handler command publish discard-dir
+            (test-msg-handler raw-command publish discard-dir
               (is (= [(with-env {:certname certname})]
                      (query-to-vec "SELECT certname, environment_id FROM catalogs")))
               (is (= 0 (times-called publish)))
@@ -282,10 +324,11 @@
 
         (testing "with code-id should store the catalog"
           (with-test-db
-            (test-msg-handler (-> raw-command
-                                  (assoc-in [:payload :code_id] "my_git_sha1")
-                                  stringify-payload)
-              publish discard-dir
+            (test-msg-handler
+              (-> raw-command
+                  (assoc-in [:payload :code_id] "my_git_sha1"))
+              publish
+              discard-dir
               (is (= [(with-env {:certname certname :code_id "my_git_sha1"})]
                      (query-to-vec "SELECT certname, code_id, environment_id FROM catalogs")))
               (is (= 0 (times-called publish)))
@@ -303,14 +346,14 @@
                                                           :producer_timestamp (to-timestamp (-> 1 days ago))})))]
               (jdbc/insert! :latest_catalogs {:catalog_id id :certname_id certname-id}))
 
-            (test-msg-handler command publish discard-dir
+            (test-msg-handler raw-command publish discard-dir
               (is (= [(with-env {:certname certname :catalog catalog-hash})]
                      (query-to-vec (format "SELECT certname, %s as catalog, environment_id FROM catalogs"
                                            (sutils/sql-hash-as-str "hash")))))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
 
-        (let [command (assoc command :payload "bad stuff")]
+        (let [command (assoc raw-command :payload "bad stuff")]
           (testing "with a bad payload should discard the message"
             (with-test-db
               (test-msg-handler command publish discard-dir
@@ -319,48 +362,48 @@
                 (is (seq (fs/list-dir discard-dir)))))))
 
         (testing "with a newer catalog should ignore the message"
-          (with-test-db
-            (let [certname-id (:id (first (jdbc/insert! :certnames {:certname certname})))
-                  id (:id (first (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "ab")
-                                                          :api_version 1
-                                                          :catalog_version "foo"
-                                                          :certname certname
-                                                          :timestamp tomorrow
-                                                          :producer_timestamp (to-timestamp (now))})))]
-              (jdbc/insert! :latest_catalogs {:catalog_id id :certname_id certname-id}))
+            (with-test-db
+              (let [certname-id (:id (first (jdbc/insert! :certnames {:certname certname})))
+                    id (:id (first (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "ab")
+                                                            :api_version 1
+                                                            :catalog_version "foo"
+                                                            :certname certname
+                                                            :timestamp tomorrow
+                                                            :producer_timestamp (to-timestamp (now))})))]
+                (jdbc/insert! :latest_catalogs {:catalog_id id :certname_id certname-id}))
 
-            (test-msg-handler command publish discard-dir
-              (is (= [{:certname certname :catalog "ab"}]
-                     (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
-                                           (sutils/sql-hash-as-str "hash")))))
-              (is (= 0 (times-called publish)))
-              (is (empty? (fs/list-dir discard-dir))))))
+              (test-msg-handler raw-command publish discard-dir
+                (is (= [{:certname certname :catalog "ab"}]
+                       (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                             (sutils/sql-hash-as-str "hash")))))
+                (is (= 0 (times-called publish)))
+                (is (empty? (fs/list-dir discard-dir))))))
 
 
         (testing "should reactivate the node if it was deactivated before the message"
-          (with-test-db
-            (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
-            (test-msg-handler command publish discard-dir
-              (is (= [{:certname certname :deactivated nil}]
-                     (query-to-vec "SELECT certname,deactivated FROM certnames")))
-              (is (= [{:certname certname :catalog catalog-hash}]
-                     (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
-                                           (sutils/sql-hash-as-str "hash")))))
-              (is (= 0 (times-called publish)))
-              (is (empty? (fs/list-dir discard-dir)))))
-
-          (testing "should store the catalog if the node was deactivated after the message"
             (with-test-db
-              (scf-store/delete-certname! certname)
-              (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
-              (test-msg-handler command publish discard-dir
-                                (is (= [{:certname certname :deactivated tomorrow}]
-                                       (query-to-vec "SELECT certname,deactivated FROM certnames")))
-                                (is (= [{:certname certname :catalog catalog-hash}]
-                                       (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
-                                                             (sutils/sql-hash-as-str "hash")))))
-                                (is (= 0 (times-called publish)))
-                                (is (empty? (fs/list-dir discard-dir)))))))))))
+              (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
+              (test-msg-handler raw-command publish discard-dir
+                (is (= [{:certname certname :deactivated nil}]
+                       (query-to-vec "SELECT certname,deactivated FROM certnames")))
+                (is (= [{:certname certname :catalog catalog-hash}]
+                       (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                             (sutils/sql-hash-as-str "hash")))))
+                (is (= 0 (times-called publish)))
+                (is (empty? (fs/list-dir discard-dir)))))
+
+            (testing "should store the catalog if the node was deactivated after the message"
+              (with-test-db
+                (scf-store/delete-certname! certname)
+                (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
+                (test-msg-handler raw-command publish discard-dir
+                  (is (= [{:certname certname :deactivated tomorrow}]
+                         (query-to-vec "SELECT certname,deactivated FROM certnames")))
+                  (is (= [{:certname certname :catalog catalog-hash}]
+                         (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                               (sutils/sql-hash-as-str "hash")))))
+                  (is (= 0 (times-called publish)))
+                  (is (empty? (fs/list-dir discard-dir)))))))))))
 
 ;; If there are messages in the user's MQ when they upgrade, we could
 ;; potentially have commands of an unsupported format that need to be
@@ -454,13 +497,11 @@
 
 (deftest catalog-with-updated-resource-line
   (dotestseq [version catalog-versions
-              :let [command {:command (command-names :replace-catalog)
-                             :version latest-catalog-version
-                             :payload basic-wire-catalog}
-                    command-1 (stringify-payload command)
-                    command-2 (stringify-payload
-                               (update-resource version command "File" "/etc/foobar"
-                                                #(assoc % :line 20)))]]
+              :let [command-1 {:command (command-names :replace-catalog)
+                               :version latest-catalog-version
+                               :payload basic-wire-catalog}
+                    command-2 (update-resource version command-1 "File" "/etc/foobar"
+                                               #(assoc % :line 20))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
         (let [orig-resources (scf-store/catalog-resources (:certname_id
@@ -481,13 +522,11 @@
 
 (deftest catalog-with-updated-resource-file
   (dotestseq [version catalog-versions
-              :let [command {:command (command-names :replace-catalog)
+              :let [command-1 {:command (command-names :replace-catalog)
                              :version latest-catalog-version
                              :payload basic-wire-catalog}
-                    command-1 (stringify-payload command)
-                    command-2 (stringify-payload
-                               (update-resource version command "File" "/etc/foobar"
-                                                #(assoc % :file "/tmp/not-foo")))]]
+                    command-2 (update-resource version command-1 "File" "/etc/foobar"
+                                               #(assoc % :file "/tmp/not-foo"))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
         (let [orig-resources (scf-store/catalog-resources (:certname_id
@@ -508,13 +547,11 @@
 
 (deftest catalog-with-updated-resource-exported
   (dotestseq [version catalog-versions
-              :let [command {:command (command-names :replace-catalog)
-                             :version latest-catalog-version
-                             :payload basic-wire-catalog}
-                    command-1 (stringify-payload command)
-                    command-2 (stringify-payload
-                               (update-resource version command "File" "/etc/foobar"
-                                                #(assoc % :exported true)))]]
+              :let [command-1 {:command (command-names :replace-catalog)
+                               :version latest-catalog-version
+                               :payload basic-wire-catalog}
+                    command-2 (update-resource version command-1 "File" "/etc/foobar"
+                                               #(assoc % :exported true))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
         (let [orig-resources (scf-store/catalog-resources (:certname_id
@@ -533,14 +570,12 @@
 
 (deftest catalog-with-updated-resource-tags
   (dotestseq [version catalog-versions
-              :let [command {:command (command-names :replace-catalog)
-                             :version latest-catalog-version
-                             :payload basic-wire-catalog}
-                    command-1 (stringify-payload command)
-                    command-2 (stringify-payload
-                               (update-resource version command "File" "/etc/foobar"
-                                                #(-> %(assoc :tags #{"file" "class" "foobar" "foo"})
-                                                     (assoc :line 20))))]]
+              :let [command-1 {:command (command-names :replace-catalog)
+                               :version latest-catalog-version
+                               :payload basic-wire-catalog}
+                    command-2 (update-resource version command-1 "File" "/etc/foobar"
+                                               #(-> %(assoc :tags #{"file" "class" "foobar" "foo"})
+                                                    (assoc :line 20)))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
         (let [orig-resources (scf-store/catalog-resources (:certname_id
@@ -1102,7 +1137,7 @@
             nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
             command {:command (command-names :replace-catalog)
                      :version 6
-                     :payload (json/generate-string wire-catalog)}
+                     :payload wire-catalog}
 
             hand-off-queue (java.util.concurrent.SynchronousQueue.)
             storage-replace-catalog! scf-store/replace-catalog!]
@@ -1130,7 +1165,7 @@
                                               :source       {:title "main" :type "Stage"}}})
                 new-catalog-cmd {:command (command-names :replace-catalog)
                                  :version 6
-                                 :payload (json/generate-string new-wire-catalog)}]
+                                 :payload new-wire-catalog}]
 
             (test-msg-handler new-catalog-cmd publish discard-dir
               (reset! second-message? true)
@@ -1149,7 +1184,7 @@
             nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
             command {:command (command-names :replace-catalog)
                      :version 6
-                     :payload (json/generate-string wire-catalog)}
+                     :payload wire-catalog}
 
             hand-off-queue (java.util.concurrent.SynchronousQueue.)
             storage-replace-catalog! scf-store/replace-catalog!]
@@ -1184,7 +1219,7 @@
                                                        :user   "root"}})
                 new-catalog-cmd {:command (command-names :replace-catalog)
                                  :version 6
-                                 :payload (json/generate-string new-wire-catalog)}]
+                                 :payload new-wire-catalog}]
 
             (test-msg-handler new-catalog-cmd publish discard-dir
               (reset! second-message? true)
@@ -1204,11 +1239,11 @@
                         :version 3
                         :payload {:certname "bar.example.com"
                                   :producer_timestamp (now)}}}
-             {:certname "bar.example.com"
+             #_{:certname "bar.example.com"
               :command {:command (command-names :deactivate-node)
                         :version 2
                         :payload "bar.example.com"}}
-             {:certname "bar.example.com"
+             #_{:certname "bar.example.com"
               :command {:command (command-names :deactivate-node)
                         :version 1
                         :payload (json/generate-string "bar.example.com")}}]]
@@ -1433,10 +1468,15 @@
                         (deliver received-cmd? true)
                         @go-ahead-and-execute
                         (apply real-replace! args))]
-          (enqueue-command (command-names :replace-facts) 4
-                           {:environment "DEV" :certname "foo.local"
-                            :values {:foo "foo"}
-                            :producer_timestamp (to-string (now))})
+          (enqueue-command (command-names :replace-facts)
+                           4
+                           "foo.local"
+                           (-> {:environment "DEV" :certname "foo.local"
+                                :values {:foo "foo"}
+                                :producer_timestamp (to-string (now))}
+                               json/generate-string
+                               (.getBytes "UTF-8")
+                               java.io.ByteArrayInputStream.))
           @received-cmd?
           (is (= {:received-commands 1 :executed-commands 0} (stats)))
           (deliver go-ahead-and-execute true)
@@ -1454,8 +1494,13 @@
           ;; enqueue, a DateTime wasn't a problem.
           input-stamp (java.util.Date. deactivate-ms)
           expected-stamp (DateTime. deactivate-ms DateTimeZone/UTC)]
-      (enqueue-command (command-names :deactivate-node) 3
-                       {:certname "foo.local" :producer_timestamp input-stamp})
+      (enqueue-command (command-names :deactivate-node)
+                       3
+                       "foo.local"
+                       (-> {:certname "foo.local" :producer_timestamp input-stamp}
+                           json/generate-string
+                           (.getBytes "UTF-8")
+                           java.io.ByteArrayInputStream.))
       (is (svc-utils/wait-for-server-processing svc-utils/*server* 5000))
       ;; While we're here, check the value in the database too...
       (is (= expected-stamp
@@ -1485,15 +1530,20 @@
           dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
           enqueue-command (partial enqueue-command dispatcher)
           response-mult (response-mult dispatcher)
-          response-chan (async/chan)
-          command-uuid (ks/uuid)]
+          response-chan (async/chan 4)
+          producer-ts (java.util.Date.)]
       (async/tap response-mult response-chan)
-      (enqueue-command (command-names :deactivate-node) 3
-                       {:certname "foo.local" :producer_timestamp (java.util.Date.)}
-                       command-uuid)
-      (let [received-uuid (async/alt!! response-chan ([msg] (:id msg))
+      (enqueue-command (command-names :deactivate-node)
+                       3
+                       "foo.local"
+                       (-> {:certname "foo.local" :producer_timestamp producer-ts}
+                           json/generate-string
+                           (.getBytes "UTF-8")
+                           java.io.ByteArrayInputStream.))
+
+      (let [received-uuid (async/alt!! response-chan ([msg] (:producer-timestamp msg))
                                        (async/timeout 10000) ::timeout)]
-       (is (= command-uuid received-uuid))))))
+        (is (= producer-ts))))))
 
 ;; Local Variables:
 ;; mode: clojure
