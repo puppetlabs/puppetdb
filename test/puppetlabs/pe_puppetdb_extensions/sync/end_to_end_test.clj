@@ -58,12 +58,6 @@
      (svcs/get-factsets (:query-url pdb1) (:certname facts))
      (svcs/get-factsets (:query-url pdb2) (:certname facts)))))
 
-(defn get-historical-catalogs [base-url certname]
-  (svcs/get-json
-   (assoc base-url :prefix utils/pe-pdb-url-prefix :version :v1)
-   "/historical-catalogs"
-   {:query-params {:query (json/generate-string [:= :certname certname])}}))
-
 (deftest end-to-end-catalog-replication
   (with-ext-instances [pdb1 (sync-config nil) pdb2 (sync-config nil)]
     (with-alt-mq (:mq-name pdb1)
@@ -80,8 +74,8 @@
     ;; removed once that is resolved.
     (Thread/sleep 15000)
 
-    (let [pdb1-catalogs (get-historical-catalogs (:query-url pdb1) (:certname catalog))
-          pdb2-catalogs (get-historical-catalogs (:query-url pdb2) (:certname catalog))]
+    (let [pdb1-catalogs (svcs/get-catalogs (:query-url pdb1) (:certname catalog))
+          pdb2-catalogs (svcs/get-catalogs (:query-url pdb2) (:certname catalog))]
       (is (= (count pdb1-catalogs) (count pdb2-catalogs)))
       (is (= (sort-by :transaction_uuid pdb1-catalogs)
              (sort-by :transaction_uuid pdb2-catalogs))))))
@@ -305,10 +299,10 @@
            events))
       (is (ordered-matches?
            [#(verify-sync "start" %)
-            #(verify-entity-sync "start" "historical_catalogs" 0 0 %)
-            #(verify-record-sync "start" "historical_catalogs" %)
-            #(verify-record-sync "finished" "historical_catalogs" %)
-            #(verify-entity-sync "finished" "historical_catalogs" 1 0 %)
+            #(verify-entity-sync "start" "catalogs" 0 0 %)
+            #(verify-record-sync "start" "catalogs" %)
+            #(verify-record-sync "finished" "catalogs" %)
+            #(verify-entity-sync "finished" "catalogs" 1 0 %)
             #(verify-sync "finished" %)]
            events))
       (is (ordered-matches?

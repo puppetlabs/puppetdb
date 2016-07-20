@@ -182,7 +182,7 @@
         bucketed-catalogs-atom (atom {})
         stub-handler (cmdi/routes
                       (stub-catalogs-summary-route bucketed-catalogs-atom)
-                      (logging-query-routes :historical_catalogs
+                      (logging-query-routes :catalogs
                                             pdb-x-queries
                                             stub-data-atom
                                             :transaction_uuid))]
@@ -194,8 +194,7 @@
             (blocking-command-post (utils/pdb-cmd-url) certname "replace catalog" 8
                                    (assoc catalog :certname certname))))
 
-        (let [local-catalogs (index-by :certname (get-json (utils/pe-pdb-url)
-                                                           "/historical-catalogs"))
+        (let [local-catalogs (index-by :certname (get-json (utils/pdb-query-url) "/catalogs"))
               timestamps (ks/mapvals (comp to-date-time :producer_timestamp)
                                      local-catalogs)
               transaction-uuids (ks/mapvals :transaction_uuid local-catalogs)]
@@ -224,7 +223,7 @@
                         (utils/trigger-sync-url-str)))
 
         ;; We should see that the sync happened, and a summary query and bulk record query were made to PDB X
-        (let [local-catalogs (get-json (utils/pe-pdb-url) "/historical-catalogs")
+        (let [local-catalogs (get-json (utils/pdb-query-url) "/catalogs")
               environments (->> local-catalogs (map :environment) (into #{}))]
           (is (= #{"DEV" "B"} environments))
           (is (= 2 (count @pdb-x-queries))))))))
