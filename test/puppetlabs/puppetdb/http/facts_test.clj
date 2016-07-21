@@ -1531,6 +1531,15 @@
       ["and"
        ["=" "name" "uptime_seconds"]
        ["=" "value" "4000"]]]]
+    #{{:certname "foo1"}}
+
+    ;; Nested implicit subqueries
+    ["extract" "certname"
+     ["subquery" "fact_contents"
+      ["and"
+       ["subquery" "nodes" ["~" "certname" ".*"]]
+       ["=" "name" "uptime_seconds"]
+       ["=" "value" "4000"]]]]
     #{{:certname "foo1"}}))
 
 (deftest-http-app factset-single-response
