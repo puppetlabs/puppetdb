@@ -120,12 +120,12 @@
     ;; :bucketed-summary-query-path "../../sync/v1/catalogs-summary"
     :summary-query {:version :v4
                     :query ["from" "catalogs"
-                            ["extract" ["transaction_uuid" "producer_timestamp"]
+                            ["extract" ["hash" "certname" "producer_timestamp"]
                              include-inactive-nodes-criteria]]
-                    :order {:order_by [[:transaction_uuid :ascending]]}}
-    :record-id-fn :transaction_uuid
-    :record-fetch-key :transaction_uuid
-    :record-ordering-fn :transaction_uuid
+                    :order {:order_by [[:certname :ascending]]}}
+    :record-id-fn :certname
+    :record-fetch-key :certname
+    :record-ordering-fn (juxt :producer_timestamp :hash)
     :clean-up-record-fn (fn clean-up-catalog [catalog]
                           (-> catalog
                               (utils/update-when [:edges] #(map clean-up-edge %))

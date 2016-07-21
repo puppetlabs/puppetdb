@@ -275,9 +275,7 @@
 (defn- run-convergence-test [commands]
   (with-ext-instances [pdb1 (sync-config nil) pdb2 (sync-config nil)]
     (let [pdb1-url (base-url->str (:server-url pdb1))
-          pdb2-url (base-url->str (:server-url pdb2))
-          old-limit @scf-storage/historical-catalogs-limit]
-      (reset! scf-storage/historical-catalogs-limit command-sequence-size)
+          pdb2-url (base-url->str (:server-url pdb2))]
       (swap! convergence-trials-run inc)
       (binding [*out* *err*]
         (print (format "Trial %d/%d\r"
@@ -298,8 +296,7 @@
         ;;(semlog/logp [:sync :info] "===== PDB2 synced")
         (let [s1 (check-sync :to-x pdb1 pdb2-url commands)
               s2 (check-sync :to-y pdb2 pdb1-url commands)]
-          (and s1 s2)))
-      (reset! scf-storage/historical-catalogs-limit old-limit))))
+          (and s1 s2))))))
 
 (defn duplicate-reports-omitted? [commands]
   "Indicates whether or not the same report is stored more than once."
