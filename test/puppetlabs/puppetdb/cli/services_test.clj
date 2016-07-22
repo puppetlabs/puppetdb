@@ -28,13 +28,13 @@
       (with-redefs [version/check-for-updates! (constantly "Checked for updates!")]
         (let [job-pool-test (mk-pool)
               recurring-job-checkin (maybe-check-for-updates config-map {} job-pool-test)]
-          (is (= (:ms-period recurring-job-checkin) 86400000)
+          (is (= 86400000 (:ms-period recurring-job-checkin))
               "should run once a day")
-          (is (= (:scheduled? recurring-job-checkin true))
+          (is (= true @(:scheduled? recurring-job-checkin))
               "should be scheduled to run")
-          (is (= (:initial-delay recurring-job-checkin) 0)
+          (is (= 0 (:initial-delay recurring-job-checkin))
               "should run on start up with no delay")
-          (is (= (:desc recurring-job-checkin) "A reoccuring job to checkin the PuppetDB version")
+          (is (= "A reoccuring job to checkin the PuppetDB version" (:desc recurring-job-checkin))
               "should have a description of the job running")
           (stop-and-reset-pool! job-pool-test))))
 
