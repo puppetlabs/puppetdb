@@ -114,19 +114,19 @@
     :submit-command {:command :replace-facts
                      :version command/latest-facts-version}}
 
-   {:entity :historical_catalogs
+   {:entity :catalogs
     ;; Bucketed summary queries are disabled for catalogs, for now, since we're
     ;; only keeping a very short history. We can enable this once we solve the storage problems
     ;; and need to deal with more history.
     ;; :bucketed-summary-query-path "../../sync/v1/catalogs-summary"
     :summary-query {:version :v4
-                    :query ["from" "historical_catalogs"
-                            ["extract" ["transaction_uuid" "producer_timestamp"]
+                    :query ["from" "catalogs"
+                            ["extract" ["hash" "certname" "producer_timestamp"]
                              include-inactive-nodes-criteria]]
-                    :order {:order_by [[:transaction_uuid :ascending]]}}
-    :record-id-fn :transaction_uuid
-    :record-fetch-key :transaction_uuid
-    :record-ordering-fn :transaction_uuid
+                    :order {:order_by [[:certname :ascending]]}}
+    :record-id-fn :certname
+    :record-fetch-key :certname
+    :record-ordering-fn (juxt :producer_timestamp :hash)
     :clean-up-record-fn (fn clean-up-catalog [catalog]
                           (-> catalog
                               (utils/update-when [:edges] #(map clean-up-edge %))

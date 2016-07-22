@@ -8,6 +8,7 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.honeysql :as honeysql]
             [puppetlabs.puppetdb.http.query :as http-q]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query-eng :as query-eng]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.query-eng.engine :as engine]
@@ -191,8 +192,13 @@
 
 (defn turn-on-historical-catalogs!
   [historical-catalogs-limit]
-  (reset! scf-storage/historical-catalogs-limit historical-catalogs-limit)
-  (reset! scf-storage/store-catalogs-jsonb-columns? true)
+  (when (<= historical-catalogs-limit 0)
+    (jdbc/delete! :catalogs
+                  ["id NOT IN (SELECT catalog_id FROM latest_catalogs)"]))
+  (reset! scf-storage/historical-catalogs-limit
+          (max 1 historical-catalogs-limit))
+  (reset! scf-storage/store-catalogs-jsonb-columns?
+          (>= historical-catalogs-limit 1))
   (swap! query-eng/entity-fn-idx merge
          {:historical-catalogs
           {:munge (constantly identity)

@@ -29,7 +29,7 @@ msgstr ""
 msgid "Invalid sync config: {0}"
 msgstr ""
 
-#: src/puppetlabs/pe_puppetdb_extensions/sync/core.clj:200
+#: src/puppetlabs/pe_puppetdb_extensions/sync/core.clj:201
 msgid "HTTP {0} {1} {2}"
 msgstr ""
 

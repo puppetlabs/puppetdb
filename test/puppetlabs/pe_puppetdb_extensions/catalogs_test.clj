@@ -59,7 +59,7 @@
          :certname certname))
 
 (deftest query-resources-on-reports
-  (with-ext-instances [pdb (utils/sync-config nil)]
+  (with-ext-instances [pdb (assoc-in (utils/sync-config nil) [:puppetdb :historical-catalogs-limit] 3)]
     (let [timestamps [(now) (-> 1 days ago) (-> 2 days ago)]
           certname "foo.local"
           example-catalog (-> (get-in wire-catalogs [command/latest-catalog-version :basic])

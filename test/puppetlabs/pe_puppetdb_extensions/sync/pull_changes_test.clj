@@ -186,40 +186,62 @@
         bucketed-catalogs-atom (atom {})
         stub-handler (cmdi/routes
                       (stub-catalogs-summary-route bucketed-catalogs-atom)
-                      (logging-query-routes :historical_catalogs
+                      (logging-query-routes :catalogs
                                             pdb-x-queries
                                             stub-data-atom
-                                            :transaction_uuid))]
+                                            :certname))]
     (with-log-suppressed-unless-notable notable-pull-changes-event?
       (with-ext-instances [pdb (sync-config stub-handler)]
         ;; store catalogs in PDB Y
-        (doseq [c ["a" "b"]]
+        (doseq [c (map char (range (int \a) (int \g)))]
           (let [certname (str c ".local")]
             (blocking-command-post (utils/pdb-cmd-url)
                                    certname "replace catalog" command/latest-catalog-version
                                    (assoc catalog :certname certname))))
 
-        (let [local-catalogs (index-by :certname (get-json (utils/pe-pdb-url)
-                                                           "/historical-catalogs"))
+        (let [local-catalogs (index-by :certname (get-json (utils/pdb-query-url)
+                                                           "/catalogs"))
               timestamps (ks/mapvals (comp to-date-time :producer_timestamp)
-                                     local-catalogs)
-              transaction-uuids (ks/mapvals :transaction_uuid local-catalogs)]
-          (is (= 2 (count local-catalogs)))
+                                     local-catalogs)]
+          (is (= 6 (count local-catalogs)))
 
           (reset! stub-data-atom
-                  [ ;; same transaction_uuid -> no pull
+                  [ ;; time is newer than local, hash is different -> should pull
                    (assoc catalog-response
                           :certname "a.local"
-                          :producer_timestamp (timestamps "a.local")
-                          :transaction_uuid (transaction-uuids "a.local")
+                          :hash "a_different"
+                          :producer_timestamp (t/plus (timestamps "a.local")
+                                                      (t/days 1))
                           :environment "A")
-
-                   ;; certname and timestamp same but different transaction_uuid -> pull
+                   ;; time is older than local, hash is different -> no pull
                    (assoc catalog-response
                           :certname "b.local"
-                          :producer_timestamp (timestamps "b.local")
-                          :transaction_uuid "a8b08e2a-eeb1-4322-b241-bfdf151d294b"
-                          :environment "B")])
+                          :hash "b_different"
+                          :producer_timestamp (t/minus (timestamps "b.local")
+                                                       (t/days 1)))
+                   ;; time is the same, hash is the same -> no pull
+                   (assoc catalog-response
+                          :certname "c.local"
+                          :hash (-> local-catalogs (get "c.local") :hash)
+                          :producer_timestamp (timestamps "c.local"))
+                   ;; time is the same, hash is lexically less -> no pull
+                   (assoc catalog-response
+                          :certname "d.local"
+                          :hash "0000000000000000000000000000000000000000"
+                          :producer_timestamp (timestamps "d.local"))
+                   ;; time is the same, hash is lexically greater -> should pull
+                   (assoc catalog-response
+                          :certname "e.local"
+                          :hash "ffffffffffffffffffffffffffffffffffffffff"
+                          :producer_timestamp (timestamps "e.local")
+                          :environment "E")
+                   ;; timer is newer than local, hash is the same -> should pull
+                   (assoc catalog-response
+                          :certname "f.local"
+                          :hash (-> local-catalogs (get "f.local") :hash)
+                          :producer_timestamp (t/plus (timestamps "f.local")
+                                                      (t/days 1))
+                          :environment "F")])
 
           (reset! bucketed-catalogs-atom
                   {"2014-07-10T22:00:00.000Z" "a different hash"})
@@ -229,9 +251,9 @@
                         (utils/trigger-sync-url-str)))
 
         ;; We should see that the sync happened, and a summary query and bulk record query were made to PDB X
-        (let [local-catalogs (get-json (utils/pe-pdb-url) "/historical-catalogs")
-              environments (->> local-catalogs (map :environment) (into #{}))]
-          (is (= #{"DEV" "B"} environments))
+        (let [synced-catalogs (get-json (utils/pdb-query-url) "/catalogs")
+              environments (->> synced-catalogs (map :environment) (into #{}))]
+          (is (= #{"DEV" "A" "E" "F"} environments))
           (is (= 2 (count @pdb-x-queries))))))))
 
 (deftest pull-with-https
