@@ -294,8 +294,6 @@ Restart PostgreSQL and ensure you can log in by running:
 
 To configure PuppetDB to use this database, put the following in the `[database]` section:
 
-    classname = org.postgresql.Driver
-    subprotocol = postgresql
     subname = //<HOST>:<PORT>/<DATABASE>
     username = <USERNAME>
     password = <PASSWORD>
