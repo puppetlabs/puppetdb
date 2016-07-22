@@ -72,7 +72,7 @@ module PuppetDBExtensions
           nil,
           "'hostname for yum/apt repos'",
           "PUPPETDB_PACKAGE_REPO_HOST",
-          "neptune.puppetlabs.lan")
+          "builds.delivery.puppetlabs.net")
 
     package_repo_url =
         get_option_value(options[:puppetdb_package_repo_url],
