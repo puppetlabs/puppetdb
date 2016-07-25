@@ -1733,9 +1733,7 @@
                 [["from" entity query]]
                 (let [query (push-down-context (user-query->logical-obj (str "select_" entity)) query)
                       nested-qc (:query-context (meta query))]
-                  {:node (vary-meta ["from" entity
-                                     (vary-meta query
-                                                assoc :query-context nested-qc)]
+                  {:node (vary-meta ["from" entity query]
                                     assoc :query-context nested-qc)
                    :state state
                    :cut true})
@@ -1766,12 +1764,9 @@
                 [["subquery" relationship expr]]
                 (let [subquery-expr (push-down-context
                                      (user-query->logical-obj (str "select_" relationship))
-                                     expr)
-                      nested-qc (:query-context (meta subquery-expr))]
+                                     expr)]
 
-                  {:node (vary-meta ["subquery" relationship
-                                     (vary-meta expr
-                                                assoc :query-context nested-qc)]
+                  {:node (vary-meta ["subquery" relationship subquery-expr]
                                     assoc :query-context context)
                    :state state
                    :cut true})
