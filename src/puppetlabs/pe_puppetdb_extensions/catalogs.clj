@@ -188,10 +188,11 @@
   (handlers/create-query-handler :v1 "resource_graphs"))
 
 (defn turn-on-historical-catalogs!
-  [historical-catalogs-limit]
+  [write-db historical-catalogs-limit]
   (when (<= historical-catalogs-limit 0)
-    (jdbc/delete! :catalogs
-                  ["id NOT IN (SELECT catalog_id FROM latest_catalogs)"]))
+    (jdbc/with-transacted-connection write-db
+      (jdbc/delete! :catalogs
+                   ["id NOT IN (SELECT catalog_id FROM latest_catalogs)"])))
   (reset! scf-storage/historical-catalogs-limit
           (max 1 historical-catalogs-limit))
   (reset! scf-storage/store-catalogs-jsonb-columns?
