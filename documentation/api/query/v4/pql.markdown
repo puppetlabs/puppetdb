@@ -143,8 +143,7 @@ As an example, to query how many objects exist that start with a certname of
 
     nodes[count()] { certname ~ "web.*" }
 
-There are only a few PuppeDB functions that are supported by PQL; see the list
-below for more detail.
+PQL supports the same functions as the AST-based language:
 
 #### `count()`
 
