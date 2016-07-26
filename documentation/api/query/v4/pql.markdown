@@ -7,11 +7,12 @@ layout: default
 [subquery]: #subqueries
 [ast]: ./ast.html
 [client-tools]: ../../../pdb_client_tools.html
+[config_jetty]: ../../../configure.html#jetty-http-settings
 
 > **Experimental Feature**: This featureset is experimental and is subject to rapid development and change.
 
 Puppet Query Language (PQL) is a query language designed with PuppetDB and
-Puppet data in mind. It provides a string based query language as an alternative
+Puppet data in mind. It provides a string-based query language as an alternative
 to the [AST query language][ast] PuppetDB has always supported.
 
 ## Executing PQL queries using the PuppetDB CLI
@@ -70,7 +71,7 @@ In this case, this would return only the certname field of nodes starting with
 
 The entity or context of a query (or subquery) defines what results you will get
 returned when performing a query, and provides the main context for any
-projections or filters in the query. There are many entities, for a full list
+projections or filters in the query. There are many entities; for a full list
 see the [entities] documentation.
 
 For PQL queries, the entity context is the minimal amount of information one
@@ -109,12 +110,11 @@ displayed. So the following two examples are equivalent:
 Entity field selection is an optional capability to ensure that only certain
 fields are returned in a response.
 
-For a basic query, if you don't provide any entity fields all data gets
-returned. However this can be be inefficient for both the database and the
-network to do this. By providing an entity field however, you can reduce what
-fields are returned.
+For a basic query, if you don't provide any entity fields, all data gets
+returned. However this can be inefficient for both the database and the
+network. Providing an entity field reduces the number of fields in the response.
 
-The entity field section of a query, can contain a number of field names
+The entity field section of a query can contain a number of field names
 separated by a comma:
 
     entity[field1, field2, field3] {}
@@ -131,11 +131,10 @@ Only fields that are available for the entity type can be returned by PQL today.
 
 ### Functions
 
-PQL supports the usage of some functions in the projection, but only aggregate
-functions are available today.
+Today, PQL only supports aggregate functions in the projection.
 
 Aggregate functions perform a calculation on a set of values and return a single
-value. Functions themselves are provided in the projection much like fields are:
+value. Functions are provided in the projection much like fields are:
 
     entity[function(argument)] {}
 
@@ -144,7 +143,7 @@ As an example, to query how many objects exist that start with a certname of
 
     nodes[count()] { certname ~ "web.*" }
 
-There are only a few functions that are supported today by PQL, see the list
+There are only a few PuppeDB functions that are supported by PQL; see the list
 below for more detail.
 
 #### `count()`
@@ -214,12 +213,11 @@ Some examples of their usage:
     facts { value <= 4 }
     facts { value < 4 }
 
-The operator will only work on numbers however, any other types will return
-errors.
+The operator will only work on numbers. Any other types will return errors.
 
 #### Regexp: `~`
 
-For strings you can match using a regular expression pattern, by using the `~`
+For strings you can match using a regular expression pattern by using the `~`
 operator and a valid regular expression:
 
     nodes { certname ~ "foo.*" }
@@ -236,22 +234,22 @@ operator and a valid regular expression:
 
 #### Array Match: `in`
 
-The `in` operator matches a field, or set of fields against either an array or a
+The `in` operator matches a field or set of fields against either an array or a
 subquery.
 
 The `in` operator can be used in two ways. The simplest way is to see if a
-field, contains one of the values provided in a list of literal values:
+field contains one of the values provided in a list of literal values:
 
     nodes { certname in ["foo", "bar", "baz"] }
 
 The operator can also be used to ensure the values of a field match the fields
-returned, from a subquery, which has the form of a nested PQL query within the
+returned from a subquery, which has the form of a nested PQL query within the
 filter:
 
     nodes { certname in facts[certname] { value = "foo" } }
 
 With the subquery form, we can even match on multiple fields, as long as the
-fields being matched, and the subqueries projection fields match:
+fields being matched and the subqueries projection fields match:
 
     facts { [certname, name] in fact_contents[certname, name] { value ~ "a" } }
 
@@ -274,8 +272,8 @@ Or conversely, to test if a field does not contain a `null` value:
 The array matches using the regular expressions provided within in each element.
 Array indexes are coerced to strings.
 
-For example. the following query would query the path element, matching any
-ethernet mac address:
+For example, the following query would query the path element, matching any
+ethernet MAC address:
 
     fact_contents { path ~> ["networking","interfaces",".*","mac"] }
 
@@ -335,7 +333,7 @@ For example to match on a string with a newline in it:
 
     facts { value = "first line\nsecondline" }
 
-However if you wanted to match the literal `\n` set of characters, and not have
+However if you wanted to match the literal `\n` set of characters and not have
 it translated to a newline, you could do:
 
     facts { value = 'first line\nstill on first line' }
@@ -372,13 +370,13 @@ Currently lists are only supported with the `in` operator.
 
 ### Implicit Subqueries
 
-Implicit subqueries works very much the same way as the `in` operator provides,
+Implicit subqueries work the same way as the `in` operator,
 however the relationship between some entities is clear. When an implicit
 relationship exists between two entity types, you can avoid the overhead of
 having to provide the join columns like with the `in` operator by using implicit
 subqueries instead.
 
-Basically, an implicit subquery looks like a query, embedded within the filter
+An implicit subquery looks like a query, embedded within the filter
 of a PQL query:
 
     nodes {
@@ -387,14 +385,14 @@ of a PQL query:
 
 In this example, while the query context is set to `nodes`, we will only return
 `nodes` that have a fact `name` of `operatingsystem` and `value` of `Debian` (so
-only Debian nodes basically).
+only Debian nodes).
 
-As mentioned this often allows you to avoid having to know which fields are
-required like with an `in` operator, but only some relationships are well
+This often allows you to avoid having to know which fields are
+required, unlike the `in` operator, but be aware that only some relationships are well
 defined. See the [entities] documentation for each entity to learn which
 implicit subqueries are provided automatically.
 
-Also, implicit subqueries are like any other conditional operator, so therefore
+Also, implicit subqueries are like any other conditional operator, and therefore
 can be combined with basic filters. The following query combines the fact
 subquery as before, included with a `certname` match on the node itself:
 
@@ -404,8 +402,8 @@ subquery as before, included with a `certname` match on the node itself:
     }
 
 They can even be combined with other implict subqueries, to provide more complex
-matching capabilities. This query combined everything before, but with a
-`resource` subquery for `Package[tomcat]`:
+matching capabilities. This query combines everything we've discussed so far, 
+and adds a `resource` subquery for `Package[tomcat]`:
 
     nodes {
       facts { name = "operatingsystem" and value = "Debian" } and
@@ -423,8 +421,8 @@ field:
 
     facts[name] { group by name }
 
-Combined with aggregate functions, you can effectively rollup of results and
-aggregate the rolled up values, for example to return how many facts exist for
+Combined with aggregate functions, you can effectively roll up results and
+aggregate the rolled-up values. For example, to calculate how many facts exist for
 each fact name across all facts, where the certame starts with `web`:
 
     facts[name, count(value)] { certname ~ "^web.*" group by name }
