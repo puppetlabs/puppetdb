@@ -126,7 +126,6 @@
 
           (turn-on-unchanged-resources!)
           (enable-corrective-change!)
-          (turn-on-historical-catalogs! (:historical-catalogs-limit puppetdb-config 1))
 
           (log/info (i18n/trs "Starting PuppetDB, entering maintenance mode"))
           (add-ring-handler
@@ -162,6 +161,9 @@
           context))
 
   (start [this context]
+         (let [write-db (:scf-write-db (shared-globals))
+               puppetdb-config (:puppetdb (get-config))]
+           (turn-on-historical-catalogs! write-db (:historical-catalogs-limit puppetdb-config)))
          (log/info (i18n/trs "PuppetDB finished starting, disabling maintenance mode"))
          (disable-maint-mode)
          context)
