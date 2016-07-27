@@ -97,7 +97,7 @@
           (swap! sync-status-atom sync-status/update-for-error err)
           {:status 200 :body err}))
       (finally
-        (swap! currently-syncing (constantly false))))
+        (reset! currently-syncing false)))
     (let [err "Refusing to sync from %s. Sync already in progress."
           url (:url remote-server)]
       (maplog [:sync :info]
