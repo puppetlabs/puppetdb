@@ -5,6 +5,8 @@ set -x
 
 ulimit -u 4096
 
+export PDB_TEST_DUMP_LOG_ON_FAILURE=true
+
 pghost=fixture-pg94.delivery.puppetlabs.net
 pgport=5432
 
