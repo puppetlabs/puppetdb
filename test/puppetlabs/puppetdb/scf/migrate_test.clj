@@ -345,121 +345,6 @@
 
            (diff-schema-maps before-migration (schema-info-map *db*))))))
 
-(deftest test-adding-historical-catalogs-support-migration
-  (clear-db-for-testing!)
-  (fast-forward-to-migration! 41)
-  (let [before-migration (schema-info-map *db*)]
-    (apply-migration-for-testing! 42)
-    (let [schema-diff (diff-schema-maps before-migration (schema-info-map *db*))]
-      (is (= (set [{:same nil :right-only nil
-                    :left-only {:numeric_scale 0 :column_default nil
-                                :character_octet_length nil :datetime_precision nil
-                                :nullable? "NO" :character_maximum_length nil
-                                :numeric_precision 64 :numeric_precision_radix 2
-                                :data_type "bigint" :column_name "catalog_id"
-                                :table_name "catalog_resources"}}
-                   {:same nil :left-only nil
-                    :right-only {:numeric_scale 0 :column_default nil
-                                 :character_octet_length nil :datetime_precision nil
-                                 :nullable? "NO" :character_maximum_length nil
-                                 :numeric_precision 64 :numeric_precision_radix 2
-                                 :data_type "bigint" :column_name "certname_id"
-                                 :table_name "catalog_resources"}}
-                   {:left-only nil :same nil
-                    :right-only {:numeric_scale nil :column_default nil :character_octet_length nil
-                                 :datetime_precision nil :nullable? "YES"
-                                 :character_maximum_length nil :numeric_precision nil
-                                 :numeric_precision_radix nil :data_type "uuid"
-                                 :column_name "catalog_uuid" :table_name "catalogs"}}
-                   {:left-only nil :same nil
-                    :right-only {:numeric_scale nil :column_default nil
-                                 :character_octet_length nil :datetime_precision nil
-                                 :nullable? "YES" :character_maximum_length nil
-                                 :numeric_precision nil :numeric_precision_radix nil
-                                 :data_type "jsonb" :column_name "edges"
-                                 :table_name "catalogs"}}
-                   {:left-only nil :same nil
-                    :right-only {:numeric_scale nil :column_default nil
-                                 :character_octet_length nil :datetime_precision nil
-                                 :nullable? "YES" :character_maximum_length nil
-                                 :numeric_precision nil :numeric_precision_radix nil
-                                 :data_type "jsonb" :column_name "resources"
-                                 :table_name "catalogs"}}
-                   {:left-only nil :same nil
-                    :right-only {:numeric_scale 0 :column_default nil
-                                 :character_octet_length nil :datetime_precision nil
-                                 :nullable? "NO" :character_maximum_length nil
-                                 :numeric_precision 64 :numeric_precision_radix 2
-                                 :data_type "bigint" :column_name "catalog_id"
-                                 :table_name "latest_catalogs"}}
-                   {:left-only nil :same nil
-                    :right-only {:numeric_scale 0 :column_default nil
-                                 :character_octet_length nil :datetime_precision nil
-                                 :nullable? "NO" :character_maximum_length nil
-                                 :numeric_precision 64 :numeric_precision_radix 2
-                                 :data_type "bigint" :column_name "certname_id"
-                                 :table_name "latest_catalogs"}}
-                   {:left-only nil :same nil
-                    :right-only {:numeric_scale nil :column_default nil
-                                 :character_octet_length nil :datetime_precision nil
-                                 :nullable? "YES" :character_maximum_length nil
-                                 :numeric_precision nil :numeric_precision_radix nil
-                                 :data_type "uuid" :column_name "catalog_uuid"
-                                 :table_name "reports"}}])
-             (set (:table-diff schema-diff))))
-
-      (is (= #{{:left-only {:index "idx_catalog_resources_exported_true"}
-                :right-only {:index "catalog_resources_exported_idx"}}
-               {:left-only {:index "idx_catalog_resources_resource"}
-                :right-only {:index "catalog_resources_resource_idx"}}
-               {:left-only {:index "idx_catalog_resources_type"}
-                :right-only {:index "catalog_resources_type_idx"}}
-               {:left-only {:index "idx_catalog_resources_type_title"}
-                :right-only {:index "catalog_resources_type_title_idx"}}
-               {:left-only {:unique? true :index "catalogs_certname_key"}
-                :right-only {:unique? false :index "catalogs_certname_idx"}}
-               {:left-only nil
-                :right-only {:schema "public" :table "latest_catalogs"
-                             :index "latest_catalogs_catalog_id_key" :index_keys ["catalog_id"]
-                             :type "btree" :unique? true
-                             :functional? false :is_partial false
-                             :primary? false}}
-               {:left-only nil
-                :right-only {:schema "public" :table "reports"
-                             :index "reports_catalog_uuid_idx" :index_keys ["catalog_uuid"]
-                             :type "btree" :unique? false
-                             :functional? false :is_partial false
-                             :primary? false}}
-               {:left-only nil
-                :right-only {:schema "public" :table "latest_catalogs"
-                             :index "latest_catalogs_pkey" :index_keys ["certname_id"]
-                             :type "btree" :unique? true
-                             :functional? false :is_partial false
-                             :primary? true}}
-               {:left-only {:unique? true}
-                :right-only {:unique? false}}
-               {:right-only nil
-                :left-only {:schema "public"
-                            :table "catalog_resources" :index "catalog_resources_pkey"
-                            :index_keys ["catalog_id" "type" "title"]
-                            :type "btree" :unique? true
-                            :functional? false :is_partial false
-                            :primary? true}}
-               {:right-only {:schema "public" :table "catalog_resources"
-                             :index "catalog_resources_pkey1"
-                             :index_keys ["certname_id" "type" "title"]
-                             :type "btree" :unique? true
-                             :functional? false :is_partial false
-                             :primary? true}
-                :left-only nil}
-               {:left-only {:index "resources_hash_expr_idx"}
-                :right-only {:index "catalog_resources_encode_idx"}}}
-             (->> (:index-diff schema-diff)
-                  (map #(kitchensink/mapvals (fn [idx]
-                                               (dissoc idx :user)) %))
-                  (map #(dissoc % :same))
-                  set))))))
-
 (deftest test-add-producer-to-reports-catalogs-and-factsets-migration
   (clear-db-for-testing!)
   (fast-forward-to-migration! 46)
@@ -625,3 +510,48 @@
                 (str "select encode(md5_agg(val), 'hex') "
                      "from (values (1, 'a'::bytea), (1, 'b'::bytea)) x(gid, val) "
                      "group by gid"))))))))
+
+(deftest migration-50-remove-historical-catalogs
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 49)
+
+    (jdbc/insert! :environments
+                  {:id 1 :environment "testing"})
+
+    (jdbc/insert! :certnames
+                  {:certname "foo.local"})
+    
+    (jdbc/insert! :catalogs
+                  {:hash (sutils/munge-hash-for-storage
+                           "18440af604d18536b1c77fd688dff8f0f9689d90")
+                   :id 1
+                   :api_version 1
+                   :catalog_version 1
+                   :transaction_uuid (sutils/munge-uuid-for-storage
+                                       "95d132b3-cb21-4e0a-976d-9a65567696ba")
+                   :timestamp (to-timestamp (now))
+                   :certname "foo.local"
+                   :environment_id 1
+                   :producer_timestamp (to-timestamp (now))})
+    (jdbc/insert! :catalogs
+                  {:hash (sutils/munge-hash-for-storage
+                           "18445af604d18536b1c77fd688dff8f0f9689d90")
+                   :id 2
+                   :api_version 1
+                   :catalog_version 1
+                   :transaction_uuid (sutils/munge-uuid-for-storage
+                                       "95d136b3-cb21-4e0a-976d-9a65567696ba")
+                   :timestamp (to-timestamp (now))
+                   :certname "foo.local"
+                   :environment_id 1
+                   :producer_timestamp (to-timestamp (now))})
+    
+    (jdbc/insert! :latest_catalogs
+                  {:certname_id 1 :catalog_id 2})
+    
+    (let [original-catalogs (jdbc/query-to-vec "select id from catalogs")
+          _ (apply-migration-for-testing! 50)
+          new-catalogs (jdbc/query-to-vec "select id from catalogs")]
+      (is (= #{1 2} (set (map :id original-catalogs))))
+      (is (= #{2} (set (map :id new-catalogs)))))))

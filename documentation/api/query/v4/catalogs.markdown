@@ -231,17 +231,6 @@ If you provide a `query` parameter, it will specify additional criteria, which
 will be used to return a subset of the information normally returned by this
 route.
 
-## `/pdb/ext/v1/historical-catalogs` (PE only)
-
-This will return a JSON array containing the all the stored catalogs for each
-node in your infrastructure, not just the most recent. By default this will
-include the most recent 14 days worth of catalogs for each node.
-
-**Note on querying resources and edges**
-
-The `historical-catalogs` endpoint does not support querying on the value of
-`resources` or `edges`.
-
 ### URL Parameters / Query Operators / Query Fields / Response Format
 
 This route is an extension of the `/pdb/query/v4/catalogs` endpoint. It uses the
@@ -265,13 +254,3 @@ using implicit subqueries. For more information consult the documentation for
 The v4 catalogs endpoint supports all the usual paging URL parameters described
 in the documents on [paging][paging]. Ordering is allowed on every queryable
 field.
-
-## `/pdb/ext/v1/historical-catalogs/<CATALOG_UUID>/edges`
-
-This will return all edges for a particular catalog, designated by a
-`catalog\_uuid`. This endpoint does not currently support querying or paging.
-
-## `/pdb/ext/v1/historical-catalogs/<CATALOG_UUID>/resources`
-
-This will return all resources for a particular catalog, designated by a
-`catalog\_uuid`. This endpoint does not currently support querying or paging.

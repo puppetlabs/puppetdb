@@ -175,11 +175,8 @@
                                "resources" {:columns ["certname"]}}
 
                :selection {:from [:certnames]
-                           :left-join [:latest_catalogs
-                                       [:= :latest_catalogs.certname_id :certnames.id]
-
-                                       :catalogs
-                                       [:= :catalogs.id :latest_catalogs.catalog_id]
+                           :left-join [:catalogs
+                                       [:= :catalogs.certname :certnames.certname]
 
                                        [:factsets :fs]
                                        [:= :certnames.certname :fs.certname]
@@ -609,7 +606,7 @@
                                              :from [[:catalog_resources :cr]]
                                              :join [[:resource_params_cache :rpc]
                                                     [:= :rpc.resource :cr.resource]]
-                                             :where [:= :cr.certname_id :latest_catalogs.certname_id]}
+                                             :where [:= :cr.certname_id :certnames.id]}
                                             :t]]}
                                    :resource_data]]}}
       "edges" {:type :json
@@ -624,21 +621,23 @@
                                          :join [[:catalog_resources :sources]
                                                 [:and
                                                  [:= :edges.source :sources.resource]
-                                                 [:= :sources.certname_id :latest_catalogs.certname_id]]
+                                                 [:= :sources.certname_id :certnames.id]]
 
                                                 [:catalog_resources :targets]
                                                 [:and
                                                  [:= :edges.target :targets.resource]
-                                                 [:= :targets.certname_id :latest_catalogs.certname_id]]]
+                                                 [:= :targets.certname_id :certnames.id]]]
                                          :where [:= :edges.certname :c.certname]}
                                         :t]]}
                                :edge_data]]}}}
 
-     :selection {:from [:latest_catalogs]
-                 :join [[:catalogs :c]
-                        [:= :latest_catalogs.catalog_id :c.id]]
+     :selection {:from [[:catalogs :c]]
                  :left-join [[:environments :e]
                              [:= :c.environment_id :e.id]
+
+                             :certnames
+                             [:= :c.certname :certnames.certname]
+
                              :producers
                              [:= :producers.id :c.producer_id]]}
 
@@ -739,10 +738,11 @@
                                            :field (h/scast :rpc.parameters :json)}}
 
                :selection {:from [[:catalog_resources :resources]]
-                           :join [:latest_catalogs
-                                  [:= :latest_catalogs.certname_id :resources.certname_id]
+                           :join [:certnames
+                                  [:= :resources.certname_id :certnames.id]
+
                                   [:catalogs :c]
-                                  [:= :latest_catalogs.catalog_id :c.id]]
+                                  [:= :c.certname :certnames.certname]]
                            :left-join [[:environments :e]
                                        [:= :c.environment_id :e.id]
 

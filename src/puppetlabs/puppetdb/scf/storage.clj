@@ -338,26 +338,14 @@
   [certname]
   {:pre [certname]}
   (jdbc/query-with-resultset
-   [(format (str "SELECT catalogs.id AS catalog_id, certnames.id AS certname_id, "
-                 " %s AS catalog_hash, catalogs.producer_timestamp"
-                 " FROM certnames "
-                 " LEFT JOIN latest_catalogs ON certnames.id = latest_catalogs.certname_id"
-                 " LEFT JOIN catalogs ON catalogs.id = latest_catalogs.catalog_id"
-                 " WHERE certnames.certname=?")
+   [(format "select catalogs.id as catalog_id, certnames.id as certname_id,
+             %s as catalog_hash, catalogs.producer_timestamp
+             from certnames
+             left join catalogs on catalogs.certname=certnames.certname
+             where certnames.certname=?"
             (sutils/sql-hash-as-str "catalogs.hash"))
     certname]
    (comp first sql/result-set-seq)))
-
-;; `historical-catalogs-limit` is used for toggling historical catalog
-;; storage, this is configurable and PE only.
-(def historical-catalogs-limit (atom 0))
-
-;; `store-catalogs-jsonb-columns?` is used for toggling storage of the resources
-;; and edges jsonb blobs for catalogs. These blobs are used in PE only and this
-;; variable is meant to only be set to true in PE. This exists so that we can
-;; store the jsonb columns idependently from storing historical catalogs. This
-;; way a user can turn off historical catalogs and the PE only views still work.
-(def store-catalogs-jsonb-columns? (atom false))
 
 (defn munge-edges-for-storage [edges]
   (->> edges
@@ -387,19 +375,16 @@
            producer_timestamp
            producer]} :- catalog-schema
    received-timestamp :- pls/Timestamp]
-  (let [catalogs-jsonb? @store-catalogs-jsonb-columns?]
-    {:hash (sutils/munge-hash-for-storage hash)
-     :edges (when catalogs-jsonb? (munge-edges-for-storage edges))
-     :resources (when catalogs-jsonb? (munge-resources-for-storage (vals resources)))
-     :catalog_version  version
-     :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
-     :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
-     :timestamp (to-timestamp received-timestamp)
-     :code_id code_id
-     :environment_id (ensure-environment environment)
-     :producer_timestamp (to-timestamp producer_timestamp)
-     :producer_id (ensure-producer producer)
-     :api_version 1}))
+  {:hash (sutils/munge-hash-for-storage hash)
+   :catalog_version  version
+   :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
+   :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
+   :timestamp (to-timestamp received-timestamp)
+   :code_id code_id
+   :environment_id (ensure-environment environment)
+   :producer_timestamp (to-timestamp producer_timestamp)
+   :producer_id (ensure-producer producer)
+   :api_version 1})
 
 (s/defn update-catalog-metadata!
   "Given some catalog metadata, update the db"
@@ -752,48 +737,7 @@
   (inc! (:updated-catalog performance-metrics))
   (time! (:add-new-catalog performance-metrics)
          (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
-           (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
            (update-catalog-associations! certname-id catalog refs-to-hashes))))
-
-(s/defn add-catalog!
-  "Persist the supplied catalog in the database, returning its
-   similarity hash."
-  [{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
-   received-timestamp :- pls/Timestamp
-   historical-catalogs-limit]
-  (time! (:replace-catalog performance-metrics)
-         (jdbc/with-db-transaction []
-           (let [hash (time! (:catalog-hash performance-metrics)
-                             (shash/catalog-similarity-hash catalog))
-                 {certname-id :certname_id
-                  stored-hash :catalog_hash
-                  latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
-             (inc! (:updated-catalog performance-metrics))
-             (time! (:add-new-catalog performance-metrics)
-                    (time! (get performance-metrics
-                                (if (= stored-hash hash)
-                                  (do (inc! (:duplicate-catalog performance-metrics))
-                                      :catalog-hash-match)
-                                  :catalog-hash-miss))
-                           (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
-
-                             (when-not (some-> latest-producer-timestamp
-                                               (.after (to-timestamp producer_timestamp)))
-                               (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
-                                                           (kitchensink/mapvals shash/resource-identity-hash resources))]
-                                 (if-not latest-producer-timestamp
-                                   (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
-                                   (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id]))
-                                 (update-catalog-associations! certname-id catalog refs-to-hashes)))
-                             (jdbc/delete! :catalogs
-                                           [(str "certname = ? AND "
-                                                 "id NOT IN (SELECT id FROM catalogs "
-                                                 "           WHERE certname=?"
-                                                 "           ORDER BY producer_timestamp DESC LIMIT ?)")
-                                            certname
-                                            certname
-                                            historical-catalogs-limit]))))
-             hash))))
 
 (s/defn replace-catalog!
   "Persist the supplied catalog in the database, returning its
@@ -825,20 +769,6 @@
                     (add-new-catalog certname-id hash catalog refs-to-hashes received-timestamp)
                     (replace-existing-catalog certname-id catalog-id hash catalog refs-to-hashes received-timestamp))))
               hash)))))
-
-(s/defn store-catalog!
-  "Persist the supplied catalog in the database, returning its similarity hash.
-   On PE we alter the atom 'historical-catalog-limit' to be >0 and we will store
-   the catalog in database alongside the other catalogs for the node. On FOSS we
-   will not store historical catalogs and will replace the existing catalog for
-   node."
-  [catalog :- catalog-schema
-   received-timestamp :- pls/Timestamp]
-  (let [historical-catalogs-limit @historical-catalogs-limit]
-    (if (> historical-catalogs-limit 0)
-      (add-catalog! catalog received-timestamp historical-catalogs-limit)
-      (replace-catalog! catalog received-timestamp))))
-
 
 (defn catalog-hash-for-certname
   "Returns the hash for the `certname` catalog"
@@ -1395,8 +1325,7 @@
            "update certnames set expired = ?"
            "  where id in"
            "    (select c.id from certnames c
-                     left outer join latest_catalogs lcats on lcats.certname_id = c.id
-                     left outer join catalogs cats on cats.id = lcats.catalog_id
+                     left outer join catalogs cats on cats.certname = c.certname
                      left outer join factsets fs on c.certname = fs.certname
                      left outer join reports r on c.latest_report_id = r.id
                    where c.deactivated is null

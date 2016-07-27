@@ -166,9 +166,7 @@
    :file (s/maybe s/Str)
    :line (s/maybe s/Int)
    :parameters {s/Any s/Any}
-   ;; On historical-catalogs this is an optional-key but this is required on
-   ;; "normal" catalogs
-   (s/optional-key :resource) s/Str
+   :resource s/Str
    :tags [(s/maybe s/Str)]
    :title s/Str
    :type s/Str})

@@ -213,14 +213,8 @@
    id :- s/Str]
   (let [check-sql (case type
                     :catalog "SELECT 1
-                              FROM certnames
-                              INNER JOIN latest_catalogs
-                                ON latest_catalogs.certname_id = certnames.id
-                              INNER JOIN catalogs
-                                ON catalogs.id = latest_catalogs.certname_id
-                              WHERE certnames.certname=?"
-                    :historical-catalog "SELECT 1 FROM catalogs
-                                         WHERE catalog_uuid::text=?"
+                              FROM CATALOGS
+                              where catalogs.certname=?"
                     :node "SELECT 1
                            FROM certnames
                            WHERE certname=? "
