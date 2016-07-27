@@ -400,6 +400,7 @@
         (update "resources" anonymize-catalog-resources context config)
         (update "edges" anonymize-edges context config)
         (update "certname" anonymize-leaf :node context config)
+        (update "producer" anonymize-leaf :node context config)
         (update "transaction_uuid" anonymize-leaf :transaction_uuid context config)
         (update "environment" anonymize-leaf :environment context config))))
 
@@ -409,6 +410,7 @@
   (let [context {"node" (get report "certname")}]
     (-> report
         (update "certname" anonymize-leaf :node context config)
+        (update "producer" anonymize-leaf :node context config)
         (update "resources" anonymize-report-resources context config)
         (update "metrics" anonymize-metrics context config)
         (update "logs" anonymize-logs context config)
@@ -435,6 +437,7 @@
   (let [context {"node" (get wire-facts "certname")}]
     (-> wire-facts
         (update "certname" anonymize-leaf :node context config)
+        (update "producer" anonymize-leaf :node context config)
         (update "values" anonymize-fact-values context config)
         (update "environment" anonymize-leaf :environment context config))))
 
