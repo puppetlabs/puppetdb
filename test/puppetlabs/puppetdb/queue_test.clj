@@ -1,16 +1,24 @@
 (ns puppetlabs.puppetdb.queue-test
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.queue :refer :all]
-            [clj-time.core :as t :refer [days ago now seconds]]))
+            [clj-time.core :as t :refer [days ago now seconds]]
+            [clj-time.coerce :as tcoerce]
+            [clj-time.core :as time]
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.testutils.queue :as tqueue]))
 
 (deftest test-metadata
-  (let [before-test (now)
-        ;; Sleep for 1 ms to make sure we get a different receive time
-        _ (Thread/sleep 1)
-        s (metadata-str "replace catalog" 4 "foo.com")
-        meta-map (entry->cmd s)]
-    (is (= {:command "replace catalog"
-            :version 4
-            :certname "foo.com"}
-           (dissoc meta-map :receive-time)))
-    (is (t/before? before-test (:receive-time meta-map)))))
+  (tqueue/with-stockpile q
+    (let [now (time/now)
+          ;; Sleep to ensure the command has a different time
+          _ (Thread/sleep 1)
+          entry (store-command q "my command" 1 "foo.com" (-> "{\"message\": \"payload\"}"
+                                                              (.getBytes "UTF-8")
+                                                              java.io.ByteArrayInputStream.))
+          command (entry->cmd q entry)]
+      (is (= {:command "my command"
+              :version 1
+              :certname "foo.com"
+              :payload {:message "payload"}}
+             (select-keys command [:command :version :certname :payload])))
+      (is (t/before? now (tcoerce/from-string (get-in command [:annotations :received])))))))
