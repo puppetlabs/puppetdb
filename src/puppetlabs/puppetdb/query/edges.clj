@@ -1,17 +1,19 @@
 (ns puppetlabs.puppetdb.query.edges
   "Fact query generation"
   (:require [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.query :as query]
             [schema.core :as s]))
 
 ;; SCHEMA
 
 (def edge-schema
-  {(s/optional-key :certname) String
-   (s/optional-key :relationship) String
-   (s/optional-key :source_title) String
-   (s/optional-key :source_type) String
-   (s/optional-key :target_title) String
-   (s/optional-key :target_type) String})
+  (query/wrap-with-supported-fns
+    {(s/optional-key :certname) String
+     (s/optional-key :relationship) String
+     (s/optional-key :source_title) String
+     (s/optional-key :source_type) String
+     (s/optional-key :target_title) String
+     (s/optional-key :target_type) String}))
 
 ;; MUNGE
 
