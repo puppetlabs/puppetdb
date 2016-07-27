@@ -19,8 +19,6 @@
             [puppetlabs.pe-puppetdb-extensions.server :as pe-server]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as sync-svcs]
             [puppetlabs.puppetdb.time :refer [parse-period]]
-            [puppetlabs.pe-puppetdb-extensions.catalogs
-             :refer [turn-on-historical-catalogs!]]
             [puppetlabs.pe-puppetdb-extensions.reports
              :refer [reports-resources-routes turn-on-unchanged-resources!
                      enable-corrective-change!]]
@@ -161,9 +159,6 @@
           context))
 
   (start [this context]
-         (let [write-db (:scf-write-db (shared-globals))
-               puppetdb-config (:puppetdb (get-config))]
-           (turn-on-historical-catalogs! write-db (:historical-catalogs-limit puppetdb-config)))
          (log/info (i18n/trs "PuppetDB finished starting, disabling maintenance mode"))
          (disable-maint-mode)
          context)
