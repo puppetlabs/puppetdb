@@ -20,6 +20,7 @@
             [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.http.command :as command]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
+            [puppetlabs.puppetdb.testutils.log :refer [with-log-level]]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
@@ -228,15 +229,7 @@
                    deactivations))))
 
 (defn- check-sync [dir pdb remote commands]
-  ;; FIXME: for now the capturing and dumping of sync log events on
-  ;; error is disabled below because it also ends up dumping the
-  ;; instance logs every time.  Fixing that will require reworking
-  ;; pdb-instance log handling and the muting function, because the
-  ;; log config is global.
-  (let [events (atom [])
-        result (do ;; svcs/with-log-level :sync :debug
-                    (do ;; svcs/with-logging-to-atom :sync events
-                        (sync-directly! pdb remote)))
+  (let [result (sync-directly! pdb remote)
         max-expected-transfers (count-possible-deactivation-races commands)]
     (is (= #{:transferred :failed} (set (keys result))))
     (is (zero? (:failed result)))
@@ -252,8 +245,6 @@
         (println (format "Max expected transfers: %d  Actual: %d"
                          max-expected-transfers
                          (:transferred result)))
-        ;;(println "Log:")
-        ;;(clojure.pprint/pprint @events)
         false)
       true)))
 
@@ -273,15 +264,15 @@
 (def ^:private convergence-trials-run (atom 0))
 
 (defn- run-convergence-test [commands]
-  (with-ext-instances [pdb1 (sync-config nil) pdb2 (sync-config nil)]
-    (let [pdb1-url (base-url->str (:server-url pdb1))
-          pdb2-url (base-url->str (:server-url pdb2))]
-      (swap! convergence-trials-run inc)
-      (binding [*out* *err*]
-        (print (format "Trial %d/%d\r"
-                       @convergence-trials-run (:num-tests gen-test-options)))
-        (flush))
-      (do ;; svcs/with-log-level :sync :debug
+  (with-log-level "sync" :debug ;; Not parallel test friendly
+    (with-ext-instances [pdb1 (sync-config nil) pdb2 (sync-config nil)]
+      (let [pdb1-url (base-url->str (:server-url pdb1))
+            pdb2-url (base-url->str (:server-url pdb2))]
+        (swap! convergence-trials-run inc)
+        (binding [*out* *err*]
+          (print (format "Trial %d/%d\r"
+                         @convergence-trials-run (:num-tests gen-test-options)))
+          (flush))
         (doseq [cmd commands]
           (exec-convergence-cmd pdb1 pdb2 cmd))
         (wait-for-processing pdb1)
