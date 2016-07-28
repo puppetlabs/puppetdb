@@ -146,3 +146,8 @@ In Puppet 3.x a new profiling capability was introduced that we have leveraged i
 Of course use your common sense, any profiling mechanism will add more load which can increase your problems when you already have limited capacity. Enabling profiling in production should only be done with care and for a very short amount of time.
 
 All PuppetDB profiling events are prefixed with `PuppetDB:` so can by easily searched for. This information is helpful to our developers to debug performance issues also, so feel free to include these details when raising tickets against PuppetDB.
+
+## I'm getting 'java.lang.InternalError' in the PuppetDB log after updating openjdk
+
+We have seen this error when the `nss` package has not been installed or is out of date. 
+To fix this, install/update nss using your package manager.
