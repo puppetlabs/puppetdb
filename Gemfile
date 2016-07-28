@@ -52,7 +52,6 @@ group :test do
   when '1.8.7'
     # No activerecord or sqlite for you
   else
-    gem 'activerecord', '~> 3.2'
     gem 'sqlite3'
   end
 end
