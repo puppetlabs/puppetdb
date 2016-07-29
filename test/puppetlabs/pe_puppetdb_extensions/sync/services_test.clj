@@ -16,7 +16,8 @@
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.cheshire :as json]
-            [clj-time.coerce :refer [to-date-time]]))
+            [clj-time.coerce :refer [to-date-time]]
+            [puppetlabs.pe-puppetdb-extensions.sync.status :as sync-status]))
 
 (deftest enable-periodic-sync?-test
   (testing "Happy case"
@@ -44,45 +45,6 @@
                                {:url "http://foo.bar:8080/pdb/query/v4"}))
     (is (not (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config
                                     {:url "http://baz.buzz:8080/pdb/query/v4"})))))
-
-(deftest test-wait-for-sync
-  (testing "Happy path of processing commands"
-    (let [submitted-commands-chan (async/chan)
-          processed-commands-chan (async/chan 1)
-          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)
-          cmd-1 (ks/uuid)]
-      (async/>!! submitted-commands-chan {:id cmd-1})
-      (async/close! submitted-commands-chan)
-      (async/>!! processed-commands-chan {:id cmd-1})
-      (is (= :done (async/<!! finished-sync)))))
-
-  (testing "Receiving a processed command before submitted commands channel is closed"
-    (let [submitted-commands-chan (async/chan)
-          processed-commands-chan (async/chan 1)
-          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)
-          cmd-1 (ks/uuid)]
-      (async/>!! submitted-commands-chan {:id cmd-1})
-      (async/>!! processed-commands-chan {:id cmd-1})
-      (async/close! submitted-commands-chan)
-      (is (= :done (async/<!! finished-sync)))))
-
-  (testing "timeout result when processing of commands is too slow"
-    (let [submitted-commands-chan (async/chan)
-          processed-commands-chan (async/chan 1)
-          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 500)
-          cmd-1 (ks/uuid)]
-      (async/>!! submitted-commands-chan {:id cmd-1})
-      (async/close! submitted-commands-chan)
-      (is (= :timed-out (async/<!! finished-sync)))))
-
-  (testing "system shutting down during initial sync"
-    (let [submitted-commands-chan (async/chan)
-          processed-commands-chan (async/chan 1)
-          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)
-          cmd-1 (ks/uuid)]
-      (async/>!! submitted-commands-chan {:id cmd-1})
-      (async/close! processed-commands-chan)
-      (is (= :shutting-down (async/<!! finished-sync))))))
 
 (deftest test-reports-summary-query
   (testing "no reports"

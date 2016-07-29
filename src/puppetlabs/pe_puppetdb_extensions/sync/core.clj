@@ -459,7 +459,7 @@
   it doesn't exist locally, download it over http and place it in the
   queue with `submit-command-fn`.  Return false if any records
   failed."
-  [query-fn bucketed-summary-query-fn submit-command-fn remote-server sync-config now node-ttl]
+  [query-fn bucketed-summary-query-fn submit-command-fn remote-server sync-config now node-ttl status-callback-fn]
   (let [entity (:entity sync-config)
         entity-name (name entity)
         stats (atom {:transferred 0 :failed 0})]
@@ -473,6 +473,7 @@
                        :finished [:info "  --> transferred {entity} ({transferred}) from {remote} in {elapsed} ms"]
                        :error [:warn (str "  *** transferred {entity} ({transferred}) from {remote};"
                                           " stopped after {failed} failures in {elapsed} ms")]}
+      (status-callback-fn {:entity entity :phase :summary})
       (let [buckets-which-differ (run-and-compare-bucketed-summary-queries sync-config remote-server bucketed-summary-query-fn)
             sync-config (update-summary-query-with-bucket-timespans sync-config buckets-which-differ)
             need-to-do-detailed-summary-query (if (:bucketed-summary-query-path sync-config)
@@ -482,7 +483,8 @@
                                                 ;; if there was no bucketed summary, always
                                                 ;; do the detailed summary
                                                 true)]
-        (when need-to-do-detailed-summary-query
+        (if-not need-to-do-detailed-summary-query
+          (status-callback-fn {:phase :transfer, :entity entity, :total 0})
           (with-open [remote-summary-stream (remote-streamed-summary-query remote-server sync-config)
                       remote-summary-reader (-> remote-summary-stream clojure.java.io/reader)]
             (let [{:keys [summary-query record-id-fn
@@ -496,29 +498,18 @@
                   maybe-deactivate #(set-local-deactivation-status! % submit-command-fn)
                   transfer-batch #(transfer-batch remote-server % submit-command-fn sync-config)]
               (query-fn version query order
-                        ;; TODO: we're retaining the seq head here; need to change the API to pass a thunk instead
                         (fn [local-summary-seq]
-                          ;; transfer records in batches of 5000, to avoid per-request overhead
-                          (doseq [batch (partition-all 5000 (incoming-records local-summary-seq))]
-                            (if (= entity :nodes)
-                              (doseq [record batch]
-                                (when (maybe-deactivate record)
-                                  (swap! stats update :transferred + (count batch))))
-                              (let [batch-transfer-stats (transfer-batch batch)]
-                                (swap! stats (partial merge-with +) batch-transfer-stats)))))))))
+                          (let [records-to-transfer (incoming-records local-summary-seq)]
+                            (status-callback-fn {:phase :transfer, :entity entity, :total (count records-to-transfer)})
+                            ;; transfer records in batches of 2000, to avoid per-request overhead
+                            (doseq [batch (partition-all 2000 records-to-transfer)]
+                              (if (= entity :nodes)
+                                (doseq [record batch]
+                                  (when (maybe-deactivate record)
+                                    (swap! stats update :transferred + (count batch))))
+                                (let [batch-transfer-stats (transfer-batch batch)]
+                                  (swap! stats (partial merge-with +) batch-transfer-stats))))))))))
         @stats))))
-
-(defn wrap-submit-command-fn
-  "Wrap the given submit-command-fn to first generate a uuid for the command,
-  write it to 'submitted-commands-chan', then finally call the wrapped fn."
-  [submit-command-fn submitted-commands-chan]
-  (fn [command version payload]
-    (let [uuid (ks/uuid)]
-      (maplog [:sync :debug] {:command command :version version :uuid uuid}
-              "Submitting {command} command")
-      (when submitted-commands-chan
-        (async/>!! submitted-commands-chan {:id uuid}))
-      (submit-command-fn command version payload uuid))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -531,22 +522,10 @@
     bucketed-summary-query-fn
     submit-command-fn
     remote-server :- remote-server-schema
-    node-ttl :- Period]
-   (sync-from-remote! query-fn
-                      bucketed-summary-query-fn
-                      submit-command-fn
-                      remote-server
-                      node-ttl
-                      nil))
-  ([query-fn
-    bucketed-summary-query-fn
-    submit-command-fn
-    remote-server :- remote-server-schema
     node-ttl :- Period
-    submitted-commands-chan]
+    status-callback-fn]
    (try
-     (let [submit-command-fn (wrap-submit-command-fn submit-command-fn submitted-commands-chan)
-           now (t/now)]
+     (let [now (t/now)]
        (with-sync-events {:context {:phase "sync"
                                     :remote (url-on-remote-server remote-server "")}
                           :start [:info "syncing with {remote}"]
@@ -560,7 +539,8 @@
                                                           remote-server
                                                           sync-config
                                                           now
-                                                          node-ttl)))]
+                                                          node-ttl
+                                                          status-callback-fn)))]
            (events/successful-sync!)
            result)))
      (catch Exception e

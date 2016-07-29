@@ -71,10 +71,6 @@
     (with-alt-mq (:mq-name pdb2)
       (sync :from pdb1 :to pdb2))
 
-    ;; FIXME: This is a workaround for the queue retry issue and should be
-    ;; removed once that is resolved.
-    (Thread/sleep 15000)
-
     (let [pdb1-catalogs (svcs/get-catalogs (:query-url pdb1) (:certname catalog))
           pdb2-catalogs (svcs/get-catalogs (:query-url pdb2) (:certname catalog))]
       (is (= (count pdb1-catalogs) (count pdb2-catalogs)))
