@@ -501,8 +501,8 @@
                         (fn [local-summary-seq]
                           (let [records-to-transfer (incoming-records local-summary-seq)]
                             (status-callback-fn {:phase :transfer, :entity entity, :total (count records-to-transfer)})
-                            ;; transfer records in batches of 5000, to avoid per-request overhead
-                            (doseq [batch (partition-all 5000 records-to-transfer)]
+                            ;; transfer records in batches of 2000, to avoid per-request overhead
+                            (doseq [batch (partition-all 2000 records-to-transfer)]
                               (if (= entity :nodes)
                                 (doseq [record batch]
                                   (when (maybe-deactivate record)
