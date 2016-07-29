@@ -46,7 +46,7 @@ S3_BRANCH_PATH=s3://${BUCKET_NAME}/${NAME}/${PACKAGE_BUILD_VERSION}
 set -x
 
 # Set ship targets and build team for packaging repo
-REPO_HOST=neptune.puppetlabs.lan
+REPO_HOST=builds.delivery.puppetlabs.net
 export REPO_DIR REPO_HOST
 
 
