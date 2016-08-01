@@ -6,6 +6,7 @@
             [honeysql.core :as hcore]
             [honeysql.helpers :as hsql]
             [honeysql.types :as htypes]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.facts :as facts]
@@ -1759,6 +1760,15 @@
                    ;;problems with the validation below when it was
                    ;;included in the validate-query-fields function
                    :state (cond-> state column-validation-message (conj column-validation-message))
+                   :cut true})
+
+                [["extract" column [subquery-name :guard (complement #{"not" "group_by"}) _]]]
+                (let [underscored-subquery-name (utils/dashes->underscores subquery-name)
+                      error (if (contains? (set (keys user-name->query-rec-name)) underscored-subquery-name)
+                              (i18n/trs "Unsupported subquery `{0}` - did you mean `{1}`?" subquery-name underscored-subquery-name)
+                              (i18n/trs "Unsupported subquery `{0}`" subquery-name))]
+                  {:node node
+                   :state (conj state error)
                    :cut true})
 
                 [["subquery" relationship expr]]
