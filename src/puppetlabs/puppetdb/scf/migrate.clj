@@ -1068,6 +1068,14 @@
     "alter table reports add column corrective_change boolean"
     "alter table resource_events add column corrective_change boolean"))
 
+(defn remove-historical-catalogs
+  []
+  (jdbc/do-commands
+    "alter table catalogs drop column edges"
+    "alter table catalogs drop column resources"
+    "delete from catalogs where id not in (select catalog_id from latest_catalogs)"
+    "drop table latest_catalogs"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1094,7 +1102,8 @@
    46 drop-certnames-latest-id-index
    47 add-producer-to-reports-catalogs-and-factsets
    48 add-noop-pending-to-reports
-   49 add-corrective-change-columns})
+   49 add-corrective-change-columns
+   50 remove-historical-catalogs})
 
 (def desired-schema-version (apply max (keys migrations)))
 

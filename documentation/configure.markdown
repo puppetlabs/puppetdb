@@ -226,12 +226,7 @@ SSL client certificates.
 
 ### `historical-catalogs-limit` (PE only)
 
-> **Warning:** This setting is intended for use only in Puppet Enterprise (PE).
-> This setting will be ignored without a PE PuppetDB package.
-
-This settings controls how many historical catalogs are stored in PuppetDB per
-node. Setting this to `0` disables the storage of historical catalogs. Defaults
-to `3`.
+> **Note**: This setting has no effect and will be retired in a future release.
 
 ### `disable-update-checking`
 

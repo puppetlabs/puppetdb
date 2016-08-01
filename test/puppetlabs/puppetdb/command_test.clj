@@ -357,13 +357,12 @@
           (with-test-db
             (is (= (query-to-vec "SELECT certname FROM catalogs")
                    []))
-            (let [certname-id (:id (first (jdbc/insert! :certnames {:certname certname})))
-                  id (:id (first (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "00")
-                                                          :api_version 1
-                                                          :catalog_version "foo"
-                                                          :certname certname
-                                                          :producer_timestamp (to-timestamp (-> 1 days ago))})))]
-              (jdbc/insert! :latest_catalogs {:catalog_id id :certname_id certname-id}))
+            (jdbc/insert! :certnames {:certname certname})
+            (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "00")
+                                     :api_version 1
+                                     :catalog_version "foo"
+                                     :certname certname
+                                     :producer_timestamp (to-timestamp (-> 1 days ago))})
 
             (test-msg-handler command publish discard-dir
               (is (= [(with-env {:certname certname :catalog catalog-hash})]
@@ -382,14 +381,13 @@
 
         (testing "with a newer catalog should ignore the message"
           (with-test-db
-            (let [certname-id (:id (first (jdbc/insert! :certnames {:certname certname})))
-                  id (:id (first (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "ab")
-                                                          :api_version 1
-                                                          :catalog_version "foo"
-                                                          :certname certname
-                                                          :timestamp tomorrow
-                                                          :producer_timestamp (to-timestamp (now))})))]
-              (jdbc/insert! :latest_catalogs {:catalog_id id :certname_id certname-id}))
+            (jdbc/insert! :certnames {:certname certname})
+            (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "ab")
+                                     :api_version 1
+                                     :catalog_version "foo"
+                                     :certname certname
+                                     :timestamp tomorrow
+                                     :producer_timestamp (to-timestamp (now))})
 
             (test-msg-handler command publish discard-dir
               (is (= [{:certname certname :catalog "ab"}]

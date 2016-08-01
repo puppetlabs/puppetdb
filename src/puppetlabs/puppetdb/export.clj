@@ -87,14 +87,8 @@
                                            query->wire-fn
                                            (maybe-anonymize anonymize-fn anon-config)
                                            (export-data->tar-items entity)
-                                           (add-tar-entries tar-writer)))
-                  entity* (if (and (= entity "catalogs")
-                                   @storage/store-catalogs-jsonb-columns?)
-                            ;; *Warning* this can only be used in PE so it
-                            ;; *cannot be tested against in the FOSS repo
-                            "historical_catalogs"
-                            entity)]]
-      (query-fn query-api-version ["from" entity*] nil query-callback-fn))))
+                                           (add-tar-entries tar-writer)))]]
+      (query-fn query-api-version ["from" entity] nil query-callback-fn))))
 
 (defn export!
   ([outfile query-fn] (export! outfile query-fn nil))

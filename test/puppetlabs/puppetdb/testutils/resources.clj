@@ -66,8 +66,6 @@
                     :producer_timestamp (to-timestamp (now))
                     :producer "foo.com"})
 
-       (jdbc/insert! :latest_catalogs {:catalog_id 1 :certname_id 1})
-       (jdbc/insert! :latest_catalogs {:catalog_id 2 :certname_id 2})
        (jdbc/insert!
         :catalog_resources
         {:certname_id 1 :resource (sutils/munge-hash-for-storage "01")

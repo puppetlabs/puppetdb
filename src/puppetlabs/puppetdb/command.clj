@@ -256,7 +256,7 @@
         {producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
-      (scf-storage/store-catalog! catalog received-timestamp))
+      (scf-storage/replace-catalog! catalog received-timestamp))
     (log/infof "[%s] [%s] %s" id (command-names :replace-catalog) certname)))
 
 (defn replace-catalog [{:keys [payload annotations version] :as command} db]

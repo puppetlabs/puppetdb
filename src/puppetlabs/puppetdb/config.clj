@@ -166,7 +166,6 @@
   "Schema for validating the incoming [puppetdb] block"
   (all-optional
     {:certificate-whitelist s/Str
-     ;; The `historical-catalogs-limit` setting is only used by `pe-puppetdb`
      :historical-catalogs-limit (pls/defaulted-maybe s/Int 0)
      :disable-update-checking (pls/defaulted-maybe String "false")}))
 
