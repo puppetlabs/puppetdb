@@ -40,7 +40,7 @@
    :value_string (s/maybe s/Str)
    :value_integer (s/maybe s/Int)
    :value_boolean (s/maybe s/Bool)
-   :value (s/maybe s/Str)
+   :value (s/maybe s/Any)
    :value_type_id s/Int})
 
 ;; GLOBALS
@@ -149,7 +149,7 @@
                             3 :value_boolean
                             5 :value)]
         (assoc initial-map value-keyword value
-          :value (sutils/db-serialize value))))))
+          :value (sutils/munge-jsonb-for-storage value))))))
 
 (defn flatten-facts-with
   "Returns a collection of (leaf-fn path leaf) for all of the paths

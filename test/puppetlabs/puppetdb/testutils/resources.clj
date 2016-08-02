@@ -6,28 +6,33 @@
             [puppetlabs.puppetdb.scf.storage
              :refer [add-facts! ensure-environment]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils
-             :refer [db-serialize to-jdbc-varchar-array]]
+             :refer [to-jdbc-varchar-array]]
             [puppetlabs.puppetdb.testutils.db :refer [*db*]]))
 
 (defn store-example-resources
   ([] (store-example-resources true))
   ([environment?]
-     (jdbc/with-transacted-connection *db*
-       (jdbc/insert!
-        :resource_params_cache
-        {:resource (sutils/munge-hash-for-storage "01")
-         :parameters (db-serialize {"ensure" "file"
-                                    "owner"  "root"
-                                    "group"  "root"
-                                    "acl"    ["john:rwx" "fred:rwx"]})}
-        {:resource (sutils/munge-hash-for-storage "02")
-         :parameters nil})
-       (jdbc/insert!
-        :resource_params
-        {:resource (sutils/munge-hash-for-storage "01") :name "ensure" :value (db-serialize "file")}
-        {:resource (sutils/munge-hash-for-storage "01") :name "owner"  :value (db-serialize "root")}
-        {:resource (sutils/munge-hash-for-storage "01") :name "group"  :value (db-serialize "root")}
-        {:resource (sutils/munge-hash-for-storage "01") :name "acl"    :value (db-serialize ["john:rwx" "fred:rwx"])})
+   (jdbc/with-transacted-connection *db*
+     (jdbc/insert!
+       :resource_params_cache
+       {:resource (sutils/munge-hash-for-storage "01")
+        :parameters (sutils/munge-jsonb-for-storage
+                      {"ensure" "file"
+                       "owner"  "root"
+                       "group"  "root"
+                       "acl"    ["john:rwx" "fred:rwx"]})}
+       {:resource (sutils/munge-hash-for-storage "02")
+        :parameters nil})
+     (jdbc/insert!
+       :resource_params
+       {:resource (sutils/munge-hash-for-storage "01") :name "ensure"
+        :value (sutils/db-serialize "file")}
+       {:resource (sutils/munge-hash-for-storage "01") :name "owner"
+        :value (sutils/db-serialize "root")}
+       {:resource (sutils/munge-hash-for-storage "01") :name "group"
+        :value (sutils/db-serialize "root")}
+       {:resource (sutils/munge-hash-for-storage "01") :name "acl"
+        :value (sutils/db-serialize ["john:rwx" "fred:rwx"])})
        (jdbc/insert!
         :certnames
         {:id 1 :certname "one.local"}

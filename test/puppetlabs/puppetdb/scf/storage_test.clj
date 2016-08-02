@@ -1047,7 +1047,7 @@
    #(-> (sql/result-set-seq %)
         first
         :params
-        (json/parse-string true))))
+        sutils/parse-db-json)))
 
 (defn foobar-param-hash []
   (jdbc/query-with-resultset
