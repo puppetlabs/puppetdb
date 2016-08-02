@@ -35,7 +35,7 @@
   (bucketed-summary-query [this entity])
   (sync-status [this])
   (pull-records-from [this remote-server])
-  (blocking-pull-records-from [this remote-server threadpool]))
+  (blocking-pull-records-from [this remote-server make-threadpool-fn]))
 
 (def currently-syncing (atom false))
 
@@ -143,37 +143,40 @@
 
 (defn blocking-sync
   [remote-server query-fn bucketed-summary-query-fn process-command-fn
-   node-ttl threadpool sync-status-atom]
-  (let [remote-url (:url remote-server)
-        command-chan (async/chan)
-        enqueue-command (fn enqueue-command-for-initial-sync [command-kw version payload]
-                          (async/>!! command-chan
-                                     {:command (command-names command-kw)
-                                      :version version
-                                      :annotations {:id (ks/uuid) :received (time/now)}
-                                      :payload payload}))
-        process-command (fn process-command-for-initial-sync [command]
-                          (process-command-fn command)
-                          (swap! sync-status-atom sync-status/update-for-command (:command command)))
-        processing-finished-chan (async/go (tp/dochan threadpool process-command command-chan))]
-    (try
-      (swap! sync-status-atom sync-status/reset :syncing)
-      (sync-from-remote! query-fn bucketed-summary-query-fn enqueue-command remote-server node-ttl
-                         #(swap! sync-status-atom sync-status/update-for-status-message %))
-      (finally
-        (async/close! command-chan)))
-    (async/alt!!
-      (async/timeout 15000)
-      (do
-        (swap! sync-status-atom
-               sync-status/update-for-error "Timed out due to slow processing")
-        (throw+ {:type ::message-processing-timeout}
-                (str "The blocking sync with the remote system timed out "
-                     "because of slow message processing.")))
+   node-ttl make-threadpool-fn sync-status-atom]
+  (with-open [threadpool (make-threadpool-fn)]
+    (let [remote-url (:url remote-server)
+          command-chan (async/chan)
+          enqueue-command (fn enqueue-command-for-initial-sync [command-kw version payload]
+                            (async/>!! command-chan
+                                       {:command (command-names command-kw)
+                                        :version version
+                                        :annotations {:id (ks/uuid) :received (time/now)}
+                                        :payload payload}))
+          process-command (fn process-command-for-initial-sync [command]
+                            (process-command-fn command)
+                            (swap! sync-status-atom sync-status/update-for-command (:command command)))
+          all-executions-scheduled-chan (async/go (tp/dochan threadpool process-command command-chan))]
+      (try
+        (swap! sync-status-atom sync-status/reset :syncing)
+        (sync-from-remote! query-fn bucketed-summary-query-fn enqueue-command remote-server node-ttl
+                           #(swap! sync-status-atom sync-status/update-for-status-message %))
+        (finally
+          (async/close! command-chan)))
+      (async/alt!!
+        (async/timeout 15000)
+        (do
+          (swap! sync-status-atom
+                 sync-status/update-for-error "Timed out due to slow processing")
+          (throw+ {:type ::message-processing-timeout}
+                  (str "The blocking sync with the remote system timed out "
+                       "because of slow message processing.")))
 
-      processing-finished-chan
-      nil)
-    (swap! sync-status-atom sync-status/reset :idle)))
+        all-executions-scheduled-chan
+        nil)))
+  ;; The threadpool closes when exiting the precending with-open form, which
+  ;; will block until all pending commands have finished processing
+  (swap! sync-status-atom sync-status/reset :idle))
 
 (defn sync-handler
   "Top level route for PuppetDB sync"
@@ -218,8 +221,9 @@
                                       (async/alt!!
                                         ;; This should be changed to use the regular command processing
                                         ;; thread pool once it's changed over.
-                                        (async/go (with-open [threadpool (tp/create-threadpool threadpool-size "blocking-sync-%d" 5000)]
-                                                    (blocking-pull-records-from sync-service remote-server threadpool)))
+                                        (async/go
+                                          (blocking-pull-records-from sync-service remote-server
+                                                                      #(tp/create-threadpool threadpool-size "blocking-sync-%d" 5000)))
                                         (http/json-response {:timed_out false} 200)
 
                                         (async/timeout completion-timeout-ms)
@@ -255,8 +259,7 @@
   [remote-config jetty-config query-fn shared-globals cache-atom
    response-mult node-ttl enqueue-command-fn sync-status-atom
    num-processing-threads]
-  (with-open [remote-server (make-remote-server remote-config jetty-config)
-              threadpool (tp/create-threadpool num-processing-threads "initial-sync-%d" 5000)]
+  (with-open [remote-server (make-remote-server remote-config jetty-config)]
     (let [server-url (remote-url->server-url (:url remote-server))
           {:keys [scf-read-db scf-write-db]} shared-globals]
       (try+
@@ -265,7 +268,9 @@
        (blocking-sync remote-server query-fn
                       (partial bucketed-summary/bucketed-summary-query scf-read-db cache-atom)
                       #(process-or-enqueue-command % scf-write-db enqueue-command-fn)
-                      node-ttl threadpool sync-status-atom)
+                      node-ttl
+                      #(tp/create-threadpool num-processing-threads "initial-sync-%d" 5000)
+                      sync-status-atom)
        :success
        (catch [:type ::message-processing-timeout] _
          ;; Something is very wrong if we hit this timeout; rethrow the
@@ -355,7 +360,7 @@
                                    (partial bucketed-summary-query this)
                                    enqueue-command node-ttl sync-status-atom)))
 
-  (blocking-pull-records-from [this remote-server threadpool]
+  (blocking-pull-records-from [this remote-server make-threadpool-fn]
                               (let [{{node-ttl :node-ttl} :database} (get-config)
                                     {:keys [sync-status-atom cache-atom]} (service-context this)
                                     {:keys [scf-write-db]} (shared-globals)]
@@ -363,5 +368,5 @@
                                                (partial bucketed-summary-query this)
                                                #(process-or-enqueue-command % scf-write-db enqueue-command)
                                                node-ttl
-                                               threadpool
+                                               make-threadpool-fn
                                                sync-status-atom))))
