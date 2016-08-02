@@ -9,6 +9,7 @@
                                                     wrap-with-metrics
                                                     wrap-with-illegal-argument-catch
                                                     verify-accepts-json
+                                                    verify-content-type
                                                     make-pdb-handler]]
             [ring.util.response :as rr]
             [puppetlabs.comidi :as cmdi]
@@ -65,6 +66,7 @@
     (let [handler (-> (make-pdb-handler routes identity)
                       wrap-with-illegal-argument-catch
                       verify-accepts-json
+                      (verify-content-type ["application/json"])
                       (wrap-with-metrics (atom {}) http/leading-uris)
                       (wrap-with-globals get-shared-globals))]
       (handler req))))
