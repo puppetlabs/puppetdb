@@ -42,3 +42,27 @@
     (testing "test to see if an index does exist"
       (jdbc/do-commands "CREATE INDEX foobar ON fact_values(value_float)")
       (is (true? (index-exists? "foobar"))))))
+
+(deftest dotted-query-to-path
+  (testing "vanilla dotted path"
+    (is (= (dotted-query->path "facts.foo.bar")
+           ["facts" "foo" "bar"])))
+  (testing "dot inside quotes"
+    (is (= (dotted-query->path "facts.\"foo.bar\".baz")
+           ["facts" "\"foo.bar\"" "baz"]))
+    (is (= (dotted-query->path "facts.\"foo.baz.bar\".baz")
+           ["facts" "\"foo.baz.bar\"" "baz"]))
+    (is (= (dotted-query->path "facts.\"foo.bar\".\"baz.bar\"")
+           ["facts" "\"foo.bar\"" "\"baz.bar\""])))
+  (testing "consecutive dots"
+    (is (= (dotted-query->path "facts.\"foo..bar\"")
+           ["facts" "\"foo..bar\""])))
+  (testing "path with quote in middle"
+    (is (= (dotted-query->path "facts.foo\"bar.baz")
+           ["facts" "foo\"bar" "baz"])))
+  (testing "path containing escaped quote"
+    (is (= (dotted-query->path "\"fo\\\".o\"")
+           ["\"fo\\\".o\""])))
+  (testing "dotted path with quote"
+    (is (= (dotted-query->path "facts.\"foo.bar\"baz\".biz"))
+        ["facts" "\"foo.bar\"baz\"" "biz"])))

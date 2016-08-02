@@ -25,7 +25,11 @@ msgstr ""
 msgid "Another cleanup is already in progress"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/config.clj:366
+#: src/puppetlabs/puppetdb/command.clj:425
+msgid "Exception throw in L1 retry attempt {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj:369
 msgid ""
 "Configuring the route for `{0}` is not allowed. The default route is `{1}` "
 "and server is `{2}`."
@@ -110,11 +114,11 @@ msgstr ""
 msgid "Fatal error parsing command: {0}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/mq_listener.clj:266
+#: src/puppetlabs/puppetdb/mq_listener.clj:265
 msgid "[{0}] [{1}] Fatal error on attempt {2} for {3}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/mq_listener.clj:296
+#: src/puppetlabs/puppetdb/mq_listener.clj:283
 msgid "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
 msgstr ""
 
@@ -220,19 +224,52 @@ msgstr ""
 msgid "{0} operator does not support object ''{1}'' for event counts"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:68
+#: src/puppetlabs/puppetdb/query_eng.clj:70
 msgid "Invalid entity ''{0}'' in query"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:195
-#: src/puppetlabs/puppetdb/query_eng.clj:201
+#: src/puppetlabs/puppetdb/query_eng.clj:197
+#: src/puppetlabs/puppetdb/query_eng.clj:203
 msgid ""
 "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 "
 "error code."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:206
+#: src/puppetlabs/puppetdb/query_eng.clj:208
 msgid "Caught PSQL processing exception"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj:1306
+msgid "Value {0} of type {1} unsupported."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj:1310
+msgid "Operator ''{0}'' not allowed on value ''{1}''"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj:1419
+msgid "Field 'latest_report?' not supported on endpoint ''{0}''"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/threadpool.clj:18
+msgid "Error processing command on thread {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/threadpool.clj:51
+msgid ""
+"Threadpool not stopped after {0} milliseconds, forcibly shutting it down"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/threadpool.clj:57
+msgid "Threadpool forcibly shutdown"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/threadpool.clj:97
+msgid "Thread interrupted while processing on threadpool"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/threadpool.clj:122
+msgid "Threadpool shutting down, message rejected"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/utils.clj:37

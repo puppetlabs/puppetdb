@@ -241,6 +241,14 @@
                                             http-q/restrict-fact-query-to-value
                                             http-q/restrict-query-to-active-nodes))))))
 
+(pls/defn-validated inventory-routes :- bidi-schema/RoutePair
+  [version :- s/Keyword]
+  (extract-query
+    (cmdi/routes
+      (cmdi/ANY "" []
+                (create-query-handler version "inventory"
+                                      http-q/restrict-query-to-active-nodes)))))
+
 (pls/defn-validated factset-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query

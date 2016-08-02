@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.query.facts
   "Fact query generation"
   (:require [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.paging :as paging]
@@ -37,8 +38,7 @@
   (fn [rows]
     (if (empty? rows)
       []
-      (->> rows
-           (map deserialize-fact-value)))))
+      (map #(utils/update-when % [:value] sutils/parse-db-json) rows))))
 
 (defn munge-path-result-rows
   [_ _]
