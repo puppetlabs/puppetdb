@@ -12,11 +12,35 @@
             [puppetlabs.puppetdb.export :as export]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.schema :refer [defn-validated]]))
+            [puppetlabs.puppetdb.schema :refer [defn-validated]]
+            [puppetlabs.puppetdb.utils :as utils]))
 
 (defn file-pattern
   [entity]
   (re-pattern (str "^" (.getPath (io/file utils/export-root-dir entity ".*\\.json")) "$")))
+
+(def after-certname-length
+  "The format is <certname>-<date hash><suffix>. This is a count of
+  the characters after the certname"
+  (+ 1
+     40
+     (count export/file-suffix)))
+
+(def export-root-dir-length
+  (count utils/export-root-dir))
+
+(defn extract-certname [^String command-type ^String path]
+  (let [path-length (.length path)
+        prefix-length (+ export-root-dir-length
+                         (.length command-type)
+                         2)]
+    (subs path prefix-length (- path-length after-certname-length))))
+
+(defn extract-facts-certname [^String path]
+  (let [prefix-length (+ export-root-dir-length
+                         (.length "facts")
+                         2)]
+    (subs path prefix-length (- (.length path) (count export/file-suffix)))))
 
 (defn-validated process-tar-entry
   "Determine the type of an entry from the exported archive, and process it
@@ -36,17 +60,32 @@
           ;;   the list of nodes that we submitted and the output of that query
           (command-fn :replace-catalog
                       (:replace_catalog command-versions)
-                      (utils/read-json-content tar-reader)))
+                      (extract-certname "catalogs" path)
+                      (-> tar-reader
+                          utils/read-json-content
+                          json/generate-string
+                          (.getBytes "UTF-8")
+                          java.io.ByteArrayInputStream.)))
       (file-pattern "reports")
       (do (log/infof "Importing report from archive entry '%s'" path)
           (command-fn :store-report
                       (:store_report command-versions)
-                      (utils/read-json-content tar-reader true)))
+                      (extract-certname "reports" path)
+                      (-> tar-reader
+                          (utils/read-json-content true)
+                          json/generate-string
+                          (.getBytes "UTF-8")
+                          java.io.ByteArrayInputStream.)))
       (file-pattern "facts")
       (do (log/infof "Importing facts from archive entry '%s'" path)
           (command-fn :replace-facts
                       (:replace_facts command-versions)
-                      (utils/read-json-content tar-reader)))
+                      (extract-facts-certname path)
+                      (-> tar-reader
+                          utils/read-json-content
+                          json/generate-string
+                          (.getBytes "UTF-8")
+                          java.io.ByteArrayInputStream.)))
       nil)))
 
 (def metadata-path

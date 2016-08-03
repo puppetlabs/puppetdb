@@ -27,22 +27,25 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utility Functions
 
+(def file-suffix ".json")
+
 (defn export-filename
   "For anything we store historically and need unique names"
   [{:keys [certname producer_timestamp]}]
   (let [formatted-start-time (->> producer_timestamp
                                   time-coerce/to-date-time
                                   (time-fmt/unparse (time-fmt/formatter "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")))]
-    (->> formatted-start-time
-         kitchensink/utf8-string->sha1
-         (format "%s-%s.json" certname))))
+    (format "%s-%s%s"
+            certname
+            (kitchensink/utf8-string->sha1 formatted-start-time)
+            file-suffix)))
 
 (pls/defn-validated export-datum->tar-item :- utils/tar-item
   "Creates a tar-item map for a PuppetDB entity"
   [entity datum]
   (let [file-suffix
         (case entity
-          "factsets" ["facts" (str (:certname datum) ".json")]
+          "factsets" ["facts" (str (:certname datum) file-suffix)]
           "catalogs" ["catalogs" (export-filename datum)]
           "reports" ["reports" (export-filename datum)])]
     {:file-suffix file-suffix
