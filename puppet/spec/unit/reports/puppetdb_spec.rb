@@ -118,7 +118,7 @@ describe processor do
 
     it "should include corrective_change or nil" do
       if defined?(subject.corrective_change) then
-        subject["corrective_change"] = false
+        subject.stubs(:corrective_change).returns(false)
       end
       result = subject.send(:report_to_hash)
       if defined?(subject.corrective_change) then
