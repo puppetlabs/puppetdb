@@ -30,6 +30,9 @@ operator or a [PQL][pql] query string.
 a query with a [`from`][from] is required to choose the [entity][entities] for which to query. For
 general info about queries, see [our guide to query structure.][query]
 
+* `ast_only`: optional. A boolean value. When true, the query response will be the supplied 
+`query` in AST, either exactly as supplied or translated from PQL. False by default.
+
 ### Response format
 
 The response will be in `application/json`, and will contain a list of JSON

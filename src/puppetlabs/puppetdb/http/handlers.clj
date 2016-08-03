@@ -56,7 +56,7 @@
   [version :- s/Keyword]
   (cmdi/ANY "" []
             (-> (http-q/query-handler version)
-                (http-q/extract-query-pql {:optional paging/query-params
+                (http-q/extract-query-pql {:optional (conj paging/query-params "ast_only")
                                            :required ["query"]})
                 (http/experimental-warning "The root endpoint is experimental"))))
 
