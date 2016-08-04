@@ -3,6 +3,18 @@ unless (test_config[:skip_presuite_provisioning])
     databases.each do |database|
       os = test_config[:os_families][database.name]
 
+      ### ensure nss is up to date
+      case os
+      when :debian
+        on database, "apt-get install -y --force-yes libnss3"
+      when :redhat
+        on database, "yum update -y nss"
+      when :fedora
+        on database, "yum update -y nss"
+      else
+        raise ArgumentError, "Unsupported OS '#{os}'"
+      end
+
       if test_config[:install_type] == :git then
         case os
         when :debian
@@ -47,6 +59,7 @@ unless (test_config[:skip_presuite_provisioning])
 
       case os
       when :redhat
+        on master, "yum update -y nss"
         case master['platform']
         when /^el-5/
           on master, "yum install -y rubygems sqlite-devel rubygem-activerecord ruby-devel.x86_64"
@@ -62,7 +75,9 @@ unless (test_config[:skip_presuite_provisioning])
         # This was really set with Fedora 20 in mind, later versions might differ
         on master, "yum install -y rubygems rubygem-sqlite3"
         on master, "gem install activerecord -v 3.2.17 --no-ri --no-rdoc -V --backtrace"
+        on master, "yum update -y nss"
       when :debian
+        on master, "apt-get install -y libnss3"
         case master['platform']
         when /^ubuntu-10.04/
           # Ubuntu 10.04 has rubygems 1.3.5 which is known to not be reliable, so therefore

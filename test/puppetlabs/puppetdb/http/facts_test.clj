@@ -206,6 +206,12 @@
    #{{:certname "bar" :environment "DEV" :name "osfamily" :value "Debian"}
      {:certname "foo" :environment "DEV" :name "osfamily" :value "Debian"}}
 
+   ["extract" [["function" "avg" "value"]]
+    ["and"
+     ["=" "name" "uptime_seconds"]
+     ["=" "certname" "foo"]]]
+   #{{:avg 11000.0}}
+
    ;; Implicit subquery
    ["subquery" "fact_contents"
     ["and"
