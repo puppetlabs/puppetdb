@@ -28,7 +28,8 @@
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
-            [puppetlabs.puppetdb.command :as cmd])
+            [puppetlabs.puppetdb.command :as cmd]
+            [puppetlabs.puppetdb.testutils.queue :as tqueue])
   (:import [clojure.lang ExceptionInfo]
            [java.io ByteArrayInputStream]))
 
@@ -51,25 +52,10 @@
   [command version payload]
   (json/generate-string payload))
 
-(defn rm-r [pathstr]
-  ;; Life's too short...
-  (assert (zero? (:exit (shell/sh "rm" "-r" pathstr)))))
-
-(defmacro with-temp-dir [sym & body]
-  `(let [~sym (-> (nio/path-get "target" "command-test")
-                  (nio/create-temp-dir "stk")
-                  (.resolve "q")
-                  str)]
-     (try
-       ~@body
-       (finally
-         (rm-r ~sym)))))
-
-(defn create-handler [tempdir]
-  (let [q (stock/create tempdir)
-        command-chan (async/chan 1)
+(defn create-handler [q]
+  (let [command-chan (async/chan 1)
         app (test-command-app q command-chan)]
-    [q command-chan app]))
+    [command-chan app]))
 
 (defn entry->clj [q entry]
   (-> (stock/stream q (:entry entry))
@@ -82,14 +68,14 @@
 
    (testing "Commands submitted via REST"
      (testing "should work when well-formed"
-       (with-temp-dir tempdir
+       (tqueue/with-stockpile q
          (let [payload (form-command "replace facts"
                                      (get min-supported-commands "replace facts")
                                      {:foo 1
                                       :bar 2})
                checksum (kitchensink/utf8-string->sha1 payload)
                req (internal-request {"payload" payload "checksum" checksum})
-               [q command-chan app] (create-handler tempdir)
+               [command-chan app] (create-handler q)
                response (app (post-request* endpoint
                                             {"checksum" checksum
                                              "version" (str (get min-supported-commands "replace facts"))
@@ -102,15 +88,15 @@
              (is (= {"foo" 1
                      "bar" 2}
 
-                 (entry->clj q token))))
+                    (entry->clj q token))))
 
            (is (= (content-type response)
                   http/json-response-content-type))
            (is (uuid-in-response? response)))))
 
      (testing "should return status-bad-request when missing payload"
-       (with-temp-dir tempdir
-         (let [[q command-chan app] (create-handler tempdir)
+       (tqueue/with-stockpile q
+         (let [[command-chan app] (create-handler q)
                {:keys [status body headers]} (app (post-request* endpoint nil nil))]
            (is (= status http/status-bad-request))
            (is (= headers {"Content-Type" http/json-response-content-type}))
@@ -118,8 +104,8 @@
                   "Supported commands are deactivate node, replace catalog, replace facts, store report. Received 'null'.")))))
 
      (testing "should not do checksum verification if no checksum is provided"
-       (with-temp-dir tempdir
-         (let [[q command-chan app] (create-handler tempdir)
+       (tqueue/with-stockpile q
+         (let [[command-chan app] (create-handler q)
                payload (form-command "deactivate node"
                                      (get min-supported-commands "deactivate node")
                                      {})
@@ -131,8 +117,8 @@
            (assert-success! response))))
 
      (testing "should 400 when the command is invalid"
-       (with-temp-dir tempdir
-         (let [[q command-chan app] (create-handler tempdir)
+       (tqueue/with-stockpile q
+         (let [[command-chan app] (create-handler q)
                invalid-command (form-command "foo" 100 {})
                invalid-checksum (kitchensink/utf8-string->sha1 invalid-command)
                {:keys [status body headers]}
@@ -149,8 +135,8 @@
                           valid-commands-str))))))
 
      (testing "should 400 when version is retired"
-       (with-temp-dir tempdir
-         (let [[q command-chan app] (create-handler tempdir)
+       (tqueue/with-stockpile q
+         (let [[command-chan app] (create-handler q)
                min-supported-version (get min-supported-commands "replace facts")
                misversioned-command (form-command "replace facts"
                                                   (dec min-supported-version)
@@ -176,9 +162,9 @@
   (dotestseq
    [[version endpoint] endpoints]
 
-   (with-temp-dir tempdir
+   (tqueue/with-stockpile q
      (let [ms-before-test (System/currentTimeMillis)
-           [q command-chan app] (create-handler tempdir)
+           [command-chan app] (create-handler q)
            good-payload  (form-command "replace facts"
                                        (get min-supported-commands "replace facts")
                                        {})
@@ -257,12 +243,12 @@
 (deftest almost-streaming-post
   (dotestseq
     [[version endpoint] endpoints]
-    (with-temp-dir tempdir
+    (tqueue/with-stockpile q
       (let [replace-ver (get min-supported-commands "replace facts")
             payload (form-command "replace facts" replace-ver {})
             checksum (kitchensink/utf8-string->sha1 payload)
             req (internal-request {"payload" payload "checksum" checksum})
-            [q command-chan app] (create-handler tempdir)
+            [command-chan app] (create-handler q)
             response (app
                       (post-request* endpoint
                                      {"command" "replace_facts"
@@ -285,10 +271,9 @@
 
 (deftest enqueue-max-command-size
   ;; Does not check blocking-submit-command yet.
-  (with-temp-dir tempdir
+  (tqueue/with-stockpile q
     (testing "size limit"
-      (let [q (stock/create tempdir)
-            command-chan (async/chan 1)
+      (let [command-chan (async/chan 1)
             no-max-app (handler-with-max q command-chan false)
             max-10-app (handler-with-max q command-chan 10)
             req {:request-method

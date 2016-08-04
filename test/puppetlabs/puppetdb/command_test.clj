@@ -195,22 +195,6 @@
             (is (= 1 (count (fs/list-dir discard-dir))))
             (is (= 0 (times-called process-counter)))))))))
 
-(defn make-cmd
-  "Create a command pre-loaded with `n` attempts"
-  [n]
-  {:headers {:id "foo-id-1"
-             :received (tfmt/unparse (tfmt/formatters :date-time) (now))}
-   :body (json/generate-string  {:command "some catalog"
-                                 :payload {:certname "cats"}
-                                 :version 10
-                                 :annotations {:attempts (repeat n {})}})})
-
-(defn make-cmd'
-  "Create a command pre-loaded with `n` attempts"
-  [n]
-  {:entry (stock/entry 0 (queue/metadata-str (System/currentTimeMillis) "replace catalog" 10 "cats"))
-   :annotations {:attempts (repeat n {})}})
-
 (defn append-attempts [n command]
   (assoc-in command [:annotations :attempts] (repeat n {})))
 
