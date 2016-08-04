@@ -1,18 +1,46 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -ueo pipefail
 set -x
 
 ulimit -u 4096
 
-LEIN="${1:-lein2}"
 top="$(pwd)"
+
+usage()
+{
+    set +x
+    cat <<-EOF
+	Usage: test.sh [--lein LEIN] [--pdb-ref REF] [--[no-]pg-sandbox]
+	               [-- LEIN_TEST_ARGS]
+	EOF
+    set -x
+}
+
+strip-ends() {
+    local stripped="$1"
+    stripped="${stripped#?}"
+    stripped="${stripped%?}"
+    echo "$stripped"
+}
+
+lein-pprint() {
+  "$lein" with-profile dev,ci pprint "$@"
+}
 
 # get_dep_version
 # :arg1 is the dependency project whose version we want to grab from project.clj
 get_dep_version() {
-    echo "$("$LEIN" with-profile dev,ci pprint :"${1:?}" | cut -d\" -f2)"
+    local ver
+    ver="$(lein-pprint ":$1")"
+    ver="$(strip-ends "$ver")"
+    test "$ver"
+    echo "$ver"
 }
+
+# Track the version and git-describe for each dependency and pdbext itself
+declare -A build_ver
+declare -A build_desc
 
 # checkout_repo
 # :arg1 is the name of the repo to check out
@@ -43,9 +71,77 @@ checkout_repo() {
     if [ "${repo}" == pe-activity-service ]; then
         sed -i -e 's/\[puppetlabs\/pe-rbac-service/#_\[puppetlabs\/pe-rbac-service/g' project.clj
     fi
+    build_ver[$depname]="$depversion"
+    build_desc[$depname]="$(git describe --always --tags)"
     lein install
     popd
 }
+
+lein=''
+pdb_ref=''
+pg_sandbox=''
+
+while [ "$#" -ne 0 ]; do
+    case "$1" in
+        --lein)
+            shift
+            if [ "$#" -eq 0 ]; then
+                usage 1>&2
+                exit 1
+            fi
+            lein="$1"
+            shift
+            ;;
+        --pdb-ref)
+            shift
+            if [ "$#" -eq 0 ]; then
+                usage 1>&2
+                exit 1
+            fi
+            pdb_ref="$1"
+            shift
+            ;;
+        --pg-sandbox)
+            pg_sandbox=true
+            shift
+            ;;
+        --no-pg-sandbox)
+            pg_sandbox=''
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            usage 1>&2
+            exit 1
+            ;;
+    esac
+done
+
+lein_args=("$@")
+
+# If --lein was not specified, then check any lein or lein2 in the path.
+if test -z "$lein"; then
+    for candidate in lein lein2; do
+        type -p "$candidate" || continue
+        lein_ver="$("$candidate" --version)"
+        if ! [["$lein_ver" =~ ^Leiningen\ 2 ]]; then
+            lein="$candidate"
+            break
+        fi
+    done
+fi
+
+if test -z "$lein"; then
+    echo "Unable to find suitable Leiningen command; halting" >&2
+    exit 1
+fi
+
+build_ver[pe-puppetdb-extensions]="$(strip-ends "$(lein-pprint :version)")"
+build_desc[pe-puppetdb-extensions]="$(git describe --always --tags)"
+test "${build_ver[pe-puppetdb-extensions]}"
 
 rm -rf checkouts
 mkdir checkouts
@@ -62,36 +158,46 @@ checkout_repo pe-activity-service pe-activity-service
 
 git clone https://github.com/puppetlabs/puppetdb
 
-# Try to checkout to the "release" tag in puppetdb corresponding to
-# the dependency version. If we can't find it, default to a branch of
-# the same name as the current branch
-depversion="$(get_dep_version 'puppetdb')"
+# For the puppetdb checkout, if pdb_ref is set, use that, otherwise
+# the detected build_ver if it's a tag, or finally, any TRAVIS_BRANCH
+# (i.e. the current extensions branch in $top).
+build_ver[puppetdb]="$(get_dep_version puppetdb)"
+
 cd puppetdb
 
-# Warning: the inner quotes here are valid, and shouldn't require escaping
-tag="$(git tag -l "${depversion?}")"
-if test -n "${tag?}"
-then
-    git checkout "$depversion"
-else
-    git checkout "$TRAVIS_BRANCH"
+if [ -z "$pdb_ref" ]; then
+    pdb_ref="$(git tag -l "${build_ver[puppetdb]}")"
 fi
-"$LEIN" install
+
+pdb_ref="${pdb_ref:-${TRAVIS_BRANCH}}"
+build_ver[puppetdb]="$pdb_ref"
+
+git checkout "$pdb_ref"
+build_desc[puppetdb]="$(git describe --always --tags)"
+"$lein" install
 
 cd "$top"
 
-pgdir="$(pwd)/test-resources/var/pg"
-readonly pgdir
+if [ "$pg_sandbox" ]; then
+    export PGHOST=127.0.0.1
+    export PGPORT=5432
 
-export PGHOST=127.0.0.1
-export PGPORT=5432
+    pgdir="$(pwd)/test-resources/var/pg"
+    checkouts/puppetdb/ext/bin/setup-pdb-pg "$pgdir"
+    pdb-env() { "$top/checkouts/puppetdb/ext/bin/pdb-test-env" "$pgdir" "$@"; }
+else
+    pdb-env() { env "$@"; }
+fi
 
-checkouts/puppetdb/ext/bin/setup-pdb-pg "$pgdir"
-
-pdb-env()
-{
-  "$top/checkouts/puppetdb/ext/bin/pdb-test-env" "$pgdir" "$@"
-}
+set +x
+echo >&2
+echo build versions: >&2
+for item in ${!build_ver[*]}; do
+    echo "  $item: ${build_ver[$item]} (${build_desc[$item]})" >&2
+done
+echo >&2
+set -x
 
 java -version
-pdb-env "$LEIN" test
+# This odd syntax avoids a "set -u" error if there are no lein args.
+pdb-env "$lein" test ${arr[@]+"${arr[@]}"}

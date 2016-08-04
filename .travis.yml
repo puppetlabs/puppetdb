@@ -8,7 +8,7 @@ jdk:
 notifications:
     email: false
 script:
-    - bash ./ext/travisci/test.sh lein2
+    - ext/travisci/test.sh --lein lein2 --pg-sandbox
 addons:
   postgresql: "9.4"
 services: postgresql
