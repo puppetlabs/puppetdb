@@ -183,13 +183,13 @@
   "Calls (f), and then if there are no clojure.tests failures or
   errors, drops the database, otherwise displays its subname."
   [db-config f]
-  (let [before @clojure.test/*report-counters*]
+  (let [before (some-> clojure.test/*report-counters* deref)]
     (try
       (f)
       (finally
         (if-not preserve-test-db-on-failure
           (drop-test-db db-config)
-          (let [after @clojure.test/*report-counters*]
+          (let [after (some-> clojure.test/*report-counters* deref)]
             (if (and (= (:error before) (:error after))
                      (= (:fail before) (:fail after)))
               (drop-test-db db-config)

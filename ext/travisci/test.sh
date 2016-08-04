@@ -16,6 +16,8 @@ run-unit-tests()
   ext/bin/pdb-test-env "$pgdir" lein2 test
 )
 
+export PDB_TEST_DUMP_LOG_ON_FAILURE=true
+
 case "$PDB_TEST_LANG" in
   clojure)
     java -version
