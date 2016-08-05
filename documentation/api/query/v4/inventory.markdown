@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.1: Inventory endpoint"
+title: "PuppetDB 4.2: Inventory endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/inventory.html"
 ---
