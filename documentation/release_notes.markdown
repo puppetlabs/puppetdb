@@ -18,8 +18,8 @@ canonical: "/puppetdb/latest/release_notes.html"
 -----
 
 PuppetDB 4.2.0 is a backward-compatible feature release that adds a
-new inventory endpoint, the ability to query structured data like
-facts and resource parameters using a dotted notation and the ability
+new inventory endpoint, the ability to query structured data (like
+facts and resource parameters) using a dotted notation and the ability
 to trigger background/GC tasks manually via POST. This release
 also includes several new queryable fields, bugfixes and faster
 retries for common error scenarios.
@@ -37,7 +37,7 @@ retries for common error scenarios.
   parameters. Support for this is available in both AST and PQL query
   langauges. ([PDB-2632](https://tickets.puppetlabs.com/browse/PDB-2632))
 
-* Added a new query parameter `ast_only` to the root query endpoint
+* Added a new `ast_only` parameter to the root query endpoint
   that translates a PQL query to an equivalent AST query. More
   information is available in the [root
   endpoint](./api/query/v4/index.html#url-parameters) docs.
@@ -51,29 +51,28 @@ retries for common error scenarios.
   times and use less disk I/O in the most common kinds of failures.
   ([PDB-2865](https://tickets.puppetlabs.com/browse/PDB-2865))
 
-* Added a new endpoint to manually trigger PuppetDB GC processes. The
-  new endpoint allows purging old reports or deactivated nodes via a
-  POST. Users can disable automatic running of these background
-  processes and schedule these manual triggers via cron to ensure they
-  don't disrupt peak usage times. More information on this new
-  endpoint is available in the API docs for the [admin
-  command](./api/admin/v1/cmd.html) endpoint.
+* Added an endpoint that can trigger PuppetDB GC processes via a POST
+  (like purging old reports or deactivated nodes).  With that, you can
+  disable the automatic scheduling of those processes, and run them
+  selectively, perhaps via cron, to avoid increasing the load during
+  peak usage times.  See the [admin command](./api/admin/v1/cmd.html)
+  endpoint documentation for more information.
   ([PDB-2487](https://tickets.puppetlabs.com/browse/PDB-2487))
 
-* Add depth as a queryable field to the fact-path endpoint.
+* Added `depth` as a queryable fact-path endpoint field.
   ([PDB-2771](https://tickets.puppetlabs.com/browse/PDB-2771))
 
-* Add support for storing the new "remediation" field, available for
-  querying via the reports and nodes endpoints.
+* Began storing the new `remediation` field, which can be queried via
+  the reports and nodes endpoints.
   ([PDB-2838](https://tickets.puppetlabs.com/browse/PDB-2838))
 
-* The PQL grammar has been relaxed to allow whitespace around.
-  parentheses ([PDB-2891](https://tickets.puppetlabs.com/browse/PDB-2891))
+* Began allowing whitespace around parentheses in PQL.
+  ([PDB-2891](https://tickets.puppetlabs.com/browse/PDB-2891))
 
-* Added a new "producer" field to catalogs, facts and reports which
-  indicates the certname of the puppetmaster that sent the data.
+* Added a `producer` field to catalogs, facts and reports which
+  provides the certname of the puppetmaster that sent the data.
   ([PDB-2782](https://tickets.puppetlabs.com/browse/PDB-2782),
-   [PDB-2837](https://tickets.puppetlabs.com/browse/PDB-2837))
+  [PDB-2837](https://tickets.puppetlabs.com/browse/PDB-2837))
 
 * Switched to using the real noop status sent by the agent, previous
   versions of PuppetDB inferred that noop status by looking for noop
