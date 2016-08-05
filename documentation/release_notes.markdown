@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.0: Release notes"
+title: "PuppetDB 4.2: Release notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
@@ -13,6 +13,108 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrades]: ./upgrade.html
 [metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
 [pqltutorial]: ./api/query/tutorial-pql.html
+
+4.2.0
+-----
+
+PuppetDB 4.2.0 is a backward-compatible feature release that adds a
+new inventory endpoint, the ability to query structured data like
+facts and resource parameters using a dotted notation and the ability
+to trigger background/GC tasks manually via POST. This release
+also includes several new queryable fields, bugfixes and faster
+retries for common error scenarios.
+
+### New features / Enhancements
+
+* Added a new inventory endpoint that includes all fact keypairs
+  represented as a map. Trusted facts are also returned as a map in a
+  separate keypair. This new data can be queried via our "dotted
+  syntax" in both AST and PQL query languages. More information is
+  available via the [API docs](./api/query/v4/inventory.html).
+  ([PDB-2632](https://tickets.puppetlabs.com/browse/PDB-2632))
+
+* Added support for "dotted query" syntax to resource
+  parameters. Support for this is available in both AST and PQL query
+  langauges. ([PDB-2632](https://tickets.puppetlabs.com/browse/PDB-2632))
+
+* Added a new query parameter `ast_only` to the root query endpoint
+  that translates a PQL query to an equivalent AST query. More
+  information is available in the [root
+  endpoint](./api/query/v4/index.html#url-parameters) docs.
+  ([PDB-2528](https://tickets.puppetlabs.com/browse/PDB-2528))
+
+* Added "quick retries" on command failures. This will retry commands
+  (such as storing a new report or updating a catalog) immediately
+  after a failure. The command will be retried 4 times before falling
+  back to the regular retry process that involves delaying the message
+  and reenqueuing it. This should result in faster command processing
+  times and use less disk I/O in the most common kinds of failures.
+  ([PDB-2865](https://tickets.puppetlabs.com/browse/PDB-2865))
+
+* Added a new endpoint to manually trigger PuppetDB GC processes. The
+  new endpoint allows purging old reports or deactivated nodes via a
+  POST. Users can disable automatic running of these background
+  processes and schedule these manual triggers via cron to ensure they
+  don't disrupt peak usage times. More information on this new
+  endpoint is available in the API docs for the [admin
+  command](./api/admin/v1/cmd.html) endpoint.
+  ([PDB-2487](https://tickets.puppetlabs.com/browse/PDB-2487))
+
+* Add depth as a queryable field to the fact-path endpoint.
+  ([PDB-2771](https://tickets.puppetlabs.com/browse/PDB-2771))
+
+* Add support for storing the new "remediation" field, available for
+  querying via the reports and nodes endpoints.
+  ([PDB-2838](https://tickets.puppetlabs.com/browse/PDB-2838))
+
+* The PQL grammar has been relaxed to allow whitespace around.
+  parentheses ([PDB-2891](https://tickets.puppetlabs.com/browse/PDB-2891))
+
+* Added a new "producer" field to catalogs, facts and reports which
+  indicates the certname of the puppetmaster that sent the data.
+  ([PDB-2782](https://tickets.puppetlabs.com/browse/PDB-2782),
+   [PDB-2837](https://tickets.puppetlabs.com/browse/PDB-2837))
+
+* Switched to using the real noop status sent by the agent, previous
+  versions of PuppetDB inferred that noop status by looking for noop
+  on individual resources.
+  ([PDB-2753](https://tickets.puppetlabs.com/browse/PDB-2753))
+
+* Added the 'noop_pending' field, which is true when the report
+  contains resources that have a noop status.
+  ([PDB-2753](https://tickets.puppetlabs.com/browse/PDB-2753))
+
+### Bug fixes and maintenance
+
+* Fixed nested implicit subqueries against different
+  entities. Previously this would have raised an exception.
+  ([PDB-2892](https://tickets.puppetlabs.com/browse/PDB-2892))
+
+* Fixed a bug preventing usage of functions on fact-contents queries.
+  ([PDB-2843](https://tickets.puppetlabs.com/browse/PDB-2843))
+
+* Improved error messages for invalid subquery operators.
+  ([PDB-2310](https://tickets.puppetlabs.com/browse/PDB-2310))
+
+* Updated PuppetDB node check-ins to hourly rather than only on startup.
+
+* Updated the following dependencies
+
+  - trapperkeeper 1.3.1 -> 1.4.1
+  - trapperkeeper-jetty9 1.3.1 -> 1.4.1
+  - trapperkeeper-status 0.3.1 -> 0.4.0
+  - prismatic/schema 1.0.4 -> 1.1.2
+  - Ezbake 0.3.25 -> 0.4.3 ([PDB-2910](https://tickets.puppetlabs.com/browse/PDB-2910))
+
+4.1.4
+-----
+
+PuppetDB 4.1.4 was not publicly released.
+
+4.1.3
+-----
+
+PuppetDB 4.1.3 was not publicly released.
 
 4.1.2
 -----
