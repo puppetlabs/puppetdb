@@ -1,16 +1,19 @@
 ---
-title: "PuppetDB 4.1: Commands endpoint"
+title: "PuppetDB 4.2: Commands endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/command/v1/commands.html"
 ---
 
 [factsv4]: ../../wire_format/facts_format_v4.html
+[factsv5]: ../../wire_format/facts_format_v5.html
 [catalogv6]: ../../wire_format/catalog_format_v6.html
 [catalogv7]: ../../wire_format/catalog_format_v7.html
 [catalogv8]: ../../wire_format/catalog_format_v8.html
+[catalogv9]: ../../wire_format/catalog_format_v9.html
 [reportv5]: ../../wire_format/report_format_v5.html
 [reportv6]: ../../wire_format/report_format_v6.html
 [reportv7]: ../../wire_format/report_format_v7.html
+[reportv8]: ../../wire_format/report_format_v8.html
 [deactivatev3]: ../../wire_format/deactivate_node_format_v3.html
 
 Commands are used to change PuppetDB's model of a population. Commands are represented by `command objects`,
@@ -96,22 +99,19 @@ processed.
 
 ## List of commands
 
-### "replace catalog", version 8
+### "replace catalog", version 9
 
-* The nullable `catalog\_uuid` property has been added.
+* The nullable `producer` property has been added.
 
 The payload is expected to be a Puppet catalog, as a JSON object,
-conforming exactly to the [catalog wire format v8][catalogv8]. Extra
+conforming exactly to the [catalog wire format v9][catalogv9]. Extra
 or missing fields are an error.
 
-### "replace facts", version 4
+### "replace facts", version 5
 
-* Similar to version 6 of replace catalog, previously dashed fields are now
-  underscore-separated.
+* The nullable `producer` property has been added.
 
-* The `name` field has been renamed to `certname`, for consistency. 
-
-See [fact wire format v4][factsv4] for more information on the
+See [fact wire format v5][factsv5] for more information on the
 payload of this command.
 
 ### "deactivate node", version 3
@@ -123,20 +123,28 @@ payload of this command.
 See [deactivate node wire format v3][deactivatev3] for more information on the
 payload of this command.
 
-### "store report", version 7
+### "store report", version 8
 
-* The nullable `catalog\_uuid`, `code\_id`, and `cached\_catalog\_status`
-properties have been added.
+* The nullable `producer`, `noop_pending`, and `corrective_change` fields have
+  been added.
 
 The payload is expected to be a report, containing events that occurred on
 Puppet resources. It is structured as a JSON object, conforming to the
-[report wire format v7][reportv7].
+[report wire format v8][reportv8].
 
 ## Deprecated commands
 
+### "replace catalog", version 8
+
+* The nullable `catalog_uuid` property has been added.
+
+The payload is expected to be a Puppet catalog, as a JSON object,
+conforming exactly to the [catalog wire format v8][catalogv8]. Extra
+or missing fields are an error.
+
 ### "replace catalog", version 7
 
-* The nullable `code\_id` property has been added.
+* The nullable `code_id` property has been added.
 
 The payload is expected to be a Puppet catalog, as a JSON object,
 conforming exactly to the [catalog wire format v7][catalogv7]. Extra
@@ -152,6 +160,25 @@ or missing fields are an error.
 The payload is expected to be a Puppet catalog, as a JSON object,
 conforming exactly to the [catalog wire format v6][catalogv6]. Extra
 or missing fields are an error.
+
+### "replace facts", version 4
+
+* Similar to version 6 of replace catalog, previously dashed fields are now
+  underscore-separated.
+
+* The `name` field has been renamed to `certname`, for consistency.
+
+See [fact wire format v4][factsv4] for more information on the
+payload of this command.
+
+### "store report", version 7
+
+* The nullable `catalog_uuid`, `code_id`, and `cached_catalog_status`
+properties have been added.
+
+The payload is expected to be a report, containing events that occurred on
+Puppet resources. It is structured as a JSON object, conforming to the
+[report wire format v7][reportv7].
 
 ### "store report", version 6
 
@@ -184,15 +211,15 @@ To post a `replace facts` command you can use the following curl command:
     curl -X POST \
       -H 'Content-Type:application/json' \
       -H 'Accept:application/json' \
-      -d '{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"},"producer_timestamp":"2015-01-01"}' \
-      "http://localhost:8080/pdb/cmd/v1?command=replace_facts&version=4&certname=test1"
+      -d '{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"},"producer_timestamp":"2015-01-01", "producer":"master1"}' \
+      "http://localhost:8080/pdb/cmd/v1?command=replace_facts&version=5&certname=test1"
 
 or equivalently (with the deprecated mechanism):
 
     curl -X POST \
       -H "Accept: application/json" \
       -H "Content-Type: application/json" \
-      -d '{"command":"replace facts","version":4,"payload":{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"},"producer_timestamp":"2015-01-01"}}' \
+      -d '{"command":"replace facts","version":5,"payload":{"certname":"test1","environment":"DEV","values":{"myfact":"myvalue"},"producer_timestamp":"2015-01-01", "producer":"master1"}}' \
       http://localhost:8080/pdb/cmd/v1
 
 An example of `deactivate node`:

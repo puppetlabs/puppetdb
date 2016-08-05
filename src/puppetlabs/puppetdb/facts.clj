@@ -31,7 +31,8 @@
    :values fact-set-schema
    :timestamp pls/Timestamp
    :environment (s/maybe s/Str)
-   :producer_timestamp (s/cond-pre s/Str pls/Timestamp)})
+   :producer_timestamp (s/cond-pre s/Str pls/Timestamp)
+   :producer (s/maybe s/Str)})
 
 (def valuemap-schema
   {:value_hash s/Str
@@ -39,7 +40,7 @@
    :value_string (s/maybe s/Str)
    :value_integer (s/maybe s/Int)
    :value_boolean (s/maybe s/Bool)
-   :value (s/maybe s/Str)
+   :value (s/maybe s/Any)
    :value_type_id s/Int})
 
 ;; GLOBALS
@@ -148,7 +149,7 @@
                             3 :value_boolean
                             5 :value)]
         (assoc initial-map value-keyword value
-          :value (sutils/db-serialize value))))))
+          :value (sutils/munge-jsonb-for-storage value))))))
 
 (defn flatten-facts-with
   "Returns a collection of (leaf-fn path leaf) for all of the paths
@@ -241,15 +242,22 @@
            factpath-to-string)
        "$"))
 
-(defn wire-v3->wire-v4
-  "Takes a v3 formatted replace facts command and upgrades it to a v4 facts command"
-  [facts]
-  (set/rename-keys facts {:producer-timestamp :producer_timestamp
-                          :name :certname}))
+ (defn wire-v4->wire-v5
+   "Takes a v4 formatted replace facts command and upgrades it to a v5 facts command"
+   [facts]
+   (assoc facts :producer nil))
 
-(defn wire-v2->wire-v4
-  "Takes a v2 formatted replace facts command and upgrades it to a v4 facts command"
+(defn wire-v3->wire-v5
+  "Takes a v3 formatted replace facts command and upgrades it to a v5 facts command"
+  [facts]
+  (-> facts
+      (set/rename-keys {:producer-timestamp :producer_timestamp
+                            :name :certname})
+      wire-v4->wire-v5))
+
+(defn wire-v2->wire-v5
+  "Takes a v2 formatted replace facts command and upgrades it to a v5 facts command"
   [facts received-time]
   (-> facts
       (assoc :producer-timestamp received-time)
-      wire-v3->wire-v4))
+      wire-v3->wire-v5))

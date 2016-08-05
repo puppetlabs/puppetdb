@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.1: Entities"
+title: "PuppetDB 4.2: Entities"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/entities.html"
 ---
@@ -15,6 +15,7 @@ canonical: "/puppetdb/latest/api/query/v4/entities.html"
 [fact-contents]: ./fact-contents.html
 [fact-paths]: ./fact-paths.html
 [nodes]: ./nodes.html
+[producers]: ./producers.html
 [query]: ./query.html
 [reports]: ./reports.html
 [resources]: ./resources.html
@@ -49,6 +50,7 @@ Entity Name                                        | REST Endpoint
 [`fact_names`][fact-names]                         | [/pdb/query/v4/fact-names][fact-names]
 [`fact_paths`][fact-paths]                         | [/pdb/query/v4/fact-paths][fact-paths]
 [`nodes`][nodes]                                   | [/pdb/query/v4/nodes][nodes]
+[`producers`][producers]                           | [/pdb/query/v4/producers][producers]
 [`reports`][reports]                               | [/pdb/query/v4/reports][reports]
 [`resources`][resources]                           | [/pdb/query/v4/resources][resources]
 

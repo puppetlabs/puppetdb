@@ -19,7 +19,7 @@ Puppet::Reports.register_report(:puppetdb) do
   # @return [void]
   def process
     profile("report#process", [:puppetdb, :report, :process]) do
-      submit_command(self.host, report_to_hash, CommandStoreReport, 7)
+      submit_command(self.host, report_to_hash, CommandStoreReport, 8)
     end
 
     nil
@@ -38,12 +38,14 @@ Puppet::Reports.register_report(:puppetdb) do
       end
 
       resources = build_resources_list
-      is_noop = resources.any? { |rs| has_noop_event?(rs) } && resources.none? { |rs| has_enforcement_event?(rs) }
-
+      is_noop = defined?(noop) ? noop : resources.any? { |rs| has_noop_event?(rs) } && resources.none? { |rs| has_enforcement_event?(rs) }
 
       defaulted_catalog_uuid = defined?(catalog_uuid) ? catalog_uuid : transaction_uuid
       defaulted_code_id = defined?(code_id) ? code_id : nil
       defaulted_cached_catalog_status = defined?(cached_catalog_status) ? cached_catalog_status : nil
+      defaulted_noop_pending = defined?(noop_pending) ? noop_pending : nil
+      defaulted_corrective_change = defined?(corrective_change) ? corrective_change : nil
+
       {
         "certname" => host,
         "puppet_version" => puppet_version,
@@ -56,12 +58,15 @@ Puppet::Reports.register_report(:puppetdb) do
         "transaction_uuid" => transaction_uuid,
         "status" => status,
         "noop" => is_noop,
+        "noop_pending" => defaulted_noop_pending,
+        "corrective_change" => defaulted_corrective_change,
         "logs" => build_logs_list,
         "metrics" => build_metrics_list,
         "resources" => resources,
         "catalog_uuid" => defaulted_catalog_uuid,
         "code_id" => defaulted_code_id,
         "cached_catalog_status" => defaulted_cached_catalog_status,
+        "producer" => Puppet[:node_name_value]
       }
     end
   end
@@ -151,12 +156,14 @@ Puppet::Reports.register_report(:puppetdb) do
   # @return Hash[<String, Object>]
   # @api private
   def event_to_hash(event)
+    corrective_change = defined?(event.corrective_change) ? event.corrective_change : nil
     {
       "status"            => event.status,
       "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
       "property"          => event.property,
       "new_value"         => event.desired_value,
       "old_value"         => event.previous_value,
+      "corrective_change" => corrective_change,
       "message"           => event.message,
     }
   end
@@ -174,15 +181,17 @@ Puppet::Reports.register_report(:puppetdb) do
   # @return Hash[<String, Object>]
   # @api private
   def resource_status_to_hash(resource_status)
+    defaulted_corrective_change = defined?(resource_status.corrective_change) ? resource_status.corrective_change : nil
     {
-      "skipped"          => resource_status.skipped,
-      "timestamp"        => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
-      "resource_type"    => resource_status.resource_type,
-      "resource_title"   => resource_status.title.to_s,
-      "file"             => resource_status.file,
-      "line"             => resource_status.line,
-      "containment_path" => resource_status.containment_path,
-      "events"           => build_events_list(resource_status.events),
+      "skipped"           => resource_status.skipped,
+      "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(resource_status.time),
+      "resource_type"     => resource_status.resource_type,
+      "resource_title"    => resource_status.title.to_s,
+      "file"              => resource_status.file,
+      "line"              => resource_status.line,
+      "containment_path"  => resource_status.containment_path,
+      "corrective_change" => defaulted_corrective_change,
+      "events"            => build_events_list(resource_status.events),
     }
   end
 

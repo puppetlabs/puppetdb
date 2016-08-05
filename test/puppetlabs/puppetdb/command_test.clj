@@ -26,7 +26,7 @@
             [clj-time.core :as t :refer [days ago now seconds]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
-            [slingshot.slingshot :refer [throw+]]
+            [slingshot.slingshot :refer [throw+ try+]]
             [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :as pt]
@@ -177,24 +177,18 @@
 
 (deftest command-retry-handler
   (testing "Retry handler"
-    (with-redefs [metrics.meters/mark!  (call-counter)
+    (with-redefs [metrics.meters/mark! (call-counter)
                   mql/annotate-with-attempt (call-counter)]
 
       (testing "should log errors"
         (let [publish  (call-counter)]
-          (testing "to DEBUG for initial retries"
-            (let [log-output (atom [])]
-              (binding [*logger-factory* (atom-logger log-output)]
-                (mql/handle-command-retry (make-cmd 1) nil publish))
-              (is (= (get-in @log-output [0 1]) :debug))))
-
           (testing "includes certname in retry log"
             (let [log-output (atom [])]
               (binding [*logger-factory* (atom-logger log-output)]
                 (mql/handle-command-retry (assoc (make-cmd 1) :payload {:certname "cats"}) nil publish))
               (is (str/includes? (get-in @log-output [0 3]) "cats"))))
 
-          (testing "to ERROR for later retries"
+          (testing "to ERROR for retries"
             (let [log-output (atom [])]
               (binding [*logger-factory* (atom-logger log-output)]
                 (mql/handle-command-retry (make-cmd mql/maximum-allowable-retries) nil publish))
@@ -227,21 +221,62 @@
               (is (str/includes? (get-in @log-output [0 3]) "cats")))))))
 
 (deftest test-error-with-stacktrace
-  (with-redefs [metrics.meters/mark!  (call-counter)]
-    (let [publish  (call-counter)]
-      (testing "Exception with stacktrace, no more retries"
-        (let [log-output (atom [])]
-          (binding [*logger-factory* (atom-logger log-output)]
-            (mql/handle-command-retry (make-cmd 1) (RuntimeException. "foo") publish))
-          (is (= (get-in @log-output [0 1]) :debug))
-          (is (instance? Exception (get-in @log-output [0 2])))))
-
+  (with-redefs [metrics.meters/mark! (call-counter)]
+    (let [publish (call-counter)]
       (testing "Exception with stacktrace, no more retries"
         (let [log-output (atom [])]
           (binding [*logger-factory* (atom-logger log-output)]
             (mql/handle-command-retry (make-cmd mql/maximum-allowable-retries) (RuntimeException. "foo") publish))
           (is (= (get-in @log-output [0 1]) :error))
           (is (instance? Exception (get-in @log-output [0 2]))))))))
+
+(deftest call-with-quick-retry-test
+  (testing "errors are logged at debug while retrying"
+    (let [log-output (atom [])]
+      (binding [*logger-factory* (atom-logger log-output)]
+        (try (call-with-quick-retry 1
+                                    (fn []
+                                      (throw (RuntimeException. "foo"))))
+             (catch RuntimeException e nil)))
+      (is (= (get-in @log-output [0 1]) :debug))
+      (is (instance? Exception (get-in @log-output [0 2])))))
+
+  (testing "retries the specified number of times"
+    (let [publish (call-counter)
+          num-retries 5
+          counter (atom num-retries)]
+      (try (call-with-quick-retry num-retries
+                                  (fn []
+                                    (if (= @counter 0)
+                                      (publish)
+                                      (do (swap! counter dec)
+                                          (throw (RuntimeException. "foo"))))))
+           (catch RuntimeException e nil))
+      (is (= 1 (times-called publish)))))
+
+  (testing "stops retrying after a success"
+    (let [publish (call-counter)
+          counter (atom 0)]
+      (call-with-quick-retry 5
+                             (fn []
+                               (swap! counter inc)
+                               (publish)))
+      (is (= 1 @counter))
+      (is (= 1 (times-called publish)))))
+
+  (testing "fatal errors are not retried"
+    (let [e (try+ (call-with-quick-retry 0
+                                         (fn []
+                                           (throw+ (fatality (Exception. "fatal error")))))
+                  (catch mql/fatal? e e))]
+      (is (= true (:fatal e)))))
+
+  (testing "errors surfaces when no more retries are left"
+    (let [e (try (call-with-quick-retry 0
+                                        (fn []
+                                          (throw (RuntimeException. "foo"))))
+                 (catch RuntimeException e e))]
+      (is (instance? RuntimeException e)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -260,6 +295,11 @@
   [row-map]
   (assoc row-map :environment_id (scf-store/environment-id "DEV")))
 
+(defn with-producer
+  "Updates the `row-map` to include producer information."
+  [row-map]
+  (assoc row-map :producer_id (scf-store/producer-id "bar.com")))
+
 (defn version-kwd->num
   "Converts a version keyword into a correct number (expected by the command).
    i.e. :v4 -> 4"
@@ -277,13 +317,13 @@
 
 (def catalog-versions
   "Currently supported catalog versions"
-  [:v8])
+  [:v8 :v9])
 
 (deftest replace-catalog-test
   (dotestseq [version catalog-versions
               :let [raw-command {:command (command-names :replace-catalog)
-                                 :version 8
-                                 :payload (-> (get-in wire-catalogs [8 :empty])
+                                 :version (version-kwd->num version)
+                                 :payload (-> (get-in wire-catalogs [(version-kwd->num version) :empty])
                                               (assoc :producer_timestamp (now)))}]]
     (testing (str (command-names :replace-catalog) " " version)
       (let [certname (get-in raw-command [:payload :certname])
@@ -317,13 +357,12 @@
           (with-test-db
             (is (= (query-to-vec "SELECT certname FROM catalogs")
                    []))
-            (let [certname-id (:id (first (jdbc/insert! :certnames {:certname certname})))
-                  id (:id (first (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "00")
-                                                          :api_version 1
-                                                          :catalog_version "foo"
-                                                          :certname certname
-                                                          :producer_timestamp (to-timestamp (-> 1 days ago))})))]
-              (jdbc/insert! :latest_catalogs {:catalog_id id :certname_id certname-id}))
+            (jdbc/insert! :certnames {:certname certname})
+            (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "00")
+                                     :api_version 1
+                                     :catalog_version "foo"
+                                     :certname certname
+                                     :producer_timestamp (to-timestamp (-> 1 days ago))})
 
             (test-msg-handler command publish discard-dir
               (is (= [(with-env {:certname certname :catalog catalog-hash})]
@@ -342,14 +381,13 @@
 
         (testing "with a newer catalog should ignore the message"
           (with-test-db
-            (let [certname-id (:id (first (jdbc/insert! :certnames {:certname certname})))
-                  id (:id (first (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "ab")
-                                                          :api_version 1
-                                                          :catalog_version "foo"
-                                                          :certname certname
-                                                          :timestamp tomorrow
-                                                          :producer_timestamp (to-timestamp (now))})))]
-              (jdbc/insert! :latest_catalogs {:catalog_id id :certname_id certname-id}))
+            (jdbc/insert! :certnames {:certname certname})
+            (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "ab")
+                                     :api_version 1
+                                     :catalog_version "foo"
+                                     :certname certname
+                                     :timestamp tomorrow
+                                     :producer_timestamp (to-timestamp (now))})
 
             (test-msg-handler command publish discard-dir
               (is (= [{:certname certname :catalog "ab"}]
@@ -472,12 +510,12 @@
                        resources)))))
 
 (def basic-wire-catalog
-  (get-in wire-catalogs [7 :basic]))
+  (get-in wire-catalogs [9 :basic]))
 
 (deftest catalog-with-updated-resource-line
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 7
+                             :version latest-catalog-version
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -504,7 +542,7 @@
 (deftest catalog-with-updated-resource-file
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 7
+                             :version latest-catalog-version
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -531,7 +569,7 @@
 (deftest catalog-with-updated-resource-exported
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 7
+                             :version latest-catalog-version
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -556,7 +594,7 @@
 (deftest catalog-with-updated-resource-tags
   (dotestseq [version catalog-versions
               :let [command {:command (command-names :replace-catalog)
-                             :version 7
+                             :version latest-catalog-version
                              :payload basic-wire-catalog}
                     command-1 (stringify-payload command)
                     command-2 (stringify-payload
@@ -647,6 +685,7 @@
                                      :values {"x" "24" "y" "25" "z" "26"}
                                      :timestamp yesterday
                                      :producer_timestamp yesterday
+                                     :producer "bar.com"
                                      :environment "DEV"}))
 
         (testing "should replace the facts"
@@ -689,6 +728,7 @@
                                  :values {"x" "24" "y" "25" "z" "26"}
                                  :timestamp tomorrow
                                  :producer_timestamp (to-timestamp (now))
+                                 :producer "bar.com"
                                  :environment "DEV"}))
 
         (testing "should ignore the message"
@@ -859,7 +899,20 @@
 
 (deftest replace-facts-bad-payload
   (let [bad-command {:command (command-names :replace-facts)
-                     :version 4
+                     :version latest-facts-version
+                     :payload "bad stuff"}]
+    (dotestseq [version fact-versions
+                :let [command bad-command]]
+      (testing "should discard the message"
+        (with-test-db
+          (test-msg-handler command publish discard-dir
+            (is (empty? (query-to-vec "SELECT * FROM facts")))
+            (is (= 0 (times-called publish)))
+            (is (seq (fs/list-dir discard-dir)))))))))
+
+(deftest replace-facts-bad-payload-v2
+  (let [bad-command {:command (command-names :replace-facts)
+                     :version 2
                      :payload "bad stuff"}]
     (dotestseq [version fact-versions
                 :let [command bad-command]]
@@ -909,7 +962,8 @@
                                  :values (:values facts)
                                  :timestamp (-> 2 days ago)
                                  :environment nil
-                                 :producer_timestamp (-> 2 days ago)}))
+                                 :producer_timestamp (-> 2 days ago)
+                                 :producer "bar.com"}))
 
         (with-redefs [scf-store/update-facts!
                       (fn [fact-data]
@@ -952,6 +1006,8 @@
   ;; violation when the two updates left behind an orphaned row.
   (let [certname-1 "some_certname1"
         certname-2 "some_certname2"
+        producer-1 "some_producer1"
+        producer-2 "some_producer2"
         ;; facts for server 1, has the same "mytimestamp" value as the
         ;; facts for server 2
         facts-1a {:certname certname-1
@@ -959,13 +1015,15 @@
                   :values {"domain" "mydomain1.com"
                            "operatingsystem" "Debian"
                            "mytimestamp" "1"}
-                  :producer_timestamp (-> 2 days ago)}
+                  :producer_timestamp (-> 2 days ago)
+                  :producer producer-1}
         facts-2a {:certname certname-2
                   :environment nil
                   :values {"domain" "mydomain2.com"
                            "operatingsystem" "Debian"
                            "mytimestamp" "1"}
-                  :producer_timestamp (-> 2 days ago)}
+                  :producer_timestamp (-> 2 days ago)
+                  :producer producer-2}
 
         ;; same facts as before, but now certname-1 has a different
         ;; fact value for mytimestamp (this will force a new fact_value
@@ -975,7 +1033,8 @@
                   :values {"domain" "mydomain1.com"
                            "operatingsystem" "Debian"
                            "mytimestamp" "1b"}
-                  :producer_timestamp (-> 1 days ago)}
+                  :producer_timestamp (-> 1 days ago)
+                  :producer producer-1}
 
         ;; with this, certname-1 and certname-2 now have their own
         ;; fact_value for mytimestamp that is different from the
@@ -985,7 +1044,8 @@
                   :values {"domain" "mydomain2.com"
                            "operatingsystem" "Debian"
                            "mytimestamp" "2b"}
-                  :producer_timestamp (-> 1 days ago)}
+                  :producer_timestamp (-> 1 days ago)
+                  :producer producer-2}
 
         ;; this fact set will disassociate mytimestamp from the facts
         ;; associated to certname-1, it will do the same thing for
@@ -994,12 +1054,14 @@
                   :environment nil
                   :values {"domain" "mydomain1.com"
                            "operatingsystem" "Debian"}
-                  :producer_timestamp (now)}
+                  :producer_timestamp (now)
+                  :producer producer-1}
         facts-2c {:certname certname-2
                   :environment nil
                   :values {"domain" "mydomain2.com"
                            "operatingsystem" "Debian"}
-                  :producer_timestamp (now)}
+                  :producer_timestamp (now)
+                  :producer producer-2}
         command-1b   {:command (command-names :replace-facts)
                       :version 4
                       :payload facts-1b}
@@ -1032,12 +1094,14 @@
                                :values (:values facts-1a)
                                :timestamp (now)
                                :environment nil
-                               :producer_timestamp (:producer_timestamp facts-1a)})
+                               :producer_timestamp (:producer_timestamp facts-1a)
+                               :producer producer-1})
         (scf-store/add-facts! {:certname certname-2
                                :values (:values facts-2a)
                                :timestamp (now)
                                :environment nil
-                               :producer_timestamp (:producer_timestamp facts-2a)}))
+                               :producer_timestamp (:producer_timestamp facts-2a)
+                               :producer producer-2}))
       ;; At this point, there will be 4 fact_value rows, 1 for
       ;; mytimestamp, 1 for the operatingsystem, 2 for domain
       (with-redefs [scf-store/delete-pending-path-id-orphans!
@@ -1278,9 +1342,20 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(def v8-report
+  (-> (:basic report-examples/reports)
+      reports/report-query->wire-v8))
+
+(def v7-report
+  (-> v8-report
+      (dissoc :producer :noop_pending)))
+
+(def v6-report
+  (-> v7-report
+      (dissoc :catalog_uuid :cached_catalog_status :code_id)))
+
 (def v5-report
   (-> (:basic report-examples/reports)
-      (assoc :environment "DEV")
       reports/report-query->wire-v5))
 
 (def v4-report
@@ -1290,11 +1365,35 @@
 
 (def store-report-name (command-names :store-report))
 
+(deftest store-v8-report-test
+  (let [command {:command store-report-name
+                 :version 8
+                 :payload v8-report}]
+    (with-test-db
+      (test-msg-handler command publish discard-dir
+        (is (= [(with-producer (select-keys v8-report [:certname]))]
+               (-> (str "select certname, producer_id"
+                        "  from reports")
+                   query-to-vec)))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))))))
+
+(deftest store-v7-report-test
+  (let [command {:command store-report-name
+                 :version 7
+                 :payload v7-report}]
+    (with-test-db
+      (test-msg-handler command publish discard-dir
+        (is (= [(select-keys v7-report [:certname :catalog_uuid :cached_catalog_status :code_id])]
+               (->> (str "select certname, catalog_uuid, cached_catalog_status, code_id"
+                        "  from reports")
+                   query-to-vec
+                   (map (fn [row] (update row :catalog_uuid sutils/parse-db-uuid))))))
+        (is (= 0 (times-called publish)))
+        (is (empty? (fs/list-dir discard-dir)))))))
+
 (deftest store-v6-report-test
-  (let [v6-report (-> v5-report
-                      (update :resource_events reports/resource-events-v5->resources)
-                      (clojure.set/rename-keys {:resource_events :resources}))
-        command {:command store-report-name
+  (let [command {:command store-report-name
                  :version 6
                  :payload v6-report}]
     (with-test-db

@@ -56,6 +56,7 @@
    In either case, the command itself, once string-ified, must be a
    JSON-formatted string with the aforementioned structure."
   (:require [clojure.tools.logging :as log]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.reports :as report]
@@ -104,10 +105,14 @@
   (set (range min-version (inc max-version))))
 
 (def supported-command-versions
-  {"replace facts" (version-range 2 4)
-   "replace catalog" (version-range 4 8)
-   "store report" (version-range 3 7)
+  {"replace facts" (version-range 2 5)
+   "replace catalog" (version-range 4 9)
+   "store report" (version-range 3 8)
    "deactivate node" (version-range 1 3)})
+   
+(def latest-catalog-version (apply max (get supported-command-versions "replace catalog")))
+(def latest-report-version (apply max (get supported-command-versions "store report")))
+(def latest-facts-version (apply max (get supported-command-versions "replace facts")))
 
 (defn- die-on-header-payload-mismatch
   [name in-header in-body]
@@ -251,7 +256,7 @@
         {producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
-      (scf-storage/store-catalog! catalog received-timestamp))
+      (scf-storage/replace-catalog! catalog received-timestamp))
     (log/infof "[%s] [%s] %s" id (command-names :replace-catalog) certname)))
 
 (defn replace-catalog [{:keys [payload annotations version] :as command} db]
@@ -276,12 +281,12 @@
 
 (defn replace-facts [{:keys [payload version annotations] :as command} db]
   (let [{received-timestamp :received} annotations
-        latest-version-of-payload (case version
-                                    2 (fact/wire-v2->wire-v4 payload received-timestamp)
-                                    3 (fact/wire-v3->wire-v4 payload)
-                                    payload)
         validated-payload (upon-error-throw-fatality
-                           (-> latest-version-of-payload
+                           (-> (case version
+                                 2 (fact/wire-v2->wire-v5 payload received-timestamp)
+                                 3 (fact/wire-v3->wire-v5 payload)
+                                 4 (fact/wire-v4->wire-v5 payload)
+                                 payload)
                                (update :values utils/stringify-keys)
                                (update :producer_timestamp to-timestamp)
                                (assoc :timestamp received-timestamp)))]
@@ -335,14 +340,14 @@
 
 (defn store-report [{:keys [payload version annotations] :as command} db]
   (let [{received-timestamp :received} annotations
-        latest-version-of-payload (case version
-                                    3 (report/wire-v3->wire-v7 payload received-timestamp)
-                                    4 (report/wire-v4->wire-v7 payload received-timestamp)
-                                    5 (report/wire-v5->wire-v7 payload)
-                                    6 (report/wire-v6->wire-v7 payload)
-                                    payload)
         validated-payload (upon-error-throw-fatality
-                           (s/validate report/report-wireformat-schema latest-version-of-payload))]
+                           (s/validate report/report-wireformat-schema (case version
+                                                       3 (report/wire-v3->wire-v8 payload received-timestamp)
+                                                       4 (report/wire-v4->wire-v8 payload received-timestamp)
+                                                       5 (report/wire-v5->wire-v8 payload)
+                                                       6 (report/wire-v6->wire-v8 payload)
+                                                       7 (report/wire-v7->wire-v8 payload)
+                                                       payload)))]
     (-> command
         (assoc :payload validated-payload)
         (store-report* db))))
@@ -410,9 +415,24 @@
           :producer-timestamp (-> cmd :payload :producer_timestamp)}
          (when ex {:exception ex})))
 
+(defn call-with-quick-retry [num-retries f]
+  (loop [n num-retries]
+    (let [result (try+
+                  (f)
+                  (catch Throwable e
+                    (if (zero? n)
+                      (throw e)
+                      (do (log/debug e (i18n/trs "Exception throw in L1 retry attempt {0}" (- (inc num-retries) n)))
+                          ::failure))))]
+      (if (= result ::failure)
+        (recur (dec n))
+        result))))
+
 (defn process-command-and-respond! [cmd db response-pub-chan stats-atom]
   (try
-    (let [result (process-command! cmd db)]
+    (let [result (call-with-quick-retry 4
+                  (fn []
+                    (process-command! cmd db)))]
       (swap! stats-atom update :executed-commands inc)
       (async/>!! response-pub-chan
                  (make-cmd-processed-message cmd nil))

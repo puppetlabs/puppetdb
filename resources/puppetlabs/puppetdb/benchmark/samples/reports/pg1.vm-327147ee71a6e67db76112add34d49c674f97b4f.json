@@ -1,8 +1,11 @@
 {
+    "cached_catalog_status": "on_failure",
     "certname": "pg1.vm",
     "configuration_version": "1423833650",
     "end_time": "2015-02-13T13:21:04.382Z",
     "environment": "production",
+    "corrective_change": false,
+    "noop_pending": false,
     "logs": [
         {
             "file": null,
@@ -471,10 +474,12 @@
                     "old_value": "{md5}a3f731187a6aaaa23d4a7b244f223f33",
                     "property": "content",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:21:06.444Z"
                 }
             ],
             "file": "/etc/puppet/modules/motd/manifests/init.pp",
+            "corrective_change": false,
             "line": 33,
             "resource_title": "/etc/motd",
             "resource_type": "File",
@@ -494,11 +499,13 @@
                     "old_value": "absent",
                     "property": "message",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:21:06.488Z"
                 }
             ],
             "file": "/etc/puppet/modules/loadtest/manifests/init.pp",
             "line": 3,
+            "corrective_change": false,
             "resource_title": "foo",
             "resource_type": "Notify",
             "skipped": false,
@@ -518,12 +525,14 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:21:06.575Z"
                 }
             ],
             "file": "/etc/puppet/modules/concat/manifests/fragment.pp",
             "line": 113,
             "resource_title": "/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2",
+            "corrective_change": false,
             "resource_type": "File",
             "skipped": false,
             "timestamp": "2015-02-13T13:21:06.575Z"
@@ -542,12 +551,14 @@
                     "old_value": "{md5}df14e44b311152c34358a675ae34afe0",
                     "property": "content",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:21:06.589Z"
                 }
             ],
             "file": "/etc/puppet/modules/concat/manifests/fragment.pp",
             "line": 113,
             "resource_title": "/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile",
+            "corrective_change": false,
             "resource_type": "File",
             "skipped": false,
             "timestamp": "2015-02-13T13:21:06.589Z"
@@ -555,5 +566,8 @@
     ],
     "start_time": "2015-02-13T13:21:03.326Z",
     "status": "unchanged",
+    "catalog_uuid": "90de2540-d70e-40bb-a264-c84e5a95bbef",
+    "producer": "foo.com",
+    "code_id": "6764b61b-6f2a-4187-85e8-cef3e29cda5e",
     "transaction_uuid": "d00ab23c-bd14-42a5-b5ef-855ceede8a40"
 }

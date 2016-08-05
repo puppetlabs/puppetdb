@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.1: Catalogs endpoint"
+title: "PuppetDB 4.2: Catalogs endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 ---
@@ -12,6 +12,7 @@ canonical: "/puppetdb/latest/api/query/v4/catalogs.html"
 [ast]: ./ast.html
 [edges]: ./edges.html
 [environments]: ./environments.html
+[producers]: ./producers.html
 [nodes]: ./nodes.html
 [resources]: ./resources.html
 
@@ -47,6 +48,7 @@ See [the AST query language page][ast].
   recent catalog.
 * `producer_timestamp` (string): a string representing the time at which the
   `replace_catalog` command for a given catalog was submitted from the master.
+* `producer` (string): the certname of the Puppet master that sent the catalog to PuppetDB.
 
 ### Subquery relationships
 
@@ -55,6 +57,7 @@ result set using implicit subqueries. For more information consult the
 documentation for [subqueries][subqueries].
 
 * [`nodes`][nodes]: node for a catalog.
+* [`producers`][producers]: the master that sent the catalog to PuppetDB.
 * [`environments`][environments]: environment for a catalog.
 * [`edges`][edges]: resource edges received for a catalog.
 * [`resources`][resources]: resources received for a catalog.
@@ -74,6 +77,7 @@ the form:
       "transaction_uuid" : <string to identify puppet run>,
       "code_id" : <string to identify puppet code>,
       "producer_timestamp": <time of transmission by master>,
+      "producer": <master certname>
       "resources" : <expanded resources>,
       "edges" : <expanded edges>
     }
@@ -121,6 +125,7 @@ This query will return the complete list of catalogs:
       "transaction_uuid" : "53b72442-3b73-11e3-94a8-1b34ef7fdc95",
       "code_id" : null,
       "producer_timestamp": "2014-10-13T20:46:00.000Z",
+      "producer": "dad.puppetlabs.net",
       "environment" : "production",
       "edges" : {...},
       "resources" : {...}
@@ -132,6 +137,7 @@ This query will return the complete list of catalogs:
       "transaction_uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
       "code_id" : null,
       "producer_timestamp": "2014-11-20T02:15:20.861Z",
+      "producer": "mom.puppetlabs.net",
       "environment" : "production",
       "edges" : {...},
       "resources" : {...}
@@ -149,6 +155,7 @@ This query will return all catalogs with producer_timestamp after 2014-11-19:
       "transaction_uuid" : "9a3c8da6-f48c-4567-b24e-ddae5f80a6c6",
       "code_id" : null,
       "producer_timestamp": "2014-11-20T02:15:20.861Z",
+      "producer": "mom.puppetlabs.net",
       "environment" : "production",
       "edges" : {...},
       "resources" : {...}
@@ -176,6 +183,7 @@ a JSON error message if the catalog is not found.
      "code_id" : null,
      "catalog_uuid" : null,
      "producer_timestamp": "2014-10-13T20:46:00.000Z",
+     "producer": "dad.puppetlabs.net",
      "environment" : "production",
      "edges" : {...},
      "resources" : {...}
@@ -223,17 +231,6 @@ If you provide a `query` parameter, it will specify additional criteria, which
 will be used to return a subset of the information normally returned by this
 route.
 
-## `/pdb/ext/v1/historical-catalogs` (PE only)
-
-This will return a JSON array containing the all the stored catalogs for each
-node in your infrastructure, not just the most recent. By default this will
-include the most recent 14 days worth of catalogs for each node.
-
-**Note on querying resources and edges**
-
-The `historical-catalogs` endpoint does not support querying on the value of
-`resources` or `edges`.
-
 ### URL Parameters / Query Operators / Query Fields / Response Format
 
 This route is an extension of the `/pdb/query/v4/catalogs` endpoint. It uses the
@@ -257,13 +254,3 @@ using implicit subqueries. For more information consult the documentation for
 The v4 catalogs endpoint supports all the usual paging URL parameters described
 in the documents on [paging][paging]. Ordering is allowed on every queryable
 field.
-
-## `/pdb/ext/v1/historical-catalogs/<CATALOG_UUID>/edges`
-
-This will return all edges for a particular catalog, designated by a
-`catalog\_uuid`. This endpoint does not currently support querying or paging.
-
-## `/pdb/ext/v1/historical-catalogs/<CATALOG_UUID>/resources`
-
-This will return all resources for a particular catalog, designated by a
-`catalog\_uuid`. This endpoint does not currently support querying or paging.

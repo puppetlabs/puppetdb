@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.admin-test
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.cli.services :refer :all]
-            [puppetlabs.puppetdb.command :refer [enqueue-command]]
+            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.export :as export]
             [puppetlabs.puppetdb.import :as import]
@@ -32,15 +32,16 @@
        (is (empty? (get-nodes)))
 
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace catalog" 8 example-catalog)
+                                    "replace catalog" command/latest-catalog-version example-catalog)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "store report" 7 example-report)
+                                    "store report" command/latest-report-version example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace facts" 4 example-facts)
+                                    "replace facts" command/latest-facts-version example-facts)
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [example-report] (get-reports example-certname)))
+       (is (= [(tur/update-report-pe-fields example-report)]
+              (get-reports example-certname)))
        (is (= (tuf/munge-facts example-facts)
               (tuf/munge-facts (get-factsets example-certname))))
 
@@ -53,16 +54,17 @@
 
        (let [dispatcher (tk-app/get-service svc-utils/*server*
                                             :PuppetDBCommandDispatcher)
-             submit-command-fn (partial enqueue-command dispatcher)]
+             submit-command-fn (partial command/enqueue-command dispatcher)]
          (import/import! export-out-file submit-command-fn))
 
-       @(tu/block-until-results 100 (first (get-catalogs example-certname)))
-       @(tu/block-until-results 100 (first (get-reports example-certname)))
-       @(tu/block-until-results 100 (first (get-factsets example-certname)))
+       @(tu/block-until-results 200 (first (get-catalogs example-certname)))
+       @(tu/block-until-results 200 (first (get-reports example-certname)))
+       @(tu/block-until-results 200 (first (get-factsets example-certname)))
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [example-report] (get-reports example-certname)))
+       (is (= [(tur/update-report-pe-fields example-report)]
+              (get-reports example-certname)))
        (is (= (tuf/munge-facts example-facts)
               (tuf/munge-facts (get-factsets example-certname))))))))
 
@@ -76,15 +78,16 @@
          (is (empty? (get-nodes)))
 
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "replace catalog" 8 example-catalog)
+                                      "replace catalog" command/latest-catalog-version example-catalog)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "store report" 7 example-report)
+                                      "store report" command/latest-report-version example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace facts" 4 example-facts)
+                                    "replace facts" command/latest-facts-version example-facts)
 
          (is (= (tuc/munge-catalog example-catalog)
                 (tuc/munge-catalog (get-catalogs example-certname))))
-         (is (= [example-report] (get-reports example-certname)))
+         (is (= [(tur/update-report-pe-fields example-report)]
+                (get-reports example-certname)))
          (is (= (tuf/munge-facts example-facts)
                 (tuf/munge-facts (get-factsets example-certname))))
 
@@ -100,7 +103,7 @@
 (deftest test-sample-statistics
   (svc-utils/call-with-single-quiet-pdb-instance
     (fn []
-      (let [example-catalog2 (-> (get-in examples/wire-catalogs [8 :basic])
+      (let [example-catalog2 (-> (get-in examples/wire-catalogs [9 :basic])
                                  (assoc :certname "bar.com"))
             example-facts2 (-> example-facts
                                (dissoc-in [:values :baz])
@@ -109,18 +112,20 @@
         (is (empty? (get-nodes)))
 
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                     "replace catalog" 8 example-catalog)
-        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url)
-                                     "bar.com"
-                                     "replace catalog" 8
+                                     "replace catalog" command/latest-catalog-version
+                                     example-catalog)
+        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "bar.com"
+                                     "replace catalog" command/latest-catalog-version
                                      example-catalog2)
 
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                     "store report" 7 example-report)
+                                     "store report" command/latest-report-version
+                                     example-report)
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                     "replace facts" 4 example-facts)
+                                     "replace facts" command/latest-facts-version
+                                     example-facts)
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "bar.com"
-                                     "replace facts" 4
+                                     "replace facts" command/latest-facts-version
                                      example-facts2)
 
         (sutils/vacuum-analyze *db*)

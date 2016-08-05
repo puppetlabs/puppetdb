@@ -162,3 +162,15 @@
     :producer_timestamp producer_timestamp
     :resource_events (sort (map resource-event-identity-string resource_events))
     :transaction_uuid transaction_uuid}))
+
+(defn fact-identity-hash
+  "Compute a hash for a fact's content
+
+  This hash is useful for situations where you'd like to determine
+  whether or not two sets of facts are identical, excluding timestamps
+  and producer.
+  "
+  [fact-data]
+  (-> fact-data
+    (dissoc :timestamp :producer_timestamp :producer)
+    generic-identity-hash))

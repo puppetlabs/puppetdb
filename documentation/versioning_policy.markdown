@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.1: Versioning policy"
+title: "PuppetDB 4.2: Versioning policy"
 layout: default
 canonical: "/puppetdb/latest/versioning_policy.html"
 ---
@@ -79,11 +79,15 @@ Commands can be versioned on an individual command basis, so we are generally fr
 
 Commands are primarily represented by a corresponding wire format. Wire formats are versioned along with the corresponding command.
 
-The reasons to trigger a new command version are more common, and in general if we aren’t sure it's easy enough to create another version anyway.
+Changes to an existing command version can be made if the change is backward compatible. For example:
 
-Some examples of changes that will require a new command version:
+* Addition of optional parameters within a command or wire format
+* Change of a required parameter to optional
+* Addition of a new enum value for an existing field
 
-* Any change to the parameters or parameter values within a command or wire format
+Some examples of changes that *will* require a new command version:
+
+* Removal or renaming of parameters or parameter values within a command or wire format
 * Change to serialization for wire formats inside payload
 
 The [API commands][commands] documentation contains more concrete information about the existing commands, versions and statuses for this version of PuppetDB.

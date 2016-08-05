@@ -74,6 +74,7 @@ describe processor do
       if defined?(subject.catalog_uuid) then
         subject.catalog_uuid = 'bde432'
       end
+
       result = subject.send(:report_to_hash)
       result["transaction_uuid"].should == 'abc123'
 
@@ -97,6 +98,36 @@ describe processor do
       end
     end
 
+    it "should include the producer or nil" do
+      Puppet[:node_name_value] = "foo"
+      result = subject.send(:report_to_hash)
+      result["producer"].should == "foo"
+    end
+
+    it "should include noop_pending or nil" do
+      if defined?(subject.noop_pending) then
+        subject.noop_pending = false
+      end
+      result = subject.send(:report_to_hash)
+      if defined?(subject.noop_pending) then
+        result["noop_pending"].should == false
+      else
+        result["noop_pending"].should == nil
+      end
+    end
+
+    it "should include corrective_change or nil" do
+      if defined?(subject.corrective_change) then
+        subject.stubs(:corrective_change).returns(false)
+      end
+      result = subject.send(:report_to_hash)
+      if defined?(subject.corrective_change) then
+        result["corrective_change"].should == false
+      else
+        result["corrective_change"].should == nil
+      end
+    end
+
     it "should include the cached_catalog_status or nil" do
       if defined?(subject.cached_catalog_status) then
         subject.cached_catalog_status = 'not_used'
@@ -106,6 +137,38 @@ describe processor do
         result["cached_catalog_status"].should == 'not_used'
       else
         result["cached_catalog_status"].should == nil
+      end
+    end
+
+    context "noop run" do
+      before :all do
+        Puppet[:noop] = true
+      end
+
+      it "should include truthy noop flag" do
+        unless defined?(subject.noop) then
+          event = Puppet::Transaction::Event.new
+          event.status = "noop"
+          status.add_event(event)
+        end
+        result = subject.send(:report_to_hash)
+        result["noop"].should == true
+      end
+    end
+
+    context "enforcement run" do
+      before :all do
+        Puppet[:noop] = false
+      end
+
+      it "should include falsey noop flag" do
+        unless defined?(subject.noop) then
+          event = Puppet::Transaction::Event.new
+          event.status = "success"
+          status.add_event(event)
+        end
+        result = subject.send(:report_to_hash)
+        result["noop"].should == false
       end
     end
 
@@ -153,6 +216,9 @@ describe processor do
           event.desired_value = "fooval"
           event.previous_value = "oldfooval"
           event.message = "foomessage"
+          if defined?(event.corrective_change) then
+            event.corrective_change = true
+          end
           status.add_event(event)
 
           result = subject.send(:report_to_hash)
@@ -165,12 +231,22 @@ describe processor do
           res["line"].should == 1
           res["containment_path"].should == ["foo", "bar", "baz"]
           res["events"].length.should == 1
+          if defined?(event.corrective_change) then
+            res["corrective_change"].should == true
+          else
+            res["corrective_change"].should == nil
+          end
 
           res_event = res["events"][0]
           res_event["property"].should == "fooprop"
           res_event["new_value"].should == "fooval"
           res_event["old_value"].should == "oldfooval"
           res_event["message"].should == "foomessage"
+          if defined?(event.corrective_change) then
+            res_event["corrective_change"].should == true
+          else
+            res_event["corrective_change"].should == nil
+          end
         end
       end
 

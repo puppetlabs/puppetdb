@@ -6,8 +6,9 @@
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.walk :refer [keywordize-keys stringify-keys]]
             [clojure.core.match :as cm]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
+            [puppetlabs.puppetdb.query-eng :as qeng]
             [clojure.set :as set]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s]
             [puppetlabs.puppetdb.http :as http]
@@ -29,6 +30,7 @@
   parameters, for POST requests this should be contained in the body
   of the request"
   {(s/optional-key :query) (s/maybe [s/Any])
+   (s/optional-key :ast_only) (s/maybe s/Bool)
    (s/optional-key :include_total) (s/maybe s/Bool)
    (s/optional-key :pretty) (s/maybe s/Bool)
    (s/optional-key :order_by) (s/maybe [[(s/one s/Keyword "field")
@@ -153,6 +155,15 @@
   (restrict-query ["=" "environment" (get-in req [:route-params :environment])]
                   req))
 
+(defn restrict-query-to-producer
+  "Restrict the query parameter of the supplied request so that it
+   only returns results for the supplied producer"
+  [req]
+  {:pre  [(string? (get-in req [:route-params :producer]))]
+   :post [(are-queries-different? req %)]}
+  (restrict-query ["=" "producer" (get-in req [:route-params :producer])]
+                  req))
+
 (defn restrict-fact-query-to-name
   "Restrict the query parameter of the supplied request so that it
    only returns facts with the given name"
@@ -240,6 +251,7 @@
   (-> (or full-query {})
       (validate-query-params param-spec)
       keywordize-keys
+      (update-when [:ast_only] coerce-to-boolean)
       (update-when [:order_by] parse-order-by)
       (update-when [:limit] parse-limit)
       (update-when [:offset] parse-offset)
@@ -340,9 +352,17 @@
   [globals]
   (select-keys globals [:scf-read-db :warn-experimental :url-prefix :pretty-print]))
 
+(defn valid-query?
+  [version query-map]
+  (let [{:keys [remaining-query entity query-options]} (qeng/user-query->engine-query version query-map)]
+    (when (qeng/query->sql remaining-query entity version query-options)
+      true)))
+
 (defn query-handler
   [version]
   (fn [{:keys [params globals puppetdb-query]}]
-    (produce-streaming-body version
-                            (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-                            (narrow-globals globals))))
+    (if (and (:ast_only puppetdb-query) (valid-query? version puppetdb-query))
+      (http/json-response (:query puppetdb-query))
+      (qeng/produce-streaming-body version
+                              (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                              (narrow-globals globals)))))

@@ -31,6 +31,10 @@
   [expr :- key-or-sql]
   (hcore/call :json_agg expr))
 
+(pls/defn-validated json-object-agg :- SqlCall
+  [& args]
+  (apply hcore/call :json_object_agg args))
+
 (pls/defn-validated row-to-json :- SqlCall
   "row_to_json(record) sql function"
   [record :- key-or-sql]

@@ -17,7 +17,19 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/puppetlabs/puppetdb/config.clj:366
+#: src/puppetlabs/puppetdb/admin.clj:40
+msgid "Invalid command {0}: {1}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/admin.clj:50
+msgid "Another cleanup is already in progress"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/command.clj:425
+msgid "Exception throw in L1 retry attempt {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj:369
 msgid ""
 "Configuring the route for `{0}` is not allowed. The default route is `{1}` "
 "and server is `{2}`."
@@ -32,7 +44,7 @@ msgid "Permission denied: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http.clj:164
-#: src/puppetlabs/puppetdb/middleware.clj:113
+#: src/puppetlabs/puppetdb/middleware.clj:114
 msgid "must accept {0}"
 msgstr ""
 
@@ -43,7 +55,7 @@ msgid "Error streaming response"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http.clj:286
-#: src/puppetlabs/puppetdb/middleware.clj:293
+#: src/puppetlabs/puppetdb/middleware.clj:294
 msgid "No information is known about {0} {1}"
 msgstr ""
 
@@ -51,47 +63,63 @@ msgstr ""
 msgid "Processing HTTP request to URI: ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:51
+#: src/puppetlabs/puppetdb/middleware.clj:52
 msgid "{0} rejected by certificate whitelist {1}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:52
+#: src/puppetlabs/puppetdb/middleware.clj:53
 msgid ""
 "The client certificate name {0} doesn't appear in the certificate whitelist. "
 "Is your master''s (or other PuppetDB client''s) certname listed in "
 "PuppetDB''s certificate-whitelist file?"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:127
+#: src/puppetlabs/puppetdb/middleware.clj:128
 msgid "content type {0} not supported"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:143
+#: src/puppetlabs/puppetdb/middleware.clj:144
 msgid "Missing required query parameter ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:149
+#: src/puppetlabs/puppetdb/middleware.clj:150
 msgid "Unsupported query parameter ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:252
+#: src/puppetlabs/puppetdb/middleware.clj:253
 msgid "Processing command with a content-length of {0} bytes"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:253
+#: src/puppetlabs/puppetdb/middleware.clj:254
 msgid ""
 "No content length found for POST. POST bodies that are too large could cause "
 "memory-related failures."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:259
+#: src/puppetlabs/puppetdb/middleware.clj:260
 msgid ""
 "content-length of command is {0} bytes and is larger than the maximum "
 "allowed command size of {1} bytes"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:264
+#: src/puppetlabs/puppetdb/middleware.clj:265
 msgid "Command rejected due to size exceeding max-command-size"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/mq_listener.clj:250
+msgid "[{0}] [{1}] Exceeded max {2} attempts for {3}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/mq_listener.clj:255
+msgid "Fatal error parsing command: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/mq_listener.clj:265
+msgid "[{0}] [{1}] Fatal error on attempt {2} for {3}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/mq_listener.clj:283
+msgid "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/pql.clj:24
@@ -118,97 +146,130 @@ msgstr ""
 msgid "''not'' takes exactly one argument, but {0} were supplied"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:375
+#: src/puppetlabs/puppetdb/query.clj:376
 msgid "The argument to extract must be a select operator, not ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:379
+#: src/puppetlabs/puppetdb/query.clj:380
 msgid "Can't extract unknown {0} field ''{1}''. Acceptable fields are: {2}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:395
+#: src/puppetlabs/puppetdb/query.clj:396
 msgid ""
 "Can''t match on unknown {0} field ''{1}'' for ''in''. Acceptable fields are: "
 "{2}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:399
+#: src/puppetlabs/puppetdb/query.clj:400
 msgid "The subquery argument of ''in'' must be an ''extract'', not ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:465 src/puppetlabs/puppetdb/query.clj:655
-#: src/puppetlabs/puppetdb/query.clj:746
+#: src/puppetlabs/puppetdb/query.clj:466 src/puppetlabs/puppetdb/query.clj:656
+#: src/puppetlabs/puppetdb/query.clj:747
 msgid "= requires exactly two arguments, but {0} were supplied"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:499
+#: src/puppetlabs/puppetdb/query.clj:500
 msgid "''{0}'' is not a queryable object for resources in the version {1} API"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:531
+#: src/puppetlabs/puppetdb/query.clj:532
 msgid ""
 "''{0}'' cannot be the target of a regexp match for version {1} of the "
 "resources API"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:563
+#: src/puppetlabs/puppetdb/query.clj:564
 msgid "{0} is not a queryable object for version {1} of the facts query api"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:594
+#: src/puppetlabs/puppetdb/query.clj:595
 msgid "{0} is not a valid version {1} operand for regexp comparison"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:614
+#: src/puppetlabs/puppetdb/query.clj:615
 msgid "{0} is not a queryable object for facts"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:616
+#: src/puppetlabs/puppetdb/query.clj:617
 msgid "Value {0} must be a number for {1} comparison."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:627 src/puppetlabs/puppetdb/query.clj:764
+#: src/puppetlabs/puppetdb/query.clj:628 src/puppetlabs/puppetdb/query.clj:765
 msgid "{0} requires exactly two arguments, but {1} were supplied"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:640
+#: src/puppetlabs/puppetdb/query.clj:641
 msgid "''{0}'' is not a valid timestamp value"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:643
+#: src/puppetlabs/puppetdb/query.clj:644
 msgid "{0} operator does not support object ''{1}'' for resource events"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:698 src/puppetlabs/puppetdb/query.clj:735
+#: src/puppetlabs/puppetdb/query.clj:699 src/puppetlabs/puppetdb/query.clj:736
 msgid ""
 "''{0}'' is not a queryable object for version {1} of the resource events API"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:710
+#: src/puppetlabs/puppetdb/query.clj:711
 msgid "~ requires exactly two arguments, but {0} were supplied"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:754
+#: src/puppetlabs/puppetdb/query.clj:755
 msgid "{0} is not a queryable object for event counts"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj:772
+#: src/puppetlabs/puppetdb/query.clj:773
 msgid "{0} operator does not support object ''{1}'' for event counts"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:66
-msgid "Invalid entity '{0}' in query"
+#: src/puppetlabs/puppetdb/query_eng.clj:70
+msgid "Invalid entity ''{0}'' in query"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:193
-#: src/puppetlabs/puppetdb/query_eng.clj:199
+#: src/puppetlabs/puppetdb/query_eng.clj:197
+#: src/puppetlabs/puppetdb/query_eng.clj:203
 msgid ""
 "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 "
 "error code."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:204
+#: src/puppetlabs/puppetdb/query_eng.clj:208
 msgid "Caught PSQL processing exception"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj:1306
+msgid "Value {0} of type {1} unsupported."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj:1310
+msgid "Operator ''{0}'' not allowed on value ''{1}''"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj:1419
+msgid "Field 'latest_report?' not supported on endpoint ''{0}''"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/threadpool.clj:18
+msgid "Error processing command on thread {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/threadpool.clj:51
+msgid ""
+"Threadpool not stopped after {0} milliseconds, forcibly shutting it down"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/threadpool.clj:57
+msgid "Threadpool forcibly shutdown"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/threadpool.clj:97
+msgid "Thread interrupted while processing on threadpool"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/threadpool.clj:122
+msgid "Threadpool shutting down, message rejected"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/utils.clj:37

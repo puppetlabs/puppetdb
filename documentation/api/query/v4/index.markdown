@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.1: Root endpoint (experimental)"
+title: "PuppetDB 4.2: Root endpoint (experimental)"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/index.html"
 ---
@@ -29,6 +29,9 @@ operator or a [PQL][pql] query string.
 (`["from", "<ENTITY>", ["<OPERATOR>", "<FIELD>", "<VALUE>"]]`). Unlike other endpoints,
 a query with a [`from`][from] is required to choose the [entity][entities] for which to query. For
 general info about queries, see [our guide to query structure.][query]
+
+* `ast_only`: optional. A boolean value. When true, the query response will be the supplied 
+`query` in AST, either exactly as supplied or translated from PQL. False by default.
 
 ### Response format
 

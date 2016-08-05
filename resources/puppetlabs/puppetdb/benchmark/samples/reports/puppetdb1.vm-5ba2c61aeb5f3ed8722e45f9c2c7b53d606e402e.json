@@ -1,8 +1,11 @@
 {
+    "cached_catalog_status": "not_used",
     "certname": "puppetdb1.vm",
     "configuration_version": "1423834124",
     "end_time": "2015-02-13T13:30:29.332Z",
     "environment": "production",
+    "corrective_change": false,
+    "noop_pending": false,
     "logs": [
         {
             "file": null,
@@ -243,12 +246,14 @@
                     "old_value": "absent",
                     "property": "message",
                     "status": "success",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:30:30.477Z"
                 }
             ],
             "file": "/etc/puppet/modules/loadtest/manifests/init.pp",
             "line": 3,
             "resource_title": "foo",
+            "corrective_change": false,
             "resource_type": "Notify",
             "skipped": false,
             "timestamp": "2015-02-13T13:30:30.477Z"
@@ -256,5 +261,8 @@
     ],
     "start_time": "2015-02-13T13:30:28.352Z",
     "status": "changed",
+    "catalog_uuid": "fc0132b7-3c19-4084-840a-9c58cedf46de",
+    "producer": "foo.com",
+    "code_id": "d83f1aca-055d-45d5-9372-e88b115c810b",
     "transaction_uuid": "3c99e9cc-bc56-45a5-bc71-e1b4fa2aff37"
 }

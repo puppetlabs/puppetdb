@@ -264,6 +264,32 @@
       (apply assoc m new-kvs)
       m)))
 
+(defn maybe-strip-escaped-quotes
+  [s]
+  (if (and (> (count s) 1)
+           (string/starts-with? s "\"")
+           (string/ends-with? s "\""))
+    (subs s 1 (dec (count s)))
+    s))
+
+(defn parse-matchfields
+  [s]
+  (string/replace s #"match\((\".*\")\)" "$1"))
+
+(defn parse-indexing
+  [s]
+  (string/replace s #"\[(\d+)\]" ".$1"))
+
+(defn split-indexing
+  [path]
+  (flatten
+    (for [s path]
+      (if (re-find #"\[\d+\]$" s)
+        (-> s
+            (string/split #"(?=\[\d+\]$)")
+            (update 1 #(Integer/parseInt (subs % 1 (dec (count %))))))
+        s))))
+
 (defn str-schema
   "Function for converting a schema with keyword keys to
    to one with string keys. Doens't walk the map so nested
@@ -331,3 +357,12 @@
      ~@body
      (catch Exception _#
        nil)))
+
+(defmacro noisy-future [& body]
+  `(future
+     (try
+       ~@body
+       (catch Exception ex#
+         (binding [*out* *err*]
+           (println ex#))
+         (throw ex#)))))

@@ -3,6 +3,7 @@
             [puppetlabs.puppetdb.client :as pdb-client]
             [puppetlabs.puppetdb.cli.export :as cli-export]
             [puppetlabs.puppetdb.cli.import :as cli-import]
+            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
@@ -24,15 +25,16 @@
        (is (empty? (get-nodes)))
 
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace catalog" 7 example-catalog)
+                                    "replace catalog" command/latest-catalog-version example-catalog)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "store report" 6 example-report)
+                                    "store report" command/latest-report-version example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace facts" 4 example-facts)
+                                    "replace facts" command/latest-facts-version example-facts)
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [example-report] (get-reports example-certname)))
+       (is (= [(tur/update-report-pe-fields example-report)]
+              (get-reports example-certname)))
        (is (= (tuf/munge-facts example-facts)
               (tuf/munge-facts (get-factsets example-certname))))
 
@@ -48,13 +50,14 @@
                            "--host" (:host svc-utils/*base-url*)
                            "--port" (str (:port svc-utils/*base-url*)))
 
-       @(tu/block-until-results 100 (first (get-catalogs example-certname)))
-       @(tu/block-until-results 100 (first (get-reports example-certname)))
-       @(tu/block-until-results 100 (first (get-factsets example-certname)))
+       @(tu/block-until-results 200 (first (get-catalogs example-certname)))
+       @(tu/block-until-results 200 (first (get-reports example-certname)))
+       @(tu/block-until-results 200 (first (get-factsets example-certname)))
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
-       (is (= [example-report] (get-reports example-certname)))
+       (is (= [(tur/update-report-pe-fields example-report)]
+              (get-reports example-certname)))
        (is (= (tuf/munge-facts example-facts)
               (tuf/munge-facts (get-factsets example-certname))))))))
 
@@ -64,7 +67,8 @@
      (fn []
        (is (empty? (get-nodes)))
 
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace facts" 4 example-facts)
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname 
+                                    "replace facts" command/latest-facts-version example-facts)
 
        (is (empty? (get-catalogs example-certname)))
        (is (empty? (get-reports example-certname)))
@@ -87,7 +91,7 @@
                              "--host" (:host svc-utils/*base-url*)
                              "--port" (str (:port svc-utils/*base-url*)))
 
-         @(tu/block-until-results 100 (first (get-factsets example-certname)))
+         @(tu/block-until-results 200 (first (get-factsets example-certname)))
 
          (is (empty? (get-catalogs example-certname)))
          (is (empty? (get-reports example-certname)))
@@ -106,7 +110,7 @@
        (pdb-client/submit-command-via-http! (svc-utils/pdb-cmd-url)
                                             example-certname
                                             "replace catalog"
-                                            7
+                                            command/latest-catalog-version
                                             example-catalog)
 
        (is (thrown-with-msg?

@@ -39,11 +39,13 @@
                 "/facts" handlers/facts-routes
                 "/edges" handlers/edge-routes
                 "/factsets" handlers/factset-routes
+                "/inventory" handlers/inventory-routes
                 "/fact-names" handlers/fact-names-routes
                 "/fact-contents" handlers/fact-contents-routes
                 "/fact-paths" handlers/fact-path-routes
                 "/nodes" handlers/node-routes
                 "/environments" handlers/environments-routes
+                "/producers" handlers/producers-routes
                 "/resources" handlers/resources-routes
                 "/catalogs" handlers/catalog-routes
                 "/events" handlers/events-routes

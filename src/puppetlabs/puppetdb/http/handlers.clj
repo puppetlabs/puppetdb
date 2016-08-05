@@ -56,7 +56,7 @@
   [version :- s/Keyword]
   (cmdi/ANY "" []
             (-> (http-q/query-handler version)
-                (http-q/extract-query-pql {:optional paging/query-params
+                (http-q/extract-query-pql {:optional (conj paging/query-params "ast_only")
                                            :required ["query"]})
                 (http/experimental-warning "The root endpoint is experimental"))))
 
@@ -126,6 +126,17 @@
                        (http-q/narrow-globals globals)
                        identity
                        (http/status-not-found-response "environment" environment)))))
+
+(defn producer-status
+  "Produce a response body for a single producer."
+  [version]
+  (fn [{:keys [globals route-params]}]
+    (let [producer (:producer route-params)]
+      (status-response version
+                       ["from" "producers" ["=" "name" producer]]
+                       (http-q/narrow-globals globals)
+                       identity
+                       (http/status-not-found-response "producer" producer)))))
 
 ;; Routes
 
@@ -230,6 +241,14 @@
                                             http-q/restrict-fact-query-to-value
                                             http-q/restrict-query-to-active-nodes))))))
 
+(pls/defn-validated inventory-routes :- bidi-schema/RoutePair
+  [version :- s/Keyword]
+  (extract-query
+    (cmdi/routes
+      (cmdi/ANY "" []
+                (create-query-handler version "inventory"
+                                      http-q/restrict-query-to-active-nodes)))))
+
 (pls/defn-validated factset-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
@@ -319,6 +338,34 @@
                                       (append-handler http-q/restrict-query-to-environment)))))
                   version :environment :environment))))
 
+(pls/defn-validated producers-routes :- bidi-schema/RoutePair
+  [version :- s/Keyword]
+  (cmdi/routes
+   (extract-query
+    (cmdi/ANY "" []
+              (create-query-handler version "producers")))
+   (cmdi/context ["/" (route-param :producer)]
+                 (cmdi/ANY "" []
+                   (validate-query-params (producer-status version)
+                                          {:optional ["pretty"]}))
+                 (wrap-with-parent-check
+                  (cmdi/routes
+                   (extract-query
+                    (cmdi/context "/factsets"
+                                  (-> (factset-routes version)
+                                      (append-handler http-q/restrict-query-to-producer))))
+
+                  (extract-query
+                    (cmdi/context "/catalogs"
+                                  (-> (catalog-routes version)
+                                      (append-handler http-q/restrict-query-to-producer))))
+
+                   (extract-query
+                    (cmdi/context "/reports"
+                                  (-> (reports-routes version)
+                                      (append-handler http-q/restrict-query-to-producer)))))
+                  version :producer :producer))))
+
 (pls/defn-validated fact-contents-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
@@ -352,4 +399,3 @@
    (cmdi/ANY "" []
              (create-query-handler version
                                    "aggregate_event_counts"))))
-

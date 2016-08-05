@@ -44,6 +44,15 @@
 (defmacro deftest-db [name & body]
   `(deftest ~name (with-test-db ~@body)))
 
+(deftest-db ensure-producer-test
+  (let [prod1 "foo.com"
+        prod2 "bar.com"]
+    (ensure-producer prod1)
+    (testing "doesn't create new row for existing producer"
+      (is (= 1 (ensure-producer prod1))))
+    (testing "creates new row for non-existing producer"
+      (is (= 2 (ensure-producer prod2))))))
+
 (defn-validated factset-map :- {s/Str s/Str}
   "Return all facts and their values for a given certname as a map"
   [certname :- String]
@@ -71,13 +80,15 @@
           timestamp1 (-> 2 days ago)
           facts2 (zipmap (take 11000 (repeatedly #(random/random-string 10)))
                          (take 11000 (repeatedly #(random/random-string 10))))
-          timestamp2 (-> 1 days ago)]
+          timestamp2 (-> 1 days ago)
+          producer "bar.com"]
       (add-certname! certname)
       (add-facts! {:certname certname
                    :values facts1
                    :timestamp timestamp1
                    :environment nil
-                   :producer_timestamp timestamp1})
+                   :producer_timestamp timestamp1
+                   :producer producer})
 
       (testing "10000 facts stored"
         (is (= 10000
@@ -89,7 +100,8 @@
                       :values facts2
                       :timestamp timestamp2
                       :environment nil
-                      :producer_timestamp timestamp2})
+                      :producer_timestamp timestamp2
+                      :producer producer})
 
       (testing "11000 facts stored"
         (is (= 11000
@@ -104,14 +116,16 @@
                  "foo#~bar" "baz"
                  "\"foo" "bar"
                  "foo#~" "bar"
-                 "foo" "bar"}]
+                 "foo" "bar"}
+          producer "bar.com"]
       (add-certname! certname)
 
       (add-facts! {:certname certname
                    :values facts
                    :timestamp previous-time
                    :environment nil
-                   :producer_timestamp previous-time})
+                   :producer_timestamp previous-time
+                   :producer producer})
       (let [stored-names (->> (jdbc/query ["SELECT name from fact_paths"])
                               (map :name)
                               set)]
@@ -124,7 +138,8 @@
                  "fqdn" "myhost.mydomain.com"
                  "hostname" "myhost"
                  "kernel" "Linux"
-                 "operatingsystem" "Debian"}]
+                 "operatingsystem" "Debian"}
+          producer "bar.com"]
       (add-certname! certname)
 
       (is (nil?
@@ -136,7 +151,8 @@
                    :values facts
                    :timestamp previous-time
                    :environment nil
-                   :producer_timestamp previous-time})
+                   :producer_timestamp previous-time
+                   :producer producer})
       (testing "should have entries for each fact"
         (is (= (query-to-vec
                 "SELECT fp.path as name,
@@ -180,7 +196,8 @@
                              :values new-facts
                              :environment "DEV"
                              :producer_timestamp reference-time
-                             :timestamp reference-time})
+                             :timestamp reference-time
+                             :producer producer})
             (testing "should have only the new facts"
               (is (= (query-to-vec
                       "SELECT fp.path as name,
@@ -229,7 +246,8 @@
                          :values facts
                          :environment "DEV"
                          :producer_timestamp (now)
-                         :timestamp (now)})
+                         :timestamp (now)
+                         :producer producer})
         (is (= facts (factset-map "some_certname"))))
 
       (testing "replacing all facts with new ones"
@@ -238,12 +256,14 @@
                      :values facts
                      :timestamp previous-time
                      :environment nil
-                     :producer_timestamp previous-time})
+                     :producer_timestamp previous-time
+                     :producer nil})
         (replace-facts! {:certname certname
                          :values {"foo" "bar"}
                          :environment "DEV"
                          :producer_timestamp (now)
-                         :timestamp (now)})
+                         :timestamp (now)
+                         :producer producer})
         (is (= {"foo" "bar"} (factset-map "some_certname"))))
 
       (testing "replace-facts with only additions"
@@ -252,7 +272,8 @@
                            :values (assoc fact-map "one more" "here")
                            :environment "DEV"
                            :producer_timestamp (now)
-                           :timestamp (now)})
+                           :timestamp (now)
+                           :producer producer})
           (is (= (assoc fact-map  "one more" "here")
                  (factset-map "some_certname")))))
 
@@ -262,7 +283,8 @@
                            :values fact-map
                            :environment "DEV"
                            :producer_timestamp (now)
-                           :timestamp (now)})
+                           :timestamp (now)
+                           :producer producer})
           (is (= fact-map
                  (factset-map "some_certname")))))
       (testing "stable hash when no facts change"
@@ -272,14 +294,16 @@
                            :values fact-map
                            :environment "DEV"
                            :producer_timestamp (now)
-                           :timestamp (now)})
+                           :timestamp (now)
+                           :producer producer})
           (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
             (is (= old-hash new-hash)))
           (replace-facts! {:certname certname
                            :values (assoc fact-map "another thing" "goes here")
                            :environment "DEV"
                            :producer_timestamp (now)
-                           :timestamp (now)})
+                           :timestamp (now)
+                           :producer producer})
           (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
             (is (not= old-hash new-hash))))))))
 
@@ -290,7 +314,8 @@
                  "fqdn" "myhost.mydomain.com"
                  "hostname" "myhost"
                  "kernel" "Linux"
-                 "operatingsystem" "Debian"}]
+                 "operatingsystem" "Debian"}
+          producer "bar.com"]
       (add-certname! certname)
 
       (is (nil?
@@ -303,7 +328,8 @@
                    :values facts
                    :timestamp previous-time
                    :environment "PROD"
-                   :producer_timestamp previous-time})
+                   :producer_timestamp previous-time
+                   :producer producer})
 
       (testing "should have entries for each fact"
         (is (= facts
@@ -333,7 +359,8 @@
         :values facts
         :timestamp (-> 1 days ago)
         :environment "DEV"
-        :producer_timestamp (-> 1 days ago)})
+        :producer_timestamp (-> 1 days ago)
+        :producer producer})
 
       (testing "should have the same entries for each fact"
         (is (= facts
@@ -359,7 +386,7 @@
 (deftest fact-path-value-gc
   (letfn [(facts-now [c v]
             {:certname c :values v
-             :environment nil :timestamp (now) :producer_timestamp (now)})
+             :environment nil :timestamp (now) :producer_timestamp (now) :producer nil})
           (paths [& fact-sets]
             (set (for [k (mapcat keys fact-sets)] {:path k :name k :depth 0})))
           (values [& fact-sets] (set (mapcat vals fact-sets)))
@@ -466,83 +493,6 @@
 (def catalog (:basic catalogs))
 (def certname (:certname catalog))
 (def current-time (str (now)))
-
-(defmacro with-historical-catalogs-enabled [limit & body]
-  `(let [orig-limit# @historical-catalogs-limit
-         orig-jsonb-setting# @store-catalogs-jsonb-columns?]
-     (try
-       (reset! historical-catalogs-limit ~limit)
-       (reset! store-catalogs-jsonb-columns? true)
-       ~@body
-       (finally
-         (reset! historical-catalogs-limit orig-limit#)
-         (reset! store-catalogs-jsonb-columns? orig-jsonb-setting#)))))
-
-(deftest-db historical-catalogs-storage-test
-  (with-historical-catalogs-enabled 3
-
-    (add-certname! "basic.catalogs.com")
-
-    (testing "stores JSONB resources and edges fields"
-      (store-catalog! (assoc catalog :producer_timestamp (-> 2 days ago)) (now))
-      (is (= [{:count 1}]
-             (query-to-vec [(str "SELECT COUNT(*) FROM catalogs WHERE resources IS NOT NULL"
-                                 " AND edges IS NOT NULL")])))
-      (is (= #{{:source_type "Class" :source_title "foobar"
-                :target_type "File" :target_title "/etc/foobar"
-                :relationship "contains"}
-               {:source_type "Class" :source_title "foobar"
-                :target_type "File" :target_title "/etc/foobar/baz"
-                :relationship "contains"}
-               {:source_type "File" :source_title "/etc/foobar"
-                :target_type "File" :target_title "/etc/foobar/baz"
-                :relationship "required-by"}}
-             (->> (query-to-vec [(str "SELECT edges FROM catalogs")])
-                  (mapcat (comp sutils/parse-db-json :edges))
-                  set)))
-      (is (= #{{:type "Class" :title "foobar" :exported false
-                :tags #{"class" "foobar"} :file nil :line nil :parameters {}}
-               {:type "File" :title "/etc/foobar" :exported false
-                :file "/tmp/foo" :line 10 :tags #{"file" "class" "foobar"}
-                :parameters {:ensure "directory" :group "root" :user "root"}}
-               {:type "File" :title "/etc/foobar/baz" :exported false
-                :file "/tmp/bar" :line 20 :tags #{"file" "class" "foobar"}
-                :parameters {:ensure "directory" :group "root" :user "root"
-                             :require "File[/etc/foobar]"}}}
-             (->> (query-to-vec [(str "SELECT resources FROM catalogs")])
-                  (mapcat (comp sutils/parse-db-json :resources))
-                  (map #(update % :tags set))
-                  set))))
-
-    (testing "stores a second catalog"
-      (store-catalog! (assoc catalog :producer_timestamp current-time) (now))
-      (is (= [{:count 2}]
-             (query-to-vec ["SELECT COUNT(*) FROM catalogs"]))))
-
-    (testing "storing an older catalog doesn't change the latest id"
-      (store-catalog! (assoc catalog :producer_timestamp (-> 1 days ago)) (now))
-      (is (= [{:count 3}]
-             (query-to-vec ["SELECT COUNT(*) FROM catalogs"])))
-
-      (is (= [{:producer_timestamp (to-timestamp current-time)}]
-             (query-to-vec [(str "SELECT catalogs.producer_timestamp FROM certnames"
-                                 " JOIN latest_catalogs ON certnames.id = latest_catalogs.certname_id"
-                                 " JOIN catalogs ON catalogs.id = latest_catalogs.catalog_id"
-                                 " WHERE certnames.certname = 'basic.catalogs.com'")]))))
-
-    (testing "only stores up to three catalogs a certname"
-      (store-catalog! (assoc catalog :producer_timestamp (-> 3 days ago)) (now))
-      (store-catalog! (assoc catalog :producer_timestamp (-> 4 days ago)) (now))
-      (store-catalog! (assoc catalog :producer_timestamp (-> 5 days ago)) (now))
-      (store-catalog! (assoc catalog :producer_timestamp (-> 6 days ago)) (now))
-      (is (= [{:count 3}] (query-to-vec ["SELECT COUNT(*) FROM catalogs"]))))
-
-    (testing "storing a new certname doesn't delete other certname's catalogs"
-      (add-certname! "bar.bazz.com")
-      (store-catalog! (assoc catalog
-                             :certname "bar.bazz.com"
-                             :producer_timestamp (-> 1 days ago)) (now))
-      (is (= [{:count 4}] (query-to-vec ["SELECT COUNT(*) FROM catalogs"]))))))
 
 (deftest-db catalog-persistence
   (testing "Persisted catalogs"
@@ -760,7 +710,8 @@
                  :values facts
                  :timestamp (-> 2 days ago)
                  :environment "ENV3"
-                 :producer_timestamp (-> 2 days ago)}))
+                 :producer_timestamp (-> 2 days ago)
+                 :producer "bar.com"}))
   (let [factset-id (:id (first (query-to-vec ["SELECT id from factsets"])))
         fact-value-ids (set (map :id (query-to-vec ["SELECT id from fact_values"])))]
 
@@ -832,8 +783,9 @@
                  {:type "File" :title "/etc/foobar/baz"}}
                (set (query-to-vec "SELECT cr.type, cr.title
                                    FROM catalogs c
-                                   INNER JOIN latest_catalogs ON latest_catalogs.catalog_id = c.id
-                                   INNER JOIN catalog_resources cr ON latest_catalogs.certname_id = cr.certname_id
+                                   INNER JOIN certnames on c.certname=certnames.certname
+                                   INNER JOIN catalog_resources cr
+                                   ON certnames.id=cr.certname_id
                                    WHERE c.certname=?" certname))))
 
         (tu/with-wrapped-fn-args [inserts sql/insert!
@@ -1095,7 +1047,7 @@
    #(-> (sql/result-set-seq %)
         first
         :params
-        (json/parse-string true))))
+        sutils/parse-db-json)))
 
 (defn foobar-param-hash []
   (jdbc/query-with-resultset
@@ -1243,7 +1195,8 @@
                            :values {"foo" "bar"}
                            :environment "DEV"
                            :producer_timestamp (-> 10 days ago)
-                           :timestamp (-> 2 days ago)})}]
+                           :timestamp (-> 2 days ago)
+                           :producer "baz.com"})}]
       (doseq [ops (subsets (keys mutators))]
         (with-test-db
           (add-certname! "node1")
@@ -1298,35 +1251,7 @@
       (testing "returns a node with only a stale catalog"
         (add-certname! "node1")
         (repcat :empty stale-stamp)
-        (is (= ["node1"] (expire-stale-nodes (-> 1 days .toPeriod)))))))
-
-  (with-historical-catalogs-enabled 3
-    (let [history-limit @historical-catalogs-limit
-          addcat (fn [type stamp]
-                   (add-catalog! (assoc (type catalogs)
-                                        :certname "node1"
-                                        :producer_timestamp stamp)
-                                 stamp
-                                 history-limit))
-          stamp (now)
-          stale-stamp (-> 2 days ago)]
-      (testing "with historical"
-        (with-test-db
-          (testing "doesn't return node with a recent catalog and nothing else"
-            (add-certname! "node1")
-            (addcat :empty stamp)
-            (is (= [] (expire-stale-nodes (-> 1 days .toPeriod))))))
-        (with-test-db
-          (testing "returns a node with only a stale catalog"
-            (add-certname! "node1")
-            (addcat :empty stale-stamp)
-            (is (= ["node1"] (expire-stale-nodes (-> 1 days .toPeriod))))))
-        (with-test-db
-          (testing "doesn't return node with a recent report and a stale report"
-            (add-certname! "node1")
-            (addcat :empty stale-stamp)
-            (addcat :basic stamp)
-            (is (=  [] (expire-stale-nodes (-> 1 days .toPeriod))))))))))
+        (is (= ["node1"] (expire-stale-nodes (-> 1 days .toPeriod))))))))
 
 (deftest-db only-nodes-older-than-max-age-expired
   (testing "should only return nodes older than max age, and leave others alone"
@@ -1394,7 +1319,7 @@
 (let [timestamp (now)
       {:keys [certname] :as report} (:basic reports)
       report-hash (-> report
-                      report/report-query->wire-v7
+                      report/report-query->wire-v8
                       normalize-report
                       shash/report-identity-hash)]
 
@@ -1432,6 +1357,14 @@
     (is (= (query-to-vec ["SELECT certname, environment_id FROM reports"])
            [{:certname (:certname report)
              :environment_id (environment-id "DEV")}])))
+
+ (deftest-db report-storage-with-producer
+   (let [prod-id (ensure-producer "bar.com")]
+     (store-example-report! (assoc report :producer "bar.com") timestamp)
+
+     (is (= (query-to-vec ["SELECT certname, producer_id FROM reports"])
+            [{:certname (:certname report)
+              :producer_id prod-id}]))))
 
   (deftest-db report-storage-with-status
     (is (nil? (status-id "unchanged")))

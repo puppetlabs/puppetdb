@@ -270,6 +270,7 @@
    "report_receive_time"    ["latest_events"]
    "hash"                   ["latest_events" "report"]
    "status"                 ["latest_events"]
+   "corrective_change"      ["latest_events"]
    "timestamp"              ["latest_events"]
    "resource_type"          ["latest_events"]
    "resource_title"         ["latest_events"]

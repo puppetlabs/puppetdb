@@ -11,6 +11,7 @@
             [puppetlabs.puppetdb.catalogs :as catalogs]
             [puppetlabs.puppetdb.factsets :as factsets]
             [puppetlabs.puppetdb.reports :as reports]
+            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.utils :as utils]
             [clj-time.format :as time-fmt]
             [clj-time.coerce :as time-coerce]
@@ -19,16 +20,10 @@
 
 (def export-metadata-file-name "export-metadata.json")
 (def query-api-version :v4)
-(def ^:private command-versions
-  ;; This is not ideal that we are hard-coding the command version here, but
-  ;;  in our current architecture I don't believe there is any way to introspect
-  ;;  on which version of the `replace catalog` matches up with the current
-  ;;  version of the `catalog` endpoint... or even to query what the latest
-  ;;  version of a command is.  We should improve that.
-  {:replace_catalog 7
-   :store_report 6
-   :replace_facts 4})
-
+(def latest-command-versions
+  {:replace_catalog command/latest-catalog-version
+   :store_report command/latest-report-version
+   :replace_facts command/latest-facts-version})
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utility Functions
 
@@ -58,13 +53,13 @@
   (map #(export-datum->tar-item entity %) data))
 
 (def export-info
-  {"catalogs" {:query->wire-fn catalogs/catalogs-query->wire-v8
+  {"catalogs" {:query->wire-fn catalogs/catalogs-query->wire-v9
               :anonymize-fn anon/anonymize-catalog
               :json-encoded-fields [:edges :resources]}
-   "reports" {:query->wire-fn reports/reports-query->wire-v7
+   "reports" {:query->wire-fn reports/reports-query->wire-v8
              :anonymize-fn anon/anonymize-report
              :json-encoded-fields [:metrics :logs :resource_events :resources]}
-   "factsets" {:query->wire-fn factsets/factsets-query->wire-v4
+   "factsets" {:query->wire-fn factsets/factsets-query->wire-v5
               :anonymize-fn anon/anonymize-facts
               :json-encoded-fields [:facts]}})
 
@@ -92,14 +87,8 @@
                                            query->wire-fn
                                            (maybe-anonymize anonymize-fn anon-config)
                                            (export-data->tar-items entity)
-                                           (add-tar-entries tar-writer)))
-                  entity* (if (and (= entity "catalogs")
-                                   @storage/store-catalogs-jsonb-columns?)
-                            ;; *Warning* this can only be used in PE so it
-                            ;; *cannot be tested against in the FOSS repo
-                            "historical_catalogs"
-                            entity)]]
-      (query-fn query-api-version ["from" entity*] nil query-callback-fn))))
+                                           (add-tar-entries tar-writer)))]]
+      (query-fn query-api-version ["from" entity] nil query-callback-fn))))
 
 (defn export!
   ([outfile query-fn] (export! outfile query-fn nil))
@@ -108,6 +97,6 @@
    (with-open [tar-writer (archive/tarball-writer outfile)]
      (utils/add-tar-entry
       tar-writer {:file-suffix [export-metadata-file-name]
-                  :contents (json/generate-pretty-string {:timestamp (now) :command_versions command-versions})})
+                  :contents (json/generate-pretty-string {:timestamp (now) :command_versions latest-command-versions})})
      (export!* tar-writer query-fn anonymize-profile))
    (log/infof "Finished exporting PuppetDB")))

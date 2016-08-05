@@ -40,6 +40,7 @@ extract = <lbracket>, [<whitespace>], [extractfields], [<whitespace>], <rbracket
            'factsets' |
            'fact_paths' |
            'fact_contents' |
+           'inventory' |
            'edges' |
            'events';
 
@@ -52,7 +53,7 @@ extract = <lbracket>, [<whitespace>], [extractfields], [<whitespace>], <rbracket
 expr-or      = expr-and { <whitespace>, or, <whitespace>, expr-or };
 expr-and     = expr-not { <whitespace>, and, <whitespace>, expr-and };
 expr-not     = ( not, [<whitespace>], expr-not ) | expr-rest;
-<expr-rest>  = ( <lparens>, expression, <rparens> ) | condexpression | condexpnull | subquery;
+<expr-rest>  = ( <lparens>, [<whitespace>], expression, [<whitespace>], <rparens> ) | condexpression | condexpnull | subquery;
 
 (* Implicit subqueries *)
 subquery = entity, [<whitespace>], where;
@@ -81,11 +82,16 @@ groupedarglist = <lparens>, [<whitespace>], [arglist], [<whitespace>], <rparens>
 <stringlist>   = string , [ [<whitespace>], <','>, [<whitespace>], stringlist ];
 
 (* Represents a field from an entity *)
-<field> = #'[a-zA-Z0-9_]+\??';
+field = #'[a-zA-Z0-9_]+\??' | (dottedfield, fieldpath);
+<fieldpath> = <'.'>, (quotedfield | standardfield | matchfield) , [fieldpath];
+<quotedfield> = #'\".*?\"(?=\.|\s)';
+<matchfield> = #'match\(.*?\)';
+<standardfield> = #'[^\s\.\"]+';
+<dottedfield> = 'facts' | 'trusted' | 'parameters';
 
 <condregexp>      = '~';
 <condregexparray> = '~>';
-<condinequality>      = '>=' | '<=' | '<' | '>';
+<condinequality>  = '>=' | '<=' | '<' | '>';
 <condmatch>       = '=';
 <condin>          = 'in';
 

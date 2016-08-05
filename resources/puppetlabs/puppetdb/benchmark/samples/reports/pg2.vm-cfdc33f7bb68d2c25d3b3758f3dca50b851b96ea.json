@@ -1,8 +1,11 @@
 {
+    "cached_catalog_status": "on_failure",
     "certname": "pg2.vm",
     "configuration_version": "1423833741",
     "end_time": "2015-02-13T13:26:31.273Z",
     "environment": "production",
+    "corrective_change": false,
+    "noop_pending": false,
     "logs": [
         {
             "file": null,
@@ -691,12 +694,14 @@
                     "old_value": "notrun",
                     "property": "returns",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:26:34.422Z"
                 }
             ],
             "file": "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
             "line": 83,
             "resource_title": "postgresql_data_directory",
+            "corrective_change": false,
             "resource_type": "Exec",
             "skipped": false,
             "timestamp": "2015-02-13T13:26:34.422Z"
@@ -714,6 +719,7 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:26:34.425Z"
                 }
             ],
@@ -721,6 +727,7 @@
             "line": 120,
             "resource_title": "/etc/sysconfig/pgsql/postgresql-8.4",
             "resource_type": "File",
+            "corrective_change": false,
             "skipped": false,
             "timestamp": "2015-02-13T13:26:34.425Z"
         },
@@ -738,12 +745,14 @@
                     "old_value": "need_to_run",
                     "property": "returns",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:26:34.488Z"
                 }
             ],
             "file": "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
             "line": 90,
             "resource_title": "override PGDATA in /etc/sysconfig/pgsql/postgresql",
+            "corrective_change": false,
             "resource_type": "Augeas",
             "skipped": false,
             "timestamp": "2015-02-13T13:26:34.488Z"
@@ -762,6 +771,7 @@
                     "old_value": "absent",
                     "property": "ensure",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:26:34.498Z"
                 }
             ],
@@ -769,6 +779,7 @@
             "line": 105,
             "resource_title": "data_directory",
             "resource_type": "Postgresql_conf",
+            "corrective_change": false,
             "skipped": false,
             "timestamp": "2015-02-13T13:26:34.498Z"
         },
@@ -786,6 +797,7 @@
                     "old_value": "absent",
                     "property": "message",
                     "status": "noop",
+                    "corrective_change": false,
                     "timestamp": "2015-02-13T13:26:35.125Z"
                 }
             ],
@@ -793,11 +805,15 @@
             "line": 6,
             "resource_title": "foo",
             "resource_type": "Notify",
+            "corrective_change": false,
             "skipped": false,
             "timestamp": "2015-02-13T13:26:35.125Z"
         }
     ],
     "start_time": "2015-02-13T13:26:28.549Z",
     "status": "unchanged",
+    "catalog_uuid": "7fd93195-cf36-4845-98a1-8fe460f32a1a",
+    "producer": "foo.com",
+    "code_id": "5a002ce2-643f-4147-ac17-5d7ca216ca8a",
     "transaction_uuid": "441eb073-d81a-4c3d-9c75-8c4bb1ca1cd1"
 }

@@ -49,18 +49,21 @@
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)})
+                             :producer_timestamp (now)
+                             :producer "bar2"})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)})
+                             :producer_timestamp (now)
+                             :producer "bar3"})
       (scf-store/deactivate-node! "foo1")
       (scf-store/add-facts! {:certname "foo1"
                              :values  facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)}))
+                             :producer_timestamp (now)
+                             :producer "bar1"}))
 
     (let [expected-result ["domain" "hostname" "kernel" "memorysize" "operatingsystem" "uptime_seconds"]]
       (testing "should retrieve all fact names, order alphabetically, including deactivated nodes"
@@ -146,18 +149,21 @@
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)})
+                             :producer_timestamp (now)
+                             :producer "bar2"})
       (scf-store/add-facts! {:certname "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)})
+                             :producer_timestamp (now)
+                             :producer "bar3"})
       (scf-store/deactivate-node! "foo1")
       (scf-store/add-facts! {:certname "foo1"
                              :values  facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer_timestamp (now)}))
+                             :producer_timestamp (now)
+                             :producer "bar1"}))
 
     (testing "query should return appropriate results"
       (let [{:keys [status body]} (query-response
@@ -184,6 +190,19 @@
                [{:path ["my_SF" "baz" 0], :type "float"}
                 {:path ["my_SF" "baz" 1], :type "float"}
                 {:path ["my_SF" "foo"], :type "string"}]))))
+
+    (testing "querying for depth"
+      (let [{:keys [status body]} (query-response
+                                    method
+                                    endpoint
+                                    [">" "depth" 0])
+            result (parse-result body)]
+        (is (= status http/status-ok))
+        (is (= result
+               [{:path ["my_SF" "baz" 0], :type "float"}
+                {:path ["my_SF" "baz" 1], :type "float"}
+                {:path ["my_SF" "foo"], :type "string"}]))))
+
     (testing "paging for fact-paths"
       (let [{:keys [status body]} (query-response
                                     method endpoint nil

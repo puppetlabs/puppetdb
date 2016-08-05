@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.1: Resources endpoint"
+title: "PuppetDB 4.2: Resources endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/resources.html"
 ---
@@ -12,6 +12,7 @@ canonical: "/puppetdb/latest/api/query/v4/resources.html"
 [catalogs]: ./catalogs.html
 [environments]: ./environments.html
 [nodes]: ./nodes.html
+[dotted]: ./ast.html#dot-notation
 
 You can query resources by making an HTTP request to the
 `/resources` endpoint.
@@ -26,6 +27,8 @@ deactivated nodes are not included in the response.
 * `query`: optional. A JSON array of query predicates, in prefix notation (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [our guide to query structure.][query]
 
 If no query is provided, all resources will be returned.
+
+Note: This endpoint supports [dot notation][dotted] on the `parameters` field.
 
 ### Query operators
 
@@ -54,6 +57,8 @@ See [the AST query language page][ast] for the full list of available operators.
 * `environment` (string): the environment of the node associated to the resource.
 
 * `resource` (string): a SHA-1 hash of the resource's type, title, and parameters, for identification.
+
+* `parameters` (json): a JSON hash of the resource's parameters.
 
 ### Subquery relationships
 
@@ -152,6 +157,27 @@ this route.
       "title" : "bar",
       "type" : "User",
       "certname" : "host2.mydomain.com"}]
+
+    curl -X GET http://localhost:8080/pdb/query/v4/resources -d 'query=["=","parameters.groups", "users"]'
+
+    [{"parameters" : {
+        "uid" : "1001,
+        "shell" : "/bin/bash",
+        "managehome" : false,
+        "gid" : "1001,
+        "home" : "/home/bar,
+        "groups" : "users,
+        "ensure" : "present"
+     },
+     "line" : 20,
+     "resource" : "514cc3d67baf20c1c5e053e6a74b249558031311",
+     "file" : "/etc/puppetlabs/code/environments/production/manifests/site.pp",
+     "exported" : false,
+     "environment": "production",
+     "tags" : [ "foo", "bar" ],
+     "title" : "bar",
+     "type" : "User",
+     "certname" : "host2.mydomain.com"}]
 
 ## `/pdb/query/v4/resources/<TYPE>/<TITLE>`
 

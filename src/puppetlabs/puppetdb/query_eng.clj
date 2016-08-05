@@ -29,6 +29,8 @@
                               :rec nil}
      :event-counts {:munge event-counts/munge-result-rows
                     :rec nil}
+     :inventory {:munge (constantly identity)
+                 :rec eng/inventory-query}
      :facts {:munge facts/munge-result-rows
              :rec eng/facts-query}
      :fact-contents {:munge fact-contents/munge-result-rows
@@ -45,6 +47,8 @@
              :rec eng/nodes-query}
      :environments {:munge (constantly identity)
                     :rec eng/environments-query}
+     :producers {:munge (constantly identity)
+                 :rec eng/producers-query}
      :events {:munge events/munge-result-rows
               :rec eng/report-events-query}
      :edges {:munge edges/munge-result-rows
@@ -63,7 +67,7 @@
   (if-let [munge-result (get-in @entity-fn-idx [entity :munge])]
     munge-result
     (throw (IllegalArgumentException.
-            (i18n/tru "Invalid entity '{0}' in query"
+            (i18n/tru "Invalid entity ''{0}'' in query"
                       (utils/dashes->underscores (name entity)))))))
 
 (defn orderable-columns
@@ -147,6 +151,18 @@
     (instance? java.io.InputStream obj) (json/parse obj true)
     :else obj))
 
+(defn user-query->engine-query
+  ([version query-map] (user-query->engine-query version query-map false))
+  ([version query-map warn-experimental]
+   (let [query (:query query-map)
+         {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context
+                                                          version query warn-experimental)
+         paging-options (some-> paging-clauses
+                                (rename-keys {:order-by :order_by})
+                                (update :order_by paging/munge-query-ordering))
+         query-options (merge (dissoc query-map :query) paging-options)]
+     {:query query :remaining-query remaining-query :entity entity :query-options query-options})))
+
 (pls/defn-validated produce-streaming-body
   "Given a query, and database connection, return a Ring response with
    the query results. query-map is a clojure map of the form
@@ -158,13 +174,7 @@
   (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print]
          :or {warn-experimental true
               pretty-print false}} options
-        query (:query query-map)
-        {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context
-                                                          version query warn-experimental)
-        paging-options (some-> paging-clauses
-                               (rename-keys {:order-by :order_by})
-                               (update :order_by paging/munge-query-ordering))
-        query-options (merge (dissoc query-map :query) paging-options)]
+        {:keys [query remaining-query entity query-options]} (user-query->engine-query version query-map warn-experimental)]
 
     (try
       (jdbc/with-transacted-connection scf-read-db
@@ -211,14 +221,8 @@
    id :- s/Str]
   (let [check-sql (case type
                     :catalog "SELECT 1
-                              FROM certnames
-                              INNER JOIN latest_catalogs
-                                ON latest_catalogs.certname_id = certnames.id
-                              INNER JOIN catalogs
-                                ON catalogs.id = latest_catalogs.certname_id
-                              WHERE certnames.certname=?"
-                    :historical-catalog "SELECT 1 FROM catalogs
-                                         WHERE catalog_uuid::text=?"
+                              FROM CATALOGS
+                              where catalogs.certname=?"
                     :node "SELECT 1
                            FROM certnames
                            WHERE certname=? "
@@ -229,6 +233,9 @@
                     :environment "SELECT 1
                                   FROM environments
                                   WHERE environment=?"
+                    :producer "SELECT 1
+                                  FROM producers
+                                  WHERE name=?"
                     :factset "SELECT 1
                               FROM certnames
                               INNER JOIN factsets

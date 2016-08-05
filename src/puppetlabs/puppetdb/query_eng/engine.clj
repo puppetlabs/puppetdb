@@ -1,11 +1,13 @@
 (ns puppetlabs.puppetdb.query-eng.engine
   (:require [clojure.core.match :as cm]
             [clojure.string :as str]
+            [puppetlabs.i18n.core :as i18n]
             [clojure.set :refer [map-invert]]
             [clojure.tools.logging :as log]
             [honeysql.core :as hcore]
             [honeysql.helpers :as hsql]
             [honeysql.types :as htypes]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.facts :as facts]
@@ -23,6 +25,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
+
+(defn validate-dotted-field
+  [dotted-field]
+  (and (string? dotted-field) (re-find #"(facts|trusted)\..+" dotted-field)))
 
 (def field-schema (s/cond-pre s/Keyword
                               SqlCall SqlRaw
@@ -67,6 +73,11 @@
 (s/defrecord ArrayBinaryExpression
     [column :- column-schema
      value])
+
+(s/defrecord JsonContainsExpression
+  [field :- s/Str
+   column-data :- column-schema
+   value])
 
 (s/defrecord InExpression
     [column :- [column-schema]
@@ -113,6 +124,76 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Queryable Entities
 
+(def inventory-query
+  "Query for inventory"
+  (map->Query {:projections {"certname" {:type :string
+                                         :queryable? true
+                                         :field :certnames.certname}
+                             "timestamp" {:type :timestamp
+                                          :queryable? true
+                                          :field :fs.timestamp}
+                             "environment" {:type :string
+                                            :queryable? true
+                                            :field :environments.environment}
+                             "facts" {:type :json
+                                      :queryable? true
+                                      :field {:select [[(h/json-object-agg :name :value) :facts]]
+                                              :from [[{:select [:fp.name  :fv.value]
+                                                       :from [[:facts :f]]
+                                                       :join [[:fact_values :fv]
+                                                              [:= :fv.id :f.fact_value_id]
+
+                                                              [:fact_paths :fp]
+                                                              [:= :fp.id :f.fact_path_id]
+
+                                                              [:value_types :vt]
+                                                              [:= :vt.id :fv.value_type_id]]
+                                                       :where [:and
+                                                               [:= :fp.depth 0]
+                                                               [:= :f.factset_id :fs.id]]}
+                                                      :facts_data]]}}
+                             "trusted" {:type :queryable-json
+                                        :queryable? true
+                                        :field  {:select [[:fv.value :trusted]]
+                                                 :from [[:facts :f]]
+                                                 :join [[:fact_values :fv]
+                                                        [:= :fv.id :f.fact_value_id]
+
+                                                        [:fact_paths :fp]
+                                                        [:= :fp.id :f.fact_path_id]
+
+                                                        [:value_types :vt]
+                                                        [:= :vt.id :fv.value_type_id]]
+                                                 :where [:and
+                                                         [:= :fp.depth 0]
+                                                         [:= :f.factset_id :fs.id]
+                                                         [:= :fp.name (hcore/raw "'trusted'")]]}}}
+
+               :selection {:from [[:factsets :fs]]
+                           :left-join [:environments
+                                       [:= :fs.environment_id :environments.id]
+
+                                       :producers
+                                       [:= :fs.producer_id :producers.id]
+
+                                       :certnames
+                                       [:= :fs.certname :certnames.certname]]}
+
+              :alias "inventory"
+              :relationships {"factsets" {:columns ["certname"]}
+                              "reports" {:columns ["certname"]}
+                              "catalogs" {:columns ["certname"]}
+                              "nodes" {:columns ["certname"]}
+                              "facts" {:columns ["certname"]}
+                              "fact_contents" {:columns ["certname"]}
+                              "events" {:columns ["certname"]}
+                              "edges" {:columns ["certname"]}
+                              "resources" {:columns ["certname"]}}
+
+              :dotted-fields ["facts\\..*" "trusted\\..*"]
+              :entity :inventory
+              :subquery? false}))
+
 (def nodes-query
   "Query for nodes entities, mostly used currently for subqueries"
   (map->Query {:projections {"certname" {:type :string
@@ -143,9 +224,15 @@
                              "latest_report_noop" {:type :boolean
                                                    :queryable? true
                                                    :field :reports.noop}
+                             "latest_report_noop_pending" {:type :boolean
+                                                           :queryable? true
+                                                           :field :reports.noop_pending}
                              "latest_report_status" {:type :string
                                                      :queryable? true
                                                      :field :report_statuses.status}
+                             "latest_report_corrective_change" {:type :boolean
+                                                                :queryable? true
+                                                                :field :reports.corrective_change}
                              "cached_catalog_status" {:type :string
                                                       :queryable? true
                                                       :field :reports.cached_catalog_status}
@@ -169,11 +256,8 @@
                                "resources" {:columns ["certname"]}}
 
                :selection {:from [:certnames]
-                           :left-join [:latest_catalogs
-                                       [:= :latest_catalogs.certname_id :certnames.id]
-
-                                       :catalogs
-                                       [:= :catalogs.id :latest_catalogs.catalog_id]
+                           :left-join [:catalogs
+                                       [:= :catalogs.certname :certnames.certname]
 
                                        [:factsets :fs]
                                        [:= :certnames.certname :fs.certname]
@@ -221,7 +305,11 @@
                                      :field :type}
                              "path" {:type :path
                                      :queryable? true
-                                     :field :path}}
+                                     :field :path}
+                             "depth" {:type :integer
+                                      :queryable? true
+                                      :query-only? true
+                                      :field :fp.depth}}
                :selection {:from [[:fact_paths :fp]]
                            :join [[:facts :f]
                                   [:= :f.fact_path_id :fp.id]
@@ -434,30 +522,39 @@
   "Query for the reports entity"
   (map->Query
     {:projections
-     {"hash"            {:type :string
-                         :queryable? true
-                         :field (hsql-hash-as-str :reports.hash)}
-      "certname"        {:type :string
-                         :queryable? true
-                         :field :reports.certname}
-      "puppet_version"  {:type :string
-                         :queryable? true
-                         :field :reports.puppet_version}
-      "report_format"   {:type :integer
-                         :queryable? true
-                         :field :reports.report_format}
+     {"hash" {:type :string
+              :queryable? true
+              :field (hsql-hash-as-str :reports.hash)}
+      "certname" {:type :string
+                  :queryable? true
+                  :field :reports.certname}
+      "noop_pending" {:type :boolean
+                      :queryable? true
+                      :field :reports.noop_pending}
+      "puppet_version" {:type :string
+                        :queryable? true
+                        :field :reports.puppet_version}
+      "report_format" {:type :integer
+                       :queryable? true
+                       :field :reports.report_format}
       "configuration_version" {:type :string
                                :queryable? true
                                :field :reports.configuration_version}
-      "start_time"      {:type :timestamp
-                         :queryable? true
-                         :field :reports.start_time}
-      "end_time"        {:type :timestamp
-                         :queryable? true
-                         :field :reports.end_time}
+      "start_time" {:type :timestamp
+                    :queryable? true
+                    :field :reports.start_time}
+      "end_time" {:type :timestamp
+                  :queryable? true
+                  :field :reports.end_time}
       "producer_timestamp" {:type :timestamp
                             :queryable? true
                             :field :reports.producer_timestamp}
+      "producer" {:type :string
+                  :queryable? true
+                  :field :producers.name}
+      "corrective_change" {:type :string
+                           :queryable? true
+                           :field :reports.corrective_change}
       "metrics" {:type :json
                  :queryable? false
                  :field {:select [(h/row-to-json :t)]
@@ -472,33 +569,33 @@
                                [[(h/coalesce :logs (h/scast :logs_json :jsonb)) :data]
                                 [(hsql-hash-as-href (su/sql-hash-as-str "hash") :reports :logs)
                                  :href]]} :t]]}}
-      "receive_time"    {:type :timestamp
-                         :queryable? true
-                         :field :reports.receive_time}
+      "receive_time" {:type :timestamp
+                      :queryable? true
+                      :field :reports.receive_time}
       "transaction_uuid" {:type :string
                           :queryable? true
                           :field (hsql-uuid-as-str :reports.transaction_uuid)}
       "catalog_uuid" {:type :string
                       :queryable? true
                       :field (hsql-uuid-as-str :reports.catalog_uuid)}
-      "noop"            {:type :boolean
-                         :queryable? true
-                         :field :reports.noop}
+      "noop" {:type :boolean
+              :queryable? true
+              :field :reports.noop}
       "code_id" {:type :string
                  :queryable? true
                  :field :reports.code_id}
       "cached_catalog_status" {:type :string
                                :queryable? true
                                :field :reports.cached_catalog_status}
-      "environment"     {:type :string
-                         :queryable? true
-                         :field :environments.environment}
-      "status"          {:type :string
-                         :queryable? true
-                         :field :report_statuses.status}
-      "latest_report?"   {:type :string
-                          :queryable? true
-                          :query-only? true}
+      "environment" {:type :string
+                     :queryable? true
+                     :field :environments.environment}
+      "status" {:type :string
+                :queryable? true
+                :field :report_statuses.status}
+      "latest_report?" {:type :string
+                        :queryable? true
+                        :query-only? true}
       "resource_events" {:type :json
                          :queryable? false
                          :field {:select [(h/row-to-json :event_data)]
@@ -511,6 +608,7 @@
                                                     :re.resource_type
                                                     :re.resource_title
                                                     :re.property
+                                                    :re.corrective_change
                                                     (h/scast :re.new_value :jsonb)
                                                     (h/scast :re.old_value :jsonb)
                                                     :re.message
@@ -525,6 +623,9 @@
                  :left-join [:environments
                              [:= :environments.id :reports.environment_id]
 
+                             :producers
+                              [:= :producers.id :reports.producer_id]
+
                              :report_statuses
                              [:= :reports.status_id :report_statuses.id]]}
 
@@ -532,6 +633,8 @@
                      "nodes" {:columns ["certname"]}
                      "environments" {:local-columns ["environment"]
                                      :foreign-columns ["name"]}
+                     "producers" {:local-columns ["producer"]
+                                  :foreign-columns ["name"]}
 
                      ;; Children - direct
                      "events" {:local-columns ["hash"]
@@ -570,6 +673,9 @@
       "producer_timestamp" {:type :timestamp
                             :queryable? true
                             :field :c.producer_timestamp}
+      "producer" {:type :string
+                  :queryable? true
+                  :field :producers.name}
       "resources" {:type :json
                    :queryable? false
                    :field {:select [(h/row-to-json :resource_data)]
@@ -581,7 +687,7 @@
                                              :from [[:catalog_resources :cr]]
                                              :join [[:resource_params_cache :rpc]
                                                     [:= :rpc.resource :cr.resource]]
-                                             :where [:= :cr.certname_id :latest_catalogs.certname_id]}
+                                             :where [:= :cr.certname_id :certnames.id]}
                                             :t]]}
                                    :resource_data]]}}
       "edges" {:type :json
@@ -596,26 +702,32 @@
                                          :join [[:catalog_resources :sources]
                                                 [:and
                                                  [:= :edges.source :sources.resource]
-                                                 [:= :sources.certname_id :latest_catalogs.certname_id]]
+                                                 [:= :sources.certname_id :certnames.id]]
 
                                                 [:catalog_resources :targets]
                                                 [:and
                                                  [:= :edges.target :targets.resource]
-                                                 [:= :targets.certname_id :latest_catalogs.certname_id]]]
+                                                 [:= :targets.certname_id :certnames.id]]]
                                          :where [:= :edges.certname :c.certname]}
                                         :t]]}
                                :edge_data]]}}}
 
-     :selection {:from [:latest_catalogs]
-                 :join [[:catalogs :c]
-                        [:= :latest_catalogs.catalog_id :c.id]]
+     :selection {:from [[:catalogs :c]]
                  :left-join [[:environments :e]
-                             [:= :c.environment_id :e.id]]}
+                             [:= :c.environment_id :e.id]
+
+                             :certnames
+                             [:= :c.certname :certnames.certname]
+
+                             :producers
+                             [:= :producers.id :c.producer_id]]}
 
      :relationships {;; Parents - direct
                      "node" {:columns ["certname"]}
                      "environments" {:local-columns ["environment"]
                                      :foreign-columns ["name"]}
+                     "producers" {:local-columns ["producer"]
+                                  :foreign-columns ["name"]}
 
                      ;; Children - direct
                      "edges" {:columns ["certname"]}
@@ -702,15 +814,16 @@
                              "line" {:type :integer
                                      :queryable? true
                                      :field :line}
-                             "parameters" {:type :json
+                             "parameters" {:type :queryable-json
                                            :queryable? true
-                                           :field (h/scast :rpc.parameters :json)}}
+                                           :field :rpc.parameters}}
 
                :selection {:from [[:catalog_resources :resources]]
-                           :join [:latest_catalogs
-                                  [:= :latest_catalogs.certname_id :resources.certname_id]
+                           :join [:certnames
+                                  [:= :resources.certname_id :certnames.id]
+
                                   [:catalogs :c]
-                                  [:= :latest_catalogs.catalog_id :c.id]]
+                                  [:= :c.certname :certnames.certname]]
                            :left-join [[:environments :e]
                                        [:= :c.environment_id :e.id]
 
@@ -727,6 +840,7 @@
 
                :alias "resources"
                :subquery? false
+               :dotted-fields ["parameters\\..*"]
                :source-table "catalog_resources"}))
 
 (def report-events-query
@@ -752,6 +866,9 @@
                              "status" {:type :string
                                        :queryable? true
                                        :field :status}
+                             "corrective_change" {:type :boolean
+                                                  :queryable? true
+                                                  :field :events.corrective_change}
                              "timestamp" {:type :timestamp
                                           :queryable? true
                                           :field :timestamp}
@@ -853,6 +970,25 @@
                :subquery? false
                :source-table "environments"}))
 
+(def producers-query
+  "Basic producers query, more useful when used with subqueries"
+  (map->Query {:projections {"name" {:type :string
+                                    :queryable? true
+                                    :field :name}}
+              :selection {:from [:producers]}
+
+              :relationships {;; Children - direct
+                              "factsets" {:local-columns ["name"]
+                                          :foreign-columns ["producer"]}
+                              "catalogs" {:local-columns ["name"]
+                                          :foreign-columns ["producer"]}
+                              "reports" {:local-columns ["name"]
+                                         :foreign-columns ["producer"]}}
+
+              :alias "producers"
+              :subquery? false
+              :source-table "producers"}))
+
 (def factsets-query
   "Query for the top level facts query"
   (map->Query
@@ -882,18 +1018,25 @@
       "producer_timestamp" {:type :timestamp
                             :queryable? true
                             :field :factsets.producer_timestamp}
+      "producer" {:type :string
+                  :queryable? true
+                  :field :producers.name}
       "environment" {:type :string
                      :queryable? true
                      :field :environments.environment}}
 
      :selection {:from [:factsets]
                  :left-join [:environments
-                             [:= :factsets.environment_id :environments.id]]}
+                             [:= :factsets.environment_id :environments.id]
+                             :producers
+                             [:= :producers.id :factsets.producer_id]]}
 
      :relationships {;; Parents - direct
                      "nodes" {:columns ["certname"]}
                      "environments" {:local-columns ["environment"]
                                      :foreign-columns ["name"]}
+                     "producers" {:local-columns ["producer"]
+                                  :foreign-columns ["name"]}
 
                      ;; Children - direct
                      "facts" {:columns ["certname"]}
@@ -930,7 +1073,7 @@
 (defn compile-fnexpression
   ([expr]
    (compile-fnexpression expr true))
-  ([{:keys [function column params] :as foobar} alias?]
+  ([{:keys [function column params]} alias?]
    (let [honeysql-fncall (apply hcore/call function (cons column params))]
      (hcore/format (if alias?
                      [honeysql-fncall (get pg-fns->pdb-fns function)]
@@ -994,7 +1137,11 @@
     [:in (mapv :field column)
      (-plan->sql subquery)])
 
-  BinaryExpression
+  JsonContainsExpression
+  (-plan->sql [{:keys [field]}]
+    (su/json-contains field))
+
+ BinaryExpression
   (-plan->sql [{:keys [column operator value]}]
     (apply vector
            :or
@@ -1063,6 +1210,22 @@
       (instance? ArrayBinaryExpression node)
       (instance? ArrayRegexExpression node)))
 
+(defn path->nested-map
+  "Given path [a b c] and value d, produce {a {b {c d}}}"
+  [path value]
+  (reduce #(hash-map (utils/maybe-strip-escaped-quotes %2) %1)
+          (rseq (conj (vec path) value))))
+
+(defn parse-dot-query
+  "Transforms a dotted query into a JSON structure appropriate
+   for comparison in the database."
+  [{:keys [field value] :as node} state]
+  (let [[column & path] (map utils/maybe-strip-escaped-quotes
+                             (su/dotted-query->path field))]
+    {:node (assoc node :value "?" :field column)
+     :state (conj state (su/munge-jsonb-for-storage
+                          (path->nested-map path value)))}))
+
 (defn extract-params
   "Extracts the node's expression value, puts it in state
    replacing it with `?`, used in a prepared statement"
@@ -1071,6 +1234,9 @@
     (binary-expression? node)
     {:node (assoc node :value "?")
      :state (conj state (:value node))}
+
+    (instance? JsonContainsExpression node)
+    (parse-dot-query node state)
 
     (instance? FnExpression node)
     {:state (apply conj (:params node) state)}))
@@ -1094,6 +1260,7 @@
   {"select_catalogs" catalog-query
    "select_edges" edges-query
    "select_environments" environments-query
+   "select_producers" producers-query
    "select_events" report-events-query
    "select_facts" facts-query
    "select_factsets" factsets-query
@@ -1103,6 +1270,7 @@
    "select_latest_report" latest-report-query
    "select_params" resource-params-query
    "select_reports" reports-query
+   "select_inventory" inventory-query
    "select_resources" resources-query})
 
 (defn user-query->logical-obj
@@ -1120,6 +1288,33 @@
   query language"
   [node]
   (cm/match [node]
+
+            [[(op :guard #{"=" ">" "<" "<=" ">=" "~"}) (column :guard validate-dotted-field) value]]
+            (when (= :inventory (get-in (meta node) [:query-context :entity]))
+              (let [[head & path] (->> column
+                                       utils/parse-matchfields
+                                       su/dotted-query->path
+                                       (map utils/maybe-strip-escaped-quotes))
+                    path (if (= head "trusted")
+                           (cons head path)
+                           path)
+                    value-column (cond
+                                   (string? value) "value_string"
+                                   (ks/boolean? value) "value_boolean"
+                                   (integer? value) "value_integer"
+                                   (float? value) "value_float"
+                                   :else (throw (IllegalArgumentException.
+                                                 (i18n/tru "Value {0} of type {1} unsupported." value (type value)))))]
+
+                (if (or (and (or (ks/boolean? value) (number? value)) (= op "~"))
+                        (and (or (ks/boolean? value) (string? value)) (contains? #{"<=" "<" ">" ">="} op)))
+                  (throw (i18n/tru "Operator ''{0}'' not allowed on value ''{1}''" op value))
+                  ["in" "certname"
+                   ["extract" "certname"
+                    ["select_fact_contents"
+                     ["and"
+                      ["~>" "path" (utils/split-indexing path)]
+                      [op value-column value]]]]])))
 
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
             ["or" [op "value_integer" value] [op "value_float" value]]
@@ -1222,7 +1417,7 @@
                                       ["select_latest_report"]]]
 
                                     (throw (IllegalArgumentException.
-                                             (format "Field 'latest_report?' not supported on endpoint '%s'" entity))))]
+                                            (i18n/tru "Field 'latest_report?' not supported on endpoint ''{0}''" entity))))]
               (if value
                 expanded-latest
                 ["not" expanded-latest]))
@@ -1488,7 +1683,8 @@
   [query-rec node]
   (cm/match [node]
             [["=" column-name value]]
-            (let [cinfo (get-in query-rec [:projections column-name])]
+            (let [colname (first (str/split column-name #"\."))
+                  cinfo (get-in query-rec [:projections colname])]
               (case (:type cinfo)
                :timestamp
                (map->BinaryExpression {:operator :=
@@ -1503,6 +1699,11 @@
                (map->BinaryExpression {:operator :=
                                        :column cinfo
                                        :value (facts/factpath-to-string value)})
+
+               :queryable-json
+               (map->JsonContainsExpression {:field column-name
+                                             :column-data cinfo
+                                             :value value})
 
                (map->BinaryExpression {:operator :=
                                        :column cinfo
@@ -1671,9 +1872,7 @@
                 [["from" entity query]]
                 (let [query (push-down-context (user-query->logical-obj (str "select_" entity)) query)
                       nested-qc (:query-context (meta query))]
-                  {:node (vary-meta ["from" entity
-                                     (vary-meta query
-                                                assoc :query-context nested-qc)]
+                  {:node (vary-meta ["from" entity query]
                                     assoc :query-context nested-qc)
                    :state state
                    :cut true})
@@ -1701,15 +1900,21 @@
                    :state (cond-> state column-validation-message (conj column-validation-message))
                    :cut true})
 
+                [["extract" column [subquery-name :guard (complement #{"not" "group_by"}) _]]]
+                (let [underscored-subquery-name (utils/dashes->underscores subquery-name)
+                      error (if (contains? (set (keys user-name->query-rec-name)) underscored-subquery-name)
+                              (i18n/trs "Unsupported subquery `{0}` - did you mean `{1}`?" subquery-name underscored-subquery-name)
+                              (i18n/trs "Unsupported subquery `{0}`" subquery-name))]
+                  {:node node
+                   :state (conj state error)
+                   :cut true})
+
                 [["subquery" relationship expr]]
                 (let [subquery-expr (push-down-context
                                      (user-query->logical-obj (str "select_" relationship))
-                                     expr)
-                      nested-qc (:query-context (meta subquery-expr))]
+                                     expr)]
 
-                  {:node (vary-meta ["subquery" relationship
-                                     (vary-meta expr
-                                                assoc :query-context nested-qc)]
+                  {:node (vary-meta ["subquery" relationship subquery-expr]
                                     assoc :query-context context)
                    :state state
                    :cut true})
@@ -1725,9 +1930,11 @@
   [node state]
   (cm/match [node]
             [[(:or "=" "~" ">" "<" "<=" ">=") field _]]
-            (let [{:keys [alias] :as query-context} (:query-context (meta node))
+            (let [{:keys [alias dotted-fields] :as query-context} (:query-context (meta node))
                   qfields (queryable-fields query-context)]
-              (when-not (or (vec? field) (contains? (set qfields) field))
+              (when-not (or (vec? field)
+                            (contains? (set qfields) field)
+                            (some #(re-matches % field) (map re-pattern dotted-fields)))
                 {:node node
                  :state (conj state
                               (format "'%s' is not a queryable object for %s, %s" field alias
@@ -1750,9 +1957,11 @@
                  :state (conj state column-validation-message)}))
 
             [["in" field ["array" _]]]
-            (let [{:keys [alias] :as query-context} (:query-context (meta node))
+            (let [{:keys [alias dotted-fields] :as query-context} (:query-context (meta node))
                   qfields (queryable-fields query-context)]
-              (when-not (or (vec? field) (contains? (set qfields) field))
+              (when-not (or (vec? field)
+                            (contains? (set qfields) field)
+                            (some #(re-matches % field) (map re-pattern dotted-fields)))
                 {:node node
                  :state (conj state
                               (format "'%s' is not a queryable object for %s, %s" field alias

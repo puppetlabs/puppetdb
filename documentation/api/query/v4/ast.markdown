@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.1: AST query language"
+title: "PuppetDB 4.2: AST query language"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/ast.html"
 ---
@@ -13,6 +13,7 @@ canonical: "/puppetdb/latest/api/query/v4/ast.html"
 [fact-contents]: ./fact-contents.html
 [fact-paths]: ./fact-paths.html
 [nodes]: ./nodes.html
+[producers]: ./producers.html
 [query]: ./query.html
 [reports]: ./reports.html
 [resources]: ./resources.html
@@ -176,7 +177,7 @@ Extract can also be used with a standalone function application:
 
     ["extract", [["function", "count"]], ["~", "certname", ".\*.com"]]
 
-or 
+or
 
     ["extract", [["function", "count"]]]
 
@@ -214,6 +215,70 @@ with:
 To get the average uptime for your nodes:
 
     ["extract", [["function", "avg", "value"]], ["=", "name", "uptime_seconds"]]
+
+## Dot notation
+
+*Note*: Dot notation for hash descendence is experimental. Currently it has
+full support on the `facts` and `trusted` response keys of the `inventory`
+endpoint, and partial support on the `parameters` column of the resources
+endpoint.
+
+Certain types of JSON data returned by PuppetDB can be queried in a structured
+way using `dot notation`. The rules for dot notation are:
+* Hash descendence is represented by a period-separated sequence of key names
+* Array indexing (`inventory` only) is represented with brackets ([]) on the
+end of a key.
+* Regular expression matching (`inventory` only) is represented with the
+  `match` keyword.
+
+For example, given the inventory response
+    {
+        "certname" : "mbp.local",
+        "timestamp" : "2016-07-11T20:02:33.190Z",
+        "environment" : "production",
+        "facts" : {
+            "kernel" : "Darwin",
+            "operatingsystem" : "Darwin",
+            "macaddress_p2p0" : "0e:15:c2:d6:f8:4e",
+            "system_uptime" : {
+                "days" : 0,
+                "hours" : 1,
+                "uptime" : "1:52 hours",
+                "seconds" : 6733
+            },
+            "macaddress_awdl0" : "6e:31:ef:e6:36:54",
+            "processors": {
+                "models": [
+                    "Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz",
+                    "Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz",
+                    "Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz",
+                    "Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz"],
+                "count": 4,
+                "physicalcount": 1
+            },
+            ...
+        },
+        "trusted" : {
+            "domain" : "local",
+            "certname" : "mbp.local",
+            "hostname" : "mbp",
+            "extensions" : { },
+            "authenticated" : "remote"
+        }
+    }
+
+valid queries would include
+
+*    ["=", "facts.kernel", "Darwin"]
+
+*    ["=", "facts.system_uptime.days", 0]
+
+*    [">", "facts.system_uptime.hours", 0]
+
+*    ["~", "facts.processors.models[0]", "Intel.*"]
+
+*    ["=", "partitions.match(\"sda.*\").mount", "/home"]
+
 
 ## Context operators
 
@@ -423,7 +488,7 @@ which is equivalent to the following query:
 The `in`-`array` operators support much of the same syntax as the `=` operator.
 For example, the following query on the `/nodes` endpoint is valid:
 
-    ["in", ["fact", "uptime_seconds"], 
+    ["in", ["fact", "uptime_seconds"],
      ["array",
       [20000.0,
        150.0,
@@ -480,6 +545,7 @@ Each subquery acts as a normal query to one of the PuppetDB endpoints. For info 
 * [`select_fact_contents`][fact-contents]
 * [`select_fact_paths`][fact-paths]
 * [`select_nodes`][nodes]
+* [`select_producers`][producers]
 * [`select_reports`][reports]
 * [`select_resources`][resources]
 
