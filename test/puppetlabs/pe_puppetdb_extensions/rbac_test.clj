@@ -180,7 +180,6 @@
 
                    (is (= "running" (get-in response [:puppetdb-status :state])))
                    (is (= "running" (get-in response [:puppetdb-status :status :rbac_status])))))
-               
 
                (is (= 200 (:status (http-client/get (str *pdb-url* "/meta/v1/version")
                                                     {:as :text}))))

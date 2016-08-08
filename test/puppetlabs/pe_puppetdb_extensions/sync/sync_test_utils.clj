@@ -13,6 +13,7 @@
             [puppetlabs.puppetdb.testutils.log :refer [with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
+            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [slingshot.slingshot :refer [throw+]]
             [clojure.pprint :refer [pprint]]
@@ -28,12 +29,13 @@
 (def facts {:certname "foo.local"
             :environment "DEV"
             :values tuf/base-facts
-            :producer_timestamp (new java.util.Date)})
+            :producer_timestamp (new java.util.Date)
+            :producer "bar.com"})
 
-(def catalog (assoc (get-in wire-catalogs [8 :basic])
+(def catalog (assoc (get-in wire-catalogs [command/latest-catalog-version :basic])
                     :certname "foo.local"))
 
-(def report (-> reports :basic reports/report-query->wire-v7))
+(def report (-> reports :basic reports/report-query->wire-v8))
 
 
 ;;; General test utils
@@ -121,15 +123,15 @@
 
 (defn submit-catalog [endpoint catalog]
   (blocking-command-post (:command-url endpoint) (:certname catalog)
-                         "replace catalog" 8 catalog))
+                         "replace catalog" command/latest-catalog-version catalog))
 
 (defn submit-factset [endpoint facts]
   (blocking-command-post (:command-url endpoint) (:certname facts)
-                         "replace facts" 4 facts))
+                         "replace facts" command/latest-facts-version facts))
 
 (defn submit-report [endpoint report]
   (blocking-command-post (:command-url endpoint) (:certname report)
-                         "store report" 7 report))
+                         "store report" command/latest-report-version report))
 
 (defn deactivate-node [endpoint certname]
   (blocking-command-post (:command-url endpoint) certname "deactivate node" 3

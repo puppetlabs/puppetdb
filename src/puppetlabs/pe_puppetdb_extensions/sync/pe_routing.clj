@@ -19,13 +19,14 @@
             [puppetlabs.pe-puppetdb-extensions.server :as pe-server]
             [puppetlabs.pe-puppetdb-extensions.sync.services :as sync-svcs]
             [puppetlabs.puppetdb.time :refer [parse-period]]
-            [puppetlabs.pe-puppetdb-extensions.catalogs
-             :refer [turn-on-historical-catalogs!]]
             [puppetlabs.pe-puppetdb-extensions.reports
-             :refer [reports-resources-routes turn-on-unchanged-resources!]]
+             :refer [reports-resources-routes turn-on-unchanged-resources!
+                     enable-corrective-change!]]
             [puppetlabs.puppetdb.status :as pdb-status]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.trapperkeeper.services.status.status-core :as status-core]))
+            [puppetlabs.trapperkeeper.services.status.status-core :as status-core]
+            [puppetlabs.pe-puppetdb-extensions.sync.status :as sync-status]
+            [puppetlabs.puppetdb.utils :refer [dash->underscore-keys]]))
 
 (def view-permission "nodes:view_data:*")
 (def edit-permission "nodes:edit_data:*")
@@ -79,7 +80,8 @@
   currently triggers an `:unknown` error. When TK Status has a
   degraded state, we should switch to that"
   [{:keys [maintenance_mode? read_db_up? write_db_up? rbac_status]
-    :as status-details}]
+    :as status-details}
+   sync-status]
   (let [rbac-up? (= rbac_status :running)
         state (cond
                 maintenance_mode? :starting
@@ -87,25 +89,20 @@
                 (and read_db_up? write_db_up? (false? rbac-up?)) :unknown
                 :else :error)]
     {:state state
-     :status status-details}))
+     :status (assoc status-details :sync_status (dash->underscore-keys sync-status))
+     :alerts (sync-status/alerts sync-status)}))
 
-(defn pe-routes [get-config get-shared-globals query
-                 bucketed-summary-query enqueue-command response-mult]
+(defn pe-routes [get-config get-shared-globals query sync-service]
   (map #(apply wrap-with-context %)
        (partition 2
-                  ["/sync" (sync-svcs/sync-handler get-config
-                                                   query
-                                                   bucketed-summary-query
-                                                   enqueue-command
-                                                   response-mult
-                                                   get-shared-globals)
+                  ["/sync" (sync-svcs/sync-handler sync-service get-config)
                    "/ext" (pe-server/build-app query get-shared-globals)])))
 
 (tk/defservice pe-routing-service
   [[:WebroutingService add-ring-handler get-route]
-   [:PuppetDBServer shared-globals query set-url-prefix]
+   [:PuppetDBServer clean shared-globals query set-url-prefix]
    [:DefaultedConfig get-config]
-   [:PuppetDBSync bucketed-summary-query]
+   [:PuppetDBSync sync-status]
    [:PuppetDBCommandDispatcher
     enqueue-command enqueue-raw-command response-pub response-mult]
    [:MaintenanceMode
@@ -120,10 +117,12 @@
                puppetdb-config :puppetdb
                jetty-config :jetty} config
               shared-with-prefix #(assoc (shared-globals) :url-prefix query-prefix)
-              rbac-consumer-svc (tksvc/get-service this :RbacConsumerService)]
+              rbac-consumer-svc (tksvc/get-service this :RbacConsumerService)
+              sync-service (tksvc/get-service this :PuppetDBSync)]
           (set-url-prefix query-prefix)
 
           (turn-on-unchanged-resources!)
+          (enable-corrective-change!)
 
           (log/info (i18n/trs "Starting PuppetDB, entering maintenance mode"))
           (add-ring-handler
@@ -136,13 +135,12 @@
                                                   enqueue-command
                                                   query
                                                   enqueue-raw-command
-                                                  response-pub)
+                                                  response-pub
+                                                  clean)
                                  (pe-routes get-config
                                             shared-with-prefix
                                             query
-                                            bucketed-summary-query
-                                            enqueue-command
-                                            (response-mult))))
+                                            sync-service)))
                 (wrap-cert-and-token-authn (:certificate-whitelist puppetdb-config)
                                            rbac-consumer-svc)
                 ;; This function is mistakenly private in the RBAC client we
@@ -154,13 +152,11 @@
           (pdb-status/register-pdb-status register-status
                                           (fn [level]
                                             (create-pe-status-map
-                                             (pe-status-details config shared-with-prefix maint-mode? rbac-consumer-svc))))
+                                             (pe-status-details config shared-with-prefix maint-mode? rbac-consumer-svc)
+                                             (sync-status))))
           context))
 
   (start [this context]
-         (let [write-db (:scf-write-db (shared-globals))
-               puppetdb-config (:puppetdb (get-config))]
-           (turn-on-historical-catalogs! write-db (:historical-catalogs-limit puppetdb-config)))
          (log/info (i18n/trs "PuppetDB finished starting, disabling maintenance mode"))
          (disable-maint-mode)
          context)

@@ -45,29 +45,31 @@ done.
 
    To generate the contributors list:
    `git log <last-version>..head --format='%aN' | sort -u`
+   
+5. If this is an X or a Y release, changes need to be made to the `puppet-docs` repo. See [this PR](https://github.com/puppetlabs/puppet-docs/pull/655) for an example.
 
-5. Bump the version in the FOSS project.clj to the proper non-SNAPSHOT version
+6. Bump the version in the FOSS project.clj to the proper non-SNAPSHOT version
    and push straight to the target branch without a PR. This will build packages
    and kick off an acceptance test run. This can be done before the release
    notes PR is in.
 
-6. While the test run is going, write the announcement email. Old release
+7. While the test run is going, write the announcement email. Old release
    emails are here: http://bit.ly/21aIqeL . The easiest thing to do is copy one and
    change the dates/versions. Once finished copy paste the doc contents into an
    email titled "(DRAFT) Announce: PuppetDB x.y.z is now available" or similar
    and send to the puppetdb team for review.
 
-7. When the CI job is complete, ensure that the PDB artifact exists in nexus at
+8. When the CI job is complete, ensure that the PDB artifact exists in nexus at
    http://nexus.delivery.puppetlabs.net/#nexus-search;quick~puppetdb by
    clicking on the line that says puppetlabs | puppetdb | blah and scrolling
    through the versions for the unqualified x.y.z version.
 
-8. Bump the project.clj version in pe-puppetdb-extensions and push straight to
+9. Bump the project.clj version in pe-puppetdb-extensions and push straight to
    the target branch. This will trigger the on-merge extensions build but it's
    the same code that was tested earlier (we should fix this part of the
    process).
 
-9. Run the manual smoke tests. 
+10. Run the manual smoke tests. 
    - https://github.com/puppetlabs/pe-puppetdb-extensions/blob/master/dev-docs/smoke_test.org (the new way)
    - https://confluence.puppetlabs.com/display/PP/Smoke+Testing+Guide+for+PDB+Releases (the old way)
 
@@ -79,9 +81,9 @@ done.
    all are then I usually test the latest debian and latest centos anyway. This
    part should be parallelized across multiple team members.
 
-10. Ping the team plus releng and say it's time for go/no-go.
+11. Ping the team plus releng and say it's time for go/no-go.
 
-11. Once everyone is go releng will start to ship the PDB packages. 
+12. Once everyone is go releng will start to ship the PDB packages. 
 
 ## PE
 

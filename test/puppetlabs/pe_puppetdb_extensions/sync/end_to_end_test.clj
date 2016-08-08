@@ -16,6 +16,7 @@
             [puppetlabs.puppetdb.testutils
              :refer [is-equal-after block-until-results with-alt-mq]]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
+            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.cheshire :as json]
             [slingshot.slingshot :refer [throw+]]
             [slingshot.test]))
@@ -69,10 +70,6 @@
                                   :transaction_uuid  "bbbbbbbb-1111-aaaa-1111-aaaaaaaaaaaa")))
     (with-alt-mq (:mq-name pdb2)
       (sync :from pdb1 :to pdb2))
-
-    ;; FIXME: This is a workaround for the queue retry issue and should be
-    ;; removed once that is resolved.
-    (Thread/sleep 15000)
 
     (let [pdb1-catalogs (svcs/get-catalogs (:query-url pdb1) (:certname catalog))
           pdb2-catalogs (svcs/get-catalogs (:query-url pdb2) (:certname catalog))]
@@ -132,7 +129,7 @@
         (with-alt-mq (:mq-name master)
           (is (nil? (facts-from mirror)))
           (blocking-command-post (:command-url master) certname
-                                 "replace facts" 4 facts)
+                                 "replace facts" command/latest-facts-version facts)
           @(block-until-results 100 (facts-from master)))
         @(block-until-results 100 (facts-from mirror))
         (is-equal-after

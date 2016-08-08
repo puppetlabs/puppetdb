@@ -25,7 +25,7 @@
                                  :prefix "/status"
                                  :version :v1)
           body (-> status-endpoint
-                   (utils/get-response "/services" {})
+                   (utils/get-response "/services" {:throw-entire-message? true})
                    :body
                    (json/parse-string true))]
       (is (= "running" (-> body :puppetdb-status :state))))))

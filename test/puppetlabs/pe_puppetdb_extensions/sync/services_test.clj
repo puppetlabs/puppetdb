@@ -14,8 +14,10 @@
             [puppetlabs.pe-puppetdb-extensions.testutils :as utils
              :refer [with-ext-instances blocking-command-post]]
             [puppetlabs.puppetdb.testutils.services :as svcs]
+            [puppetlabs.puppetdb.command :as command]
             [puppetlabs.puppetdb.cheshire :as json]
-            [clj-time.coerce :refer [to-date-time]]))
+            [clj-time.coerce :refer [to-date-time]]
+            [puppetlabs.pe-puppetdb-extensions.sync.status :as sync-status]))
 
 (deftest enable-periodic-sync?-test
   (testing "Happy case"
@@ -44,45 +46,6 @@
     (is (not (validate-trigger-sync allow-unsafe-sync-triggers remotes-config jetty-config
                                     {:url "http://baz.buzz:8080/pdb/query/v4"})))))
 
-(deftest test-wait-for-sync
-  (testing "Happy path of processing commands"
-    (let [submitted-commands-chan (async/chan)
-          processed-commands-chan (async/chan 1)
-          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)
-          cmd-1 (ks/uuid)]
-      (async/>!! submitted-commands-chan {:id cmd-1})
-      (async/close! submitted-commands-chan)
-      (async/>!! processed-commands-chan {:id cmd-1})
-      (is (= :done (async/<!! finished-sync)))))
-
-  (testing "Receiving a processed command before submitted commands channel is closed"
-    (let [submitted-commands-chan (async/chan)
-          processed-commands-chan (async/chan 1)
-          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)
-          cmd-1 (ks/uuid)]
-      (async/>!! submitted-commands-chan {:id cmd-1})
-      (async/>!! processed-commands-chan {:id cmd-1})
-      (async/close! submitted-commands-chan)
-      (is (= :done (async/<!! finished-sync)))))
-
-  (testing "timeout result when processing of commands is too slow"
-    (let [submitted-commands-chan (async/chan)
-          processed-commands-chan (async/chan 1)
-          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 500)
-          cmd-1 (ks/uuid)]
-      (async/>!! submitted-commands-chan {:id cmd-1})
-      (async/close! submitted-commands-chan)
-      (is (= :timed-out (async/<!! finished-sync)))))
-
-  (testing "system shutting down during initial sync"
-    (let [submitted-commands-chan (async/chan)
-          processed-commands-chan (async/chan 1)
-          finished-sync (wait-for-sync submitted-commands-chan processed-commands-chan 15000)
-          cmd-1 (ks/uuid)]
-      (async/>!! submitted-commands-chan {:id cmd-1})
-      (async/close! processed-commands-chan)
-      (is (= :shutting-down (async/<!! finished-sync))))))
-
 (deftest test-reports-summary-query
   (testing "no reports"
     (with-ext-instances [pdb (utils/sync-config nil)]
@@ -95,9 +58,11 @@
             report2 (assoc (:basic2 report-examples/reports)
                            :producer_timestamp "2014-01-01T09:01:00.000Z")]
         (blocking-command-post (utils/pdb-cmd-url) (:certname report)
-                               "store report" 7 (reports/report-query->wire-v7 report))
+                               "store report" command/latest-report-version
+                               (reports/report-query->wire-v8 report))
         (blocking-command-post (utils/pdb-cmd-url) (:certname report2)
-                               "store report" 7 (reports/report-query->wire-v7 report2)))
+                               "store report" command/latest-report-version
+                               (reports/report-query->wire-v8 report2)))
       (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
             expected {"2014-01-01T08:00:00.000Z" "ff9fd7a2c2459280c30632d3390345b5"
                       "2014-01-01T09:00:00.000Z" "ee94b04f27d6f844bcac35cffe841d93"}]
@@ -108,7 +73,8 @@
       (let [report (assoc (:basic report-examples/reports)
                           :producer_timestamp "2014-01-01T08:05:00.000Z")]
         (blocking-command-post (utils/pdb-cmd-url) (:certname report)
-                               "store report" 7 (reports/report-query->wire-v7 report)))
+                               "store report" command/latest-report-version
+                               (reports/report-query->wire-v8 report)))
       (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
             expected {"2014-01-01T08:00:00.000Z" "ff9fd7a2c2459280c30632d3390345b5"}]
         (is (= expected actual)))
@@ -135,7 +101,8 @@
             report2 (assoc (:basic2 report-examples/reports)
                            :producer_timestamp "2014-01-01T08:10:00.000Z")]
         (blocking-command-post (utils/pdb-cmd-url) (:certname report)
-                               "store report" 7 (reports/report-query->wire-v7 report))
+                               "store report" command/latest-report-version
+                               (reports/report-query->wire-v8 report))
         (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
               expected {"2014-01-01T08:00:00.000Z" "ff9fd7a2c2459280c30632d3390345b5"}]
           (is (= expected actual)))
@@ -144,7 +111,8 @@
         ;; this command should invalidate the cache and give us a new result
         ;; when running the summary
         (blocking-command-post (utils/pdb-cmd-url) (:certname report2)
-                               "store report" 7 (reports/report-query->wire-v7 report2))
+                               "store report" command/latest-report-version
+                               (reports/report-query->wire-v8 report2))
         (let [actual (json/parse-string (svcs/get-url (utils/sync-url) "/reports-summary"))
               expected {"2014-01-01T08:00:00.000Z" "afd22efd338d2c1802b62f1fb67beeb8"}]
           (is (= expected actual)))))))

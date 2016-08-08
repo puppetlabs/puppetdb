@@ -29,22 +29,22 @@ msgstr ""
 msgid "Invalid sync config: {0}"
 msgstr ""
 
-#: src/puppetlabs/pe_puppetdb_extensions/sync/core.clj:200
+#: src/puppetlabs/pe_puppetdb_extensions/sync/core.clj:201
 msgid "HTTP {0} {1} {2}"
 msgstr ""
 
-#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:51
+#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:52
 msgid "User does not have permission to access PuppetDB"
 msgstr ""
 
-#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:55
+#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:56
 msgid "Must supply a certificate or token to access PuppetDB."
 msgstr ""
 
-#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:129
+#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:131
 msgid "Starting PuppetDB, entering maintenance mode"
 msgstr ""
 
-#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:162
+#: src/puppetlabs/pe_puppetdb_extensions/sync/pe_routing.clj:165
 msgid "PuppetDB finished starting, disabling maintenance mode"
 msgstr ""

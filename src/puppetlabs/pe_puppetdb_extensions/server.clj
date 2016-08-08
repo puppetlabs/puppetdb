@@ -1,6 +1,5 @@
 (ns puppetlabs.pe-puppetdb-extensions.server
-  (:require [puppetlabs.pe-puppetdb-extensions.catalogs :as catalogs]
-            [puppetlabs.pe-puppetdb-extensions.state-overview :as state-overview]
+  (:require [puppetlabs.pe-puppetdb-extensions.state-overview :as state-overview]
             [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.http.handlers :as handlers]))
@@ -8,12 +7,6 @@
 (defn v1-routes
   [query-fn get-shared-globals]
   (cmdi/context "/v1"
-                (handlers/extract-query
-                 (cmdi/context "/historical-catalogs"
-                     (catalogs/historical-catalogs-routes :v1)))
-                (handlers/extract-query
-                 (cmdi/ANY "/resource-graphs" []
-                           catalogs/resource-graphs-handler))
                 (cmdi/GET "/state-overview" []
                           (state-overview/state-overview-handler query-fn))))
 
