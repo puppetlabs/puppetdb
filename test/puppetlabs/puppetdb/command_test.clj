@@ -37,6 +37,7 @@
             [clojure.string :as str]
             [stockpile :as stock]
             [puppetlabs.puppetdb.testutils.nio :as nio]
+            [puppetlabs.puppetdb.testutils.queue :as tqueue]
             [puppetlabs.puppetdb.queue :as queue])
   (:import [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
@@ -98,13 +99,6 @@
 
       ;; Non-UTF-8 byte array
       (is (thrown? Exception (parse-command {:body (.getBytes "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}" "UTF-16")}))))))
-
-(defn create-stockpile-dir []
-  (-> (nio/path-get "target" "command-test")
-      (nio/create-temp-dir "stk")
-      (.resolve "q")
-      str))
-
 (defn unroll-old-command [{:keys [command version payload]}]
   [command
    version
@@ -117,31 +111,30 @@
 
 (defmacro test-msg-handler*
   [command publish-var discard-var db & body]
-  `(let [log-output#     (atom [])
-         publish#        (call-counter)
-         stockpile-dir#   (create-stockpile-dir)
-         q#               (stock/create stockpile-dir#)
-         discard-dir#    (fs/temp-dir "test-msg-handler")
-         handle-message# (mql/message-handler-with-retries
-                          q#
-                          publish#
-                          (mql/discard-message q# discard-dir#)
-                          #(process-command! % ~db))
-         command# ~command
-         entry# (update (apply queue/store-command q# (unroll-old-command command#))
-                        :annotations merge (:annotations command#))]
+  `(tqueue/with-stockpile q#
+     (let [log-output#     (atom [])
+           publish#        (call-counter)
+           discard-dir#    (fs/temp-dir "test-msg-handler")
+           handle-message# (mql/message-handler-with-retries
+                            q#
+                            publish#
+                            (mql/discard-message q# discard-dir#)
+                            #(process-command! % ~db))
+           command# ~command
+           entry# (update (apply queue/store-command q# (unroll-old-command command#))
+                          :annotations merge (:annotations command#))]
 
-     (try
-       (binding [*logger-factory* (atom-logger log-output#)]
-         (handle-message# entry#))
-       (let [~publish-var publish#
-             ~discard-var discard-dir#]
-         ~@body
-         ;; Uncommenting this line can be very useful for debugging
-         ;; (println @log-output#)
-         )
-       (finally
-         (fs/delete-dir discard-dir#)))))
+       (try
+         (binding [*logger-factory* (atom-logger log-output#)]
+           (handle-message# entry#))
+         (let [~publish-var publish#
+               ~discard-var discard-dir#]
+           ~@body
+           ;; Uncommenting this line can be very useful for debugging
+           ;; (println @log-output#)
+           )
+         (finally
+           (fs/delete-dir discard-dir#))))))
 
 (defmacro test-msg-handler
   "Runs `command` (after converting to JSON) through the MQ message handlers.
@@ -200,48 +193,46 @@
 
 (deftest command-retry-handler
   (testing "Should log retries as debug for less than 4 attempts"
-    (let [process-message (fn [_] (throw (RuntimeException. "retry me")))
-          stockpile-dir (create-stockpile-dir)
-          q (stock/create stockpile-dir)]
+    (tqueue/with-stockpile q
+      (let [process-message (fn [_] (throw (RuntimeException. "retry me")))]
+        (doseq [i (range 0 mql/maximum-allowable-retries)
+                :let [log-output (atom [])
+                      delay-message (mock-fn)
+                      discard-message (mock-fn)
+                      mh (mql/message-handler-with-retries q delay-message discard-message process-message)]]
+          (binding [*logger-factory* (atom-logger log-output)]
+            (mh (append-attempts i (queue/store-command q "replace catalog" 10 "cats" (-> {:certname "cats"}
+                                                                                          json/generate-string
+                                                                                          (.getBytes "UTF-8")
+                                                                                          java.io.ByteArrayInputStream.))))
+            (is (called? delay-message))
+            (is (not (called? discard-message)))
 
-      (doseq [i (range 0 mql/maximum-allowable-retries)
-              :let [log-output (atom [])
-                    delay-message (mock-fn)
-                    discard-message (mock-fn)
-                    mh (mql/message-handler-with-retries q delay-message discard-message process-message)]]
-        (binding [*logger-factory* (atom-logger log-output)]
-          (mh (append-attempts i (queue/store-command q "replace catalog" 10 "cats" (-> {:certname "cats"}
-                                                                                      json/generate-string
-                                                                                      (.getBytes "UTF-8")
-                                                                                      java.io.ByteArrayInputStream.))))
-          (is (called? delay-message))
-          (is (not (called? discard-message)))
+            (if (< i 4)
+              (is (= (get-in @log-output [0 1]) :debug))
+              (is (= (get-in @log-output [0 1]) :error)))
 
-          (if (< i 4)
-            (is (= (get-in @log-output [0 1]) :debug))
-            (is (= (get-in @log-output [0 1]) :error)))
+            (is (str/includes? (get-in @log-output [0 3]) "cats"))
+            (is (instance? Exception (get-in @log-output [0 2])))
+            (is (str/includes? (last (first @log-output))
+                               "Retrying after attempt"))))
 
-          (is (str/includes? (get-in @log-output [0 3]) "cats"))
-          (is (instance? Exception (get-in @log-output [0 2])))
-          (is (str/includes? (last (first @log-output))
-                             "Retrying after attempt"))))
-
-      (let [log-output (atom [])
-            delay-message (mock-fn)
-            discard-message (mock-fn)
-            mh (mql/message-handler-with-retries q delay-message discard-message process-message)]
-        (binding [*logger-factory* (atom-logger log-output)]
-          (mh (append-attempts mql/maximum-allowable-retries (queue/store-command q "replace catalog" 10 "cats" (-> {:certname "cats"}
-                                                                                      json/generate-string
-                                                                                      (.getBytes "UTF-8")
-                                                                                      java.io.ByteArrayInputStream.))))
-          (is (not (called? delay-message)))
-          (is (called? discard-message))
-          (is (= (get-in @log-output [0 1]) :error))
-          (is (instance? Exception (get-in @log-output [0 2])))
-          (is (str/includes? (last (first @log-output))
-                             "Exceeded max"))
-          (is (str/includes? (get-in @log-output [0 3]) "cats")))))))
+        (let [log-output (atom [])
+              delay-message (mock-fn)
+              discard-message (mock-fn)
+              mh (mql/message-handler-with-retries q delay-message discard-message process-message)]
+          (binding [*logger-factory* (atom-logger log-output)]
+            (mh (append-attempts mql/maximum-allowable-retries (queue/store-command q "replace catalog" 10 "cats" (-> {:certname "cats"}
+                                                                                                                      json/generate-string
+                                                                                                                      (.getBytes "UTF-8")
+                                                                                                                      java.io.ByteArrayInputStream.))))
+            (is (not (called? delay-message)))
+            (is (called? discard-message))
+            (is (= (get-in @log-output [0 1]) :error))
+            (is (instance? Exception (get-in @log-output [0 2])))
+            (is (str/includes? (last (first @log-output))
+                               "Exceeded max"))
+            (is (str/includes? (get-in @log-output [0 3]) "cats"))))))))
 
 (deftest call-with-quick-retry-test
   (testing "errors are logged at debug while retrying"
