@@ -168,7 +168,10 @@
                         (compile-user-query->sql fact-contents-query ["in", "certname",
                                                                       ["extract", "certname",
                                                                        ["select-facts",
-                                                                        ["=", "name", "osfamily"]]]]))))
+                                                                        ["=", "name", "osfamily"]]]])))
+  (is (not (nil? (:results-query (compile-user-query->sql reports-query ["extract", ["hash"],
+                                                                         ["or", ["=", "certname", "host-3"]]]))))))
+
 (deftest-http-app query-recs-are-swappable
   [version [:v4]
    endpoint ["/v4/fact-names"]
