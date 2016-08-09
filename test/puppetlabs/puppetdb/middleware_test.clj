@@ -112,7 +112,8 @@
 
 (deftest verify-content-type-test
   (testing "with content-type of application/json"
-    (let [test-req {:content-type "application/json"
+    (let [test-req {:request-method :post
+                    :content-type "application/json"
                     :headers {"content-type" "application/json"}}]
 
       (testing "should succeed with matching content type"
