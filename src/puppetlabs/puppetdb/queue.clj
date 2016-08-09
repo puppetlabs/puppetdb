@@ -47,3 +47,7 @@
       :annotations {:attempts []
                     :id (stock/entry-id entry)
                     :received (kitchensink/timestamp current-time)}})))
+
+(defn ack-command
+  [q command]
+  (stock/discard q (:entry command)))

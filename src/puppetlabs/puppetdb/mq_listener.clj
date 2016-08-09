@@ -209,6 +209,7 @@
        (try+
         (call-with-command-metrics command version retries
                                    #(process-message cmd))
+        (queue/ack-command q cmd)
 
         (catch fatal? obj
           (mark! (global-metric :fatal))
