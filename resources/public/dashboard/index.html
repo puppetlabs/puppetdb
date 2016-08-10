@@ -283,10 +283,9 @@ body {
                           options);
   }
 
-  // Check the current version and for updates now, and then every 5 minutes
+  // Check the current version and for updates now, and then check for updates every 5 minutes
   setVersion();
   checkForUpdates();
-  setInterval(setVersion, 5*60*1000);
   setInterval(checkForUpdates, 5*60*1000);
 })()</script>
 
