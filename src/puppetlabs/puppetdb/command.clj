@@ -375,12 +375,7 @@
 
   (response-mult [this]
     "Returns a core.async mult to which {:id :exception} maps are written after
-     each command has been processed. " )
-
-  (response-pub [this]
-    "Returns a core.async pub to which {:id :exception} maps are written after
-     each command has been processed. The topic for each message is its
-     id (command uuid)."))
+     each command has been processed. " ))
 
 (defn make-cmd-processed-message [cmd ex]
   (conj
@@ -467,9 +462,6 @@
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
-
-  (response-pub [this]
-    (-> this service-context :response-pub))
 
   (response-mult [this]
     (-> this service-context :response-mult)))

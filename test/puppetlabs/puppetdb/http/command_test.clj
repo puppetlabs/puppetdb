@@ -266,7 +266,6 @@
    (partial cmd/do-enqueue-command
             q
             command-chan)
-   (fn [])
    max-command-size))
 
 (deftest enqueue-max-command-size

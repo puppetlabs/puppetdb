@@ -438,6 +438,5 @@
     (partial dispatch/do-enqueue-command
              q
              command-chan)
-    (fn [] nil)
     false
     nil)))

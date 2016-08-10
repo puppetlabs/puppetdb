@@ -84,8 +84,7 @@
 
 (defn- blocking-submit-command
   "Submit a command by calling do-submit-fn and block until it completes.
-  Subscribes to response-pub on the topic of the commands uuid, waiting up to
-  completion-timeout-ms."
+  Waiting up to completion-timeout-ms if provided."
   [do-submit-fn uuid completion-timeout-ms]
   (let [command-result (promise)]
     (do-submit-fn (fn [the-result]
@@ -199,7 +198,7 @@
 
 (defn- enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
-  [enqueue-fn get-response-pub max-command-size]
+  [enqueue-fn max-command-size]
   (fn [{:keys [body params] :as request}]
     ;; For now body will be in-memory, but eventually may be a stream.
     (try+
@@ -237,11 +236,10 @@
   (fn [req]
     (handle (assoc-in req [:params "received"] (kitchensink/timestamp)))))
 
-(defn routes [enqueue-fn get-response-pub max-command-size]
+(defn routes [enqueue-fn max-command-size]
   (cmdi/context "/v1"
                 (cmdi/ANY "" []
-                          (enqueue-command-handler enqueue-fn get-response-pub
-                                                   max-command-size))))
+                          (enqueue-command-handler enqueue-fn max-command-size))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -250,9 +248,8 @@
 ;; return functions that accept a ring request map
 
 (defn command-app
-  [get-shared-globals enqueue-fn get-response-pub
-   reject-large-commands? max-command-size]
-  (-> (routes enqueue-fn get-response-pub
+  [get-shared-globals enqueue-fn reject-large-commands? max-command-size]
+  (-> (routes enqueue-fn
               (when reject-large-commands? max-command-size))
       mid/make-pdb-handler
       validate-command-version
