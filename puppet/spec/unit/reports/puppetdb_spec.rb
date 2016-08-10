@@ -146,7 +146,7 @@ describe processor do
       end
 
       it "should include truthy noop flag" do
-        unless defined?(subject.noop) then
+        unless (defined?(subject.noop) && (not subject.noop.nil?)) then
           event = Puppet::Transaction::Event.new
           event.status = "noop"
           status.add_event(event)
@@ -162,7 +162,7 @@ describe processor do
       end
 
       it "should include falsey noop flag" do
-        unless defined?(subject.noop) then
+        unless (defined?(subject.noop) && (not subject.noop.nil?)) then
           event = Puppet::Transaction::Event.new
           event.status = "success"
           status.add_event(event)
