@@ -67,7 +67,7 @@
      (fn []
        (is (empty? (get-nodes)))
 
-       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname 
+       (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
                                     "replace facts" command/latest-facts-version example-facts)
 
        (is (empty? (get-catalogs example-certname)))
@@ -81,9 +81,9 @@
 
     (with-test-db
       (svc-utils/call-with-single-quiet-pdb-instance
-       (-> (svc-utils/create-temp-config)
-           (assoc :database *db*)
-           (assoc-in [:command-processing :max-frame-size] 1024))
+       (assoc (svc-utils/create-temp-config)
+              :database *db*)
+
        (fn []
          (is (empty? (get-nodes)))
 
@@ -97,22 +97,3 @@
          (is (empty? (get-reports example-certname)))
          (is (= (tuf/munge-facts example-facts)
                 (tuf/munge-facts (get-factsets example-certname)))))))))
-
-(deftest test-max-frame-size
-  (with-test-db
-    (svc-utils/call-with-single-quiet-pdb-instance
-     (-> (svc-utils/create-temp-config)
-         (assoc :database *db*)
-         (assoc-in [:command-processing :max-frame-size] 1024))
-     (fn []
-       (is (empty? (get-nodes)))
-
-       (pdb-client/submit-command-via-http! (svc-utils/pdb-cmd-url)
-                                            example-certname
-                                            "replace catalog"
-                                            command/latest-catalog-version
-                                            example-catalog)
-
-       (is (thrown-with-msg?
-            java.util.concurrent.ExecutionException #"Results not found"
-            @(tu/block-until-results 5 (first (get-catalogs example-certname)))))))))
