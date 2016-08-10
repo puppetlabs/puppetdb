@@ -104,10 +104,7 @@
    version
    (or (:certname payload)
        (:name payload))
-   (-> payload
-       json/generate-string
-       (.getBytes "UTF-8")
-       java.io.ByteArrayInputStream.)])
+   payload])
 
 (defmacro test-msg-handler*
   [command publish-var discard-var db & body]
@@ -121,7 +118,7 @@
                             (mql/discard-message q# discard-dir#)
                             #(process-command! % ~db))
            command# ~command
-           entry# (update (apply queue/store-command q# (unroll-old-command command#))
+           entry# (update (apply tqueue/store-command q# (unroll-old-command command#))
                           :annotations merge (:annotations command#))]
 
        (try
@@ -144,7 +141,7 @@
   `(test-msg-handler* ~command ~publish-var ~discard-var *db* ~@body))
 
 (deftest command-processor-integration
-  (let [command {:command "some command" :version 1 :payload "payload"}]
+  (let [command {:command "some command" :version 1 :payload "\"payload\""}]
     (testing "correctly formed messages"
 
       (testing "which are not yet expired"
@@ -201,10 +198,7 @@
                       discard-message (mock-fn)
                       mh (mql/message-handler-with-retries q delay-message discard-message process-message)]]
           (binding [*logger-factory* (atom-logger log-output)]
-            (mh (append-attempts i (queue/store-command q "replace catalog" 10 "cats" (-> {:certname "cats"}
-                                                                                          json/generate-string
-                                                                                          (.getBytes "UTF-8")
-                                                                                          java.io.ByteArrayInputStream.))))
+            (mh (append-attempts i (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})))
             (is (called? delay-message))
             (is (not (called? discard-message)))
 
@@ -222,10 +216,7 @@
               discard-message (mock-fn)
               mh (mql/message-handler-with-retries q delay-message discard-message process-message)]
           (binding [*logger-factory* (atom-logger log-output)]
-            (mh (append-attempts mql/maximum-allowable-retries (queue/store-command q "replace catalog" 10 "cats" (-> {:certname "cats"}
-                                                                                                                      json/generate-string
-                                                                                                                      (.getBytes "UTF-8")
-                                                                                                                      java.io.ByteArrayInputStream.))))
+            (mh (append-attempts mql/maximum-allowable-retries (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})))
             (is (not (called? delay-message)))
             (is (called? discard-message))
             (is (= (get-in @log-output [0 1]) :error))
@@ -238,10 +229,7 @@
   (testing "happy path, message acknowledgement when no failures occured"
     (tqueue/with-stockpile q
       (let [mh (mql/message-handler-with-retries q nil nil identity)
-            entry (queue/store-command q "replace catalog" 10 "cats" (-> {:certname "cats"}
-                                                                         json/generate-string
-                                                                         (.getBytes "UTF-8")
-                                                                         java.io.ByteArrayInputStream.))]
+            entry (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
         (is (:payload (queue/entry->cmd q entry)))
         (mh entry)
         (is (thrown-with-msg? java.nio.file.NoSuchFileException
@@ -252,10 +240,7 @@
     (tqueue/with-stockpile q
       (let [delay-message (mock-fn)
             mh (mql/message-handler-with-retries q delay-message nil (fn [_] (throw (RuntimeException. "retry me"))))
-            entry (queue/store-command q "replace catalog" 10 "cats" (-> {:certname "cats"}
-                                                                         json/generate-string
-                                                                         (.getBytes "UTF-8")
-                                                                         java.io.ByteArrayInputStream.))]
+            entry (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
         (is (:payload (queue/entry->cmd q entry)))
         (mh entry)
         (is (called? delay-message))
