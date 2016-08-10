@@ -1,6 +1,8 @@
 (ns puppetlabs.puppetdb.pql.parser-test
   (:require [clojure.test :refer :all]
+            [clojure.string :as str]
             [instaparse.core :as insta]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.pql :refer [parse]]))
 
 ;; These tests are ordered the same as in the EBNF file, so one can
@@ -30,73 +32,109 @@
      [:expr-or
       [:expr-and
        [:expr-not
-        [:condexpression "a" "=" [:integer "1"]]]]]]
+        [:condexpression [:field "a"] "=" [:integer "1"]]]]]]
 
     "nodes [a, b, c] {}"
     [:from
      "nodes"
-     [:extract "a" "b" "c"]]
+     [:extract [:field "a"] [:field "b"] [:field "c"]]]
 
     "nodes [a, b, c] { a = 1 }"
     [:from
      "nodes"
-     [:extract "a" "b" "c"]
+     [:extract [:field "a"] [:field "b"] [:field "c"]]
      [:expr-or
       [:expr-and
        [:expr-not
-        [:condexpression "a" "=" [:integer "1"]]]]]]
+        [:condexpression [:field "a"] "=" [:integer "1"]]]]]]
 
     "nodes [a, b, c] { a in facts [a] { b = 2 }}"
     [:from
      "nodes"
-     [:extract "a" "b" "c"]
+     [:extract [:field "a"] [:field "b"] [:field "c"]]
      [:expr-or
       [:expr-and
        [:expr-not
-        [:condexpression "a" "in"
+        [:condexpression [:field "a"] "in"
          [:from
           "facts"
-          [:extract "a"]
+          [:extract [:field "a"]]
           [:expr-or
            [:expr-and
             [:expr-not
-             [:condexpression "b" "=" [:integer "2"]]]]]]]]]]]
+             [:condexpression [:field "b"] "=" [:integer "2"]]]]]]]]]]]
 
     "nodes [a, b, c] { [a,b] in facts [a, b] { c = 3 } }"
     [:from
      "nodes"
-     [:extract "a" "b" "c"]
+     [:extract [:field "a"] [:field "b"] [:field "c"]]
      [:expr-or
       [:expr-and
        [:expr-not
         [:condexpression
-         [:groupedfieldlist "a" "b"]
+         [:groupedfieldlist [:field "a"] [:field "b"]]
          "in"
          [:from
           "facts"
-          [:extract "a" "b"]
+          [:extract [:field "a"] [:field "b"]]
           [:expr-or
            [:expr-and
             [:expr-not
-             [:condexpression "c" "=" [:integer "3"]]]]]]]]]]]
+             [:condexpression [:field "c"] "=" [:integer "3"]]]]]]]]]]]
+
+    "inventory [certname] {facts.foo.bar = 100}"
+    [:from
+     "inventory"
+     [:extract [:field "certname"]]
+     [:expr-or [:expr-and [:expr-not
+                           [:condexpression
+                            [:field "facts" "foo" "bar"] "=" [:integer "100"]]]]]]
+
+    "inventory [certname] {facts.foo.\"quoted string\" = 100}"
+    [:from
+     "inventory"
+     [:extract [:field "certname"]]
+     [:expr-or [:expr-and [:expr-not
+                           [:condexpression
+                            [:field "facts" "foo" "\"quoted string\""]
+                            "="
+                            [:integer "100"]]]]]]
+
+    "inventory [certname] {facts.foo.\"dotted.string\" = 100}"
+    [:from
+     "inventory"
+     [:extract [:field "certname"]]
+     [:expr-or [:expr-and [:expr-not
+                           [:condexpression
+                            [:field "facts" "foo" "\"dotted.string\""]
+                            "="
+                            [:integer "100"]]]]]]
+
+    "resources [certname] {parameters.foo.bar = 100}"
+    [:from
+     "resources"
+     [:extract [:field "certname"]]
+     [:expr-or [:expr-and [:expr-not
+                           [:condexpression
+                            [:field "parameters" "foo" "bar"] "=" [:integer "100"]]]]]]
 
     "facts [value] { [certname,name] in fact_contents [certname, name] { value < 100 }}"
     [:from
      "facts"
-     [:extract "value"]
+     [:extract [:field "value"]]
      [:expr-or
       [:expr-and
        [:expr-not
         [:condexpression
-         [:groupedfieldlist "certname" "name"]
+         [:groupedfieldlist [:field "certname"] [:field "name"]]
          "in"
          [:from
           "fact_contents"
-          [:extract "certname" "name"]
+          [:extract [:field "certname"] [:field "name"]]
           [:expr-or
            [:expr-and
             [:expr-not
-             [:condexpression "value" "<" [:integer "100"]]]]]]]]]]])
+             [:condexpression [:field "value"] "<" [:integer "100"]]]]]]]]]]])
 
   (are [in] (insta/failure? (insta/parse parse in :start :from))
     "nodes"
@@ -112,7 +150,10 @@
     ["resources"]
 
     "fact_contents"
-    ["fact_contents"])
+    ["fact_contents"]
+
+    "inventory"
+    ["inventory"])
 
   (are [in] (insta/failure? (insta/parse parse in :start :entity))
     "foobar"
@@ -121,10 +162,10 @@
 
 (deftest test-extract
   (are [in expected] (= (parse in :start :extract) expected)
-    "[a,b,c]" [:extract "a" "b" "c"]
-    "[ a, b, c ]" [:extract "a" "b" "c"]
-    "[ a ]" [:extract "a"]
-    "[a]" [:extract "a"]
+    "[a,b,c]" [:extract [:field "a"] [:field "b"] [:field "c"]]
+    "[ a, b, c ]" [:extract [:field "a"] [:field "b"] [:field "c"]]
+    "[ a ]" [:extract [:field "a"]]
+    "[a]" [:extract [:field "a"]]
     "[]" [:extract])
 
   (are [in] (insta/failure? (insta/parse parse in :start :extract))
@@ -135,13 +176,13 @@
 (deftest test-extractfields
   (are [in expected] (= (parse in :start :extractfields) expected)
     "a"
-    ["a"]
+    [[:field "a"]]
 
     "a, b"
-    ["a" "b"]
+    [[:field "a"] [:field "b"]]
 
     "a,b,c"
-    ["a" "b" "c"])
+    [[:field "a"] [:field "b"] [:field "c"]])
 
   (are [in] (insta/failure? (insta/parse parse in :start :extractfields))
     "a b"
@@ -154,13 +195,13 @@
     [[:expr-or
       [:expr-and
        [:expr-not
-        [:condexpression "a" "=" [:integer "1"]]]]]]
+        [:condexpression [:field "a"] "=" [:integer "1"]]]]]]
 
     "{a=1}"
     [[:expr-or
       [:expr-and
        [:expr-not
-        [:condexpression "a" "=" [:integer "1"]]]]]])
+        [:condexpression [:field "a"] "=" [:integer "1"]]]]]])
 
   (are [in] (insta/failure? (insta/parse parse in :start :where))
     "[]"
@@ -172,7 +213,7 @@
     [[:expr-or
       [:expr-and
        [:expr-not
-        [:condexpression "a" "=" [:integer "1"]]]]]]
+        [:condexpression [:field "a"] "=" [:integer "1"]]]]]]
 
     "!a = 1"
     [[:expr-or
@@ -180,7 +221,7 @@
        [:expr-not
         [:not]
         [:expr-not
-         [:condexpression "a" "=" [:integer "1"]]]]]]]
+         [:condexpression [:field "a"] "=" [:integer "1"]]]]]]]
 
     "!(a = 1)"
     [[:expr-or
@@ -191,46 +232,46 @@
          [:expr-or
           [:expr-and
            [:expr-not
-            [:condexpression "a" "=" [:integer "1"]]]]]]]]]]
+            [:condexpression [:field "a"] "=" [:integer "1"]]]]]]]]]]
 
     "a = 1 and b = 2"
     [[:expr-or
       [:expr-and
        [:expr-not
-        [:condexpression "a" "=" [:integer "1"]]]
+        [:condexpression [:field "a"] "=" [:integer "1"]]]
        [:expr-and
         [:expr-not
-         [:condexpression "b" "=" [:integer "2"]]]]]]]
+         [:condexpression [:field "b"] "=" [:integer "2"]]]]]]]
 
     "c = 3 or d = 4 and a = 1"
     [[:expr-or
       [:expr-and
        [:expr-not
-        [:condexpression "c" "=" [:integer "3"]]]]
+        [:condexpression [:field "c"] "=" [:integer "3"]]]]
       [:expr-or
        [:expr-and
         [:expr-not
-         [:condexpression "d" "=" [:integer "4"]]]
+         [:condexpression [:field "d"] "=" [:integer "4"]]]
         [:expr-and
          [:expr-not
-          [:condexpression "a" "=" [:integer "1"]]]]]]]]
+          [:condexpression [:field "a"] "=" [:integer "1"]]]]]]]]
 
     "c = 3 or d = 4 and a = 1 or b = 2"
     [[:expr-or
       [:expr-and
        [:expr-not
-        [:condexpression "c" "=" [:integer "3"]]]]
+        [:condexpression [:field "c"] "=" [:integer "3"]]]]
       [:expr-or
        [:expr-and
         [:expr-not
-         [:condexpression "d" "=" [:integer "4"]]]
+         [:condexpression [:field "d"] "=" [:integer "4"]]]
         [:expr-and
          [:expr-not
-          [:condexpression "a" "=" [:integer "1"]]]]]]
+          [:condexpression [:field "a"] "=" [:integer "1"]]]]]]
       [:expr-or
        [:expr-and
         [:expr-not
-         [:condexpression "b" "=" [:integer "2"]]]]]]]
+         [:condexpression [:field "b"] "=" [:integer "2"]]]]]]]
 
     "(c = 3 or d = 4) and (a = 1 or b = 2)"
     [[:expr-or
@@ -239,21 +280,21 @@
         [:expr-or
          [:expr-and
           [:expr-not
-           [:condexpression "c" "=" [:integer "3"]]]]
+           [:condexpression [:field "c"] "=" [:integer "3"]]]]
          [:expr-or
           [:expr-and
            [:expr-not
-            [:condexpression "d" "=" [:integer "4"]]]]]]]
+            [:condexpression [:field "d"] "=" [:integer "4"]]]]]]]
        [:expr-and
         [:expr-not
          [:expr-or
           [:expr-and
            [:expr-not
-            [:condexpression "a" "=" [:integer "1"]]]]
+            [:condexpression [:field "a"] "=" [:integer "1"]]]]
           [:expr-or
            [:expr-and
             [:expr-not
-             [:condexpression "b" "=" [:integer "2"]]]]]]]]]]])
+             [:condexpression [:field "b"] "=" [:integer "2"]]]]]]]]]]])
 
   (are [in] (insta/failure? (insta/parse parse in :start :expression))
     "foo and 'bar'"
@@ -271,10 +312,15 @@
     [:subquery "nodes"]
 
     "nodes { a = 'foo' }"
-    [:subquery "nodes" [:expr-or [:expr-and [:expr-not [:condexpression "a" "=" [:sqstring "foo"]]]]]]
+    [:subquery "nodes" [:expr-or
+                        [:expr-and [:expr-not
+                                    [:condexpression
+                                     [:field "a"] "=" [:sqstring "foo"]]]]]]
 
     "nodes{a='foo'}"
-    [:subquery "nodes" [:expr-or [:expr-and [:expr-not [:condexpression "a" "=" [:sqstring "foo"]]]]]])
+    [:subquery "nodes" [:expr-or [:expr-and
+                                  [:expr-not
+                                   [:condexpression [:field "a"] "=" [:sqstring "foo"]]]]]])
 
   (are [in] (insta/failure? (insta/parse parse in :start :subquery))
     "nodes"
@@ -285,22 +331,22 @@
   (testing "condexpression"
     (are [in expected] (= (parse in :start :condexpression) expected)
       "certname = 'foobar'"
-      [:condexpression "certname" "=" [:sqstring "foobar"]]
+      [:condexpression [:field "certname"] "=" [:sqstring "foobar"]]
 
       "certname = 'foobar'"
-      [:condexpression "certname" "=" [:sqstring "foobar"]]
+      [:condexpression [:field "certname"] "=" [:sqstring "foobar"]]
 
       "certname ~ 'foobar'"
-      [:condexpression "certname" "~" [:sqstring "foobar"]]
+      [:condexpression [:field "certname"] "~" [:sqstring "foobar"]]
 
       "path ~> ['a', 'b']"
-      [:condexpression "path" "~>" [:groupedregexplist [:sqstring "a"] [:sqstring "b"]]]
+      [:condexpression [:field "path"] "~>" [:groupedregexplist [:sqstring "a"] [:sqstring "b"]]]
 
       "certname > 4"
-      [:condexpression "certname" ">" [:integer "4"]]
+      [:condexpression [:field "certname"] ">" [:integer "4"]]
 
       "a in nodes [a] {}"
-      [:condexpression "a" "in" [:from "nodes" [:extract "a"]]])
+      [:condexpression [:field "a"] "in" [:from "nodes" [:extract [:field "a"]]]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :condexpression))
       "foo >= true"
@@ -314,7 +360,7 @@
 
   (testing "condexpregexp"
     (are [in expected] (= (parse in :start :condexpregexp) expected)
-      "a ~ 'asdf'" ["a" "~" [:sqstring "asdf"]])
+      "a ~ 'asdf'" [[:field "a"] "~" [:sqstring "asdf"]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :condexpregexp))
       "a ~ /bar/"
@@ -324,8 +370,8 @@
 
   (testing "condexpregexparray"
     (are [in expected] (= (parse in :start :condexpregexparray) expected)
-      "a ~> ['asdf']" ["a" "~>" [:groupedregexplist [:sqstring "asdf"]]]
-      "a ~> ['asdf', 'foo']" ["a" "~>" [:groupedregexplist [:sqstring "asdf"] [:sqstring "foo"]]])
+      "a ~> ['asdf']" [[:field "a"] "~>" [:groupedregexplist [:sqstring "asdf"]]]
+      "a ~> ['asdf', 'foo']" [[:field "a"] "~>" [:groupedregexplist [:sqstring "asdf"] [:sqstring "foo"]]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :condexpregexparray))
       "a ~> 'bar'"
@@ -335,7 +381,7 @@
 
   (testing "condexpinequality"
     (are [in expected] (= (parse in :start :condexpinequality) expected)
-      "a >= 4" ["a" ">=" [:integer "4"]])
+      "a >= 4" [[:field "a"] ">=" [:integer "4"]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :condexpinequality))
       "a >= true"
@@ -345,8 +391,8 @@
 
   (testing "condexpmatch"
     (are [in expected] (= (parse in :start :condexpmatch) expected)
-      "a = 'bar'" ["a" "=" [:sqstring "bar"]]
-      "a='bar'" ["a" "=" [:sqstring "bar"]])
+      "a = 'bar'" [[:field "a"] "=" [:sqstring "bar"]]
+      "a='bar'" [[:field "a"] "=" [:sqstring "bar"]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :condexpmatch))
       "a = bar"
@@ -357,16 +403,18 @@
   (testing "condexpin"
     (are [in expected] (= (parse in :start :condexpin) expected)
       "a in nodes [a] {}"
-      ["a" "in" [:from "nodes" [:extract "a"]]]
+      [[:field "a"] "in" [:from "nodes" [:extract [:field "a"]]]]
 
       "[a, b] in nodes[a,b]{}"
-      [[:groupedfieldlist "a" "b"] "in" [:from "nodes" [:extract "a" "b"]]]
+      [[:groupedfieldlist [:field "a"] [:field "b"]]
+       "in" [:from "nodes" [:extract [:field "a"] [:field "b"]]]]
 
       "[a] in nodes[a,b]{}"
-      [[:groupedfieldlist "a"] "in" [:from "nodes" [:extract "a" "b"]]]
+      [[:groupedfieldlist [:field "a"]] "in"
+       [:from "nodes" [:extract [:field "a"] [:field "b"]]]]
 
       "[a] in [1]"
-      [[:groupedfieldlist "a"] "in" [:groupedliterallist [:integer "1"]]])
+      [[:groupedfieldlist [:field "a"]] "in" [:groupedliterallist [:integer "1"]]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :condexpin))
       "a,b in nodes{}[a,b]"
@@ -377,10 +425,10 @@
   (testing "condexpnull"
     (are [in expected] (= (parse in :start :condexpnull) expected)
       "foo is null"
-      [:condexpnull "foo" [:condisnull]]
+      [:condexpnull [:field "foo"] [:condisnull]]
 
       "foo is not null"
-      [:condexpnull "foo" [:condisnotnull]])
+      [:condexpnull [:field "foo"] [:condisnotnull]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :condexpnull))
       "foo is nil"
@@ -411,13 +459,13 @@
   (testing "groupedfieldlist"
     (are [in expected] (= (parse in :start :groupedfieldlist) expected)
       "[value,certname]"
-      [:groupedfieldlist "value", "certname"]
+      [:groupedfieldlist [:field "value"] [:field "certname"]]
 
       "[ value , certname ]"
-      [:groupedfieldlist "value", "certname"]
+      [:groupedfieldlist [:field "value"] [:field "certname"]]
 
       "[value]"
-      [:groupedfieldlist "value"])
+      [:groupedfieldlist [:field "value"]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :groupedfieldlist))
       "value, certname"
@@ -427,9 +475,9 @@
 
   (testing "fieldlist"
     (are [in expected] (= (parse in :start :fieldlist) expected)
-      "value, certname" ["value" "certname"]
-      "foo,var" ["foo" "var"]
-      "foobar" ["foobar"])
+      "value, certname" [[:field "value"] [:field "certname"]]
+      "foo,var" [[:field "foo"] [:field "var"]]
+      "foobar" [[:field "foobar"]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :fieldlist))
       "foo:var"
@@ -440,7 +488,7 @@
   (testing "function"
     (are [in expected] (= (parse in :start :function) expected)
       "count()" [:function "count" [:groupedarglist]]
-      "avg(value)" [:function "avg" [:groupedarglist "value"]])
+      "avg(value)" [:function "avg" [:groupedarglist [:field "value"]]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :function))
       "count"
@@ -460,16 +508,20 @@
 
   (testing "groupedarglist"
     (are [in expected] (= (parse in :start :groupedarglist) expected)
-      "(receive_time)" [:groupedarglist "receive_time"]
-      "(receive_time, \"HH24\")" [:groupedarglist "receive_time" [:dqstring "HH24"]]
-      "(receive_time, \"HH24\", \"DAY\")" [:groupedarglist "receive_time" [:dqstring "HH24"] [:dqstring "DAY"]]
+      "(receive_time)" [:groupedarglist [:field "receive_time"]]
+      "(receive_time, \"HH24\")" [:groupedarglist [:field "receive_time"]
+                                  [:dqstring "HH24"]]
+      "(receive_time, \"HH24\", \"DAY\")" [:groupedarglist [:field "receive_time"]
+                                           [:dqstring "HH24"] [:dqstring "DAY"]]
       "()" [:groupedarglist]))
 
   (testing "groupedarglist"
     (are [in expected] (= (parse in :start :groupedarglist) expected)
-         "(receive_time)" [:groupedarglist "receive_time"]
-         "(receive_time, \"HH24\")" [:groupedarglist "receive_time" [:dqstring "HH24"]]
-         "(receive_time, \"HH24\", \"DAY\")" [:groupedarglist "receive_time" [:dqstring "HH24"] [:dqstring "DAY"]]
+         "(receive_time)" [:groupedarglist [:field "receive_time"]]
+         "(receive_time, \"HH24\")" [:groupedarglist [:field "receive_time"]
+                                     [:dqstring "HH24"]]
+         "(receive_time, \"HH24\", \"DAY\")" [:groupedarglist [:field "receive_time"]
+                                              [:dqstring "HH24"] [:dqstring "DAY"]]
          "()" [:groupedarglist])
 
     (are [in]
@@ -478,24 +530,32 @@
 
   (testing "arglist"
     (are [in expected] (= (parse in :start :arglist) expected)
-      "certname, \"HH24\"" ["certname" [:dqstring "HH24"]]
-      "certname" ["certname"])
+      "certname, \"HH24\"" [[:field "certname"] [:dqstring "HH24"]]
+      "certname" [[:field "certname"]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :arglist))
       "foo bar"
       ""))
 
   (testing "field"
-    (are [in] (= (parse in :start :field) [in])
-      "certname"
-      "value"
-      "field_underscore"
-      "latest_report?")
+    (are [in] (= (parse in :start :field)
+                 (vec (concat [:field] (sutils/dotted-query->path in))))
+         "certname"
+         "value"
+         "field_underscore"
+         "facts.operatingsystem.κόσμε"
+         "facts.\"quoted field\".foo"
+         "facts.\"field.with.dot\".foo"
+         "trusted.authenticated"
+         "parameters.😁"
+         "latest_report?")
 
     (are [in] (insta/failure? (insta/parse parse in :start :field))
       "'asdf'"
       "field-hyphen"
       "foo?bar"
+     "foo.bar"
+      "facts."
       "?"
       ""))
 
@@ -735,14 +795,15 @@
   (testing "groupbyclause"
     (are [in expected] (= (parse in :start :groupbyclause) expected)
          "group by name"
-         [[:groupby "name"]]
+         [[:groupby [:field "name"]]]
 
          "group by name, value"
-         [[:groupby "name" "value"]]
+         [[:groupby [:field "name"] [:field "value"]]]
 
          "group by name, to_string(receive_time, \"HH24\")"
-         [[:groupby "name" [:function "to_string" [:groupedarglist "receive_time"
-                                                   [:dqstring "HH24"]]]]])
+         [[:groupby [:field "name"]
+           [:function "to_string" [:groupedarglist [:field "receive_time"]
+                                   [:dqstring "HH24"]]]]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :groupbyclause))
       "group by 'name'"
@@ -750,8 +811,8 @@
 
   (testing "groupby"
     (are [in expected] (= (parse in :start :groupby) expected)
-      "group by name" [:groupby "name"]
-      "group by name, value" [:groupby "name" "value"])
+      "group by name" [:groupby [:field "name"]]
+      "group by name, value" [:groupby [:field "name"] [:field "value"]])
 
     (are [in] (insta/failure? (insta/parse parse in :start :groupby))
       "group by 'name'"
@@ -768,14 +829,16 @@
 
   (testing "order by"
     (are [in expected] (= (parse in :start :pagingclause) expected)
-         "order by name" [[:orderby [:orderparam "name"]]]
-         "order by name, value" [[:orderby [:orderparam "name"] [:orderparam "value"]]]
+         "order by name" [[:orderby [:orderparam [:field "name"]]]]
+         "order by name, value" [[:orderby
+                                  [:orderparam [:field "name"]]
+                                  [:orderparam [:field "value"]]]]
          "order by name asc, value desc" [[:orderby
-                                           [:orderparam "name" "asc"]
-                                           [:orderparam "value" "desc"]]]
+                                           [:orderparam [:field "name"] "asc"]
+                                           [:orderparam [:field "value"] "desc"]]]
          "order by name desc, value" [[:orderby
-                                       [:orderparam "name" "desc"]
-                                       [:orderparam "value"]]])))
+                                       [:orderparam [:field "name"] "desc"]
+                                       [:orderparam [:field "value"]]]])))
 
 (deftest test-parens-grouping
   (is (= (parse ")" :start :rparens) [")"]))

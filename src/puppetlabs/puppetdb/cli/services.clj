@@ -51,7 +51,7 @@
             [metrics.gauges :refer [gauge-fn]]
             [metrics.timers :refer [time! timer]]
             [metrics.reporters.jmx :as jmx-reporter]
-            [overtone.at-at :refer [mk-pool interspaced stop-and-reset-pool!]]
+            [overtone.at-at :refer [mk-pool every interspaced stop-and-reset-pool!]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
@@ -252,11 +252,14 @@
           (.unlock lock))))))
 
 (defn maybe-check-for-updates
-  [config read-db]
+  [config read-db job-pool]
   (if (conf/foss? config)
-    (-> config
-        conf/update-server
-        (version/check-for-updates! read-db))
+    (let [checkin-interval-millis (* 1000 60 60 24)] ; once per day
+      (every checkin-interval-millis #(-> config
+                                          conf/update-server
+                                          (version/check-for-updates! read-db))
+             job-pool
+             :desc "A reoccuring job to checkin the PuppetDB version"))
     (log/debug "Skipping update check on Puppet Enterprise")))
 
 (defn stop-puppetdb
@@ -358,13 +361,12 @@
                    :command-chan (async/chan 10)}
           clean-lock (ReentrantLock.)]
 
-      (when-not disable-update-checking
-        (maybe-check-for-updates config read-db))
-
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)
             gc-interval-millis (to-millis gc-interval)
             dlo-compression-interval-millis (to-millis dlo-compression-interval)]
+        (when-not disable-update-checking
+          (maybe-check-for-updates config read-db job-pool))
         (when (pos? gc-interval-millis)
           (let [seconds-pos? (comp pos? to-seconds)
                 what (filter identity

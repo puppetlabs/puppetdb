@@ -9,7 +9,7 @@
   (:require [puppetlabs.i18n.core :as i18n]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.trapperkeeper.bootstrap :refer [find-bootstrap-config]]
+            [puppetlabs.trapperkeeper.bootstrap :as tk-bootstrap]
             [clj-time.core :as time]
             [clojure.java.io :as io]
             [me.raynes.fs :as fs]
@@ -166,8 +166,7 @@
   "Schema for validating the incoming [puppetdb] block"
   (all-optional
     {:certificate-whitelist s/Str
-     ;; The `historical-catalogs-limit` setting is only used by `pe-puppetdb`
-     :historical-catalogs-limit (pls/defaulted-maybe s/Int 3)
+     :historical-catalogs-limit (pls/defaulted-maybe s/Int 0)
      :disable-update-checking (pls/defaulted-maybe String "false")}))
 
 (def puppetdb-config-out
@@ -349,12 +348,15 @@
    {:route "/"
     :server "default"}})
 
+(defn filter-out-non-tk-config [config-data]
+  (select-keys config-data
+               [:debug :bootstrap-config :config :plugins :help]))
+
 (defn add-web-routing-service-config
   [config-data]
-  (let [bootstrap-cfg (-> (find-bootstrap-config config-data)
-                          slurp
-                          str/split-lines
-                          set)
+  (let [bootstrap-cfg (->> (tk-bootstrap/find-bootstrap-configs (filter-out-non-tk-config config-data))
+                           (mapcat tk-bootstrap/read-config)
+                           set)
         ;; If a user didn't specify one of the services in their bootstrap.cfg
         ;; we remove the web-router-config for that service
         filtered-web-router-config (into {} (for [[svc route] default-web-router-config

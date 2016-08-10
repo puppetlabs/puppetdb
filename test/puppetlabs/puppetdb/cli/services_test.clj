@@ -18,7 +18,8 @@
             [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
             [clj-time.coerce :refer [to-string]]
             [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.cheshire :as json]))
+            [puppetlabs.puppetdb.cheshire :as json]
+            [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]))
 
 (deftest update-checking
   (let [config-map {:global {:product-name "puppetdb"
@@ -26,11 +27,21 @@
 
     (testing "should check for updates if running as puppetdb"
       (with-redefs [version/check-for-updates! (constantly "Checked for updates!")]
-        (is (= (maybe-check-for-updates config-map {}) "Checked for updates!"))))
+        (let [job-pool-test (mk-pool)
+              recurring-job-checkin (maybe-check-for-updates config-map {} job-pool-test)]
+          (is (= 86400000 (:ms-period recurring-job-checkin))
+              "should run once a day")
+          (is (= true @(:scheduled? recurring-job-checkin))
+              "should be scheduled to run")
+          (is (= 0 (:initial-delay recurring-job-checkin))
+              "should run on start up with no delay")
+          (is (= "A reoccuring job to checkin the PuppetDB version" (:desc recurring-job-checkin))
+              "should have a description of the job running")
+          (stop-and-reset-pool! job-pool-test))))
 
     (testing "should skip the update check if running as pe-puppetdb"
       (with-log-output log-output
-        (maybe-check-for-updates (assoc-in config-map [:global :product-name] "pe-puppetdb") {})
+        (maybe-check-for-updates (assoc-in config-map [:global :product-name] "pe-puppetdb") {} nil)
         (is (= 1 (count (logs-matching #"Skipping update check on Puppet Enterprise" @log-output))))))))
 
 (defn- check-service-query

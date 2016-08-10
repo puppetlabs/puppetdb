@@ -27,7 +27,7 @@
             [clj-time.core :as t :refer [days ago now seconds]]
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
-            [slingshot.slingshot :refer [throw+]]
+            [slingshot.slingshot :refer [throw+ try+]]
             [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :as pt]
@@ -243,6 +243,54 @@
                              "Exceeded max"))
           (is (str/includes? (get-in @log-output [0 3]) "cats")))))))
 
+(deftest call-with-quick-retry-test
+  (testing "errors are logged at debug while retrying"
+    (let [log-output (atom [])]
+      (binding [*logger-factory* (atom-logger log-output)]
+        (try (call-with-quick-retry 1
+                                    (fn []
+                                      (throw (RuntimeException. "foo"))))
+             (catch RuntimeException e nil)))
+      (is (= (get-in @log-output [0 1]) :debug))
+      (is (instance? Exception (get-in @log-output [0 2])))))
+
+  (testing "retries the specified number of times"
+    (let [publish (call-counter)
+          num-retries 5
+          counter (atom num-retries)]
+      (try (call-with-quick-retry num-retries
+                                  (fn []
+                                    (if (= @counter 0)
+                                      (publish)
+                                      (do (swap! counter dec)
+                                          (throw (RuntimeException. "foo"))))))
+           (catch RuntimeException e nil))
+      (is (= 1 (times-called publish)))))
+
+  (testing "stops retrying after a success"
+    (let [publish (call-counter)
+          counter (atom 0)]
+      (call-with-quick-retry 5
+                             (fn []
+                               (swap! counter inc)
+                               (publish)))
+      (is (= 1 @counter))
+      (is (= 1 (times-called publish)))))
+
+  (testing "fatal errors are not retried"
+    (let [e (try+ (call-with-quick-retry 0
+                                         (fn []
+                                           (throw+ (fatality (Exception. "fatal error")))))
+                  (catch mql/fatal? e e))]
+      (is (= true (:fatal e)))))
+
+  (testing "errors surfaces when no more retries are left"
+    (let [e (try (call-with-quick-retry 0
+                                        (fn []
+                                          (throw (RuntimeException. "foo"))))
+                 (catch RuntimeException e e))]
+      (is (instance? RuntimeException e)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Common functions/macros for support multi-version tests
@@ -322,13 +370,12 @@
           (with-test-db
             (is (= (query-to-vec "SELECT certname FROM catalogs")
                    []))
-            (let [certname-id (:id (first (jdbc/insert! :certnames {:certname certname})))
-                  id (:id (first (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "00")
-                                                          :api_version 1
-                                                          :catalog_version "foo"
-                                                          :certname certname
-                                                          :producer_timestamp (to-timestamp (-> 1 days ago))})))]
-              (jdbc/insert! :latest_catalogs {:catalog_id id :certname_id certname-id}))
+            (jdbc/insert! :certnames {:certname certname})
+            (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "00")
+                                     :api_version 1
+                                     :catalog_version "foo"
+                                     :certname certname
+                                     :producer_timestamp (to-timestamp (-> 1 days ago))})
 
             (test-msg-handler raw-command publish discard-dir
               (is (= [(with-env {:certname certname :catalog catalog-hash})]
@@ -347,22 +394,19 @@
 
         (testing "with a newer catalog should ignore the message"
             (with-test-db
-              (let [certname-id (:id (first (jdbc/insert! :certnames {:certname certname})))
-                    id (:id (first (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "ab")
-                                                            :api_version 1
-                                                            :catalog_version "foo"
-                                                            :certname certname
-                                                            :timestamp tomorrow
-                                                            :producer_timestamp (to-timestamp (now))})))]
-                (jdbc/insert! :latest_catalogs {:catalog_id id :certname_id certname-id}))
-
+              (jdbc/insert! :certnames {:certname certname})
+              (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "ab")
+                                       :api_version 1
+                                       :catalog_version "foo"
+                                       :certname certname
+                                       :timestamp tomorrow
+                                       :producer_timestamp (to-timestamp (now))})
               (test-msg-handler raw-command publish discard-dir
                 (is (= [{:certname certname :catalog "ab"}]
                        (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
                                              (sutils/sql-hash-as-str "hash")))))
                 (is (= 0 (times-called publish)))
                 (is (empty? (fs/list-dir discard-dir))))))
-
 
         (testing "should reactivate the node if it was deactivated before the message"
             (with-test-db

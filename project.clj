@@ -9,10 +9,10 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def tk-version "1.3.1")
-(def tk-jetty9-version "1.5.8")
+(def tk-version "1.4.1")
+(def tk-jetty9-version "1.5.9")
 (def ks-version "1.3.1")
-(def tk-status-version "0.3.1")
+(def tk-status-version "0.4.0")
 (def i18n-version "0.2.2")
 
 (def pdb-jvm-opts
@@ -56,7 +56,7 @@
                  [slingshot "0.12.2"]
 
                  ;; Database connectivity
-                 [com.zaxxer/HikariCP "2.4.3"]
+                 [com.zaxxer/HikariCP "2.4.3" :exclusions [org.slf4j/slf4j-api]]
                  [org.clojure/java.jdbc "0.4.2"]
                  [org.postgresql/postgresql "9.4.1208.jre7"]
 
@@ -72,14 +72,14 @@
                  [org.slf4j/jcl-over-slf4j "1.7.14" :exclusions [org.slf4j/slf4j-api]]
                  ;; WebAPI support libraries.
                  [compojure "1.5.0"]
-                 [clj-http "2.0.1"]
+                 [clj-http "2.0.1"  :exclusions [org.apache.httpcomponents/httpcore org.apache.httpcomponents/httpclient]]
                  [ring/ring-core "1.4.0" :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
                  [org.apache.commons/commons-compress "1.10"]
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
                  [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]
-                 [puppetlabs/trapperkeeper-metrics "0.2.0"]
-                 [prismatic/schema "1.0.4"]
+                 [puppetlabs/trapperkeeper-metrics "0.2.0" :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]
+                 [prismatic/schema "1.1.2"]
                  [trptcolin/versioneer "0.2.0"]
                  [puppetlabs/trapperkeeper-status ~tk-status-version]
                  [org.clojure/tools.macro "0.1.5"]
@@ -89,9 +89,7 @@
                  [honeysql "0.6.3"]
                  [com.rpl/specter "0.5.7"]
                  [org.clojure/core.async "0.2.374"]
-                 [puppetlabs/http-client "0.5.0" :exclusions [org.apache.httpcomponents/httpclient
-                                                              org.apache.httpcomponents/httpcore
-                                                              org.slf4j/slf4j-api]]
+                 [puppetlabs/http-client "0.5.0" :exclusions [org.slf4j/slf4j-api]]
                  [com.taoensso/nippy "2.10.0" :exclusions [org.clojure/tools.reader]]
                  [bidi "1.25.1" :exclusions [org.clojure/clojurescript]]
                  [puppetlabs/comidi "0.3.1"]

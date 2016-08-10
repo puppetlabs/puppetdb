@@ -59,6 +59,14 @@
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.config :as conf]))
 
+;; taken from storage.clj; preserved here in case of change
+(defn insert-records*
+  "Nil/empty safe insert-records, see java.jdbc's insert-records for more "
+  [table
+   record-coll]
+  (when (seq record-coll)
+    (apply jdbc/insert! table record-coll)))
+
 (defn init-through-2-3-8
   []
 
@@ -1068,6 +1076,99 @@
     "alter table reports add column corrective_change boolean"
     "alter table resource_events add column corrective_change boolean"))
 
+(defn remove-historical-catalogs
+  []
+  (jdbc/do-commands
+    "alter table catalogs drop column edges"
+    "alter table catalogs drop column resources"
+    "delete from catalogs where id not in (select catalog_id from latest_catalogs)"
+    "drop table latest_catalogs"))
+
+(defn migrate-through-app
+  "stream data from table1 through the application and into table2, applying
+   munge-fn to each row"
+  [table1 table2 column-list batchsize munge-fn]
+  (let [columns (string/join "," column-list)]
+    (jdbc/query-with-resultset
+      [(format "select %s from %s" columns (name table1))]
+      (fn [rs]
+        (->> (sql/result-set-seq rs)
+             (map munge-fn)
+             (partition-all batchsize)
+             (map #(insert-records* (name table2) %))
+             dorun)))))
+
+(defn resource-params-cache-parameters-to-jsonb
+  []
+  (jdbc/do-commands
+    (sql/create-table-ddl :resource_params_cache_transform
+                          ["resource" "bytea NOT NULL"]
+                          ["parameters" "jsonb"]))
+
+  (migrate-through-app
+    :resource_params_cache
+    :resource_params_cache_transform
+    ["encode(resource::bytea, 'hex') as resource" "parameters"]
+    500
+    #(-> %
+         (update :parameters (comp sutils/munge-jsonb-for-storage json/parse-string))
+         (update :resource sutils/munge-hash-for-storage)))
+
+  (jdbc/do-commands
+    "alter table catalog_resources drop constraint catalog_resources_resource_fkey"
+    "alter table resource_params drop constraint resource_params_resource_fkey"
+    "drop table resource_params_cache"
+
+    "alter table resource_params_cache_transform rename to resource_params_cache"
+
+    "alter table resource_params_cache add constraint resource_params_cache_pkey
+     primary key (resource)"
+    "alter table catalog_resources add constraint catalog_resources_resource_fkey
+     foreign key (resource) references resource_params_cache(resource) on delete cascade"
+    "alter table resource_params add constraint resource_params_resource_fkey
+     foreign key (resource) references resource_params_cache(resource) on delete cascade"
+    "create index rpc_hash_expr_idx on resource_params_cache(encode(resource, 'hex'))")   )
+
+(defn fact-values-value-to-jsonb
+  []
+  (jdbc/do-commands
+    (sql/create-table-ddl :fact_values_transform
+                          ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('fact_values_id_seq')"]
+                          ["value_hash" "bytea NOT NULL UNIQUE"]
+                          ["value_type_id" "bigint NOT NULL"]
+                          ["value_integer" "bigint"]
+                          ["value_float" "double precision"]
+                          ["value_string" "text"]
+                          ["value_boolean" "boolean"]
+                          ["value" "jsonb"]))
+
+  (migrate-through-app
+    :fact_values
+    :fact_values_transform
+    ["id" "encode(value_hash::bytea, 'hex') as value_hash" "value_type_id"
+     "value_integer" "value_float" "value_string" "value_boolean" "value"]
+    500
+    #(-> %
+         (update :value (comp sutils/munge-jsonb-for-storage json/parse-string))
+         (update :value_hash sutils/munge-hash-for-storage)))
+
+  (jdbc/do-commands
+    "alter table facts drop constraint fact_value_id_fk"
+
+    "drop table fact_values"
+    "alter table fact_values_transform rename to fact_values"
+
+    "alter table fact_values rename constraint fact_values_transform_value_hash_key
+     to fact_values_value_hash_key"
+
+    "alter table fact_values rename constraint fact_values_transform_pkey
+     to fact_values_pkey"
+
+    "alter table facts add constraint fact_value_id_fk foreign key
+     (fact_value_id) references fact_values(id) on update restrict on delete restrict"
+    "create index fact_values_value_float_idx on fact_values(value_float)"
+    "create index fact_values_value_integer_idx on fact_values(value_integer)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1094,7 +1195,11 @@
    46 drop-certnames-latest-id-index
    47 add-producer-to-reports-catalogs-and-factsets
    48 add-noop-pending-to-reports
-   49 add-corrective-change-columns})
+   49 add-corrective-change-columns
+   50 remove-historical-catalogs
+   51 fact-values-value-to-jsonb
+   52 resource-params-cache-parameters-to-jsonb})
+
 
 (def desired-schema-version (apply max (keys migrations)))
 

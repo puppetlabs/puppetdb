@@ -102,6 +102,16 @@ If you wish to use PuppetDB with
 [standalone nodes that are running puppet apply][apply], every node must be
 running 3.8.1 or later.
 
+### PostgreSQL 9.4
+
+PuppetDB requires PostgreSQL 9.4 or later. If not provided by your distribution,
+compatible versions of Postgres can be installed from the PGDG (PostgreSQL Global
+Development Group) repositories. See apt.postgresql.org or yum.postgresql.org for
+more information.
+
+You can also install a compatible version of Postgres using the
+[puppetlabs-puppetdb module][install_via_module].
+
 ### Robust Hardware
 
 PuppetDB will be a critical component of your Puppet deployment and should be

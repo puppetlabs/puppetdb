@@ -154,6 +154,21 @@
                         #"'foo' is not a queryable object for resources, known queryable objects are.*"
                         (compile-user-query->sql resources-query ["=" "foo" "bar"]))))
 
+(deftest test-valid-subqueries
+  (is (thrown-with-msg? IllegalArgumentException
+                        #"Unsupported subquery `foo`"
+                        (compile-user-query->sql facts-query ["and",
+                                                              ["=", "name", "uptime_hours"],
+                                                              ["in", "certname",
+                                                               ["extract", "certname",
+                                                                ["foo",
+                                                                 ["=", "facts_environment", "production"]]]]])))
+  (is (thrown-with-msg? IllegalArgumentException
+                        #"Unsupported subquery `select-facts` - did you mean `select_facts`?"
+                        (compile-user-query->sql fact-contents-query ["in", "certname",
+                                                                      ["extract", "certname",
+                                                                       ["select-facts",
+                                                                        ["=", "name", "osfamily"]]]]))))
 (deftest-http-app query-recs-are-swappable
   [version [:v4]
    endpoint ["/v4/fact-names"]

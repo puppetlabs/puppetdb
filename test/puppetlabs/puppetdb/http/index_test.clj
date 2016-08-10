@@ -2,6 +2,7 @@
   (:require [clj-time.core :refer [now]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples :as examples]
+            [puppetlabs.puppetdb.pql :as pql]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.testutils :refer [dotestseq]]
@@ -135,6 +136,31 @@
           (let [results (ordered-query-result method endpoint query)]
             (is (= 1 (count results)))
             (is (= "host1" (:certname (first results))))))))
+
+    (testing "ast only"
+      (testing "pql query should be translated to ast"
+        (doseq [query ["nodes{}"
+                       "facts { [certname,name] in fact_contents[certname,name] { limit 1 order by certname } }"]]
+          (let [results (ordered-query-result method endpoint query {:ast_only true})]
+            (is (= (first (pql/pql->ast query)) results)))))
+      (testing "ast query should be returned as is"
+        (doseq [query [["from" "nodes"]
+                       ["from" "facts"
+                        ["in" ["certname" "name"]
+                         ["from" "fact_contents"
+                          ["extract" ["certname" "name"]]
+                          ["limit" 1]
+                          ["order_by" ["certname"]]]]]]]
+          (let [results (ordered-query-result method endpoint query {:ast_only true})]
+            (is (= query results)))))
+      (testing "invalid queries should throw exceptions"
+        (doseq [query ["nodes{foo=host1}"
+                       ["from" "nodes" ["extract" "foo"]]
+                       ["from" "nodes" ["<" "certname" "host1"]]
+                       ["from" "foo"]
+                       "foo{}"]]
+          (let [{:keys [status]} (query-response method endpoint query)]
+            (is (= http/status-bad-request status))))))
 
     (testing "extract parameters"
       (doseq [query [["from" "nodes"

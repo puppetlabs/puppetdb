@@ -38,6 +38,12 @@
   ([method endpoint query params]
    (*app* (tu/query-request method endpoint query {:params params}))))
 
+(defn slurp-unless-string
+  [response-body]
+  (if (string? response-body)
+    response-body
+    (slurp response-body)))
+
 (defn ordered-query-result
   ([method endpoint] (ordered-query-result method endpoint nil))
   ([method endpoint query] (ordered-query-result method endpoint query {}))
@@ -48,7 +54,7 @@
      (is (= http/status-ok (:status response)))
      (-> response
          :body
-         slurp
+         slurp-unless-string
          (json/parse-string true)
          vec
          handle-fn))))

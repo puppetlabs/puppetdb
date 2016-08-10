@@ -207,6 +207,10 @@
   (hcore/raw
    (format "%s = ANY(?)" (first (hfmt/format column)))))
 
+(defn json-contains
+  [field]
+  (hcore/raw (format "%s @> ?" field)))
+
 (defn db-serialize
   "Serialize `value` into a form appropriate for querying against a
   serialized database column."
@@ -277,7 +281,8 @@
 (defn munge-jsonb-for-storage
   "Prepare a clojure object for storage depending on db type."
   [value]
-  (let [json-str (json/generate-string value)]
+  (let [json-str (-> (json/generate-string value)
+                     (.replaceAll "\\\\u0000" "\\\ufffd"))]
     (str->pgobject "jsonb" json-str)))
 
 (defn db-up?
@@ -296,3 +301,31 @@
   (log/info "Analyzing small tables")
   (apply jdbc/do-commands-outside-txn
          (map #(str "analyze " %) small-tables)))
+
+(defn handle-quoted-path-segment
+  [v]
+  (loop [result []
+         [s & splits] v]
+    (let [s-len (count s)]
+      (if (and (str/ends-with? s "\"")
+               (not (= s-len 1))
+               (or (<= s-len 2) (not (= (nth s (- s-len 2)) \\))))
+        [(str/join "." (conj result s)) splits]
+        (recur (conj result s) splits)))))
+
+(defn dotted-query->path
+  [string]
+  (loop [[s & splits :as v] (str/split string #"\.")
+         result []]
+    (if (nil? s)
+      result
+      (let [s-len (count s)]
+        (if (and (str/starts-with? s "\"")
+                 (or (= s-len 1)
+                     (or (not (str/ends-with? s "\""))
+                         (and (str/ends-with? s "\"")
+                              (>= s-len 2)
+                              (= (nth s (- s-len 2)) \\)))))
+          (let [[x xs] (handle-quoted-path-segment v)]
+            (recur xs (conj result x)))
+          (recur splits (conj result s)))))))

@@ -154,7 +154,7 @@
     (update-in msg [:annotations :attempts] conj attempt)))
 
 ;; The number of times a message can be retried before we discard it
-(def maximum-allowable-retries 16)
+(def maximum-allowable-retries 5)
 
 (defn mark-both-metrics!
   "Calls `mark!` on the global and command specific metric for `k`"

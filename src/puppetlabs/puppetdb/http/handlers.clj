@@ -56,7 +56,7 @@
   [version :- s/Keyword]
   (cmdi/ANY "" []
             (-> (http-q/query-handler version)
-                (http-q/extract-query-pql {:optional paging/query-params
+                (http-q/extract-query-pql {:optional (conj paging/query-params "ast_only")
                                            :required ["query"]})
                 (http/experimental-warning "The root endpoint is experimental"))))
 
@@ -240,6 +240,14 @@
                                             http-q/restrict-fact-query-to-name
                                             http-q/restrict-fact-query-to-value
                                             http-q/restrict-query-to-active-nodes))))))
+
+(pls/defn-validated inventory-routes :- bidi-schema/RoutePair
+  [version :- s/Keyword]
+  (extract-query
+    (cmdi/routes
+      (cmdi/ANY "" []
+                (create-query-handler version "inventory"
+                                      http-q/restrict-query-to-active-nodes)))))
 
 (pls/defn-validated factset-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
