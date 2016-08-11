@@ -226,8 +226,12 @@
    certname :- s/Str
    command-stream
    command-callback]
-  (async/>!! command-chan
-             (queue/store-command q command version certname command-stream command-callback)))
+  (try
+    (async/>!! command-chan
+               (queue/store-command q command version certname command-stream command-callback))
+    (finally
+      (when command-stream
+        (.close command-stream)))))
 
 ;; Catalog replacement
 

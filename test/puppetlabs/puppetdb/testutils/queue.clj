@@ -22,7 +22,7 @@
          ~queue-sym (stock/create queue-dir#)]
      (try
        ~@body
-       (finally rm-r queue-dir#))))
+       (finally (rm-r queue-dir#)))))
 
 (defprotocol CoerceToStream
   (coerce-to-stream [x]
@@ -42,10 +42,7 @@
       (.close baos)
       (-> baos
           .toByteArray
-          java.io.ByteArrayInputStream.)))
-  Object
-  (coerce-to-stream [x]
-    (throw (RuntimeException. (str (class x))))))
+          java.io.ByteArrayInputStream.))))
 
 (defn store-command [q command-type version certname payload]
   (q/store-command q command-type version certname (coerce-to-stream payload)))
