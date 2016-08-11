@@ -55,6 +55,7 @@
 
    In either case, the command itself, once string-ified, must be a
    JSON-formatted string with the aforementioned structure."
+  (:import [java.util.concurrent Semaphore])
   (:require [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
@@ -221,15 +222,18 @@
   its id. Annotates the command via annotate-command."
   [q
    command-chan
+   ^Semaphore write-semaphore
    command :- s/Str
    version :- s/Int
    certname :- s/Str
    command-stream
    command-callback]
   (try
+    (.acquire write-semaphore)
     (async/>!! command-chan
                (queue/store-command q command version certname command-stream command-callback))
     (finally
+      (.release write-semaphore)
       (when command-stream
         (.close command-stream)))))
 
@@ -425,9 +429,11 @@
   (init [this context]
     (let [response-chan (async/chan 1000)
           response-mult (async/mult response-chan)
-          response-chan-for-pub (async/chan)]
+          response-chan-for-pub (async/chan)
+          concurrent-writes (get-in (get-config) [:command-processing :concurrent-writes])]
       (async/tap response-mult response-chan-for-pub)
       (assoc context
+             :write-semaphore (Semaphore. concurrent-writes)
              :stats (atom {:received-commands 0
                            :executed-commands 0})
              :response-chan response-chan
@@ -461,8 +467,9 @@
     (let [config (get-config)
           q (:q (shared-globals))
           command-chan (:command-chan (shared-globals))
+          write-semaphore (:write-semaphore (service-context this))
           command (if (string? command) command (command-names command))
-          result (do-enqueue-command q command-chan command version certname command-stream command-callback)]
+          result (do-enqueue-command q command-chan write-semaphore command version certname command-stream command-callback)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))

@@ -31,7 +31,8 @@
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.testutils.queue :as tqueue])
   (:import [clojure.lang ExceptionInfo]
-           [java.io ByteArrayInputStream]))
+           [java.io ByteArrayInputStream]
+           [java.util.concurrent Semaphore]))
 
 (def endpoints [[:v1 "/v1"]])
 
@@ -265,7 +266,8 @@
   (#'tgt/enqueue-command-handler
    (partial cmd/do-enqueue-command
             q
-            command-chan)
+            command-chan
+            (Semaphore. 100))
    max-command-size))
 
 (deftest enqueue-max-command-size

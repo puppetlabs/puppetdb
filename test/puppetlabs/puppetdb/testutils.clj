@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.testutils
   (:import [java.io ByteArrayInputStream]
-           [org.apache.activemq.broker BrokerService])
+           [org.apache.activemq.broker BrokerService]
+           [java.util.concurrent Semaphore])
   (:require [puppetlabs.puppetdb.config :refer [default-mq-endpoint]]
             [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.middleware
@@ -437,6 +438,7 @@
     (fn [] {})
     (partial dispatch/do-enqueue-command
              q
-             command-chan)
+             command-chan
+             (Semaphore. 100))
     false
     nil)))
