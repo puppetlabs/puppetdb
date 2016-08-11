@@ -23,16 +23,17 @@
 
 (defn entry->cmd [q {stockpile-entry :entry :as entry}]
   (let [[received-time-ms command version certname] (str/split (stock/entry-meta stockpile-entry) #"_" 4)]
-    (-> entry
-        (assoc
-         :command command
-         :version (Long/parseLong version)
-         :certname certname
-         :payload (stream->json (stock/stream q stockpile-entry)))
-        (assoc-in [:annotations :received] (-> received-time-ms
-                                               Long/parseLong
-                                               tcoerce/from-long
-                                               kitchensink/timestamp)))))
+    (with-open [command-stream (stock/stream q stockpile-entry)]
+      (-> entry
+          (assoc
+           :command command
+           :version (Long/parseLong version)
+           :certname certname
+           :payload (stream->json command-stream))
+          (assoc-in [:annotations :received] (-> received-time-ms
+                                                 Long/parseLong
+                                                 tcoerce/from-long
+                                                 kitchensink/timestamp))))))
 
 (defn store-command
   ([q command version certname command-stream]
