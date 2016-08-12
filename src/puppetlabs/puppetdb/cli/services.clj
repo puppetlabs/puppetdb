@@ -320,11 +320,11 @@
   (let [stockpile-root (kitchensink/absolute-path queue-dir)
         queue-path (stock/path-get stockpile-root "cmd")]
     (if (Files/exists queue-path (make-array LinkOption 0))
-      (stock/open queue-path
-                  (fn [chan entry]
-                    (async/>!! chan (queue/stockpile-entry->entry entry))
-                    chan)
-                  command-chan)
+      (first (stock/open queue-path
+                         (fn [chan entry]
+                           (async/>!! chan (queue/stockpile-entry->entry entry))
+                           chan)
+                         command-chan))
       (do
         (Files/createDirectories (stock/path-get stockpile-root) (make-array FileAttribute 0))
         (stock/create queue-path)))))
