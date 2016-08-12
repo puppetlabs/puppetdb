@@ -77,7 +77,8 @@
             [schema.core :as s]
             [slingshot.slingshot :refer [throw+ try+]]
             [stockpile :as stock]
-            [clojure.core.async :as async])
+            [clojure.core.async :as async]
+            [puppetlabs.puppetdb.queue :as queue])
   (:import [javax.jms ExceptionListener]
            [java.nio.file Files LinkOption]
            [java.util.concurrent.locks ReentrantLock]
@@ -315,11 +316,15 @@
       result
       (recur db-spec))))
 
-(defn create-or-open-stockpile [queue-dir]
+(defn create-or-open-stockpile [queue-dir command-chan]
   (let [stockpile-root (kitchensink/absolute-path queue-dir)
         queue-path (stock/path-get stockpile-root "cmd")]
     (if (Files/exists queue-path (make-array LinkOption 0))
-      (stock/open queue-path)
+      (stock/open queue-path
+                  (fn [chan entry]
+                    (async/>!! chan (queue/stockpile-entry->entry entry))
+                    chan)
+                  command-chan)
       (do
         (Files/createDirectories (stock/path-get stockpile-root) (make-array FileAttribute 0))
         (stock/create queue-path)))))
@@ -334,7 +339,7 @@
                 puppetdb command-processing]} config
         {:keys [pretty-print]} developer
         {:keys [gc-interval dlo-compression-interval]} database
-        {:keys [dlo-compression-threshold]} command-processing
+        {:keys [dlo-compression-threshold max-enqueued]} command-processing
         {:keys [disable-update-checking]} puppetdb
 
         write-db (jdbc/pooled-datasource (assoc database :pool-name "PDBWritePool")
@@ -354,11 +359,12 @@
     (when (.exists discard-dir)
       (dlo/create-metrics-for-dlo! discard-dir))
     ;; Error handling here?
-    (let [globals {:scf-read-db read-db
+    (let [command-chan (async/chan max-enqueued)
+          globals {:scf-read-db read-db
                    :scf-write-db write-db
                    :pretty-print pretty-print
-                   :q (create-or-open-stockpile (conf/stockpile-dir config))
-                   :command-chan (async/chan 10)}
+                   :q (create-or-open-stockpile (conf/stockpile-dir config) command-chan)
+                   :command-chan command-chan}
           clean-lock (ReentrantLock.)]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval

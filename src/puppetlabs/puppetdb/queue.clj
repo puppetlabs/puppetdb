@@ -35,19 +35,25 @@
                                                  tcoerce/from-long
                                                  kitchensink/timestamp))))))
 
+(defn stockpile-entry->entry
+  ([stockpile-entry]
+   (stockpile-entry->entry stockpile-entry identity))
+  ([stockpile-entry callback]
+   {:entry stockpile-entry
+    :callback callback
+    :annotations {:attempts []
+                  :id (stock/entry-id stockpile-entry)}}))
+
 (defn store-command
   ([q command version certname command-stream]
    (store-command q command version certname command-stream identity))
   ([q command version certname command-stream command-callback]
-   (let [current-time (time/now)
-         entry (stock/store q
-                            command-stream
-                            (metadata-str (tcoerce/to-long current-time) command version certname))]
-     {:entry entry
-      :callback command-callback
-      :annotations {:attempts []
-                    :id (stock/entry-id entry)
-                    :received (kitchensink/timestamp current-time)}})))
+   (let [current-time (time/now)]
+     (-> q
+         (stock/store command-stream
+                      (metadata-str (tcoerce/to-long current-time) command version certname))
+         (stockpile-entry->entry command-callback)
+         (assoc-in [:annotations :received] (kitchensink/timestamp current-time))))))
 
 (defn ack-command
   [q command]
