@@ -244,6 +244,7 @@
                                                    :field :reports_environment.environment}}
 
                :relationships {;; Children - direct
+                               "inventory" {:columns ["certname"]}
                                "factsets" {:columns ["certname"]}
                                "reports" {:columns ["certname"]}
                                "catalogs" {:columns ["certname"]}
@@ -949,6 +950,8 @@
                :selection {:from [:environments]}
 
                :relationships {;; Children - direct
+                               "inventory" {:local-columns ["name"]
+                                            :foreign-columns ["environment"]}
                                "factsets" {:local-columns ["name"]
                                            :foreign-columns ["environment"]}
                                "catalogs" {:local-columns ["name"]
