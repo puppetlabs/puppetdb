@@ -15,6 +15,7 @@ canonical: "/puppetdb/latest/api/query/v4/environments.html"
 [fact-contents]: ./fact_contents.html
 [events]: ./events.html
 [resources]: ./resources.html
+[inventory]: ./inventory.html
 
 Environments are semi-isolated groups of nodes managed by Puppet. Nodes are assigned to environments by their own configuration, or by the Puppet master's external node classifier.
 
@@ -43,6 +44,7 @@ See [the AST query language page](./ast.html)
 
 The following list contains related entities that can be used to constrain the result set by using implicit subqueries. For more information, consult the documentation for [subqueries][subqueries].
 
+* [`inventory`][inventory]: inventory for an environment.
 * [`factsets`][factsets]: factsets received for an environment.
 * [`reports`][reports]: reports received for an environment.
 * [`catalogs`][catalogs]: catalogs received for an environment.
