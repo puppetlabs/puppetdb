@@ -115,11 +115,10 @@
      (let [log-output#     (atom [])
            publish#        (call-counter)
            discard-dir#    (fs/temp-dir "test-msg-handler")
-           handle-message# (mql/message-handler-with-retries
-                            q#
-                            publish#
-                            (mql/discard-message q# discard-dir#)
-                            #(process-command! % ~db))
+           handle-message# (mql/message-handler q#
+                                                discard-dir#
+                                                publish#
+                                                #(process-command! % ~db))
            command# ~command
            entry# (update (apply tqueue/store-command q# (unroll-old-command command#))
                           :annotations merge (:annotations command#))]
@@ -195,59 +194,67 @@
   (testing "Should log retries as debug for less than 4 attempts"
     (tqueue/with-stockpile q
       (let [process-message (fn [_] (throw (RuntimeException. "retry me")))]
-        (doseq [i (range 0 mql/maximum-allowable-retries)
-                :let [log-output (atom [])
-                      delay-message (mock-fn)
-                      discard-message (mock-fn)
-                      mh (mql/message-handler-with-retries q delay-message discard-message process-message)]]
-          (binding [*logger-factory* (atom-logger log-output)]
-            (mh (append-attempts i (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})))
-            (is (called? delay-message))
-            (is (not (called? discard-message)))
+        (with-redefs [mql/discard-message (mock-fn)]
+          (doseq [i (range 0 mql/maximum-allowable-retries)
+                  :let [log-output (atom [])
+                        delay-message (mock-fn)
+                        mh (mql/message-handler q nil
+                                                delay-message process-message)]]
+            (binding [*logger-factory* (atom-logger log-output)]
+              (mh (append-attempts i (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})))
+              (is (called? delay-message))
+              (is (not (called? mql/discard-message)))
 
-            (if (< i 4)
-              (is (= (get-in @log-output [0 1]) :debug))
-              (is (= (get-in @log-output [0 1]) :error)))
+              (if (< i 4)
+                (is (= (get-in @log-output [0 1]) :debug))
+                (is (= (get-in @log-output [0 1]) :error)))
 
-            (is (str/includes? (get-in @log-output [0 3]) "cats"))
-            (is (instance? Exception (get-in @log-output [0 2])))
-            (is (str/includes? (last (first @log-output))
-                               "Retrying after attempt"))))
+              (is (str/includes? (get-in @log-output [0 3]) "cats"))
+              (is (instance? Exception (get-in @log-output [0 2])))
+              (is (str/includes? (last (first @log-output))
+                                 "Retrying after attempt")))))
 
         (let [log-output (atom [])
               delay-message (mock-fn)
               discard-message (mock-fn)
-              mh (mql/message-handler-with-retries q delay-message discard-message process-message)]
-          (binding [*logger-factory* (atom-logger log-output)]
-            (mh (append-attempts mql/maximum-allowable-retries (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})))
-            (is (not (called? delay-message)))
-            (is (called? discard-message))
-            (is (= (get-in @log-output [0 1]) :error))
-            (is (instance? Exception (get-in @log-output [0 2])))
-            (is (str/includes? (last (first @log-output))
-                               "Exceeded max"))
-            (is (str/includes? (get-in @log-output [0 3]) "cats"))))))))
+              mh (mql/message-handler q nil delay-message process-message)]
+          (with-redefs [mql/discard-message (mock-fn)]
+            (binding [*logger-factory* (atom-logger log-output)]
+              (mh (append-attempts mql/maximum-allowable-retries (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})))
+              (is (not (called? delay-message)))
+              (is (called? mql/discard-message))
+              (is (= (get-in @log-output [0 1]) :error))
+              (is (instance? Exception (get-in @log-output [0 2])))
+              (is (str/includes? (last (first @log-output))
+                                 "Exceeded max"))
+              (is (str/includes? (get-in @log-output [0 3]) "cats")))))))))
 
 (deftest message-acknowledgement
   (testing "happy path, message acknowledgement when no failures occured"
     (tqueue/with-stockpile q
-      (let [mh (mql/message-handler-with-retries q nil nil identity)
-            cmdref (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
-        (is (:payload (queue/cmdref->cmd q cmdref)))
-        (mh cmdref)
-        (is (thrown-with-msg? java.nio.file.NoSuchFileException
-                              #"catalog"
-                              (queue/cmdref->cmd q cmdref))))))
+      (with-redefs [mql/discard-message (fn [& args] true)]
+        (let [mh (mql/message-handler q nil nil identity)
+              cmdref (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
+          (is (:payload (queue/cmdref->cmd q cmdref)))
+          (mh cmdref)
+          (is (thrown-with-msg? java.nio.file.NoSuchFileException
+                                #"catalog"
+                                (queue/cmdref->cmd q cmdref)))))))
 
   (testing "Failures do not cause messages to be acknowledged"
     (tqueue/with-stockpile q
-      (let [delay-message (mock-fn)
-            mh (mql/message-handler-with-retries q delay-message nil (fn [_] (throw (RuntimeException. "retry me"))))
-            entry (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
-        (is (:payload (queue/cmdref->cmd q entry)))
-        (mh entry)
-        (is (called? delay-message))
-        (is (:payload (queue/cmdref->cmd q entry)))))))
+      (with-redefs [mql/discard-message (fn [& args] true)]
+        (let [delay-message (mock-fn)
+              mh (mql/message-handler q nil delay-message
+                                      ;; Do we really want this to
+                                      ;; be ;; a RuntimeException?
+                                      (fn [_]
+                                        (throw (RuntimeException. "retry me"))))
+              entry (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
+          (is (:payload (queue/cmdref->cmd q entry)))
+          (mh entry)
+          (is (called? delay-message))
+          (is (:payload (queue/cmdref->cmd q entry))))))))
 
 (deftest call-with-quick-retry-test
   (testing "errors are logged at debug while retrying"

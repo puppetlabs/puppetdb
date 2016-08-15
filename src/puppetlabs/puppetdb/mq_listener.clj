@@ -193,17 +193,19 @@
    (catch Exception e
      (throw+ {:kind ::parse-error} e "Error parsing command"))))
 
-(defn message-handler-with-retries
-  "This function processes the message, retrying messages that
-  fail and discarding messages that have fatal errors or have exceeded
-  their maximum allowed attempts. `delay-message-fn` and
-  `discard-message-fn` are both functions of two arguments, a
-  `message` and an `exception`. `process-message-fn` is a function
-  that accepts a message as it's argument"
-  [q delay-message discard-message process-message]
+(defn discard-message [message exception q discard-dir]
+  (dlo/store-failed-message (:payload message) exception discard-dir))
+
+(defn message-handler
+  "This function processes the message, retrying messages that fail
+  and discarding messages that have fatal errors or have exceeded
+  their maximum allowed attempts. `delay-message-fn` is a function of
+  two arguments, a `message` and an `exception`, and
+  `process-message-fn` is a function that accepts a message as its
+  argument"
+  [q discard-dir delay-message process-message]
   (fn [cmdref]
     (try+
-
      ;; If the message is a delete?, there's no need to parse it
      ;; below, it's only going to be removed
      (if (:delete? cmdref)
@@ -224,7 +226,7 @@
               (log/error (:wrapper &throw-context) (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
               (-> cmd
                   (annotate-with-attempt ex)
-                  (discard-message ex))))
+                  (discard-message ex q discard-dir))))
 
           (catch Exception exception
             (let [ex (:throwable &throw-context)
@@ -245,12 +247,11 @@
                 :else
                 (do
                   (log/error ex (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command retries certname))
-                  (discard-message cmd nil))))))))
-
+                  (discard-message cmd nil q discard-dir))))))))
      (catch [:kind ::queue/parse-error] _
        (mark! (global-metric :fatal))
        (log/error (:wrapper &throw-context) (i18n/trs "Fatal error parsing command: {0}" (:id cmdref)))
-       (discard-message cmdref (:throwable &throw-context))))))
+       (discard-message cmdref (:throwable &throw-context) q discard-dir)))))
 
 (defprotocol MessageListenerService
   (register-listener [this schema listener-fn])
@@ -287,18 +288,15 @@
     (let [narrowed-entry (dissoc cmd :payload)]
       (after ten-minutes #(async/>!! command-chan narrowed-entry) delay-pool))))
 
-(defn discard-message [q discard-dir]
-  (fn [message exception]
-    (dlo/store-failed-message (:payload message) exception discard-dir)))
-
 (defn create-command-consumer
   "Create and return a command handler. This function does the work of
   consuming/storing a command. Handled commands are acknowledged here"
   [q command-chan discard-dir delay-pool command-handler]
-  (let [handle-message (message-handler-with-retries q
-                                                     (send-delayed-message command-chan delay-pool)
-                                                     (discard-message q discard-dir)
-                                                     command-handler)]
+  (let [handle-message (message-handler q
+                                        discard-dir
+                                        (send-delayed-message command-chan
+                                                              delay-pool)
+                                        command-handler)]
     (fn [message]
       ;; When the queue is shutting down, it sends nil message
       (when message
@@ -333,10 +331,12 @@
           command-chan (:command-chan (shared-globals))
           delay-pool (:delay-pool context)
           q (:q (shared-globals))
-          message-handler (create-command-consumer q command-chan (conf/mq-discard-dir config) delay-pool command-handler)]
-
+          handle-cmd (create-command-consumer q command-chan
+                                              (conf/mq-discard-dir config)
+                                              delay-pool
+                                              command-handler)]
       (doto (Thread. (fn []
-                       (gtp/dochan command-threadpool message-handler command-chan)))
+                       (gtp/dochan command-threadpool handle-cmd command-chan)))
         (.setDaemon false)
         (.start))
 
