@@ -51,6 +51,10 @@ export REPO_DIR REPO_HOST
 
 
 # Now rebuild the metadata
+# We add the `--follow-symlinks` flag to the apt metadata in preparation for
+# the switch from reprepro to aptly. Aptly employs symlinks to maintain the
+# current expected directory structure. As we cannot ship symlinks to s3, this
+# flag will send over the resolved files.
 ssh $REPO_HOST <<PUBLISH_PACKAGES
 
 set -e
@@ -60,7 +64,7 @@ echo "BUCKET_NAME IS: ${BUCKET_NAME}"
 
 time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_CONFIGS}/*  ${S3_BRANCH_PATH}/repo_configs/
 
-time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_DIR}/apt/{jessie,lucid,precise,trusty,wheezy,wily,xenial}  ${S3_BRANCH_PATH}/repos/apt/
+time s3cmd --verbose --acl-public --delete-removed  --follow-symlinks sync ${REPO_DIR}/apt/{jessie,lucid,precise,trusty,wheezy,wily,xenial}  ${S3_BRANCH_PATH}/repos/apt/
 
 time s3cmd --verbose --acl-public --delete-removed  sync ${REPO_DIR}/el/{5,6,7}  ${S3_BRANCH_PATH}/repos/el/
 
