@@ -1,13 +1,16 @@
 (ns puppetlabs.puppetdb.queue
   (:import [java.nio.charset StandardCharsets]
-           [java.io InputStreamReader BufferedReader InputStream])
+           [java.io InputStreamReader BufferedReader InputStream]
+           [java.util TreeMap HashMap])
   (:require [stockpile :as stock]
             [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.string :as str]
             [clj-time.core :as time]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [slingshot.slingshot :refer [throw+]]))
+            [slingshot.slingshot :refer [throw+]]
+            [clojure.core.async :as async]
+            [clojure.core.async.impl.protocols :as async-protos]))
 
 (defn stream->json [^InputStream stream]
   (try
@@ -71,3 +74,43 @@
 (defn ack-command
   [q command]
   (stock/discard q (:entry command)))
+
+(deftype SortedCommandBuffer [^TreeMap fifo-queue ^HashMap certnames-map ^long max-entries]
+  async-protos/Buffer
+  (full? [this]
+    (>= (.size fifo-queue) max-entries))
+
+  (remove! [this]
+    (let [^CommandRef cmdref (val (.pollFirstEntry fifo-queue))
+          command-type (:command-type cmdref)]
+      (when (or (= command-type :fact)
+                (= command-type :catalog))
+        (.remove certnames-map [command-type (:certname cmdref)]))
+      cmdref))
+
+  (add!* [this item]
+    (when-not (instance? CommandRef item)
+      (throw (IllegalArgumentException. (str "Cannot enqueue item of type " (class item)))))
+
+    (let [^CommandRef cmdref item
+          command-type (:command cmdref)
+          certname (:certname cmdref)]
+      (when (or (= command-type "replace catalog")
+                (= command-type "replace facts"))
+        (when-let [^CommandRef old-command (.get certnames-map [command-type certname])]
+          (.put fifo-queue
+                (:id old-command)
+                (assoc old-command :command "delete command")))
+
+        (.put certnames-map [command-type certname] cmdref))
+
+      (.put fifo-queue (:id cmdref) cmdref))
+    this)
+
+  (close-buf! [this])
+  clojure.lang.Counted
+  (count [this]
+    (.size fifo-queue)))
+
+(defn sorted-command-buffer [^long n]
+  (SortedCommandBuffer. (TreeMap.) (HashMap.) n))

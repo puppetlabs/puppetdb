@@ -360,7 +360,10 @@
     "replace catalog" (replace-catalog command db)
     "replace facts" (replace-facts command db)
     "store report" (store-report command db)
-    "deactivate node" (deactivate-node command db)))
+    "deactivate node" (deactivate-node command db)
+
+    ;;Do nothing, the message will be removed when it's acknowledged
+    "delete command" nil))
 
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"
