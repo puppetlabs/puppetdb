@@ -12,10 +12,10 @@
     (let [now (time/now)
           ;; Sleep to ensure the command has a different time
           _ (Thread/sleep 1)
-          entry (store-command q "my command" 1 "foo.com" (-> "{\"message\": \"payload\"}"
-                                                              (.getBytes "UTF-8")
-                                                              java.io.ByteArrayInputStream.))
-          command (entry->cmd q entry)]
+          cmdref (store-command q "my command" 1 "foo.com" (-> "{\"message\": \"payload\"}"
+                                                               (.getBytes "UTF-8")
+                                                               java.io.ByteArrayInputStream.))
+           command (cmdref->cmd q cmdref)]
       (is (= {:command "my command"
               :version 1
               :certname "foo.com"

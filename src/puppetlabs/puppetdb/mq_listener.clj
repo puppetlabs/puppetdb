@@ -201,9 +201,9 @@
   `message` and an `exception`. `process-message-fn` is a function
   that accepts a message as it's argument"
   [q delay-message discard-message process-message]
-  (fn [entry]
+  (fn [cmdref]
     (try+
-     (let [{:keys [certname command version annotations id payload] :as cmd} (queue/entry->cmd q entry)
+     (let [{:keys [certname command version annotations id payload] :as cmd} (queue/cmdref->cmd q cmdref)
            retries (count (:attempts annotations))]
 
        (try+
@@ -242,8 +242,8 @@
 
      (catch [:kind ::queue/parse-error] _
        (mark! (global-metric :fatal))
-       (log/error (:wrapper &throw-context) (i18n/trs "Fatal error parsing command: {0}" (:id entry)))
-       (discard-message entry (:throwable &throw-context))))))
+       (log/error (:wrapper &throw-context) (i18n/trs "Fatal error parsing command: {0}" (:id cmdref)))
+       (discard-message cmdref (:throwable &throw-context))))))
 
 (defprotocol MessageListenerService
   (register-listener [this schema listener-fn])
@@ -276,8 +276,8 @@
 (def ten-minutes (* 1000 60 10))
 
 (defn send-delayed-message [command-chan delay-pool]
-  (fn [entry exception]
-    (let [narrowed-entry (select-keys entry [:entry :annotations])]
+  (fn [cmd exception]
+    (let [narrowed-entry (dissoc cmd :payload)]
       (after ten-minutes #(async/>!! command-chan narrowed-entry) delay-pool))))
 
 (defn discard-message [q discard-dir]

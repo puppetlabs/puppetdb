@@ -21,6 +21,7 @@
             [puppetlabs.puppetdb.mq :as mq]
             [clj-time.format :as time]
             [clj-time.core :refer [now before?]]
+            [clj-time.coerce :as tcoerce]
             [stockpile :as stock]
             [puppetlabs.puppetdb.testutils.nio :as nio]
             [clojure.java.io :as io]
@@ -29,7 +30,8 @@
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
             [puppetlabs.puppetdb.command :as cmd]
-            [puppetlabs.puppetdb.testutils.queue :as tqueue])
+            [puppetlabs.puppetdb.testutils.queue :as tqueue]
+            [puppetlabs.puppetdb.queue :as queue])
   (:import [clojure.lang ExceptionInfo]
            [java.io ByteArrayInputStream]
            [java.util.concurrent Semaphore]))
@@ -58,11 +60,6 @@
         app (test-command-app q command-chan)]
     [command-chan app]))
 
-(defn entry->clj [q entry]
-  (-> (stock/stream q (:entry entry))
-      io/reader
-      json/parse-stream))
-
 (deftest command-endpoint
   (dotestseq
    [[version endpoint] endpoints]
@@ -85,11 +82,10 @@
                                             payload))]
            (assert-success! response)
 
-           (let [token (async/<!! command-chan)]
-             (is (= {"foo" 1
-                     "bar" 2}
-
-                    (entry->clj q token))))
+           (let [cmdref (async/<!! command-chan)]
+             (is (= {:foo 1
+                     :bar 2}
+                    (:payload (queue/cmdref->cmd q cmdref)))))
 
            (is (= (content-type response)
                   http/json-response-content-type))
@@ -178,16 +174,10 @@
                                      "version" "4"
                                      "command" "replace facts"} good-payload))
 
-       (let [token (async/<!! command-chan)
-             meta-string (stock/entry-meta (:entry token))
-             good-command (entry->clj q token)]
+       (let [cmdref (async/<!! command-chan)]
 
          (testing "should be timestamped when parseable"
-           (is (< ms-before-test
-                  (-> (str/split meta-string #"_")
-                      first
-                      str
-                      Long/parseLong)))))))))
+           (is (< ms-before-test (tcoerce/to-long (:received cmdref))))))))))
 
 (deftest wrap-with-request-normalization-all-params
   (let [normalize (#'tgt/wrap-with-request-normalization identity)]
@@ -292,7 +282,7 @@
 
           (is (= "more than ten characters"
                  (->> (async/<!! command-chan)
-                      :entry
+                      queue/cmdref->entry
                       (stock/stream q)
                       slurp)))
 

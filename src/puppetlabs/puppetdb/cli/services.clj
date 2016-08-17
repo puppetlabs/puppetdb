@@ -322,7 +322,7 @@
     (if (Files/exists queue-path (make-array LinkOption 0))
       (first (stock/open queue-path
                          (fn [chan entry]
-                           (async/>!! chan (queue/stockpile-entry->entry entry))
+                           (async/>!! chan (queue/entry->cmdref entry))
                            chan)
                          command-chan))
       (do

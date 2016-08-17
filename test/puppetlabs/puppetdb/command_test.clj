@@ -229,22 +229,22 @@
   (testing "happy path, message acknowledgement when no failures occured"
     (tqueue/with-stockpile q
       (let [mh (mql/message-handler-with-retries q nil nil identity)
-            entry (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
-        (is (:payload (queue/entry->cmd q entry)))
-        (mh entry)
+            cmdref (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
+        (is (:payload (queue/cmdref->cmd q cmdref)))
+        (mh cmdref)
         (is (thrown-with-msg? java.nio.file.NoSuchFileException
                               #"catalog"
-                              (queue/entry->cmd q entry))))))
+                              (queue/cmdref->cmd q cmdref))))))
 
   (testing "Failures do not cause messages to be acknowledged"
     (tqueue/with-stockpile q
       (let [delay-message (mock-fn)
             mh (mql/message-handler-with-retries q delay-message nil (fn [_] (throw (RuntimeException. "retry me"))))
             entry (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
-        (is (:payload (queue/entry->cmd q entry)))
+        (is (:payload (queue/cmdref->cmd q entry)))
         (mh entry)
         (is (called? delay-message))
-        (is (:payload (queue/entry->cmd q entry)))))))
+        (is (:payload (queue/cmdref->cmd q entry)))))))
 
 (deftest call-with-quick-retry-test
   (testing "errors are logged at debug while retrying"

@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.queue
   (:import [java.nio.charset StandardCharsets]
-           [java.io InputStreamReader BufferedReader])
+           [java.io InputStreamReader BufferedReader InputStream])
   (:require [stockpile :as stock]
             [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -9,7 +9,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [slingshot.slingshot :refer [throw+]]))
 
-(defn stream->json [stream]
+(defn stream->json [^InputStream stream]
   (try
     (-> stream
         (InputStreamReader. StandardCharsets/UTF_8)
@@ -18,42 +18,55 @@
     (catch Exception e
       (throw+ {:kind ::parse-error} e "Error parsing command"))))
 
-(defn metadata-str [received-time command version certname]
-  (format "%s_%s_%s_%s" received-time command version certname))
+(defn metadata-str [received command version certname]
+  (format "%s_%s_%s_%s" (tcoerce/to-long received) command version certname))
 
-(defn entry->cmd [q {stockpile-entry :entry :as entry}]
-  (let [[received-time-ms command version certname] (str/split (stock/entry-meta stockpile-entry) #"_" 4)]
-    (with-open [command-stream (stock/stream q stockpile-entry)]
-      (-> entry
-          (assoc
-           :command command
-           :version (Long/parseLong version)
-           :certname certname
-           :payload (stream->json command-stream))
-          (assoc-in [:annotations :received] (-> received-time-ms
-                                                 Long/parseLong
-                                                 tcoerce/from-long
-                                                 kitchensink/timestamp))))))
+(defrecord CommandRef [id command version certname received callback annotations])
 
-(defn stockpile-entry->entry
-  ([stockpile-entry]
-   (stockpile-entry->entry stockpile-entry identity))
-  ([stockpile-entry callback]
-   {:entry stockpile-entry
-    :callback callback
-    :annotations {:attempts []
-                  :id (stock/entry-id stockpile-entry)}}))
+(defn cmdref->entry [{:keys [id command version certname received]}]
+  (stock/entry id (metadata-str received command version certname)))
+
+(defn entry->cmdref [entry]
+  (let [[received-time-ms command version certname] (str/split (stock/entry-meta entry) #"_" 4)
+        received (-> received-time-ms
+                     Long/parseLong
+                     tcoerce/from-long
+                     kitchensink/timestamp)]
+
+    (map->CommandRef {:id (stock/entry-id entry)
+                      :command command
+                      :version (Long/parseLong version)
+                      :certname certname
+                      :received received
+                      :annotations {:id (stock/entry-id entry)
+                                    :received received
+                                    :attempts []}})))
+
+(defn cmdref->cmd [q cmdref]
+  (let [entry (cmdref->entry cmdref)]
+    (with-open [command-stream (stock/stream q entry)]
+      (assoc cmdref
+             :payload (stream->json command-stream)
+             :entry entry))))
 
 (defn store-command
   ([q command version certname command-stream]
    (store-command q command version certname command-stream identity))
   ([q command version certname command-stream command-callback]
-   (let [current-time (time/now)]
-     (-> q
-         (stock/store command-stream
-                      (metadata-str (tcoerce/to-long current-time) command version certname))
-         (stockpile-entry->entry command-callback)
-         (assoc-in [:annotations :received] (kitchensink/timestamp current-time))))))
+   (let [current-time (time/now)
+         entry (stock/store q
+                            command-stream
+                            (metadata-str current-time command version certname))]
+
+     (map->CommandRef {:id (stock/entry-id entry)
+                       :command command
+                       :version version
+                       :certname certname
+                       :callback command-callback
+                       :received (kitchensink/timestamp current-time)
+                       :annotations {:id (stock/entry-id entry)
+                                     :received (kitchensink/timestamp current-time)
+                                     :attempts []}}))))
 
 (defn ack-command
   [q command]
