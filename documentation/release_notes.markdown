@@ -14,6 +14,25 @@ canonical: "/puppetdb/latest/release_notes.html"
 [metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
 [pqltutorial]: ./api/query/tutorial-pql.html
 
+
+4.2.1
+-----
+PuppetDB 4.2.1 is a minor bugfix release.
+
+### Bug fixes:
+
+* Fix a regression in 4.2.0 that broke single-argument usage of "and" and "or"
+  in the query language.
+  ([PDB-2946](https://tickets.puppetlabs.com/browse/PDB-2946))
+
+* Ensure that the `noop` field is set on reports from all supported Puppet
+  agent versions, correcting a regression in 4.2.0 that caused it to be null in
+  some cases. (PE-17059 [internal])
+
+### Contributors
+
+Karel Březina, Molly Waggett, Ryan Senior, Wyatt Alt
+
 4.2.0
 -----
 
