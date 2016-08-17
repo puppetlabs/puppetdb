@@ -17,6 +17,7 @@
             [puppetlabs.puppetdb.testutils :refer :all]
             [puppetlabs.puppetdb.fixtures :refer :all]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
+            [puppetlabs.puppetdb.jdbc-test :refer [full-sql-exception-msg]]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
@@ -866,7 +867,9 @@
                      :payload facts}
 
           hand-off-queue (java.util.concurrent.SynchronousQueue.)
-          storage-replace-facts! scf-store/update-facts!]
+          storage-replace-facts! scf-store/update-facts!
+          failures (atom ())
+          orig-annotate-attempt mql/annotate-with-attempt]
 
       (jdbc/with-db-transaction []
        (scf-store/add-certname! certname)
@@ -874,12 +877,18 @@
                               :values (:values facts)
                               :timestamp (-> 2 days ago)
                               :environment nil
-                              :producer_timestamp (-> 2 days ago)}))
+                              :producer_timestamp (-> 2 days ago)})
+       (scf-store/ensure-environment "DEV"))
 
-      (with-redefs [scf-store/update-facts! (fn [fact-data]
-                                              (.put hand-off-queue "got the lock")
-                                              (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
-                                              (storage-replace-facts! fact-data))]
+      (with-redefs [mql/annotate-with-attempt
+                      (fn [msg ex]
+                        (swap! failures conj ex)
+                        (orig-annotate-attempt msg ex))
+                    scf-store/update-facts!
+                    (fn [fact-data]
+                      (.put hand-off-queue "got the lock")
+                      (.poll hand-off-queue 5 java.util.concurrent.TimeUnit/SECONDS)
+                      (storage-replace-facts! fact-data))]
         (let [first-message? (atom false)
               second-message? (atom false)
               fut (future
@@ -898,11 +907,12 @@
 
           (test-msg-handler new-facts-cmd publish discard-dir
             (reset! second-message? true)
+            (is (= 1 (count @failures)))
             (is (re-matches
-                  (if (sutils/postgres?)
-                    #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
-                    #".*transaction rollback: serialization failure")
-                  (extract-error-message publish))))
+                 (if (sutils/postgres?)
+                   #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
+                   #".*transaction rollback: serialization failure")
+                 (full-sql-exception-msg (first @failures)))))
           @fut
           (is (true? @first-message?))
           (is (true? @second-message?)))))))
