@@ -82,9 +82,9 @@
 
   (remove! [this]
     (let [^CommandRef cmdref (val (.pollFirstEntry fifo-queue))
-          command-type (:command-type cmdref)]
-      (when (or (= command-type :fact)
-                (= command-type :catalog))
+          command-type (:command cmdref)]
+      (when (or (= command-type "replace catalog")
+                (= command-type "replace facts"))
         (.remove certnames-map [command-type (:certname cmdref)]))
       cmdref))
 

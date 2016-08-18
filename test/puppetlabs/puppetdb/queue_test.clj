@@ -63,6 +63,25 @@
       (is (= foo-cmd-4
              (async/<!! c)))))
 
+  (testing "a new catalog after the previous one was processed"
+    (let [buff (sorted-command-buffer 1)
+          c (async/chan buff)
+          foo-cmd-1 (map->CommandRef {:id 1
+                                      :command "replace catalog"
+                                      :certname "foo.com"
+                                      :received (tcoerce/to-string (time/now))})
+          foo-cmd-2 (map->CommandRef {:id 2
+                                      :command "replace catalog"
+                                      :certname "foo.com"
+                                      :received (tcoerce/to-string (time/now))})]
+      (is (= 0 (count buff)))
+
+      (is (async/offer! c foo-cmd-1))
+      (is (= foo-cmd-1 (async/<!! c)))
+
+      (is (async/offer! c foo-cmd-2))
+      (is (= foo-cmd-2 (async/<!! c)))))
+
   (testing "multiple older catalogs all get marged as deleted"
     (let [c (async/chan (sorted-command-buffer 3))
           foo-cmd-1 (map->CommandRef {:id 1
