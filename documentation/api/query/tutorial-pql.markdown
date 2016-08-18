@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.2: PQL query tutorial"
+title: "PuppetDB 4.2 » Puppet query language (PQL) » Tutorial"
 layout: default
 ---
 
@@ -14,6 +14,7 @@ layout: default
 [in]: ./v4/pql.html#array-match-in
 [implicit]: ./v4/pql.html#implicit-subqueries
 [cli_install]: ../../pdb_client_tools.html
+[examples]: ./examples-pql.html
 
 > **Experimental Feature**: PQL is experimental, and it may be altered or
 > removed in a future release.
@@ -21,7 +22,10 @@ layout: default
 This page walks through the construction of several types of PuppetDB PQL
 queries. We use the **version 4 API** in all examples.
 
-Consult the [PQL reference guide][pql] for more information about the language.
+Other resources you may also find useful include:
+
+* [PQL examples][examples]
+* [PQL reference guide][pql]
 
 ## How to query
 
