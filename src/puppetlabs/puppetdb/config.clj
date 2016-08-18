@@ -157,7 +157,7 @@
      ;; various deployment scenarios
      :concurrent-writes (pls/defaulted-maybe s/Int 100)
      :max-enqueued (pls/defaulted-maybe s/Int 1000000)
-     :catalog-facts-bash (pls/defaulted-maybe Boolean false)}))
+     :catalog-facts-bash (pls/defaulted-maybe String "false")}))
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"

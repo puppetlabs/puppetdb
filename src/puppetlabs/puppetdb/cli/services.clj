@@ -360,7 +360,7 @@
       (dlo/create-metrics-for-dlo! discard-dir))
     ;; Error handling here?
     (let [command-chan (async/chan
-                        (if (:catalogs-facts-bash command-processing)
+                        (if (:catalog-facts-bash command-processing)
                           (queue/sorted-command-buffer max-enqueued)
                           max-enqueued))
           globals {:scf-read-db read-db
