@@ -5,6 +5,9 @@ set -x
 
 ulimit -u 4096
 
+cat /etc/hosts
+hostname --fqdn
+
 case "$PDB_TEST_LANG" in
   clojure)
     java -version
