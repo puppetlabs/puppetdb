@@ -355,15 +355,13 @@
 (defn process-command!
   "Takes a command object and processes it to completion. Dispatch is
   based on the command's name and version information"
-  [{command-name :command version :version :as command} db]
-  (condp supported-command-version? [command-name version]
-    "replace catalog" (replace-catalog command db)
-    "replace facts" (replace-facts command db)
-    "store report" (store-report command db)
-    "deactivate node" (deactivate-node command db)
-
-    ;;Do nothing, the message will be removed when it's acknowledged
-    "delete command" nil))
+  [{command-name :command version :version delete? :delete? :as command} db]
+  (when-not delete?
+    (condp supported-command-version? [command-name version]
+      "replace catalog" (replace-catalog command db)
+      "replace facts" (replace-facts command db)
+      "store report" (store-report command db)
+      "deactivate node" (deactivate-node command db))))
 
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"

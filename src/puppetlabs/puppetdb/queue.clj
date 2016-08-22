@@ -24,7 +24,7 @@
 (defn metadata-str [received command version certname]
   (format "%s_%s_%s_%s" (tcoerce/to-long received) command version certname))
 
-(defrecord CommandRef [id command version certname received callback annotations])
+(defrecord CommandRef [id command version certname received callback annotations delete?])
 
 (defn cmdref->entry [{:keys [id command version certname received]}]
   (stock/entry id (metadata-str received command version certname)))
@@ -95,15 +95,14 @@
     (let [^CommandRef cmdref item
           command-type (:command cmdref)
           certname (:certname cmdref)]
+
       (when (or (= command-type "replace catalog")
                 (= command-type "replace facts"))
         (when-let [^CommandRef old-command (.get certnames-map [command-type certname])]
           (.put fifo-queue
                 (:id old-command)
-                (assoc old-command :command "delete command")))
-
+                (assoc old-command :delete? true)))
         (.put certnames-map [command-type certname] cmdref))
-
       (.put fifo-queue (:id cmdref) cmdref))
     this)
 

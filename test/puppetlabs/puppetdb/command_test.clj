@@ -38,7 +38,9 @@
             [stockpile :as stock]
             [puppetlabs.puppetdb.testutils.nio :as nio]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
-            [puppetlabs.puppetdb.queue :as queue])
+            [puppetlabs.puppetdb.queue :as queue]
+            [puppetlabs.trapperkeeper.services
+             :refer [service-context]])
   (:import [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
 
@@ -1575,6 +1577,98 @@
       (let [received-uuid (async/alt!! response-chan ([msg] (:producer-timestamp msg))
                                        (async/timeout 10000) ::timeout)]
         (is (= producer-ts))))))
+
+(defn captured-ack-command [orig-ack-command results-atom]
+  (fn [q command]
+    (try
+      (let [result (orig-ack-command q command)]
+        (swap! results-atom conj result)
+        result)
+      (catch Exception e
+        (swap! results-atom conj e)
+        (throw e)))))
+
+(deftest delete-old-catalog
+  (with-test-db
+    (svc-utils/call-with-puppetdb-instance
+     (assoc (svc-utils/create-temp-config)
+            :database *db*
+            :command-processing {:catalog-facts-bash "true"
+                                 :threads 1})
+     (fn []
+
+       (let [message-listener (get-service svc-utils/*server* :MessageListenerService)
+             dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
+             enqueue-command (partial enqueue-command dispatcher)
+             old-producer-ts (-> 2 days ago)
+             new-producer-ts (now)
+             base-cmd (get-in wire-catalogs [9 :basic])
+             thread-count (conf/mq-thread-count (get-config))
+             orig-ack-command queue/ack-command
+             ack-results (atom [])
+             semaphore (get-in (service-context message-listener)
+                               [:consumer-threadpool :semaphore])
+             cmd-1 (promise)
+             cmd-2 (promise)
+             cmd-3 (promise)]
+         (with-redefs [queue/ack-command (captured-ack-command orig-ack-command ack-results)]
+           (is (= thread-count (.drainPermits semaphore)))
+
+           ;;This command is processed, but not used in the test, it's
+           ;;purpose is to hold up the "shovel thread" waiting to grab
+           ;;the semaphore permit and put the message on the
+           ;;treadpool. By holding this up here we can put more
+           ;;messages on the channel and know they won't be processed
+           ;;until the semaphore permit is released and this first
+           ;;message is put onto the threadpool
+           (enqueue-command (command-names :replace-catalog)
+                            9
+                            "foo.com"
+                            (->  base-cmd
+                                 (assoc :producer_timestamp old-producer-ts
+                                        :certname "foo.com")
+                                 tqueue/coerce-to-stream)
+                            #(deliver cmd-1 %))
+
+           (enqueue-command (command-names :replace-catalog)
+                            9
+                            (:certname base-cmd)
+                            (-> base-cmd
+                                (assoc :producer_timestamp old-producer-ts)
+                                tqueue/coerce-to-stream )
+                            #(deliver cmd-2 %))
+
+           (enqueue-command (command-names :replace-catalog)
+                            9
+                            (:certname base-cmd)
+                            (-> base-cmd
+                                (assoc :producer_timestamp new-producer-ts)
+                                tqueue/coerce-to-stream )
+                            #(deliver cmd-3 %))
+
+           (.release semaphore)
+
+           (is (not= ::timed-out (deref cmd-1 5000 ::timed-out)))
+           (is (not= ::timed-out (deref cmd-2 5000 ::timed-out)))
+           (is (not= ::timed-out (deref cmd-3 5000 ::timed-out)))
+
+           ;; There's currently a lot of layering in the messaging
+           ;; stack. The callback mechanism that delivers the promise
+           ;; above occurs before the message is acknowledged. This
+           ;; leads to a race condition. If your timing is off, you
+           ;; could check the ack-results atom after the callback has
+           ;; been invoked but before the message has been acknowledged.
+
+           (loop [attempts 0]
+             (when (and (not= 3 (count @ack-results))
+                        (<= attempts 20))
+               (Thread/sleep 100)
+               (recur (inc attempts))))
+
+           (is (= 3 (count @ack-results))
+               "Waited up to 5 seconds for 3 acknowledgement results")
+
+           (is (= [nil nil nil] @ack-results))))))))
 
 ;; Local Variables:
 ;; mode: clojure

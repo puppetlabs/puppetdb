@@ -54,11 +54,11 @@
 
       (is (not (async/offer! c "should not be added")))
 
-      (is (= (assoc foo-cmd-1 :command "delete command")
+      (is (= (assoc foo-cmd-1 :delete? true)
              (async/<!! c)))
       (is (= foo-cmd-2
              (async/<!! c)))
-      (is (= (assoc foo-cmd-3 :command "delete command")
+      (is (= (assoc foo-cmd-3 :delete? true)
              (async/<!! c)))
       (is (= foo-cmd-4
              (async/<!! c)))))
@@ -101,9 +101,9 @@
         foo-cmd-2
         foo-cmd-3)
 
-      (is (= (assoc foo-cmd-1 :command "delete command")
+      (is (= (assoc foo-cmd-1 :delete? true)
              (async/<!! c)))
-      (is (= (assoc foo-cmd-2 :command "delete command")
+      (is (= (assoc foo-cmd-2 :delete? true)
              (async/<!! c)))
       (is (= foo-cmd-3
              (async/<!! c)))))

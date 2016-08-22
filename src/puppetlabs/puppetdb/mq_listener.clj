@@ -203,42 +203,49 @@
   [q delay-message discard-message process-message]
   (fn [cmdref]
     (try+
-     (let [{:keys [certname command version annotations id payload] :as cmd} (queue/cmdref->cmd q cmdref)
-           retries (count (:attempts annotations))]
 
-       (try+
-        (call-with-command-metrics command version retries
-                                   #(process-message cmd))
-        (queue/ack-command q cmd)
+     ;; If the message is a delete?, there's no need to parse it
+     ;; below, it's only going to be removed
+     (if (:delete? cmdref)
+       (do
+         (process-message cmdref)
+         (queue/ack-command q {:entry (queue/cmdref->entry cmdref)}))
+       (let [{:keys [certname command version annotations id payload] :as cmd} (queue/cmdref->cmd q cmdref)
+             retries (count (:attempts annotations))]
 
-        (catch fatal? obj
-          (mark! (global-metric :fatal))
-          (let [ex (:cause obj)]
-            (log/error (:wrapper &throw-context) (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
-            (-> cmd
-                (annotate-with-attempt ex)
-                (discard-message ex))))
+         (try+
+          (call-with-command-metrics command version retries
+                                     #(process-message cmd))
+          (queue/ack-command q cmd)
 
-        (catch Exception exception
-          (let [ex (:throwable &throw-context)
-                log-str (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
-                                  id command retries certname ex)]
-            (mark-both-metrics! command version :retried)
-            (cond
-              (< retries 4)
-              (do
-                (log/debug exception log-str)
-                (delay-message cmd exception))
+          (catch fatal? obj
+            (mark! (global-metric :fatal))
+            (let [ex (:cause obj)]
+              (log/error (:wrapper &throw-context) (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
+              (-> cmd
+                  (annotate-with-attempt ex)
+                  (discard-message ex))))
 
-              (< retries maximum-allowable-retries)
-              (do
-                (log/errorf exception log-str)
-                (delay-message cmd exception))
+          (catch Exception exception
+            (let [ex (:throwable &throw-context)
+                  log-str (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
+                                    id command retries certname ex)]
+              (mark-both-metrics! command version :retried)
+              (cond
+                (< retries 4)
+                (do
+                  (log/debug exception log-str)
+                  (delay-message cmd exception))
 
-              :else
-              (do
-                (log/error ex (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command retries certname))
-                (discard-message cmd nil)))))))
+                (< retries maximum-allowable-retries)
+                (do
+                  (log/errorf exception log-str)
+                  (delay-message cmd exception))
+
+                :else
+                (do
+                  (log/error ex (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command retries certname))
+                  (discard-message cmd nil))))))))
 
      (catch [:kind ::queue/parse-error] _
        (mark! (global-metric :fatal))
