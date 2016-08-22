@@ -5,12 +5,16 @@
   (:require [stockpile :as stock]
             [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.string :as str]
+            [puppetlabs.puppetdb.command.constants :as constants]
+            [clojure.string :as str :refer [re-quote-replacement]]
             [clj-time.core :as time]
             [puppetlabs.kitchensink.core :as kitchensink]
             [slingshot.slingshot :refer [throw+]]
             [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as async-protos]))
+
+(def metadata-command-names
+  (vals constants/command-names))
 
 (defn stream->json [^InputStream stream]
   (try
@@ -22,7 +26,35 @@
       (throw+ {:kind ::parse-error} e "Error parsing command"))))
 
 (defn metadata-str [received command version certname]
-  (format "%s_%s_%s_%s" (tcoerce/to-long received) command version certname))
+  (format "%d_%s_%d_%s.json"
+          (tcoerce/to-long received) command version certname))
+
+(defn metadata-str [received command version certname]
+  (format "%d_%s_%d_%s.json"
+          (tcoerce/to-long received) command version certname))
+
+(defn- metadata-rx [valid-commands]
+  (re-pattern (str
+               "([0-9]+)_("
+               (str/join "|" (map #(format "(?:%s)" (re-quote-replacement %))
+                                  valid-commands))
+               ")_([0-9]+)_(.*)\\.json")))
+
+(defn metadata-parser
+  ([] (metadata-parser metadata-command-names))
+  ([valid-commands]
+   ;; NOTE: changes here may affect the DLO, e.g. it currently assumes
+   ;; the trailing .json.
+   (let [rx (metadata-rx valid-commands)]
+     (fn [s]
+       (when-let [[_ stamp command version certname] (re-matches rx s)]
+         (and certname
+              {:stamp stamp
+               :version version
+               :command command
+               :certname certname}))))))
+
+(def parse-metadata (metadata-parser))
 
 (defrecord CommandRef [id command version certname received callback annotations delete?])
 
@@ -30,12 +62,13 @@
   (stock/entry id (metadata-str received command version certname)))
 
 (defn entry->cmdref [entry]
-  (let [[received-time-ms command version certname] (str/split (stock/entry-meta entry) #"_" 4)
-        received (-> received-time-ms
+  (let [{:keys [stamp command version certname]} (-> entry
+                                                     stock/entry-meta
+                                                     parse-metadata)
+        received (-> stamp
                      Long/parseLong
                      tcoerce/from-long
                      kitchensink/timestamp)]
-
     (map->CommandRef {:id (stock/entry-id entry)
                       :command command
                       :version (Long/parseLong version)
