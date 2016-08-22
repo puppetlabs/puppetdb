@@ -1,18 +1,12 @@
 (ns puppetlabs.puppetdb.testutils.queue
   (:require [clojure.string :as str]
             [clojure.java.shell :as shell]
+            [me.raynes.fs :refer [delete-dir]]
             [stockpile :as stock]
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.testutils.nio :refer [create-temp-dir]]
             [puppetlabs.puppetdb.queue :as q]
             [puppetlabs.puppetdb.cheshire :as json]))
-
-(defn rm-r [pathstr]
-  (let [rm (shell/sh "rm" "-r" pathstr)]
-    (when-not (zero? (:exit rm))
-      (throw (-> "'rm -r %s' failed: %s"
-                 (format (pr-str pathstr) (pr-str rm))
-                 Exception.)))))
 
 (defmacro with-stockpile [queue-sym & body]
   `(let [ns-str#  (str (ns-name ~*ns*))
@@ -23,7 +17,8 @@
          ~queue-sym (stock/create queue-dir#)]
      (try
        ~@body
-       (finally (rm-r queue-dir#)))))
+       (finally
+         (delete-dir queue-dir#)))))
 
 (defprotocol CoerceToStream
   (coerce-to-stream [x]
