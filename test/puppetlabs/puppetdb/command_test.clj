@@ -142,6 +142,14 @@
   [command publish-var discard-var & body]
   `(test-msg-handler* ~command ~publish-var ~discard-var *db* ~@body))
 
+(defn add-fake-attempts [cmdref n]
+  (loop [i 0
+         result cmdref]
+    (if (or (neg? n) (= i n))
+      result
+      (recur (inc i)
+             (mql/annotate-with-attempt result (Exception. (str "thud-" i)))))))
+
 (deftest command-processor-integration
   (let [command {:command "some command" :version 1 :payload "\"payload\""}]
     (testing "correctly formed messages"
@@ -187,9 +195,6 @@
             (is (= 1 (count (fs/list-dir discard-dir))))
             (is (= 0 (times-called process-counter)))))))))
 
-(defn append-attempts [n command]
-  (assoc-in command [:annotations :attempts] (repeat n {})))
-
 (deftest command-retry-handler
   (testing "Should log retries as debug for less than 4 attempts"
     (tqueue/with-stockpile q
@@ -201,7 +206,9 @@
                         mh (mql/message-handler q nil
                                                 delay-message process-message)]]
             (binding [*logger-factory* (atom-logger log-output)]
-              (mh (append-attempts i (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})))
+              (mh (-> (tqueue/store-command q "replace catalog" 10
+                                            "cats" {:certname "cats"})
+                      (add-fake-attempts i)))
               (is (called? delay-message))
               (is (not (called? mql/discard-message)))
 
@@ -220,7 +227,9 @@
               mh (mql/message-handler q nil delay-message process-message)]
           (with-redefs [mql/discard-message (mock-fn)]
             (binding [*logger-factory* (atom-logger log-output)]
-              (mh (append-attempts mql/maximum-allowable-retries (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})))
+              (mh (-> (tqueue/store-command q "replace catalog" 10
+                                            "cats" {:certname "cats"})
+                      (add-fake-attempts mql/maximum-allowable-retries)))
               (is (not (called? delay-message)))
               (is (called? mql/discard-message))
               (is (= (get-in @log-output [0 1]) :error))
