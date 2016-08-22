@@ -1,9 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.nio
-  (:import [java.nio.file Path Files Paths]
+  (:import [java.nio.file Path Files]
            [java.nio.file.attribute FileAttribute]))
-
-(defn ^Path path-get [^String s & more-strings]
-  (Paths/get s (into-array String more-strings)))
 
 (defn create-temp-dir [^Path path ^String prefix]
   (Files/createDirectories path (into-array FileAttribute []))

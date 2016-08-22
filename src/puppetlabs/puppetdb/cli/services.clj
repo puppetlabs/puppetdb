@@ -62,6 +62,7 @@
             [puppetlabs.puppetdb.meta.version :as version]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.mq :as mq]
+            [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
@@ -318,7 +319,7 @@
 
 (defn create-or-open-stockpile [queue-dir command-chan]
   (let [stockpile-root (kitchensink/absolute-path queue-dir)
-        queue-path (stock/path-get stockpile-root "cmd")]
+        queue-path (get-path stockpile-root "cmd")]
     (if (Files/exists queue-path (make-array LinkOption 0))
       (first (stock/open queue-path
                          (fn [chan entry]
@@ -326,7 +327,8 @@
                            chan)
                          command-chan))
       (do
-        (Files/createDirectories (stock/path-get stockpile-root) (make-array FileAttribute 0))
+        (Files/createDirectories (get-path stockpile-root)
+                                 (make-array FileAttribute 0))
         (stock/create queue-path)))))
 
 (defn start-puppetdb

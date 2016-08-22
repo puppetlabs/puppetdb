@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [clojure.java.shell :as shell]
             [stockpile :as stock]
-            [puppetlabs.puppetdb.testutils.nio :as nio]
+            [puppetlabs.puppetdb.nio :refer [get-path]]
+            [puppetlabs.puppetdb.testutils.nio :refer [create-temp-dir]]
             [puppetlabs.puppetdb.queue :as q]
             [puppetlabs.puppetdb.cheshire :as json]))
 
@@ -15,8 +16,8 @@
 
 (defmacro with-stockpile [queue-sym & body]
   `(let [ns-str#  (str (ns-name ~*ns*))
-         queue-dir# (-> (nio/path-get "target" ns-str#)
-                        (nio/create-temp-dir "stk")
+         queue-dir# (-> (get-path "target" ns-str#)
+                        (create-temp-dir "stk")
                         (.resolve "q")
                         str)
          ~queue-sym (stock/create queue-dir#)]
