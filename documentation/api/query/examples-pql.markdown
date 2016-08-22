@@ -108,7 +108,7 @@ Nodes with `CentOS` operating system, and with a declared `httpd` service resour
 
 ``` ruby
 inventory[certname] { facts.operatingsystem = "CentOS" and
-                      resources { type = "Service" and title = "http" } }
+                      resources { type = "Service" and title = "httpd" } }
 ```
 
 *Output:*
@@ -125,10 +125,10 @@ inventory[certname] { facts.operatingsystem = "CentOS" and
 
 ### Fact, resource and resource parameter filtering
 
-`Redhat` boxes in the `PDX` datacenter, that have their `java` package forced to `1.7.0`.
+`RedHat` boxes in the `PDX` datacenter, that have their `java` package forced to `1.7.0`.
 
 ``` ruby
-inventory[certname] { facts.osfamily = "Redhat" and
+inventory[certname] { facts.osfamily = "RedHat" and
                       facts.datacentre = "PDX" and
                       resources { type = "Package" and
                                   title = "java" and
