@@ -13,7 +13,7 @@
 (def tk-jetty9-version "1.5.9")
 (def ks-version "1.3.1")
 (def tk-status-version "0.4.0")
-(def i18n-version "0.2.2")
+(def i18n-version "0.4.2")
 
 (def pdb-jvm-opts
   (case (System/getProperty "java.specification.version")
