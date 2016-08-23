@@ -1085,18 +1085,14 @@
     "drop table latest_catalogs"))
 
 (defn migrate-through-app
-  "stream data from table1 through the application and into table2, applying
-   munge-fn to each row"
-  [table1 table2 column-list batchsize munge-fn]
+  [table1 table2 column-list munge-fn]
   (let [columns (string/join "," column-list)]
-    (jdbc/query-with-resultset
+    (jdbc/with-query-results-cursor
       [(format "select %s from %s" columns (name table1))]
-      (fn [rs]
-        (->> (sql/result-set-seq rs)
-             (map munge-fn)
-             (partition-all batchsize)
-             (map #(insert-records* (name table2) %))
-             dorun)))))
+      #(->> %
+            (map munge-fn)
+            (map (partial jdbc/insert! (name table2)))
+            dorun))))
 
 (defn resource-params-cache-parameters-to-jsonb
   []
@@ -1109,7 +1105,6 @@
     :resource_params_cache
     :resource_params_cache_transform
     ["encode(resource::bytea, 'hex') as resource" "parameters"]
-    500
     #(-> %
          (update :parameters (comp sutils/munge-jsonb-for-storage json/parse-string))
          (update :resource sutils/munge-hash-for-storage)))
@@ -1147,7 +1142,6 @@
     :fact_values_transform
     ["id" "encode(value_hash::bytea, 'hex') as value_hash" "value_type_id"
      "value_integer" "value_float" "value_string" "value_boolean" "value"]
-    500
     #(-> %
          (update :value (comp sutils/munge-jsonb-for-storage json/parse-string))
          (update :value_hash sutils/munge-hash-for-storage)))
