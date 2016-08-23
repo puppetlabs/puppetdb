@@ -1,7 +1,5 @@
 language: clojure
 lein: lein2
-# Disabled due to buffer overflow issue below
-#sudo: false
 
 jdk:
   - openjdk7
@@ -25,14 +23,17 @@ script: ext/travisci/test.sh
 notifications:
   email: false
 
+# Host addons handle buffer overflow in jdk 7 with travis' long
+# hostnames:
+#   https://github.com/travis-ci/travis-ci/issues/5227#issuecomment-165131913
+#   http://mail.openjdk.java.net/pipermail/net-dev/2012-July/004603.html
+#   http://bugs.java.com/bugdatabase/view_bug.do?bug_id=7089443
+#   http://bugs.java.com/bugdatabase/view_bug.do?bug_id=7112670
+
 addons:
+  hosts:
+    - pdbtest
+  hostname: pdbtest
   postgresql: "9.4"
 
 services: postgresql
-
-# workaround for buffer overflow issue, ref https://github.com/travis-ci/travis-ci/issues/5227
-before_install:
-  - cat /etc/hosts # optionally check the content *before*
-  - sudo hostname "$(hostname | cut -c1-63)"
-  - sed -e "s/^\\(127\\.0\\.0\\.1.*\\)/\\1 $(hostname | cut -c1-63)/" /etc/hosts | sudo tee /etc/hosts
-  - cat /etc/hosts # optionally check the content *after*
