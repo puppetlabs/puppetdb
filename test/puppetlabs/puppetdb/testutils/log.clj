@@ -1,5 +1,7 @@
 (ns puppetlabs.puppetdb.testutils.log
   (:require
+   [clojure.java.io :as io]
+   [environ.core :refer [env]]
    [puppetlabs.kitchensink.core :as kitchensink]
    [puppetlabs.puppetdb.testutils :refer [temp-file]]
    [me.raynes.fs :as fs])
@@ -150,9 +152,14 @@
                  (when-let [cause (.getThrowableProxy event)]
                    (re-find annoying-peer-error-rx (.getMessage cause)))))))
 
+(def dump-log-on-test-failure
+  (boolean (re-matches #"yes|true|1" (env :pdb-test-dump-log-on-failure ""))))
+
 (defn- call-with-log-suppressed-unless-notable [notable-event? f]
   (let [problem (atom false)
-        log-path (kitchensink/absolute-path (temp-file "pdb-suppressed" ".log"))]
+        log-path (kitchensink/absolute-path (temp-file "pdb-suppressed" ".log"))
+        counters-before (select-keys @clojure.test/*report-counters*
+                                     [:error :fail])]
     (try
       (with-started
         [appender (suppressing-file-appender log-path)
@@ -165,10 +172,14 @@
           [appender detector]
           (f)))
       (finally
-        (when @problem
-          (binding [*out* *err*]
-            (print (slurp log-path))
-            (println "From error log:" log-path)))
+        (let [counters-after (select-keys @clojure.test/*report-counters*
+                                          [:error :fail])]
+          (when (or @problem (and dump-log-on-test-failure
+                                  (not= counters-before counters-after)))
+            (binding [*out* *err*]
+              (println "=====v instance log:" log-path)
+              (io/copy (io/reader log-path) *err*)
+              (println "=====^ instance log:" log-path))))
         (when-not @problem (fs/delete log-path))))))
 
 (defmacro with-log-suppressed-unless-notable

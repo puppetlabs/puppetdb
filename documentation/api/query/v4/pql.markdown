@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.1 » API » v4 » Puppet query language (PQL)"
+title: "PuppetDB 4.2 » Puppet query language (PQL) » Reference guide"
 layout: default
 ---
 
@@ -8,12 +8,19 @@ layout: default
 [ast]: ./ast.html
 [client-tools]: ../../../pdb_client_tools.html
 [config_jetty]: ../../../configure.html#jetty-http-settings
+[examples]: ../examples-pql.html
+[tutorial]: ../tutorial-pql.html
 
 > **Experimental Feature**: This featureset is experimental and is subject to rapid development and change.
 
 Puppet Query Language (PQL) is a query language designed with PuppetDB and
 Puppet data in mind. It provides a string-based query language as an alternative
 to the [AST query language][ast] PuppetDB has always supported.
+
+Other resources you may also find useful include:
+
+* [PQL tutorial][tutorial]
+* [PQL examples][examples]
 
 ## Executing PQL queries using the PuppetDB CLI
 

@@ -191,34 +191,34 @@ CONF
       it "should fail if given an invalid hostname" do
         write_config <<CONF
 [main]
-server_urls = https://invalid_host_name.com
+server_urls = https://invalid#host#name.com
 CONF
 
         expect do
           config = described_class.load
-        end.to raise_error(/Error parsing URL 'https:\/\/invalid_host_name.com' in PuppetDB 'server_urls'/)
+        end.to raise_error(/Error parsing URL 'https:\/\/invalid#host#name.com' in PuppetDB 'server_urls'/)
       end
 
       it "should fail if given an unparsable second URI" do
         write_config <<CONF
 [main]
-server_urls = https://foo.com,https://invalid_host_name.com
+server_urls = https://foo.com,https://invalid#host#name.com
 CONF
 
         expect do
           config = described_class.load
-        end.to raise_error(/Error parsing URL 'https:\/\/invalid_host_name.com' in PuppetDB 'server_urls'/)
+        end.to raise_error(/Error parsing URL 'https:\/\/invalid#host#name.com' in PuppetDB 'server_urls'/)
       end
 
       it "should fail if given an unparsable second URI" do
         write_config <<CONF
 [main]
-server_urls = https://foo.com,https://invalid_host_name.com
+server_urls = https://foo.com,https://invalid#host#name.com
 CONF
 
         expect do
           config = described_class.load
-        end.to raise_error(/Error parsing URL 'https:\/\/invalid_host_name.com' in PuppetDB 'server_urls'/)
+        end.to raise_error(/Error parsing URL 'https:\/\/invalid#host#name.com' in PuppetDB 'server_urls'/)
       end
 
       it "should tolerate spaces between URLs" do

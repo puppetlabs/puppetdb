@@ -244,6 +244,7 @@
                                                    :field :reports_environment.environment}}
 
                :relationships {;; Children - direct
+                               "inventory" {:columns ["certname"]}
                                "factsets" {:columns ["certname"]}
                                "reports" {:columns ["certname"]}
                                "catalogs" {:columns ["certname"]}
@@ -949,6 +950,8 @@
                :selection {:from [:environments]}
 
                :relationships {;; Children - direct
+                               "inventory" {:local-columns ["name"]
+                                            :foreign-columns ["environment"]}
                                "factsets" {:local-columns ["name"]
                                            :foreign-columns ["environment"]}
                                "catalogs" {:local-columns ["name"]
@@ -1900,7 +1903,7 @@
                    :state (cond-> state column-validation-message (conj column-validation-message))
                    :cut true})
 
-                [["extract" column [subquery-name :guard (complement #{"not" "group_by"}) _]]]
+                [["extract" column [subquery-name :guard (complement #{"not" "group_by" "or" "and"}) _]]]
                 (let [underscored-subquery-name (utils/dashes->underscores subquery-name)
                       error (if (contains? (set (keys user-name->query-rec-name)) underscored-subquery-name)
                               (i18n/trs "Unsupported subquery `{0}` - did you mean `{1}`?" subquery-name underscored-subquery-name)

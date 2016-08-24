@@ -120,13 +120,15 @@
   {:pre [(coll? content-types)
          (every? string? content-types)]}
   (fn [{:keys [headers] :as req}]
-    (let [content-type (headers "content-type")
-          mediatype (if (nil? content-type) nil
-                        (str (media/base-type content-type)))]
-      (if (or (nil? mediatype) (some #{mediatype} content-types))
-        (app req)
-        (http/error-response (i18n/tru "content type {0} not supported" mediatype)
-                             http/status-unsupported-type)))))
+    (if (= (:request-method req) :post)
+      (let [content-type (headers "content-type")
+            mediatype (if (nil? content-type) nil
+                          (str (media/base-type content-type)))]
+        (if (or (nil? mediatype) (some #{mediatype} content-types))
+          (app req)
+          (http/error-response (i18n/tru "content type {0} not supported" mediatype)
+                               http/status-unsupported-type)))
+      (app req))))
 
 (defn validate-query-params
   "Ring middleware that verifies that the query params in the request are legal

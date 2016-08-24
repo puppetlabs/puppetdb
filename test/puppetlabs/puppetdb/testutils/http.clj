@@ -44,6 +44,14 @@
     response-body
     (slurp response-body)))
 
+(defn convert-response
+  [response]
+  (-> response
+      :body
+      slurp-unless-string
+      (json/parse-string true)
+      vec))
+
 (defn ordered-query-result
   ([method endpoint] (ordered-query-result method endpoint nil))
   ([method endpoint query] (ordered-query-result method endpoint query {}))
@@ -52,12 +60,7 @@
          handle-fn (apply comp (vec handlers))
          response (query-response method endpoint query params)]
      (is (= http/status-ok (:status response)))
-     (-> response
-         :body
-         slurp-unless-string
-         (json/parse-string true)
-         vec
-         handle-fn))))
+     (handle-fn (convert-response response)))))
 
 (defn query-result
   ([method endpoint] (query-result method endpoint nil))

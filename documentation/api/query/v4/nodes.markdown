@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.1: Nodes endpoint"
+title: "PuppetDB 4.2: Nodes endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 ---
@@ -20,6 +20,7 @@ canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 [events]: ./events.html
 [edges]: ./edges.html
 [resources]: ./resources.html
+[inventory]: ./inventory.html
 
 Nodes can be queried by making an HTTP request to the `/nodes` endpoint.
 
@@ -87,6 +88,7 @@ The below fields are allowed as filter criteria and are returned in all response
 Here is a list of related entities that can be used to constrain the result set using
 implicit subqueries. For more information, consult the documentation for [subqueries][subqueries].
 
+* [`inventory`][inventory]: inventory for a node.
 * [`factsets`][factsets]: factsets received for a node.
 * [`reports`][reports]: reports received for a node.
 * [`catalogs`][catalogs]: catalogs received for a node.

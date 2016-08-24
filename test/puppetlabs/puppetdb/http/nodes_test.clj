@@ -3,10 +3,11 @@
             [puppetlabs.puppetdb.http :as http]
             [clojure.test :refer :all]
             [puppetlabs.kitchensink.core :refer [keyset]]
-            [puppetlabs.puppetdb.testutils :refer [paged-results]]
+            [puppetlabs.puppetdb.testutils :refer [paged-results] :as tu]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
                      deftest-http-app
+                     convert-response
                      ordered-query-result
                      query-result
                      vector-param
@@ -604,3 +605,21 @@
   (let [{:keys [status body] :as result} (query-response method endpoint)]
     (is (= status http/status-not-found))
     (is (= {:error "No information is known about node foo"} (json/parse-string body true)))))
+
+(deftest-http-app invalid-content-type
+  [[version endpoint] endpoints]
+  (store-example-nodes)
+  (testing "content type other than application/json should give error"
+    (let [{:keys [status body] :as response}
+          (-> (tu/query-request :post endpoint ["extract" "certname"])
+              (assoc-in [:headers "content-type"] "application/x-www-form-urlencoded")
+              *app*)]
+      (is (= 415 status))
+      (is (= "content type application/x-www-form-urlencoded not supported" body))))
+  (testing "content type application/json should be accepted"
+    (let [{:keys [status] :as response}
+          (-> (tu/query-request :post endpoint ["extract" "certname" ["=" "certname" "puppet.example.com"]])
+              (assoc-in [:headers "content-type"] "application/json")
+              *app*)]
+      (is (= http/status-ok status))
+      (is (= [{:certname "puppet.example.com"}] (convert-response response))))))
