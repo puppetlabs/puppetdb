@@ -150,7 +150,9 @@
   (let [attempts (get annotations :attempts [])
         attempt  {:timestamp (kitchensink/timestamp)
                   :error     (str e)
-                  :trace     (map str (.getStackTrace e))}]
+                  :trace (with-out-str
+                           (with-open [out (java.io.PrintWriter. *out*)]
+                             (.printStackTrace e out)))}]
     (update-in msg [:annotations :attempts] conj attempt)))
 
 ;; The number of times a message can be retried before we discard it
@@ -193,8 +195,8 @@
    (catch Exception e
      (throw+ {:kind ::parse-error} e "Error parsing command"))))
 
-(defn discard-message [message exception q discard-dir]
-  (dlo/store-failed-message (:payload message) exception discard-dir))
+(defn discard-message [message exception q dlo]
+  (dlo/discard-cmdref message exception q dlo))
 
 (defn message-handler
   "This function processes the message, retrying messages that fail
@@ -203,7 +205,7 @@
   two arguments, a `message` and an `exception`, and
   `process-message-fn` is a function that accepts a message as its
   argument"
-  [q discard-dir delay-message process-message]
+  [q dlo delay-message process-message]
   (fn [cmdref]
     (try+
      ;; If the message is a delete?, there's no need to parse it
@@ -214,7 +216,6 @@
          (queue/ack-command q {:entry (queue/cmdref->entry cmdref)}))
        (let [{:keys [certname command version annotations id payload] :as cmd} (queue/cmdref->cmd q cmdref)
              retries (count (:attempts annotations))]
-
          (try+
           (call-with-command-metrics command version retries
                                      #(process-message cmd))
@@ -226,8 +227,7 @@
               (log/error (:wrapper &throw-context) (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
               (-> cmd
                   (annotate-with-attempt ex)
-                  (discard-message ex q discard-dir))))
-
+                  (discard-message ex q dlo))))
           (catch Exception exception
             (let [ex (:throwable &throw-context)
                   log-str (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
@@ -247,11 +247,11 @@
                 :else
                 (do
                   (log/error ex (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command retries certname))
-                  (discard-message cmd nil q discard-dir))))))))
+                  (discard-message cmd ex q dlo))))))))
      (catch [:kind ::queue/parse-error] _
        (mark! (global-metric :fatal))
        (log/error (:wrapper &throw-context) (i18n/trs "Fatal error parsing command: {0}" (:id cmdref)))
-       (discard-message cmdref (:throwable &throw-context) q discard-dir)))))
+       (discard-message cmdref (:throwable &throw-context) q dlo)))))
 
 (defprotocol MessageListenerService
   (register-listener [this schema listener-fn])
@@ -291,9 +291,9 @@
 (defn create-command-consumer
   "Create and return a command handler. This function does the work of
   consuming/storing a command. Handled commands are acknowledged here"
-  [q command-chan discard-dir delay-pool command-handler]
+  [q command-chan dlo delay-pool command-handler]
   (let [handle-message (message-handler q
-                                        discard-dir
+                                        dlo
                                         (send-delayed-message command-chan
                                                               delay-pool)
                                         command-handler)]
@@ -328,11 +328,10 @@
     (let [config (get-config)
           command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
           command-handler #(process-message this %)
-          command-chan (:command-chan (shared-globals))
+          {:keys [command-chan q dlo]} (shared-globals)
           delay-pool (:delay-pool context)
-          q (:q (shared-globals))
           handle-cmd (create-command-consumer q command-chan
-                                              (conf/mq-discard-dir config)
+                                              dlo
                                               delay-pool
                                               command-handler)]
       (doto (Thread. (fn []

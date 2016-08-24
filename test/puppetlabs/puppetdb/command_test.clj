@@ -3,6 +3,8 @@
             [clj-http.client :as client]
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.command.dlo :as dlo]
+            [puppetlabs.puppetdb.metrics.core :refer [new-metrics]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.catalogs :as catalog]
@@ -102,6 +104,7 @@
 
       ;; Non-UTF-8 byte array
       (is (thrown? Exception (parse-command {:body (.getBytes "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}" "UTF-16")}))))))
+
 (defn unroll-old-command [{:keys [command version payload]}]
   [command
    version
@@ -114,26 +117,27 @@
   `(tqueue/with-stockpile q#
      (let [log-output#     (atom [])
            publish#        (call-counter)
-           discard-dir#    (fs/temp-dir "test-msg-handler")
-           handle-message# (mql/message-handler q#
-                                                discard-dir#
+           dlo-dir# (fs/temp-dir "test-msg-handler-dlo")
+           dlo# (dlo/initialize (.toPath dlo-dir#)
+                                (:registry (new-metrics "puppetlabs.puppetdb.dlo"
+                                                        :jmx? false)))
+           handle-message# (mql/message-handler q# dlo#
                                                 publish#
                                                 #(process-command! % ~db))
            command# ~command
            entry# (update (apply tqueue/store-command q# (unroll-old-command command#))
                           :annotations merge (:annotations command#))]
-
        (try
          (binding [*logger-factory* (atom-logger log-output#)]
            (handle-message# entry#))
          (let [~publish-var publish#
-               ~discard-var discard-dir#]
+               ~discard-var dlo-dir#]
            ~@body
            ;; Uncommenting this line can be very useful for debugging
            ;; (println @log-output#)
            )
          (finally
-           (fs/delete-dir discard-dir#))))))
+           (fs/delete-dir dlo-dir#))))))
 
 (defmacro test-msg-handler
   "Runs `command` (after converting to JSON) through the MQ message handlers.
@@ -151,7 +155,8 @@
              (mql/annotate-with-attempt result (Exception. (str "thud-" i)))))))
 
 (deftest command-processor-integration
-  (let [command {:command "some command" :version 1 :payload "\"payload\""}]
+  (let [command {:command "replace catalog" :version 5 :payload "\"payload\""
+                 :annotations {}}]
     (testing "correctly formed messages"
 
       (testing "which are not yet expired"
@@ -166,7 +171,7 @@
           (with-redefs [process-command! (fn [cmd db] (throw+ (fatality (Exception. "fatal error"))))]
             (test-msg-handler command publish discard-dir
               (is (= 0 (times-called publish)))
-              (is (= 1 (count (fs/list-dir discard-dir)))))))
+              (is (= 2 (count (fs/list-dir discard-dir)))))))
 
         (testing "when a non-fatal error occurs should be requeued with the error recorded"
           (with-redefs [process-command! (fn [cmd db] (throw+ (Exception. "non-fatal error")))]
@@ -177,12 +182,13 @@
                 (is (re-find #"non-fatal error" (.getMessage exception))))))))
 
       (testing "should be discarded if expired"
-        (let [command (assoc-in command [:annotations :attempts] (repeat mql/maximum-allowable-retries {}))
+        (let [command (add-fake-attempts command mql/maximum-allowable-retries)
               process-counter (call-counter)]
-          (with-redefs [process-command! (fn [_ _] (throw (RuntimeException. "Expected failure")) )]
+          ;; Q: Do we want a RuntimeException here?
+          (with-redefs [process-command! (fn [_ _] (throw (RuntimeException. "Expected failure")))]
             (test-msg-handler command publish discard-dir
               (is (= 0 (times-called publish)))
-              (is (= 1 (count (fs/list-dir discard-dir))))
+              (is (= 2 (count (fs/list-dir discard-dir))))
               (is (= 0 (times-called process-counter))))))))
 
     (testing "should be discarded if incorrectly formed"
@@ -192,7 +198,7 @@
                       process-command! process-counter]
           (test-msg-handler command publish discard-dir
             (is (= 0 (times-called publish)))
-            (is (= 1 (count (fs/list-dir discard-dir))))
+            (is (= 2 (count (fs/list-dir discard-dir))))
             (is (= 0 (times-called process-counter)))))))))
 
 (deftest command-retry-handler

@@ -60,7 +60,8 @@
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.meta.version :as version]
-            [puppetlabs.puppetdb.metrics.core :as metrics]
+            [puppetlabs.puppetdb.metrics.core :as metrics
+             :refer [metrics-registries]]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.query-eng :as qeng]
@@ -139,17 +140,6 @@
        (scf-store/delete-reports-older-than! (ago report-ttl))))
     (catch Exception e
       (log/error e "Error while sweeping reports"))))
-
-(defn compress-dlo!
-  "Compresses discarded message which are older than `dlo-compression-threshold`."
-  [dlo dlo-compression-threshold]
-  (try
-    (kitchensink/demarcate
-     (format "compression of discarded messages (threshold: %s)"
-             (format-period dlo-compression-threshold))
-     (dlo/compress! dlo dlo-compression-threshold))
-    (catch Exception e
-      (log/error e "Error while compressing discarded messages"))))
 
 (defn garbage-collect!
   "Perform garbage collection on `db`, which means deleting any orphaned data.
@@ -340,15 +330,14 @@
                 database read-database
                 puppetdb command-processing]} config
         {:keys [pretty-print]} developer
-        {:keys [gc-interval dlo-compression-interval]} database
-        {:keys [dlo-compression-threshold max-enqueued]} command-processing
+        {:keys [gc-interval]} database
+        {:keys [max-enqueued]} command-processing
         {:keys [disable-update-checking]} puppetdb
 
         write-db (jdbc/pooled-datasource (assoc database :pool-name "PDBWritePool")
                                          database-metrics-registry)
         read-db (jdbc/pooled-datasource (assoc read-database :read-only? true :pool-name "PDBReadPool")
-                                        database-metrics-registry)
-        discard-dir (io/file (conf/mq-discard-dir config))]
+                                        database-metrics-registry)]
 
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
@@ -358,24 +347,25 @@
     (let [population-registry (get-in metrics/metrics-registries [:population :registry])]
       (pop/initialize-population-metrics! population-registry read-db))
 
-    (when (.exists discard-dir)
-      (dlo/create-metrics-for-dlo! discard-dir))
     ;; Error handling here?
-    (let [command-chan (async/chan
+    (let [stockdir (conf/stockpile-dir config)
+          command-chan (async/chan
                         (if (:catalog-facts-bash command-processing)
                           (queue/sorted-command-buffer max-enqueued)
                           max-enqueued))
           globals {:scf-read-db read-db
                    :scf-write-db write-db
                    :pretty-print pretty-print
-                   :q (create-or-open-stockpile (conf/stockpile-dir config) command-chan)
+                   :q (create-or-open-stockpile stockdir command-chan)
+                   :dlo (dlo/initialize (get-path stockdir "discard")
+                                        (get-in metrics-registries
+                                                [:dlo :registry]))
                    :command-chan command-chan}
           clean-lock (ReentrantLock.)]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)
-            gc-interval-millis (to-millis gc-interval)
-            dlo-compression-interval-millis (to-millis dlo-compression-interval)]
+            gc-interval-millis (to-millis gc-interval)]
         (when-not disable-update-checking
           (maybe-check-for-updates config read-db job-pool))
         (when (pos? gc-interval-millis)
@@ -402,10 +392,6 @@
                              (finally
                                (.unlock clean-lock))))
                          job-pool)))
-        (when (pos? dlo-compression-interval-millis)
-          (interspaced dlo-compression-interval-millis
-                       #(compress-dlo! dlo-compression-threshold discard-dir)
-                       job-pool))
         (assoc context
                :job-pool job-pool
                :shared-globals globals

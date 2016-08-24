@@ -2,7 +2,8 @@
   (:import [java.nio.charset StandardCharsets]
            [java.io InputStreamReader BufferedReader InputStream]
            [java.util TreeMap HashMap])
-  (:require [stockpile :as stock]
+  (:require [clojure.string :as str :refer [re-quote-replacement]]
+            [stockpile :as stock]
             [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as constants]
@@ -24,10 +25,6 @@
         (json/parse-stream true))
     (catch Exception e
       (throw+ {:kind ::parse-error} e "Error parsing command"))))
-
-(defn metadata-str [received command version certname]
-  (format "%d_%s_%d_%s.json"
-          (tcoerce/to-long received) command version certname))
 
 (defn metadata-str [received command version certname]
   (format "%d_%s_%d_%s.json"
