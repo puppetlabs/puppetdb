@@ -41,6 +41,7 @@
                       :version (Long/parseLong version)
                       :certname certname
                       :received received
+                      :callback identity
                       :annotations {:id (stock/entry-id entry)
                                     :received received
                                     :attempts []}})))
