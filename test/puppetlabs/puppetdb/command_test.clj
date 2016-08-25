@@ -177,9 +177,14 @@
           (with-redefs [process-command! (fn [cmd db] (throw+ (Exception. "non-fatal error")))]
             (test-msg-handler command publish discard-dir
               (is (empty? (fs/list-dir discard-dir)))
-              (let [[msg exception] (first (args-supplied publish))]
-                (is (instance? Exception exception))
-                (is (re-find #"non-fatal error" (.getMessage exception))))))))
+              (let [[call :as calls] (args-supplied publish)
+                    [msg] call
+                    attempts (get-in msg [:annotations :attempts])]
+                (is (= 1 (count calls)))
+                (is (= 1 (count call)))
+                (is (= 1 (count attempts)))
+                (is (re-find #"non-fatal error"
+                             (-> attempts first :error))))))))
 
       (testing "should be discarded if expired"
         (let [command (add-fake-attempts command mql/maximum-allowable-retries)
@@ -958,9 +963,7 @@
   "Pulls the error from the publish var of a test-msg-handler"
   [publish]
   (-> publish
-      meta
-      :args
-      deref
+      args-supplied
       first
       second))
 
@@ -1234,7 +1237,14 @@
             (test-msg-handler new-catalog-cmd publish discard-dir
               (reset! second-message? true)
               (is (empty? (fs/list-dir discard-dir)))
-              (is (instance? java.sql.BatchUpdateException (extract-error publish))))
+              (let [[call :as calls] (args-supplied publish)
+                    [msg] call
+                    attempts (get-in msg [:annotations :attempts])]
+                (is (= 1 (count calls)))
+                (is (= 1 (count call)))
+                (is (= 1 (count attempts)))
+                (is (re-find #"^java.sql.BatchUpdateException"
+                             (-> attempts first :error)))))
 
             @fut
             (is (true? @first-message?))
@@ -1288,7 +1298,14 @@
             (test-msg-handler new-catalog-cmd publish discard-dir
               (reset! second-message? true)
               (is (empty? (fs/list-dir discard-dir)))
-              (is (instance? java.sql.BatchUpdateException (extract-error publish))))
+              (let [[call :as calls] (args-supplied publish)
+                    [msg] call
+                    attempts (get-in msg [:annotations :attempts])]
+                (is (= 1 (count calls)))
+                (is (= 1 (count call)))
+                (is (= 1 (count attempts)))
+                (is (re-find #"^java.sql.BatchUpdateException"
+                             (-> attempts first :error)))))
 
             @fut
             (is (true? @first-message?))

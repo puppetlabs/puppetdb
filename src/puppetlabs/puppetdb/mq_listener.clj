@@ -200,7 +200,7 @@
 
 (defn message-handler
   "Processes the message via (process-message msg), retrying messages
-  that fail via (delay-message msg exception), and discarding messages that have
+  that fail via (delay-message msg), and discarding messages that have
   fatal errors or have exceeded their maximum allowed attempts."
   [q dlo delay-message process-message]
   (fn [cmdref]
@@ -234,12 +234,12 @@
                 (< retries 4)
                 (do
                   (log/debug ex log-str)
-                  (-> cmd (annotate-with-attempt ex) (delay-message ex)))
+                  (-> cmd (annotate-with-attempt ex) delay-message))
 
                 (< retries maximum-allowable-retries)
                 (do
                   (log/errorf ex log-str)
-                  (-> cmd (annotate-with-attempt ex) (delay-message ex)))
+                  (-> cmd (annotate-with-attempt ex) delay-message))
 
                 :else
                 (do
@@ -281,7 +281,7 @@
 (def ten-minutes (* 1000 60 10))
 
 (defn send-delayed-message [command-chan delay-pool]
-  (fn [cmd exception]
+  (fn [cmd]
     (let [narrowed-entry (dissoc cmd :payload)]
       (after ten-minutes #(async/>!! command-chan narrowed-entry) delay-pool))))
 
