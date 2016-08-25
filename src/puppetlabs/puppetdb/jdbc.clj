@@ -95,7 +95,9 @@
 
 (defn query-with-resultset
   "Calls clojure.jdbc/db-query-with-resultset after adding (jdbc/db)
-  as the first argument."
+   as the first argument. Note that this will hold the whole resultset in memory
+   due to the default jdbc fetchsize of 0. If streaming is required, use
+   with-query-results-cursor."
   {:arglists '([[sql-string & params] func]
                [[stmt & params] func]
                [[options-map sql-string & params] func])}
