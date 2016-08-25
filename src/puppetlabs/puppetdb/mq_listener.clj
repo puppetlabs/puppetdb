@@ -199,12 +199,9 @@
   (dlo/discard-cmdref message exception q dlo))
 
 (defn message-handler
-  "This function processes the message, retrying messages that fail
-  and discarding messages that have fatal errors or have exceeded
-  their maximum allowed attempts. `delay-message-fn` is a function of
-  two arguments, a `message` and an `exception`, and
-  `process-message-fn` is a function that accepts a message as its
-  argument"
+  "Processes the message via (process-message msg), retrying messages
+  that fail via (delay-message msg exception), and discarding messages that have
+  fatal errors or have exceeded their maximum allowed attempts."
   [q dlo delay-message process-message]
   (fn [cmdref]
     (try+
@@ -228,7 +225,7 @@
               (-> cmd
                   (annotate-with-attempt ex)
                   (discard-message ex q dlo))))
-          (catch Exception exception
+          (catch Exception _
             (let [ex (:throwable &throw-context)
                   log-str (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
                                     id command retries certname ex)]
@@ -236,13 +233,13 @@
               (cond
                 (< retries 4)
                 (do
-                  (log/debug exception log-str)
-                  (delay-message cmd exception))
+                  (log/debug ex log-str)
+                  (-> cmd (annotate-with-attempt ex) (delay-message ex)))
 
                 (< retries maximum-allowable-retries)
                 (do
-                  (log/errorf exception log-str)
-                  (delay-message cmd exception))
+                  (log/errorf ex log-str)
+                  (-> cmd (annotate-with-attempt ex) (delay-message ex)))
 
                 :else
                 (do
