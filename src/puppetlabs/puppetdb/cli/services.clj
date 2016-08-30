@@ -22,12 +22,8 @@
 
    * Message queue
 
-     We use an embedded instance of AciveMQ to handle queueing duties
-     for the command processing subsystem. The message queue is
-     persistent, and it only allows connections from within the same
-     VM.
-
-     Refer to `puppetlabs.puppetdb.mq` for more details.
+     We use stockpile to durable store commands. The \"in memory\"
+     representation of that queue is a core.async channel.
 
    * REST interface
 

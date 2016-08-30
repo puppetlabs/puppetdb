@@ -5,7 +5,6 @@
   (:require [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.command.dlo :as dlo]
-            [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [slingshot.slingshot :refer [try+ throw+]]
@@ -269,12 +268,12 @@
    handler-fn :- message-fn-schema]
   (swap! listener-atom conj [pred handler-fn]))
 
-(def ten-minutes (* 1000 60 10))
+(def one-hour (* 1000 60 60))
 
 (defn send-delayed-message [command-chan delay-pool]
   (fn [cmd]
     (let [narrowed-entry (dissoc cmd :payload)]
-      (after ten-minutes #(async/>!! command-chan narrowed-entry) delay-pool))))
+      (after one-hour #(async/>!! command-chan narrowed-entry) delay-pool))))
 
 (defn create-command-consumer
   "Create and return a command handler. This function does the work of
