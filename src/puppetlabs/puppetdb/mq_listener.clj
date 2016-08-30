@@ -1,9 +1,12 @@
 (ns puppetlabs.puppetdb.mq-listener
   (:import [java.util.concurrent Semaphore ThreadPoolExecutor TimeUnit SynchronousQueue
             RejectedExecutionException ExecutorService]
+           [java.nio.file Files Paths Path]
            [org.apache.commons.lang3.concurrent BasicThreadFactory BasicThreadFactory$Builder])
   (:require [clojure.tools.logging :as log]
+            [clojure.walk :as walk]
             [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -13,7 +16,7 @@
             [metrics.meters :refer [meter mark!]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.command :as cmd]
+            [metrics.counters :refer [counter inc! dec! value clear!]]
             [puppetlabs.trapperkeeper.services :refer [defservice service-context service-id]]
             [schema.core :as s]
             [puppetlabs.puppetdb.config :as conf]
@@ -76,16 +79,18 @@
 (defn create-metrics [prefix]
   (let [to-metric-name-fn #(metrics/keyword->metric-name prefix %)]
     {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
-     :retry-persistence-time (timer mq-metrics-registry (to-metric-name-fn :retry-persistence-time))
-     :generate-retry-message-time (timer mq-metrics-registry (to-metric-name-fn :generate-retry-message-time))
+     :message-persistence-time (timer mq-metrics-registry
+                                      (to-metric-name-fn :message-persistence-time))
      :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
+     :depth (counter mq-metrics-registry (to-metric-name-fn :depth))
+     :invalidated (counter mq-metrics-registry (to-metric-name-fn :invalidated))
      :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
      :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
      :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
      :retried (meter mq-metrics-registry (to-metric-name-fn :retried))
      :discarded (meter mq-metrics-registry (to-metric-name-fn :discarded))}))
 
-(def metrics (atom {:global (create-metrics [:global])}))
+(def metrics (atom {}))
 
 (defn global-metric
   "Returns the metric identified by `name` in the `\"global\"` metric
@@ -98,6 +103,11 @@
   [cmd version name]
   {:pre [(keyword? name)]}
   (get-in @metrics [(keyword (str cmd version)) name]))
+
+(defn update-counter!
+  [metric command version action!]
+  (action! (global-metric metric))
+  (action! (cmd-metric command version metric)))
 
 (defn create-metrics-for-command!
   "Create a subtree of metrics for the given command and version (if
@@ -171,15 +181,6 @@
      (mark-both-metrics! command version :processed)
      command-result)))
 
-(defn parse-command
-  [msg]
-  (try+
-   (cmd/parse-command msg)
-   (catch AssertionError e
-     (throw+ {:kind ::parse-error} e "Error parsing command"))
-   (catch Exception e
-     (throw+ {:kind ::parse-error} e "Error parsing command"))))
-
 ;; Primarily a test hook
 (defn discard-message [message q dlo]
   (dlo/discard-cmdref message q dlo))
@@ -189,21 +190,23 @@
   that fail via (delay-message msg), and discarding messages that have
   fatal errors or have exceeded their maximum allowed attempts."
   [q dlo delay-message process-message]
-  (fn [cmdref]
+  (fn [{:keys [certname command version delete? id] :as cmdref}]
     (try+
      ;; If the message is a delete?, there's no need to parse it
      ;; below, it's only going to be removed
-     (if (:delete? cmdref)
+     (if delete?
        (do
          (process-message cmdref)
-         (queue/ack-command q {:entry (queue/cmdref->entry cmdref)}))
-       (let [{:keys [certname command version id payload] :as cmd}
-             (queue/cmdref->cmd q cmdref)
+         (queue/ack-command q {:entry (queue/cmdref->entry cmdref)})
+         (update-counter! :depth command version dec!)
+         (update-counter! :invalidated command version dec!))
+       (let [cmd (queue/cmdref->cmd q cmdref)
              retries (count (:attempts cmdref))]
          (try+
-          (call-with-command-metrics command version retries
-                                     #(process-message cmd))
+           (call-with-command-metrics command version retries
+                                      #(process-message cmd))
           (queue/ack-command q cmd)
+          (update-counter! :depth command version dec!)
 
           (catch fatal? obj
             (mark! (global-metric :fatal))
@@ -308,6 +311,7 @@
    [:PuppetDBServer shared-globals]] ; MessageListenerService depends on the broker
 
   (init [this context]
+        (reset! metrics {:global (create-metrics [:global])})
         (assoc context
                :listeners (atom [])
                :delay-pool (mk-pool)))
@@ -318,10 +322,12 @@
           command-handler #(process-message this %)
           {:keys [command-chan q dlo]} (shared-globals)
           delay-pool (:delay-pool context)
-          handle-cmd (create-command-consumer q command-chan
+          handle-cmd (create-command-consumer q
+                                              command-chan
                                               dlo
                                               delay-pool
                                               command-handler)]
+
       (doto (Thread. (fn []
                        (gtp/dochan command-threadpool handle-cmd command-chan)))
         (.setDaemon false)

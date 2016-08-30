@@ -69,6 +69,7 @@
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [slingshot.slingshot :refer [try+ throw+]]
+            [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.trapperkeeper.services
              :refer [defservice service-context]]
@@ -80,6 +81,7 @@
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.mq :as mq]
             [metrics.timers :refer [timer time!]]
+            [metrics.counters :refer [inc!]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.queue :as queue]
             [clj-time.coerce :as tcoerce]))
@@ -87,7 +89,11 @@
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
 (def metrics (atom {:command-parse-time (timer mq-metrics-registry
-                                               (metrics/keyword->metric-name [:global] :command-parse-time))}))
+                                               (metrics/keyword->metric-name
+                                                 [:global] :command-parse-time))
+                    :message-persistence-time (timer mq-metrics-registry
+                                                     (metrics/keyword->metric-name
+                                                       [:global] :message-persistence-time))}))
 
 (defn fatality
   "Create an object representing a fatal command-processing exception
@@ -230,8 +236,10 @@
    command-callback]
   (try
     (.acquire write-semaphore)
-    (async/>!! command-chan
-               (queue/store-command q command version certname command-stream command-callback))
+    (time! (get @metrics :message-persistence-time)
+           (async/>!! command-chan
+                      (queue/store-command
+                        q command version certname command-stream command-callback)))
     (finally
       (.release write-semaphore)
       (when command-stream
@@ -470,9 +478,12 @@
           command-chan (:command-chan (shared-globals))
           write-semaphore (:write-semaphore (service-context this))
           command (if (string? command) command (command-names command))
-          result (do-enqueue-command q command-chan write-semaphore command version certname command-stream command-callback)]
+          result (do-enqueue-command q command-chan write-semaphore command
+                                     version certname command-stream command-callback)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
+      (mql/create-metrics-for-command! command version)
       (swap! (:stats (service-context this)) update :received-commands inc)
+      (mql/update-counter! :depth command version inc!)
       result))
 
   (response-mult [this]

@@ -47,7 +47,7 @@
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [compojure.core :as compojure]
-            [metrics.counters :as counters :refer [counter]]
+            [metrics.counters :as counters :refer [counter inc!]]
             [metrics.gauges :refer [gauge-fn]]
             [metrics.timers :refer [time! timer]]
             [metrics.reporters.jmx :as jmx-reporter]
@@ -80,6 +80,7 @@
             [slingshot.slingshot :refer [throw+ try+]]
             [stockpile :as stock]
             [clojure.core.async :as async]
+            [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.queue :as queue])
   (:import [javax.jms ExceptionListener]
            [java.nio.file Files LinkOption]
@@ -313,8 +314,11 @@
     (if (Files/exists queue-path (make-array LinkOption 0))
       (first (stock/open queue-path
                          (fn [chan entry]
-                           (async/>!! chan (queue/entry->cmdref entry))
-                           chan)
+                           (let [{:keys [command version] :as cmdref} (queue/entry->cmdref entry)]
+                             (async/>!! chan cmdref)
+                             (mql/create-metrics-for-command! command version)
+                             (mql/update-counter! :depth command version inc!)
+                             chan))
                          command-chan))
       (do
         (Files/createDirectories (get-path stockpile-root)
@@ -350,8 +354,10 @@
     ;; Error handling here?
     (let [stockdir (conf/stockpile-dir config)
           command-chan (async/chan
-                        (if (:catalog-facts-bash command-processing)
-                          (queue/sorted-command-buffer max-enqueued)
+                         (if (:catalog-facts-bash command-processing)
+                           (queue/sorted-command-buffer
+                             max-enqueued
+                             #(mql/update-counter! :invalidated %1 %2 inc!))
                           max-enqueued))
           globals {:scf-read-db read-db
                    :scf-write-db write-db

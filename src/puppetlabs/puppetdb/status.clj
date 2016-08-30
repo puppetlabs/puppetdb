@@ -34,9 +34,7 @@
    maint-mode-fn? :- pls/Function]
   (let [globals (shared-globals-fn)]
     {:maintenance_mode? (maint-mode-fn?)
-     :queue_depth (utils/nil-on-failure
-                   (->> (get-in config [:command-processing :mq :endpoint])
-                        (mq/queue-size "localhost")))
+     :queue_depth (utils/nil-on-failure (mq/queue-size))
      :read_db_up? (sutils/db-up? (:scf-read-db globals))
      :write_db_up? (sutils/db-up? (:scf-write-db globals))}))
 
