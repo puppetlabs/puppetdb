@@ -36,6 +36,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [puppetlabs/i18n ~i18n-version]
                  [cheshire "5.6.1"]
+                 [digest "1.4.4"]
                  [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
                  [org.clojure/math.combinatorics "0.1.1"]
                  [org.clojure/math.numeric-tower "0.0.4"]

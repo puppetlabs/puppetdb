@@ -3,6 +3,8 @@
             [clj-http.client :as client]
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.command.dlo :as dlo]
+            [puppetlabs.puppetdb.metrics.core :refer [new-metrics]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.catalogs :as catalog]
@@ -102,6 +104,7 @@
 
       ;; Non-UTF-8 byte array
       (is (thrown? Exception (parse-command {:body (.getBytes "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}" "UTF-16")}))))))
+
 (defn unroll-old-command [{:keys [command version payload]}]
   [command
    version
@@ -114,27 +117,27 @@
   `(tqueue/with-stockpile q#
      (let [log-output#     (atom [])
            publish#        (call-counter)
-           discard-dir#    (fs/temp-dir "test-msg-handler")
-           handle-message# (mql/message-handler-with-retries
-                            q#
-                            publish#
-                            (mql/discard-message q# discard-dir#)
-                            #(process-command! % ~db))
+           dlo-dir# (fs/temp-dir "test-msg-handler-dlo")
+           dlo# (dlo/initialize (.toPath dlo-dir#)
+                                (:registry (new-metrics "puppetlabs.puppetdb.dlo"
+                                                        :jmx? false)))
+           handle-message# (mql/message-handler q# dlo#
+                                                publish#
+                                                #(process-command! % ~db))
            command# ~command
            entry# (update (apply tqueue/store-command q# (unroll-old-command command#))
                           :annotations merge (:annotations command#))]
-
        (try
          (binding [*logger-factory* (atom-logger log-output#)]
            (handle-message# entry#))
          (let [~publish-var publish#
-               ~discard-var discard-dir#]
+               ~discard-var dlo-dir#]
            ~@body
            ;; Uncommenting this line can be very useful for debugging
            ;; (println @log-output#)
            )
          (finally
-           (fs/delete-dir discard-dir#))))))
+           (fs/delete-dir dlo-dir#))))))
 
 (defmacro test-msg-handler
   "Runs `command` (after converting to JSON) through the MQ message handlers.
@@ -143,8 +146,17 @@
   [command publish-var discard-var & body]
   `(test-msg-handler* ~command ~publish-var ~discard-var *db* ~@body))
 
+(defn add-fake-attempts [cmdref n]
+  (loop [i 0
+         result cmdref]
+    (if (or (neg? n) (= i n))
+      result
+      (recur (inc i)
+             (mql/annotate-with-attempt result (Exception. (str "thud-" i)))))))
+
 (deftest command-processor-integration
-  (let [command {:command "some command" :version 1 :payload "\"payload\""}]
+  (let [command {:command "replace catalog" :version 5 :payload "\"payload\""
+                 :annotations {}}]
     (testing "correctly formed messages"
 
       (testing "which are not yet expired"
@@ -159,23 +171,29 @@
           (with-redefs [process-command! (fn [cmd db] (throw+ (fatality (Exception. "fatal error"))))]
             (test-msg-handler command publish discard-dir
               (is (= 0 (times-called publish)))
-              (is (= 1 (count (fs/list-dir discard-dir)))))))
+              (is (= 2 (count (fs/list-dir discard-dir)))))))
 
         (testing "when a non-fatal error occurs should be requeued with the error recorded"
           (with-redefs [process-command! (fn [cmd db] (throw+ (Exception. "non-fatal error")))]
             (test-msg-handler command publish discard-dir
               (is (empty? (fs/list-dir discard-dir)))
-              (let [[msg exception] (first (args-supplied publish))]
-                (is (instance? Exception exception))
-                (is (re-find #"non-fatal error" (.getMessage exception))))))))
+              (let [[call :as calls] (args-supplied publish)
+                    [msg] call
+                    attempts (get-in msg [:annotations :attempts])]
+                (is (= 1 (count calls)))
+                (is (= 1 (count call)))
+                (is (= 1 (count attempts)))
+                (is (re-find #"non-fatal error"
+                             (-> attempts first :error))))))))
 
       (testing "should be discarded if expired"
-        (let [command (assoc-in command [:annotations :attempts] (repeat mql/maximum-allowable-retries {}))
+        (let [command (add-fake-attempts command mql/maximum-allowable-retries)
               process-counter (call-counter)]
-          (with-redefs [process-command! (fn [_ _] (throw (RuntimeException. "Expected failure")) )]
+          ;; Q: Do we want a RuntimeException here?
+          (with-redefs [process-command! (fn [_ _] (throw (RuntimeException. "Expected failure")))]
             (test-msg-handler command publish discard-dir
               (is (= 0 (times-called publish)))
-              (is (= 1 (count (fs/list-dir discard-dir))))
+              (is (= 2 (count (fs/list-dir discard-dir))))
               (is (= 0 (times-called process-counter))))))))
 
     (testing "should be discarded if incorrectly formed"
@@ -185,69 +203,78 @@
                       process-command! process-counter]
           (test-msg-handler command publish discard-dir
             (is (= 0 (times-called publish)))
-            (is (= 1 (count (fs/list-dir discard-dir))))
+            (is (= 2 (count (fs/list-dir discard-dir))))
             (is (= 0 (times-called process-counter)))))))))
-
-(defn append-attempts [n command]
-  (assoc-in command [:annotations :attempts] (repeat n {})))
 
 (deftest command-retry-handler
   (testing "Should log retries as debug for less than 4 attempts"
     (tqueue/with-stockpile q
       (let [process-message (fn [_] (throw (RuntimeException. "retry me")))]
-        (doseq [i (range 0 mql/maximum-allowable-retries)
-                :let [log-output (atom [])
-                      delay-message (mock-fn)
-                      discard-message (mock-fn)
-                      mh (mql/message-handler-with-retries q delay-message discard-message process-message)]]
-          (binding [*logger-factory* (atom-logger log-output)]
-            (mh (append-attempts i (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})))
-            (is (called? delay-message))
-            (is (not (called? discard-message)))
+        (with-redefs [mql/discard-message (mock-fn)]
+          (doseq [i (range 0 mql/maximum-allowable-retries)
+                  :let [log-output (atom [])
+                        delay-message (mock-fn)
+                        mh (mql/message-handler q nil
+                                                delay-message process-message)]]
+            (binding [*logger-factory* (atom-logger log-output)]
+              (mh (-> (tqueue/store-command q "replace catalog" 10
+                                            "cats" {:certname "cats"})
+                      (add-fake-attempts i)))
+              (is (called? delay-message))
+              (is (not (called? mql/discard-message)))
 
-            (if (< i 4)
-              (is (= (get-in @log-output [0 1]) :debug))
-              (is (= (get-in @log-output [0 1]) :error)))
+              (if (< i 4)
+                (is (= (get-in @log-output [0 1]) :debug))
+                (is (= (get-in @log-output [0 1]) :error)))
 
-            (is (str/includes? (get-in @log-output [0 3]) "cats"))
-            (is (instance? Exception (get-in @log-output [0 2])))
-            (is (str/includes? (last (first @log-output))
-                               "Retrying after attempt"))))
+              (is (str/includes? (get-in @log-output [0 3]) "cats"))
+              (is (instance? Exception (get-in @log-output [0 2])))
+              (is (str/includes? (last (first @log-output))
+                                 "Retrying after attempt")))))
 
         (let [log-output (atom [])
               delay-message (mock-fn)
               discard-message (mock-fn)
-              mh (mql/message-handler-with-retries q delay-message discard-message process-message)]
-          (binding [*logger-factory* (atom-logger log-output)]
-            (mh (append-attempts mql/maximum-allowable-retries (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})))
-            (is (not (called? delay-message)))
-            (is (called? discard-message))
-            (is (= (get-in @log-output [0 1]) :error))
-            (is (instance? Exception (get-in @log-output [0 2])))
-            (is (str/includes? (last (first @log-output))
-                               "Exceeded max"))
-            (is (str/includes? (get-in @log-output [0 3]) "cats"))))))))
+              mh (mql/message-handler q nil delay-message process-message)]
+          (with-redefs [mql/discard-message (mock-fn)]
+            (binding [*logger-factory* (atom-logger log-output)]
+              (mh (-> (tqueue/store-command q "replace catalog" 10
+                                            "cats" {:certname "cats"})
+                      (add-fake-attempts mql/maximum-allowable-retries)))
+              (is (not (called? delay-message)))
+              (is (called? mql/discard-message))
+              (is (= (get-in @log-output [0 1]) :error))
+              (is (instance? Exception (get-in @log-output [0 2])))
+              (is (str/includes? (last (first @log-output))
+                                 "Exceeded max"))
+              (is (str/includes? (get-in @log-output [0 3]) "cats")))))))))
 
 (deftest message-acknowledgement
   (testing "happy path, message acknowledgement when no failures occured"
     (tqueue/with-stockpile q
-      (let [mh (mql/message-handler-with-retries q nil nil identity)
-            cmdref (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
-        (is (:payload (queue/cmdref->cmd q cmdref)))
-        (mh cmdref)
-        (is (thrown-with-msg? java.nio.file.NoSuchFileException
-                              #"catalog"
-                              (queue/cmdref->cmd q cmdref))))))
+      (with-redefs [mql/discard-message (fn [& args] true)]
+        (let [mh (mql/message-handler q nil nil identity)
+              cmdref (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
+          (is (:payload (queue/cmdref->cmd q cmdref)))
+          (mh cmdref)
+          (is (thrown-with-msg? java.nio.file.NoSuchFileException
+                                #"catalog"
+                                (queue/cmdref->cmd q cmdref)))))))
 
   (testing "Failures do not cause messages to be acknowledged"
     (tqueue/with-stockpile q
-      (let [delay-message (mock-fn)
-            mh (mql/message-handler-with-retries q delay-message nil (fn [_] (throw (RuntimeException. "retry me"))))
-            entry (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
-        (is (:payload (queue/cmdref->cmd q entry)))
-        (mh entry)
-        (is (called? delay-message))
-        (is (:payload (queue/cmdref->cmd q entry)))))))
+      (with-redefs [mql/discard-message (fn [& args] true)]
+        (let [delay-message (mock-fn)
+              mh (mql/message-handler q nil delay-message
+                                      ;; Do we really want this to
+                                      ;; be ;; a RuntimeException?
+                                      (fn [_]
+                                        (throw (RuntimeException. "retry me"))))
+              entry (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
+          (is (:payload (queue/cmdref->cmd q entry)))
+          (mh entry)
+          (is (called? delay-message))
+          (is (:payload (queue/cmdref->cmd q entry))))))))
 
 (deftest call-with-quick-retry-test
   (testing "errors are logged at debug while retrying"
@@ -936,9 +963,7 @@
   "Pulls the error from the publish var of a test-msg-handler"
   [publish]
   (-> publish
-      meta
-      :args
-      deref
+      args-supplied
       first
       second))
 
@@ -1212,7 +1237,14 @@
             (test-msg-handler new-catalog-cmd publish discard-dir
               (reset! second-message? true)
               (is (empty? (fs/list-dir discard-dir)))
-              (is (instance? java.sql.BatchUpdateException (extract-error publish))))
+              (let [[call :as calls] (args-supplied publish)
+                    [msg] call
+                    attempts (get-in msg [:annotations :attempts])]
+                (is (= 1 (count calls)))
+                (is (= 1 (count call)))
+                (is (= 1 (count attempts)))
+                (is (re-find #"^java.sql.BatchUpdateException"
+                             (-> attempts first :error)))))
 
             @fut
             (is (true? @first-message?))
@@ -1266,7 +1298,14 @@
             (test-msg-handler new-catalog-cmd publish discard-dir
               (reset! second-message? true)
               (is (empty? (fs/list-dir discard-dir)))
-              (is (instance? java.sql.BatchUpdateException (extract-error publish))))
+              (let [[call :as calls] (args-supplied publish)
+                    [msg] call
+                    attempts (get-in msg [:annotations :attempts])]
+                (is (= 1 (count calls)))
+                (is (= 1 (count call)))
+                (is (= 1 (count attempts)))
+                (is (re-find #"^java.sql.BatchUpdateException"
+                             (-> attempts first :error)))))
 
             @fut
             (is (true? @first-message?))

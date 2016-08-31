@@ -150,7 +150,9 @@
   (let [attempts (get annotations :attempts [])
         attempt  {:timestamp (kitchensink/timestamp)
                   :error     (str e)
-                  :trace     (map str (.getStackTrace e))}]
+                  :trace (with-out-str
+                           (with-open [out (java.io.PrintWriter. *out*)]
+                             (.printStackTrace e out)))}]
     (update-in msg [:annotations :attempts] conj attempt)))
 
 ;; The number of times a message can be retried before we discard it
@@ -193,17 +195,16 @@
    (catch Exception e
      (throw+ {:kind ::parse-error} e "Error parsing command"))))
 
-(defn message-handler-with-retries
-  "This function processes the message, retrying messages that
-  fail and discarding messages that have fatal errors or have exceeded
-  their maximum allowed attempts. `delay-message-fn` and
-  `discard-message-fn` are both functions of two arguments, a
-  `message` and an `exception`. `process-message-fn` is a function
-  that accepts a message as it's argument"
-  [q delay-message discard-message process-message]
+(defn discard-message [message exception q dlo]
+  (dlo/discard-cmdref message exception q dlo))
+
+(defn message-handler
+  "Processes the message via (process-message msg), retrying messages
+  that fail via (delay-message msg), and discarding messages that have
+  fatal errors or have exceeded their maximum allowed attempts."
+  [q dlo delay-message process-message]
   (fn [cmdref]
     (try+
-
      ;; If the message is a delete?, there's no need to parse it
      ;; below, it's only going to be removed
      (if (:delete? cmdref)
@@ -212,7 +213,6 @@
          (queue/ack-command q {:entry (queue/cmdref->entry cmdref)}))
        (let [{:keys [certname command version annotations id payload] :as cmd} (queue/cmdref->cmd q cmdref)
              retries (count (:attempts annotations))]
-
          (try+
           (call-with-command-metrics command version retries
                                      #(process-message cmd))
@@ -224,9 +224,8 @@
               (log/error (:wrapper &throw-context) (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
               (-> cmd
                   (annotate-with-attempt ex)
-                  (discard-message ex))))
-
-          (catch Exception exception
+                  (discard-message ex q dlo))))
+          (catch Exception _
             (let [ex (:throwable &throw-context)
                   log-str (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
                                     id command retries certname ex)]
@@ -234,23 +233,22 @@
               (cond
                 (< retries 4)
                 (do
-                  (log/debug exception log-str)
-                  (delay-message cmd exception))
+                  (log/debug ex log-str)
+                  (-> cmd (annotate-with-attempt ex) delay-message))
 
                 (< retries maximum-allowable-retries)
                 (do
-                  (log/errorf exception log-str)
-                  (delay-message cmd exception))
+                  (log/errorf ex log-str)
+                  (-> cmd (annotate-with-attempt ex) delay-message))
 
                 :else
                 (do
                   (log/error ex (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command retries certname))
-                  (discard-message cmd nil))))))))
-
+                  (discard-message cmd ex q dlo))))))))
      (catch [:kind ::queue/parse-error] _
        (mark! (global-metric :fatal))
        (log/error (:wrapper &throw-context) (i18n/trs "Fatal error parsing command: {0}" (:id cmdref)))
-       (discard-message cmdref (:throwable &throw-context))))))
+       (discard-message cmdref (:throwable &throw-context) q dlo)))))
 
 (defprotocol MessageListenerService
   (register-listener [this schema listener-fn])
@@ -283,22 +281,19 @@
 (def ten-minutes (* 1000 60 10))
 
 (defn send-delayed-message [command-chan delay-pool]
-  (fn [cmd exception]
+  (fn [cmd]
     (let [narrowed-entry (dissoc cmd :payload)]
       (after ten-minutes #(async/>!! command-chan narrowed-entry) delay-pool))))
-
-(defn discard-message [q discard-dir]
-  (fn [message exception]
-    (dlo/store-failed-message (:payload message) exception discard-dir)))
 
 (defn create-command-consumer
   "Create and return a command handler. This function does the work of
   consuming/storing a command. Handled commands are acknowledged here"
-  [q command-chan discard-dir delay-pool command-handler]
-  (let [handle-message (message-handler-with-retries q
-                                                     (send-delayed-message command-chan delay-pool)
-                                                     (discard-message q discard-dir)
-                                                     command-handler)]
+  [q command-chan dlo delay-pool command-handler]
+  (let [handle-message (message-handler q
+                                        dlo
+                                        (send-delayed-message command-chan
+                                                              delay-pool)
+                                        command-handler)]
     (fn [message]
       ;; When the queue is shutting down, it sends nil message
       (when message
@@ -330,13 +325,14 @@
     (let [config (get-config)
           command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
           command-handler #(process-message this %)
-          command-chan (:command-chan (shared-globals))
+          {:keys [command-chan q dlo]} (shared-globals)
           delay-pool (:delay-pool context)
-          q (:q (shared-globals))
-          message-handler (create-command-consumer q command-chan (conf/mq-discard-dir config) delay-pool command-handler)]
-
+          handle-cmd (create-command-consumer q command-chan
+                                              dlo
+                                              delay-pool
+                                              command-handler)]
       (doto (Thread. (fn []
-                       (gtp/dochan command-threadpool message-handler command-chan)))
+                       (gtp/dochan command-threadpool handle-cmd command-chan)))
         (.setDaemon false)
         (.start))
 

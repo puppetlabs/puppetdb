@@ -454,14 +454,8 @@
   [config]
   (get-in config [:command-processing :max-command-size]))
 
-(defn mq-dir [config]
-  (str (io/file (get-in config [:global :vardir]) "mq")))
-
 (defn stockpile-dir [config]
   (str (io/file (get-in config [:global :vardir]) "stockpile")))
-
-(defn mq-discard-dir [config]
-  (str (io/file (mq-dir config) "discard")))
 
 (defprotocol DefaultedConfig
   (get-config [this]))
