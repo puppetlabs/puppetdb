@@ -51,6 +51,38 @@ nodes { certname ~ 'green' }
 
 ***
 
+### Querying for active nodes
+
+``` ruby
+nodes {deactivated is null and expired is null}
+```
+
+*Output:*
+
+``` json
+[
+    {
+        "cached_catalog_status": "not_used",
+        "catalog_environment": "production",
+        "catalog_timestamp": "2016-08-15T11:06:26.275Z",
+        "certname": "foo.com",
+        "deactivated": null,
+        "expired": null,
+        "facts_environment": "production",
+        "facts_timestamp": "2016-08-15T11:06:26.140Z",
+        "latest_report_corrective_change": null,
+        "latest_report_hash": "az956674b016d95a7b77c99513ba26e4a744f8d1",
+        "latest_report_noop": false,
+        "latest_report_noop_pending": null,
+        "latest_report_status": "changed",
+        "report_environment": "production",
+        "report_timestamp": "2016-08-15T11:06:18.393Z"
+    }
+]
+```
+
+***
+
 ### Basic fact filtering
 
 Nodes with operating system name `CentOS`.
@@ -263,10 +295,11 @@ inventory[certname] { facts.mcollective.server.collectives.match("\d+") = "dc1" 
 
 ### Profile querying
 
-Show nodes that have the profile class `Profile::Remote_mgmt` applied to it.
+Show active nodes that have the profile class `Profile::Remote_mgmt` applied to it.
 
 ``` ruby
-nodes { resources { type = "Class" and title = "Profile::Remote_mgmt" } }
+nodes { resources { type = "Class" and title = "Profile::Remote_mgmt" }
+        and expired is null and deactivated is null}
 ```
 
 *Output:*
