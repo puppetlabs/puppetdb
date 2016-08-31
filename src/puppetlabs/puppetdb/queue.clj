@@ -1,9 +1,11 @@
 (ns puppetlabs.puppetdb.queue
   (:import [java.nio.charset StandardCharsets]
            [java.io InputStreamReader BufferedReader InputStream]
-           [java.util TreeMap HashMap])
+           [java.util TreeMap HashMap]
+           [java.nio.file Files LinkOption]
+           [java.nio.file.attribute FileAttribute])
   (:require [clojure.string :as str :refer [re-quote-replacement]]
-            [stockpile :as stock]
+            [puppetlabs.stockpile.queue :as stock]
             [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as constants]
@@ -13,7 +15,8 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [slingshot.slingshot :refer [throw+]]
             [clojure.core.async :as async]
-            [clojure.core.async.impl.protocols :as async-protos]))
+            [clojure.core.async.impl.protocols :as async-protos]
+            [puppetlabs.puppetdb.nio :refer [get-path]]))
 
 (def metadata-command-names
   (vals constants/command-names))
@@ -74,6 +77,7 @@
                      Long/parseLong
                      tcoerce/from-long
                      kitchensink/timestamp)]
+
     (map->CommandRef {:id (stock/entry-id entry)
                       :command command
                       :version (Long/parseLong version)
@@ -102,7 +106,6 @@
          entry (stock/store q
                             command-stream
                             (metadata-str current-time command version certname))]
-
      (map->CommandRef {:id (stock/entry-id entry)
                        :command command
                        :version version
@@ -161,3 +164,38 @@
    ;; between this ns, mq-listener.clj, and dlo.clj. My hope is we'll be able
    ;; to get rid of it somehow when we refactor mq-listener and command.clj.
    (SortedCommandBuffer. (TreeMap.) (HashMap.) n delete-update-fn)))
+
+(defn message-loader
+  "Returns a function that will enqueue existing stockpile messages to
+  `command-chan`. Messages with ids less than `message-id-ceiling`
+  will be loaded to guard against duplicate processing of commands
+  when new commands are enqueued before all existing commands have
+  been enqueued. Note that there is no guarantee on the enqueuing
+  order of commands read from stockpile's reduce function"
+  [q message-id-ceiling]
+  (fn [command-chan update-metrics]
+    (stock/reduce q
+                  (fn [chan entry]
+                    ;;This conditional guards against a new command
+                    ;;enqueued in the same directory before we've full
+                    ;;read all existing files
+                    (when (< (stock/entry-id entry) message-id-ceiling)
+                      (let [{:keys [command version] :as cmdref} (entry->cmdref entry)]
+                        (async/>!! chan cmdref)
+                        (update-metrics command version)))
+                    chan)
+                  command-chan)))
+
+(defn create-or-open-stockpile
+  "Opens an existing stockpile queue if one is present otherwise
+  creates a new stockpile queue at `queue-dir`"
+  [queue-dir]
+  (let [stockpile-root (kitchensink/absolute-path queue-dir)
+        queue-path (get-path stockpile-root "cmd")]
+    (if-let [q (and (Files/exists queue-path (make-array LinkOption 0))
+                    (stock/open queue-path))]
+      [q (message-loader q (stock/next-likely-id q))]
+      (do
+        (Files/createDirectories (get-path stockpile-root)
+                                 (make-array FileAttribute 0))
+        [(stock/create queue-path) nil]))))

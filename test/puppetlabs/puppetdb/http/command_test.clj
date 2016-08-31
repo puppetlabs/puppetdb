@@ -22,7 +22,7 @@
             [clj-time.format :as time]
             [clj-time.core :refer [now before?]]
             [clj-time.coerce :as tcoerce]
-            [stockpile :as stock]
+            [puppetlabs.stockpile.queue :as stock]
             [puppetlabs.puppetdb.testutils.nio :as nio]
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]

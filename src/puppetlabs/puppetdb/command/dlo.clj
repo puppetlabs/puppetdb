@@ -8,7 +8,7 @@
    [puppetlabs.puppetdb.nio :refer [copts copt-atomic copt-replace oopts]]
    [puppetlabs.puppetdb.queue :as queue
     :refer [cmdref->entry metadata-str parse-cmd-filename]]
-   [stockpile :as stock])
+   [puppetlabs.stockpile.queue :as stock])
   (:import
    [java.nio.file AtomicMoveNotSupportedException
     FileAlreadyExistsException Files LinkOption]

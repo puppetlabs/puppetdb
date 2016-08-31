@@ -13,7 +13,7 @@
    [puppetlabs.puppetdb.queue :refer [cmdref->entry cons-attempt store-command]]
    [puppetlabs.puppetdb.testutils :refer [ordered-matches?]]
    [puppetlabs.puppetdb.testutils.nio :refer [call-with-temp-dir-path]]
-   [stockpile :as stock]))
+   [puppetlabs.stockpile.queue :as stock]))
 
 (defn err-attempt-line? [n s]
   (-> (str "Attempt " n " @ \\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d\\d\\dZ")

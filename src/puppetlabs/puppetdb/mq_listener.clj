@@ -119,6 +119,13 @@
       (swap! metrics assoc-in storage-path
              (create-metrics [(keyword command) (keyword (str version))])))))
 
+(defn inc-cmd-metrics
+  "Ensures the `command` + `version` metric exists, then increments the
+  depth for the given `command` and `version`"
+  [command version]
+  (create-metrics-for-command! command version)
+  (update-counter! :depth command version inc!))
+
 (defn fatal?
   "Tests if the supplied exception is a fatal command-processing
   exception or not."
