@@ -57,18 +57,15 @@
 (defn- write-failure-metadata
   "Given a (possibly empty) sequence of command attempts and an exception,
   writes a summary of the failure to out."
-  [out attempts exception]
-  (let [write-header (fn [out i timestamp]
-                       (.format out "%sAttempt %d @ %s\n"
-                                (into-array Object [(if (zero? i) "" "\n")
-                                                    (inc i)
-                                                    timestamp])))]
-    (dorun (map-indexed (fn [i {:keys [timestamp error trace]}]
-                          (write-header out i timestamp)
-                          (.print out trace))
-                        attempts))
-    (write-header out (count attempts) (timestamp))
-    (.printStackTrace exception out)))
+  [out attempts]
+  (let [n (count attempts)]
+    (dorun (map-indexed (fn [i {:keys [exception time]}]
+                          (.format out "%sAttempt %d @ %s\n"
+                                   (into-array Object [(if (zero? i) "" "\n")
+                                                       (- n i)
+                                                       time]))
+                          (.printStackTrace exception out))
+                        attempts))))
 
 (defn- entry-cmd-data-filename
   [entry]
@@ -84,7 +81,7 @@
   (str id \- (subs metadata 0 (- (count metadata) 5)) "-err.txt"))
 
 (defn- store-failed-command-info
-  [id metadata command exception attempts dir]
+  [id metadata command attempts dir]
   ;; We want the metdata and command so we don't have to reparse, and
   ;; we want the command because id isn't unique by itself (given
   ;; unknown commands).
@@ -93,7 +90,7 @@
                                   (make-array FileAttribute 0))]
     ;; Leave the temp file if something goes wrong.
     (with-open [out (java.io.PrintWriter. (.toFile tmp))]
-      (write-failure-metadata out attempts exception))
+      (write-failure-metadata out attempts))
     (let [dest (.resolve dir (err-filename id metadata))
           moved? (try
                    (Files/move tmp dest (copts [copt-atomic]))
@@ -135,8 +132,9 @@
   the cause of the failure.  The command will be moved from the
   `stockpile` queue to the `dlo` directory (a Path) via
   stockpile/discard.  Returns {:info Path :command Path}."
-  [cmdref exception stockpile dlo]
+  [cmdref stockpile dlo]
   (let [{:keys [path metrics]} dlo
+        {:keys [command received attempts]} cmdref
         entry (cmdref->entry cmdref)
         cmd-dest (.resolve path (entry-cmd-data-filename entry))]
     ;; We're going to assume that our moves will be atomic, and if
@@ -144,12 +142,10 @@
     ;; partial dlo messages.  If needed, the existence of the err file
     ;; can be used as an indicator that the dlo message is complete.
     (stock/discard stockpile entry cmd-dest)
-    (let [attempts (get-in cmdref [:annotations :attempts])
-          id (stock/entry-id entry)
+    (let [id (stock/entry-id entry)
           metadata (stock/entry-meta entry)
-          command (:command cmdref)
           info-dest (store-failed-command-info id metadata command
-                                               exception attempts
+                                               attempts
                                                path)]
       (update-metrics metrics command (Files/size cmd-dest))
       {:info info-dest
@@ -157,14 +153,14 @@
 
 (defn discard-bytes
   "Stores information about a failed command to the `dlo` (a Path) for
-  later inspection.  `attempts` must be a list of exceptions in reverse
-  chronological order.  Saves two files named like this:
+  later inspection.  `attempts` must be a list of {:time t :exception
+  ex} maps in reverse chronological order.  Saves two files named like
+  this:
     10291-1469469689-unknown-0-BYTESHASH
     10291-1469469689-unknown-0-BYTESHASH.txt
   The first contains the bytes provided, and the second details the
   cause of the failure.  Returns {:info Path :command Path}."
   [bytes id received attempts dlo]
-  (assert (= 1 (count attempts)))  ;; Until store-failed-command-info overhaul
   ;; For now, we assume that we don't need durability, and that we
   ;; don't care about the possibility of partial dlo messages.  If
   ;; needed, the existence of the err file can be used as an
@@ -175,8 +171,7 @@
         cmd-dest (.resolve path (str id \- metadata))]
     (Files/write cmd-dest bytes (oopts []))
     (let [info-dest (store-failed-command-info id metadata "unknown"
-                                               (first attempts)
-                                               []
+                                               attempts
                                                path)]
       (update-metrics metrics "unknown" (Files/size cmd-dest))
       {:info info-dest :command cmd-dest})))

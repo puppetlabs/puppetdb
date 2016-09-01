@@ -27,6 +27,17 @@
             [clojure.set :refer [difference]]
             [puppetlabs.puppetdb.test-protocols :as test-protos]))
 
+(defn ordered-matches?
+  "Returns a false value if there isn't a match in items for each
+  predicate in predicates, in the order the predicates are specified."
+  [predicates items]
+  (if-not (seq predicates)
+    true
+    (let [[check & remaining-checks] predicates
+          match (drop-while (complement check) items)]
+      (when (seq match)
+        (recur remaining-checks (next match))))))
+
 (def c-t "application/json")
 
 (defmacro dotestseq [bindings & body]

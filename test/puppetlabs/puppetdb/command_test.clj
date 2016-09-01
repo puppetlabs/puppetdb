@@ -53,8 +53,6 @@
     (let [command {:body "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}"}]
       (testing "should work for strings"
         (let [parsed (parse-command command)]
-          ;; :annotations will have a :attempts element with a time, which
-          ;; is hard to test, so disregard that
           (is (= (dissoc parsed :annotations)
                  {:command "foo" :version 2 :payload "meh"}))
           (is (map? (:annotations parsed)))))
@@ -113,24 +111,25 @@
    payload])
 
 (defmacro test-msg-handler*
-  [command publish-var discard-var db & body]
+  [command delay-var discard-var db & body]
   `(tqueue/with-stockpile q#
      (let [log-output#     (atom [])
-           publish#        (call-counter)
+           delay# (call-counter)
            dlo-dir# (fs/temp-dir "test-msg-handler-dlo")
            dlo# (dlo/initialize (.toPath dlo-dir#)
                                 (:registry (new-metrics "puppetlabs.puppetdb.dlo"
                                                         :jmx? false)))
            handle-message# (mql/message-handler q# dlo#
-                                                publish#
+                                                delay#
                                                 #(process-command! % ~db))
-           command# ~command
-           entry# (update (apply tqueue/store-command q# (unroll-old-command command#))
-                          :annotations merge (:annotations command#))]
+           cmd# ~command
+           cmdref# (-> (apply tqueue/store-command q# (unroll-old-command cmd#))
+                       (update :annotations merge (:annotations cmd#))
+                       (assoc :attempts (:attempts cmd#)))]
        (try
          (binding [*logger-factory* (atom-logger log-output#)]
-           (handle-message# entry#))
-         (let [~publish-var publish#
+           (handle-message# cmdref#))
+         (let [~delay-var delay#
                ~discard-var dlo-dir#]
            ~@body
            ;; Uncommenting this line can be very useful for debugging
@@ -140,11 +139,14 @@
            (fs/delete-dir dlo-dir#))))))
 
 (defmacro test-msg-handler
-  "Runs `command` (after converting to JSON) through the MQ message handlers.
-   `body` is executed with `publish-var` bound to the number of times the message
-   was processed and `discard-var` bound to the directory that contains failed messages."
-  [command publish-var discard-var & body]
-  `(test-msg-handler* ~command ~publish-var ~discard-var *db* ~@body))
+  "Converts `command` to JSON, runs it through a message-handler, and
+  then evaluates the `body` with `delay-var` bound to a call-counter,
+  and `discard-var` bound to the directory that contains failed
+  messages.  A history of failed attempts may be provided
+  via (:attempts `command`), which must be as a sequence of items
+  as created by (cons-attempt exception)."
+  [command delay-var discard-var & body]
+  `(test-msg-handler* ~command ~delay-var ~discard-var *db* ~@body))
 
 (defn add-fake-attempts [cmdref n]
   (loop [i 0
@@ -152,7 +154,7 @@
     (if (or (neg? n) (= i n))
       result
       (recur (inc i)
-             (mql/annotate-with-attempt result (Exception. (str "thud-" i)))))))
+             (queue/cons-attempt result (Exception. (str "thud-" i)))))))
 
 (deftest command-processor-integration
   (let [command {:command "replace catalog" :version 5 :payload "\"payload\""
@@ -179,15 +181,16 @@
               (is (empty? (fs/list-dir discard-dir)))
               (let [[call :as calls] (args-supplied publish)
                     [msg] call
-                    attempts (get-in msg [:annotations :attempts])]
+                    attempts (:attempts msg)]
                 (is (= 1 (count calls)))
                 (is (= 1 (count call)))
                 (is (= 1 (count attempts)))
-                (is (re-find #"non-fatal error"
-                             (-> attempts first :error))))))))
+                (is (= "non-fatal error"
+                       (-> attempts first :exception .getMessage))))))))
 
       (testing "should be discarded if expired"
         (let [command (add-fake-attempts command mql/maximum-allowable-retries)
+              command (assoc command :version 9)
               process-counter (call-counter)]
           ;; Q: Do we want a RuntimeException here?
           (with-redefs [process-command! (fn [_ _] (throw (RuntimeException. "Expected failure")))]
@@ -985,9 +988,7 @@
                        :payload facts}
 
             hand-off-queue (java.util.concurrent.SynchronousQueue.)
-            storage-replace-facts! scf-store/update-facts!
-            failures (atom ())
-            orig-annotate-attempt mql/annotate-with-attempt]
+            storage-replace-facts! scf-store/update-facts!]
 
         (jdbc/with-db-transaction []
           (scf-store/add-certname! certname)
@@ -999,11 +1000,7 @@
                                  :producer "bar.com"})
           (scf-store/ensure-environment "DEV"))
 
-        (with-redefs [mql/annotate-with-attempt
-                      (fn [msg ex]
-                        (swap! failures conj ex)
-                        (orig-annotate-attempt msg ex))
-                      scf-store/update-facts!
+        (with-redefs [scf-store/update-facts!
                       (fn [fact-data]
                         (.put hand-off-queue "got the lock")
                         (.poll hand-off-queue 5 TimeUnit/SECONDS)
@@ -1027,10 +1024,15 @@
 
             (test-msg-handler new-facts-cmd publish discard-dir
               (reset! second-message? true)
-              (is (= 1 (count @failures)))
-              (is (re-matches
-                   #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
-                   (full-sql-exception-msg (first @failures)))))
+              (let [[call :as calls] (args-supplied publish)
+                    [msg] call
+                    attempts (:attempts msg)]
+                (is (= 1 (count calls)))
+                (is (= 1 (count call)))
+                (is (= 1 (count attempts)))
+                (is (re-matches
+                     #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
+                     (-> attempts first :exception full-sql-exception-msg)))))
             @fut
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
@@ -1239,12 +1241,13 @@
               (is (empty? (fs/list-dir discard-dir)))
               (let [[call :as calls] (args-supplied publish)
                     [msg] call
-                    attempts (get-in msg [:annotations :attempts])]
+                    attempts (:attempts msg)]
                 (is (= 1 (count calls)))
                 (is (= 1 (count call)))
                 (is (= 1 (count attempts)))
-                (is (re-find #"^java.sql.BatchUpdateException"
-                             (-> attempts first :error)))))
+                (is (re-matches
+                     #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
+                     (-> attempts first :exception full-sql-exception-msg)))))
 
             @fut
             (is (true? @first-message?))
@@ -1300,12 +1303,13 @@
               (is (empty? (fs/list-dir discard-dir)))
               (let [[call :as calls] (args-supplied publish)
                     [msg] call
-                    attempts (get-in msg [:annotations :attempts])]
+                    attempts (:attempts msg)]
                 (is (= 1 (count calls)))
                 (is (= 1 (count call)))
                 (is (= 1 (count attempts)))
-                (is (re-find #"^java.sql.BatchUpdateException"
-                             (-> attempts first :error)))))
+                (is (re-matches
+                     #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
+                     (-> attempts first :exception full-sql-exception-msg)))))
 
             @fut
             (is (true? @first-message?))
