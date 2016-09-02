@@ -22,7 +22,7 @@
 
    * Message queue
 
-     We use stockpile to durable store commands. The \"in memory\"
+     We use stockpile to durably store commands. The \"in memory\"
      representation of that queue is a core.async channel.
 
    * REST interface

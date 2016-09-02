@@ -19,7 +19,6 @@
   (:require [clojure.tools.logging :as log]
             [clojure.java.io :as io]
             [me.raynes.fs :as fs]
-            [stockpile :as stockpile]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.i18n.core :as i18n]
             [puppetlabs.trapperkeeper.config :as config]
@@ -82,18 +81,17 @@
   stockpile will only accept input streams, so some conversion needs
   to be done in this fn"
   [payload]
-  (let [baos (java.io.ByteArrayOutputStream.)]
+  (with-open [baos (java.io.ByteArrayOutputStream.)]
     (with-open [osw (java.io.OutputStreamWriter. baos java.nio.charset.StandardCharsets/UTF_8)]
       (json/generate-stream payload osw))
-    (.close baos)
     (-> baos
         .toByteArray
         java.io.ByteArrayInputStream.)))
 
 (defn convert-old-command-format
   "Converts from the command format that didn't include the certname
-  in the toplevel key list and had all the command data dested under
-  payload"
+  in the toplevel key list and had all the command data with the
+  payload key"
   [headers message-bytes]
   (let [{:keys [command version] :as old-command} (json/parse-strict message-bytes true)]
     {:command command
@@ -157,31 +155,29 @@
 (defn consume-everything
   "Attempts to read all available messages from ActiveMQ, giving up
   after 5 seconds if one is not available"
-  [^MessageConsumer consumer process-message]
+  [^MessageConsumer consumer process-message id]
   (try
-    (loop [id 0]
-      ;; We'll wait 5 seconds for a message otherwise we'll assume the Queue is
-      ;; drained
+    (loop []
       (when-let [msg (.receive consumer 5000)]
-        (process-message id msg)
-        (recur (inc id))))
+        (process-message (swap! id inc) msg)
+        (recur)))
     (catch javax.jms.IllegalStateException e
       (log/info (i18n/trs "Received IllegalStateException, shutting down")))
     (catch Exception e
       (log/error e))))
 
 (defn create-mq-receiver
-  [^ConnectionFactory conn-pool endpoint process-message]
+  [^ConnectionFactory conn-pool endpoint process-message id]
   (with-open [connection (create-connection conn-pool)
               session (create-session connection)
               consumer (.createConsumer session (create-queue session endpoint))]
     (log/info (i18n/trs "Processing messages from the Queue: {0}" endpoint))
-    (consume-everything consumer process-message)))
+    (consume-everything consumer process-message id)))
 
 (defn create-scheduler-receiver
   "Drains the scheduler queue (where PuppetDB commands are retried)
   and enqueues them into the normal queue"
-  [^ConnectionFactory conn-pool endpoint process-message]
+  [^ConnectionFactory conn-pool endpoint process-message dlo id]
   (with-open [connection (create-connection conn-pool)
               session (create-session connection)]
     (let [request-browse (.createTopic session ScheduledMessage/AMQ_SCHEDULER_MANAGEMENT_DESTINATION)
@@ -202,11 +198,12 @@
                                                                                 ScheduledMessage/AMQ_SCHEDULER_ACTION_REMOVE)
                                                             (.setStringProperty ScheduledMessage/AMQ_SCHEDULED_ID msg-id))]
                                                (.send producer remove))
-                                             (catch Exception e nil)))]
+                                             (catch Exception e
+                                               (discard-amq-message (convert-message-body msg) (swap! id inc) {} e dlo))))]
           (.send producer request)
           (Thread/sleep 2000)
           (log/info (i18n/trs "Processing messages from the Scheduler"))
-          (consume-everything consumer process-message-and-remove))))))
+          (consume-everything consumer process-message-and-remove id))))))
 
 (def default-mq-endpoint "puppetlabs.puppetdb.commands")
 (def retired-mq-endpoint "com.puppetlabs.puppetdb.commands")
@@ -234,14 +231,6 @@
         (.setLimit limit)))
   broker)
 
-(defn ^:dynamic enable-jmx
-  "This function exists to enable starting multiple PuppetDB instances
-  inside a single JVM. Starting up a second instance results in a
-  collision exception between JMX beans from the two
-  instances. Disabling JMX from the broker avoids that issue"
-  [broker should-enable?]
-  (.setUseJmx broker should-enable?))
-
 (defn ^BrokerService build-embedded-broker
   "Configures an embedded, persistent ActiveMQ broker.
 
@@ -268,7 +257,7 @@
              (.setDataDirectory dir)
              (.setSchedulerSupport true)
              (.setPersistent true)
-             (enable-jmx true)
+             (.setUseJmx false)
              (set-usage! memory-usage #(.getMemoryUsage %) "MemoryUsage")
              (set-usage! store-usage #(.getStoreUsage %) "StoreUsage")
              (set-usage! temp-usage #(.getTempUsage %) "TempUsage"))
@@ -323,18 +312,16 @@
       [(ActiveMQConnectionFactory. spec)]
     (close [] (.stop this))))
 
-;; Questionable code
-
 (defn upgrade-lockfile-path [vardir]
-  (str (io/file vardir "upgraded_mq.lock")))
+  (io/file vardir "mq-migrated"))
 
 (defn needs-upgrade?
   "Returns true if the user has an unmigrated ActiveMQ director in
   their vardir"
   [config]
   (let [vardir (get-in config [:global :vardir])]
-    (and (fs/exists? (io/file vardir "mq"))
-         (not (fs/exists? (upgrade-lockfile-path vardir))))))
+    (and (not (fs/exists? (upgrade-lockfile-path vardir)))
+         (fs/exists? (io/file vardir "mq")))))
 
 (defn lock-upgrade
   "Puts a lockfile in vardir to indicate the user has already migrated
@@ -359,20 +346,29 @@
                               (:max-frame-size cmd-proc-config 209715200))
         mq-discard-dir (str (io/file mq-dir "discard"))
         mq-endpoint (:endpoint mq-config default-mq-endpoint)
-        conn-pool (activemq-connection-factory mq-broker-url)
-        broker (do (log/info (i18n/trs "Starting broker"))
-                   (build-and-start-broker! "localhost" mq-dir cmd-proc-config))
-        process-message (create-message-processor enqueue-fn dlo)]
+        process-message (create-message-processor enqueue-fn dlo)
+        id (atom 0)]
+    (try
+      (let [conn-pool (activemq-connection-factory mq-broker-url)]
+        (try
+          (let [broker (do (log/info (i18n/trs "Starting broker"))
+                           (build-and-start-broker! "localhost" mq-dir cmd-proc-config))]
+            (try
+              ;; Drain the scheduler so we don't get any extra messages on the Queue when
+              ;; we're processing
+              (create-scheduler-receiver conn-pool mq-endpoint process-message dlo id)
+              (create-mq-receiver conn-pool mq-endpoint process-message id)
+              (create-mq-receiver conn-pool retired-mq-endpoint process-message id)
 
-    ;; Drain the scheduler so we don't get any extra messages on the Queue when
-    ;; we're processing
-    (create-scheduler-receiver conn-pool mq-endpoint process-message)
-    (create-mq-receiver conn-pool mq-endpoint process-message)
-    (create-mq-receiver conn-pool retired-mq-endpoint process-message)
+              (log/info (i18n/trs "You may safely delete {0}" mq-dir))
 
-    ;; Stopping
-    (do (log/info (i18n/trs "Stopping ActiveMQConnectionFactory"))
-        (.stop conn-pool))
-    (do (log/info (i18n/trs "Stopping broker"))
-        (stop-broker! broker))
-    (log/info (i18n/trs "You may safely delete {0}" mq-dir))))
+              (catch Exception e
+                (log/error e (i18n/trs "Uable to receive ActiveMQ messages. Migration of existing messages failed.")))
+              (finally
+                (stop-broker! broker))))
+          (catch Exception e
+            (log/error e (i18n/trs "Uable to start ActiveMQ broker. Migration of existing messages failed.")))
+          (finally
+            (.stop conn-pool))))
+      (catch Exception e
+        (log/error e (i18n/trs "Unable to connect to ActiveMQ. Migration of existing messages failed."))))))

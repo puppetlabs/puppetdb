@@ -192,3 +192,14 @@
   `(#'puppetlabs.puppetdb.testutils.log/call-with-log-suppressed-unless-notable
     ~notable-event?
     (fn [] ~@body)))
+
+;;The below functions are useful with
+;;puppetlabs.trapperkeeper.testutils.logging/with-log-suppressed-unless-notable
+
+(def critical-errors (comp #{:fatal :error} :level))
+
+(defn starting-with
+  "Filters log events that have a message starting with `string`"
+  [string]
+  (fn [event]
+    (.startsWith (:message event) string)))
