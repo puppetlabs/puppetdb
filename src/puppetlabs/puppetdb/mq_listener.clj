@@ -140,21 +140,6 @@
 ;; architecture.
 ;;
 
-(defn annotate-with-attempt
-  "Adds an `attempt` annotation to `msg` indicating there was a failed attempt
-  at handling the message, including the error and trace from `e`."
-  [{:keys [annotations] :as msg} e]
-  {:pre  [(map? annotations)]
-   :post [(= (count (get-in % [:annotations :attempts]))
-             (inc (count (:attempts annotations))))]}
-  (let [attempts (get annotations :attempts [])
-        attempt  {:timestamp (kitchensink/timestamp)
-                  :error     (str e)
-                  :trace (with-out-str
-                           (with-open [out (java.io.PrintWriter. *out*)]
-                             (.printStackTrace e out)))}]
-    (update-in msg [:annotations :attempts] conj attempt)))
-
 ;; The number of times a message can be retried before we discard it
 (def maximum-allowable-retries 5)
 
@@ -195,8 +180,9 @@
    (catch Exception e
      (throw+ {:kind ::parse-error} e "Error parsing command"))))
 
-(defn discard-message [message exception q dlo]
-  (dlo/discard-cmdref message exception q dlo))
+;; Primarily a test hook
+(defn discard-message [message q dlo]
+  (dlo/discard-cmdref message q dlo))
 
 (defn message-handler
   "Processes the message via (process-message msg), retrying messages
@@ -211,8 +197,9 @@
        (do
          (process-message cmdref)
          (queue/ack-command q {:entry (queue/cmdref->entry cmdref)}))
-       (let [{:keys [certname command version annotations id payload] :as cmd} (queue/cmdref->cmd q cmdref)
-             retries (count (:attempts annotations))]
+       (let [{:keys [certname command version id payload] :as cmd}
+             (queue/cmdref->cmd q cmdref)
+             retries (count (:attempts cmdref))]
          (try+
           (call-with-command-metrics command version retries
                                      #(process-message cmd))
@@ -223,8 +210,8 @@
             (let [ex (:cause obj)]
               (log/error (:wrapper &throw-context) (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
               (-> cmd
-                  (annotate-with-attempt ex)
-                  (discard-message ex q dlo))))
+                  (queue/cons-attempt ex)
+                  (discard-message q dlo))))
           (catch Exception _
             (let [ex (:throwable &throw-context)
                   log-str (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
@@ -234,21 +221,25 @@
                 (< retries 4)
                 (do
                   (log/debug ex log-str)
-                  (-> cmd (annotate-with-attempt ex) delay-message))
+                  (-> cmd (queue/cons-attempt ex) delay-message))
 
                 (< retries maximum-allowable-retries)
                 (do
                   (log/errorf ex log-str)
-                  (-> cmd (annotate-with-attempt ex) delay-message))
+                  (-> cmd (queue/cons-attempt ex) delay-message))
 
                 :else
                 (do
                   (log/error ex (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command retries certname))
-                  (discard-message cmd ex q dlo))))))))
+                  (-> cmd
+                      (queue/cons-attempt ex)
+                      (discard-message q dlo)))))))))
      (catch [:kind ::queue/parse-error] _
        (mark! (global-metric :fatal))
        (log/error (:wrapper &throw-context) (i18n/trs "Fatal error parsing command: {0}" (:id cmdref)))
-       (discard-message cmdref (:throwable &throw-context) q dlo)))))
+       (-> cmdref
+           (queue/cons-attempt (:throwable &throw-context))
+           (discard-message q dlo))))))
 
 (defprotocol MessageListenerService
   (register-listener [this schema listener-fn])

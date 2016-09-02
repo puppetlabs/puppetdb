@@ -73,8 +73,7 @@
                       :received received
                       :callback identity
                       :annotations {:id (stock/entry-id entry)
-                                    :received received
-                                    :attempts []}})))
+                                    :received received}})))
 
 (defn cmdref->cmd [q cmdref]
   (let [entry (cmdref->entry cmdref)]
@@ -82,6 +81,10 @@
       (assoc cmdref
              :payload (stream->json command-stream)
              :entry entry))))
+
+(defn cons-attempt [cmdref exception]
+  (update cmdref :attempts conj {:exception exception
+                                 :time (kitchensink/timestamp)}))
 
 (defn store-command
   ([q command version certname command-stream]
@@ -99,8 +102,7 @@
                        :callback command-callback
                        :received (kitchensink/timestamp current-time)
                        :annotations {:id (stock/entry-id entry)
-                                     :received (kitchensink/timestamp current-time)
-                                     :attempts []}}))))
+                                     :received (kitchensink/timestamp current-time)}}))))
 
 (defn ack-command
   [q command]
