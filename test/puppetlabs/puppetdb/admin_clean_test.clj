@@ -66,17 +66,22 @@
     (let [pdb (get-service *server* :PuppetDBServer)
           orig-clean cli-svc/clean-up
           in-clean (CyclicBarrier. 2)
-          test-finished (CyclicBarrier. 2)]
+          test-finished (CyclicBarrier. 2)
+          cleanup-result (promise)]
       (with-redefs [cli-svc/clean-up (fn [& args]
                                        (.await in-clean)
                                        (.await test-finished)
-                                       (apply orig-clean args))]
+                                       (let [result (apply orig-clean args)]
+                                            (deliver cleanup-result result)
+                                            result))]
         (utils/noisy-future (checked-admin-post "cmd" (clean-cmd [])))
         (try
           (.await in-clean)
           (is (= http/status-conflict (:status (post-clean []))))
           (finally
-            (.await test-finished)))))))
+            (.await test-finished)
+            (is (not= ::timed-out
+                      (deref cleanup-result 10000 ::timed-out)))))))))
 
 (defn- clean-status []
   (gauges/value (:cleaning cli-svc/admin-metrics)))
