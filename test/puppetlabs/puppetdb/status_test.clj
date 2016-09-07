@@ -22,7 +22,7 @@
                 ;; Stockpile needs metrics implemented around it to
                 ;; populated the queue depth below, this will be
                 ;; covered by PDB-2932
-                :queue_depth nil}
+                :queue_depth 0}
                (:status pdb-status))))))
 
   (testing "status returns as expected when in maintenance mode"
@@ -41,5 +41,5 @@
                   ;; Stockpile needs metrics implemented around it to
                   ;; populated the queue depth below, this will be
                   ;; covered by PDB-2932
-                  :queue_depth nil}
+                  :queue_depth 0}
                  (:status pdb-status))))))))

@@ -7,6 +7,8 @@
             [puppetlabs.puppetdb.testutils.log
              :refer [notable-pdb-event? with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [metrics.counters :refer [clear!]]
+            [clojure.walk :as walk]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
@@ -16,7 +18,7 @@
             [puppetlabs.puppetdb.client :as pdb-client]
             [puppetlabs.puppetdb.cli.services :as svcs]
             [puppetlabs.puppetdb.admin :as admin]
-            [puppetlabs.puppetdb.mq-listener :refer [message-listener-service]]
+            [puppetlabs.puppetdb.mq-listener :refer [message-listener-service metrics]]
             [puppetlabs.puppetdb.command :refer [command-service] :as dispatch]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
@@ -73,6 +75,15 @@
    #'maint-mode-service
    #'config-service])
 
+(defn clear-counters!
+  [metrics]
+  (walk/postwalk
+    (fn [x] (if (= (type x)
+                   com.codahale.metrics.Counter)
+              (clear! x)
+              x))
+    metrics))
+
 (defn call-with-puppetdb-instance
   "Stands up a puppetdb instance with the specified config, calls f,
   and then tears the instance down, binding *server* to the instance
@@ -105,6 +116,7 @@
                    :prefix "/pdb/query"
                    :version :v4}]
      (try
+       (swap! metrics clear-counters!)
        (tkbs/with-app-with-config server
          (map var-get services)
          config

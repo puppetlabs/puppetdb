@@ -7,7 +7,7 @@
    [puppetlabs.kitchensink.core :refer [timestamp]]
    [puppetlabs.puppetdb.nio :refer [copts copt-atomic copt-replace oopts]]
    [puppetlabs.puppetdb.queue :as queue
-    :refer [cmdref->entry metadata-str metadata-parser]]
+    :refer [cmdref->entry metadata-str parse-cmd-filename]]
    [stockpile :as stock])
   (:import
    [java.nio.file AtomicMoveNotSupportedException
@@ -15,13 +15,6 @@
    [java.nio.file.attribute FileAttribute]))
 
 (def command-names (cons "unknown" queue/metadata-command-names))
-
-(def ^:private parse-cmd-filename
-  (let [parse-metadata (metadata-parser command-names)]
-    (fn [s]
-      (let [rx #"([0-9+])-(.*)"]
-        (when-let [[_ id qmeta] (re-matches rx s)]
-          (parse-metadata qmeta))))))
 
 (defn- cmd-counters
   "Adds gauges to the dlo for the given category (e.g. \"all\"

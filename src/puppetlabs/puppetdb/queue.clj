@@ -7,7 +7,8 @@
             [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as constants]
-            [clojure.string :as str :refer [re-quote-replacement]]
+            [metrics.timers :refer [timer time!]]
+            [metrics.counters :refer [inc!]]
             [clj-time.core :as time]
             [puppetlabs.kitchensink.core :as kitchensink]
             [slingshot.slingshot :refer [throw+]]
@@ -32,10 +33,10 @@
 
 (defn- metadata-rx [valid-commands]
   (re-pattern (str
-               "([0-9]+)_("
-               (str/join "|" (map #(format "(?:%s)" (re-quote-replacement %))
-                                  valid-commands))
-               ")_([0-9]+)_(.*)\\.json")))
+                "([0-9]+)_("
+                (str/join "|" (map #(format "(?:%s)" (re-quote-replacement %))
+                                   valid-commands))
+                ")_([0-9]+)_(.*)\\.json")))
 
 (defn metadata-parser
   ([] (metadata-parser metadata-command-names))
@@ -52,6 +53,13 @@
                :certname certname}))))))
 
 (def parse-metadata (metadata-parser))
+
+(def parse-cmd-filename
+  (let [parse-metadata (metadata-parser (cons "unknown" metadata-command-names))]
+    (fn [s]
+      (let [rx #"([0-9]+)-(.*)"]
+        (when-let [[_ id qmeta] (re-matches rx s)]
+          (parse-metadata qmeta))))))
 
 (defrecord CommandRef [id command version certname received callback annotations delete?])
 
@@ -108,7 +116,7 @@
   [q command]
   (stock/discard q (:entry command)))
 
-(deftype SortedCommandBuffer [^TreeMap fifo-queue ^HashMap certnames-map ^long max-entries]
+(deftype SortedCommandBuffer [^TreeMap fifo-queue ^HashMap certnames-map ^long max-entries ^clojure.lang.IFn delete-update-fn]
   async-protos/Buffer
   (full? [this]
     (>= (.size fifo-queue) max-entries))
@@ -134,7 +142,8 @@
         (when-let [^CommandRef old-command (.get certnames-map [command-type certname])]
           (.put fifo-queue
                 (:id old-command)
-                (assoc old-command :delete? true)))
+                (assoc old-command :delete? true))
+          (delete-update-fn (:command old-command) (:version old-command)))
         (.put certnames-map [command-type certname] cmdref))
       (.put fifo-queue (:id cmdref) cmdref))
     this)
@@ -144,5 +153,11 @@
   (count [this]
     (.size fifo-queue)))
 
-(defn sorted-command-buffer [^long n]
-  (SortedCommandBuffer. (TreeMap.) (HashMap.) n))
+(defn sorted-command-buffer
+  ([^long n]
+   (sorted-command-buffer n (constantly nil)))
+  ([^long n ^clojure.lang.IFn delete-update-fn]
+   ;; accepting a function here is a hack to get around a cyclic dependency
+   ;; between this ns, mq-listener.clj, and dlo.clj. My hope is we'll be able
+   ;; to get rid of it somehow when we refactor mq-listener and command.clj.
+   (SortedCommandBuffer. (TreeMap.) (HashMap.) n delete-update-fn)))
