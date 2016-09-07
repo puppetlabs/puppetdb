@@ -167,3 +167,48 @@
        (is (= 1 (metval "unknown" :messages)))
        (is (= cmd-size (regval "unknown.filesize")))
        (is (= cmd-size (metval "unknown" :filesize)))))))
+
+(deftest initialize-with-existing-messages
+  (call-with-temp-dir-path
+   (get-path "target")
+   "pdb-test-"
+   (fn [tmpdir]
+     (let [dlo-path (.resolve tmpdir "dlo")
+           cat-size (atom nil)
+           unk-bytes (.getBytes "what a mess" "UTF-8")
+           unk-size (count unk-bytes)]
+       ;; Discard a couple of things
+       (let [reg (:registry (new-metrics "puppetlabs.puppetdb.dlo" :jmx? false))
+             dlo (dlo/initialize dlo-path reg)
+             q (stock/create (.resolve tmpdir "q"))]
+         (let [cmdref (store-catalog q dlo)]
+           (reset! cat-size (->> cmdref cmdref->entry (entry->bytes q) count))
+           (dlo/discard-cmdref cmdref q dlo))
+         (dlo/discard-bytes unk-bytes
+                            1 (timestamp)
+                            [{:time (timestamp) :exception (Exception. "thud-3")}
+                             {:time (timestamp) :exception (Exception. "thud-2")}
+                             {:time (timestamp) :exception (Exception. "thud-1")}]
+                            dlo))
+       ;; See if initialize finds them
+       (let [reg (:registry (new-metrics "puppetlabs.puppetdb.dlo" :jmx? false))
+             dlo (dlo/initialize dlo-path reg)
+             cat-size @cat-size
+             glob-size (+ cat-size unk-size)
+             regval (partial reg-counter-val reg)
+             metval (fn [& names] (apply met-counter-val @(:metrics dlo) names))]
+
+         (is (= 2 (regval "global.messages")))
+         (is (= 2 (metval "global" :messages)))
+         (is (= glob-size (regval "global.filesize")))
+         (is (= glob-size (metval "global" :filesize)))
+
+         (is (= 1 (regval "replace catalog.messages")))
+         (is (= 1 (metval "replace catalog" :messages)))
+         (is (= cat-size (regval "replace catalog.filesize")))
+         (is (= cat-size (metval "replace catalog" :filesize)))
+
+         (is (= 1 (regval "unknown.messages")))
+         (is (= 1 (metval "unknown" :messages)))
+         (is (= unk-size (regval "unknown.filesize")))
+         (is (= unk-size (metval "unknown" :filesize))))))))
