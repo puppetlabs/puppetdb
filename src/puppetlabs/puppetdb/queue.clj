@@ -36,10 +36,10 @@
 
 (defn- metadata-rx [valid-commands]
   (re-pattern (str
-                "([0-9]+)_("
-                (str/join "|" (map #(format "(?:%s)" (re-quote-replacement %))
-                                   valid-commands))
-                ")_([0-9]+)_(.*)\\.json")))
+               "([0-9]+)_("
+               (str/join "|" (map #(format "(?:%s)" (re-quote-replacement %))
+                                  valid-commands))
+               ")_([0-9]+)_(.*)\\.json")))
 
 (defn metadata-parser
   ([] (metadata-parser metadata-command-names))
