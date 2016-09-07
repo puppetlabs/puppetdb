@@ -17,35 +17,46 @@
 (def command-names (cons "unknown" queue/metadata-command-names))
 
 (defn- cmd-counters
-  "Adds gauges to the dlo for the given category (e.g. \"all\"
-  \"replace command\").  The gauges will pull their values from the
-  dlo atom's :stats."
+  "Adds gauges to the dlo for the given category (e.g. \"global\"
+  \"replace command\")."
   [registry category]
-  (let [dlo-ns "puppetlabs.puppetdb.dlo"]
-    {:count (counters/counter registry [dlo-ns category "messages"])
-     :size (counters/counter registry [dlo-ns category "filesize"])}))
+  (let [dns "puppetlabs.puppetdb.dlo"]
+    {:messages (counters/counter registry [dns category "messages"])
+     :filesize (counters/counter registry [dns category "filesize"])}))
 
 (defn- update-metrics
   "Updates stats to reflect the receipt of the named command."
   [metrics command size]
-  (let [all (metrics "global")
+  (let [global (metrics "global")
         cmd (metrics command)]
-    (counters/inc! (:count all))
-    (counters/inc! (:size all) size)
-    (counters/inc! (:count cmd))
-    (counters/inc! (:size cmd) size)))
+    (counters/inc! (:messages global))
+    (counters/inc! (:filesize global) size)
+    (counters/inc! (:messages cmd))
+    (counters/inc! (:filesize cmd) size))
+  metrics)
 
-(defn- update-metrics-from-path
+(defn- ensure-cmd-metrics [metrics registry cmd]
+  (if (metrics cmd)
+    metrics
+    (assoc metrics cmd (cmd-counters registry cmd))))
+
+(defn- metrics-for-dir
   "Updates metrics to reflect the discarded commands directly inside
   the path; does not recurse."
-  [metrics path]
+  [registry path]
   (with-open [path-stream (Files/newDirectoryStream path)]
-    (doseq [path path-stream]
-      ;; Assume the trailing .json here and in entry-cmd-err-filename below.
-      (let [name (-> path .getFileName str)]
-        (when-let [cmd (:command (and (.endsWith name ".json")
-                                      (parse-cmd-filename name)))]
-          (update-metrics metrics cmd (Files/size path)))))))
+    (reduce (fn [metrics p]
+              ;; Assume the trailing .json here and in
+              ;; entry-cmd-err-filename below.
+              (let [name (-> p .getFileName str)]
+                (if-let [cmd (:command (and (.endsWith name ".json")
+                                            (parse-cmd-filename name)))]
+                  (update-metrics (ensure-cmd-metrics metrics registry cmd)
+                                  cmd
+                                  (Files/size p))
+                  metrics)))
+            {"global" (cmd-counters registry "global")}
+            path-stream)))
 
 (defn- write-failure-metadata
   "Given a (possibly empty) sequence of command attempts and an exception,
@@ -110,10 +121,9 @@
     (catch FileAlreadyExistsException ex
       (when-not (Files/isDirectory path (make-array LinkOption 0))
         (throw (Exception. (trs "DLO path {0} is not a directory" path))))))
-  (let [metrics (into {} (for [x (cons "global" command-names)]
-                           [x (cmd-counters registry x)]))]
-    (update-metrics-from-path metrics path)
-    {:path path :metrics metrics}))
+  {:path path
+   :registry registry
+   :metrics (atom (metrics-for-dir registry path))})
 
 (defn discard-cmdref
   "Stores information about the failed `stockpile` `cmdref` to the
@@ -126,7 +136,7 @@
   `stockpile` queue to the `dlo` directory (a Path) via
   stockpile/discard.  Returns {:info Path :command Path}."
   [cmdref stockpile dlo]
-  (let [{:keys [path metrics]} dlo
+  (let [{:keys [path registry metrics]} dlo
         {:keys [command received attempts]} cmdref
         entry (cmdref->entry cmdref)
         cmd-dest (.resolve path (entry-cmd-data-filename entry))]
@@ -140,7 +150,8 @@
           info-dest (store-failed-command-info id metadata command
                                                attempts
                                                path)]
-      (update-metrics metrics command (Files/size cmd-dest))
+      (swap! metrics ensure-cmd-metrics registry command)
+      (update-metrics @metrics command (Files/size cmd-dest))
       {:info info-dest
        :command cmd-dest})))
 
@@ -158,7 +169,7 @@
   ;; don't care about the possibility of partial dlo messages.  If
   ;; needed, the existence of the err file can be used as an
   ;; indicator that the unknown message may be complete.
-  (let [{:keys [path metrics]} dlo
+  (let [{:keys [path registry metrics]} dlo
         digest (digest/sha1 [bytes])
         metadata (metadata-str received "unknown" 0 digest)
         cmd-dest (.resolve path (str id \- metadata))]
@@ -166,5 +177,6 @@
     (let [info-dest (store-failed-command-info id metadata "unknown"
                                                attempts
                                                path)]
-      (update-metrics metrics "unknown" (Files/size cmd-dest))
+      (swap! metrics ensure-cmd-metrics registry "unknown")
+      (update-metrics @metrics "unknown" (Files/size cmd-dest))
       {:info info-dest :command cmd-dest})))
