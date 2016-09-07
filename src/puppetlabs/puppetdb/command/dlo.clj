@@ -42,10 +42,10 @@
   (with-open [path-stream (Files/newDirectoryStream path)]
     (doseq [path path-stream]
       ;; Assume the trailing .json here and in entry-cmd-err-filename below.
-      (when-let [cmd (:command
-                      (and (.endsWith path ".json")
-                           (parse-cmd-filename (-> path .getFileName str))))]
-        (update-metrics metrics cmd (Files/size path))))))
+      (let [name (-> path .getFileName str)]
+        (when-let [cmd (:command (and (.endsWith name ".json")
+                                      (parse-cmd-filename name)))]
+          (update-metrics metrics cmd (Files/size path)))))))
 
 (defn- write-failure-metadata
   "Given a (possibly empty) sequence of command attempts and an exception,

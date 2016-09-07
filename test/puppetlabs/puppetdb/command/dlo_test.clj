@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.command.dlo-test
   (:require
+   [clj-time.coerce :as coerce-time]
    [clojure.java.io :as io]
    [clojure.string :as str]
    [clojure.test :refer :all]

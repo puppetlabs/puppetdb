@@ -50,8 +50,11 @@
      (fn [s]
        (when-let [[_ stamp command version certname] (re-matches rx s)]
          (and certname
-              {:stamp stamp
-               :version version
+              {:received (-> stamp
+                             Long/parseLong
+                             tcoerce/from-long
+                             kitchensink/timestamp)
+               :version (Long/parseLong version)
                :command command
                :certname certname}))))))
 
@@ -70,17 +73,12 @@
   (stock/entry id (metadata-str received command version certname)))
 
 (defn entry->cmdref [entry]
-  (let [{:keys [stamp command version certname]} (-> entry
-                                                     stock/entry-meta
-                                                     parse-metadata)
-        received (-> stamp
-                     Long/parseLong
-                     tcoerce/from-long
-                     kitchensink/timestamp)]
-
+  (let [{:keys [received command version certname]} (-> entry
+                                                        stock/entry-meta
+                                                        parse-metadata)]
     (map->CommandRef {:id (stock/entry-id entry)
                       :command command
-                      :version (Long/parseLong version)
+                      :version version
                       :certname certname
                       :received received
                       :callback identity
