@@ -85,11 +85,15 @@
   (with-pdb-with-no-gc
     (let [pdb (get-service *server* :PuppetDBServer)
           orig-clean @#'cli-svc/clean-puppetdb
+          after-clean (CyclicBarrier. 2)
           orig-clear @#'cli-svc/clear-clean-status!
           before-clear (CyclicBarrier. 2)
           after-test (CyclicBarrier. 2)
           after-clear (CyclicBarrier. 2)]
-      (with-redefs [cli-svc/clear-clean-status! (fn [& args]
+      (with-redefs [cli-svc/clean-puppetdb (fn [& args]
+                                             (apply orig-clean args)
+                                             (.await after-clean))
+                    cli-svc/clear-clean-status! (fn [& args]
                                                   (.await before-clear)
                                                   (.await after-test)
                                                   (apply orig-clear args)
@@ -105,7 +109,8 @@
               (is (= expected (clean-status)))
               (finally
                 (.await after-test)
-                (.await after-clear)))))))))
+                (.await after-clear)
+                (.await after-clean)))))))))
 
 (defn- inc-requested [counts requested]
   (into {}
