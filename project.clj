@@ -12,7 +12,7 @@
 (def tk-version "1.4.1")
 (def tk-jetty9-version "1.5.9")
 (def ks-version "1.3.1")
-(def tk-status-version "0.4.0")
+(def tk-status-version "0.5.0")
 (def i18n-version "0.4.3")
 
 (def pdb-jvm-opts
