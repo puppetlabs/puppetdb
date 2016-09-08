@@ -16,8 +16,7 @@
    [puppetlabs.puppetdb.testutils.nio :refer [call-with-temp-dir-path]]
    [puppetlabs.stockpile.queue :as stock])
   (import
-   [java.nio.file Files]
-   [java.util Arrays]))
+   [java.nio.file Files]))
 
 (defn reg-counter-val [registry suffix]
   (let [mname (str "puppetlabs.puppetdb.dlo." suffix)]
@@ -28,16 +27,9 @@
   (when-let [m (get-in metrics names)]
     (counters/value m)))
 
-(defn entry->bytes [q entry]
-  (let [result (java.io.ByteArrayOutputStream.)
-        buf (byte-array (* 4 1024))]
-    (with-open [stream (stock/stream q entry)]
-      (loop [n (.read stream buf)]
-        (if (= -1 n)
-          (.toByteArray result)
-          (do
-            (.write result buf 0 n)
-            (recur (.read stream buf))))))))
+(defn entry->str [q entry]
+  (with-open [stream (stock/stream q entry)]
+    (slurp stream)))
 
 (defn store-catalog [q dlo]
   (let [cmd (get-in wire-catalogs [9 :basic])
@@ -60,7 +52,7 @@
            dlo (dlo/initialize (.resolve tmpdir "dlo") reg)
            cmd (get-in wire-catalogs [9 :basic])
            cmdref (store-catalog q dlo)
-           content (entry->bytes q (cmdref->entry cmdref))
+           content (entry->str q (cmdref->entry cmdref))
            cmd-size (count content)
            regval (partial reg-counter-val reg)
            metval (fn [& names] (apply met-counter-val @(:metrics dlo) names))]
@@ -93,8 +85,7 @@
                #(err-attempt-line? 1 %)
                #(= "java.lang.Exception: thud-1" %)]
               (-> (:info discards) .toFile io/reader line-seq)))
-         (is (Arrays/equals content
-                            (Files/readAllBytes (:command discards)))))
+         (is (= content (slurp (.toFile (:command discards))))))
 
        (is (= 1 (regval "global.messages")))
        (is (= 1 (metval "global" :messages)))
@@ -118,7 +109,8 @@
    (fn [tmpdir]
      (let [reg (:registry (new-metrics "puppetlabs.puppetdb.dlo" :jmx? false))
            dlo (dlo/initialize (.resolve tmpdir "dlo") reg)
-           cmd-bytes (.getBytes "what a mess" "UTF-8")
+           cmd-str "what a mess"
+           cmd-bytes (.getBytes cmd-str "UTF-8")
            cmd-size (count cmd-bytes)
            regval (partial reg-counter-val reg)
            metval (fn [& names] (apply met-counter-val @(:metrics dlo) names))]
@@ -150,8 +142,7 @@
                #(err-attempt-line? 1 %)
                #(= "java.lang.Exception: thud-1" %)]
               (-> (:info discards) .toFile io/reader line-seq)))
-         (is (Arrays/equals cmd-bytes
-                            (Files/readAllBytes (:command discards)))))
+         (is (= cmd-str (slurp (.toFile (:command discards))))))
 
        (is (= 1 (regval "global.messages")))
        (is (= 1 (metval "global" :messages)))
@@ -182,7 +173,7 @@
              dlo (dlo/initialize dlo-path reg)
              q (stock/create (.resolve tmpdir "q"))]
          (let [cmdref (store-catalog q dlo)]
-           (reset! cat-size (->> cmdref cmdref->entry (entry->bytes q) count))
+           (reset! cat-size (->> cmdref cmdref->entry (entry->str q) count))
            (dlo/discard-cmdref cmdref q dlo))
          (dlo/discard-bytes unk-bytes
                             1 (timestamp)
