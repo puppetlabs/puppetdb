@@ -78,16 +78,12 @@
             [robert.hooke :as rh]
             [schema.core :as s]
             [slingshot.slingshot :refer [throw+ try+]]
-            [stockpile :as stock]
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.queue :as queue])
   (:import [javax.jms ExceptionListener]
-           [java.nio.file Files LinkOption]
            [java.util.concurrent.locks ReentrantLock]
-           [org.joda.time Period]
-           [java.nio.file Files]
-           [java.nio.file.attribute FileAttribute]))
+           [org.joda.time Period]))
 
 (def cli-description "Main PuppetDB daemon")
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
@@ -267,6 +263,8 @@
     (.close ds))
   (when-let [pool (:job-pool context)]
     (stop-and-reset-pool! pool))
+  (when-let [command-loader (:command-loader context)]
+    (future-cancel command-loader))
   context)
 
 (defn initialize-schema
@@ -308,23 +306,6 @@
       result
       (recur db-spec))))
 
-(defn create-or-open-stockpile [queue-dir command-chan]
-  (let [stockpile-root (kitchensink/absolute-path queue-dir)
-        queue-path (get-path stockpile-root "cmd")]
-    (if (Files/exists queue-path (make-array LinkOption 0))
-      (first (stock/open queue-path
-                         (fn [chan entry]
-                           (let [{:keys [command version] :as cmdref} (queue/entry->cmdref entry)]
-                             (async/>!! chan cmdref)
-                             (mql/create-metrics-for-command! command version)
-                             (mql/update-counter! :depth command version inc!)
-                             chan))
-                         command-chan))
-      (do
-        (Files/createDirectories (get-path stockpile-root)
-                                 (make-array FileAttribute 0))
-        (stock/create queue-path)))))
-
 (defn start-puppetdb
   [context config service get-registered-endpoints]
   {:pre [(map? context)
@@ -359,15 +340,19 @@
                              max-enqueued
                              #(mql/update-counter! :invalidated %1 %2 inc!))
                           max-enqueued))
+          [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config))
           globals {:scf-read-db read-db
                    :scf-write-db write-db
                    :pretty-print pretty-print
-                   :q (create-or-open-stockpile stockdir command-chan)
+                   :q q
                    :dlo (dlo/initialize (get-path stockdir "discard")
                                         (get-in metrics-registries
                                                 [:dlo :registry]))
                    :command-chan command-chan}
-          clean-lock (ReentrantLock.)]
+          clean-lock (ReentrantLock.)
+          command-loader (when load-messages
+                           (future
+                             (load-messages command-chan mql/inc-cmd-metrics)))]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)
@@ -401,7 +386,8 @@
         (assoc context
                :job-pool job-pool
                :shared-globals globals
-               :clean-lock clean-lock)))))
+               :clean-lock clean-lock
+               :command-loader command-loader)))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])

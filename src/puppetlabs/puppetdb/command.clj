@@ -481,9 +481,8 @@
           result (do-enqueue-command q command-chan write-semaphore command
                                      version certname command-stream command-callback)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
-      (mql/create-metrics-for-command! command version)
+      (mql/inc-cmd-metrics command version)
       (swap! (:stats (service-context this)) update :received-commands inc)
-      (mql/update-counter! :depth command version inc!)
       result))
 
   (response-mult [this]

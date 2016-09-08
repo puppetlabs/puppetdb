@@ -6,7 +6,10 @@
             [clj-time.core :as time]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
-            [clojure.core.async :as async]))
+            [puppetlabs.puppetdb.testutils :as tu]
+            [clojure.core.async :as async]
+            [puppetlabs.puppetdb.testutils.nio :as nio]
+            [puppetlabs.puppetdb.nio :refer [get-path]]))
 
 (deftest test-metadata
   (tqueue/with-stockpile q
@@ -124,3 +127,61 @@
 
       (is (= foo-cmd-1 (async/<!! c)))
       (is (= foo-cmd-2 (async/<!! c))))))
+
+(deftest test-loading-existing-messages
+  (testing "loading existing messages into a channel"
+    (nio/call-with-temp-dir-path
+     (get-path "target")
+     (str *ns*)
+     (fn [temp-path]
+       (let [[q load-messages] (create-or-open-stockpile temp-path)]
+
+         (is (nil? load-messages))
+         (tqueue/store-command q "replace catalog" 1 "foo1" {:message "payload 1"})
+         (tqueue/store-command q "replace catalog" 1 "foo2" {:message "payload 2"})
+         (tqueue/store-command q "replace catalog" 1 "foo3" {:message "payload 3"})
+         (tqueue/store-command q "replace catalog" 1 "foo4" {:message "payload 4"}))
+
+       (let [[q load-messages] (create-or-open-stockpile temp-path)
+             command-chan (async/chan 4)
+             cc (tu/call-counter)]
+
+         (load-messages command-chan cc)
+
+         (is (= #{"foo1" "foo2" "foo3" "foo4"}
+                (set (map :certname (repeatedly 4 #(async/poll! command-chan))))))
+
+         (is (= 4 (tu/times-called cc)))
+         (is (= (repeat 4 ["replace catalog" 1])
+                (tu/args-supplied cc)))
+
+         (is (nil? (async/poll! command-chan)))))))
+
+  (testing "adding new commands while loading existing commands"
+    (nio/call-with-temp-dir-path
+     (get-path "target")
+     (str *ns*)
+     (fn [temp-path]
+       (let [[q load-messages] (create-or-open-stockpile temp-path)]
+
+         (is (nil? load-messages))
+         (tqueue/store-command q "replace catalog" 1 "foo1" {:message "payload 1"})
+         (tqueue/store-command q "replace catalog" 1 "foo2" {:message "payload 2"}))
+
+       (let [[q load-messages] (create-or-open-stockpile temp-path)
+             command-chan (async/chan 4)
+             cc (tu/call-counter)]
+
+         (tqueue/store-command q "replace catalog" 1 "foo3" {:message "payload 3"})
+         (tqueue/store-command q "replace catalog" 1 "foo4" {:message "payload 4"})
+
+         (load-messages command-chan cc)
+
+         (is (= 2 (tu/times-called cc)))
+         (is (= (repeat 2 ["replace catalog" 1])
+                (tu/args-supplied cc)))
+
+         (is (= #{"foo1" "foo2"}
+                (set (map :certname (repeatedly 2 #(async/poll! command-chan))))))
+
+         (is (not (async/poll! command-chan))))))))

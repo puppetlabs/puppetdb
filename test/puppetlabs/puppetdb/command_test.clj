@@ -31,6 +31,7 @@
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
             [slingshot.slingshot :refer [throw+ try+]]
+            [slingshot.test]
             [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :as pt]
@@ -38,7 +39,7 @@
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as ks]
             [clojure.string :as str]
-            [stockpile :as stock]
+            [puppetlabs.stockpile.queue :as stock]
             [puppetlabs.puppetdb.testutils.nio :as nio]
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
             [puppetlabs.puppetdb.queue :as queue]
@@ -260,8 +261,8 @@
               cmdref (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
           (is (:payload (queue/cmdref->cmd q cmdref)))
           (mh cmdref)
-          (is (thrown-with-msg? java.nio.file.NoSuchFileException
-                                #"catalog"
+          (is (thrown+-with-msg? [:kind :puppetlabs.stockpile.queue/no-such-entry]
+                                #"No file found"
                                 (queue/cmdref->cmd q cmdref)))))))
 
   (testing "Failures do not cause messages to be acknowledged"
