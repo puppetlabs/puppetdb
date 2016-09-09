@@ -18,7 +18,6 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.mq :as mq]
             [clj-time.format :as time]
             [clj-time.core :refer [now before?]]
             [clj-time.coerce :as tcoerce]

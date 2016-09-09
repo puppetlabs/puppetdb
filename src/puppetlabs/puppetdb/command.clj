@@ -62,7 +62,6 @@
             [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.facts :as fact]
-            [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -79,12 +78,13 @@
             [clj-time.core :refer [now]]
             [clojure.set :as set]
             [clojure.core.async :as async]
-            [puppetlabs.puppetdb.mq :as mq]
             [metrics.timers :refer [timer time!]]
             [metrics.counters :refer [inc!]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.queue :as queue]
-            [clj-time.coerce :as tcoerce]))
+            [clj-time.coerce :as tcoerce]
+            [puppetlabs.puppetdb.cli.shovel :as shovel]
+            [puppetlabs.puppetdb.command.dlo :as dlo]))
 
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
@@ -430,6 +430,11 @@
                  (make-cmd-processed-message cmd ex))
       (throw ex))))
 
+(defn upgrade-activemq [config enqueue-fn dlo]
+  (when (shovel/needs-upgrade? config)
+    (shovel/activemq->stockpile config enqueue-fn dlo)
+    (shovel/lock-upgrade config)))
+
 (defservice command-service
   PuppetDBCommandDispatcher
   [[:DefaultedConfig get-config]
@@ -451,11 +456,16 @@
              :response-pub (async/pub response-chan-for-pub :id))))
 
   (start [this context]
-    (let [{:keys [scf-write-db]} (shared-globals)
+    (let [{:keys [scf-write-db dlo q]} (shared-globals)
           {:keys [response-chan response-pub]} context]
       (register-listener
        supported-command?
        #(process-command-and-respond! % scf-write-db response-chan (:stats context)))
+
+      (upgrade-activemq (get-config)
+                        (partial enqueue-command this)
+                        dlo)
+
       context))
 
   (stop [this context]

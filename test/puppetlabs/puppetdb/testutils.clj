@@ -420,7 +420,10 @@
       (invoke [_ _ _ _ _ _ _ _ _] (reset! was-called true))
 
       test-protos/IMockFn
-      (called? [_] @was-called))))
+      (called? [_] @was-called)
+
+     clojure.lang.IDeref
+     (deref [_] @was-called))))
 
 (defn pprint-str
   "Pprints `x` to a string and returns that string"
