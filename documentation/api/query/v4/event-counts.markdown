@@ -130,6 +130,37 @@ When summarizing by `containing_class`, the `subject` will contain a `title` key
       }
     ]
 
+#### Puppet Enterprise
+
+In PE, the `successes` and `noops` counts are subdivided into intentional and corrective parts.
+Events are mapped to the corresponding counts based on the value of `corrective_change` flag.
+
+    [
+      {
+        "subject_type": "certname",
+        "subject": { "title": "foo.local" },
+        "failures": 0,
+        "intentional_successes": 2,
+        "corrective_successes": 0,
+        "intentional_noops": 0,
+        "corrective_noops": 0,
+        "skips": 1
+      },
+      {
+        "subject_type": "certname",
+        "subject": { "title": "bar.local" },
+        "failures": 1,
+        "intentional_successes": 0,
+        "corrective_successes": 0,
+        "intentional_noops": 0,
+        "corrective_noops": 0,
+        "skips": 1
+      }
+    ]
+
+`intentional_successes`, `corrective_successes`, `intentional_noops`, and `corrective_noops` fields
+can be used in `counts_filter` too.
+
 ### Examples
 
 You can use [`curl`][curl] to query information about resource event counts:
