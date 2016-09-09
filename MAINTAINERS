@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "file_format": "This MAINTAINERS file format is described at http://pup.pt/maintainers",
+  "issues": "https://tickets.puppetlabs.com/browse/PDB",
+  "people": [
+    {
+      "github": "senior",
+      "email": "ryan.senior@puppet.com",
+      "name": "Ryan Senior"
+    },
+    {
+      "github": "wkalt",
+      "email": "wyatt@puppet.com",
+      "name": "Wyatt Alt"
+    },
+    {
+      "github": "kbarber",
+      "email": "ken@puppet.com",
+      "name": "Ken Barber"
+    },
+    {
+      "github": "ajroetker",
+      "email": "andrew.roetker@puppet.com",
+      "name": "Andrew Roetker"
+    },
+    {
+      "github": "mullr",
+      "email": "russell.mull@puppet.com",
+      "name": "Russell Mull"
+    },
+    {
+      "github": "rbrw",
+      "email": "rlb@puppet.com",
+      "name": "Rob Browning"
+    },
+    {
+      "github": "nicklewis",
+      "email": "nick@puppet.com",
+      "name": "Nick Lewis"
+    },
+    {
+      "github": "cprice404",
+      "email": "chris@puppet.com",
+      "name": "Chris Price"
+    }
+  ]
+}
