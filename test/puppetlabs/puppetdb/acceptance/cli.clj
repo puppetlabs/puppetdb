@@ -4,7 +4,7 @@
             [puppetlabs.puppetdb.cli.export :as cli-export]
             [puppetlabs.puppetdb.cli.import :as cli-import]
             [puppetlabs.puppetdb.anonymizer :as anon]
-            [puppetlabs.puppetdb.command :as command]
+            [puppetlabs.puppetdb.command.constants :as cmd-consts]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.facts :as tuf]
             [puppetlabs.puppetdb.testutils.reports :as tur]
@@ -24,11 +24,11 @@
          (is (empty? (get-nodes)))
 
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "replace catalog" command/latest-catalog-version example-catalog)
+                                      "replace catalog" cmd-consts/latest-catalog-version example-catalog)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "store report" command/latest-report-version example-report)
+                                      "store report" cmd-consts/latest-report-version example-report)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "replace facts" command/latest-facts-version example-facts)
+                                      "replace facts" cmd-consts/latest-facts-version example-facts)
 
          (is (= (tuc/munge-catalog example-catalog)
                 (tuc/munge-catalog (get-catalogs example-certname))))

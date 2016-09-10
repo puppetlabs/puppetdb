@@ -14,8 +14,6 @@
     FileAlreadyExistsException Files LinkOption]
    [java.nio.file.attribute FileAttribute]))
 
-(def command-names (cons "unknown" queue/metadata-command-names))
-
 (defn- cmd-counters
   "Adds gauges to the dlo for the given category (e.g. \"global\"
   \"replace command\")."

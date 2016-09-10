@@ -12,6 +12,7 @@
             [puppetlabs.puppetdb.factsets :as factsets]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.command :as command]
+            [puppetlabs.puppetdb.command.constants :as command-constants]
             [puppetlabs.puppetdb.utils :as utils]
             [clj-time.format :as time-fmt]
             [clj-time.coerce :as time-coerce]
@@ -20,10 +21,8 @@
 
 (def export-metadata-file-name "export-metadata.json")
 (def query-api-version :v4)
-(def latest-command-versions
-  {:replace_catalog command/latest-catalog-version
-   :store_report command/latest-report-version
-   :replace_facts command/latest-facts-version})
+(def latest-command-versions command-constants/latest-command-versions)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utility Functions
 
