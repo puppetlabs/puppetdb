@@ -7475,8 +7475,8 @@
         "title" : "import puppet labs apt key",
         "line" : 30,
         "parameters" : {
-            "command" : "/usr/bin/wget -q -O - http://apt.puppetlabs.com/debian/pubkey.gpg | /usr/bin/apt-key add -",
-            "unless" : "/usr/bin/apt-key list | grep -q 4BD6EC30",
+            "command" : "/usr/bin/wget -q -O - http://apt.puppetlabs.com/pubkey.gpg | /usr/bin/apt-key add -",
+            "unless" : "/usr/bin/apt-key list | grep -q EF8D349F",
             "before" : "Exec[apt-get update]",
             "user" : "root"
         },
