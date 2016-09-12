@@ -15,6 +15,30 @@ canonical: "/puppetdb/latest/release_notes.html"
 [pqltutorial]: ./api/query/tutorial-pql.html
 
 
+
+4.2.2
+-----
+PuppetDB 4.2.2 is a minor bugfix release.
+
+### Bug fixes:
+
+* Migrations from versions before 4.2.0 should no longer cause out of memory
+  errors on small heaps or large databases.
+  ([PDB-2997](https://tickets.puppetlabs.com/browse/PDB-2997))
+
+* Our internationalization library uses less CPU than before.
+  ([PDB-2985](https://tickets.puppetlabs.com/browse/PDB-2985))
+
+### Documentation:
+
+* PQL documentation has been updated with more examples and better structure.
+  ([ORCH-1491](https://tickets.puppetlabs.com/browse/ORCH-1491))
+
+### Contributors
+
+Ken Barber, Melissa Stone, Rob Browning, Ryan Senior, Wyatt Alt
+
+
 4.2.1
 -----
 PuppetDB 4.2.1 is a minor bugfix release.
