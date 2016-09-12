@@ -16,7 +16,8 @@
             [slingshot.slingshot :refer [throw+]]
             [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as async-protos]
-            [puppetlabs.puppetdb.nio :refer [get-path]]))
+            [puppetlabs.puppetdb.nio :refer [get-path]]
+            [puppetlabs.puppetdb.utils :refer [match-any-of]]))
 
 (def metadata-command-names
   (vals constants/command-names))
@@ -36,10 +37,9 @@
 
 (defn metadata-rx [valid-commands]
   (re-pattern (str
-               "([0-9]+)_("
-               (str/join "|" (map #(format "(?:%s)" (re-quote-replacement %))
-                                  valid-commands))
-               ")_([0-9]+)_(.*)\\.json")))
+               "([0-9]+)_"
+               (match-any-of valid-commands)
+               "_([0-9]+)_(.*)\\.json")))
 
 (defn metadata-parser
   ([] (metadata-parser metadata-command-names))
