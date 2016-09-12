@@ -6,8 +6,7 @@
    [puppetlabs.i18n.core :refer [trs]]
    [puppetlabs.kitchensink.core :refer [timestamp]]
    [puppetlabs.puppetdb.nio :refer [copts copt-atomic copt-replace oopts]]
-   [puppetlabs.puppetdb.queue :as queue
-    :refer [cmdref->entry metadata-str parse-cmd-filename]]
+   [puppetlabs.puppetdb.queue :as q]
    [puppetlabs.stockpile.queue :as stock])
   (:import
    [java.nio.file AtomicMoveNotSupportedException
@@ -48,7 +47,7 @@
               ;; entry-cmd-err-filename below.
               (let [name (-> p .getFileName str)]
                 (if-let [cmd (:command (and (.endsWith name ".json")
-                                            (parse-cmd-filename name)))]
+                                            (q/parse-cmd-filename name)))]
                   (update-metrics (ensure-cmd-metrics metrics registry cmd)
                                   cmd
                                   (Files/size p))
@@ -140,7 +139,7 @@
   [cmdref stockpile dlo]
   (let [{:keys [path registry metrics]} dlo
         {:keys [command received attempts]} cmdref
-        entry (cmdref->entry cmdref)
+        entry (q/cmdref->entry cmdref)
         cmd-dest (.resolve path (entry-cmd-data-filename entry))]
     ;; We're going to assume that our moves will be atomic, and if
     ;; they're not, that we don't care about the possibility of
@@ -173,7 +172,7 @@
   ;; indicator that the unknown message may be complete.
   (let [{:keys [path registry metrics]} dlo
         digest (digest/sha1 [bytes])
-        metadata (metadata-str received "unknown" 0 digest)
+        metadata (q/metadata-str received "unknown" 0 digest)
         cmd-dest (.resolve path (str id \- metadata))]
     (Files/write cmd-dest bytes (oopts []))
     (let [info-dest (store-failed-command-info id metadata "unknown"
