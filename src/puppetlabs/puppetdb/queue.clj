@@ -8,7 +8,8 @@
             [puppetlabs.stockpile.queue :as stock]
             [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.command.constants :as constants]
+            [puppetlabs.puppetdb.command.constants :as command-constants]
+            [puppetlabs.puppetdb.constants :as constants]
             [metrics.timers :refer [timer time!]]
             [metrics.counters :refer [inc!]]
             [clj-time.core :as time]
@@ -17,10 +18,11 @@
             [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as async-protos]
             [puppetlabs.puppetdb.nio :refer [get-path]]
-            [puppetlabs.puppetdb.utils :refer [match-any-of]]))
+            [puppetlabs.puppetdb.utils :refer [match-any-of utf8-length
+                                               utf8-truncate]]))
 
 (def metadata-command-names
-  (vals constants/command-names))
+  (vals command-constants/command-names))
 
 (defn stream->json [^InputStream stream]
   (try
@@ -31,9 +33,73 @@
     (catch Exception e
       (throw+ {:kind ::parse-error} e "Error parsing command"))))
 
+(defn sanitize-certname
+  "Replace any underscores and filename forbidden characters found in `certname`
+  with dashes."
+  [certname]
+  (let [forbidden-chars (conj constants/filename-forbidden-characters
+                              "_")]
+    (str/replace
+      certname
+      (re-pattern (str "("
+                       (->> forbidden-chars
+                           (map #(format "\\Q%s\\E" %)) ; escape regex chars
+                           (str/join "|"))
+                       ")"))
+      "-")))
+
+(defn max-certname-length
+  "Given the received-at time, command and command version for a metadata
+  string, returns the maximum allowable length (in bytes) of a certname in that
+  string. Note that this length is only achievable if the certname does not
+  need to be sanitized, since sanitized certnames always have a SHA1 hash
+  appended."
+  [received command version]
+  (let [time-length (-> received tcoerce/to-long str utf8-length)
+        command-length (utf8-length command)
+        version-length (utf8-length (str version))
+        field-separators 3]
+    (- 255 ; overall filename length limit
+       time-length command-length version-length
+       3 ; number of field separators (underscores)
+       5))) ; length of '.json' suffix in UTF-8
+
+(defn truncated-certname-length
+  "Given the received-at time, command, and command version that will be in
+  a metadata string, returns the length (in bytes) to truncate certnames to when
+  they are longer than the `max-certname-length` for the string or they contain
+  characters that must be sanitized. This is less than the string's
+  `max-certname-length` to leave space for the SHA1 hash."
+  [received command version]
+  (- (max-certname-length received command version)
+     1 ; for the additional field separator between certname and hash
+     constants/sha1-hex-length))
+
+(defn embeddable-certname
+  "Takes all the components of a metadata string, and returns a version of the
+  certname that's safe to embed in the metadata string. It will be sanitized to
+  replace any illegal filesystem characters and underscores with dashes, and
+  will be truncated if the original version will cause the metadata string to
+  exceed 255 characters."
+  [received command version certname]
+  (let [cn-length (utf8-length certname)
+        trunc-length (truncated-certname-length received command version)
+        sanitized-certname (sanitize-certname certname)]
+    (if (or (> cn-length (max-certname-length received command version))
+            (and (not= certname sanitized-certname)
+                 (> cn-length trunc-length)))
+      (utf8-truncate sanitized-certname trunc-length)
+      sanitized-certname)))
+
 (defn metadata-str [received command version certname]
-  (format "%d_%s_%d_%s.json"
-          (tcoerce/to-long received) command version certname))
+  (let [certname (or certname "unknown-host")
+        recvd-long (tcoerce/to-long received)
+        safe-certname (embeddable-certname received command version certname)]
+    (if (= safe-certname certname)
+      (format "%d_%s_%d_%s.json" recvd-long command version safe-certname)
+      (let [name-hash (kitchensink/utf8-string->sha1 certname)]
+        (format "%d_%s_%d_%s_%s.json"
+                recvd-long command version safe-certname name-hash)))))
 
 (defn metadata-rx [valid-commands]
   (re-pattern (str
