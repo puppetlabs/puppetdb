@@ -19,7 +19,8 @@
             [clj-time.coerce :refer [to-string]]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.cheshire :as json]
-            [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]))
+            [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]
+            [puppetlabs.puppetdb.testutils.queue :as tqueue]))
 
 (deftest update-checking
   (let [config-map {:global {:product-name "puppetdb"
@@ -70,15 +71,13 @@
                        "replace facts"
                        4
                        "foo.local"
-                       (-> {:certname "foo.local"
-                            :environment "DEV"
-                            :values {:foo "the foo"
-                                     :bar "the bar"
-                                     :baz "the baz"}
-                            :producer_timestamp (to-string (now))}
-                           json/generate-string
-                           (.getBytes "UTF-8")
-                           java.io.ByteArrayInputStream.))
+                       (tqueue/coerce-to-stream
+                        {:certname "foo.local"
+                         :environment "DEV"
+                         :values {:foo "the foo"
+                                  :bar "the bar"
+                                  :baz "the baz"}
+                         :producer_timestamp (to-string (now))}))
 
       @(block-until-results 200 (first (get-factsets "foo.local")))
 
@@ -108,13 +107,11 @@
                        "replace facts"
                        4
                        "foo.local"
-                       (-> {:certname "foo.local"
-                            :environment "DEV"
-                            :values {:a "a" :b "b" :c "c"}
-                            :producer_timestamp (to-string (now))}
-                           json/generate-string
-                           (.getBytes "UTF-8")
-                           java.io.ByteArrayInputStream.))
+                       (tqueue/coerce-to-stream
+                        {:certname "foo.local"
+                         :environment "DEV"
+                         :values {:a "a" :b "b" :c "c"}
+                         :producer_timestamp (to-string (now))}))
 
       @(block-until-results 200 (first (get-factsets "foo.local")))
       (let [exp ["a" "b" "c"]

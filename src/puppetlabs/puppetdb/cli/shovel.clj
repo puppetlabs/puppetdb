@@ -22,10 +22,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.i18n.core :as i18n]
             [puppetlabs.trapperkeeper.config :as config]
-            [puppetlabs.trapperkeeper.logging :as logutils]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.config :as conf]
-            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.kitchensink.core :as ks]
             [schema.core :as s]))
@@ -92,7 +89,7 @@
   "Converts from the command format that didn't include the certname
   in the toplevel key list and had all the command data with the
   payload key"
-  [headers message-bytes]
+  [message-bytes]
   (let [{:keys [command version] :as old-command} (json/parse-strict message-bytes true)]
     {:command command
      :version (Long/parseLong version)
@@ -116,7 +113,7 @@
      :version (Long/parseLong version)
      :certname certname
      :payload (java.io.ByteArrayInputStream. message-bytes)}
-    (convert-old-command-format headers message-bytes)))
+    (convert-old-command-format message-bytes)))
 
 (defn discard-amq-message [message-bytes id headers exception dlo]
   (let [now (ks/timestamp)]
@@ -202,7 +199,7 @@
                                                (discard-amq-message (convert-message-body msg) (swap! id inc) {} e dlo))))]
           (.send producer request)
           (Thread/sleep 2000)
-          (log/info (i18n/trs "Processing messages from the Scheduler"))
+          (log/info (i18n/trs "Processing messages from the scheduler"))
           (consume-everything consumer process-message-and-remove id))))))
 
 (def default-mq-endpoint "puppetlabs.puppetdb.commands")
@@ -290,7 +287,7 @@
   (try
     (start-broker! (build-embedded-broker brokername dir config))
     (catch java.io.EOFException e
-      (log/error e (i18n/trs "EOF Exception caught during broker start, this might be due to KahaDB corruption. Consult the PuppetDB troubleshooting guide."))
+      (log/error e (i18n/trs "EOF Exception caught during broker start. This might be due to KahaDB corruption. Consult the PuppetDB troubleshooting guide."))
       (throw e))))
 
 (defn ^BrokerService build-and-start-broker!
@@ -329,8 +326,6 @@
   [config]
   (fs/touch (upgrade-lockfile-path (get-in config [:global :vardir]))))
 
-;;
-
 (defn activemq->stockpile
   "Drains the queue found in `cmd-proc-config` and uses `enqueue-fn`
   to resubmit those commands to PuppetDB (running Stockpile). All
@@ -363,11 +358,11 @@
               (log/info (i18n/trs "You may safely delete {0}" mq-dir))
 
               (catch Exception e
-                (log/error e (i18n/trs "Uable to receive ActiveMQ messages. Migration of existing messages failed.")))
+                (log/error e (i18n/trs "Unable to receive ActiveMQ messages. Migration of existing messages failed.")))
               (finally
                 (stop-broker! broker))))
           (catch Exception e
-            (log/error e (i18n/trs "Uable to start ActiveMQ broker. Migration of existing messages failed.")))
+            (log/error e (i18n/trs "Unable to start ActiveMQ broker. Migration of existing messages failed.")))
           (finally
             (.stop conn-pool))))
       (catch Exception e

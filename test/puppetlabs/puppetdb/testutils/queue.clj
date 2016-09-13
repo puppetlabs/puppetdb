@@ -21,17 +21,17 @@
          (delete-dir queue-dir#)))))
 
 (defprotocol CoerceToStream
-  (coerce-to-stream [x]
+  (-coerce-to-stream [x]
     "Converts the given input to the input stream that stockpile requires"))
 
 (extend-protocol CoerceToStream
   java.io.InputStream
-  (coerce-to-stream [x] x)
+  (-coerce-to-stream [x] x)
   String
-  (coerce-to-stream [x]
+  (-coerce-to-stream [x]
     (java.io.ByteArrayInputStream. (.getBytes x "UTF-8")))
   clojure.lang.IEditableCollection
-  (coerce-to-stream [x]
+  (-coerce-to-stream [x]
     (let [baos (java.io.ByteArrayOutputStream.)]
       (with-open [osw (java.io.OutputStreamWriter. baos java.nio.charset.StandardCharsets/UTF_8)]
         (json/generate-stream x osw))
@@ -39,6 +39,9 @@
       (-> baos
           .toByteArray
           java.io.ByteArrayInputStream.))))
+
+(defn coerce-to-stream [x]
+  (-coerce-to-stream x))
 
 (defn store-command [q command-type version certname payload]
   (q/store-command q command-type version certname (coerce-to-stream payload)))

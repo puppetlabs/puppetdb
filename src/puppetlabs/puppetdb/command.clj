@@ -266,7 +266,7 @@
 ;; Fact replacement
 
 (defn replace-facts*
-  [{:keys [payload annotations version] :as command} db]
+  [{:keys [payload annotations] :as command} db]
   (let [{:keys [certname values] :as fact-data} payload
         producer-timestamp (:producer_timestamp fact-data)]
     (jdbc/with-transacted-connection' db :repeatable-read

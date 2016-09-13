@@ -334,12 +334,6 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn stringify-payload
-  "Converts a clojure payload in the command to the stringified
-   JSON structure"
-  [catalog]
-  (update-in catalog [:payload] json/generate-string))
-
 (defn with-env
   "Updates the `row-map` to include environment information."
   [row-map]
@@ -1557,12 +1551,10 @@
           (enqueue-command (command-names :replace-facts)
                            4
                            "foo.local"
-                           (-> {:environment "DEV" :certname "foo.local"
-                                :values {:foo "foo"}
-                                :producer_timestamp (to-string (now))}
-                               json/generate-string
-                               (.getBytes "UTF-8")
-                               java.io.ByteArrayInputStream.))
+                           (tqueue/coerce-to-stream
+                            {:environment "DEV" :certname "foo.local"
+                             :values {:foo "foo"}
+                             :producer_timestamp (to-string (now))}))
           @received-cmd?
           (is (= {:received-commands 1 :executed-commands 0} (stats)))
           (deliver go-ahead-and-execute true)
@@ -1583,10 +1575,8 @@
       (enqueue-command (command-names :deactivate-node)
                        3
                        "foo.local"
-                       (-> {:certname "foo.local" :producer_timestamp input-stamp}
-                           json/generate-string
-                           (.getBytes "UTF-8")
-                           java.io.ByteArrayInputStream.))
+                       (tqueue/coerce-to-stream
+                        {:certname "foo.local" :producer_timestamp input-stamp}))
       (is (svc-utils/wait-for-server-processing svc-utils/*server* 5000))
       ;; While we're here, check the value in the database too...
       (is (= expected-stamp
@@ -1622,10 +1612,8 @@
       (enqueue-command (command-names :deactivate-node)
                        3
                        "foo.local"
-                       (-> {:certname "foo.local" :producer_timestamp producer-ts}
-                           json/generate-string
-                           (.getBytes "UTF-8")
-                           java.io.ByteArrayInputStream.))
+                       (tqueue/coerce-to-stream
+                        {:certname "foo.local" :producer_timestamp producer-ts}))
 
       (let [received-uuid (async/alt!! response-chan ([msg] (:producer-timestamp msg))
                                        (async/timeout 10000) ::timeout)]
@@ -1688,7 +1676,7 @@
                             (:certname base-cmd)
                             (-> base-cmd
                                 (assoc :producer_timestamp old-producer-ts)
-                                tqueue/coerce-to-stream )
+                                tqueue/coerce-to-stream)
                             #(deliver cmd-2 %))
 
            (enqueue-command (command-names :replace-catalog)
@@ -1696,7 +1684,7 @@
                             (:certname base-cmd)
                             (-> base-cmd
                                 (assoc :producer_timestamp new-producer-ts)
-                                tqueue/coerce-to-stream )
+                                tqueue/coerce-to-stream)
                             #(deliver cmd-3 %))
 
            (.release semaphore)
