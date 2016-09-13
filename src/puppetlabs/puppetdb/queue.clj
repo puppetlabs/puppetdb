@@ -126,13 +126,6 @@
 
 (def parse-metadata (metadata-parser))
 
-(def parse-cmd-filename
-  (let [parse-metadata (metadata-parser (cons "unknown" metadata-command-names))]
-    (fn [s]
-      (let [rx #"([0-9]+)-(.*)"]
-        (when-let [[_ id qmeta] (re-matches rx s)]
-          (parse-metadata qmeta))))))
-
 (defrecord CommandRef [id command version certname received callback annotations delete?])
 
 (defn cmdref->entry [{:keys [id command version certname received]}]
