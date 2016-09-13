@@ -1319,14 +1319,16 @@
                         :version 3
                         :payload {:certname "bar.example.com"
                                   :producer_timestamp (now)}}}
-             #_{:certname "bar.example.com"
+             {:certname "bar.example.com"
               :command {:command (command-names :deactivate-node)
                         :version 2
-                        :payload "bar.example.com"}}
-             #_{:certname "bar.example.com"
+                        :payload (json/generate-string "bar.example.com")}}
+             {:certname "bar.example.com"
               :command {:command (command-names :deactivate-node)
                         :version 1
-                        :payload (json/generate-string "bar.example.com")}}]]
+                        :payload (-> "bar.example.com"
+                                     json/generate-string
+                                     json/generate-string)}}]]
 
   (deftest deactivate-node-node-active
     (testing "should deactivate the node"
