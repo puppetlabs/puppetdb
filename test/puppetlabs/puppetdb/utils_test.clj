@@ -109,3 +109,18 @@
   (prop/for-all [w (gen/map underscore-keyword-generator gen/any)]
                 (= w
                    (dash->underscore-keys (underscore->dash-keys w)))))
+
+(deftest test-utf8-truncate
+  (is (= "ಠ" (utf8-truncate "ಠ_ಠ" 3)))
+  (is (= "ಠ_" (utf8-truncate "ಠ_ಠ" 4)))
+  (is (= "ಠ_" (utf8-truncate "ಠ_ಠ" 5)))
+  (is (= "ಠ_" (utf8-truncate "ಠ_ಠ" 6)))
+  (is (= "ಠ_ಠ" (utf8-truncate "ಠ_ಠ" 7)))
+  (is (= "ಠ_ಠ" (utf8-truncate "ಠ_ಠಠ" 8)))
+
+  (testing "when string starts with multi-byte character and is truncated to fewer bytes, yields empty string"
+    (is (= "" (utf8-truncate "ಠ_ಠ" 1)))
+    (is (= "" (utf8-truncate "ಠ_ಠ" 2))))
+
+  (testing "truncation doesn't add extra bytes"
+    (is (= "foo" (utf8-truncate "foo" 256)))))
