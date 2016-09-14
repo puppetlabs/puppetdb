@@ -156,8 +156,7 @@
      ;; parameters are needed and what their ideal value would be in our
      ;; various deployment scenarios
      :concurrent-writes (pls/defaulted-maybe s/Int 100)
-     :max-enqueued (pls/defaulted-maybe s/Int 1000000)
-     :catalog-facts-bash (pls/defaulted-maybe String "false")}))
+     :max-enqueued (pls/defaulted-maybe s/Int 1000000)}))
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"
@@ -171,7 +170,6 @@
    ;;command-processing-in
    :concurrent-writes s/Int
    :max-enqueued s/Int
-   :catalog-facts-bash Boolean
 
    (s/optional-key :memory-usage) s/Int
    (s/optional-key :store-usage) s/Int

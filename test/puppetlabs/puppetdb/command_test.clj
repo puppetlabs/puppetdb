@@ -1636,8 +1636,7 @@
     (svc-utils/call-with-puppetdb-instance
      (assoc (svc-utils/create-temp-config)
             :database *db*
-            :command-processing {:catalog-facts-bash "true"
-                                 :threads 1})
+            :command-processing {:threads 1})
      (fn []
 
        (let [message-listener (get-service svc-utils/*server* :MessageListenerService)
