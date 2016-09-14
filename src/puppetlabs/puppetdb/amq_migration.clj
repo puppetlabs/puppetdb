@@ -1,4 +1,4 @@
-(ns puppetlabs.puppetdb.cli.shovel
+(ns puppetlabs.puppetdb.amq-migration
   (:import [javax.jms
             ExceptionListener
             JMSException

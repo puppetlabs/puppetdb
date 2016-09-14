@@ -1,7 +1,7 @@
-(ns puppetlabs.puppetdb.cli.shovel-test
+(ns puppetlabs.puppetdb.amq-migration-test
   (:import [java.nio.file Files])
   (:require [clojure.test :refer :all]
-            [puppetlabs.puppetdb.cli.shovel :refer :all]
+            [puppetlabs.puppetdb.amq-migration :refer :all]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]

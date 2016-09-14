@@ -83,7 +83,7 @@
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.queue :as queue]
             [clj-time.coerce :as tcoerce]
-            [puppetlabs.puppetdb.cli.shovel :as shovel]
+            [puppetlabs.puppetdb.amq-migration :as mig]
             [puppetlabs.puppetdb.command.dlo :as dlo]))
 
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
@@ -431,9 +431,9 @@
       (throw ex))))
 
 (defn upgrade-activemq [config enqueue-fn dlo]
-  (when (shovel/needs-upgrade? config)
-    (shovel/activemq->stockpile config enqueue-fn dlo)
-    (shovel/lock-upgrade config)))
+  (when (mig/needs-upgrade? config)
+    (mig/activemq->stockpile config enqueue-fn dlo)
+    (mig/lock-upgrade config)))
 
 (defservice command-service
   PuppetDBCommandDispatcher
