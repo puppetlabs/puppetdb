@@ -51,6 +51,27 @@
      (scf-store/add-report!* example-report timestamp update-latest-report?)
      (report-for-hash :v4 report-hash))))
 
+(defmacro with-or-without-corrective-change
+  "Runs body in a context where scf-store/store-corrective-change? is set to true or false
+  based on corrective-change? parameter"
+  [corrective-change? & body]
+  `(let [original-scc# @scf-store/store-corrective-change?]
+     (try
+       (reset! scf-store/store-corrective-change? ~corrective-change?)
+       (do ~@body)
+       (finally
+         (reset! scf-store/store-corrective-change? original-scc#)))))
+
+(defmacro with-corrective-change
+  "Runs body in a context where scf-store/store-corrective-change? is set to true"
+  [& body]
+  `(with-or-without-corrective-change true ~@body))
+
+(defmacro without-corrective-change
+  "Runs body in a context where scf-store/store-corrective-change? is set to false"
+  [& body]
+  `(with-or-without-corrective-change false ~@body))
+
 (defn munge-resource-events-for-comparison
   [resource-events]
   (set
