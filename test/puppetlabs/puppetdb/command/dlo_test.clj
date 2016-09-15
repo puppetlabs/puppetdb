@@ -49,16 +49,16 @@
     (are [cmd-info metadata-str] (= cmd-info (#'dlo/parse-cmd-filename metadata-str))
 
       {:received r0 :version 0 :command "replace catalog" :certname "foo"}
-      "0-0_replace catalog_0_foo.json"
+      "0-0_catalog_0_foo.json"
 
       {:received r0 :version 0 :command "replace catalog" :certname "foo.json"}
-      "0-0_replace catalog_0_foo.json.json"
+      "0-0_catalog_0_foo.json.json"
 
       {:received r10 :version 10 :command "replace catalog" :certname "foo"}
-      "10-10_replace catalog_10_foo.json"
+      "10-10_catalog_10_foo.json"
 
       {:received r10 :version 42 :command "replace catalog" :certname "foo"}
-      "10-10_replace catalog_42_foo.json"
+      "10-10_catalog_42_foo.json"
 
       {:received r10 :version 10 :command "unknown" :certname "foo"}
       "10-10_unknown_10_foo.json")

@@ -21,8 +21,17 @@
             [puppetlabs.puppetdb.utils :refer [match-any-of utf8-length
                                                utf8-truncate]]))
 
-(def metadata-command-names
-  (vals command-constants/command-names))
+(def metadata-command->puppetdb-command
+  ;; note that if there are multiple metadata names for the same command then
+  ;; puppetdb-command->metadata-command (defined below) will have to be modified
+  ;; in order to establish a "preferred" metadata name for each command
+  {"catalog" "replace catalog"
+   "facts" "replace facts"
+   "rm-node" "deactivate node"
+   "report" "store report"})
+
+(def puppetdb-command->metadata-command
+  (into {} (for [[md pdb] metadata-command->puppetdb-command] [pdb md])))
 
 (defn stream->json [^InputStream stream]
   (try
@@ -91,15 +100,29 @@
       (utf8-truncate sanitized-certname trunc-length)
       sanitized-certname)))
 
-(defn metadata-str [received command version certname]
-  (let [certname (or certname "unknown-host")
-        recvd-long (tcoerce/to-long received)
-        safe-certname (embeddable-certname received command version certname)]
-    (if (= safe-certname certname)
-      (format "%d_%s_%d_%s.json" recvd-long command version safe-certname)
-      (let [name-hash (kitchensink/utf8-string->sha1 certname)]
-        (format "%d_%s_%d_%s_%s.json"
-                recvd-long command version safe-certname name-hash)))))
+(defn metadata-serializer
+  "Given an (optional) map between the command names used in the rest of
+  PuppetDB and the command names to use in metadata strings, return a function
+  that serializes command metadata to a string. If no map is provided, then the
+  map `puppetdb-command->metadata-command` defined in this namespace is used.
+  Note that the certname in the string will not be the same as the original
+  certname if the certname is long or contains filesystem special characters."
+  ([] (metadata-serializer puppetdb-command->metadata-command))
+  ([puppetdb-command->metadata-command]
+   (fn [received command version certname]
+     (when-not (puppetdb-command->metadata-command command)
+       (throw (IllegalArgumentException. (format "unknown command '%s'" command))))
+     (let [certname (or certname "unknown-host")
+           recvd-long (tcoerce/to-long received)
+           short-command (puppetdb-command->metadata-command command)
+           safe-certname (embeddable-certname received short-command version certname)]
+       (if (= safe-certname certname)
+         (format "%d_%s_%d_%s.json" recvd-long short-command version safe-certname)
+         (let [name-hash (kitchensink/utf8-string->sha1 certname)]
+           (format "%d_%s_%d_%s_%s.json"
+                   recvd-long short-command version safe-certname name-hash)))))))
+
+(def serialize-metadata (metadata-serializer))
 
 (defn metadata-rx [valid-commands]
   (re-pattern (str
@@ -108,20 +131,27 @@
                "_([0-9]+)_(.*)\\.json")))
 
 (defn metadata-parser
-  ([] (metadata-parser metadata-command-names))
-  ([valid-commands]
+  "Given an (optional) map between the command names that appear in metadata
+  strings and the command names used in the rest of PuppetDB, return a function
+  that parses a queue metadata string. If no map is provided, then the map
+  `metadata-command->puppetdb-command` defined in this namespace is used.
+  Note that the certname in this result will not be the same as the original
+  certname if the certname is long or contains filesystem special characters."
+  ([] (metadata-parser metadata-command->puppetdb-command))
+  ([metadata-command->puppetdb-command]
    ;; NOTE: changes here may affect the DLO, e.g. it currently assumes
    ;; the trailing .json.
-   (let [rx (metadata-rx valid-commands)]
+   (let [rx (metadata-rx (keys metadata-command->puppetdb-command))
+         md-cmd->pdb-cmd metadata-command->puppetdb-command]
      (fn [s]
-       (when-let [[_ stamp command version certname] (re-matches rx s)]
+       (when-let [[_ stamp md-command version certname] (re-matches rx s)]
          (and certname
               {:received (-> stamp
                              Long/parseLong
                              tcoerce/from-long
                              kitchensink/timestamp)
                :version (Long/parseLong version)
-               :command command
+               :command (get md-cmd->pdb-cmd md-command "unknown")
                :certname certname}))))))
 
 (def parse-metadata (metadata-parser))
@@ -129,7 +159,7 @@
 (defrecord CommandRef [id command version certname received callback annotations delete?])
 
 (defn cmdref->entry [{:keys [id command version certname received]}]
-  (stock/entry id (metadata-str received command version certname)))
+  (stock/entry id (serialize-metadata received command version certname)))
 
 (defn entry->cmdref [entry]
   (let [{:keys [received command version certname]} (-> entry
@@ -162,7 +192,7 @@
    (let [current-time (time/now)
          entry (stock/store q
                             command-stream
-                            (metadata-str current-time command version certname))]
+                            (serialize-metadata current-time command version certname))]
      (map->CommandRef {:id (stock/entry-id entry)
                        :command command
                        :version version
