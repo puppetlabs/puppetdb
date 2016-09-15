@@ -58,14 +58,14 @@
       "-")))
 
 (defn max-certname-length
-  "Given the received-at time, command and command version for a metadata
-  string, returns the maximum allowable length (in bytes) of a certname in that
-  string. Note that this length is only achievable if the certname does not
-  need to be sanitized, since sanitized certnames always have a SHA1 hash
-  appended."
-  [received command version]
+  "Given the received-at time, metadata command name and command version for
+  a metadata string, returns the maximum allowable length (in bytes) of
+  a certname in that string. Note that this length is only achievable if the
+  certname does not need to be sanitized, since sanitized certnames always have
+  a SHA1 hash appended."
+  [received metadata-command version]
   (let [time-length (-> received tcoerce/to-long str utf8-length)
-        command-length (utf8-length command)
+        command-length (utf8-length metadata-command)
         version-length (utf8-length (str version))
         field-separators 3]
     (- 255 ; overall filename length limit
@@ -74,13 +74,13 @@
        5))) ; length of '.json' suffix in UTF-8
 
 (defn truncated-certname-length
-  "Given the received-at time, command, and command version that will be in
-  a metadata string, returns the length (in bytes) to truncate certnames to when
-  they are longer than the `max-certname-length` for the string or they contain
-  characters that must be sanitized. This is less than the string's
-  `max-certname-length` to leave space for the SHA1 hash."
-  [received command version]
-  (- (max-certname-length received command version)
+  "Given the received-at time, metadata command name, and command version that
+  will be in a metadata string, returns the length (in bytes) to truncate
+  certnames to when they are longer than the `max-certname-length` for the
+  string or they contain characters that must be sanitized. This is less than
+  the string's `max-certname-length` to leave space for the SHA1 hash."
+  [received metadata-command version]
+  (- (max-certname-length received metadata-command version)
      1 ; for the additional field separator between certname and hash
      constants/sha1-hex-length))
 
@@ -90,11 +90,11 @@
   replace any illegal filesystem characters and underscores with dashes, and
   will be truncated if the original version will cause the metadata string to
   exceed 255 characters."
-  [received command version certname]
+  [received metadata-command version certname]
   (let [cn-length (utf8-length certname)
-        trunc-length (truncated-certname-length received command version)
+        trunc-length (truncated-certname-length received metadata-command version)
         sanitized-certname (sanitize-certname certname)]
-    (if (or (> cn-length (max-certname-length received command version))
+    (if (or (> cn-length (max-certname-length received metadata-command version))
             (and (not= certname sanitized-certname)
                  (> cn-length trunc-length)))
       (utf8-truncate sanitized-certname trunc-length)
