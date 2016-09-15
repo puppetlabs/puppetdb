@@ -61,8 +61,7 @@
               ;; Assume the trailing .json here and in
               ;; entry-cmd-data-filename below.
               (let [name (-> p .getFileName str)]
-                (if-let [cmd (:command (and (.endsWith name ".json")
-                                            (parse-cmd-filename name)))]
+                (if-let [cmd (:command (parse-cmd-filename name))]
                   (update-metrics (ensure-cmd-metrics metrics registry cmd)
                                   cmd
                                   (Files/size p))
