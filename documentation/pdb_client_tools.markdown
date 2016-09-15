@@ -83,19 +83,41 @@ take the following settings:
 - `key` The private key for that certificate. Note that the PE version of the
  CLI supports token auth via `puppet-access` and this option should not be
  necessary.
- 
-#### Example configuration file
+
+#### Example configuration file (pe-client-tools)
+
+The PE version of the PuppetDB CLI supports token auth so the only
+necessary configuration items are `server_urls` and `cacert`.
+
+**Note:** You can still use certificate authentication with the PE version (see
+below for an example configuration) but setting `cert` and `key` in the PuppetDB
+CLI configuration will prevent you from using token authentication (i.e.
+certicate authentication takes precendence over token authentication).
  
 ```json
 {
   "puppetdb": {
-    "server_urls": "https://alpha-rho.local:8081",
+    "server_urls": "https://<PUPPETDB_HOST>:8081",
     "cacert": "/etc/puppetlabs/puppet/ssl/certs/ca.pem",
-    "cert": "/etc/puppetlabs/puppet/ssl/certs/foo.example.com.pem",
-    "key": "/etc/puppetlabs/puppet/ssl/private_keys/foo.example.com.pem"
   }
 }
+```
+ 
+#### Example configuration file (puppet-client-tools)
 
+The open source version of the PuppetDB CLI requires certificate authentication
+for SSL connections to PuppetDB. To configure certificate authentication set
+`cacert`, `cert` and `key`.
+
+```json
+{
+  "puppetdb": {
+    "server_urls": "https://<PUPPETDB_HOST>:8081",
+    "cacert": "/etc/puppetlabs/puppet/ssl/certs/ca.pem",
+    "cert": "/etc/puppetlabs/puppet/ssl/certs/<WORKSTATION_HOST>.pem",
+    "key": "/etc/puppetlabs/puppet/ssl/private_keys/<WORKSTATION_HOST>.pem"
+  }
+}
 ```
 
 ### Step 4: Enjoy!
