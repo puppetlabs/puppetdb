@@ -92,7 +92,7 @@
   [message-bytes]
   (let [{:keys [command version] :as old-command} (json/parse-strict message-bytes true)]
     {:command command
-     :version (Long/parseLong version)
+     :version version
      :certname (or (get-in old-command [:payload :certname])
                    (get-in old-command [:payload :name]))
      :payload (coerce-clj->json-byte-stream (:payload old-command))}))
@@ -344,10 +344,10 @@
         process-message (create-message-processor enqueue-fn dlo)
         id (atom 0)]
     (try
-      (let [conn-pool (activemq-connection-factory mq-broker-url)]
+      (let [broker (do (log/info (i18n/trs "Starting broker"))
+                       (build-and-start-broker! "localhost" mq-dir cmd-proc-config))]
         (try
-          (let [broker (do (log/info (i18n/trs "Starting broker"))
-                           (build-and-start-broker! "localhost" mq-dir cmd-proc-config))]
+          (let [conn-pool (activemq-connection-factory mq-broker-url)]
             (try
               ;; Drain the scheduler so we don't get any extra messages on the Queue when
               ;; we're processing
@@ -360,10 +360,10 @@
               (catch Exception e
                 (log/error e (i18n/trs "Unable to receive ActiveMQ messages. Migration of existing messages failed.")))
               (finally
-                (stop-broker! broker))))
+                (.stop conn-pool))))
           (catch Exception e
             (log/error e (i18n/trs "Unable to start ActiveMQ broker. Migration of existing messages failed.")))
           (finally
-            (.stop conn-pool))))
+            (stop-broker! broker))))
       (catch Exception e
         (log/error e (i18n/trs "Unable to connect to ActiveMQ. Migration of existing messages failed."))))))

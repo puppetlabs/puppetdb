@@ -60,7 +60,7 @@
               defaulted-config (conf/process-config! (assoc config :database *db*))
               cat (get-in ex/wire-catalogs [9 :basic])
               cat2 {"command" "replace catalog"
-                    "version" "4"
+                    "version" 4
                     "payload" (get-in ex/wire-catalogs [4 :empty])}]
 
           (is (not (needs-upgrade? config)))
