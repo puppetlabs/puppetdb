@@ -15,7 +15,7 @@
             [metrics.meters :refer [meter mark!]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
-            [metrics.counters :refer [counter inc! dec! value clear!]]
+            [metrics.counters :refer [counter inc! dec! value]]
             [puppetlabs.trapperkeeper.services :refer [defservice service-context service-id]]
             [schema.core :as s]
             [puppetlabs.puppetdb.config :as conf]
@@ -314,7 +314,7 @@
 (defservice message-listener-service
   MessageListenerService
   [[:DefaultedConfig get-config]
-   [:PuppetDBServer shared-globals]] ; MessageListenerService depends on the broker
+   [:PuppetDBServer shared-globals]]
 
   (init [this context]
         (reset! metrics {:global (create-metrics [:global])})

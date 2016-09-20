@@ -19,9 +19,6 @@
         (is (= {:maintenance_mode? false
                 :read_db_up? true
                 :write_db_up? true
-                ;; Stockpile needs metrics implemented around it to
-                ;; populated the queue depth below, this will be
-                ;; covered by PDB-2932
                 :queue_depth 0}
                (:status pdb-status))))))
 
@@ -38,8 +35,5 @@
           (is (= {:maintenance_mode? true
                   :read_db_up? true
                   :write_db_up? true
-                  ;; Stockpile needs metrics implemented around it to
-                  ;; populated the queue depth below, this will be
-                  ;; covered by PDB-2932
                   :queue_depth 0}
                  (:status pdb-status))))))))

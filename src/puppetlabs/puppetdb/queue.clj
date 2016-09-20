@@ -34,7 +34,7 @@
   (format "%d_%s_%d_%s.json"
           (tcoerce/to-long received) command version certname))
 
-(defn- metadata-rx [valid-commands]
+(defn metadata-rx [valid-commands]
   (re-pattern (str
                "([0-9]+)_("
                (str/join "|" (map #(format "(?:%s)" (re-quote-replacement %))

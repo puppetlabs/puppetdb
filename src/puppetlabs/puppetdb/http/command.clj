@@ -95,7 +95,7 @@
                              :processed false
                              :timed_out true}
                             http/status-unavailable)
-        (let [{:keys [command exception]} result
+        (let [{:keys [exception]} result
               base-response {:uuid uuid
                              :processed true}]
           (if exception
