@@ -4,7 +4,8 @@
             [clojure.string :as str]
             [puppetlabs.puppetdb.query.events :as events]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.kitchensink.core :as kitchensink]))
+            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.scf.storage :refer [store-corrective-change?]]))
 
 (defn- get-aggregate-sql
   "Given the `event-count-sql`, return a SQL string that will aggregate the results."
@@ -12,13 +13,20 @@
   {:pre  [(string? event-count-sql)
           (contains? #{"resource" "containing_class" "certname"} summarize_by)]
    :post [(string? %)]}
-  (format "(SELECT '%s' as summarize_by,
-           SUM(CASE WHEN successes > 0 THEN 1 ELSE 0 END) as successes,
-                  SUM(CASE WHEN failures > 0  THEN 1 ELSE 0 END) as failures,
-                  SUM(CASE WHEN noops > 0 THEN 1 ELSE 0 END) as noops,
-                  SUM(CASE WHEN skips > 0 THEN 1 ELSE 0 END) as skips,
-                  COUNT(*) as total
-           FROM (%s) event_counts)" summarize_by event-count-sql))
+  (format (str "(SELECT '%s' as summarize_by,
+                        SUM(CASE WHEN failures > 0  THEN 1 ELSE 0 END) as failures,
+                        SUM(CASE WHEN skips > 0 THEN 1 ELSE 0 END) as skips, "
+               (if @store-corrective-change?
+                 "      SUM(CASE WHEN intentional_successes > 0 THEN 1 ELSE 0 END) as intentional_successes,
+                        SUM(CASE WHEN corrective_successes > 0 THEN 1 ELSE 0 END) as corrective_successes,
+                        SUM(CASE WHEN intentional_noops > 0 THEN 1 ELSE 0 END) as intentional_noops,
+                        SUM(CASE WHEN corrective_noops > 0 THEN 1 ELSE 0 END) as corrective_noops, "
+                 "      SUM(CASE WHEN successes > 0 THEN 1 ELSE 0 END) as successes,
+                        SUM(CASE WHEN noops > 0 THEN 1 ELSE 0 END) as noops, ")
+               "        COUNT(*) as total
+                   FROM (%s) event_counts)")
+          summarize_by
+          event-count-sql))
 
 (defn- assemble-aggregate-sql
   "Convert an aggregate-event-counts `query` and a value to `summarize_by`

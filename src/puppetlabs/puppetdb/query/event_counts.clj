@@ -5,7 +5,8 @@
             [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [puppetlabs.puppetdb.query-eng.engine :as qe]
+            [puppetlabs.puppetdb.scf.storage :refer [store-corrective-change?]]))
 
 (defn- get-group-by
   "Given the value to summarize by, return the appropriate database field to be used in the SQL query.
@@ -20,6 +21,13 @@
     "resource" ["resource_type" "resource_title"]
     (throw (IllegalArgumentException. (format "Unsupported value for 'summarize_by': '%s'" summarize_by)))))
 
+(def ^:private fields-basic ["failures" "skips" "successes" "noops"])
+(def ^:private fields-with-correctives ["failures" "skips" "intentional_successes" "corrective_successes" "intentional_noops" "corrective_noops"])
+(defn- fields
+  []
+  (if @store-corrective-change? fields-with-correctives
+                                fields-basic))
+
 (defn- get-counts-filter-where-clause
   "Given a `counts-filter` query, return the appropriate SQL where clause and parameters.
   Returns a noop map if the `counts-filter` is nil."
@@ -27,7 +35,8 @@
   {:pre  [((some-fn nil? sequential?) counts-filter)]
    :post [(map? %)]}
   (if counts-filter
-    (query/compile-term query/event-count-ops counts-filter)
+    (query/compile-term (partial query/event-count-ops (set (fields)))
+                        counts-filter)
     {:where nil :params []}))
 
 (defn- get-count-by-sql
@@ -43,15 +52,14 @@
   (condp = count-by
     "resource"  sql
     "certname"  (let [field-string (if (= group-by ["certname"]) "" (str ", " (string/join ", " group-by)))]
-                  (format "SELECT DISTINCT certname, status%s FROM (%s) distinct_events" field-string sql))
+                  (format "SELECT DISTINCT certname, status, corrective_change%s FROM (%s) distinct_events" field-string sql))
     (throw (IllegalArgumentException. (format "Unsupported value for 'count_by': '%s'" count-by)))))
 
 (defn- event-counts-columns
   [group-by]
   {:pre [(vector? group-by)]}
-  (concat
-   ["failures" "successes" "noops" "skips"]
-   group-by))
+  (concat (fields)
+          group-by))
 
 (defn- get-event-count-sql
   "Given the `event-sql` and value to `group-by`, return a SQL string that
@@ -60,13 +68,18 @@
   {:pre  [(string? event-sql)
           (vector? group-by)]
    :post [(string? %)]}
-  (format "SELECT %s,
-              SUM(CASE WHEN status = 'failure' THEN 1 ELSE 0 END) AS failures,
-              SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successes,
-              SUM(CASE WHEN status = 'noop' THEN 1 ELSE 0 END) AS noops,
-              SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skips
-            FROM (%s) events
-            GROUP BY %s"
+  (format (str "SELECT %s,
+                       SUM(CASE WHEN status = 'failure' THEN 1 ELSE 0 END) AS failures,
+                       SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skips, "
+               (if @store-corrective-change?
+                 "     SUM(CASE WHEN (status = 'success' and coalesce(corrective_change, false) = false) THEN 1 ELSE 0 END) AS intentional_successes,
+                       SUM(CASE WHEN (status = 'success' and corrective_change = true) THEN 1 ELSE 0 END) AS corrective_successes,
+                       SUM(CASE WHEN (status = 'noop' and coalesce(corrective_change, false) = false) THEN 1 ELSE 0 END) AS intentional_noops,
+                       SUM(CASE WHEN (status = 'noop' and corrective_change = true) THEN 1 ELSE 0 END) AS corrective_noops "
+                 "     SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS successes,
+                       SUM(CASE WHEN status = 'noop' THEN 1 ELSE 0 END) AS noops ")
+               "  FROM (%s) events
+                  GROUP BY %s")
           (string/join ", " group-by)
           event-sql
           (string/join ", " group-by)))
