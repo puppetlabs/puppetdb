@@ -8,8 +8,8 @@ def initialize_repo_on_host(host, os)
       on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-$(lsb_release -sc).deb"
       on host, "dpkg -i puppetlabs-release-$(lsb_release -sc).deb"
     end
-      on host, "apt-get install debian-archive-keyring"
       on host, "apt-get update"
+      on host, "apt-get install debian-archive-keyring"
   when :redhat
     if options[:type] == 'aio' then
       /^(el|centos)-(\d+)-(.+)$/.match(host.platform)
