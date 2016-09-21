@@ -15,7 +15,9 @@ canonical: "/puppetdb/latest/api/query/v4/index.html"
 *Note:* This endpoint is experimental and is subject to rapid development and change.
 
 The root query endpoint can be used to retrieve any known entities from a
-single endpoint.
+single endpoint. Unlike the various entity-specific endpoints, the root
+endpoint will always return data for deactivated and expired nodes, so users
+must explicitly include them if required.
 
 ## `/pdb/query/v4`
 

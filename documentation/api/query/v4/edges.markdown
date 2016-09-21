@@ -58,8 +58,8 @@ The response is a JSON array of hashes, where each hash has the form:
       "relationship": <string>,
       "source_title": <string>,
       "source_type": <string>,
-      "source_title": <string>,
-      "source_type": <string>
+      "target_title": <string>,
+      "target_type": <string>
     }
 
 ### Example
