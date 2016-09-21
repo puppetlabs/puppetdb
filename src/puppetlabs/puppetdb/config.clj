@@ -146,6 +146,7 @@
      :store-usage s/Int
      :max-frame-size (pls/defaulted-maybe s/Int 209715200)
      :temp-usage s/Int
+     :memory-usage s/Int
      :max-command-size (pls/defaulted-maybe s/Int (default-max-command-size))
      :reject-large-commands (pls/defaulted-maybe String "false")}))
 
@@ -156,6 +157,7 @@
    :max-frame-size s/Int
    :max-command-size s/Int
    :reject-large-commands Boolean
+   (s/optional-key :memory-usage) s/Int
    (s/optional-key :store-usage) s/Int
    (s/optional-key :temp-usage) s/Int})
 

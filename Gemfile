@@ -17,6 +17,11 @@ gem 'facter'
 gem 'rake'
 
 group :test do
+  # Pinning for Ruby 1.9.3 support
+  gem 'json_pure', '~> 1.8'
+  # Pinning for Ruby < 2.2.0 support
+  gem 'activesupport', '~> 4.2'
+
   # Pinning to work-around an incompatiblity with 2.14 in puppetlabs_spec_helper
   gem 'rspec', '~> 3.1'
   gem 'puppetlabs_spec_helper', '0.10.3', :require => false
