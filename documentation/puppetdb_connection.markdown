@@ -88,10 +88,6 @@ to `false`.
 
 The default value in PE is true.
 
-### High availability configuration (PE only)
-
-These settings are designed for use in a high-availability deployment of PuppetDB, available in Puppet Enterprise. While they may appear to work in other configurations, their use is discouraged. In particular, absent the synchronization support in Puppet Enterprise, multiple PuppetDB instances can easily diverge from each other due to normal transient network issues. See the [guide to PuppetDB high availability configuration][ha_guide] for detailed configuration information.
-
 #### `sticky_read_failover`
 
 **Note: For use with Puppet Enterprise only.**
