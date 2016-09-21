@@ -24,7 +24,7 @@ If you have allowed unsecured access to other hosts in order to [monitor the das
 
 ## Using `curl` from remote hosts (SSL/HTTPS)
 
-### Using a certifacte/private key pair
+### Using a certificate/private key pair
 
 To make secured requests from other hosts, you will need to supply the following
 via the command line:
