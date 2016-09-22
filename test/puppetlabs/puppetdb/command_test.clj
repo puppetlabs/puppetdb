@@ -218,12 +218,12 @@
           (doseq [i (range 0 mql/maximum-allowable-retries)
                   :let [log-output (atom [])
                         delay-message (mock-fn)
-                        mh (mql/message-handler q nil
-                                                delay-message process-message)]]
+                        handle-message (mql/message-handler q nil
+                                                            delay-message process-message)]]
             (binding [*logger-factory* (atom-logger log-output)]
-              (mh (-> (tqueue/store-command q "replace catalog" 10
-                                            "cats" {:certname "cats"})
-                      (add-fake-attempts i)))
+              (handle-message (-> (tqueue/store-command q "replace catalog" 10
+                                                        "cats" {:certname "cats"})
+                                  (add-fake-attempts i)))
               (is (called? delay-message))
               (is (not (called? mql/discard-message)))
 
@@ -239,12 +239,12 @@
         (let [log-output (atom [])
               delay-message (mock-fn)
               discard-message (mock-fn)
-              mh (mql/message-handler q nil delay-message process-message)]
+              handle-message (mql/message-handler q nil delay-message process-message)]
           (with-redefs [mql/discard-message (mock-fn)]
             (binding [*logger-factory* (atom-logger log-output)]
-              (mh (-> (tqueue/store-command q "replace catalog" 10
-                                            "cats" {:certname "cats"})
-                      (add-fake-attempts mql/maximum-allowable-retries)))
+              (handle-message (-> (tqueue/store-command q "replace catalog" 10
+                                                        "cats" {:certname "cats"})
+                                  (add-fake-attempts mql/maximum-allowable-retries)))
               (is (not (called? delay-message)))
               (is (called? mql/discard-message))
               (is (= (get-in @log-output [0 1]) :error))
@@ -257,26 +257,24 @@
   (testing "happy path, message acknowledgement when no failures occured"
     (tqueue/with-stockpile q
       (with-redefs [mql/discard-message (fn [& args] true)]
-        (let [mh (mql/message-handler q nil nil identity)
+        (let [handle-message (mql/message-handler q nil nil identity)
               cmdref (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
           (is (:payload (queue/cmdref->cmd q cmdref)))
-          (mh cmdref)
+          (handle-message cmdref)
           (is (thrown+-with-msg? [:kind :puppetlabs.stockpile.queue/no-such-entry]
-                                #"No file found"
-                                (queue/cmdref->cmd q cmdref)))))))
+                                 #"No file found"
+                                 (queue/cmdref->cmd q cmdref)))))))
 
   (testing "Failures do not cause messages to be acknowledged"
     (tqueue/with-stockpile q
       (with-redefs [mql/discard-message (fn [& args] true)]
         (let [delay-message (mock-fn)
-              mh (mql/message-handler q nil delay-message
-                                      ;; Do we really want this to
-                                      ;; be ;; a RuntimeException?
-                                      (fn [_]
-                                        (throw (RuntimeException. "retry me"))))
+              handle-message (mql/message-handler q nil delay-message
+                                                  (fn [_]
+                                                    (throw (RuntimeException. "retry me"))))
               entry (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
           (is (:payload (queue/cmdref->cmd q entry)))
-          (mh entry)
+          (handle-message entry)
           (is (called? delay-message))
           (is (:payload (queue/cmdref->cmd q entry))))))))
 
@@ -582,8 +580,8 @@
 (deftest catalog-with-updated-resource-file
   (dotestseq [version catalog-versions
               :let [command-1 {:command (command-names :replace-catalog)
-                             :version latest-catalog-version
-                             :payload basic-wire-catalog}
+                               :version latest-catalog-version
+                               :payload basic-wire-catalog}
                     command-2 (update-resource version command-1 "File" "/etc/foobar"
                                                #(assoc % :file "/tmp/not-foo"))]]
     (with-test-db
@@ -633,8 +631,9 @@
                                :version latest-catalog-version
                                :payload basic-wire-catalog}
                     command-2 (update-resource version command-1 "File" "/etc/foobar"
-                                               #(-> %(assoc :tags #{"file" "class" "foobar" "foo"})
-                                                    (assoc :line 20)))]]
+                                               #(assoc %
+                                                       :tags #{"file" "class" "foobar" "foo"}
+                                                       :line 20))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
         (let [orig-resources (scf-store/catalog-resources (:certname_id

@@ -2,8 +2,8 @@
   (:require [clj-time.core :refer [now]]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.scf.storage :as storage]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.anonymizer :as anon]
             [puppetlabs.puppetdb.archive :as archive]
@@ -27,28 +27,27 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utility Functions
 
-(def file-suffix ".json")
+(def export-file-ext ".json")
 
 (defn export-filename
   "For anything we store historically and need unique names"
   [{:keys [certname producer_timestamp]}]
-  (let [formatted-start-time (->> producer_timestamp
-                                  time-coerce/to-date-time
-                                  (time-fmt/unparse (time-fmt/formatter "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")))]
-    (format "%s-%s%s"
-            certname
-            (kitchensink/utf8-string->sha1 formatted-start-time)
-            file-suffix)))
+  (format "%s-%s%s"
+          certname
+          (-> producer_timestamp
+              time-coerce/to-date-time
+              hash/generic-identity-hash)
+          export-file-ext))
 
 (pls/defn-validated export-datum->tar-item :- utils/tar-item
   "Creates a tar-item map for a PuppetDB entity"
   [entity datum]
-  (let [file-suffix
+  (let [command-file-name
         (case entity
-          "factsets" ["facts" (str (:certname datum) file-suffix)]
+          "factsets" ["facts" (str (:certname datum) export-file-ext)]
           "catalogs" ["catalogs" (export-filename datum)]
           "reports" ["reports" (export-filename datum)])]
-    {:file-suffix file-suffix
+    {:file-suffix command-file-name
      :contents (json/generate-pretty-string datum)}))
 
 (defn export-data->tar-items

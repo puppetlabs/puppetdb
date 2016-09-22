@@ -209,15 +209,17 @@
        (let [cmd (queue/cmdref->cmd q cmdref)
              retries (count (:attempts cmdref))]
          (try+
-           (call-with-command-metrics command version retries
-                                      #(process-message cmd))
+          (call-with-command-metrics command version retries
+                                     #(process-message cmd))
           (queue/ack-command q cmd)
           (update-counter! :depth command version dec!)
 
           (catch fatal? obj
             (mark! (global-metric :fatal))
             (let [ex (:cause obj)]
-              (log/error (:wrapper &throw-context) (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
+              (log/error
+               (:wrapper &throw-context)
+               (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
               (-> cmd
                   (queue/cons-attempt ex)
                   (discard-message q dlo))))
@@ -239,13 +241,16 @@
 
                 :else
                 (do
-                  (log/error ex (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command retries certname))
+                  (log/error
+                   ex
+                   (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command retries certname))
                   (-> cmd
                       (queue/cons-attempt ex)
                       (discard-message q dlo)))))))))
      (catch [:kind ::queue/parse-error] _
        (mark! (global-metric :fatal))
-       (log/error (:wrapper &throw-context) (i18n/trs "Fatal error parsing command: {0}" (:id cmdref)))
+       (log/error (:wrapper &throw-context)
+                  (i18n/trs "Fatal error parsing command: {0}" (:id cmdref)))
        (-> cmdref
            (queue/cons-attempt (:throwable &throw-context))
            (discard-message q dlo))))))

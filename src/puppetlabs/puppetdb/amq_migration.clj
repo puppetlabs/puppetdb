@@ -163,7 +163,7 @@
     (catch Exception e
       (log/error e))))
 
-(defn create-mq-receiver
+(defn transfer-mq-messages
   [^ConnectionFactory conn-pool endpoint process-message id]
   (with-open [connection (create-connection conn-pool)
               session (create-session connection)
@@ -171,7 +171,7 @@
     (log/info (i18n/trs "Processing messages from the Queue: {0}" endpoint))
     (consume-everything consumer process-message id)))
 
-(defn create-scheduler-receiver
+(defn transfer-scheduler-messages
   "Drains the scheduler queue (where PuppetDB commands are retried)
   and enqueues them into the normal queue"
   [^ConnectionFactory conn-pool endpoint process-message dlo id]
@@ -313,7 +313,7 @@
   (io/file vardir "mq-migrated"))
 
 (defn needs-upgrade?
-  "Returns true if the user has an unmigrated ActiveMQ director in
+  "Returns true if the user has an unmigrated ActiveMQ directory in
   their vardir"
   [config]
   (let [vardir (get-in config [:global :vardir])]
@@ -351,9 +351,9 @@
             (try
               ;; Drain the scheduler so we don't get any extra messages on the Queue when
               ;; we're processing
-              (create-scheduler-receiver conn-pool mq-endpoint process-message dlo id)
-              (create-mq-receiver conn-pool mq-endpoint process-message id)
-              (create-mq-receiver conn-pool retired-mq-endpoint process-message id)
+              (transfer-scheduler-messages conn-pool mq-endpoint process-message dlo id)
+              (transfer-mq-messages conn-pool mq-endpoint process-message id)
+              (transfer-mq-messages conn-pool retired-mq-endpoint process-message id)
 
               (log/info (i18n/trs "You may safely delete {0}" mq-dir))
 

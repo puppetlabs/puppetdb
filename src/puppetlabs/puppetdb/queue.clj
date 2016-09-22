@@ -175,7 +175,7 @@
     (stock/reduce q
                   (fn [chan entry]
                     ;;This conditional guards against a new command
-                    ;;enqueued in the same directory before we've full
+                    ;;enqueued in the same directory before we've
                     ;;read all existing files
                     (when (< (stock/entry-id entry) message-id-ceiling)
                       (let [{:keys [command version] :as cmdref} (entry->cmdref entry)]

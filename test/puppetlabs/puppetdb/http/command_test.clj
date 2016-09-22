@@ -266,8 +266,8 @@
       (let [command-chan (async/chan 1)
             no-max-app (handler-with-max q command-chan false)
             max-10-app (handler-with-max q command-chan 10)
-            req {:request-method
-                 :post :body "more than ten characters"
+            req {:request-method :post
+                 :body "more than ten characters"
                  :params {"command" "replace catalog"
                           "version" 4
                           "certname" "foo.com"}}
