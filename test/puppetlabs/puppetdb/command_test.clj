@@ -211,7 +211,7 @@
             (is (= 0 (times-called process-counter)))))))))
 
 (deftest command-retry-handler
-  (testing "Should log retries as debug for less than 4 attempts"
+  (testing "Should log all L2 retries as errors"
     (tqueue/with-stockpile q
       (let [process-message (fn [_] (throw (RuntimeException. "retry me")))]
         (with-redefs [mql/discard-message (mock-fn)]
@@ -227,14 +227,11 @@
               (is (called? delay-message))
               (is (not (called? mql/discard-message)))
 
-              (if (< i 4)
-                (is (= (get-in @log-output [0 1]) :debug))
-                (is (= (get-in @log-output [0 1]) :error)))
-
+              (is (= (get-in @log-output [0 1]) :error))
               (is (str/includes? (get-in @log-output [0 3]) "cats"))
               (is (instance? Exception (get-in @log-output [0 2])))
               (is (str/includes? (last (first @log-output))
-                                 "Retrying after attempt")))))
+                                 "Retrying after L2 attempt")))))
 
         (let [log-output (atom [])
               delay-message (mock-fn)

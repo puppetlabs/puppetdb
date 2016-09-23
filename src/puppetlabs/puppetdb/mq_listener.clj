@@ -219,31 +219,24 @@
             (let [ex (:cause obj)]
               (log/error
                (:wrapper &throw-context)
-               (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
+               (i18n/trs "[{0}] [{1}] Fatal error on L2 attempt {2} for {3}" id command retries certname))
               (-> cmd
                   (queue/cons-attempt ex)
                   (discard-message q dlo))))
           (catch Exception _
-            (let [ex (:throwable &throw-context)
-                  log-str (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
-                                    id command retries certname ex)]
+            (let [ex (:throwable &throw-context)]
               (mark-both-metrics! command version :retried)
-              (cond
-                (< retries 4)
+              (if (< retries maximum-allowable-retries)
                 (do
-                  (log/debug ex log-str)
+                  (log/errorf
+                   ex
+                   (i18n/trs "[{0}] [{1}] Retrying after L2 attempt {2} for {3}, due to: {4}"
+                             id command retries certname ex))
                   (-> cmd (queue/cons-attempt ex) delay-message))
-
-                (< retries maximum-allowable-retries)
-                (do
-                  (log/errorf ex log-str)
-                  (-> cmd (queue/cons-attempt ex) delay-message))
-
-                :else
                 (do
                   (log/error
                    ex
-                   (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command retries certname))
+                   (i18n/trs "[{0}] [{1}] Exceeded max L2 attempts ({2}) for {3}" id command retries certname))
                   (-> cmd
                       (queue/cons-attempt ex)
                       (discard-message q dlo)))))))))
