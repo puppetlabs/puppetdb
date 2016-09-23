@@ -178,10 +178,12 @@
 
 (def developer-config-in
   (all-optional
-    {:pretty-print (pls/defaulted-maybe String "false")}))
+   {:pretty-print (pls/defaulted-maybe String "false")
+    :memoize-resource-identity-hashes (pls/defaulted-maybe String "true")}))
 
 (def developer-config-out
-  {:pretty-print Boolean})
+  {:pretty-print Boolean
+   :memoize-resource-identity-hashes Boolean})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database config

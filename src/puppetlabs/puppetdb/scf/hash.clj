@@ -50,6 +50,8 @@
 ;; "medium" site persona
 (def memoized-resource-identity-hash* (kitchensink/bounded-memoize resource-identity-hash* 40000))
 
+(def memoize-resource-identity-hashes? (atom true))
+
 (defn resource-identity-hash
   "Compute a hash for a given resource that will uniquely identify it
   _for storage deduplication only_.
@@ -60,7 +62,9 @@
   [{:keys [type title parameters] :as resource}]
   {:pre  [(map? resource)]
    :post [(string? %)]}
-  (memoized-resource-identity-hash* type title parameters))
+  (if @memoize-resource-identity-hashes?
+    (memoized-resource-identity-hash* type title parameters)
+    (resource-identity-hash* type title parameters)))
 
 (defn catalog-resource-identity-format
   "Narrow `resource` to only contain the needed key/values for computing the hash of
