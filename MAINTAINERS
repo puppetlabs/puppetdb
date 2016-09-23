@@ -32,16 +32,6 @@
       "github": "rbrw",
       "email": "rlb@puppet.com",
       "name": "Rob Browning"
-    },
-    {
-      "github": "nicklewis",
-      "email": "nick@puppet.com",
-      "name": "Nick Lewis"
-    },
-    {
-      "github": "cprice404",
-      "email": "chris@puppet.com",
-      "name": "Chris Price"
     }
   ]
 }
