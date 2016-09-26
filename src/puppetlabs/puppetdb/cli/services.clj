@@ -310,9 +310,8 @@
   (let [{:keys [developer jetty
                 database read-database
                 puppetdb command-processing]} config
-        {:keys [pretty-print]} developer
+        {:keys [pretty-print max-enqueued]} developer
         {:keys [gc-interval]} database
-        {:keys [max-enqueued]} command-processing
         {:keys [disable-update-checking]} puppetdb
 
         write-db (jdbc/pooled-datasource (assoc database :pool-name "PDBWritePool")

@@ -117,7 +117,10 @@
   [q command]
   (stock/discard q (:entry command)))
 
-(deftype SortedCommandBuffer [^TreeMap fifo-queue ^HashMap certnames-map ^long max-entries ^clojure.lang.IFn delete-update-fn]
+(deftype SortedCommandBuffer [^TreeMap fifo-queue
+                              ^HashMap certnames-map
+                              ^long max-entries
+                              ^clojure.lang.IFn delete-update-fn]
   async-protos/Buffer
   (full? [this]
     (>= (.size fifo-queue) max-entries))

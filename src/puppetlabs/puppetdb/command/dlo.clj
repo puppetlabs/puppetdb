@@ -72,15 +72,20 @@
                         attempts))))
 
 (defn- entry-cmd-data-filename
+  "Returns a string representing the filename for the given stockpile
+  `entry`. The filename is similar to what stockpile would store the
+  message as '10291-1469469689-cat-4-foo.org.json'"
   [entry]
-  ;; 10291-1469469689-cat-4-foo.org.json
   (let [id (stock/entry-id entry)
         meta (stock/entry-meta entry)]
     (str id \- meta)))
 
 (defn- err-filename
+  "Creates a filename string for error metadata associated the
+  stockpile message at `id`. This filename is similar to how stockpile
+  would store it but includes a error stuffix to differentiate it,
+  similar tot he following '10291-1469469689-cat-4-foo.org-err.txt'"
   [id metadata]
-  ;; 10291-1469469689-cat-4-foo.org-err.txt
   (assert (str/ends-with? metadata ".json"))
   (str id \- (subs metadata 0 (- (count metadata) 5)) "-err.txt"))
 
@@ -107,7 +112,6 @@
       (when-not moved?
         (Files/move tmp dest (copts [copt-replace])))
       dest)))
-
 
 ;;; Public interface
 

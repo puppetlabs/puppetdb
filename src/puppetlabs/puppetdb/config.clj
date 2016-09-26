@@ -150,13 +150,7 @@
      :memory-usage s/Int
      :max-command-size (pls/defaulted-maybe s/Int (default-max-command-size))
      :reject-large-commands (pls/defaulted-maybe String "false")
-
-     ;; The below config is intended for testing now and isn't documented
-     ;; or expected to be released. Perf testing will confirm if the
-     ;; parameters are needed and what their ideal value would be in our
-     ;; various deployment scenarios
-     :concurrent-writes (pls/defaulted-maybe s/Int 100)
-     :max-enqueued (pls/defaulted-maybe s/Int 1000000)}))
+     :concurrent-writes (pls/defaulted-maybe s/Int 100)}))
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"
@@ -165,12 +159,7 @@
    :max-frame-size s/Int
    :max-command-size s/Int
    :reject-large-commands Boolean
-
-   ;;This is a test only config for now, see the related comment in
-   ;;command-processing-in
    :concurrent-writes s/Int
-   :max-enqueued s/Int
-
    (s/optional-key :memory-usage) s/Int
    (s/optional-key :store-usage) s/Int
    (s/optional-key :temp-usage) s/Int})
@@ -190,10 +179,12 @@
 
 (def developer-config-in
   (all-optional
-    {:pretty-print (pls/defaulted-maybe String "false")}))
+   {:pretty-print (pls/defaulted-maybe String "false")
+    :max-enqueued (pls/defaulted-maybe s/Int 1000000)}))
 
 (def developer-config-out
-  {:pretty-print Boolean})
+  {:pretty-print Boolean
+   :max-enqueued s/Int})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database config
