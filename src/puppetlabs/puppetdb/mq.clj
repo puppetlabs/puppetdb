@@ -17,7 +17,8 @@
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
 (def metrics (atom {:message-persistence-time (timer mq-metrics-registry
-                                                     (metrics/keyword->metric-name [:global] :message-persistence-time))}))
+                                                     (metrics/keyword->metric-name
+                                                       [:global] :message-persistence-time))}))
 
 (defn- set-usage!*
   "Internal helper function for setting `SystemUsage` values on a `BrokerService`
@@ -300,17 +301,13 @@
   (str "org.apache.activemq:type=Broker,brokerName=" name))
 
 (defn-validated queue-size
-  "Returns the number of pending messages in the named broker queue.
-  Throws {:type ::queue-not-found :broker broker :name name} when the
-  queue doesn't exist."
-  [broker :- s/Str
-   queue :- s/Str]
+  "Returns the number of pending messages in the queue.
+  Throws {:type ::queue-not-found} when the queue doesn't exist."
+  []
   (try
-    (jmx/read (format "%s,destinationType=Queue,destinationName=%s"
-                      (broker-mb broker) queue)
-              :QueueSize)
+    (jmx/read "puppetlabs.puppetdb.mq:name=global.depth" :Count)
     (catch javax.management.InstanceNotFoundException ex
-      (throw+ {:type ::queue-not-found :broker broker :name queue}))))
+      (throw+ {:type ::queue-not-found}))))
 
 (defn-validated transfer-messages!
   "Transfers all of the messages currently available in the named

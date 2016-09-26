@@ -9,7 +9,8 @@
                                                                 with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.test-protocols :as test-protos]
             [clojure.string :as str]
-            [slingshot.test]))
+            [slingshot.test]
+            [puppetlabs.puppetdb.testutils.log :as tlog]))
 
 (defn wrap-out-chan [out-chan f]
   (fn [cmd]
@@ -137,15 +138,13 @@
           (Thread/sleep log-sleep-duration-in-ms)
           (recur (inc times)))))))
 
-(def critical-error-pred (comp #{:fatal :error} :level))
-
 (defn not-submitted? [message]
   (str/includes? message "not submitted"))
 
 (deftest threadpool-logging
   (testing "successful message"
     (let [log-output (atom [])]
-      (with-log-suppressed-unless-notable critical-error-pred
+      (with-log-suppressed-unless-notable tlog/critical-errors
         (with-logging-to-atom "puppetlabs.puppetdb.threadpool" log-output
           (let [{:keys [threadpool semaphore] :as threadpool-ctx} (create-threadpool 1 "testpool-%d" 5000)
                 handler-fn (tu/mock-fn)]
@@ -166,9 +165,8 @@
 
   (testing "failure of thread"
     (let [log-output (atom [])]
-      (with-log-suppressed-unless-notable (every-pred critical-error-pred
-                                                      (comp (complement #(.startsWith % "Broken"))
-                                                            :message))
+      (with-log-suppressed-unless-notable (every-pred tlog/critical-errors
+                                                      (complement (tlog/starting-with "Broken")))
         (with-logging-to-atom "puppetlabs.puppetdb.threadpool" log-output
           (let [{:keys [threadpool semaphore] :as threadpool-ctx} (create-threadpool 1 "testpool-%d" 5000)]
             (try
@@ -197,7 +195,7 @@
 
   (testing "threadpool shutdown"
     (let [log-output (atom [])]
-      (with-log-suppressed-unless-notable (every-pred critical-error-pred
+      (with-log-suppressed-unless-notable (every-pred tlog/critical-errors
                                                       (comp (complement not-submitted?) :message))
        (with-logging-to-atom "puppetlabs.puppetdb.threadpool" log-output
          (let [{:keys [threadpool semaphore] :as threadpool-ctx} (create-threadpool 1 "testpool-%d" 5000)

@@ -2,7 +2,9 @@
   (:require [me.raynes.fs :as fs]
             [clj-http.client :as client]
             [clojure.java.jdbc :as sql]
-            [cheshire.core :as json]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.command.dlo :as dlo]
+            [puppetlabs.puppetdb.metrics.core :refer [new-metrics]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.catalogs :as catalog]
@@ -16,7 +18,8 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils
-             :refer [args-supplied call-counter dotestseq times-called]]
+             :refer [args-supplied call-counter dotestseq times-called mock-fn]]
+            [puppetlabs.puppetdb.test-protocols :refer [called?]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.jdbc-test :refer [full-sql-exception-msg]]
             [puppetlabs.puppetdb.examples :refer :all]
@@ -28,13 +31,20 @@
             [clojure.test :refer :all]
             [clojure.tools.logging :refer [*logger-factory*]]
             [slingshot.slingshot :refer [throw+ try+]]
+            [slingshot.test]
             [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.time :as pt]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [clojure.core.async :as async]
             [puppetlabs.kitchensink.core :as ks]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [puppetlabs.stockpile.queue :as stock]
+            [puppetlabs.puppetdb.testutils.nio :as nio]
+            [puppetlabs.puppetdb.testutils.queue :as tqueue]
+            [puppetlabs.puppetdb.queue :as queue]
+            [puppetlabs.trapperkeeper.services
+             :refer [service-context]])
   (:import [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
 
@@ -44,8 +54,6 @@
     (let [command {:body "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}"}]
       (testing "should work for strings"
         (let [parsed (parse-command command)]
-          ;; :annotations will have a :attempts element with a time, which
-          ;; is hard to test, so disregard that
           (is (= (dissoc parsed :annotations)
                  {:command "foo" :version 2 :payload "meh"}))
           (is (map? (:annotations parsed)))))
@@ -96,37 +104,62 @@
       ;; Non-UTF-8 byte array
       (is (thrown? Exception (parse-command {:body (.getBytes "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}" "UTF-16")}))))))
 
+(defn unroll-old-command [{:keys [command version payload]}]
+  [command
+   version
+   (or (:certname payload)
+       (:name payload))
+   payload])
+
 (defmacro test-msg-handler*
-  [command publish-var discard-var db & body]
-  `(let [log-output#     (atom [])
-         publish#        (call-counter)
-         discard-dir#    (fs/temp-dir "test-msg-handler")
-         handle-message# (mql/create-message-handler
-                          publish# discard-dir# #(process-command! % ~db))
-         msg#            {:headers {:id "foo-id-1"
-                                    :received (tfmt/unparse (tfmt/formatters :date-time) (now))}
-                          :body (json/generate-string ~command)}]
-     (try
-       (binding [*logger-factory* (atom-logger log-output#)]
-         (handle-message# msg#))
-       (let [~publish-var publish#
-             ~discard-var discard-dir#]
-         ~@body
-         ;; Uncommenting this line can be very useful for debugging
-         ;; (println @log-output#)
-         )
-       (finally
-         (fs/delete-dir discard-dir#)))))
+  [command delay-var discard-var db & body]
+  `(tqueue/with-stockpile q#
+     (let [log-output#     (atom [])
+           delay# (call-counter)
+           dlo-dir# (fs/temp-dir "test-msg-handler-dlo")
+           dlo# (dlo/initialize (.toPath dlo-dir#)
+                                (:registry (new-metrics "puppetlabs.puppetdb.dlo"
+                                                        :jmx? false)))
+           handle-message# (mql/message-handler q# dlo#
+                                                delay#
+                                                #(process-command! % ~db))
+           cmd# ~command
+           cmdref# (-> (apply tqueue/store-command q# (unroll-old-command cmd#))
+                       (update :annotations merge (:annotations cmd#))
+                       (assoc :attempts (:attempts cmd#)))]
+       (try
+         (binding [*logger-factory* (atom-logger log-output#)]
+           (handle-message# cmdref#))
+         (let [~delay-var delay#
+               ~discard-var dlo-dir#]
+           ~@body
+           ;; Uncommenting this line can be very useful for debugging
+           ;; (println @log-output#)
+           )
+         (finally
+           (fs/delete-dir dlo-dir#))))))
 
 (defmacro test-msg-handler
-  "Runs `command` (after converting to JSON) through the MQ message handlers.
-   `body` is executed with `publish-var` bound to the number of times the message
-   was processed and `discard-var` bound to the directory that contains failed messages."
-  [command publish-var discard-var & body]
-  `(test-msg-handler* ~command ~publish-var ~discard-var *db* ~@body))
+  "Converts `command` to JSON, runs it through a message-handler, and
+  then evaluates the `body` with `delay-var` bound to a call-counter,
+  and `discard-var` bound to the directory that contains failed
+  messages.  A history of failed attempts may be provided
+  via (:attempts `command`), which must be as a sequence of items
+  as created by (cons-attempt exception)."
+  [command delay-var discard-var & body]
+  `(test-msg-handler* ~command ~delay-var ~discard-var *db* ~@body))
+
+(defn add-fake-attempts [cmdref n]
+  (loop [i 0
+         result cmdref]
+    (if (or (neg? n) (= i n))
+      result
+      (recur (inc i)
+             (queue/cons-attempt result (Exception. (str "thud-" i)))))))
 
 (deftest command-processor-integration
-  (let [command {:command "some command" :version 1 :payload "payload"}]
+  (let [command {:command "replace catalog" :version 5 :payload "\"payload\""
+                 :annotations {}}]
     (testing "correctly formed messages"
 
       (testing "which are not yet expired"
@@ -141,95 +174,106 @@
           (with-redefs [process-command! (fn [cmd db] (throw+ (fatality (Exception. "fatal error"))))]
             (test-msg-handler command publish discard-dir
               (is (= 0 (times-called publish)))
-              (is (= 1 (count (fs/list-dir discard-dir)))))))
+              (is (= 2 (count (fs/list-dir discard-dir)))))))
 
         (testing "when a non-fatal error occurs should be requeued with the error recorded"
           (with-redefs [process-command! (fn [cmd db] (throw+ (Exception. "non-fatal error")))]
             (test-msg-handler command publish discard-dir
               (is (empty? (fs/list-dir discard-dir)))
-              (let [[msg & _] (first (args-supplied publish))
-                    published (parse-command {:body msg})
-                    attempt   (first (get-in published [:annotations :attempts]))]
-                (is (re-find #"java.lang.Exception: non-fatal error" (:error attempt)))
-                (is (:trace attempt)))))))
+              (let [[call :as calls] (args-supplied publish)
+                    [msg] call
+                    attempts (:attempts msg)]
+                (is (= 1 (count calls)))
+                (is (= 1 (count call)))
+                (is (= 1 (count attempts)))
+                (is (= "non-fatal error"
+                       (-> attempts first :exception .getMessage))))))))
 
       (testing "should be discarded if expired"
-        (let [command (assoc-in command [:annotations :attempts] (repeat mql/maximum-allowable-retries {}))
+        (let [command (add-fake-attempts command mql/maximum-allowable-retries)
+              command (assoc command :version 9)
               process-counter (call-counter)]
-          (with-redefs [process-command! process-counter]
+          ;; Q: Do we want a RuntimeException here?
+          (with-redefs [process-command! (fn [_ _] (throw (RuntimeException. "Expected failure")))]
             (test-msg-handler command publish discard-dir
               (is (= 0 (times-called publish)))
-              (is (= 1 (count (fs/list-dir discard-dir))))
+              (is (= 2 (count (fs/list-dir discard-dir))))
               (is (= 0 (times-called process-counter))))))))
 
     (testing "should be discarded if incorrectly formed"
-      (let [command (dissoc command :payload)
+      (let [command (assoc command :payload "{\"malformed\": \"with no closing brace\"")
             process-counter (call-counter)]
-        (with-redefs [process-command! process-counter]
+        (with-redefs [json/generate-string identity
+                      process-command! process-counter]
           (test-msg-handler command publish discard-dir
             (is (= 0 (times-called publish)))
-            (is (= 1 (count (fs/list-dir discard-dir))))
+            (is (= 2 (count (fs/list-dir discard-dir))))
             (is (= 0 (times-called process-counter)))))))))
 
-(defn make-cmd
-  "Create a command pre-loaded with `n` attempts"
-  [n]
-  {:command nil :version nil :annotations {:attempts (repeat n {})}})
-
 (deftest command-retry-handler
-  (testing "Retry handler"
-    (with-redefs [metrics.meters/mark! (call-counter)
-                  mql/annotate-with-attempt (call-counter)]
+  (testing "Should log all L2 retries as errors"
+    (tqueue/with-stockpile q
+      (let [process-message (fn [_] (throw (RuntimeException. "retry me")))]
+        (with-redefs [mql/discard-message (mock-fn)]
+          (doseq [i (range 0 mql/maximum-allowable-retries)
+                  :let [log-output (atom [])
+                        delay-message (mock-fn)
+                        handle-message (mql/message-handler q nil
+                                                            delay-message process-message)]]
+            (binding [*logger-factory* (atom-logger log-output)]
+              (handle-message (-> (tqueue/store-command q "replace catalog" 10
+                                                        "cats" {:certname "cats"})
+                                  (add-fake-attempts i)))
+              (is (called? delay-message))
+              (is (not (called? mql/discard-message)))
 
-      (testing "should log errors"
-        (let [publish  (call-counter)]
-          (testing "includes certname in retry log"
-            (let [log-output (atom [])]
-              (binding [*logger-factory* (atom-logger log-output)]
-                (mql/handle-command-retry (assoc (make-cmd 1) :payload {:certname "cats"}) nil publish))
-              (is (str/includes? (get-in @log-output [0 3]) "cats"))))
+              (is (= (get-in @log-output [0 1]) :error))
+              (is (str/includes? (get-in @log-output [0 3]) "cats"))
+              (is (instance? Exception (get-in @log-output [0 2])))
+              (is (str/includes? (last (first @log-output))
+                                 "Retrying after L2 attempt")))))
 
-          (testing "to ERROR for retries"
-            (let [log-output (atom [])]
-              (binding [*logger-factory* (atom-logger log-output)]
-                (mql/handle-command-retry (make-cmd mql/maximum-allowable-retries) nil publish))
-              (is (= (get-in @log-output [0 1]) :error)))))))))
+        (let [log-output (atom [])
+              delay-message (mock-fn)
+              discard-message (mock-fn)
+              handle-message (mql/message-handler q nil delay-message process-message)]
+          (with-redefs [mql/discard-message (mock-fn)]
+            (binding [*logger-factory* (atom-logger log-output)]
+              (handle-message (-> (tqueue/store-command q "replace catalog" 10
+                                                        "cats" {:certname "cats"})
+                                  (add-fake-attempts mql/maximum-allowable-retries)))
+              (is (not (called? delay-message)))
+              (is (called? mql/discard-message))
+              (is (= (get-in @log-output [0 1]) :error))
+              (is (instance? Exception (get-in @log-output [0 2])))
+              (is (str/includes? (last (first @log-output))
+                                 "Exceeded max"))
+              (is (str/includes? (get-in @log-output [0 3]) "cats")))))))))
 
-(deftest command-failure-handler
-  (testing "Failure handler"
-    (with-redefs [mql/annotate-with-attempt (call-counter)]
+(deftest message-acknowledgement
+  (testing "happy path, message acknowledgement when no failures occured"
+    (tqueue/with-stockpile q
+      (with-redefs [mql/discard-message (fn [& args] true)]
+        (let [handle-message (mql/message-handler q nil nil identity)
+              cmdref (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
+          (is (:payload (queue/cmdref->cmd q cmdref)))
+          (handle-message cmdref)
+          (is (thrown+-with-msg? [:kind :puppetlabs.stockpile.queue/no-such-entry]
+                                 #"No file found"
+                                 (queue/cmdref->cmd q cmdref)))))))
 
-          (testing "includes certname in failure log"
-            (let [log-output (atom [])
-                  cmd (-> (make-cmd 1)
-                          (assoc :command {} :payload {:certname "cats"})
-                          (assoc-in [:annotations :id] 100))]
-              (binding [*logger-factory* (atom-logger log-output)]
-                (mql/handle-command-failure cmd (RuntimeException. "foo") (fn [msg e] nil)))
-              (is (str/includes? (get-in @log-output [0 3]) "cats")))))))
-
-(deftest command-discard-handler
-  (testing "Discard handler"
-    (with-redefs [mql/annotate-with-attempt (call-counter)]
-
-          (testing "includes certname in discard log"
-            (let [log-output (atom [])
-                  cmd (-> (make-cmd 1)
-                          (assoc :command {} :payload {:certname "cats"})
-                          (assoc-in [:annotations :id] 100))]
-              (binding [*logger-factory* (atom-logger log-output)]
-                (mql/handle-command-discard cmd (fn [msg e] nil)))
-              (is (str/includes? (get-in @log-output [0 3]) "cats")))))))
-
-(deftest test-error-with-stacktrace
-  (with-redefs [metrics.meters/mark! (call-counter)]
-    (let [publish (call-counter)]
-      (testing "Exception with stacktrace, no more retries"
-        (let [log-output (atom [])]
-          (binding [*logger-factory* (atom-logger log-output)]
-            (mql/handle-command-retry (make-cmd mql/maximum-allowable-retries) (RuntimeException. "foo") publish))
-          (is (= (get-in @log-output [0 1]) :error))
-          (is (instance? Exception (get-in @log-output [0 2]))))))))
+  (testing "Failures do not cause messages to be acknowledged"
+    (tqueue/with-stockpile q
+      (with-redefs [mql/discard-message (fn [& args] true)]
+        (let [delay-message (mock-fn)
+              handle-message (mql/message-handler q nil delay-message
+                                                  (fn [_]
+                                                    (throw (RuntimeException. "retry me"))))
+              entry (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
+          (is (:payload (queue/cmdref->cmd q entry)))
+          (handle-message entry)
+          (is (called? delay-message))
+          (is (:payload (queue/cmdref->cmd q entry))))))))
 
 (deftest call-with-quick-retry-test
   (testing "errors are logged at debug while retrying"
@@ -285,12 +329,6 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn stringify-payload
-  "Converts a clojure payload in the command to the stringified
-   JSON structure"
-  [catalog]
-  (update-in catalog [:payload] json/generate-string))
-
 (defn with-env
   "Updates the `row-map` to include environment information."
   [row-map]
@@ -330,14 +368,13 @@
       (let [certname (get-in raw-command [:payload :certname])
             catalog-hash (shash/catalog-similarity-hash
                           (catalog/parse-catalog (:payload raw-command) (version-kwd->num version) (now)))
-            command (stringify-payload raw-command)
             one-day      (* 24 60 60 1000)
             yesterday    (to-timestamp (- (System/currentTimeMillis) one-day))
             tomorrow     (to-timestamp (+ (System/currentTimeMillis) one-day))]
 
         (testing "with no catalog should store the catalog"
           (with-test-db
-            (test-msg-handler command publish discard-dir
+            (test-msg-handler raw-command publish discard-dir
               (is (= [(with-env {:certname certname})]
                      (query-to-vec "SELECT certname, environment_id FROM catalogs")))
               (is (= 0 (times-called publish)))
@@ -345,10 +382,11 @@
 
         (testing "with code-id should store the catalog"
           (with-test-db
-            (test-msg-handler (-> raw-command
-                                  (assoc-in [:payload :code_id] "my_git_sha1")
-                                  stringify-payload)
-              publish discard-dir
+            (test-msg-handler
+              (-> raw-command
+                  (assoc-in [:payload :code_id] "my_git_sha1"))
+              publish
+              discard-dir
               (is (= [(with-env {:certname certname :code_id "my_git_sha1"})]
                      (query-to-vec "SELECT certname, code_id, environment_id FROM catalogs")))
               (is (= 0 (times-called publish)))
@@ -365,14 +403,14 @@
                                      :certname certname
                                      :producer_timestamp (to-timestamp (-> 1 days ago))})
 
-            (test-msg-handler command publish discard-dir
+            (test-msg-handler raw-command publish discard-dir
               (is (= [(with-env {:certname certname :catalog catalog-hash})]
                      (query-to-vec (format "SELECT certname, %s as catalog, environment_id FROM catalogs"
                                            (sutils/sql-hash-as-str "hash")))))
               (is (= 0 (times-called publish)))
               (is (empty? (fs/list-dir discard-dir))))))
 
-        (let [command (assoc command :payload "bad stuff")]
+        (let [command (assoc raw-command :payload "bad stuff")]
           (testing "with a bad payload should discard the message"
             (with-test-db
               (test-msg-handler command publish discard-dir
@@ -381,47 +419,45 @@
                 (is (seq (fs/list-dir discard-dir)))))))
 
         (testing "with a newer catalog should ignore the message"
-          (with-test-db
-            (jdbc/insert! :certnames {:certname certname})
-            (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "ab")
-                                     :api_version 1
-                                     :catalog_version "foo"
-                                     :certname certname
-                                     :timestamp tomorrow
-                                     :producer_timestamp (to-timestamp (now))})
-
-            (test-msg-handler command publish discard-dir
-              (is (= [{:certname certname :catalog "ab"}]
-                     (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
-                                           (sutils/sql-hash-as-str "hash")))))
-              (is (= 0 (times-called publish)))
-              (is (empty? (fs/list-dir discard-dir))))))
-
+            (with-test-db
+              (jdbc/insert! :certnames {:certname certname})
+              (jdbc/insert! :catalogs {:hash (sutils/munge-hash-for-storage "ab")
+                                       :api_version 1
+                                       :catalog_version "foo"
+                                       :certname certname
+                                       :timestamp tomorrow
+                                       :producer_timestamp (to-timestamp (now))})
+              (test-msg-handler raw-command publish discard-dir
+                (is (= [{:certname certname :catalog "ab"}]
+                       (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                             (sutils/sql-hash-as-str "hash")))))
+                (is (= 0 (times-called publish)))
+                (is (empty? (fs/list-dir discard-dir))))))
 
         (testing "should reactivate the node if it was deactivated before the message"
-          (with-test-db
-            (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
-            (test-msg-handler command publish discard-dir
-              (is (= [{:certname certname :deactivated nil}]
-                     (query-to-vec "SELECT certname,deactivated FROM certnames")))
-              (is (= [{:certname certname :catalog catalog-hash}]
-                     (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
-                                           (sutils/sql-hash-as-str "hash")))))
-              (is (= 0 (times-called publish)))
-              (is (empty? (fs/list-dir discard-dir)))))
-
-          (testing "should store the catalog if the node was deactivated after the message"
             (with-test-db
-              (scf-store/delete-certname! certname)
-              (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
-              (test-msg-handler command publish discard-dir
-                                (is (= [{:certname certname :deactivated tomorrow}]
-                                       (query-to-vec "SELECT certname,deactivated FROM certnames")))
-                                (is (= [{:certname certname :catalog catalog-hash}]
-                                       (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
-                                                             (sutils/sql-hash-as-str "hash")))))
-                                (is (= 0 (times-called publish)))
-                                (is (empty? (fs/list-dir discard-dir)))))))))))
+              (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
+              (test-msg-handler raw-command publish discard-dir
+                (is (= [{:certname certname :deactivated nil}]
+                       (query-to-vec "SELECT certname,deactivated FROM certnames")))
+                (is (= [{:certname certname :catalog catalog-hash}]
+                       (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                             (sutils/sql-hash-as-str "hash")))))
+                (is (= 0 (times-called publish)))
+                (is (empty? (fs/list-dir discard-dir)))))
+
+            (testing "should store the catalog if the node was deactivated after the message"
+              (with-test-db
+                (scf-store/delete-certname! certname)
+                (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
+                (test-msg-handler raw-command publish discard-dir
+                  (is (= [{:certname certname :deactivated tomorrow}]
+                         (query-to-vec "SELECT certname,deactivated FROM certnames")))
+                  (is (= [{:certname certname :catalog catalog-hash}]
+                         (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
+                                               (sutils/sql-hash-as-str "hash")))))
+                  (is (= 0 (times-called publish)))
+                  (is (empty? (fs/list-dir discard-dir)))))))))))
 
 ;; If there are messages in the user's MQ when they upgrade, we could
 ;; potentially have commands of an unsupported format that need to be
@@ -515,13 +551,11 @@
 
 (deftest catalog-with-updated-resource-line
   (dotestseq [version catalog-versions
-              :let [command {:command (command-names :replace-catalog)
-                             :version latest-catalog-version
-                             :payload basic-wire-catalog}
-                    command-1 (stringify-payload command)
-                    command-2 (stringify-payload
-                               (update-resource version command "File" "/etc/foobar"
-                                                #(assoc % :line 20)))]]
+              :let [command-1 {:command (command-names :replace-catalog)
+                               :version latest-catalog-version
+                               :payload basic-wire-catalog}
+                    command-2 (update-resource version command-1 "File" "/etc/foobar"
+                                               #(assoc % :line 20))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
         (let [orig-resources (scf-store/catalog-resources (:certname_id
@@ -542,13 +576,11 @@
 
 (deftest catalog-with-updated-resource-file
   (dotestseq [version catalog-versions
-              :let [command {:command (command-names :replace-catalog)
-                             :version latest-catalog-version
-                             :payload basic-wire-catalog}
-                    command-1 (stringify-payload command)
-                    command-2 (stringify-payload
-                               (update-resource version command "File" "/etc/foobar"
-                                                #(assoc % :file "/tmp/not-foo")))]]
+              :let [command-1 {:command (command-names :replace-catalog)
+                               :version latest-catalog-version
+                               :payload basic-wire-catalog}
+                    command-2 (update-resource version command-1 "File" "/etc/foobar"
+                                               #(assoc % :file "/tmp/not-foo"))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
         (let [orig-resources (scf-store/catalog-resources (:certname_id
@@ -569,13 +601,11 @@
 
 (deftest catalog-with-updated-resource-exported
   (dotestseq [version catalog-versions
-              :let [command {:command (command-names :replace-catalog)
-                             :version latest-catalog-version
-                             :payload basic-wire-catalog}
-                    command-1 (stringify-payload command)
-                    command-2 (stringify-payload
-                               (update-resource version command "File" "/etc/foobar"
-                                                #(assoc % :exported true)))]]
+              :let [command-1 {:command (command-names :replace-catalog)
+                               :version latest-catalog-version
+                               :payload basic-wire-catalog}
+                    command-2 (update-resource version command-1 "File" "/etc/foobar"
+                                               #(assoc % :exported true))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
         (let [orig-resources (scf-store/catalog-resources (:certname_id
@@ -594,14 +624,13 @@
 
 (deftest catalog-with-updated-resource-tags
   (dotestseq [version catalog-versions
-              :let [command {:command (command-names :replace-catalog)
-                             :version latest-catalog-version
-                             :payload basic-wire-catalog}
-                    command-1 (stringify-payload command)
-                    command-2 (stringify-payload
-                               (update-resource version command "File" "/etc/foobar"
-                                                #(-> %(assoc :tags #{"file" "class" "foobar" "foo"})
-                                                     (assoc :line 20))))]]
+              :let [command-1 {:command (command-names :replace-catalog)
+                               :version latest-catalog-version
+                               :payload basic-wire-catalog}
+                    command-2 (update-resource version command-1 "File" "/etc/foobar"
+                                               #(assoc %
+                                                       :tags #{"file" "class" "foobar" "foo"}
+                                                       :line 20))]]
     (with-test-db
       (test-msg-handler command-1 publish discard-dir
         (let [orig-resources (scf-store/catalog-resources (:certname_id
@@ -924,18 +953,13 @@
             (is (= 0 (times-called publish)))
             (is (seq (fs/list-dir discard-dir)))))))))
 
-(defn extract-error-message
-  "Pulls the error message from the publish var of a test-msg-handler"
+(defn extract-error
+  "Pulls the error from the publish var of a test-msg-handler"
   [publish]
   (-> publish
-      meta
-      :args
-      deref
-      ffirst
-      json/parse-string
-      (get-in ["annotations" "attempts"])
+      args-supplied
       first
-      (get "error")))
+      second))
 
 (deftest concurrent-fact-updates
   (testing "Should allow only one replace facts update for a given cert at a time"
@@ -955,9 +979,7 @@
                        :payload facts}
 
             hand-off-queue (java.util.concurrent.SynchronousQueue.)
-            storage-replace-facts! scf-store/update-facts!
-            failures (atom ())
-            orig-annotate-attempt mql/annotate-with-attempt]
+            storage-replace-facts! scf-store/update-facts!]
 
         (jdbc/with-db-transaction []
           (scf-store/add-certname! certname)
@@ -969,11 +991,7 @@
                                  :producer "bar.com"})
           (scf-store/ensure-environment "DEV"))
 
-        (with-redefs [mql/annotate-with-attempt
-                      (fn [msg ex]
-                        (swap! failures conj ex)
-                        (orig-annotate-attempt msg ex))
-                      scf-store/update-facts!
+        (with-redefs [scf-store/update-facts!
                       (fn [fact-data]
                         (.put hand-off-queue "got the lock")
                         (.poll hand-off-queue 5 TimeUnit/SECONDS)
@@ -997,10 +1015,15 @@
 
             (test-msg-handler new-facts-cmd publish discard-dir
               (reset! second-message? true)
-              (is (= 1 (count @failures)))
-              (is (re-matches
-                   #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
-                   (full-sql-exception-msg (first @failures)))))
+              (let [[call :as calls] (args-supplied publish)
+                    [msg] call
+                    attempts (:attempts msg)]
+                (is (= 1 (count calls)))
+                (is (= 1 (count call)))
+                (is (= 1 (count attempts)))
+                (is (re-matches
+                     #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
+                     (-> attempts first :exception full-sql-exception-msg)))))
             @fut
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
@@ -1154,7 +1177,7 @@
           ;; that fact path, when the mytimestamp 1 value is still in
           ;; there.
           (test-msg-handler command-2c publish discard-dir
-            (is (not (extract-error-message publish))))
+            (is (not (extract-error publish))))
 
           ;; Can we see the orphaned value '1', and does the global gc remove it.
           (is (= 1 (count
@@ -1174,7 +1197,7 @@
             nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
             command {:command (command-names :replace-catalog)
                      :version 6
-                     :payload (json/generate-string wire-catalog)}
+                     :payload wire-catalog}
 
             hand-off-queue (java.util.concurrent.SynchronousQueue.)
             storage-replace-catalog! scf-store/replace-catalog!]
@@ -1202,13 +1225,21 @@
                                               :source       {:title "main" :type "Stage"}}})
                 new-catalog-cmd {:command (command-names :replace-catalog)
                                  :version 6
-                                 :payload (json/generate-string new-wire-catalog)}]
+                                 :payload new-wire-catalog}]
 
             (test-msg-handler new-catalog-cmd publish discard-dir
               (reset! second-message? true)
               (is (empty? (fs/list-dir discard-dir)))
-              (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
-                              (extract-error-message publish))))
+              (let [[call :as calls] (args-supplied publish)
+                    [msg] call
+                    attempts (:attempts msg)]
+                (is (= 1 (count calls)))
+                (is (= 1 (count call)))
+                (is (= 1 (count attempts)))
+                (is (re-matches
+                     #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
+                     (-> attempts first :exception full-sql-exception-msg)))))
+
             @fut
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
@@ -1221,7 +1252,7 @@
             nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
             command {:command (command-names :replace-catalog)
                      :version 6
-                     :payload (json/generate-string wire-catalog)}
+                     :payload wire-catalog}
 
             hand-off-queue (java.util.concurrent.SynchronousQueue.)
             storage-replace-catalog! scf-store/replace-catalog!]
@@ -1256,13 +1287,21 @@
                                                        :user   "root"}})
                 new-catalog-cmd {:command (command-names :replace-catalog)
                                  :version 6
-                                 :payload (json/generate-string new-wire-catalog)}]
+                                 :payload new-wire-catalog}]
 
             (test-msg-handler new-catalog-cmd publish discard-dir
               (reset! second-message? true)
               (is (empty? (fs/list-dir discard-dir)))
-              (is (re-matches #".*BatchUpdateException.*(rollback|abort).*"
-                              (extract-error-message publish))))
+              (let [[call :as calls] (args-supplied publish)
+                    [msg] call
+                    attempts (:attempts msg)]
+                (is (= 1 (count calls)))
+                (is (= 1 (count call)))
+                (is (= 1 (count attempts)))
+                (is (re-matches
+                     #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
+                     (-> attempts first :exception full-sql-exception-msg)))))
+
             @fut
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
@@ -1279,11 +1318,13 @@
              {:certname "bar.example.com"
               :command {:command (command-names :deactivate-node)
                         :version 2
-                        :payload "bar.example.com"}}
+                        :payload (json/generate-string "bar.example.com")}}
              {:certname "bar.example.com"
               :command {:command (command-names :deactivate-node)
                         :version 1
-                        :payload (json/generate-string "bar.example.com")}}]]
+                        :payload (-> "bar.example.com"
+                                     json/generate-string
+                                     json/generate-string)}}]]
 
   (deftest deactivate-node-node-active
     (testing "should deactivate the node"
@@ -1505,10 +1546,13 @@
                         (deliver received-cmd? true)
                         @go-ahead-and-execute
                         (apply real-replace! args))]
-          (enqueue-command (command-names :replace-facts) 4
-                           {:environment "DEV" :certname "foo.local"
-                            :values {:foo "foo"}
-                            :producer_timestamp (to-string (now))})
+          (enqueue-command (command-names :replace-facts)
+                           4
+                           "foo.local"
+                           (tqueue/coerce-to-stream
+                            {:environment "DEV" :certname "foo.local"
+                             :values {:foo "foo"}
+                             :producer_timestamp (to-string (now))}))
           @received-cmd?
           (is (= {:received-commands 1 :executed-commands 0} (stats)))
           (deliver go-ahead-and-execute true)
@@ -1526,8 +1570,11 @@
           ;; enqueue, a DateTime wasn't a problem.
           input-stamp (java.util.Date. deactivate-ms)
           expected-stamp (DateTime. deactivate-ms DateTimeZone/UTC)]
-      (enqueue-command (command-names :deactivate-node) 3
-                       {:certname "foo.local" :producer_timestamp input-stamp})
+      (enqueue-command (command-names :deactivate-node)
+                       3
+                       "foo.local"
+                       (tqueue/coerce-to-stream
+                        {:certname "foo.local" :producer_timestamp input-stamp}))
       (is (svc-utils/wait-for-server-processing svc-utils/*server* 5000))
       ;; While we're here, check the value in the database too...
       (is (= expected-stamp
@@ -1557,15 +1604,109 @@
           dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
           enqueue-command (partial enqueue-command dispatcher)
           response-mult (response-mult dispatcher)
-          response-chan (async/chan)
-          command-uuid (ks/uuid)]
+          response-chan (async/chan 4)
+          producer-ts (java.util.Date.)]
       (async/tap response-mult response-chan)
-      (enqueue-command (command-names :deactivate-node) 3
-                       {:certname "foo.local" :producer_timestamp (java.util.Date.)}
-                       command-uuid)
-      (let [received-uuid (async/alt!! response-chan ([msg] (:id msg))
+      (enqueue-command (command-names :deactivate-node)
+                       3
+                       "foo.local"
+                       (tqueue/coerce-to-stream
+                        {:certname "foo.local" :producer_timestamp producer-ts}))
+
+      (let [received-uuid (async/alt!! response-chan ([msg] (:producer-timestamp msg))
                                        (async/timeout 10000) ::timeout)]
-       (is (= command-uuid received-uuid))))))
+        (is (= producer-ts))))))
+
+(defn captured-ack-command [orig-ack-command results-atom]
+  (fn [q command]
+    (try
+      (let [result (orig-ack-command q command)]
+        (swap! results-atom conj result)
+        result)
+      (catch Exception e
+        (swap! results-atom conj e)
+        (throw e)))))
+
+(deftest delete-old-catalog
+  (with-test-db
+    (svc-utils/call-with-puppetdb-instance
+     (assoc (svc-utils/create-temp-config)
+            :database *db*
+            :command-processing {:threads 1})
+     (fn []
+
+       (let [message-listener (get-service svc-utils/*server* :MessageListenerService)
+             dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
+             enqueue-command (partial enqueue-command dispatcher)
+             old-producer-ts (-> 2 days ago)
+             new-producer-ts (now)
+             base-cmd (get-in wire-catalogs [9 :basic])
+             thread-count (conf/mq-thread-count (get-config))
+             orig-ack-command queue/ack-command
+             ack-results (atom [])
+             semaphore (get-in (service-context message-listener)
+                               [:consumer-threadpool :semaphore])
+             cmd-1 (promise)
+             cmd-2 (promise)
+             cmd-3 (promise)]
+         (with-redefs [queue/ack-command (captured-ack-command orig-ack-command ack-results)]
+           (is (= thread-count (.drainPermits semaphore)))
+
+           ;;This command is processed, but not used in the test, it's
+           ;;purpose is to hold up the "shovel thread" waiting to grab
+           ;;the semaphore permit and put the message on the
+           ;;treadpool. By holding this up here we can put more
+           ;;messages on the channel and know they won't be processed
+           ;;until the semaphore permit is released and this first
+           ;;message is put onto the threadpool
+           (enqueue-command (command-names :replace-catalog)
+                            9
+                            "foo.com"
+                            (->  base-cmd
+                                 (assoc :producer_timestamp old-producer-ts
+                                        :certname "foo.com")
+                                 tqueue/coerce-to-stream)
+                            #(deliver cmd-1 %))
+
+           (enqueue-command (command-names :replace-catalog)
+                            9
+                            (:certname base-cmd)
+                            (-> base-cmd
+                                (assoc :producer_timestamp old-producer-ts)
+                                tqueue/coerce-to-stream)
+                            #(deliver cmd-2 %))
+
+           (enqueue-command (command-names :replace-catalog)
+                            9
+                            (:certname base-cmd)
+                            (-> base-cmd
+                                (assoc :producer_timestamp new-producer-ts)
+                                tqueue/coerce-to-stream)
+                            #(deliver cmd-3 %))
+
+           (.release semaphore)
+
+           (is (not= ::timed-out (deref cmd-1 5000 ::timed-out)))
+           (is (not= ::timed-out (deref cmd-2 5000 ::timed-out)))
+           (is (not= ::timed-out (deref cmd-3 5000 ::timed-out)))
+
+           ;; There's currently a lot of layering in the messaging
+           ;; stack. The callback mechanism that delivers the promise
+           ;; above occurs before the message is acknowledged. This
+           ;; leads to a race condition. If your timing is off, you
+           ;; could check the ack-results atom after the callback has
+           ;; been invoked but before the message has been acknowledged.
+
+           (loop [attempts 0]
+             (when (and (not= 3 (count @ack-results))
+                        (<= attempts 20))
+               (Thread/sleep 100)
+               (recur (inc attempts))))
+
+           (is (= 3 (count @ack-results))
+               "Waited up to 5 seconds for 3 acknowledgement results")
+
+           (is (= [nil nil nil] @ack-results))))))))
 
 ;; Local Variables:
 ;; mode: clojure

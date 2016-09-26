@@ -270,7 +270,7 @@
   (without-corrective-change
     (store-example-report! (:basic reports) (now))
     (store-example-report! (:basic3 reports) (now))
-    (testcat/replace-catalog (json/generate-string example-catalog))
+    (testcat/replace-catalog example-catalog)
     (testing "should only count the most recent event for each resource"
       (are [query result]
            (is (= (query-result method endpoint query
@@ -849,7 +849,7 @@
   (with-corrective-change
     (store-example-report! (:basic reports) (now))
     (store-example-report! (:basic3 reports) (now))
-    (testcat/replace-catalog (json/generate-string example-catalog))
+    (testcat/replace-catalog example-catalog)
     (testing "should only count the most recent event for each resource"
       (are [query result]
            (is (= (query-result method endpoint query

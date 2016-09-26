@@ -55,19 +55,20 @@
 
    In either case, the command itself, once string-ified, must be a
    JSON-formatted string with the aforementioned structure."
+  (:import [java.util.concurrent Semaphore])
   (:require [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.facts :as fact]
-            [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [slingshot.slingshot :refer [try+ throw+]]
+            [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.trapperkeeper.services
              :refer [defservice service-context]]
@@ -77,14 +78,22 @@
             [clj-time.core :refer [now]]
             [clojure.set :as set]
             [clojure.core.async :as async]
-            [puppetlabs.puppetdb.mq :as mq]
             [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.metrics.core :as metrics]))
+            [metrics.counters :refer [inc!]]
+            [puppetlabs.puppetdb.metrics.core :as metrics]
+            [puppetlabs.puppetdb.queue :as queue]
+            [clj-time.coerce :as tcoerce]
+            [puppetlabs.puppetdb.amq-migration :as mig]
+            [puppetlabs.puppetdb.command.dlo :as dlo]))
 
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
 (def metrics (atom {:command-parse-time (timer mq-metrics-registry
-                                               (metrics/keyword->metric-name [:global] :command-parse-time))}))
+                                               (metrics/keyword->metric-name
+                                                 [:global] :command-parse-time))
+                    :message-persistence-time (timer mq-metrics-registry
+                                                     (metrics/keyword->metric-name
+                                                       [:global] :message-persistence-time))}))
 
 (defn fatality
   "Create an object representing a fatal command-processing exception
@@ -109,7 +118,7 @@
    "replace catalog" (version-range 4 9)
    "store report" (version-range 3 8)
    "deactivate node" (version-range 1 3)})
-   
+
 (def latest-catalog-version (apply max (get supported-command-versions "replace catalog")))
 (def latest-report-version (apply max (get supported-command-versions "store report")))
 (def latest-facts-version (apply max (get supported-command-versions "replace facts")))
@@ -214,50 +223,37 @@
 
 ;; ## Command submission
 
-(defn-validated ^:private do-enqueue-raw-command :- s/Str
-  "Submits raw-command to the mq-endpoint of mq-connection and returns
-  its id."
-  [mq-connection :- mq/connection-schema
-   mq-endpoint :- s/Str
-   raw-command :- (s/cond-pre s/Str utils/byte-array-class)
-   uuid :- (s/maybe s/Str)
-   properties :- (s/maybe {s/Str s/Str})] ;; For now stick with str -> str
-  (let [uuid (or uuid (kitchensink/uuid))]
-    (mq/send-message! mq-connection mq-endpoint raw-command
-                      ;; Until/unless we require that all callers
-                      ;; include received, etc.
-                      (merge {"received" (kitchensink/timestamp) "id" uuid}
-                             properties))
-    uuid))
-
-(defn-validated ^:private do-enqueue-command :- s/Str
+(defn-validated do-enqueue-command
   "Submits command to the mq-endpoint of mq-connection and returns
   its id. Annotates the command via annotate-command."
-  [mq-connection :- mq/connection-schema
-   mq-endpoint :- s/Str
+  [q
+   command-chan
+   ^Semaphore write-semaphore
    command :- s/Str
    version :- s/Int
-   payload
-   uuid :- (s/maybe s/Str)
-   properties]
-  (let [command-map {:command command
-                     :version version
-                     :payload payload}]
-    (do-enqueue-raw-command mq-connection mq-endpoint
-                            (json/generate-string command-map)
-                            uuid
-                            properties)))
+   certname :- s/Str
+   command-stream
+   command-callback]
+  (try
+    (.acquire write-semaphore)
+    (time! (get @metrics :message-persistence-time)
+           (async/>!! command-chan
+                      (queue/store-command
+                        q command version certname command-stream command-callback)))
+    (finally
+      (.release write-semaphore)
+      (when command-stream
+        (.close command-stream)))))
 
 ;; Catalog replacement
 
 (defn replace-catalog*
-  [{:keys [payload annotations version]} db]
-  (let [{id :id received-timestamp :received} annotations
-        {producer-timestamp :producer_timestamp certname :certname :as catalog} payload]
+  [{:keys [annotations certname version payload]} db]
+  (let [{producer-timestamp :producer_timestamp :as catalog} payload]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
-      (scf-storage/replace-catalog! catalog received-timestamp))
-    (log/infof "[%s] [%s] %s" id (command-names :replace-catalog) certname)))
+      (scf-storage/replace-catalog! catalog (:received annotations)))
+    (log/infof "[%s] [%s] %s" (:id annotations) (command-names :replace-catalog) certname)))
 
 (defn replace-catalog [{:keys [payload annotations version] :as command} db]
   (let [{received-timestamp :received} annotations
@@ -270,26 +266,25 @@
 ;; Fact replacement
 
 (defn replace-facts*
-  [{:keys [payload annotations version]} db]
-  (let [{:keys [id]} annotations
-        {:keys [certname values] :as fact-data} payload
+  [{:keys [payload annotations] :as command} db]
+  (let [{:keys [certname values] :as fact-data} payload
         producer-timestamp (:producer_timestamp fact-data)]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-facts! fact-data))
-    (log/infof "[%s] [%s] %s" id (command-names :replace-facts) certname)))
+    (log/infof "[%s] [%s] %s" (:id annotations) (command-names :replace-facts) certname)))
 
 (defn replace-facts [{:keys [payload version annotations] :as command} db]
-  (let [{received-timestamp :received} annotations
+  (let [received-time (:received annotations)
         validated-payload (upon-error-throw-fatality
                            (-> (case version
-                                 2 (fact/wire-v2->wire-v5 payload received-timestamp)
+                                 2 (fact/wire-v2->wire-v5 payload received-time)
                                  3 (fact/wire-v3->wire-v5 payload)
                                  4 (fact/wire-v4->wire-v5 payload)
                                  payload)
                                (update :values utils/stringify-keys)
                                (update :producer_timestamp to-timestamp)
-                               (assoc :timestamp received-timestamp)))]
+                               (assoc :timestamp received-time)))]
     (-> command
         (assoc :payload validated-payload)
         (replace-facts* db))))
@@ -306,15 +301,14 @@
       deactivate-node-wire-v2->wire-3))
 
 (defn deactivate-node*
-  [{:keys [payload annotations]} db]
+  [{:keys [annotations payload]} db]
   (let [certname (:certname payload)
-        producer-timestamp (to-timestamp (:producer_timestamp payload (now)))
-        id (:id annotations)]
+        producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
     (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname producer-timestamp))
-    (log/infof "[%s] [%s] %s" id (command-names :deactivate-node) certname)))
+    (log/infof "[%s] [%s] %s" (:id annotations) (command-names :deactivate-node) certname)))
 
 (defn deactivate-node [{:keys [payload version] :as command} db]
   (-> command
@@ -328,26 +322,27 @@
 
 (defn store-report*
   [{:keys [payload annotations]} db]
-  (let [{id :id received-timestamp :received} annotations
-        {:keys [certname puppet_version] :as report} payload
+  (let [{:keys [certname puppet_version] :as report} payload
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
     (jdbc/with-transacted-connection db
       (scf-storage/maybe-activate-node! certname producer-timestamp)
-      (scf-storage/add-report! report received-timestamp))
+      (scf-storage/add-report! report (:received annotations)))
     (log/infof "[%s] [%s] puppet v%s - %s"
-               id (command-names :store-report)
-               puppet_version certname)))
+               (:id annotations)
+               (command-names :store-report)
+               puppet_version
+               certname)))
 
 (defn store-report [{:keys [payload version annotations] :as command} db]
-  (let [{received-timestamp :received} annotations
-        validated-payload (upon-error-throw-fatality
-                           (s/validate report/report-wireformat-schema (case version
-                                                       3 (report/wire-v3->wire-v8 payload received-timestamp)
-                                                       4 (report/wire-v4->wire-v8 payload received-timestamp)
-                                                       5 (report/wire-v5->wire-v8 payload)
-                                                       6 (report/wire-v6->wire-v8 payload)
-                                                       7 (report/wire-v7->wire-v8 payload)
-                                                       payload)))]
+  (let [validated-payload (upon-error-throw-fatality
+                           (s/validate report/report-wireformat-schema
+                                       (case version
+                                         3 (report/wire-v3->wire-v8 payload (:received annotations))
+                                         4 (report/wire-v4->wire-v8 payload (:received annotations))
+                                         5 (report/wire-v5->wire-v8 payload)
+                                         6 (report/wire-v6->wire-v8 payload)
+                                         7 (report/wire-v7->wire-v8 payload)
+                                         payload)))]
     (-> command
         (assoc :payload validated-payload)
         (store-report* db))))
@@ -368,12 +363,13 @@
 (defn process-command!
   "Takes a command object and processes it to completion. Dispatch is
   based on the command's name and version information"
-  [{command-name :command version :version :as command} db]
-  (condp supported-command-version? [command-name version]
-    "replace catalog" (replace-catalog command db)
-    "replace facts" (replace-facts command db)
-    "store report" (store-report command db)
-    "deactivate node" (deactivate-node command db)))
+  [{command-name :command version :version delete? :delete? :as command} db]
+  (when-not delete?
+    (condp supported-command-version? [command-name version]
+      "replace catalog" (replace-catalog command db)
+      "replace facts" (replace-facts command db)
+      "store report" (store-report command db)
+      "deactivate node" (deactivate-node command db))))
 
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"
@@ -382,15 +378,10 @@
 
 (defprotocol PuppetDBCommandDispatcher
   (enqueue-command
-    [this command version payload]
-    [this command version payload uuid]
-    [this command version payload uuid properties]
+    [this command version certname payload]
+    [this command version certname payload command-callback]
     "Annotates the command via annotate-command, submits it for
     processing, and then returns its unique id.")
-
-  (enqueue-raw-command [this raw-command uuid properties]
-    "Submits the raw-command for processing and returns the command's
-    unique id.")
 
   (stats [this]
     "Returns command processing statistics as a map
@@ -401,19 +392,14 @@
 
   (response-mult [this]
     "Returns a core.async mult to which {:id :exception} maps are written after
-     each command has been processed. " )
-
-  (response-pub [this]
-    "Returns a core.async pub to which {:id :exception} maps are written after
-     each command has been processed. The topic for each message is its
-     id (command uuid)."))
+     each command has been processed. " ))
 
 (defn make-cmd-processed-message [cmd ex]
-  (merge {:id (-> cmd :annotations :id)
-          :command (:command cmd)
-          :version (:version cmd)
-          :producer-timestamp (-> cmd :payload :producer_timestamp)}
-         (when ex {:exception ex})))
+  (conj
+   (conj (select-keys cmd [:id :command :version])
+         [:producer-timestamp (get-in cmd [:payload :payload :producer_timestamp])])
+   (when ex
+     [:exception ex])))
 
 (defn call-with-quick-retry [num-retries f]
   (loop [n num-retries]
@@ -428,19 +414,26 @@
         (recur (dec n))
         result))))
 
-(defn process-command-and-respond! [cmd db response-pub-chan stats-atom]
+(defn process-command-and-respond! [{:keys [callback] :as cmd} db response-pub-chan stats-atom]
   (try
     (let [result (call-with-quick-retry 4
                   (fn []
                     (process-command! cmd db)))]
       (swap! stats-atom update :executed-commands inc)
+      (callback {:command cmd :result result})
       (async/>!! response-pub-chan
                  (make-cmd-processed-message cmd nil))
       result)
     (catch Exception ex
+      (callback {:command cmd :exception ex})
       (async/>!! response-pub-chan
                  (make-cmd-processed-message cmd ex))
       (throw ex))))
+
+(defn upgrade-activemq [config enqueue-fn dlo]
+  (when (mig/needs-upgrade? config)
+    (mig/activemq->stockpile config enqueue-fn dlo)
+    (mig/lock-upgrade config)))
 
 (defservice command-service
   PuppetDBCommandDispatcher
@@ -450,9 +443,11 @@
   (init [this context]
     (let [response-chan (async/chan 1000)
           response-mult (async/mult response-chan)
-          response-chan-for-pub (async/chan)]
+          response-chan-for-pub (async/chan)
+          concurrent-writes (get-in (get-config) [:command-processing :concurrent-writes])]
       (async/tap response-mult response-chan-for-pub)
       (assoc context
+             :write-semaphore (Semaphore. concurrent-writes)
              :stats (atom {:received-commands 0
                            :executed-commands 0})
              :response-chan response-chan
@@ -461,17 +456,17 @@
              :response-pub (async/pub response-chan-for-pub :id))))
 
   (start [this context]
-    (let [{:keys [scf-write-db]} (shared-globals)
-          {:keys [response-chan response-pub]} context
-          factory (-> (conf/mq-broker-url (get-config))
-                      (mq/activemq-connection-factory))
-          connection (.createConnection factory)]
+    (let [{:keys [scf-write-db dlo q]} (shared-globals)
+          {:keys [response-chan response-pub]} context]
       (register-listener
        supported-command?
        #(process-command-and-respond! % scf-write-db response-chan (:stats context)))
-      (assoc context
-             :factory factory
-             :connection connection)))
+
+      (upgrade-activemq (get-config)
+                        (partial enqueue-command this)
+                        dlo)
+
+      context))
 
   (stop [this context]
     (async/unsub-all (:response-pub context))
@@ -479,42 +474,26 @@
     (async/close! (:response-chan-for-pub context))
     (async/close! (:response-chan context))
     (dissoc context :response-pub :response-chan :response-chan-for-pub :response-mult)
-    (.close (:connection context))
-    (.close (:factory context))
     context)
 
   (stats [this]
     @(:stats (service-context this)))
 
-  (enqueue-command [this command version payload]
-    (enqueue-command this command version payload nil))
+  (enqueue-command [this command version certname command-stream]
+                   (enqueue-command this command version certname command-stream identity))
 
-  (enqueue-command [this command version payload uuid]
-    (enqueue-command this command version payload uuid nil))
-
-  (enqueue-command [this command version payload uuid properties]
+  (enqueue-command [this command version certname command-stream command-callback]
     (let [config (get-config)
-          connection (:connection (service-context this))
-          endpoint (get-in config [:command-processing :mq :endpoint])
+          q (:q (shared-globals))
+          command-chan (:command-chan (shared-globals))
+          write-semaphore (:write-semaphore (service-context this))
           command (if (string? command) command (command-names command))
-          result (do-enqueue-command connection endpoint
-                                      command version payload uuid properties)]
+          result (do-enqueue-command q command-chan write-semaphore command
+                                     version certname command-stream command-callback)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
+      (mql/inc-cmd-metrics command version)
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
-
-  (enqueue-raw-command [this raw-command uuid properties]
-    (let [config (get-config)
-          connection (:connection (service-context this))
-          endpoint (get-in config [:command-processing :mq :endpoint])
-          result (do-enqueue-raw-command connection endpoint
-                                          raw-command uuid properties)]
-      ;; Obviously assumes that if do-* doesn't throw, msg is in
-      (swap! (:stats (service-context this)) update :received-commands inc)
-      result))
-
-  (response-pub [this]
-    (-> this service-context :response-pub))
 
   (response-mult [this]
     (-> this service-context :response-mult)))

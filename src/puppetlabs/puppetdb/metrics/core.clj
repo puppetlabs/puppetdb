@@ -2,10 +2,12 @@
   (:require [metrics.reporters.jmx :refer [reporter]]
             [metrics.core :refer [new-registry]]))
 
-(defn new-metrics [domain]
+(defn new-metrics [domain & {:keys [jmx?] :or {jmx? true}}]
   (let [registry (new-registry)]
-    {:registry registry
-     :reporter (reporter registry {:domain domain})}))
+    (if-not jmx?
+      {:registry registry}
+      {:registry registry
+       :reporter (reporter registry {:domain domain})})))
 
 (def metrics-registries {:admin (new-metrics "puppetlabs.puppetdb.admin")
                          :mq (new-metrics "puppetlabs.puppetdb.mq")

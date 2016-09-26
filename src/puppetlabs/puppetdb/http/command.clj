@@ -84,31 +84,30 @@
 
 (defn- blocking-submit-command
   "Submit a command by calling do-submit-fn and block until it completes.
-  Subscribes to response-pub on the topic of the commands uuid, waiting up to
-  completion-timeout-ms."
-  [do-submit-fn response-pub uuid completion-timeout-ms]
-  (with-chan [response-chan (async/chan)]
-    (with-sub {:from response-pub :topic (str uuid) :chan response-chan}
-      (let [timeout-chan (async/timeout completion-timeout-ms)
-            _ (do-submit-fn)]
-        (async/alt!!
-          timeout-chan (http/json-response {:uuid uuid
-                                            :processed false
-                                            :timed_out true}
-                                           http/status-unavailable)
-          response-chan ([{:keys [command exception]}]
-                         (let [base-response {:uuid uuid
-                                              :processed true}]
-                           (if exception
-                             (http/json-response
-                              (assoc base-response
-                                     :timed_out false
-                                     :error (str exception)
-                                     :stack_trace (map str (.getStackTrace exception)))
-                              http/status-unavailable)
-                             (http/json-response (assoc base-response
-                                                        :timed_out false)
-                                                 http/status-ok)))))))))
+  Waiting up to completion-timeout-ms if provided."
+  [do-submit-fn uuid completion-timeout-ms]
+  (let [command-result (promise)]
+    (do-submit-fn (fn [the-result]
+                    (deliver command-result the-result)))
+    (let [result (deref command-result completion-timeout-ms ::timeout)]
+      (if (= ::timeout result)
+        (http/json-response {:uuid uuid
+                             :processed false
+                             :timed_out true}
+                            http/status-unavailable)
+        (let [{:keys [exception]} result
+              base-response {:uuid uuid
+                             :processed true}]
+          (if exception
+            (http/json-response
+             (assoc base-response
+                    :timed_out false
+                    :error (str exception)
+                    :stack_trace (map str (.getStackTrace exception)))
+             http/status-unavailable)
+            (http/json-response (assoc base-response
+                                       :timed_out false)
+                                http/status-ok)))))))
 
 (def new-request-schema
   {:params {(s/required-key "command") s/Str
@@ -168,32 +167,38 @@
               (normalize-new-request req)
               (normalize-old-request req)))))
 
-(defn- realize-body [body max-command-size]
+(defn- stream-with-max-check
   "Returns the body as an in-memory string or byte-array, reading it
   if necessary.  Throws ::body-stream-overflow if the max-command-size
   is not false and not respected."
+  [body max-command-size]
   (if-not max-command-size
-    (if (instance? java.io.InputStream body)
-      (IOUtils/toByteArray body)
-      body)
     (cond
       (instance? java.io.InputStream body)
-      (IOUtils/toByteArray
-       (restrained-drained-stream body (long max-command-size)))
+      body
+
+      (string? body)
+      (java.io.ByteArrayInputStream. (.getBytes body "UTF-8"))
+
+      :else
+      (throw (Exception. (str "Unexpected body type: " (class body)))))
+    (cond
+      (instance? java.io.InputStream body)
+      (restrained-drained-stream body (long max-command-size))
 
       (string? body)
       ;; Given Java's UCS-2 encoding, incoming UTF-8 more or less
       ;; doubles in size when converted to a String.
-      (if (> (count body) (* 2  max-command-size))
+      (if (> (* 2 (count body)) max-command-size)
         (throw+ ::body-stream-overflow)
-        body)
+        (java.io.ByteArrayInputStream. (.getBytes body "UTF-8")))
 
       :else
       (throw (Exception. (str "Unexpected body type: " (class body)))))))
 
 (defn- enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
-  [enqueue-fn get-response-pub max-command-size]
+  [enqueue-fn max-command-size]
   (fn [{:keys [body params] :as request}]
     ;; For now body will be in-memory, but eventually may be a stream.
     (try+
@@ -207,16 +212,21 @@
                            (update submit-params "version" str)
                            submit-params)
            ;; Replace read-body when our queue supports streaming
-           do-submit #(enqueue-fn (realize-body body max-command-size)
-                                  uuid
-                                  submit-params)]
+           do-submit (fn [command-callback]
+                       (enqueue-fn
+                        (get submit-params "command")
+                        (Integer/parseInt (get submit-params "version"))
+                        (get submit-params "certname")
+                        (stream-with-max-check body max-command-size)
+                        command-callback))]
+
        (if (some-> completion-timeout-ms pos?)
-         (blocking-submit-command do-submit (get-response-pub)
+         (blocking-submit-command do-submit
                                   uuid
                                   completion-timeout-ms)
          (do
-           (do-submit)
-           (http/json-response {:uuid uuid}))))
+           (do-submit identity)
+           (http/json-response {:uuid (kitchensink/uuid)}))))
      (catch (= ::body-stream-overflow %) _
        (http/error-response "Command size exceeds max-command-size"
                             http/status-entity-too-large)))))
@@ -226,11 +236,10 @@
   (fn [req]
     (handle (assoc-in req [:params "received"] (kitchensink/timestamp)))))
 
-(defn routes [enqueue-fn get-response-pub max-command-size]
+(defn routes [enqueue-fn max-command-size]
   (cmdi/context "/v1"
                 (cmdi/ANY "" []
-                          (enqueue-command-handler enqueue-fn get-response-pub
-                                                   max-command-size))))
+                          (enqueue-command-handler enqueue-fn max-command-size))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -239,9 +248,8 @@
 ;; return functions that accept a ring request map
 
 (defn command-app
-  [get-shared-globals enqueue-fn get-response-pub
-   reject-large-commands? max-command-size]
-  (-> (routes enqueue-fn get-response-pub
+  [get-shared-globals enqueue-fn reject-large-commands? max-command-size]
+  (-> (routes enqueue-fn
               (when reject-large-commands? max-command-size))
       mid/make-pdb-handler
       validate-command-version

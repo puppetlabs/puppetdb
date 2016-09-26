@@ -18,7 +18,9 @@
             [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
             [clj-time.coerce :refer [to-string]]
             [clj-time.core :refer [now]]
-            [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]))
+            [puppetlabs.puppetdb.cheshire :as json]
+            [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]
+            [puppetlabs.puppetdb.testutils.queue :as tqueue]))
 
 (deftest update-checking
   (let [config-map {:global {:product-name "puppetdb"
@@ -65,13 +67,17 @@
   (svc-utils/with-single-quiet-pdb-instance
     (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
           query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
-      (enqueue-command dispatcher :replace-facts 4
-                       {:certname "foo.local"
-                        :environment "DEV"
-                        :values {:foo "the foo"
-                                 :bar "the bar"
-                                 :baz "the baz"}
-                        :producer_timestamp (to-string (now))})
+      (enqueue-command dispatcher
+                       "replace facts"
+                       4
+                       "foo.local"
+                       (tqueue/coerce-to-stream
+                        {:certname "foo.local"
+                         :environment "DEV"
+                         :values {:foo "the foo"
+                                  :bar "the bar"
+                                  :baz "the baz"}
+                         :producer_timestamp (to-string (now))}))
 
       @(block-until-results 200 (first (get-factsets "foo.local")))
 
@@ -97,11 +103,15 @@
   (svc-utils/with-puppetdb-instance
     (let [dispatcher (get-service svc-utils/*server* :PuppetDBCommandDispatcher)
           query-fn (partial query (get-service svc-utils/*server* :PuppetDBServer))]
-      (enqueue-command dispatcher :replace-facts 4
-                       {:certname "foo.local"
-                        :environment "DEV"
-                        :values {:a "a" :b "b" :c "c"}
-                        :producer_timestamp (to-string (now))})
+      (enqueue-command dispatcher
+                       "replace facts"
+                       4
+                       "foo.local"
+                       (tqueue/coerce-to-stream
+                        {:certname "foo.local"
+                         :environment "DEV"
+                         :values {:a "a" :b "b" :c "c"}
+                         :producer_timestamp (to-string (now))}))
 
       @(block-until-results 200 (first (get-factsets "foo.local")))
       (let [exp ["a" "b" "c"]

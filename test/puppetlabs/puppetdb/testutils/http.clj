@@ -126,10 +126,3 @@
      (tu/dotestseq ~bindings
        (with-test-db
          (with-http-app ~@body)))))
-
-(defmacro deftest-command-app [name bindings & body]
-  `(deftest ~name
-     (tu/dotestseq ~bindings
-       (with-test-db
-         (tu/call-with-test-mq
-          (fn [] (tu/call-with-command-app (fn [] ~@body))))))))

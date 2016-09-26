@@ -23,7 +23,8 @@
     :payload     catalog-payload
     :annotations {:id (uuid)
                   :received (now)}
-    :version     catalog-version}
+    :version     catalog-version
+    :certname (:certname catalog-payload)}
    *db*))
 
 (defn munge-catalog-for-comparison

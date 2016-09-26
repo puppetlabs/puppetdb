@@ -513,13 +513,13 @@ module PuppetDBExtensions
   end
 
   def sleep_until_queue_empty(host, timeout=60)
-    metric = "org.apache.activemq:type=Broker,brokerName=localhost,destinationType=Queue,destinationName=puppetlabs.puppetdb.commands"
+    metric = "puppetlabs.puppetdb.mq:name=global.depth"
     queue_size = nil
 
     begin
       Timeout.timeout(timeout) do
         until queue_size == 0
-          result = on host, %Q(curl http://localhost:8080/metrics/v1/mbeans/#{CGI.escape(metric)} 2> /dev/null |awk -F"," '{for (i = 1; i <= NF; i++) { print $i } }' |grep QueueSize |awk -F ":" '{ print $2 }')
+          result = on host, %Q(curl http://localhost:8080/metrics/v1/mbeans/#{CGI.escape(metric)} 2> /dev/null | grep Count | awk -F ":" '{print $2}')
           queue_size = Integer(result.stdout.chomp)
         end
       end

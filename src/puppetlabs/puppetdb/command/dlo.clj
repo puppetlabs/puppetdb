@@ -1,210 +1,186 @@
 (ns puppetlabs.puppetdb.command.dlo
-  (:import [org.apache.commons.io FileUtils])
-  (:require [clojure.string :as string]
-            [puppetlabs.puppetdb.archive :as archive]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [clj-time.format :as time-format]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [me.raynes.fs :as fs]
-            [clojure.java.io :refer [file make-parents]]
-            [clj-time.core :refer [ago after?]]
-            [puppetlabs.puppetdb.metrics.core :as metrics]
-            [metrics.gauges :refer [gauge-fn]]
-            [metrics.meters :refer [meter mark!]]
-            [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.time :refer [period?]]))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.string :as str]
+   [metrics.counters :as counters]
+   [puppetlabs.i18n.core :refer [trs]]
+   [puppetlabs.kitchensink.core :refer [timestamp]]
+   [puppetlabs.puppetdb.nio :refer [copts copt-atomic copt-replace oopts]]
+   [puppetlabs.puppetdb.queue :as queue
+    :refer [cmdref->entry metadata-str parse-cmd-filename]]
+   [puppetlabs.stockpile.queue :as stock])
+  (:import
+   [java.nio.file AtomicMoveNotSupportedException
+    FileAlreadyExistsException Files LinkOption]
+   [java.nio.file.attribute FileAttribute]))
 
-(def metrics (atom {}))
-(def dlo-metrics-registry (get-in metrics/metrics-registries [:dlo :registry]))
+(def command-names (cons "unknown" queue/metadata-command-names))
 
-(defn- subdirectories
-  "Returns the list of subdirectories of the DLO `dir`."
-  [dir]
-  {:pre [(or (string? dir)
-             (instance? java.io.File dir))]
-   :post [(every? (partial instance? java.io.File) %)]}
-  (filter fs/directory? (.listFiles (file dir))))
+(defn- cmd-counters
+  "Adds gauges to the dlo for the given category (e.g. \"global\"
+  \"replace command\")."
+  [registry category]
+  (let [dns "puppetlabs.puppetdb.dlo"]
+    {:messages (counters/counter registry [dns category "messages"])
+     :filesize (counters/counter registry [dns category "filesize"])}))
 
-(defn messages
-  "Returns the list of messages in the given DLO `subdir`. This is every file
-  except the .tgz or .partial files."
-  [subdir]
-  {:pre [(or (string? subdir)
-             (instance? java.io.File subdir))]
-   :post [(every? (partial instance? java.io.File) %)]}
-  (filter #(and (fs/file? %)
-                (not (#{".tgz" ".partial"} (fs/extension %))))
-          (.listFiles subdir)))
+(defn- update-metrics
+  "Updates stats to reflect the receipt of the named command."
+  [metrics command size]
+  (let [global (metrics "global")
+        cmd (metrics command)]
+    (counters/inc! (:messages global))
+    (counters/inc! (:filesize global) size)
+    (counters/inc! (:messages cmd))
+    (counters/inc! (:filesize cmd) size))
+  metrics)
 
-(defn archives
-  "Returns the list of message archives in the given DLO `subdir`."
-  [subdir]
-  {:pre [(or (string? subdir)
-             (instance? java.io.File subdir))]
-   :post [(every? (partial instance? java.io.File) %)]}
-  (fs/glob (file subdir "*.tgz")))
+(defn- ensure-cmd-metrics [metrics registry cmd]
+  (if (metrics cmd)
+    metrics
+    (assoc metrics cmd (cmd-counters registry cmd))))
 
-(defn last-archived
-  "Returns the timestamp of the latest archive file in DLO `subdir`, indicating
-  the most recent time the directory was archived."
-  [subdir]
-  {:pre [(or (string? subdir)
-             (instance? java.io.File subdir))]
-   :post [(or (nil? %)
-              (kitchensink/datetime? %))]}
-  (->> (archives subdir)
-       (map #(fs/base-name % ".tgz"))
-       (map #(time-format/parse (time-format/formatters :date-time) %))
-       sort
-       last))
+(defn- metrics-for-dir
+  "Updates metrics to reflect the discarded commands directly inside
+  the path; does not recurse."
+  [registry path]
+  (with-open [path-stream (Files/newDirectoryStream path)]
+    (reduce (fn [metrics p]
+              ;; Assume the trailing .json here and in
+              ;; entry-cmd-err-filename below.
+              (let [name (-> p .getFileName str)]
+                (if-let [cmd (:command (and (.endsWith name ".json")
+                                            (parse-cmd-filename name)))]
+                  (update-metrics (ensure-cmd-metrics metrics registry cmd)
+                                  cmd
+                                  (Files/size p))
+                  metrics)))
+            {"global" (cmd-counters registry "global")}
+            path-stream)))
 
-(defn create-metrics-for-dlo!
-  "Creates the standard set of global metrics."
-  [dir]
-  (when-not (:global @metrics)
-    (swap! metrics assoc-in [:global :compression] (timer dlo-metrics-registry ["global" "compression"]))
-    (swap! metrics assoc-in [:global :compression-failures]
-           (meter dlo-metrics-registry ["global" "compression-failures"]))
-    (gauge-fn dlo-metrics-registry ["global" "filesize"]
-              (fn [] (FileUtils/sizeOf dir)))
-    (gauge-fn dlo-metrics-registry ["global" "messages"]
-              (fn [] (count (mapcat messages (subdirectories dir)))))
-    (gauge-fn dlo-metrics-registry ["global" "archives"]
-              (fn [] (count (mapcat archives (subdirectories dir)))))
-    nil))
+(defn- write-failure-metadata
+  "Given a (possibly empty) sequence of command attempts and an exception,
+  writes a summary of the failure to out."
+  [out attempts]
+  (let [n (count attempts)]
+    (dorun (map-indexed (fn [i {:keys [exception time]}]
+                          (.format out "%sAttempt %d @ %s\n"
+                                   (into-array Object [(if (zero? i) "" "\n")
+                                                       (- n i)
+                                                       time]))
+                          (.printStackTrace exception out))
+                        attempts))))
 
-(defn- create-metrics-for-subdir!
-  "Creates the standard set of metrics for the given `subdir`, using its
-  basename as the identifier for its metrics."
-  [subdir]
-  (let [subdir-name (fs/base-name subdir)]
-    (when-not (get @metrics subdir-name)
-      (swap! metrics assoc-in [subdir-name :compression]
-             (timer dlo-metrics-registry [subdir-name "compression"]))
-      (swap! metrics assoc-in [subdir-name :compression-failures]
-             (meter dlo-metrics-registry [subdir-name "compression-failures"]))
-      (gauge-fn dlo-metrics-registry [subdir-name "filesize"]
-                (fn [] (FileUtils/sizeOf subdir)))
-      (gauge-fn dlo-metrics-registry [subdir-name "messages"]
-                (fn [] (count (messages subdir))))
-      (gauge-fn dlo-metrics-registry [subdir-name "archives"]
-                (fn [] (count (archives subdir))))
-      (gauge-fn dlo-metrics-registry [subdir-name "last-archived"]
-                (fn [] (last-archived subdir)))
-      nil)))
+(defn- entry-cmd-data-filename
+  "Returns a string representing the filename for the given stockpile
+  `entry`. The filename is similar to what stockpile would store the
+  message as '10291-1469469689-cat-4-foo.org.json'"
+  [entry]
+  (let [id (stock/entry-id entry)
+        meta (stock/entry-meta entry)]
+    (str id \- meta)))
 
-(defn- global-metric
-  "Returns the global metric corresponding to `metric`."
-  [metric]
-  (get-in @metrics [:global metric]))
+(defn- err-filename
+  "Creates a filename string for error metadata associated the
+  stockpile message at `id`. This filename is similar to how stockpile
+  would store it but includes a error stuffix to differentiate it,
+  similar tot he following '10291-1469469689-cat-4-foo.org-err.txt'"
+  [id metadata]
+  (assert (str/ends-with? metadata ".json"))
+  (str id \- (subs metadata 0 (- (count metadata) 5)) "-err.txt"))
 
-(defn- subdir-metric
-  "Returns the subdir-specific metric for `subdir` corresponding to `metric`.
-  The metric path uses the basename of the subdir, so we compute that."
-  [subdir metric]
-  (let [subdir-name (fs/base-name subdir)]
-    (get-in @metrics [subdir-name metric])))
+(defn- store-failed-command-info
+  [id metadata command attempts dir]
+  ;; We want the metdata and command so we don't have to reparse, and
+  ;; we want the command because id isn't unique by itself (given
+  ;; unknown commands).
+  (let [tmp (Files/createTempFile dir
+                                  (str "tmp-err-" id \- command) ""
+                                  (make-array FileAttribute 0))]
+    ;; Leave the temp file if something goes wrong.
+    (with-open [out (java.io.PrintWriter. (.toFile tmp))]
+      (write-failure-metadata out attempts))
+    (let [dest (.resolve dir (err-filename id metadata))
+          moved? (try
+                   (Files/move tmp dest (copts [copt-atomic]))
+                   (catch FileAlreadyExistsException ex
+                     true)
+                   (catch UnsupportedOperationException ex
+                     false)
+                   (catch AtomicMoveNotSupportedException ex
+                     false))]
+      (when-not moved?
+        (Files/move tmp dest (copts [copt-replace])))
+      dest)))
 
-(defn summarize-attempt
-  "Convert an 'attempt' annotation for a message into a string summary,
-  including timestamp, error information, and stacktrace."
-  [index {:keys [timestamp error trace] :as attempt}]
-  (let [trace-str (string/join "\n" trace)
-        index     (if (nil? index) index (inc index))]
-    (format "Attempt %d @ %s\n\n%s\n%s\n" index timestamp error trace-str)))
+;;; Public interface
 
-(defn summarize-exception
-  "Convert a Throwable into a string summary similar to the output of
-  summarize-attempt."
-  [e]
-  (let [attempt {:timestamp (kitchensink/timestamp)
-                 :error     (str e)
-                 :trace     (.getStackTrace e)}]
-    (summarize-attempt nil attempt)))
+(defn initialize
+  "Initializes the dead letter office (DLO), at the given path (a Path),
+   creating the directory if it doesn't exist, adds related metrics to
+   the registry, and then returns a representation of the DLO."
+  [path registry]
+  (try
+    (Files/createDirectory path (make-array FileAttribute 0))
+    (catch FileAlreadyExistsException ex
+      (when-not (Files/isDirectory path (make-array LinkOption 0))
+        (throw (Exception. (trs "DLO path {0} is not a directory" path))))))
+  {:path path
+   :registry registry
+   :metrics (atom (metrics-for-dir registry path))})
 
-(defn produce-failure-metadata
-  "Given a (possibly empty) sequence of message attempts and an exception,
-  return a header string of the errors."
-  [attempts exception]
-  (let [attempt-summaries (map-indexed summarize-attempt attempts)
-        exception-summary (if exception (summarize-exception exception))]
-    (string/join "\n" (concat attempt-summaries [exception-summary]))))
+(defn discard-cmdref
+  "Stores information about the failed `stockpile` `cmdref` to the
+  `dlo` (a Path) for later inspection.  Saves two files named like
+  this:
+    10291-1469469689-cat-4-foo.org.json
+    10291-1469469689-cat-4-foo.org-err.txt
+  The first contains the failed command itself, and the second details
+  the cause of the failure.  The command will be moved from the
+  `stockpile` queue to the `dlo` directory (a Path) via
+  stockpile/discard.  Returns {:info Path :command Path}."
+  [cmdref stockpile dlo]
+  (let [{:keys [path registry metrics]} dlo
+        {:keys [command received attempts]} cmdref
+        entry (cmdref->entry cmdref)
+        cmd-dest (.resolve path (entry-cmd-data-filename entry))]
+    ;; We're going to assume that our moves will be atomic, and if
+    ;; they're not, that we don't care about the possibility of
+    ;; partial dlo messages.  If needed, the existence of the err file
+    ;; can be used as an indicator that the dlo message is complete.
+    (stock/discard stockpile entry cmd-dest)
+    (let [id (stock/entry-id entry)
+          metadata (stock/entry-meta entry)
+          info-dest (store-failed-command-info id metadata command
+                                               attempts
+                                               path)]
+      (swap! metrics ensure-cmd-metrics registry command)
+      (update-metrics @metrics command (Files/size cmd-dest))
+      {:info info-dest
+       :command cmd-dest})))
 
-(defn store-failed-message
-  "Stores a failed message for later inspection. This will be stored under
-  `dir`, in a path shaped like `dir`/<command>/<timestamp>-<checksum>. If the
-  message was not parseable, `command` will be parse-error."
-  [msg e dir]
-  (let [command  (string/replace (get msg :command "parse-error") " " "-")
-        attempts (get-in msg [:annotations :attempts])
-        metadata (produce-failure-metadata attempts e)
-        msg      (if (string? msg) msg (json/generate-string msg))
-        contents (string/join "\n\n" [msg metadata])
-        checksum (kitchensink/utf8-string->sha1 contents)
-        subdir   (file dir command)
-        basename (format "%s-%s" (kitchensink/timestamp) checksum)
-        filename (file subdir basename)]
-    (create-metrics-for-dlo! dir)
-    (create-metrics-for-subdir! subdir)
-    (make-parents filename)
-    (spit filename contents)))
-
-(defn compressible-files
-  "Lists the compressible files in the DLO subdirectory `subdir`. These are
-  non-tgz files older than `threshold`."
-  [subdir threshold]
-  {:pre [(or (string? subdir)
-             (instance? java.io.File subdir))]
-   :post [(every? (partial instance? java.io.File) %)]}
-  (let [cutoff-time (.getMillis (ago threshold))]
-    (filter #(< (fs/mod-time %) cutoff-time) (messages subdir))))
-
-(defn already-archived?
-  "Returns true if this `subdir` of the DLO has already been archived within the
-  last `threshold` amount of time, and false if not. This checks if a .tgz file
-  exists with a timestamp newer than `threshold`, and ensures that we will only
-  archive once per `threshold`."
-  [subdir threshold]
-  {:pre [(or (string? subdir)
-             (instance? java.io.File subdir))]}
-  (if-let [archive-time (last-archived subdir)]
-    (after? archive-time (ago threshold))))
-
-(defn- compress-subdir!
-  "Compresses the specified `files` in the particular command-specific
-  subdirectory `subdir`, replacing them with a timestamped .tgz file."
-  [subdir files]
-  {:pre [(or (string? subdir)
-             (instance? java.io.File subdir))]}
-  (create-metrics-for-subdir! subdir)
-  (let [target-file (file subdir (str (kitchensink/timestamp) ".tgz"))
-        temp (str target-file ".partial")]
-    (try
-      (time! (subdir-metric subdir :compression)
-             (apply archive/tar temp "UTF-8" (map (juxt fs/base-name slurp) files))
-             (fs/rename temp target-file)
-             (doseq [filename files]
-               (fs/delete filename)))
-      (catch Throwable e
-        (mark! (global-metric :compression-failures))
-        (mark! (subdir-metric subdir :compression-failures))
-        (throw e))
-      (finally
-        (fs/delete temp)))))
-
-(defn compress!
-  "Compresses all DLO subdirectories which have messages that have been in the
-  directory for longer than `threshold`. This will produce a timestamped .tgz
-  file in each subdirectory containing old messages."
-  [dir threshold]
-  {:pre [(or (string? dir)
-             (instance? java.io.File dir))
-         (period? threshold)]}
-  (create-metrics-for-dlo! dir)
-  (when-let [subdir-files (seq (for [subdir (remove #(already-archived? % threshold) (subdirectories dir))
-                                     :let [files (compressible-files subdir threshold)]
-                                     :when (seq files)]
-                                 [subdir files]))]
-    (time! (global-metric :compression)
-           (doseq [[subdir files] subdir-files]
-             (compress-subdir! subdir files)))))
+(defn discard-bytes
+  "Stores information about a failed command to the `dlo` (a Path) for
+  later inspection.  `attempts` must be a list of {:time t :exception
+  ex} maps in reverse chronological order.  Saves two files named like
+  this:
+    10291-1469469689-unknown-0-BYTESHASH
+    10291-1469469689-unknown-0-BYTESHASH.txt
+  The first contains the bytes provided, and the second details the
+  cause of the failure.  Returns {:info Path :command Path}."
+  [bytes id received attempts dlo]
+  ;; For now, we assume that we don't need durability, and that we
+  ;; don't care about the possibility of partial dlo messages.  If
+  ;; needed, the existence of the err file can be used as an
+  ;; indicator that the unknown message may be complete.
+  (let [{:keys [path registry metrics]} dlo
+        digest (digest/sha1 [bytes])
+        metadata (metadata-str received "unknown" 0 digest)
+        cmd-dest (.resolve path (str id \- metadata))]
+    (Files/write cmd-dest bytes (oopts []))
+    (let [info-dest (store-failed-command-info id metadata "unknown"
+                                               attempts
+                                               path)]
+      (swap! metrics ensure-cmd-metrics registry "unknown")
+      (update-metrics @metrics "unknown" (Files/size cmd-dest))
+      {:info info-dest :command cmd-dest})))

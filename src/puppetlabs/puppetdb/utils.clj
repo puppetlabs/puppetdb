@@ -290,6 +290,21 @@
             (update 1 #(Integer/parseInt (subs % 1 (dec (count %))))))
         s))))
 
+(defn regex-quote
+  [s]
+  (when (and (string? s) (re-find #"\\E" s))
+    (throw (IllegalArgumentException. "cannot regex-quote strings containing '\\E'")))
+  (format "\\Q%s\\E" (str s)))
+
+(defn match-any-of
+  "Given a collection of strings and characters, construct a regex string
+  suitable for passing to re-pattern that consists of a capturing group which
+  matches any member of the collection."
+  [strings]
+  (format "(%s)" (->> strings
+                      (map regex-quote)
+                      (string/join "|"))))
+
 (defn str-schema
   "Function for converting a schema with keyword keys to
    to one with string keys. Doens't walk the map so nested

@@ -76,8 +76,8 @@
 (deftest-http-app catalog-queries
   [[version endpoint] endpoints
    method [:get :post]]
-  (testcat/replace-catalog (json/generate-string catalog1))
-  (testcat/replace-catalog (json/generate-string catalog2))
+  (testcat/replace-catalog catalog1)
+  (testcat/replace-catalog catalog2)
   (testing "catalog endpoint is queryable"
     (doseq [q (keys queries)]
       (let [{:keys [status body]} (query-response method endpoint q)
@@ -147,8 +147,8 @@
   [[version endpoint] endpoints
    method [:get :post]]
 
-  (testcat/replace-catalog (json/generate-string catalog1))
-  (testcat/replace-catalog (json/generate-string catalog2))
+  (testcat/replace-catalog catalog1)
+  (testcat/replace-catalog catalog2)
 
   (are [query expected]
       (= expected

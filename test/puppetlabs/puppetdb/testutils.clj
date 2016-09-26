@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.testutils
   (:import [java.io ByteArrayInputStream]
-           [org.apache.activemq.broker BrokerService])
+           [org.apache.activemq.broker BrokerService]
+           [java.util.concurrent Semaphore])
   (:require [puppetlabs.puppetdb.config :refer [default-mq-endpoint]]
             [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.middleware
@@ -25,6 +26,17 @@
             [clojure.test :refer :all]
             [clojure.set :refer [difference]]
             [puppetlabs.puppetdb.test-protocols :as test-protos]))
+
+(defn ordered-matches?
+  "Returns a false value if there isn't a match in items for each
+  predicate in predicates, in the order the predicates are specified."
+  [predicates items]
+  (if-not (seq predicates)
+    true
+    (let [[check & remaining-checks] predicates
+          match (drop-while (complement check) items)]
+      (when (seq match)
+        (recur remaining-checks (next match))))))
 
 (def c-t "application/json")
 
@@ -408,7 +420,10 @@
       (invoke [_ _ _ _ _ _ _ _ _] (reset! was-called true))
 
       test-protos/IMockFn
-      (called? [_] @was-called))))
+      (called? [_] @was-called)
+
+     clojure.lang.IDeref
+     (deref [_] @was-called))))
 
 (defn pprint-str
   "Pprints `x` to a string and returns that string"
@@ -427,18 +442,17 @@
 
 (def ^:dynamic *command-app* nil)
 
-(defn call-with-command-app
+(defn test-command-app
   "A fixture to build a Command app and make it available as
   *command-app* within tests. This call should be nested within
   with-test-mq."
-  ([f]
-   (binding [*command-app* (wrap-with-puppetdb-middleware
-                            (command-app
-                             (fn [] {})
-                             (partial #'dispatch/do-enqueue-raw-command
-                                      (:connection *mq*)
-                                      default-mq-endpoint)
-                             (fn [] nil)
-                             false
-                             nil))]
-     (f))))
+  [q command-chan]
+  (wrap-with-puppetdb-middleware
+   (command-app
+    (fn [] {})
+    (partial dispatch/do-enqueue-command
+             q
+             command-chan
+             (Semaphore. 100))
+    false
+    nil)))

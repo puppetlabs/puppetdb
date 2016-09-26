@@ -1,163 +1,205 @@
 (ns puppetlabs.puppetdb.command.dlo-test
-  (:require [me.raynes.fs :as fs]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [metrics.timers :as timers]
-            [metrics.meters :as meters]
-            [clojure.test :refer :all]
-            [clj-time.core :refer [years days seconds ago now]]
-            [puppetlabs.puppetdb.command.dlo :refer :all]))
+  (:require
+   [clj-time.coerce :as coerce-time]
+   [clojure.java.io :as io]
+   [clojure.string :as str]
+   [clojure.test :refer :all]
+   [metrics.counters :as counters :refer [counter]]
+   [puppetlabs.kitchensink.core :refer [timestamp]]
+   [puppetlabs.puppetdb.cheshire :as json]
+   [puppetlabs.puppetdb.command.dlo :as dlo]
+   [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
+   [puppetlabs.puppetdb.metrics.core :refer [new-metrics]]
+   [puppetlabs.puppetdb.nio :refer [get-path]]
+   [puppetlabs.puppetdb.queue :refer [cmdref->entry cons-attempt store-command]]
+   [puppetlabs.puppetdb.testutils :refer [ordered-matches?]]
+   [puppetlabs.puppetdb.testutils.nio :refer [call-with-temp-dir-path]]
+   [puppetlabs.stockpile.queue :as stock])
+  (import
+   [java.nio.file Files]))
 
-(deftest dlo-compression-introspection
-  (testing "an empty directory"
-    (let [dir (fs/temp-dir "dlo-compress-intro-empty")
-          threshold (years 20)]
-      (testing "should have no archives"
-        (is (empty? (archives dir))))
+(defn reg-counter-val [registry suffix]
+  (let [mname (str "puppetlabs.puppetdb.dlo." suffix)]
+    (when-let [ctr (get (.getCounters registry) mname)]
+      (counters/value ctr))))
 
-      (testing "should have no messages"
-        (is (empty? (messages dir))))
+(defn met-counter-val [metrics & names]
+  (when-let [m (get-in metrics names)]
+    (counters/value m)))
 
-      (testing "should have no compressible files"
-        (is (empty? (compressible-files dir threshold))))
+(defn entry->str [q entry]
+  (with-open [stream (stock/stream q entry)]
+    (slurp stream)))
 
-      (testing "should not have a last-archived time"
-        (is (nil? (last-archived dir))))
+(defn store-catalog [q dlo]
+  (let [cmd (get-in wire-catalogs [9 :basic])
+        cmd-bytes (-> cmd json/generate-string (.getBytes "UTF-8"))]
+    (store-command q "replace catalog" 9 (:certname cmd)
+                   (java.io.ByteArrayInputStream. cmd-bytes))))
 
-      (testing "should not already be archived"
-        (is (not (already-archived? dir threshold))))))
+(defn err-attempt-line? [n s]
+  (-> (str "Attempt " n " @ \\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d\\d\\dZ")
+      re-pattern
+      (re-matches s)))
 
-  (testing "a directory with a few new messages"
-    (let [dir (fs/temp-dir "dlo-compress-intro-new-msgs")
-          threshold (-> 20 years)]
-      (fs/touch (fs/file dir "foo"))
-      (fs/touch (fs/file dir "bar"))
-      (fs/touch (fs/file dir "baz"))
+(deftest discard-cmdref
+  (call-with-temp-dir-path
+   (get-path "target")
+   "pdb-test-"
+   (fn [tmpdir]
+     (let [q (stock/create (.resolve tmpdir "q"))
+           reg (:registry (new-metrics "puppetlabs.puppetdb.dlo" :jmx? false))
+           dlo (dlo/initialize (.resolve tmpdir "dlo") reg)
+           cmd (get-in wire-catalogs [9 :basic])
+           cmdref (store-catalog q dlo)
+           content (entry->str q (cmdref->entry cmdref))
+           cmd-size (count content)
+           regval (partial reg-counter-val reg)
+           metval (fn [& names] (apply met-counter-val @(:metrics dlo) names))]
 
-      (testing "should have no archives"
-        (is (empty? (archives dir))))
+       (is (zero? (regval "global.messages")))
+       (is (zero? (metval "global" :messages)))
+       (is (zero? (regval "global.filesize")))
+       (is (zero? (metval "global" :filesize)))
 
-      (testing "should have three messages"
-        (is (= 3 (count (messages dir)))))
+       (is (not (regval "replace catalog.messages")))
+       (is (not (metval "replace catalog" :messages)))
+       (is (not (regval "replace catalog.filesize")))
+       (is (not (metval "replace catalog" :filesize)))
 
-      (testing "should have no compressible files"
-        (is (empty? (compressible-files dir threshold))))))
+       (is (not (regval "unknown.messages")))
+       (is (not (metval "unknown" :messages)))
+       (is (not (regval "unknown.filesize")))
+       (is (not (metval "unknown" :filesize)))
 
-  (testing "a directory with some old and new messages"
-    (let [dir (fs/temp-dir "dlo-compress-intro-old-and-new")
-          threshold (-> 7 days)
-          stale-timestamp (.getMillis (-> 8 days ago))]
-      (doto (fs/file dir "foo") fs/create (#(fs/touch % stale-timestamp)))
-      (doto (fs/file dir "bar") fs/create (#(fs/touch % stale-timestamp)))
-      (fs/create (fs/file dir "baz"))
+       (let [cmdref (-> cmdref
+                        (cons-attempt (Exception. "thud-1"))
+                        (cons-attempt (Exception. "thud-2"))
+                        (cons-attempt (Exception. "thud-3")))
+             discards (dlo/discard-cmdref cmdref q dlo)]
+         (is (ordered-matches?
+              [#(err-attempt-line? 3 %)
+               #(= "java.lang.Exception: thud-3" %)
+               #(err-attempt-line? 2 %)
+               #(= "java.lang.Exception: thud-2" %)
+               #(err-attempt-line? 1 %)
+               #(= "java.lang.Exception: thud-1" %)]
+              (-> (:info discards) .toFile io/reader line-seq)))
+         (is (= content (slurp (.toFile (:command discards))))))
 
-      (testing "should have no archives"
-        (is (empty? (archives dir))))
+       (is (= 1 (regval "global.messages")))
+       (is (= 1 (metval "global" :messages)))
+       (is (= cmd-size (regval "global.filesize")))
+       (is (= cmd-size (metval "global" :filesize)))
 
-      (testing "should have three messages"
-        (is (= 3 (count (messages dir)))))
+       (is (= 1 (regval "replace catalog.messages")))
+       (is (= 1 (metval "replace catalog" :messages)))
+       (is (= cmd-size (regval "replace catalog.filesize")))
+       (is (= cmd-size (metval "replace catalog" :filesize)))
 
-      (testing "should have two compressible files"
-        (is (= 2 (count (compressible-files dir threshold)))))))
+       (is (not (regval "unknown.messages")))
+       (is (not (metval "unknown" :messages)))
+       (is (not (regval "unknown.filesize")))
+       (is (not (metval "unknown" :filesize)))))))
 
-  (testing "a directory with an old archive"
-    (let [dir (fs/temp-dir "dlo-compress-intro-old-archive")
-          threshold (days 7)
-          more-than-threshold (days 8)
-          archive-time (ago more-than-threshold)]
-      (fs/touch (fs/file dir (str (kitchensink/timestamp archive-time) ".tgz")))
+(deftest discard-stream
+  (call-with-temp-dir-path
+   (get-path "target")
+   "pdb-test-"
+   (fn [tmpdir]
+     (let [reg (:registry (new-metrics "puppetlabs.puppetdb.dlo" :jmx? false))
+           dlo (dlo/initialize (.resolve tmpdir "dlo") reg)
+           cmd-str "what a mess"
+           cmd-bytes (.getBytes cmd-str "UTF-8")
+           cmd-size (count cmd-bytes)
+           regval (partial reg-counter-val reg)
+           metval (fn [& names] (apply met-counter-val @(:metrics dlo) names))]
 
-      (testing "should have no messages"
-        (is (empty? (messages dir))))
+       (is (zero? (regval "global.messages")))
+       (is (zero? (metval "global" :messages)))
+       (is (zero? (regval "global.filesize")))
+       (is (zero? (metval "global" :filesize)))
 
-      (testing "should have an archive"
-        (is (= 1 (count (archives dir)))))
+       (is (not (regval "replace catalog.messages")))
+       (is (not (metval "replace catalog" :messages)))
+       (is (not (regval "replace catalog.filesize")))
+       (is (not (metval "replace catalog" :filesize)))
 
-      (testing "should have the right last-archived time"
-        (is (= archive-time (last-archived dir))))
+       (is (not (regval "unknown.messages")))
+       (is (not (metval "unknown" :messages)))
+       (is (not (regval "unknown.filesize")))
+       (is (not (metval "unknown" :filesize)))
 
-      (testing "should not already be archived"
-        (is (not (already-archived? dir threshold))))
+       (let [attempts [{:time (timestamp) :exception (Exception. "thud-3")}
+                       {:time (timestamp) :exception (Exception. "thud-2")}
+                       {:time (timestamp) :exception (Exception. "thud-1")}]
+             discards (dlo/discard-bytes cmd-bytes 1 (timestamp) attempts dlo)]
+         (is (ordered-matches?
+              [#(err-attempt-line? 3 %)
+               #(= "java.lang.Exception: thud-3" %)
+               #(err-attempt-line? 2 %)
+               #(= "java.lang.Exception: thud-2" %)
+               #(err-attempt-line? 1 %)
+               #(= "java.lang.Exception: thud-1" %)]
+              (-> (:info discards) .toFile io/reader line-seq)))
+         (is (= cmd-str (slurp (.toFile (:command discards))))))
 
-      (testing "and a new archive"
-        (let [new-archive-time (now)]
-          (fs/touch (fs/file dir (str (kitchensink/timestamp new-archive-time) ".tgz")))
+       (is (= 1 (regval "global.messages")))
+       (is (= 1 (metval "global" :messages)))
+       (is (= cmd-size (regval "global.filesize")))
+       (is (= cmd-size (metval "global" :filesize)))
 
-          (testing "should have no messages"
-            (is (empty? (messages dir))))
+       (is (not (regval "replace catalog.messages")))
+       (is (not (metval "replace catalog" :messages)))
+       (is (not (regval "replace catalog.filesize")))
+       (is (not (metval "replace catalog" :filesize)))
 
-          (testing "should have two archives"
-            (is (= 2 (count (archives dir)))))
+       (is (= 1 (regval "unknown.messages")))
+       (is (= 1 (metval "unknown" :messages)))
+       (is (= cmd-size (regval "unknown.filesize")))
+       (is (= cmd-size (metval "unknown" :filesize)))))))
 
-          (testing "should have the right last-archived time"
-            (is (= new-archive-time (last-archived dir))))
+(deftest initialize-with-existing-messages
+  (call-with-temp-dir-path
+   (get-path "target")
+   "pdb-test-"
+   (fn [tmpdir]
+     (let [dlo-path (.resolve tmpdir "dlo")
+           cat-size (atom nil)
+           unk-bytes (.getBytes "what a mess" "UTF-8")
+           unk-size (count unk-bytes)]
+       ;; Discard a couple of things
+       (let [reg (:registry (new-metrics "puppetlabs.puppetdb.dlo" :jmx? false))
+             dlo (dlo/initialize dlo-path reg)
+             q (stock/create (.resolve tmpdir "q"))]
+         (let [cmdref (store-catalog q dlo)]
+           (reset! cat-size (->> cmdref cmdref->entry (entry->str q) count))
+           (dlo/discard-cmdref cmdref q dlo))
+         (dlo/discard-bytes unk-bytes
+                            1 (timestamp)
+                            [{:time (timestamp) :exception (Exception. "thud-3")}
+                             {:time (timestamp) :exception (Exception. "thud-2")}
+                             {:time (timestamp) :exception (Exception. "thud-1")}]
+                            dlo))
+       ;; See if initialize finds them
+       (let [reg (:registry (new-metrics "puppetlabs.puppetdb.dlo" :jmx? false))
+             dlo (dlo/initialize dlo-path reg)
+             cat-size @cat-size
+             glob-size (+ cat-size unk-size)
+             regval (partial reg-counter-val reg)
+             metval (fn [& names] (apply met-counter-val @(:metrics dlo) names))]
 
-          (testing "should already be archived"
-            (is (already-archived? dir threshold))))))))
+         (is (= 2 (regval "global.messages")))
+         (is (= 2 (metval "global" :messages)))
+         (is (= glob-size (regval "global.filesize")))
+         (is (= glob-size (metval "global" :filesize)))
 
-(deftest dlo-compression
-  (let [dlo (fs/temp-dir "dlo-compress")
-        threshold (-> 7 days)
-        short-threshold (-> 0 seconds)
-        stale-timestamp (.getMillis (-> 8 days ago))]
-    (testing "should work with no subdirectories"
-      (compress! "non-existent-dir" (days 7))
-      (is (empty? (fs/list-dir dlo))))
+         (is (= 1 (regval "replace catalog.messages")))
+         (is (= 1 (metval "replace catalog" :messages)))
+         (is (= cat-size (regval "replace catalog.filesize")))
+         (is (= cat-size (metval "replace catalog" :filesize)))
 
-    (testing "with subdirectories"
-      (let [subdir (doto (fs/file dlo "dir-1") fs/mkdir)
-            other-subdir (doto (fs/file dlo "dir-2") fs/mkdir)
-            compression (get-in @metrics [:global :compression])
-            failures (get-in @metrics [:global :compression-failures])]
-        (testing "should not archive empty subdirectories"
-          (compress! dlo threshold)
-          (is (empty? (archives subdir)))
-          (is (empty? (archives other-subdir)))
-
-          (is (= 0 (timers/number-recorded compression)))
-          (is (= 0.0 (meters/rate-one failures))))
-
-        (testing "should not archive new messages"
-          (fs/touch (fs/file subdir "foo"))
-          (fs/touch (fs/file other-subdir "bar"))
-          (compress! dlo threshold)
-          (is (= 1 (count (messages subdir))))
-          (is (= 1 (count (messages other-subdir))))
-          (is (empty? (archives subdir)))
-          (is (empty? (archives other-subdir)))
-
-          (is (= 0 (timers/number-recorded compression)))
-          (is (= 0.0 (meters/rate-one failures))))
-
-        (testing "should archive old messages in subdirectories which haven't been archived"
-          (fs/touch (fs/file subdir "foo") stale-timestamp)
-          (fs/touch (fs/file other-subdir "bar") stale-timestamp)
-          (compress! dlo threshold)
-          (is (empty? (messages subdir)))
-          (is (empty? (messages other-subdir)))
-          (is (= 1 (count (archives subdir))))
-          (is (= 1 (count (archives other-subdir))))
-
-          (is (= 1 (timers/number-recorded compression)))
-          (is (= 0.0 (meters/rate-one failures))))
-
-        (testing "should not archive subdirectories which have already been, even if there are old messages"
-          (fs/touch (fs/file subdir "foo2") stale-timestamp)
-          (fs/touch (fs/file other-subdir "bar2") stale-timestamp)
-          (compress! dlo threshold)
-          (is (= 1 (count (messages subdir))))
-          (is (= 1 (count (messages other-subdir))))
-          (is (= 1 (count (archives subdir))))
-          (is (= 1 (count (archives other-subdir))))
-
-          (is (= 1 (timers/number-recorded compression)))
-          (is (= 0.0 (meters/rate-one failures))))
-
-        (testing "should archive subdirectories again after the threshold has passed"
-          (compress! dlo short-threshold)
-          (is (empty? (messages subdir)))
-          (is (empty? (messages other-subdir)))
-          (is (= 2 (count (archives other-subdir))))
-          (is (= 2 (count (archives other-subdir))))
-
-          (is (= 2 (timers/number-recorded compression)))
-          (is (= 0.0 (meters/rate-one failures))))))))
+         (is (= 1 (regval "unknown.messages")))
+         (is (= 1 (metval "unknown" :messages)))
+         (is (= unk-size (regval "unknown.filesize")))
+         (is (= unk-size (metval "unknown" :filesize))))))))

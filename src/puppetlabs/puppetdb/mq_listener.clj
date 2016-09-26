@@ -1,21 +1,30 @@
 (ns puppetlabs.puppetdb.mq-listener
-  (:import [javax.jms ExceptionListener JMSException MessageListener Session])
+  (:import [java.util.concurrent Semaphore ThreadPoolExecutor TimeUnit SynchronousQueue
+            RejectedExecutionException ExecutorService]
+           [java.nio.file Files Paths Path]
+           [org.apache.commons.lang3.concurrent BasicThreadFactory BasicThreadFactory$Builder])
   (:require [clojure.tools.logging :as log]
+            [clojure.walk :as walk]
             [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
-            [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
-            [slingshot.slingshot :refer [try+]]
+            [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [metrics.meters :refer [meter mark!]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.command :as cmd]
+            [metrics.counters :refer [counter inc! dec! value]]
             [puppetlabs.trapperkeeper.services :refer [defservice service-context service-id]]
             [schema.core :as s]
             [puppetlabs.puppetdb.config :as conf]
-            [puppetlabs.puppetdb.schema :as pls]))
+            [puppetlabs.puppetdb.schema :as pls]
+            [clojure.core.async :as async]
+            [puppetlabs.puppetdb.utils.metrics :as mutils]
+            [puppetlabs.puppetdb.threadpool :as gtp]
+            [overtone.at-at :refer [mk-pool stop-and-reset-pool! after]]
+            [puppetlabs.puppetdb.queue :as queue]))
 
 ;; ## Performance counters
 
@@ -69,16 +78,18 @@
 (defn create-metrics [prefix]
   (let [to-metric-name-fn #(metrics/keyword->metric-name prefix %)]
     {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
-     :retry-persistence-time (timer mq-metrics-registry (to-metric-name-fn :retry-persistence-time))
-     :generate-retry-message-time (timer mq-metrics-registry (to-metric-name-fn :generate-retry-message-time))
+     :message-persistence-time (timer mq-metrics-registry
+                                      (to-metric-name-fn :message-persistence-time))
      :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
+     :depth (counter mq-metrics-registry (to-metric-name-fn :depth))
+     :invalidated (counter mq-metrics-registry (to-metric-name-fn :invalidated))
      :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
      :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
      :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
      :retried (meter mq-metrics-registry (to-metric-name-fn :retried))
      :discarded (meter mq-metrics-registry (to-metric-name-fn :discarded))}))
 
-(def metrics (atom {:global (create-metrics [:global])}))
+(def metrics (atom {}))
 
 (defn global-metric
   "Returns the metric identified by `name` in the `\"global\"` metric
@@ -92,6 +103,11 @@
   {:pre [(keyword? name)]}
   (get-in @metrics [(keyword (str cmd version)) name]))
 
+(defn update-counter!
+  [metric command version action!]
+  (action! (global-metric metric))
+  (action! (cmd-metric command version metric)))
+
 (defn create-metrics-for-command!
   "Create a subtree of metrics for the given command and version (if
   present).  If a subtree of metrics already exists, this function is
@@ -101,6 +117,13 @@
     (when (= ::not-found (get-in @metrics storage-path ::not-found))
       (swap! metrics assoc-in storage-path
              (create-metrics [(keyword command) (keyword (str version))])))))
+
+(defn inc-cmd-metrics
+  "Ensures the `command` + `version` metric exists, then increments the
+  depth for the given `command` and `version`"
+  [command version]
+  (create-metrics-for-command! command version)
+  (update-counter! :depth command version inc!))
 
 (defn fatal?
   "Tests if the supplied exception is a fatal command-processing
@@ -133,174 +156,97 @@
 ;; architecture.
 ;;
 
-(defn wrap-with-meter
-  "Wraps a message processor `f` and a `meter` such that `meter` will be marked
-  for each invocation of `f`."
-  [f meter]
-  (fn [msg]
-    (mark! meter)
-    (f msg)))
-
-(defn try-parse-command
-  "Tries to parse `msg`, returning the parsed message if the parse is
-  successful or a Throwable object if one is thrown."
-  [msg]
-  (try+
-   (cmd/parse-command msg)
-   (catch Throwable e
-     e)))
-
-(defn annotate-with-attempt
-  "Adds an `attempt` annotation to `msg` indicating there was a failed attempt
-  at handling the message, including the error and trace from `e`."
-  [{:keys [annotations] :as msg} e]
-  {:pre  [(map? annotations)]
-   :post [(= (count (get-in % [:annotations :attempts]))
-             (inc (count (:attempts annotations))))]}
-  (let [attempts (get annotations :attempts [])
-        attempt  {:timestamp (kitchensink/timestamp)
-                  :error     (str e)
-                  :trace     (map str (.getStackTrace e))}]
-    (update-in msg [:annotations :attempts] conj attempt)))
-
-(defn wrap-with-exception-handling
-  "Wrap a message processor `f` such that all Throwable or `fatal?`
-  exceptions are caught.
-
-  If a `fatal?` exception is thrown, the supplied `on-fatal` function
-  is invoked with the message and the exception as arguments.
-
-  If any other Throwable exception is caught, the supplied `on-retry`
-  function is invoked with the message and the exception as
-  arguments."
-  [f on-retry on-fatal]
-  (fn [msg]
-    (try+
-
-     (mark! (global-metric :seen))
-     (time! (global-metric :processing-time)
-            (f msg))
-     (mark! (global-metric :processed))
-
-     (catch fatal? {:keys [cause]}
-       (on-fatal msg cause)
-       (mark! (global-metric :fatal)))
-
-     (catch Throwable exception
-       (on-retry msg exception)
-       (mark! (global-metric :retried))))))
-
-(defn wrap-with-command-parser
-  "Wrap a message processor `f` such that all messages passed to `f` are
-  well-formed commands. If a message cannot be parsed, the `on-fatal` hook is
-  invoked, and `f` is ignored."
-  [f on-parse-error]
-  (fn [msg]
-    (let [parse-result (try-parse-command msg)]
-      (if (instance? Throwable parse-result)
-        (do
-          (mark! (global-metric :fatal))
-          (on-parse-error msg parse-result))
-        (f parse-result)))))
-
-(defn wrap-with-discard
-  "Wrap a message processor `f` such that incoming commands with a
-  retry count exceeding `max-retries` are discarded.
-
-  This assumes that all incoming messages are well-formed command
-  objects, such as those produced by the `wrap-with-command-parser`
-  middleware."
-  [f on-discard max-retries]
-  (fn [{:keys [command version annotations] :as msg}]
-    (let [retries (count (:attempts annotations))]
-      (create-metrics-for-command! command version)
-      (mark! (cmd-metric command version :seen))
-      (update! (global-metric :retry-counts) retries)
-      (update! (cmd-metric command version :retry-counts) retries)
-
-      (when (>= retries max-retries)
-        (mark! (global-metric :discarded))
-        (mark! (cmd-metric command version :discarded))
-        (on-discard msg))
-
-      (when (< retries max-retries)
-        (let [result (time! (cmd-metric command version :processing-time)
-                            (f msg))]
-          (mark! (cmd-metric command version :processed))
-          result)))))
-
-(defn wrap-with-thread-name
-  "Wrap a message processor `f` such that the calling thread's name is
-  set to `<prefix>-<thread-id>`. This is useful for situations where
-  thread names are ordinarily duplicated across multiple threads, or
-  if the default names aren't descriptive enough."
-  [f prefix]
-  (fn [msg]
-    (let [t    (Thread/currentThread)
-          name (format "%s-%d" prefix (.getId t))]
-      (when-not (= (.getName t) name)
-        (.setName t name))
-      (f msg))))
-
-(defn handle-command-discard
-  [{:keys [command annotations] :as msg} discard]
-  (let [attempts (count (:attempts annotations))
-        id       (:id annotations)
-        certname (get-in msg [:payload :certname])]
-    (log/error (i18n/trs "[{0}] [{1}] Exceeded max {2} attempts for {3}" id command attempts certname))
-    (discard msg nil)))
-
-(defn handle-parse-error
-  [msg e discard]
-  (log/error e (i18n/trs "Fatal error parsing command: {0}" msg))
-  (discard msg e))
-
-(defn handle-command-failure
-  "Dump the error encountered during command-handling to the log and discard
-  the message."
-  [{:keys [command annotations payload] :as msg} e discard]
-  (let [attempt (count (:attempts annotations))
-        id (:id annotations)
-        certname (:certname payload)]
-    (log/error e (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}"
-                           id command attempt certname))
-    (-> msg
-        (annotate-with-attempt e)
-        (discard e))))
-
 ;; The number of times a message can be retried before we discard it
 (def maximum-allowable-retries 5)
 
-(defn handle-command-retry
-  "Dump the error encountered to the log, and re-publish the message,
-  with an incremented retry counter, after a ten minute delay."
-  [{:keys [command version annotations payload] :as msg} e publish-fn]
-  (mark! (cmd-metric command version :retried))
-  (let [attempt (count (:attempts annotations))
-        id (:id annotations)
-        certname (:certname payload)
-        delay (mq/delay-property 10 :minutes)]
-    (log/error e (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
-                           id command attempt certname e))
-    (time! (global-metric :retry-persistence-time)
-           (-> msg
-               (annotate-with-attempt e)
-               json/generate-string
-               (publish-fn delay)))))
+(defn mark-both-metrics!
+  "Calls `mark!` on the global and command specific metric for `k`"
+  [command version k]
+  (mark! (global-metric k))
+  (mark! (cmd-metric command version k)))
 
-(defn create-message-handler
-  [publish discarded-dir message-fn]
-  (let [discard        #(dlo/store-failed-message %1 %2 discarded-dir)
-        on-discard     #(handle-command-discard % discard)
-        on-parse-error #(handle-parse-error %1 %2 discard)
-        on-fatal       #(handle-command-failure %1 %2 discard)
-        on-retry       #(handle-command-retry %1 %2 publish)]
-    (-> message-fn
-        (wrap-with-discard on-discard maximum-allowable-retries)
-        (wrap-with-exception-handling on-retry on-fatal)
-        (wrap-with-command-parser on-parse-error)
-        (wrap-with-meter (global-metric :seen))
-        (wrap-with-thread-name "command-proc"))))
+(defn update-both-metrics!
+  "Calls `update!` on the global and command specific metric for `k`"
+  [command version k v]
+  (update! (global-metric k) v)
+  (update! (cmd-metric command version k) v))
+
+(defn call-with-command-metrics
+  "Invokes `f` including the related metrics updates"
+  [command version retries f]
+  (create-metrics-for-command! command version)
+
+  (mark-both-metrics! command version :seen)
+  (update-both-metrics! command version :retry-counts retries)
+
+  (mutils/multitime!
+   [(global-metric :processing-time)
+    (cmd-metric command version :processing-time)]
+
+   (let [command-result (f)]
+     (mark-both-metrics! command version :processed)
+     command-result)))
+
+;; Primarily a test hook
+(defn discard-message [message q dlo]
+  (dlo/discard-cmdref message q dlo))
+
+(defn message-handler
+  "Processes the message via (process-message msg), retrying messages
+  that fail via (delay-message msg), and discarding messages that have
+  fatal errors or have exceeded their maximum allowed attempts."
+  [q dlo delay-message process-message]
+  (fn [{:keys [certname command version delete? id] :as cmdref}]
+    (try+
+     ;; If the message is a delete?, there's no need to parse it
+     ;; below, it's only going to be removed
+     (if delete?
+       (do
+         (process-message cmdref)
+         (queue/ack-command q {:entry (queue/cmdref->entry cmdref)})
+         (update-counter! :depth command version dec!)
+         (update-counter! :invalidated command version dec!))
+       (let [cmd (queue/cmdref->cmd q cmdref)
+             retries (count (:attempts cmdref))]
+         (try+
+          (call-with-command-metrics command version retries
+                                     #(process-message cmd))
+          (queue/ack-command q cmd)
+          (update-counter! :depth command version dec!)
+
+          (catch fatal? obj
+            (mark! (global-metric :fatal))
+            (let [ex (:cause obj)]
+              (log/error
+               (:wrapper &throw-context)
+               (i18n/trs "[{0}] [{1}] Fatal error on L2 attempt {2} for {3}" id command retries certname))
+              (-> cmd
+                  (queue/cons-attempt ex)
+                  (discard-message q dlo))))
+          (catch Exception _
+            (let [ex (:throwable &throw-context)]
+              (mark-both-metrics! command version :retried)
+              (if (< retries maximum-allowable-retries)
+                (do
+                  (log/errorf
+                   ex
+                   (i18n/trs "[{0}] [{1}] Retrying after L2 attempt {2} for {3}, due to: {4}"
+                             id command retries certname ex))
+                  (-> cmd (queue/cons-attempt ex) delay-message))
+                (do
+                  (log/error
+                   ex
+                   (i18n/trs "[{0}] [{1}] Exceeded max L2 attempts ({2}) for {3}" id command retries certname))
+                  (-> cmd
+                      (queue/cons-attempt ex)
+                      (discard-message q dlo)))))))))
+     (catch [:kind ::queue/parse-error] _
+       (mark! (global-metric :fatal))
+       (log/error (:wrapper &throw-context)
+                  (i18n/trs "Fatal error parsing command: {0}" (:id cmdref)))
+       (-> cmdref
+           (queue/cons-attempt (:throwable &throw-context))
+           (discard-message q dlo))))))
 
 (defprotocol MessageListenerService
   (register-listener [this schema listener-fn])
@@ -330,64 +276,76 @@
    handler-fn :- message-fn-schema]
   (swap! listener-atom conj [pred handler-fn]))
 
-(defn start-receiver
-  [connection endpoint discard-dir process-msg]
-  (let [sess (.createSession connection true 0)
-        q (.createQueue sess endpoint)
-        consumer (.createConsumer sess q)
-        producer (.createProducer sess q)
-        send #(mq/commit-or-rollback sess
-                (.send producer (mq/to-jms-message sess %1 %2)))
-        handle (create-message-handler send discard-dir process-msg)]
-    (.setMessageListener
-     consumer
-     (reify MessageListener
-       (onMessage [this msg]
-         (try
-           (mq/commit-or-rollback sess (handle (mq/convert-jms-message msg)))
-           (catch Throwable ex
-             (log/error ex "message receive failed")
-             (throw ex))))))
-    {:session sess :consumer consumer :producer producer}))
+(def one-hour (* 1000 60 60))
+
+(defn send-delayed-message [command-chan delay-pool]
+  (fn [cmd]
+    (let [narrowed-entry (dissoc cmd :payload)]
+      (after one-hour #(async/>!! command-chan narrowed-entry) delay-pool))))
+
+(defn create-command-consumer
+  "Create and return a command handler. This function does the work of
+  consuming/storing a command. Handled commands are acknowledged here"
+  [q command-chan dlo delay-pool command-handler]
+  (let [handle-message (message-handler q
+                                        dlo
+                                        (send-delayed-message command-chan
+                                                              delay-pool)
+                                        command-handler)]
+    (fn [message]
+      ;; When the queue is shutting down, it sends nil message
+      (when message
+        (try
+          (handle-message message)
+          (catch Exception ex
+            (log/error ex "Unable to process message. Message not acknowledged and will be retried")))))))
+
+(defn create-command-handler-threadpool
+  "Creates an unbounded threadpool with the intent that access to the
+  threadpool is bounded by the semaphore. Implicitly the threadpool is
+  bounded by `size`, but since the semaphore is handling that aspect,
+  it's more efficient to use an unbounded pool and not duplicate the
+  constraint in both the semaphore and the threadpool"
+  [size]
+  (gtp/create-threadpool size "cmd-proc-thread-%d" 10000))
 
 (defservice message-listener-service
   MessageListenerService
   [[:DefaultedConfig get-config]
-   [:PuppetDBServer]] ; MessageListenerService depends on the broker
+   [:PuppetDBServer shared-globals]]
 
   (init [this context]
-        (assoc context :listeners (atom [])))
+        (reset! metrics {:global (create-metrics [:global])})
+        (assoc context
+               :listeners (atom [])
+               :delay-pool (mk-pool)))
 
   (start [this context]
     (let [config (get-config)
-          discard-dir (conf/mq-discard-dir config)
-          factory (mq/activemq-connection-factory (conf/mq-broker-url config))
-          endpoint (conf/mq-endpoint config)
-          connection (.createConnection factory)
-          process-msg #(process-message this %)
-          receivers (doall (repeatedly (conf/mq-thread-count config)
-                                       #(start-receiver connection
-                                                        endpoint
-                                                        discard-dir
-                                                        process-msg)))]
-      (.setExceptionListener
-       connection
-       (reify ExceptionListener
-         (onException [this ex]
-           (log/error ex "receiver queue connection error"))))
-      (.start connection)
-      (assoc context
-             :factory factory
-             :connection connection
-             :receivers receivers)))
+          command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
+          command-handler #(process-message this %)
+          {:keys [command-chan q dlo]} (shared-globals)
+          delay-pool (:delay-pool context)
+          handle-cmd (create-command-consumer q
+                                              command-chan
+                                              dlo
+                                              delay-pool
+                                              command-handler)]
 
-  (stop [this {:keys [factory connection receivers] :as context}]
-    (doseq [{:keys [session producer consumer]} receivers]
-      (.close producer)
-      (.close consumer)
-      (.close session))
-    (.close connection)
-    (.close factory)
+      (doto (Thread. (fn []
+                       (gtp/dochan command-threadpool handle-cmd command-chan)))
+        (.setDaemon false)
+        (.start))
+
+      (assoc context
+             :command-chan command-chan
+             :consumer-threadpool command-threadpool)))
+
+  (stop [this {:keys [consumer-threadpool command-chan delay-pool] :as context}]
+        (async/close! command-chan)
+        (gtp/shutdown consumer-threadpool)
+        (when delay-pool
+          (stop-and-reset-pool! delay-pool))
     context)
 
   (register-listener [this pred listener-fn]

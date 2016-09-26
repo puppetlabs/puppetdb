@@ -149,7 +149,8 @@
      :temp-usage s/Int
      :memory-usage s/Int
      :max-command-size (pls/defaulted-maybe s/Int (default-max-command-size))
-     :reject-large-commands (pls/defaulted-maybe String "false")}))
+     :reject-large-commands (pls/defaulted-maybe String "false")
+     :concurrent-writes (pls/defaulted-maybe s/Int 100)}))
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"
@@ -158,6 +159,7 @@
    :max-frame-size s/Int
    :max-command-size s/Int
    :reject-large-commands Boolean
+   :concurrent-writes s/Int
    (s/optional-key :memory-usage) s/Int
    (s/optional-key :store-usage) s/Int
    (s/optional-key :temp-usage) s/Int})
@@ -177,10 +179,12 @@
 
 (def developer-config-in
   (all-optional
-    {:pretty-print (pls/defaulted-maybe String "false")}))
+   {:pretty-print (pls/defaulted-maybe String "false")
+    :max-enqueued (pls/defaulted-maybe s/Int 1000000)}))
 
 (def developer-config-out
-  {:pretty-print Boolean})
+  {:pretty-print Boolean
+   :max-enqueued s/Int})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Database config
@@ -439,11 +443,8 @@
   [config]
   (get-in config [:command-processing :max-command-size]))
 
-(defn mq-dir [config]
-  (str (io/file (get-in config [:global :vardir]) "mq")))
-
-(defn mq-discard-dir [config]
-  (str (io/file (mq-dir config) "discard")))
+(defn stockpile-dir [config]
+  (str (io/file (get-in config [:global :vardir]) "stockpile")))
 
 (defprotocol DefaultedConfig
   (get-config [this]))

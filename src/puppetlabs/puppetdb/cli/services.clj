@@ -22,12 +22,8 @@
 
    * Message queue
 
-     We use an embedded instance of AciveMQ to handle queueing duties
-     for the command processing subsystem. The message queue is
-     persistent, and it only allows connections from within the same
-     VM.
-
-     Refer to `puppetlabs.puppetdb.mq` for more details.
+     We use stockpile to durably store commands. The \"in memory\"
+     representation of that queue is a core.async channel.
 
    * REST interface
 
@@ -47,7 +43,7 @@
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [compojure.core :as compojure]
-            [metrics.counters :as counters :refer [counter]]
+            [metrics.counters :as counters :refer [counter inc!]]
             [metrics.gauges :refer [gauge-fn]]
             [metrics.timers :refer [time! timer]]
             [metrics.reporters.jmx :as jmx-reporter]
@@ -60,8 +56,10 @@
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.meta.version :as version]
-            [puppetlabs.puppetdb.metrics.core :as metrics]
+            [puppetlabs.puppetdb.metrics.core :as metrics
+             :refer [metrics-registries]]
             [puppetlabs.puppetdb.mq :as mq]
+            [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
@@ -75,7 +73,10 @@
             [puppetlabs.trapperkeeper.services :refer [service-id service-context]]
             [robert.hooke :as rh]
             [schema.core :as s]
-            [slingshot.slingshot :refer [throw+ try+]])
+            [slingshot.slingshot :refer [throw+ try+]]
+            [clojure.core.async :as async]
+            [puppetlabs.puppetdb.mq-listener :as mql]
+            [puppetlabs.puppetdb.queue :as queue])
   (:import [javax.jms ExceptionListener]
            [java.util.concurrent.locks ReentrantLock]
            [org.joda.time Period]))
@@ -132,17 +133,6 @@
        (scf-store/delete-reports-older-than! (ago report-ttl))))
     (catch Exception e
       (log/error e "Error while sweeping reports"))))
-
-(defn compress-dlo!
-  "Compresses discarded message which are older than `dlo-compression-threshold`."
-  [dlo dlo-compression-threshold]
-  (try
-    (kitchensink/demarcate
-     (format "compression of discarded messages (threshold: %s)"
-             (format-period dlo-compression-threshold))
-     (dlo/compress! dlo dlo-compression-threshold))
-    (catch Exception e
-      (log/error e "Error while compressing discarded messages"))))
 
 (defn garbage-collect!
   "Perform garbage collection on `db`, which means deleting any orphaned data.
@@ -257,42 +247,21 @@
              :desc "A reoccuring job to checkin the PuppetDB version"))
     (log/debug "Skipping update check on Puppet Enterprise")))
 
-(defn shutdown-mq
-  "Explicitly shut down the queue `broker`"
-  [{:keys [broker mq-factory mq-connection]}]
-  (when broker
-    (log/info "Shutting down the messsage queues.")
-    (mq/stop-broker! broker)))
-
 (defn stop-puppetdb
   "Shuts down PuppetDB, releasing resources when possible.  If this is
   not a normal shutdown, emergency? must be set, which currently just
   produces a fatal level level log message, instead of info."
   [context]
   (log/info "Shutdown request received; puppetdb exiting.")
-  (shutdown-mq context)
   (when-let [ds (get-in context [:shared-globals :scf-write-db :datasource])]
     (.close ds))
   (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
     (.close ds))
   (when-let [pool (:job-pool context)]
     (stop-and-reset-pool! pool))
+  (when-let [command-loader (:command-loader context)]
+    (future-cancel command-loader))
   context)
-
-(defn- transfer-old-messages! [mq-endpoint]
-  (let [[pending exists?]
-        (try+
-         [(mq/queue-size "localhost" "com.puppetlabs.puppetdb.commands") true]
-         (catch [:type ::mq/queue-not-found] ex [0 false]))]
-    (when (pos? pending)
-      (log/infof "Transferring %d commands from legacy queue" pending)
-      (let [n (mq/transfer-messages! "localhost"
-                                     "com.puppetlabs.puppetdb.commands"
-                                     mq-endpoint)]
-        (log/infof "Transferred %d commands from legacy queue" n)))
-    (when exists?
-      (mq/remove-queue! "localhost" "com.puppetlabs.puppetdb.commands")
-      (log/info "Removed legacy queue"))))
 
 (defn initialize-schema
   "Ensure the database is migrated to the latest version, and warn if
@@ -337,21 +306,18 @@
   [context config service get-registered-endpoints]
   {:pre [(map? context)
          (map? config)]
-   :post [(map? %)
-          (every? (partial contains? %) [:broker])]}
+   :post [(map? %)]}
   (let [{:keys [developer jetty
                 database read-database
                 puppetdb command-processing]} config
-        {:keys [pretty-print]} developer
-        {:keys [gc-interval dlo-compression-interval]} database
-        {:keys [dlo-compression-threshold]} command-processing
+        {:keys [pretty-print max-enqueued]} developer
+        {:keys [gc-interval]} database
         {:keys [disable-update-checking]} puppetdb
 
         write-db (jdbc/pooled-datasource (assoc database :pool-name "PDBWritePool")
                                          database-metrics-registry)
         read-db (jdbc/pooled-datasource (assoc read-database :read-only? true :pool-name "PDBReadPool")
-                                        database-metrics-registry)
-        discard-dir (io/file (conf/mq-discard-dir config))]
+                                        database-metrics-registry)]
 
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
@@ -361,29 +327,29 @@
     (let [population-registry (get-in metrics/metrics-registries [:population :registry])]
       (pop/initialize-population-metrics! population-registry read-db))
 
-    (when (.exists discard-dir)
-      (dlo/create-metrics-for-dlo! discard-dir))
-    (let [broker (try
-                   (log/info "Starting broker")
-                   (mq/build-and-start-broker! "localhost"
-                                               (conf/mq-dir config)
-                                               command-processing)
-                   (catch java.io.EOFException e
-                     (log/error
-                      "EOF Exception caught during broker start, this "
-                      "might be due to KahaDB corruption. Consult the "
-                      "PuppetDB troubleshooting guide.")
-                     (throw e)))
+    ;; Error handling here?
+    (let [stockdir (conf/stockpile-dir config)
+          command-chan (async/chan
+                         (queue/sorted-command-buffer
+                          max-enqueued
+                          #(mql/update-counter! :invalidated %1 %2 inc!)))
+          [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config))
           globals {:scf-read-db read-db
                    :scf-write-db write-db
-                   :pretty-print pretty-print}
-          clean-lock (ReentrantLock.)]
-      (transfer-old-messages! (conf/mq-endpoint config))
+                   :pretty-print pretty-print
+                   :q q
+                   :dlo (dlo/initialize (get-path stockdir "discard")
+                                        (get-in metrics-registries
+                                                [:dlo :registry]))
+                   :command-chan command-chan}
+          clean-lock (ReentrantLock.)
+          command-loader (when load-messages
+                           (future
+                             (load-messages command-chan mql/inc-cmd-metrics)))]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)
-            gc-interval-millis (to-millis gc-interval)
-            dlo-compression-interval-millis (to-millis dlo-compression-interval)]
+            gc-interval-millis (to-millis gc-interval)]
         (when-not disable-update-checking
           (maybe-check-for-updates config read-db job-pool))
         (when (pos? gc-interval-millis)
@@ -410,15 +376,11 @@
                              (finally
                                (.unlock clean-lock))))
                          job-pool)))
-        (when (pos? dlo-compression-interval-millis)
-          (interspaced dlo-compression-interval-millis
-                       #(compress-dlo! dlo-compression-threshold discard-dir)
-                       job-pool))
         (assoc context
                :job-pool job-pool
-               :broker broker
                :shared-globals globals
-               :clean-lock clean-lock)))))
+               :clean-lock clean-lock
+               :command-loader command-loader)))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this])

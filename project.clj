@@ -36,6 +36,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [puppetlabs/i18n ~i18n-version]
                  [cheshire "5.6.1"]
+                 [digest "1.4.3"]
                  [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
                  [org.clojure/math.combinatorics "0.1.1"]
                  [org.clojure/math.numeric-tower "0.0.4"]
@@ -92,7 +93,8 @@
                  [puppetlabs/http-client "0.5.0" :exclusions [org.slf4j/slf4j-api]]
                  [com.taoensso/nippy "2.10.0" :exclusions [org.clojure/tools.reader]]
                  [bidi "1.25.1" :exclusions [org.clojure/clojurescript]]
-                 [puppetlabs/comidi "0.3.1"]]
+                 [puppetlabs/comidi "0.3.1"]
+                 [puppetlabs/stockpile "0.0.2"]]
 
   :jvm-opts ~pdb-jvm-opts
 

@@ -76,6 +76,20 @@
   (is (not (describe-bad-base-url {:protocol "http" :host "xy" :port 0})))
   (is (string? (describe-bad-base-url {:protocol "http" :host "x:y" :port 0}))))
 
+(deftest test-regex-quote
+  (is (thrown? IllegalArgumentException (regex-quote "Rob's \\Ecommand")))
+  (let [special-chars "$.^[)"]
+    (is (= special-chars (-> (regex-quote special-chars)
+                             re-pattern
+                             (re-find (format "fo*%s?!" special-chars)))))))
+
+(deftest test-match-any-of
+  (let [special-chars [\$ "." \] "()"]
+        match-special (re-pattern (match-any-of special-chars))]
+    (doseq [special-char special-chars]
+      (is (= (str special-char) (-> (re-find match-special (format "con%stext" special-char))
+                                    first))))))
+
 (def dash-keyword-generator
   (gen/fmap (comp keyword #(str/join "-" %))
             (gen/not-empty (gen/vector gen/string-alpha-numeric))))
