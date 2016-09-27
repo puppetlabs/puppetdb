@@ -333,7 +333,12 @@
                                               command-handler)]
 
       (doto (Thread. (fn []
-                       (gtp/dochan command-threadpool handle-cmd command-chan)))
+                       (try+ (gtp/dochan command-threadpool handle-cmd command-chan)
+                         ;; This only occurs when new work is submitted after the threadpool has
+                         ;; started shutting down, which means PDB itself is shutting down. The
+                         ;; command will be retried when PDB next starts up, so there's no reason to
+                         ;; tell the user about this by letting it bubble up until it's printed.
+                         (catch [:kind :puppetlabs.puppetdb.threadpool/rejected] _))))
         (.setDaemon false)
         (.start))
 
