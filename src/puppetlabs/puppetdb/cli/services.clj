@@ -61,6 +61,7 @@
             [puppetlabs.puppetdb.query-eng :as qeng]
             [puppetlabs.puppetdb.query.population :as pop]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
+            [puppetlabs.puppetdb.scf.hash :as scf-hash]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.time :refer [to-seconds to-millis parse-period
@@ -255,6 +256,9 @@
 
     (when-let [v (version/version)]
       (log/infof "PuppetDB version %s" v))
+
+    (reset! scf-hash/memoize-resource-identity-hashes?
+            (:memoize-resource-identity-hashes developer))
 
     (init-with-db database config)
 
