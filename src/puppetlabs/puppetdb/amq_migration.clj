@@ -72,19 +72,6 @@
         (throw (Exception. (i18n/trs "Only read {0}/{1} bytes from incoming message" n len))))
       buf)))
 
-(defn coerce-clj->json-byte-stream
-  "Converts clojure data to JSON serialized bytes on a
-  ByteArrayInputStream. Cheshire will only output to writers and
-  stockpile will only accept input streams, so some conversion needs
-  to be done in this fn"
-  [payload]
-  (with-open [baos (java.io.ByteArrayOutputStream.)]
-    (with-open [osw (java.io.OutputStreamWriter. baos java.nio.charset.StandardCharsets/UTF_8)]
-      (json/generate-stream payload osw))
-    (-> baos
-        .toByteArray
-        java.io.ByteArrayInputStream.)))
-
 (defn convert-old-command-format
   "Converts from the command format that didn't include the certname
   in the toplevel key list and had all the command data with the
@@ -95,7 +82,7 @@
      :version version
      :certname (or (get-in old-command [:payload :certname])
                    (get-in old-command [:payload :name]))
-     :payload (coerce-clj->json-byte-stream (:payload old-command))}))
+     :payload (json/coerce-clj->json-byte-stream (:payload old-command))}))
 
 (def upgrade-message-schema
   {:command s/Str
