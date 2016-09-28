@@ -181,6 +181,7 @@
 ;; Alias (apply io/writer ...) to avoid reflection
 (defn ^Writer writer [f options]
   (apply io/writer f options))
+
 (defn spit-json
   "Similar to clojure.core/spit, but writes the Clojure
    datastructure as JSON to `f`"
@@ -188,3 +189,16 @@
   (with-open [writer (writer f options)]
     (generate-pretty-stream obj writer))
   nil)
+
+(defn coerce-clj->json-byte-stream
+  "Converts clojure data to JSON serialized bytes on a
+  ByteArrayInputStream. Cheshire will only output to writers and
+  stockpile will only accept input streams, so some conversion needs
+  to be done in this fn"
+  [payload]
+  (with-open [baos (java.io.ByteArrayOutputStream.)]
+    (with-open [osw (java.io.OutputStreamWriter. baos java.nio.charset.StandardCharsets/UTF_8)]
+      (generate-stream payload osw))
+    (-> baos
+        .toByteArray
+        java.io.ByteArrayInputStream.)))

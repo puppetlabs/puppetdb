@@ -397,7 +397,7 @@
 (defn make-cmd-processed-message [cmd ex]
   (conj
    (conj (select-keys cmd [:id :command :version])
-         [:producer-timestamp (get-in cmd [:payload :payload :producer_timestamp])])
+         [:producer-timestamp (get-in cmd [:payload :producer_timestamp])])
    (when ex
      [:exception ex])))
 
