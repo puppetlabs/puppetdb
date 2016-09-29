@@ -14,19 +14,14 @@
 
    More details can be found in [the spec](../spec/commands.md).
 
-   The command object may also contain an `annotations` attribute
-   containing a map with arbitrary keys and values which may have
-   command-specific meaning or may be used by the message processing
-   framework itself.
+   Commands should include a `received` field containing a timestamp
+   of when the message was first seen by the system. If this is
+   omitted, it will be added when the message is first parsed, but may
+   then be somewhat inaccurate.
 
-   Commands should include a `received` annotation containing a
-   timestamp of when the message was first seen by the system. If this
-   is omitted, it will be added when the message is first parsed, but
-   may then be somewhat inaccurate.
-
-   Commands should include an `id` annotation containing a unique,
-   string identifier for the command. If this is omitted, it will be
-   added when the message is first parsed.
+   Commands should include an `id` field containing a unique integer
+   identifier for the command. If this is omitted, it will be added
+   when the message is first parsed.
 
    Failed messages will have an `attempts` annotation containing an
    array of maps of the form:
@@ -115,7 +110,7 @@
 
 (defn-validated do-enqueue-command
   "Submits command to the mq-endpoint of mq-connection and returns
-  its id. Annotates the command via annotate-command."
+  its id."
   [q
    command-chan
    ^Semaphore write-semaphore
@@ -138,17 +133,16 @@
 ;; Catalog replacement
 
 (defn replace-catalog*
-  [{:keys [annotations certname version payload]} db]
+  [{:keys [certname version id received payload]} db]
   (let [{producer-timestamp :producer_timestamp :as catalog} payload]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
-      (scf-storage/replace-catalog! catalog (:received annotations)))
-    (log/infof "[%s] [%s] %s" (:id annotations) (command-names :replace-catalog) certname)))
+      (scf-storage/replace-catalog! catalog received))
+    (log/infof "[%s] [%s] %s" id (command-names :replace-catalog) certname)))
 
-(defn replace-catalog [{:keys [payload annotations version] :as command} db]
-  (let [{received-timestamp :received} annotations
-        validated-payload (upon-error-throw-fatality
-                           (cat/parse-catalog payload version received-timestamp))]
+(defn replace-catalog [{:keys [payload received version] :as command} db]
+  (let [validated-payload (upon-error-throw-fatality
+                           (cat/parse-catalog payload version received))]
     (-> command
         (assoc :payload validated-payload)
         (replace-catalog* db))))
@@ -156,25 +150,24 @@
 ;; Fact replacement
 
 (defn replace-facts*
-  [{:keys [payload annotations] :as command} db]
+  [{:keys [payload id] :as command} db]
   (let [{:keys [certname values] :as fact-data} payload
         producer-timestamp (:producer_timestamp fact-data)]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-facts! fact-data))
-    (log/infof "[%s] [%s] %s" (:id annotations) (command-names :replace-facts) certname)))
+    (log/infof "[%s] [%s] %s" id (command-names :replace-facts) certname)))
 
-(defn replace-facts [{:keys [payload version annotations] :as command} db]
-  (let [received-time (:received annotations)
-        validated-payload (upon-error-throw-fatality
+(defn replace-facts [{:keys [payload version received] :as command} db]
+  (let [validated-payload (upon-error-throw-fatality
                            (-> (case version
-                                 2 (fact/wire-v2->wire-v5 payload received-time)
+                                 2 (fact/wire-v2->wire-v5 payload received)
                                  3 (fact/wire-v3->wire-v5 payload)
                                  4 (fact/wire-v4->wire-v5 payload)
                                  payload)
                                (update :values utils/stringify-keys)
                                (update :producer_timestamp to-timestamp)
-                               (assoc :timestamp received-time)))]
+                               (assoc :timestamp received)))]
     (-> command
         (assoc :payload validated-payload)
         (replace-facts* db))))
@@ -191,14 +184,14 @@
       deactivate-node-wire-v2->wire-3))
 
 (defn deactivate-node*
-  [{:keys [annotations payload]} db]
+  [{:keys [id payload]} db]
   (let [certname (:certname payload)
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
     (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname producer-timestamp))
-    (log/infof "[%s] [%s] %s" (:id annotations) (command-names :deactivate-node) certname)))
+    (log/infof "[%s] [%s] %s" id (command-names :deactivate-node) certname)))
 
 (defn deactivate-node [{:keys [payload version] :as command} db]
   (-> command
@@ -211,24 +204,24 @@
 ;; Report submission
 
 (defn store-report*
-  [{:keys [payload annotations]} db]
+  [{:keys [payload id received]} db]
   (let [{:keys [certname puppet_version] :as report} payload
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
     (jdbc/with-transacted-connection db
       (scf-storage/maybe-activate-node! certname producer-timestamp)
-      (scf-storage/add-report! report (:received annotations)))
+      (scf-storage/add-report! report received))
     (log/infof "[%s] [%s] puppet v%s - %s"
-               (:id annotations)
+               id
                (command-names :store-report)
                puppet_version
                certname)))
 
-(defn store-report [{:keys [payload version annotations] :as command} db]
+(defn store-report [{:keys [payload version received] :as command} db]
   (let [validated-payload (upon-error-throw-fatality
                            (s/validate report/report-wireformat-schema
                                        (case version
-                                         3 (report/wire-v3->wire-v8 payload (:received annotations))
-                                         4 (report/wire-v4->wire-v8 payload (:received annotations))
+                                         3 (report/wire-v3->wire-v8 payload received)
+                                         4 (report/wire-v4->wire-v8 payload received)
                                          5 (report/wire-v5->wire-v8 payload)
                                          6 (report/wire-v6->wire-v8 payload)
                                          7 (report/wire-v7->wire-v8 payload)
@@ -270,8 +263,7 @@
   (enqueue-command
     [this command version certname payload]
     [this command version certname payload command-callback]
-    "Annotates the command via annotate-command, submits it for
-    processing, and then returns its unique id.")
+    "Submits the command for processing, and then returns its unique id.")
 
   (stats [this]
     "Returns command processing statistics as a map

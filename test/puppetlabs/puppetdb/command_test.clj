@@ -71,7 +71,6 @@
                                                 #(process-command! % ~db))
            cmd# ~command
            cmdref# (-> (apply tqueue/store-command q# (unroll-old-command cmd#))
-                       (update :annotations merge (:annotations cmd#))
                        (assoc :attempts (:attempts cmd#)))]
        (try
          (binding [*logger-factory* (atom-logger log-output#)]
@@ -104,8 +103,7 @@
              (queue/cons-attempt result (Exception. (str "thud-" i)))))))
 
 (deftest command-processor-integration
-  (let [command {:command "replace catalog" :version 5 :payload "\"payload\""
-                 :annotations {}}]
+  (let [command {:command "replace catalog" :version 5 :payload "\"payload\""}]
     (testing "correctly formed messages"
 
       (testing "which are not yet expired"

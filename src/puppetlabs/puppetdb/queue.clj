@@ -126,7 +126,7 @@
 
 (def parse-metadata (metadata-parser))
 
-(defrecord CommandRef [id command version certname received callback annotations delete?])
+(defrecord CommandRef [id command version certname received callback delete?])
 
 (defn cmdref->entry [{:keys [id command version certname received]}]
   (stock/entry id (metadata-str received command version certname)))
@@ -140,9 +140,7 @@
                       :version version
                       :certname certname
                       :received received
-                      :callback identity
-                      :annotations {:id (stock/entry-id entry)
-                                    :received received}})))
+                      :callback identity})))
 
 (defn cmdref->cmd [q cmdref]
   (let [entry (cmdref->entry cmdref)]
@@ -168,9 +166,7 @@
                        :version version
                        :certname certname
                        :callback command-callback
-                       :received (kitchensink/timestamp current-time)
-                       :annotations {:id (stock/entry-id entry)
-                                     :received (kitchensink/timestamp current-time)}}))))
+                       :received (kitchensink/timestamp current-time)}))))
 
 (defn ack-command
   [q command]
