@@ -14,6 +14,8 @@
             [slingshot.slingshot :refer [try+ throw+]]
             [com.rpl.specter :as sp])
   (:import [java.net MalformedURLException URISyntaxException URL]
+           [java.nio ByteBuffer CharBuffer]
+           [java.nio.charset Charset CharsetEncoder CoderResult StandardCharsets]
            [org.postgresql.util PGobject]))
 
 (defn jdk6?
@@ -357,6 +359,29 @@
   (json/generate-string
     {:command command :version (Integer. version)
      :certname certname :payload (json/->RawJsonString payload)}))
+
+(def ^Charset utf8 StandardCharsets/UTF_8)
+
+(defn utf8-bytes [s] (.getBytes ^String s utf8))
+
+(defn utf8-length
+  "Return the length in bytes of the given string when encoded in UTF-8"
+  [s]
+  (count (.getBytes ^String s utf8)))
+
+(defn utf8-truncate
+  "Truncate the given string such that its UTF-8 representation is at most
+  `max-bytes` long. Note that the returned string may be empty."
+  [s max-bytes]
+  (let [utf8-bytebuff (ByteBuffer/allocate max-bytes)
+        chars-in (CharBuffer/wrap (.toCharArray ^String s))
+        encoder (.newEncoder utf8)
+        encode-result (.encode encoder chars-in utf8-bytebuff true)
+        flush-result (.flush encoder utf8-bytebuff)]
+    (doseq [^CoderResult result [encode-result flush-result]]
+      (when (.isError result)
+        (.throwException result)))
+    (String. (.array utf8-bytebuff) 0 (.position utf8-bytebuff) utf8)))
 
 (defmacro with-timeout [timeout-ms default & body]
   `(let [f# (future (do ~@body))

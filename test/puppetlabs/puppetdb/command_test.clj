@@ -3,6 +3,8 @@
             [clj-http.client :as client]
             [clojure.java.jdbc :as sql]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.command.constants
+             :refer [latest-catalog-version latest-facts-version]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.metrics.core :refer [new-metrics]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]

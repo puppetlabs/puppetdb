@@ -69,7 +69,8 @@
             [puppetlabs.puppetdb.utils :as utils]
             [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.puppetdb.mq-listener :as mql]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [puppetlabs.puppetdb.command.constants
+             :refer [command-names supported-command-versions]]
             [puppetlabs.trapperkeeper.services
              :refer [defservice service-context]]
             [schema.core :as s]
@@ -109,19 +110,6 @@
     ~@body
     (catch Throwable e#
       (throw+ (fatality e#)))))
-
-(defn version-range [min-version max-version]
-  (set (range min-version (inc max-version))))
-
-(def supported-command-versions
-  {"replace facts" (version-range 2 5)
-   "replace catalog" (version-range 4 9)
-   "store report" (version-range 3 8)
-   "deactivate node" (version-range 1 3)})
-
-(def latest-catalog-version (apply max (get supported-command-versions "replace catalog")))
-(def latest-report-version (apply max (get supported-command-versions "store report")))
-(def latest-facts-version (apply max (get supported-command-versions "replace facts")))
 
 (defn- die-on-header-payload-mismatch
   [name in-header in-body]

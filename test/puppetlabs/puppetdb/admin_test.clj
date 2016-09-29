@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.cli.services :refer :all]
             [puppetlabs.puppetdb.command :as command]
+            [puppetlabs.puppetdb.command.constants :as cmd-consts]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.export :as export]
             [puppetlabs.puppetdb.import :as import]
@@ -32,11 +33,11 @@
        (is (empty? (get-nodes)))
 
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace catalog" command/latest-catalog-version example-catalog)
+                                    "replace catalog" cmd-consts/latest-catalog-version example-catalog)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "store report" command/latest-report-version example-report)
+                                    "store report" cmd-consts/latest-report-version example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace facts" command/latest-facts-version example-facts)
+                                    "replace facts" cmd-consts/latest-facts-version example-facts)
 
        (is (= (tuc/munge-catalog example-catalog)
               (tuc/munge-catalog (get-catalogs example-certname))))
@@ -78,11 +79,11 @@
          (is (empty? (get-nodes)))
 
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "replace catalog" command/latest-catalog-version example-catalog)
+                                      "replace catalog" cmd-consts/latest-catalog-version example-catalog)
          (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                      "store report" command/latest-report-version example-report)
+                                      "store report" cmd-consts/latest-report-version example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                    "replace facts" command/latest-facts-version example-facts)
+                                    "replace facts" cmd-consts/latest-facts-version example-facts)
 
          (is (= (tuc/munge-catalog example-catalog)
                 (tuc/munge-catalog (get-catalogs example-certname))))
@@ -112,20 +113,20 @@
         (is (empty? (get-nodes)))
 
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                     "replace catalog" command/latest-catalog-version
+                                     "replace catalog" cmd-consts/latest-catalog-version
                                      example-catalog)
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "bar.com"
-                                     "replace catalog" command/latest-catalog-version
+                                     "replace catalog" cmd-consts/latest-catalog-version
                                      example-catalog2)
 
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                     "store report" command/latest-report-version
+                                     "store report" cmd-consts/latest-report-version
                                      example-report)
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname
-                                     "replace facts" command/latest-facts-version
+                                     "replace facts" cmd-consts/latest-facts-version
                                      example-facts)
         (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) "bar.com"
-                                     "replace facts" command/latest-facts-version
+                                     "replace facts" cmd-consts/latest-facts-version
                                      example-facts2)
 
         (sutils/vacuum-analyze *db*)

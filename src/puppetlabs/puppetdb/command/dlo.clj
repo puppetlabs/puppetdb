@@ -6,15 +6,13 @@
    [puppetlabs.i18n.core :refer [trs]]
    [puppetlabs.kitchensink.core :refer [timestamp]]
    [puppetlabs.puppetdb.nio :refer [copts copt-atomic copt-replace oopts]]
-   [puppetlabs.puppetdb.queue :as queue
-    :refer [cmdref->entry metadata-str parse-cmd-filename]]
+   [puppetlabs.puppetdb.queue :as q]
+   [puppetlabs.puppetdb.utils :refer [utf8-length utf8-truncate]]
    [puppetlabs.stockpile.queue :as stock])
   (:import
    [java.nio.file AtomicMoveNotSupportedException
     FileAlreadyExistsException Files LinkOption]
    [java.nio.file.attribute FileAttribute]))
-
-(def command-names (cons "unknown" queue/metadata-command-names))
 
 (defn- cmd-counters
   "Adds gauges to the dlo for the given category (e.g. \"global\"
@@ -40,6 +38,13 @@
     metrics
     (assoc metrics cmd (cmd-counters registry cmd))))
 
+(defn- parse-cmd-filename
+  [filename]
+  (let [parse-metadata (q/metadata-parser (cons "unknown" q/metadata-command-names))
+        id-meta-split-rx #"([0-9]+)-(.*)"]
+    (when-let [[_ id qmeta] (re-matches id-meta-split-rx filename)]
+      (parse-metadata qmeta))))
+
 (defn- metrics-for-dir
   "Updates metrics to reflect the discarded commands directly inside
   the path; does not recurse."
@@ -47,7 +52,7 @@
   (with-open [path-stream (Files/newDirectoryStream path)]
     (reduce (fn [metrics p]
               ;; Assume the trailing .json here and in
-              ;; entry-cmd-err-filename below.
+              ;; entry-cmd-data-filename below.
               (let [name (-> p .getFileName str)]
                 (if-let [cmd (:command (and (.endsWith name ".json")
                                             (parse-cmd-filename name)))]
@@ -71,23 +76,36 @@
                           (.printStackTrace exception out))
                         attempts))))
 
+(defn- strip-metadata-suffix
+  [queue-metadata-str]
+  (str/replace queue-metadata-str #"\.json$" ""))
+
+(defn- dlo-filename
+  [id metadata suffix]
+  (str id \-
+       (utf8-truncate metadata (- 255
+                                  (count (str id))
+                                  1 ; dash after id
+                                  (utf8-length suffix)))
+       suffix))
+
 (defn- entry-cmd-data-filename
-  "Returns a string representing the filename for the given stockpile
-  `entry`. The filename is similar to what stockpile would store the
-  message as '10291-1469469689-cat-4-foo.org.json'"
+  "Returns a string representing the filename for the given stockpile `entry`.
+  The filename is similar to what stockpile would store the message as
+  '10291-1469469689_cat_4_foo.org.json', but in contrast 'unknown' is an allowed
+  command name."
   [entry]
   (let [id (stock/entry-id entry)
-        meta (stock/entry-meta entry)]
-    (str id \- meta)))
+        metadata (stock/entry-meta entry)]
+    (dlo-filename id metadata "")))
 
-(defn- err-filename
-  "Creates a filename string for error metadata associated the
+(defn- entry-cmd-err-filename
+  "Creates a filename string for error metadata associated with the
   stockpile message at `id`. This filename is similar to how stockpile
   would store it but includes a error stuffix to differentiate it,
-  similar tot he following '10291-1469469689-cat-4-foo.org-err.txt'"
+  similar to the following '10291-1469469689_cat_4_foo.org_err.txt'"
   [id metadata]
-  (assert (str/ends-with? metadata ".json"))
-  (str id \- (subs metadata 0 (- (count metadata) 5)) "-err.txt"))
+  (dlo-filename id (strip-metadata-suffix metadata) "_err.txt"))
 
 (defn- store-failed-command-info
   [id metadata command attempts dir]
@@ -95,12 +113,13 @@
   ;; we want the command because id isn't unique by itself (given
   ;; unknown commands).
   (let [tmp (Files/createTempFile dir
-                                  (str "tmp-err-" id \- command) ""
+                                  ;; no need to truncate, implementation will
+                                  (str "tmperr-" id \- command) ""
                                   (make-array FileAttribute 0))]
     ;; Leave the temp file if something goes wrong.
     (with-open [out (java.io.PrintWriter. (.toFile tmp))]
       (write-failure-metadata out attempts))
-    (let [dest (.resolve dir (err-filename id metadata))
+    (let [dest (.resolve dir (entry-cmd-err-filename id metadata))
           moved? (try
                    (Files/move tmp dest (copts [copt-atomic]))
                    (catch FileAlreadyExistsException ex
@@ -133,8 +152,8 @@
   "Stores information about the failed `stockpile` `cmdref` to the
   `dlo` (a Path) for later inspection.  Saves two files named like
   this:
-    10291-1469469689-cat-4-foo.org.json
-    10291-1469469689-cat-4-foo.org-err.txt
+    10291-1469469689_cat_4_foo.org.json
+    10291-1469469689_cat_4_foo.org_err.txt
   The first contains the failed command itself, and the second details
   the cause of the failure.  The command will be moved from the
   `stockpile` queue to the `dlo` directory (a Path) via
@@ -142,7 +161,7 @@
   [cmdref stockpile dlo]
   (let [{:keys [path registry metrics]} dlo
         {:keys [command received attempts]} cmdref
-        entry (cmdref->entry cmdref)
+        entry (q/cmdref->entry cmdref)
         cmd-dest (.resolve path (entry-cmd-data-filename entry))]
     ;; We're going to assume that our moves will be atomic, and if
     ;; they're not, that we don't care about the possibility of
@@ -164,8 +183,8 @@
   later inspection.  `attempts` must be a list of {:time t :exception
   ex} maps in reverse chronological order.  Saves two files named like
   this:
-    10291-1469469689-unknown-0-BYTESHASH
-    10291-1469469689-unknown-0-BYTESHASH.txt
+    10291-1469469689_unknown_0_BYTESHASH
+    10291-1469469689_unknown_0_BYTESHASH.txt
   The first contains the bytes provided, and the second details the
   cause of the failure.  Returns {:info Path :command Path}."
   [bytes id received attempts dlo]
@@ -175,7 +194,7 @@
   ;; indicator that the unknown message may be complete.
   (let [{:keys [path registry metrics]} dlo
         digest (digest/sha1 [bytes])
-        metadata (metadata-str received "unknown" 0 digest)
+        metadata (q/metadata-str received "unknown" 0 digest)
         cmd-dest (.resolve path (str id \- metadata))]
     (Files/write cmd-dest bytes (oopts []))
     (let [info-dest (store-failed-command-info id metadata "unknown"
