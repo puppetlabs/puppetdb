@@ -122,9 +122,12 @@
   (try
     (.acquire write-semaphore)
     (time! (get @metrics :message-persistence-time)
-           (async/>!! command-chan
-                      (queue/store-command
-                        q command version certname command-stream command-callback)))
+           (let [cmd (queue/store-command
+                       q command version certname command-stream command-callback)
+                 {:keys [id received]} cmd]
+             (async/>!! command-chan cmd)
+             (log/debugf (i18n/trs "[%s-%d] '%s' command enqueued for %s")
+                         id (tcoerce/to-long received) command certname)))
     (finally
       (.release write-semaphore)
       (when command-stream
