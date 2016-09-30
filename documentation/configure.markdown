@@ -622,6 +622,9 @@ This setting defaults to half the number of cores in your system.
 
 ### `dlo-compression-threshold`
 
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
 This setting specifies the maximum duration to keep messages in the
 dead-letter office before archiving them. This process will check for
 compressible messages on startup and after every `gc-interval`, but
@@ -632,15 +635,24 @@ disabled. The default value is one day.
 
 ### `store-usage`
 
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
 Sets the maximum amount of space in megabytes that
 PuppetDB's ActiveMQ can use for persistent message storage.
 
 ### `temp-usage`
 
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
 Sets the maximum amount of space in megabytes that
 PuppetDB's ActiveMQ can use for temporary message storage.
 
 ### `memory-usage`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
 
 This setting sets the maximum amount of memory in megabytes available for
 PuppetDB's ActiveMQ Broker.
@@ -652,6 +664,9 @@ value, and overall memory usage will also be affected by the `max-command-size`
 and `threads` parameters.
 
 ### `max-frame-size`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
 
 Sets the maximum frame size for persisted ActiveMQ messages
 supplied in bytes. Default value is 209715200 (or 200MB).
@@ -886,9 +901,9 @@ The port to use for the REPL.
 
 Specifies the host or IP address for the REPL service to listen on. By
 default this is `127.0.0.1` only. As this is an insecure channel this
-is the only recommended setting for production environments. 
+is the only recommended setting for production environments.
 
-If you wish to listen on all interfaces, you can specify `0.0.0.0`, for example, although this is generally not recommended for production. 
+If you wish to listen on all interfaces, you can specify `0.0.0.0`, for example, although this is generally not recommended for production.
 
 `[developer]` settings
 -----

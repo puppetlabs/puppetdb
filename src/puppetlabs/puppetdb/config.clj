@@ -142,24 +142,28 @@
 (def command-processing-in
   "Schema for incoming command processing config (user defined) - currently incomplete"
   (all-optional
-    {:dlo-compression-threshold (pls/defaulted-maybe String "1d")
-     :threads (pls/defaulted-maybe s/Int half-the-cores)
-     :store-usage s/Int
-     :max-frame-size (pls/defaulted-maybe s/Int 209715200)
-     :temp-usage s/Int
-     :memory-usage s/Int
+    {:threads (pls/defaulted-maybe s/Int half-the-cores)
      :max-command-size (pls/defaulted-maybe s/Int (default-max-command-size))
      :reject-large-commands (pls/defaulted-maybe String "false")
-     :concurrent-writes (pls/defaulted-maybe s/Int 100)}))
+     :concurrent-writes (pls/defaulted-maybe s/Int 100)
+
+     ;; Deprecated
+     :dlo-compression-threshold (pls/defaulted-maybe String "1d")
+     :max-frame-size (pls/defaulted-maybe s/Int 209715200)
+     :store-usage s/Int
+     :temp-usage s/Int
+     :memory-usage s/Int}))
 
 (def command-processing-out
   "Schema for parsed/processed command processing config - currently incomplete"
-  {:dlo-compression-threshold Period
-   :threads s/Int
-   :max-frame-size s/Int
+  {:threads s/Int
    :max-command-size s/Int
    :reject-large-commands Boolean
    :concurrent-writes s/Int
+
+   ;; Deprecated
+   :dlo-compression-threshold Period
+   :max-frame-size s/Int
    (s/optional-key :memory-usage) s/Int
    (s/optional-key :store-usage) s/Int
    (s/optional-key :temp-usage) s/Int})
@@ -240,8 +244,23 @@
   [{:keys [developer] :as config :or {developer {}}}]
   (configure-section config :developer developer-config-in developer-config-out))
 
+(def retired-cmd-proc-keys
+  [:dlo-compression-threshold :store-usage :max-frame-size :temp-usage :memory-usage])
+
+(defn warn-command-processing-retirements
+  [config]
+  (doseq [cmd-proc-key retired-cmd-proc-keys]
+    (when (get-in config [:command-processing cmd-proc-key])
+      (utils/println-err (format
+                          (str "The configuration item `%s`"
+                               " in the [command-processing] section is retired,"
+                               " please remove this item from your config."
+                               " Consult the documentation for more details.")
+                          (name cmd-proc-key))))))
+
 (defn configure-command-processing
   [config]
+  (warn-command-processing-retirements config)
   (configure-section config :command-processing command-processing-in command-processing-out))
 
 (defn convert-config

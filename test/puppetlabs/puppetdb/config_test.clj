@@ -38,32 +38,35 @@
         (is (= (get-in config [:puppetdb :disable-update-checking]) false))))))
 
 (deftest commandproc-configuration
-  (let [configure-command-params (fn [config] (configure-section config :command-processing command-processing-in command-processing-out))]
-    (testing "should use the thread value specified"
-      (let [config (configure-command-params {:command-processing {:threads 37}})]
-        (is (= (get-in config [:command-processing :threads]) 37))))
+  (testing "should use the thread value specified"
+    (let [config (configure-command-processing {:command-processing {:threads 37}})]
+      (is (= (get-in config [:command-processing :threads]) 37))))
 
-    (testing "should use the store-usage specified"
-      (let [config (configure-command-params {:command-processing {:store-usage 10000}})]
-        (is (= (get-in config [:command-processing :store-usage]) 10000))))
+  (testing "retired command processing config"
+    (doseq [cmd-proc-key [:store-usage :temp-usage :memory-usage :max-frame-size]]
+      (let [cmd-proc-config {:command-processing {cmd-proc-key 10000}}
+            out-str (with-out-str
+                      (binding [*err* *out*]
+                        (configure-command-processing cmd-proc-config)))]
+        (is (.contains out-str
+                       (format "The configuration item `%s`" (name cmd-proc-key)))))))
 
-    (testing "should use the temp-usage specified"
-      (let [config (configure-command-params {:command-processing {:temp-usage 10000}})]
-        (is (= (get-in config [:command-processing :temp-usage]) 10000))))
+  (testing "retired dlo config"
+    (let [cmd-proc-config {:command-processing {:dlo-compression-threshold "1d"}}
+          out-str (with-out-str
+                    (binding [*err* *out*]
+                      (configure-command-processing cmd-proc-config)))]
+      (is (.contains out-str "The configuration item `dlo-compression-threshold`"))))
 
-    (testing "should use the memory-usage specified"
-      (let [config (configure-command-params {:command-processing {:memory-usage 10000}})]
-        (is (= (get-in config [:command-processing :memory-usage]) 10000))))
-
-    (let [with-ncores (fn [cores]
-                        (with-redefs [kitchensink/num-cpus (constantly cores)]
-                          (half-the-cores*)))]
-      (testing "should default to half the available CPUs"
-        (is (= (with-ncores 4) 2)))
-      (testing "should default to half the available CPUs, rounding down"
-        (is (= (with-ncores 5) 2)))
-      (testing "should default to half the available CPUs, even on single core boxes"
-        (is (= (with-ncores 1) 1))))))
+  (let [with-ncores (fn [cores]
+                      (with-redefs [kitchensink/num-cpus (constantly cores)]
+                        (half-the-cores*)))]
+    (testing "should default to half the available CPUs"
+      (is (= (with-ncores 4) 2)))
+    (testing "should default to half the available CPUs, rounding down"
+      (is (= (with-ncores 5) 2)))
+    (testing "should default to half the available CPUs, even on single core boxes"
+      (is (= (with-ncores 1) 1)))))
 
 (deftest database-configuration
   (testing "database"
