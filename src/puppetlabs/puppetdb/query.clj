@@ -682,7 +682,7 @@
              ;; these fields allow NULL, which causes a change in semantics when
              ;; wrapped in a NOT(...) clause, so we have to be very explicit
              ;; about the NULL case.
-             [(field :guard #{"property" "message" "file" "line" "containing_class"})]
+             [(field :guard #{"property" "message" "file" "line" "containing_class" "corrective_change"})]
              (if-not (nil? value)
                {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
                 :params [value] }
