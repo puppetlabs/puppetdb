@@ -38,10 +38,17 @@
     metrics
     (assoc metrics cmd (cmd-counters registry cmd))))
 
+(def ^:private parse-metadata
+  (q/metadata-parser (assoc q/metadata-command->puppetdb-command
+                            "unknown" "unknown")))
+
+(def ^:private serialize-metadata
+  (q/metadata-serializer (assoc q/puppetdb-command->metadata-command
+                                "unknown" "unknown")))
+
 (defn- parse-cmd-filename
   [filename]
-  (let [parse-metadata (q/metadata-parser (cons "unknown" q/metadata-command-names))
-        id-meta-split-rx #"([0-9]+)-(.*)"]
+  (let [id-meta-split-rx #"([0-9]+)-(.*)"]
     (when-let [[_ id qmeta] (re-matches id-meta-split-rx filename)]
       (parse-metadata qmeta))))
 
@@ -54,8 +61,7 @@
               ;; Assume the trailing .json here and in
               ;; entry-cmd-data-filename below.
               (let [name (-> p .getFileName str)]
-                (if-let [cmd (:command (and (.endsWith name ".json")
-                                            (parse-cmd-filename name)))]
+                (if-let [cmd (:command (parse-cmd-filename name))]
                   (update-metrics (ensure-cmd-metrics metrics registry cmd)
                                   cmd
                                   (Files/size p))
@@ -160,8 +166,9 @@
   stockpile/discard.  Returns {:info Path :command Path}."
   [cmdref stockpile dlo]
   (let [{:keys [path registry metrics]} dlo
-        {:keys [command received attempts]} cmdref
-        entry (q/cmdref->entry cmdref)
+        {:keys [id received command version certname attempts]} cmdref
+        entry (stock/entry id (serialize-metadata
+                                received command version certname))
         cmd-dest (.resolve path (entry-cmd-data-filename entry))]
     ;; We're going to assume that our moves will be atomic, and if
     ;; they're not, that we don't care about the possibility of
@@ -194,7 +201,7 @@
   ;; indicator that the unknown message may be complete.
   (let [{:keys [path registry metrics]} dlo
         digest (digest/sha1 [bytes])
-        metadata (q/metadata-str received "unknown" 0 digest)
+        metadata (serialize-metadata received "unknown" 0 digest)
         cmd-dest (.resolve path (str id \- metadata))]
     (Files/write cmd-dest bytes (oopts []))
     (let [info-dest (store-failed-command-info id metadata "unknown"

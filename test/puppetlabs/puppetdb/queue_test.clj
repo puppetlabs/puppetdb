@@ -22,56 +22,57 @@
   (doseq [bad-char (conj constants/filename-forbidden-characters \_)]
     (is (= "sanitize-me" (sanitize-certname (format "sanitize%cme" bad-char))))))
 
-(deftest test-metadata-str
+(deftest test-metadata-serializer
   (let [recvd (now)
         recvd-long (tcoerce/to-long recvd)
         cmd "replace facts"
+        cmd-abbrev (puppetdb-command->metadata-command cmd)
         cmd-ver 4]
 
     (testing "certnames are sanitized"
       (let [cname "foo_bar/baz"
             safe-cname "foo-bar-baz"
             cname-hash (kitchensink/utf8-string->sha1 cname)]
-        (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd cmd-ver safe-cname cname-hash)
-               (metadata-str recvd cmd cmd-ver cname)))))
+        (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver safe-cname cname-hash)
+               (serialize-metadata recvd cmd cmd-ver cname)))))
 
     (testing "long certnames are truncated"
       (let [long-cname (apply str "trol" (repeat 1000 "lo"))
-            trunc-cname (subs long-cname 0 (truncated-certname-length recvd cmd cmd-ver))
+            trunc-cname (subs long-cname 0 (truncated-certname-length recvd cmd-abbrev cmd-ver))
             cname-hash (kitchensink/utf8-string->sha1 long-cname)]
-        (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd cmd-ver trunc-cname cname-hash)
-               (metadata-str recvd cmd cmd-ver long-cname)))
-        (is (<= (utf8-length (metadata-str recvd cmd cmd-ver long-cname)) 255))))
+        (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver trunc-cname cname-hash)
+               (serialize-metadata recvd cmd cmd-ver long-cname)))
+        (is (<= (utf8-length (serialize-metadata recvd cmd cmd-ver long-cname)) 255))))
 
     (testing "multi-byte characters in UTF-8 are counted correctly"
       (let [cname-max-length (max-certname-length recvd cmd cmd-ver)
             disapproval-monster (apply str (repeat (inc (/ cname-max-length 4)) "ಠ_"))]
-        (is (<= (utf8-length (metadata-str recvd cmd cmd-ver disapproval-monster)) 255))))
+        (is (<= (utf8-length (serialize-metadata recvd cmd cmd-ver disapproval-monster)) 255))))
 
     (testing "sanitized certnames are truncated to leave room for hash"
-      (let [cname-trunc-length (truncated-certname-length recvd cmd cmd-ver)
+      (let [cname-trunc-length (truncated-certname-length recvd cmd-abbrev cmd-ver)
             tricky-cname (apply str "____" (repeat cname-trunc-length "o"))
             cname-hash (kitchensink/utf8-string->sha1 tricky-cname)
             trunc-cname (subs (sanitize-certname tricky-cname) 0 cname-trunc-length)]
-        (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd cmd-ver trunc-cname cname-hash)
-               (metadata-str recvd cmd cmd-ver tricky-cname)))
-        (is (<= (utf8-length (metadata-str recvd cmd cmd-ver tricky-cname)) 255))))
+        (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver trunc-cname cname-hash)
+               (serialize-metadata recvd cmd cmd-ver tricky-cname)))
+        (is (<= (utf8-length (serialize-metadata recvd cmd cmd-ver tricky-cname)) 255))))
 
     (testing "short & safe certnames are preserved and the hash is omitted"
       (let [cname "bender.myowncasino.moon"]
-        (is (= (format "%d_%s_%d_%s.json" recvd-long cmd cmd-ver cname)
-               (metadata-str recvd cmd cmd-ver cname)))))))
+        (is (= (format "%d_%s_%d_%s.json" recvd-long cmd-abbrev cmd-ver cname)
+               (serialize-metadata recvd cmd cmd-ver cname)))))))
 
 (deftest test-metadata
   (tqueue/with-stockpile q
     (let [now (time/now)
           ;; Sleep to ensure the command has a different time
           _ (Thread/sleep 1)
-          cmdref (store-command q "my command" 1 "foo.com" (-> "{\"message\": \"payload\"}"
-                                                               (.getBytes "UTF-8")
-                                                               java.io.ByteArrayInputStream.))
+          cmdref (store-command q "replace facts" 1 "foo.com" (-> "{\"message\": \"payload\"}"
+                                                                (.getBytes "UTF-8")
+                                                                java.io.ByteArrayInputStream.))
            command (cmdref->cmd q cmdref)]
-      (is (= {:command "my command"
+      (is (= {:command "replace facts"
               :version 1
               :certname "foo.com"
               :payload {:message "payload"}}
