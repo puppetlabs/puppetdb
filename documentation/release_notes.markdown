@@ -15,6 +15,9 @@ canonical: "/puppetdb/latest/release_notes.html"
 [pqltutorial]: ./api/query/tutorial-pql.html
 
 
+4.2.3
+-----
+PuppetDB 4.2.3 was not publically released.
 
 4.2.2
 -----
