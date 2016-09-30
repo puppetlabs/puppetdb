@@ -3,7 +3,9 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
-            [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! enumerated-resource-events-map]]
+            [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
+                                                           enumerated-resource-events-map
+                                                           with-corrective-change]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
             [puppetlabs.puppetdb.testutils.events :refer :all]
@@ -23,7 +25,10 @@
     (testing "should succesfully compile a valid equality query"
       (is (= (query/compile-term ops ["=" "report" "blah"])
              {:where   (format "%s = ?" (sutils/sql-hash-as-str "reports.hash"))
-              :params  ["blah"]})))
+              :params  ["blah"]}))
+      (is (= (query/compile-term ops ["=" "corrective_change" true])
+             {:where   "resource_events.corrective_change = ? AND resource_events.corrective_change IS NOT NULL"
+              :params  [true]})))
     (testing "should fail with an invalid equality query"
       (is (thrown-with-msg?
            IllegalArgumentException (re-pattern (str "'foo' is not a queryable object for version " (last (name version))))
@@ -522,3 +527,31 @@
                   :let [actual (distinct-resource-events :v4 query {})]]
             (is (every? #(= "PROD" (:environment %)) actual))
             (is (= actual expected))))))))
+
+(defn- test-events-query
+  [report events-map version query expected-rows]
+  (let [expected (expected-resource-events
+                   (kitchensink/select-values events-map expected-rows)
+                   report)
+        actual   (distinct-resource-events version query)]
+    (is (= actual expected)
+        (format "Results didn't match for query '%s'" query))))
+
+(deftest query-by-corrective-change
+  (with-corrective-change
+    (with-test-db
+      (let [basic             (store-example-report! (:basic reports) (now))
+            basic-events      (get-in reports [:basic :resource_events :data])
+            basic-events-map  (enumerated-resource-events-map basic-events)
+            test-query        (partial test-events-query basic basic-events-map :v4)]
+        (testing "corrective_change"
+          (testing "equality query"
+            (test-query ["=" "corrective_change" true] [0]))
+          (testing "compound query"
+            (test-query ["and" ["=" "status" "success"] ["=" "corrective_change" true]] [0]))
+          (testing "'not' query"
+            (test-query ["not" ["=" "corrective_change" true]] [1 2]))
+          (testing "'null?' query"
+            (test-query ["null?" "corrective_change" true] []))
+          (testing "'not null?' query"
+            (test-query ["null?" "corrective_change" false] [0 1 2])))))))
