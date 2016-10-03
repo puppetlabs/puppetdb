@@ -14,19 +14,14 @@
 
    More details can be found in [the spec](../spec/commands.md).
 
-   The command object may also contain an `annotations` attribute
-   containing a map with arbitrary keys and values which may have
-   command-specific meaning or may be used by the message processing
-   framework itself.
+   Commands should include a `received` field containing a timestamp
+   of when the message was first seen by the system. If this is
+   omitted, it will be added when the message is first parsed, but may
+   then be somewhat inaccurate.
 
-   Commands should include a `received` annotation containing a
-   timestamp of when the message was first seen by the system. If this
-   is omitted, it will be added when the message is first parsed, but
-   may then be somewhat inaccurate.
-
-   Commands should include an `id` annotation containing a unique,
-   string identifier for the command. If this is omitted, it will be
-   added when the message is first parsed.
+   Commands should include an `id` field containing a unique integer
+   identifier for the command. If this is omitted, it will be added
+   when the message is first parsed.
 
    Failed messages will have an `attempts` annotation containing an
    array of maps of the form:
@@ -111,109 +106,11 @@
     (catch Throwable e#
       (throw+ (fatality e#)))))
 
-(defn- die-on-header-payload-mismatch
-  [name in-header in-body]
-  (when (and in-header in-body (not= in-header in-body))
-    (throw+
-     (fatality
-      (Exception.
-       (format "%s mismatch between message properties and payload (%s != %s)"
-               name in-header in-body))))))
-
-(def new-message-schema
-  {:headers {:command s/Str
-             :version s/Str
-             :certname s/Str
-             :received s/Str
-             :id s/Str}
-   :body (s/cond-pre s/Str utils/byte-array-class)})
-
-(def queue-message-schema
-  ;; Perhaps eventually require :id and :received
-  {(s/optional-key :headers) {(s/optional-key :id) s/Str
-                              (s/optional-key :received) s/Str
-                              (s/optional-key :scheduledJobId) s/Str
-                              (s/optional-key :JMSXDeliveryCount) s/Str
-                              s/Any s/Any}
-   :body (s/cond-pre s/Str utils/byte-array-class)})
-
-(def new-command-schema ;; This could probably be stricter
-  {:command s/Str
-   :version s/Int
-   :certname s/Str
-   :payload {s/Any s/Any}
-   :annotations
-   (s/pred
-    (fn [x]
-      (and (map? x)
-           (some-> x :id string?)
-           (some-> x :received string?)
-           (empty? (select-keys x [:command :version :certname])))))})
-
-(def queue-command-schema
-  ;; Created to match existing test behavior, but is that
-  ;; comprehensive? i.e. if we're wrong, and this is too strict, then
-  ;; it could break on outside queue content on release.  Adding a
-  ;; schema here could change our effectively public queue API.
-  (-> new-command-schema
-      (dissoc :certname)
-      (assoc (s/optional-key :certname) s/Str)
-      (dissoc :payload)
-      (assoc (s/optional-key :payload) (s/cond-pre s/Str {s/Any s/Any}))))
-
-(defn-validated ^:private parse-new-command :- new-command-schema
-  "Parses a new-format queue command and returns it in the traditional
-  format (see parse-queue-command).  New-style messages must have all
-  5 headers (command, version, certname, received, and id), and the
-  body must be the bare command content (i.e. the payload).  So for a
-  \"deactivate node\" command, a string like
-  {\"certname\":\"test1\",\"producer_timestamp\":\"2015-01-01\"}."
-  [{:keys [headers body]} :- new-message-schema]
-  (let [{:keys [command version certname received id]} headers
-        version (Integer/parseInt version)]
-    (let [message (json/parse body true)]
-      (die-on-header-payload-mismatch "certname"
-                                      certname
-                                      (get-in message ["payload" "certname"]))
-      ;; Since new commands aren't the queue retry format, we expect
-      ;; no annotations.
-      (assert (not (:annotations message)))
-      {:command command
-       :version version
-       :certname certname ;; Duplicated with respect to payload for now.
-       :payload message
-       :annotations (dissoc headers :command :version :certname)})))
-
-(defn-validated ^:private parse-queue-command :- queue-command-schema
-  "Parses a traditional queue command (also the current format for
-  failed, re-queued messages).  See parse-new-command for the handling
-  of newly received messages.  These messages must not have command,
-  version, or certname headers, and the body must be a JSON map like
-  this: {\"command\":\"deactivate node\",\"version\":3,\"payload\":{\"certname\":...}}."
-  [{:keys [headers body]} :- queue-message-schema]
-  (let [{:keys [command version certname]} headers]
-    (update (json/parse-strict body true) :annotations merge
-            {:received (kitchensink/timestamp) :id (kitchensink/uuid)}
-            headers)))
-
-(defn parse-command
-  "Parses a queue message and returns it as a command map."
-  [{:keys [headers body] :as message}]
-  {:post [(map? %)
-          (:payload %)
-          (string? (:command %))
-          (number? (:version %))
-          (map? (:annotations %))]}
-  (time! (get @metrics :command-parse-time)
-         (if (:command headers)
-           (parse-new-command message)
-           (parse-queue-command message))))
-
 ;; ## Command submission
 
 (defn-validated do-enqueue-command
   "Submits command to the mq-endpoint of mq-connection and returns
-  its id. Annotates the command via annotate-command."
+  its id."
   [q
    command-chan
    ^Semaphore write-semaphore
@@ -236,17 +133,16 @@
 ;; Catalog replacement
 
 (defn replace-catalog*
-  [{:keys [annotations certname version payload]} db]
+  [{:keys [certname version id received payload]} db]
   (let [{producer-timestamp :producer_timestamp :as catalog} payload]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
-      (scf-storage/replace-catalog! catalog (:received annotations)))
-    (log/infof "[%s] [%s] %s" (:id annotations) (command-names :replace-catalog) certname)))
+      (scf-storage/replace-catalog! catalog received))
+    (log/infof "[%s] [%s] %s" id (command-names :replace-catalog) certname)))
 
-(defn replace-catalog [{:keys [payload annotations version] :as command} db]
-  (let [{received-timestamp :received} annotations
-        validated-payload (upon-error-throw-fatality
-                           (cat/parse-catalog payload version received-timestamp))]
+(defn replace-catalog [{:keys [payload received version] :as command} db]
+  (let [validated-payload (upon-error-throw-fatality
+                           (cat/parse-catalog payload version received))]
     (-> command
         (assoc :payload validated-payload)
         (replace-catalog* db))))
@@ -254,25 +150,24 @@
 ;; Fact replacement
 
 (defn replace-facts*
-  [{:keys [payload annotations] :as command} db]
+  [{:keys [payload id] :as command} db]
   (let [{:keys [certname values] :as fact-data} payload
         producer-timestamp (:producer_timestamp fact-data)]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-facts! fact-data))
-    (log/infof "[%s] [%s] %s" (:id annotations) (command-names :replace-facts) certname)))
+    (log/infof "[%s] [%s] %s" id (command-names :replace-facts) certname)))
 
-(defn replace-facts [{:keys [payload version annotations] :as command} db]
-  (let [received-time (:received annotations)
-        validated-payload (upon-error-throw-fatality
+(defn replace-facts [{:keys [payload version received] :as command} db]
+  (let [validated-payload (upon-error-throw-fatality
                            (-> (case version
-                                 2 (fact/wire-v2->wire-v5 payload received-time)
+                                 2 (fact/wire-v2->wire-v5 payload received)
                                  3 (fact/wire-v3->wire-v5 payload)
                                  4 (fact/wire-v4->wire-v5 payload)
                                  payload)
                                (update :values utils/stringify-keys)
                                (update :producer_timestamp to-timestamp)
-                               (assoc :timestamp received-time)))]
+                               (assoc :timestamp received)))]
     (-> command
         (assoc :payload validated-payload)
         (replace-facts* db))))
@@ -289,14 +184,14 @@
       deactivate-node-wire-v2->wire-3))
 
 (defn deactivate-node*
-  [{:keys [annotations payload]} db]
+  [{:keys [id payload]} db]
   (let [certname (:certname payload)
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
     (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname producer-timestamp))
-    (log/infof "[%s] [%s] %s" (:id annotations) (command-names :deactivate-node) certname)))
+    (log/infof "[%s] [%s] %s" id (command-names :deactivate-node) certname)))
 
 (defn deactivate-node [{:keys [payload version] :as command} db]
   (-> command
@@ -309,24 +204,24 @@
 ;; Report submission
 
 (defn store-report*
-  [{:keys [payload annotations]} db]
+  [{:keys [payload id received]} db]
   (let [{:keys [certname puppet_version] :as report} payload
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
     (jdbc/with-transacted-connection db
       (scf-storage/maybe-activate-node! certname producer-timestamp)
-      (scf-storage/add-report! report (:received annotations)))
+      (scf-storage/add-report! report received))
     (log/infof "[%s] [%s] puppet v%s - %s"
-               (:id annotations)
+               id
                (command-names :store-report)
                puppet_version
                certname)))
 
-(defn store-report [{:keys [payload version annotations] :as command} db]
+(defn store-report [{:keys [payload version received] :as command} db]
   (let [validated-payload (upon-error-throw-fatality
                            (s/validate report/report-wireformat-schema
                                        (case version
-                                         3 (report/wire-v3->wire-v8 payload (:received annotations))
-                                         4 (report/wire-v4->wire-v8 payload (:received annotations))
+                                         3 (report/wire-v3->wire-v8 payload received)
+                                         4 (report/wire-v4->wire-v8 payload received)
                                          5 (report/wire-v5->wire-v8 payload)
                                          6 (report/wire-v6->wire-v8 payload)
                                          7 (report/wire-v7->wire-v8 payload)
@@ -368,8 +263,7 @@
   (enqueue-command
     [this command version certname payload]
     [this command version certname payload command-callback]
-    "Annotates the command via annotate-command, submits it for
-    processing, and then returns its unique id.")
+    "Submits the command for processing, and then returns its unique id.")
 
   (stats [this]
     "Returns command processing statistics as a map

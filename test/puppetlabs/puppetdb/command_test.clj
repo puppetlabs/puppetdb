@@ -50,62 +50,6 @@
   (:import [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
 
-(deftest command-parsing
-  (testing "Command parsing"
-
-    (let [command {:body "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}"}]
-      (testing "should work for strings"
-        (let [parsed (parse-command command)]
-          (is (= (dissoc parsed :annotations)
-                 {:command "foo" :version 2 :payload "meh"}))
-          (is (map? (:annotations parsed)))))
-
-      (testing "should work for byte arrays"
-        (let [parsed (parse-command (update-in command [:body] #(.getBytes % "UTF-8")))]
-          (is (= (dissoc parsed :annotations)
-                 {:command "foo" :version 2 :payload "meh"}))
-          (is (map? (:annotations parsed))))))
-
-    (testing "should reject invalid input"
-      (is (thrown-with-msg?
-           RuntimeException
-           #"Output of parse-queue-command does not match schema"
-           (parse-command {:body ""})))
-      (is (thrown-with-msg?
-           RuntimeException
-           #"Output of parse-queue-command does not match schema"
-           (parse-command {:body "{}"})))
-
-      ;; Missing required attributes
-      (is (thrown-with-msg?
-           RuntimeException
-           #"Output of parse-queue-command does not match schema"
-           (parse-command {:body "{\"version\": 2, \"payload\": \"meh\"}"})))
-      (is (thrown-with-msg?
-           RuntimeException
-           #"Output of parse-queue-command does not match schema"
-           (parse-command {:body "{\"version\": 2}"})))
-
-      ;; Non-numeric version
-      (is (thrown-with-msg?
-           RuntimeException
-           #"Output of parse-queue-command does not match schema"
-           (parse-command
-            {:body "{\"version\": \"2\", \"payload\": \"meh\"}"})))
-
-      ;; Non-string command
-      (is (thrown-with-msg?
-           RuntimeException
-           #"Output of parse-queue-command does not match schema"
-           (parse-command
-            {:body "{\"command\": 3, \"version\": 2, \"payload\": \"meh\"}"})))
-
-      ;; Non-JSON payload
-      (is (thrown? Exception (parse-command {:body "{\"command\": \"foo\", \"version\": 2, \"payload\": #{}"})))
-
-      ;; Non-UTF-8 byte array
-      (is (thrown? Exception (parse-command {:body (.getBytes "{\"command\": \"foo\", \"version\": 2, \"payload\": \"meh\"}" "UTF-16")}))))))
-
 (defn unroll-old-command [{:keys [command version payload]}]
   [command
    version
@@ -127,7 +71,6 @@
                                                 #(process-command! % ~db))
            cmd# ~command
            cmdref# (-> (apply tqueue/store-command q# (unroll-old-command cmd#))
-                       (update :annotations merge (:annotations cmd#))
                        (assoc :attempts (:attempts cmd#)))]
        (try
          (binding [*logger-factory* (atom-logger log-output#)]
@@ -160,8 +103,7 @@
              (queue/cons-attempt result (Exception. (str "thud-" i)))))))
 
 (deftest command-processor-integration
-  (let [command {:command "replace catalog" :version 5 :payload "\"payload\""
-                 :annotations {}}]
+  (let [command {:command "replace catalog" :version 5 :payload "\"payload\""}]
     (testing "correctly formed messages"
 
       (testing "which are not yet expired"

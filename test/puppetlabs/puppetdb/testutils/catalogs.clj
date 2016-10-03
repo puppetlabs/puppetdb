@@ -21,8 +21,7 @@
   (command/process-command!
    {:command     (command-names :replace-catalog)
     :payload     catalog-payload
-    :annotations {:id (uuid)
-                  :received (now)}
+    :received (now)
     :version     catalog-version
     :certname (:certname catalog-payload)}
    *db*))
