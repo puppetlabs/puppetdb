@@ -35,6 +35,9 @@ group :test do
   gem 'rspec', '2.13.0'
   gem 'puppetlabs_spec_helper', '0.4.1', :require => false
 
+  # docker-api 1.32.0 requires ruby 2.0.0
+  gem 'docker-api', '1.31.0'
+
   case puppet_branch
   when "latest"
     gem 'puppet', ">= #{oldest_supported_puppet}", :require => false
