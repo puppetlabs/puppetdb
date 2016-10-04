@@ -18,6 +18,9 @@ run-unit-tests()
 
 export PDB_TEST_DUMP_LOG_ON_FAILURE=true
 
+cat /etc/hosts
+hostname --fqdn
+
 case "$PDB_TEST_LANG" in
   clojure)
     java -version
