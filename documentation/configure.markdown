@@ -364,7 +364,7 @@ You may specify the time as a string using any of the suffixes described in the
 Outdated reports will be deleted during the database garbage collection, which
 runs every `gc-interval` minutes.
 
-If unset or set to 0s, the default value is 14 days.
+If unset, the default value is 14 days.
 
 ### `subname`
 
