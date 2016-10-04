@@ -8,7 +8,7 @@
 
 (use-fixtures :each with-antonym-test-database)
 
-(defn- full-sql-exception-msg [ex]
+(defn full-sql-exception-msg [ex]
   (apply str (take-while identity (iterate #(.getNextException %) ex))))
 
 (deftest pool-construction
