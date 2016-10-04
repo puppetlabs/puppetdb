@@ -222,9 +222,10 @@
       (finally
         (clear-clean-status!)))))
 
-(defn- clean-puppetdb [context config what]
+(defn- clean-puppetdb
   "Implements the PuppetDBServer clean method, see the protocol for
   further information."
+  [context config what]
   (let [lock (:clean-lock context)]
     (when (.tryLock lock)
       (try
