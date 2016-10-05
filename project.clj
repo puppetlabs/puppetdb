@@ -9,7 +9,7 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def tk-version "1.4.1")
+(def tk-version "1.5.1")
 (def tk-jetty9-version "1.5.9")
 (def ks-version "1.3.1")
 (def tk-status-version "0.5.0")
@@ -82,7 +82,7 @@
                  [puppetlabs/trapperkeeper-metrics "0.2.0" :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]
                  [prismatic/schema "1.1.2"]
                  [trptcolin/versioneer "0.2.0"]
-                 [puppetlabs/trapperkeeper-status ~tk-status-version]
+                 [puppetlabs/trapperkeeper-status ~tk-status-version :exclusions [org.slf4j/slf4j-api]]
                  [org.clojure/tools.macro "0.1.5"]
                  [com.novemberain/pantomime "2.1.0"]
                  [fast-zip-visit "1.0.2"]
@@ -142,7 +142,7 @@
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "0.5.1"
+                      :plugins [[puppetlabs/lein-ezbake "1.0.0"
                                  :exclusions [org.clojure/clojure]]]}
              :testutils {:source-paths ^:replace ["test"]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
