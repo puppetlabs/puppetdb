@@ -113,7 +113,8 @@
                        :group "puppetdb"
                        :build-type "foss"
                        :main-namespace "puppetlabs.puppetdb.main"
-                       :repo-target "PC1"}
+                       :repo-target "PC1"
+                       :logrotate-enabled false}
                 :config-dir "ext/config/foss"
                 }
 
