@@ -345,7 +345,7 @@ For example, a value of `30d` would set the time-to-live to 30 days, and a value
 Nodes will be checked for staleness every `gc-interval` minutes. Manual
 deactivation will continue to work as always.
 
-If unset, auto-expiration of nodes is disabled.
+If unset or set to 0s, auto-expiration of nodes is disabled.
 
 ### `node-purge-ttl`
 
@@ -353,7 +353,7 @@ Automatically delete nodes that have been deactivated or expired for the
 specified amount of time. This will also delete all facts, catalogs, and reports
 for the relevant nodes. This TTL may be specified the same way as `node-ttl` above.
 
-If unset, auto-deletion of nodes is disabled.
+If unset or set to 0s, auto-deletion of nodes is disabled.
 
 ### `report-ttl`
 
