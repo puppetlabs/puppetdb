@@ -50,7 +50,8 @@
   :lein-ezbake {:vars {:user "pe-puppetdb"
                        :group "pe-puppetdb"
                        :build-type "pe"
-                       :main-namespace "puppetlabs.puppetdb.main"}
+                       :main-namespace "puppetlabs.puppetdb.main"
+                       :logrotate-enabled false}
                 :config-dir "ext/config/pe"}
 
   :puppetdb ~pdb-version
