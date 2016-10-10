@@ -145,7 +145,7 @@
     {:threads (pls/defaulted-maybe s/Int half-the-cores)
      :max-command-size (pls/defaulted-maybe s/Int (default-max-command-size))
      :reject-large-commands (pls/defaulted-maybe String "false")
-     :concurrent-writes (pls/defaulted-maybe s/Int 100)
+     :concurrent-writes (pls/defaulted-maybe s/Int (min half-the-cores 4))
 
      ;; Deprecated
      :dlo-compression-threshold (pls/defaulted-maybe String "1d")
