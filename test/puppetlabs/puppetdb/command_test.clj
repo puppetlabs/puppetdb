@@ -6,9 +6,14 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.catalogs :as catalog]
-            [puppetlabs.puppetdb.examples.reports :as report-examples]
+            [puppetlabs.puppetdb.examples.reports :refer [v4-report
+                                                          v5-report
+                                                          v6-report
+                                                          v7-report
+                                                          v8-report]]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [schema.core :as s]
             [puppetlabs.trapperkeeper.testutils.logging :refer [atom-logger]]
             [clj-time.format :as tfmt]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
@@ -1350,27 +1355,6 @@
 ;; Report Command Tests
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(def v8-report
-  (-> (:basic report-examples/reports)
-      reports/report-query->wire-v8))
-
-(def v7-report
-  (-> v8-report
-      (dissoc :producer :noop_pending)))
-
-(def v6-report
-  (-> v7-report
-      (dissoc :catalog_uuid :cached_catalog_status :code_id)))
-
-(def v5-report
-  (-> (:basic report-examples/reports)
-      reports/report-query->wire-v5))
-
-(def v4-report
-  (-> v5-report
-      (dissoc :producer_timestamp :metrics :logs :noop)
-      utils/underscore->dash-keys))
 
 (def store-report-name (command-names :store-report))
 
