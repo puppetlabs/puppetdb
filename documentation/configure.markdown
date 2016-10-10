@@ -620,6 +620,17 @@ tuned based on what you see in the performance dashboard.][dashboard]
 
 This setting defaults to half the number of cores in your system.
 
+### `concurrent-writes`
+
+This sets a limit on the number of threads that can write to the disk at
+any one time. The default value is the smaller number of half the number
+of CPU cores and 4.
+
+If your load is low, your disk is fast (i.e. an SSD), and commands
+aren't being processed quickly enough, then you could increasing this
+value in order to alleviate that, but this is unlikely to be the
+bottleneck for command processing.
+
 ### `dlo-compression-threshold`
 
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
