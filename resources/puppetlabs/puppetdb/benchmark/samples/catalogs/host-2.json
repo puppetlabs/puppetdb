@@ -7926,5 +7926,8 @@
   "certname" : "host-2",
   "hash" : "d5efb5a2283f61d63cb295e63126e698b026c517",
   "environment" : "production",
-  "version" : "1425333104"
+  "version" : "1425333104",
+  "producer" : "puppetmaster1",
+  "catalog_uuid" : "30a0b9c4-b039-447d-b8f2-c0cb84d0a1f7",
+  "code_id" : "a3f761afad29291f42e0ae2b5b50527a426bb070"
 }

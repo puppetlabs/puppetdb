@@ -1,5 +1,6 @@
 {
   "certname" : "pg2.vm",
+  "producer" : "puppetmaster1",
   "producer_timestamp" : "2015-03-02T21:51:45.395Z",
   "values" : {
     "mtu_eth0" : "1500",
