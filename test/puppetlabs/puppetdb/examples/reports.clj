@@ -1,4 +1,7 @@
-(ns puppetlabs.puppetdb.examples.reports)
+(ns puppetlabs.puppetdb.examples.reports
+  (:require [puppetlabs.puppetdb.reports :as reports]
+            [puppetlabs.puppetdb.utils :as utils]
+            [schema.core :as s]))
 
 (def reports
   {:basic
@@ -376,3 +379,33 @@
        :containment_path ["Foo" "" "Bar[Baz]"]
        :containing_class "Foo"}]}}
    })
+
+(def v8-report
+  (s/validate reports/report-wireformat-schema
+              (-> (:basic reports)
+                  reports/report-query->wire-v8)))
+
+(def v7-report
+  (let [update-fn #(dissoc % :corrective_change)]
+    (s/validate
+      reports/report-v7-wireformat-schema
+      (-> v8-report
+          (dissoc :producer :noop_pending :corrective_change)
+          (update :resources #(mapv (reports/update-resource-events update-fn) %))))))
+
+(def v6-report
+  (s/validate reports/report-v6-wireformat-schema
+              (-> v7-report
+                  (dissoc :catalog_uuid :cached_catalog_status :code_id))))
+
+(def v5-report
+  (s/validate reports/report-v5-wireformat-schema
+              (-> (:basic reports)
+                  reports/report-query->wire-v5)))
+
+(def v4-report
+  (s/validate reports/report-v4-wireformat-schema
+              (-> v5-report
+                  (dissoc :producer_timestamp :metrics :logs :noop)
+                  utils/underscore->dash-keys
+                  (update :resource-events #(map utils/underscore->dash-keys %)))))

@@ -67,9 +67,18 @@
    :environment s/Str
    :status (s/maybe s/Str)})
 
+(defn update-resource-events
+  [update-fn]
+  (fn [resource]
+    (-> resource
+        update-fn
+        (update :events #(mapv update-fn %)))))
+
 (def report-v7-wireformat-schema
- (-> report-wireformat-schema
-     (dissoc :producer :noop_pending :corrective_change)))
+  (let [update-fn #(dissoc % :corrective_change)]
+    (-> report-wireformat-schema
+        (dissoc :producer :noop_pending :corrective_change)
+        (update :resources #(mapv (update-resource-events update-fn) %)))))
 
 (def report-v6-wireformat-schema
   (-> report-v7-wireformat-schema
@@ -194,7 +203,7 @@
   [report]
   (-> report
       generic-query->wire-transform
-      (dissoc :noop_pending :corrective_change)
+      (dissoc :noop_pending :corrective_change :producer :catalog_uuid :cached_catalog_status :code_id)
       (update :resource_events resource-events-query->wire-v5)))
 
 (pls/defn-validated reports-query->wire-v5 :- [report-v5-wireformat-schema]
@@ -228,10 +237,10 @@
 
 (defn wire-v7->wire-v8
   [report]
-  (utils/assoc-when report
-                    :noop_pending nil
-                    :corrective_change nil
-                    :producer nil))
+  (let [update-fn #(assoc % :corrective_change nil)]
+    (-> report
+        (utils/assoc-when :noop_pending nil :corrective_change nil :producer nil)
+        (update :resources #(mapv (update-resource-events update-fn) %)))))
 
 (defn wire-v6->wire-v8
   [{:keys [transaction_uuid] :as report}]
