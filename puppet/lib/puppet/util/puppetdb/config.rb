@@ -39,6 +39,8 @@ module Puppet::Util::Puppetdb
           section = $1
           result[section] ||= {}
 
+        when /^\s*(server|port)\s*=.*$/
+          Puppet.warning("Setting '#{line.chomp}' is retired: use 'server_urls' instead. Defaulting to 'server_urls=https://puppetdb:8081'.")
         when /^\s*(\w+)\s*=\s*(\S+|[\S+\s*\,\s*\S]+)\s*$/
           raise "Setting '#{line}' is illegal outside of section in PuppetDB config #{config_file}:#{number}" unless section
           result[section][$1] = $2
