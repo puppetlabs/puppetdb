@@ -99,6 +99,7 @@ function replaceline {
   tmp="$3.tmp.$(date +%s)"
   sed "s/$1/$(echo "$2" | sed -e 's/[\/&]/\\&/g')/g" "$3" > "$tmp"
   mv "$tmp" "$3"
+  chmod 644 "$3"
 }
 
 # This funtion gives a generic error message if a given path or file isn't found

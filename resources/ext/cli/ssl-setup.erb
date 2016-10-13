@@ -101,6 +101,7 @@ function replaceline {
   tmp=$3.tmp.`date +%s`
   sed "s/$1/$(echo $2 | sed -e 's/[\/&]/\\&/g')/g" $3 > $tmp
   mv $tmp $3
+  chmod 644 $3
 }
 
 # This function comments out a line in a file, based on a regexp
