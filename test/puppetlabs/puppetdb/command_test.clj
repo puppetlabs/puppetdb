@@ -109,6 +109,19 @@
 (defn store-command' [q old-command]
   (apply tqueue/store-command q (unroll-old-command old-command)))
 
+(def default-timeout-in-ms
+  (* 1000 60 5))
+
+(defn take-with-timeout!!
+  "Takes from `port` via <!!, but will throw an exception if
+  `timeout-in-ms` expires"
+  [port timeout-in-ms]
+  (async/alt!!
+    (async/timeout timeout-in-ms)
+    (throw (Exception. (format "Take from channel failed after timeout of '%s' ms was exceeded" timeout-in-ms)))
+    port
+    ([v] v)))
+
 (deftest command-processor-integration
   (let [command {:command "replace catalog" :version 5
                  :payload (get-in wire-catalogs [5 :empty])}]
@@ -143,7 +156,7 @@
 
                   (is (empty? (fs/list-dir (:path dlo))))
 
-                  (let [delayed-command (async/<!! command-chan)
+                  (let [delayed-command (take-with-timeout!! command-chan default-timeout-in-ms)
                         actual-exception (:exception (first (:attempts delayed-command)))]
                     (are [x y] (= x y)
                       cmdref (dissoc delayed-command :attempts)
@@ -995,7 +1008,7 @@
 
             (handle-message (store-command' q new-facts-cmd))
             (reset! second-message? true)
-            (let [failed-cmdref (async/<!! command-chan)]
+            (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-in-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
               (is (re-matches
                    #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
@@ -1216,7 +1229,7 @@
             (reset! second-message? true)
             (is (empty? (fs/list-dir (:path dlo))))
 
-            (let [failed-cmdref (async/<!! command-chan)]
+            (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-in-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
               (is (re-matches
                    #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
@@ -1281,7 +1294,7 @@
             (reset! second-message? true)
 
             (is (empty? (fs/list-dir (:path dlo))))
-            (let [failed-cmdref (async/<!! command-chan)]
+            (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-in-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
               (is (re-matches
                    #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
