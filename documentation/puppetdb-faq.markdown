@@ -9,6 +9,10 @@ subtitle: "Frequently asked questions"
 [connect_puppet_apply]: ./connect_puppet_apply.html
 [low_catalog_dupe]: ./trouble_low_catalog_duplication.html
 [puppetdb3]: /puppetdb/3.2/migrate.html
+[threads]: ./configure.html#threads
+[concurrent-writes]: ./configure.html#concurrent-writes
+[mq metrics]: ./api/metrics/v1/mbeans.html#mq-metrics
+[java heap]: ./configure.html#configuring-the-java-heap-size
 
 ## Can I migrate my data from ActiveRecord storeconfigs?
 
@@ -65,7 +69,7 @@ and issues will be addressed on a best-effort basis, but support is not guarante
 
 ## Which databases are supported?
 
-PostgreSQL is the recommended database for production use. 
+PostgreSQL is the recommended database for production use.
 
 As with our choice of language, we prototyped several
 databases before settling on PostgreSQL. These included Neo4j, Riak, and MySQL
@@ -132,3 +136,41 @@ environments should only be done with care and for a very short period of time.
 To enable easy searching, all PuppetDB profiling events are prefixed with
 `PuppetDB:`. This information is also helpful to our developers, so feel free to
 include these details when reporting issues with PuppetDB.
+
+## How can I improve command processing performance?
+
+When PuppetDB is running in a "steady state", it should have a very
+low [queue depth][mq metrics] (ideally 0). Something like a database
+outage can cause a temporary spike in queue depth. Having a queue
+depth without an outage or other significant event likely means that
+PuppetDB can't keep up with the work that is being enqueued. This is a
+good indication that some performance tuning needs to take
+place. There are several areas to consider when performance
+tuning. PuppetDB is sensitive to PostgreSQL performance issues, so
+usually that is a good place to start. Assuming that the PostgreSQL
+instance isn't under a heavy load, the focus can shift to tuning
+PuppetDB itself.
+
+The [threads][threads] setting indicates how many commands can be
+processed concurrently. If PuppetDB is consuming too many resources on
+a shared system, this number can be reduced. For servers that are
+dedicated PuppetDB instances, setting this value to the number of
+logical cores could significantly improve command
+throughput. Increasing the number of threads should also be paired
+with increasing the [amount of memory allocated to PuppetDB][java heap].
+
+The [concurrent-writes][concurrent-writes] setting indicates how many
+threads can write to the disk at once. Faster enqueuing will result in
+faster puppet runs as the PuppetDB terminus enqueues the message as
+part of the puppet run. The impact of this setting is heavily related
+to disk performance on the system. On a system with an SSD, this
+setting will have very little impact on performance or load on the
+system. On a system with a spinning disk, this setting can heavily
+impact load average and command throughput. Having this setting higher
+than the default (i.e. 16 or 32) could result in faster enqueuing, but
+will also result in a significant spike in load average as the kernel
+will have I/O write requests "backed up". Changing this setting to
+lower than the default should reduce the load on the system but will
+reduce the throughput on the PuppetDB instance. That could potentially
+increase the time it takes to enqueue a command and thus slow the
+puppet runs.
