@@ -1163,6 +1163,11 @@
     "create index fact_values_value_float_idx on fact_values(value_float)"
     "create index fact_values_value_integer_idx on fact_values(value_integer)"))
 
+(defn add-corrective-change-index
+  []
+  (jdbc/do-commands
+    "CREATE INDEX resource_events_status_for_corrective_change_idx ON resource_events (status) WHERE corrective_change"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1192,7 +1197,8 @@
    49 add-corrective-change-columns
    50 remove-historical-catalogs
    51 fact-values-value-to-jsonb
-   52 resource-params-cache-parameters-to-jsonb})
+   52 resource-params-cache-parameters-to-jsonb
+   53 add-corrective-change-index})
 
 
 (def desired-schema-version (apply max (keys migrations)))
