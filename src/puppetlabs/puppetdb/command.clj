@@ -285,13 +285,16 @@
 
 (defn call-with-quick-retry [num-retries f]
   (loop [n num-retries]
-    (let [result (try+
+    (let [on-ex (fn [e]
+                  (when (zero? n)
+                    (throw e))
+                  (log/debug e (i18n/trs "Exception thrown by L1 retry {0}"
+                                         (- (inc num-retries) n)))
+                  ::failure)
+          result (try+
                   (f)
-                  (catch Throwable e
-                    (if (zero? n)
-                      (throw e)
-                      (do (log/debug e (i18n/trs "Exception throw in L1 retry attempt {0}" (- (inc num-retries) n)))
-                          ::failure))))]
+                  (catch Exception e (on-ex e))
+                  (catch AssertionError e (on-ex e)))]
       (if (= result ::failure)
         (recur (dec n))
         result))))

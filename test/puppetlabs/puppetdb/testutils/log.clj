@@ -145,12 +145,13 @@
 
 (def ^:private annoying-peer-error-rx #"peer.*vm://localhost.*stopped")
 
-(defn notable-pdb-event? [event]
-  (and (.isGreaterOrEqual (.getLevel event) Level/ERROR)
-       (not (and (-> (.getFormattedMessage event)
-                     (.contains "queue connection error"))
-                 (when-let [cause (.getThrowableProxy event)]
-                   (re-find annoying-peer-error-rx (.getMessage cause)))))))
+(def ^:dynamic notable-pdb-event?
+  (fn [event]
+    (and (.isGreaterOrEqual (.getLevel event) Level/ERROR)
+         (not (and (-> (.getFormattedMessage event)
+                       (.contains "queue connection error"))
+                   (when-let [cause (.getThrowableProxy event)]
+                     (re-find annoying-peer-error-rx (.getMessage cause))))))))
 
 (def dump-log-on-test-failure
   (boolean (re-matches #"yes|true|1" (env :pdb-test-dump-log-on-failure ""))))

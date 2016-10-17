@@ -176,10 +176,10 @@
               (is (called? delay-message))
               (is (not (called? mql/discard-message)))
 
-              (is (= (get-in @log-output [0 1]) :error))
-              (is (str/includes? (get-in @log-output [0 3]) "cats"))
-              (is (instance? Exception (get-in @log-output [0 2])))
-              (is (str/includes? (last (first @log-output))
+              (is (= (get-in @log-output [1 1]) :error))
+              (is (str/includes? (get-in @log-output [1 3]) "cats"))
+              (is (instance? Exception (get-in @log-output [1 2])))
+              (is (str/includes? (last (second @log-output))
                                  "Retrying after L2 attempt")))))
 
         (let [log-output (atom [])
@@ -193,11 +193,11 @@
                                   (add-fake-attempts mql/maximum-allowable-retries)))
               (is (not (called? delay-message)))
               (is (called? mql/discard-message))
-              (is (= (get-in @log-output [0 1]) :error))
-              (is (instance? Exception (get-in @log-output [0 2])))
-              (is (str/includes? (last (first @log-output))
+              (is (= (get-in @log-output [1 1]) :error))
+              (is (instance? Exception (get-in @log-output [1 2])))
+              (is (str/includes? (last (second @log-output))
                                  "Exceeded max"))
-              (is (str/includes? (get-in @log-output [0 3]) "cats")))))))))
+              (is (str/includes? (get-in @log-output [1 3]) "cats")))))))))
 
 (deftest message-acknowledgement
   (testing "happy path, message acknowledgement when no failures occured"

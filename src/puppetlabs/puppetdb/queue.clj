@@ -7,6 +7,7 @@
   (:require [clojure.string :as str :refer [re-quote-replacement]]
             [puppetlabs.stockpile.queue :as stock]
             [clj-time.coerce :as tcoerce]
+            [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as command-constants]
             [puppetlabs.puppetdb.constants :as constants]
@@ -190,13 +191,20 @@
    (let [current-time (time/now)
          entry (stock/store q
                             command-stream
-                            (serialize-metadata current-time command version certname))]
+                            (serialize-metadata current-time command version certname))
+         received (kitchensink/timestamp current-time)]
+     (log/infof "enqueued command: %s v%d for %s as %d-%d"
+                command
+                version
+                (pr-str certname)
+                (stock/entry-id entry)
+                (tcoerce/to-long received))
      (map->CommandRef {:id (stock/entry-id entry)
                        :command command
                        :version version
                        :certname certname
                        :callback command-callback
-                       :received (kitchensink/timestamp current-time)}))))
+                       :received received}))))
 
 (defn ack-command
   [q command]
