@@ -24,6 +24,7 @@
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.command.dlo :as dlo]
+            [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as ks]
             [schema.core :as s]))
 
@@ -136,31 +137,47 @@
           (finally
             (.acknowledge message)))))))
 
-(defn consume-everything
-  "Attempts to read all available messages from ActiveMQ, giving up
-  after 5 seconds if one is not available"
-  [^MessageConsumer consumer process-message id]
-  (try
-    (loop []
-      (when-let [msg (.receive consumer 5000)]
-        (process-message (swap! id inc) msg)
-        (recur)))
-    (catch javax.jms.IllegalStateException e
-      (log/info (i18n/trs "Received IllegalStateException, shutting down")))
-    (catch Exception e
-      (log/error e))))
-
 (defn transfer-mq-messages
+  "Returns true if it's likely that all of the existing messages were
+  transferred."
   [^ConnectionFactory conn-pool endpoint process-message id]
   (with-open [connection (create-connection conn-pool)
               session (create-session connection)
+              producer (.createProducer session (create-queue session endpoint))
               consumer (.createConsumer session (create-queue session endpoint))]
-    (log/info (i18n/trs "Processing messages from the Queue: {0}" endpoint))
-    (consume-everything consumer process-message id)))
+    (log/info (i18n/trs "Transferring {0} commands to new queue" endpoint))
+    (mq/send-message! connection endpoint
+                      "\"ignore me\""
+                      {"command" "end-of-line"})
+    (letfn [(get-msg []
+              (or (.receive consumer 5000)
+                  (do
+                    (-> "No ActiveMQ delivery for 5s; waiting 120s"
+                        i18n/trs log/info)
+                    (.receive consumer 120000))))]
+      (try
+        (loop []
+          (when-let [msg (get-msg)]
+            (if (= "end-of-line" (.getStringProperty msg "command"))
+              (do
+                (log/info (i18n/trs "Completed transfer from {0}" endpoint))
+                true)
+              (do
+                (process-message (swap! id inc) msg)
+                (recur)))))
+        (catch javax.jms.IllegalStateException e
+          (-> "Abandoning transfer from {0} after IllegalStateException"
+              (i18n/trs endpoint)
+              log/info)
+          false)
+        (catch Exception e
+          (log/error e)
+          false)))))
 
 (defn transfer-scheduler-messages
-  "Drains the scheduler queue (where PuppetDB commands are retried)
-  and enqueues them into the normal queue"
+  "Returns after making a best-effort attempt to transfer all messages
+  in the old scheduler queue (where PuppetDB commands were retried) to
+  the to the current command queue."
   [^ConnectionFactory conn-pool endpoint process-message dlo id]
   (with-open [connection (create-connection conn-pool)
               session (create-session connection)]
@@ -187,7 +204,17 @@
           (.send producer request)
           (Thread/sleep 2000)
           (log/info (i18n/trs "Processing messages from the scheduler"))
-          (consume-everything consumer process-message-and-remove id))))))
+          (try
+            (loop []
+              (when-let [msg (.receive consumer 5000)]
+                (process-message-and-remove (swap! id inc) msg)
+                (recur)))
+            (catch javax.jms.IllegalStateException e
+              (log/info (i18n/trs "Received IllegalStateException, shutting down"))
+              false)
+            (catch Exception e
+              (log/error e)
+              false)))))))
 
 (def default-mq-endpoint "puppetlabs.puppetdb.commands")
 (def retired-mq-endpoint "com.puppetlabs.puppetdb.commands")
@@ -316,7 +343,8 @@
 (defn activemq->stockpile
   "Drains the queue found in `cmd-proc-config` and uses `enqueue-fn`
   to resubmit those commands to PuppetDB (running Stockpile). All
-  failures to enqueue are discarded using the `dlo`"
+  failures to enqueue are discarded using the `dlo`.  Returns true if
+  it's likely that all of the existing messages were transferred."
   [{global-config :global
     {mq-config :mq :as cmd-proc-config} :command-processing}
    enqueue-fn
@@ -329,28 +357,35 @@
         mq-discard-dir (str (io/file mq-dir "discard"))
         mq-endpoint (:endpoint mq-config default-mq-endpoint)
         process-message (create-message-processor enqueue-fn dlo)
-        id (atom 0)]
+        id (atom 0)
+        fail-msg (i18n/trs "Unable to migrate all ActiveMQ messages (will retry on restart)")]
     (try
       (let [broker (do (log/info (i18n/trs "Starting broker"))
                        (build-and-start-broker! "localhost" mq-dir cmd-proc-config))]
         (try
           (let [conn-pool (activemq-connection-factory mq-broker-url)]
             (try
-              ;; Drain the scheduler so we don't get any extra messages on the Queue when
-              ;; we're processing
-              (transfer-scheduler-messages conn-pool mq-endpoint process-message dlo id)
-              (transfer-mq-messages conn-pool mq-endpoint process-message id)
-              (transfer-mq-messages conn-pool retired-mq-endpoint process-message id)
-
-              (log/info (i18n/trs "You may safely delete {0}" mq-dir))
-
+              ;; Drain the scheduler first so that we don't get any
+              ;; extra messages on the Queue when we're processing
+              (transfer-scheduler-messages conn-pool mq-endpoint
+                                           process-message dlo id)
+              (and (transfer-mq-messages conn-pool mq-endpoint
+                                         process-message id)
+                   (transfer-mq-messages conn-pool retired-mq-endpoint
+                                         process-message id)
+                   (do
+                     (log/info (i18n/trs "You may safely delete {0}" mq-dir))
+                     true))
               (catch Exception e
-                (log/error e (i18n/trs "Unable to receive ActiveMQ messages. Migration of existing messages failed.")))
+                (log/error e fail-msg)
+                false)
               (finally
                 (.stop conn-pool))))
           (catch Exception e
-            (log/error e (i18n/trs "Unable to start ActiveMQ broker. Migration of existing messages failed.")))
+            (log/error e fail-msg)
+            false)
           (finally
             (stop-broker! broker))))
       (catch Exception e
-        (log/error e (i18n/trs "Unable to connect to ActiveMQ. Migration of existing messages failed."))))))
+        (log/error e fail-msg)
+        false))))

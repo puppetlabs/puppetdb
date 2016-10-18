@@ -321,8 +321,8 @@
 
 (defn upgrade-activemq [config enqueue-fn dlo]
   (when (mig/needs-upgrade? config)
-    (mig/activemq->stockpile config enqueue-fn dlo)
-    (mig/lock-upgrade config)))
+    (when (mig/activemq->stockpile config enqueue-fn dlo)
+      (mig/lock-upgrade config))))
 
 (defservice command-service
   PuppetDBCommandDispatcher
