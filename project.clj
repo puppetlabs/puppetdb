@@ -94,7 +94,7 @@
                  [com.taoensso/nippy "2.10.0" :exclusions [org.clojure/tools.reader]]
                  [bidi "1.25.1" :exclusions [org.clojure/clojurescript]]
                  [puppetlabs/comidi "0.3.1"]
-                 [puppetlabs/stockpile "0.0.2"]]
+                 [puppetlabs/stockpile "0.0.3"]]
 
   :jvm-opts ~pdb-jvm-opts
 
