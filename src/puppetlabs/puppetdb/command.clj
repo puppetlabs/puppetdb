@@ -118,20 +118,17 @@
 ;; commands.
 ;;
 ;; * `:seen`: the number of commands (valid or not) encountered
-;;
 ;; * `:processeed`: the number of commands successfully processed
-;;
 ;; * `:fatal`: the number of fatal errors
-;;
 ;; * `:retried`: the number of commands re-queued for retry
-;;
 ;; * `:discarded`: the number of commands discarded for exceeding the
-;;   maximum allowable retry count
-;;
+;;                 maximum allowable retry count
 ;; * `:processing-time`: how long it takes to process a command
-;;
 ;; * `:retry-counts`: histogram containing the number of times
-;;   messages have been retried prior to suceeding
+;;                    messages have been retried prior to suceeding
+;; * `:invalidated`: commands marked as delete?, caused by a newer command
+;;                   was enqueued that will overwrite an existing one in the queue
+;; * `:depth`: number of commands currently enqueued
 ;;
 
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
@@ -183,10 +180,18 @@
   [command version]
   (let [storage-path [(keyword (str command version))]]
     (when (= ::not-found (get-in @metrics storage-path ::not-found))
-      (swap! metrics assoc-in storage-path
-             (create-metrics [(keyword command) (keyword (str version))])))))
+      (swap! metrics (fn [old-metrics]
+                       ;; This check is to avoid a race of another
+                       ;; thread adding in the storage path after the
+                       ;; above check but before we put the new
+                       ;; metrics in place
+                       (if (= ::not-found (get-in old-metrics storage-path ::not-found))
+                         (assoc-in old-metrics
+                                   storage-path
+                                   (create-metrics [(keyword command) (keyword (str version))]))
+                         old-metrics))))))
 
-(defn inc-cmd-metrics
+(defn inc-cmd-depth
   "Ensures the `command` + `version` metric exists, then increments the
   depth for the given `command` and `version`"
   [command version]
@@ -477,17 +482,17 @@
     (queue/ack-command q cmd)
     (update-counter! :depth command version dec!)))
 
-(def command-delay-in-ms (* 1000 60 60))
+(def command-delay-ms (* 1000 60 60))
 
 (defn send-delayed-message
   "Will delay `cmd` in the `delay-pool` threadpool for
-  `command-delay-in-ms`. It will then be enqueued in `command-chan`
+  `command-delay-ms`. It will then be enqueued in `command-chan`
   for another attempt at processing"
   [cmd ex command-chan delay-pool]
   (let [narrowed-entry (-> cmd
                            (queue/cons-attempt ex)
                            (dissoc :payload))]
-    (after command-delay-in-ms #(async/>!! command-chan narrowed-entry) delay-pool)))
+    (after command-delay-ms #(async/>!! command-chan narrowed-entry) delay-pool)))
 
 (defn message-handler
   "Processes the message via (process-message msg), retrying messages
@@ -506,7 +511,7 @@
             (let [ex (:cause obj)]
               (log/error
                (:wrapper &throw-context)
-               (i18n/trs "[{0}] [{1}] Fatal error on L2 attempt {2} for {3}" id command retries certname))
+               (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
               (discard-message cmdref ex q dlo)))
           (catch Exception _
             (let [ex (:throwable &throw-context)]
@@ -515,13 +520,13 @@
                 (do
                   (log/errorf
                    ex
-                   (i18n/trs "[{0}] [{1}] Retrying after L2 attempt {2} for {3}, due to: {4}"
+                   (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
                              id command retries certname ex))
                   (send-delayed-message cmdref ex command-chan delay-pool))
                 (do
                   (log/error
                    ex
-                   (i18n/trs "[{0}] [{1}] Exceeded max L2 attempts ({2}) for {3}" id command retries certname))
+                   (i18n/trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3}" id command retries certname))
                   (discard-message cmdref ex q dlo))))))))
 
      (catch [:kind ::queue/parse-error] _
@@ -620,7 +625,7 @@
           result (do-enqueue-command q command-chan write-semaphore command
                                      version certname command-stream command-callback)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
-      (inc-cmd-metrics command version)
+      (inc-cmd-depth command version)
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
 

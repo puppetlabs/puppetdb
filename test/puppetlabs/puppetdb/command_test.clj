@@ -65,7 +65,7 @@
     (fs/delete-dir (:path dlo))
     (#'overtone.at-at/shutdown-pool-now! @(:pool-atom delay-pool))))
 
-(defn call-with-message-handler [q]
+(defn create-message-handler-context [q]
   (let [delay-pool (mk-pool)
         command-chan (async/chan 10)
         response-chan (async/chan 10)
@@ -86,7 +86,7 @@
 (defmacro with-message-handler [binding-form & body]
   `(with-test-db
      (tqueue/with-stockpile q#
-       (with-open [context# (call-with-message-handler q#)]
+       (with-open [context# (create-message-handler-context q#)]
          (let [~binding-form context#]
            ~@body)))))
 
@@ -109,7 +109,7 @@
 (defn store-command' [q old-command]
   (apply tqueue/store-command q (unroll-old-command old-command)))
 
-(def default-timeout-in-ms
+(def default-timeout-ms
   (* 1000 60 5))
 
 (defn take-with-timeout!!
@@ -118,7 +118,7 @@
   [port timeout-in-ms]
   (async/alt!!
     (async/timeout timeout-in-ms)
-    (throw (Exception. (format "Take from channel failed after timeout of '%s' ms was exceeded" timeout-in-ms)))
+    (throw (Exception. (format "Channel take timed out after '%s' ms" timeout-in-ms)))
     port
     ([v] v)))
 
@@ -146,7 +146,7 @@
           (let [expected-exception (Exception. "non-fatal error")]
             (with-redefs [process-command-and-respond! (fn [& _]
                                                          (throw+ expected-exception))
-                          command-delay-in-ms 1
+                          command-delay-ms 1
                           quick-retry-count 0]
               (with-message-handler {:keys [handle-message command-chan dlo delay-pool q]}
                 (let [cmdref (store-command' q command)]
@@ -156,7 +156,7 @@
 
                   (is (empty? (fs/list-dir (:path dlo))))
 
-                  (let [delayed-command (take-with-timeout!! command-chan default-timeout-in-ms)
+                  (let [delayed-command (take-with-timeout!! command-chan default-timeout-ms)
                         actual-exception (:exception (first (:attempts delayed-command)))]
                     (are [x y] (= x y)
                       cmdref (dissoc delayed-command :attempts)
@@ -200,7 +200,7 @@
               (is (str/includes? (get-in @log-output [0 3]) "cats"))
               (is (instance? Exception (get-in @log-output [0 2])))
               (is (str/includes? (last (first @log-output))
-                                 "Retrying after L2 attempt"))))))
+                                 "Retrying after attempt"))))))
 
       (testing "a failed message after the max is discarded"
         (let [log-output (atom [])]
@@ -983,7 +983,7 @@
           (scf-store/ensure-environment "DEV"))
 
         (with-redefs [quick-retry-count 0
-                      command-delay-in-ms 10000
+                      command-delay-ms 10000
                       scf-store/update-facts!
                       (fn [fact-data]
                         (.put hand-off-queue "got the lock")
@@ -1008,7 +1008,7 @@
 
             (handle-message (store-command' q new-facts-cmd))
             (reset! second-message? true)
-            (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-in-ms)]
+            (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
               (is (re-matches
                    #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
@@ -1203,7 +1203,7 @@
           (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
         (with-redefs [quick-retry-count 0
-                      command-delay-in-ms 1
+                      command-delay-ms 1
                       scf-store/replace-catalog!
                       (fn [catalog timestamp]
                         (.put hand-off-queue "got the lock")
@@ -1229,7 +1229,7 @@
             (reset! second-message? true)
             (is (empty? (fs/list-dir (:path dlo))))
 
-            (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-in-ms)]
+            (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
               (is (re-matches
                    #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
@@ -1261,7 +1261,7 @@
           (scf-store/replace-catalog! nonwire-catalog (-> 2 days ago)))
 
         (with-redefs [quick-retry-count 0
-                      command-delay-in-ms 1
+                      command-delay-ms 1
                       scf-store/replace-catalog!
                       (fn [catalog timestamp]
                         (.put hand-off-queue "got the lock")
@@ -1294,7 +1294,7 @@
             (reset! second-message? true)
 
             (is (empty? (fs/list-dir (:path dlo))))
-            (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-in-ms)]
+            (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
               (is (re-matches
                    #"(?sm).*ERROR: could not serialize access due to concurrent update.*"

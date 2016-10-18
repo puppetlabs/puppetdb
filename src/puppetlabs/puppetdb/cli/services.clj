@@ -345,7 +345,7 @@
           clean-lock (ReentrantLock.)
           command-loader (when load-messages
                            (future
-                             (load-messages command-chan cmd/inc-cmd-metrics)))]
+                             (load-messages command-chan cmd/inc-cmd-depth)))]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)
