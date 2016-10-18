@@ -122,9 +122,12 @@
   (try
     (.acquire write-semaphore)
     (time! (get @metrics :message-persistence-time)
-           (async/>!! command-chan
-                      (queue/store-command
-                        q command version certname command-stream command-callback)))
+           (let [cmd (queue/store-command
+                       q command version certname command-stream command-callback)
+                 {:keys [id received]} cmd]
+             (async/>!! command-chan cmd)
+             (log/debugf (i18n/trs "[%s-%d] '%s' command enqueued for %s")
+                         id (tcoerce/to-long received) command certname)))
     (finally
       (.release write-semaphore)
       (when command-stream
@@ -138,7 +141,8 @@
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-catalog! catalog received))
-    (log/infof "[%s] [%s] %s" id (command-names :replace-catalog) certname)))
+    (log/infof (i18n/trs "[%s-%d] '%s' command processed for %s")
+               id (tcoerce/to-long received) (command-names :replace-catalog) certname)))
 
 (defn replace-catalog [{:keys [payload received version] :as command} db]
   (let [validated-payload (upon-error-throw-fatality
@@ -150,13 +154,14 @@
 ;; Fact replacement
 
 (defn replace-facts*
-  [{:keys [payload id] :as command} db]
+  [{:keys [payload id received] :as command} db]
   (let [{:keys [certname values] :as fact-data} payload
         producer-timestamp (:producer_timestamp fact-data)]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-facts! fact-data))
-    (log/infof "[%s] [%s] %s" id (command-names :replace-facts) certname)))
+    (log/infof (i18n/trs "[%s-%d] '%s' command processed for %s")
+               id (tcoerce/to-long received) (command-names :replace-facts) certname)))
 
 (defn replace-facts [{:keys [payload version received] :as command} db]
   (let [validated-payload (upon-error-throw-fatality
@@ -184,14 +189,15 @@
       deactivate-node-wire-v2->wire-3))
 
 (defn deactivate-node*
-  [{:keys [id payload]} db]
+  [{:keys [id received payload]} db]
   (let [certname (:certname payload)
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
     (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname producer-timestamp))
-    (log/infof "[%s] [%s] %s" id (command-names :deactivate-node) certname)))
+    (log/infof (i18n/trs "[%s-%d] '%s' command processed for %s")
+               id (tcoerce/to-long received) (command-names :deactivate-node) certname)))
 
 (defn deactivate-node [{:keys [payload version] :as command} db]
   (-> command
@@ -210,8 +216,9 @@
     (jdbc/with-transacted-connection db
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/add-report! report received))
-    (log/infof "[%s] [%s] puppet v%s - %s"
+    (log/infof (i18n/trs "[%s-%d] '%s' puppet v%s command processed for %s")
                id
+               (tcoerce/to-long received)
                (command-names :store-report)
                puppet_version
                certname)))
