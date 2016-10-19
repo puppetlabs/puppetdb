@@ -330,10 +330,7 @@
 
     ;; Error handling here?
     (let [stockdir (conf/stockpile-dir config)
-          command-chan (async/chan
-                         (queue/sorted-command-buffer
-                          max-enqueued
-                          #(cmd/update-counter! :invalidated %1 %2 inc!)))
+          command-chan (async/chan max-enqueued)
           [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config))
           globals {:scf-read-db read-db
                    :scf-write-db write-db

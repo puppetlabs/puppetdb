@@ -126,8 +126,9 @@
 ;; * `:processing-time`: how long it takes to process a command
 ;; * `:retry-counts`: histogram containing the number of times
 ;;                    messages have been retried prior to suceeding
-;; * `:invalidated`: commands marked as delete?, caused by a newer command
-;;                   was enqueued that will overwrite an existing one in the queue
+;; * `:invalidated`: *CURRENTLY DISABLED* - see PDB-3108 commands marked as delete?,
+;;                   caused by a newer command was enqueued that will overwrite an
+;;                   existing one in the queue
 ;; * `:depth`: number of commands currently enqueued
 ;;
 
@@ -140,7 +141,11 @@
                                       (to-metric-name-fn :message-persistence-time))
      :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
      :depth (counter mq-metrics-registry (to-metric-name-fn :depth))
-     :invalidated (counter mq-metrics-registry (to-metric-name-fn :invalidated))
+
+     ;; There's currently no way for a command to be invalidated due to a replication/HA issue that
+     ;; is to be addressed in PDB-3108.
+     ;; :invalidated (counter mq-metrics-registry (to-metric-name-fn :invalidated))
+
      :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
      :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
      :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
@@ -456,7 +461,11 @@
       (dlo/discard-cmdref q dlo)))
 
 (defn process-delete-cmdref
-  "Processes a command ref marked for deletion. This is similar to
+  "Note that currently this function is unreachable, because commands
+  cannot currently be invalidated due to a replication/HA issue that
+  is to be addressed in PDB-3108.
+
+  Processes a command ref marked for deletion. This is similar to
   processing a non-delete cmdref except different metrics need to be
   updated to indicate the difference in command"
   [{:keys [command version] :as cmdref} q scf-write-db response-chan stats]
