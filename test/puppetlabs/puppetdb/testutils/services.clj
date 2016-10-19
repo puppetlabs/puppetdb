@@ -18,7 +18,6 @@
             [puppetlabs.puppetdb.client :as pdb-client]
             [puppetlabs.puppetdb.cli.services :as svcs]
             [puppetlabs.puppetdb.admin :as admin]
-            [puppetlabs.puppetdb.mq-listener :refer [message-listener-service metrics]]
             [puppetlabs.puppetdb.command :refer [command-service] :as dispatch]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
@@ -66,7 +65,6 @@
   [#'jetty9-service
    #'webrouting-service
    #'svcs/puppetdb-service
-   #'message-listener-service
    #'command-service
    #'status-service
    #'metrics-webservice
@@ -116,7 +114,7 @@
                    :prefix "/pdb/query"
                    :version :v4}]
      (try
-       (swap! metrics clear-counters!)
+       (swap! dispatch/metrics clear-counters!)
        (tkbs/with-app-with-config server
          (map var-get services)
          config
@@ -146,7 +144,7 @@
         :body)))
 
 (defn get-json [base-url suffix & [opts]]
-  (json/parse-string (get-url base-url suffix opts) true))
+ (json/parse-string (get-url base-url suffix opts) true))
 
 (defn get-reports [base-url certname]
   (get-json base-url "/reports"

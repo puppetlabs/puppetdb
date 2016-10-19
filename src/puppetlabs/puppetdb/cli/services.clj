@@ -75,7 +75,7 @@
             [schema.core :as s]
             [slingshot.slingshot :refer [throw+ try+]]
             [clojure.core.async :as async]
-            [puppetlabs.puppetdb.mq-listener :as mql]
+            [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.queue :as queue])
   (:import [javax.jms ExceptionListener]
            [java.util.concurrent.locks ReentrantLock]
@@ -333,7 +333,7 @@
           command-chan (async/chan
                          (queue/sorted-command-buffer
                           max-enqueued
-                          #(mql/update-counter! :invalidated %1 %2 inc!)))
+                          #(cmd/update-counter! :invalidated %1 %2 inc!)))
           [q load-messages] (queue/create-or-open-stockpile (conf/stockpile-dir config))
           globals {:scf-read-db read-db
                    :scf-write-db write-db
@@ -346,7 +346,7 @@
           clean-lock (ReentrantLock.)
           command-loader (when load-messages
                            (future
-                             (load-messages command-chan mql/inc-cmd-metrics)))]
+                             (load-messages command-chan cmd/inc-cmd-depth)))]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
       (let [job-pool (mk-pool)

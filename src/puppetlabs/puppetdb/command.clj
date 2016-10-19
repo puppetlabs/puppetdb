@@ -63,7 +63,6 @@
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [slingshot.slingshot :refer [try+ throw+]]
-            [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.command.constants
              :refer [command-names supported-command-versions]]
             [puppetlabs.trapperkeeper.services
@@ -75,21 +74,135 @@
             [clojure.set :as set]
             [clojure.core.async :as async]
             [metrics.timers :refer [timer time!]]
-            [metrics.counters :refer [inc!]]
+            [metrics.counters :refer [inc! dec! counter]]
+            [metrics.meters :refer [meter mark!]]
+            [metrics.histograms :refer [histogram update!]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.queue :as queue]
             [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.amq-migration :as mig]
-            [puppetlabs.puppetdb.command.dlo :as dlo]))
+            [puppetlabs.puppetdb.command.dlo :as dlo]
+            [overtone.at-at :refer [mk-pool stop-and-reset-pool! after]]
+            [puppetlabs.puppetdb.threadpool :as gtp]
+            [puppetlabs.puppetdb.utils.metrics :as mutils]))
+
+;; ## Performance counters
+
+;; For each command (and globally), add command-processing
+;; metrics. The hierarchy of command-processing metrics has the
+;; following form:
+;;
+;;     {"global"
+;;        {:seen <meter>
+;;         :processed <meter>
+;;         :fatal <meter>
+;;         :retried <meter>
+;;         :discarded <meter>
+;;         :processing-time <timer>
+;;         :retry-counts <histogram>
+;;        }
+;;      "command name"
+;;        {<version number>
+;;           {:seen <meter>
+;;            :processed <meter>
+;;            :fatal <meter>
+;;            :retried <meter>
+;;            :discarded <meter>
+;;            :processing-time <timer>
+;;            :retry-counts <histogram>
+;;           }
+;;        }
+;;     }
+;;
+;; The `"global"` hierarchy contains metrics aggregated across all
+;; commands.
+;;
+;; * `:seen`: the number of commands (valid or not) encountered
+;; * `:processeed`: the number of commands successfully processed
+;; * `:fatal`: the number of fatal errors
+;; * `:retried`: the number of commands re-queued for retry
+;; * `:discarded`: the number of commands discarded for exceeding the
+;;                 maximum allowable retry count
+;; * `:processing-time`: how long it takes to process a command
+;; * `:retry-counts`: histogram containing the number of times
+;;                    messages have been retried prior to suceeding
+;; * `:invalidated`: commands marked as delete?, caused by a newer command
+;;                   was enqueued that will overwrite an existing one in the queue
+;; * `:depth`: number of commands currently enqueued
+;;
 
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
-(def metrics (atom {:command-parse-time (timer mq-metrics-registry
-                                               (metrics/keyword->metric-name
-                                                 [:global] :command-parse-time))
-                    :message-persistence-time (timer mq-metrics-registry
-                                                     (metrics/keyword->metric-name
-                                                       [:global] :message-persistence-time))}))
+(defn create-metrics [prefix]
+  (let [to-metric-name-fn #(metrics/keyword->metric-name prefix %)]
+    {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
+     :message-persistence-time (timer mq-metrics-registry
+                                      (to-metric-name-fn :message-persistence-time))
+     :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
+     :depth (counter mq-metrics-registry (to-metric-name-fn :depth))
+     :invalidated (counter mq-metrics-registry (to-metric-name-fn :invalidated))
+     :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
+     :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
+     :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
+     :retried (meter mq-metrics-registry (to-metric-name-fn :retried))
+     :discarded (meter mq-metrics-registry (to-metric-name-fn :discarded))}))
+
+(def metrics
+  (atom {:command-parse-time (timer mq-metrics-registry
+                                    (metrics/keyword->metric-name
+                                     [:global] :command-parse-time))
+         :message-persistence-time (timer mq-metrics-registry
+                                          (metrics/keyword->metric-name
+                                           [:global] :message-persistence-time))
+         :global (create-metrics [:global])}))
+
+(defn global-metric
+  "Returns the metric identified by `name` in the `\"global\"` metric
+  hierarchy"
+  [name]
+  {:pre [(keyword? name)]}
+  (get-in @metrics [:global name]))
+
+(defn cmd-metric
+  [cmd version name]
+  {:pre [(keyword? name)]}
+  (get-in @metrics [(keyword (str cmd version)) name]))
+
+(defn update-counter!
+  [metric command version action!]
+  (action! (global-metric metric))
+  (action! (cmd-metric command version metric)))
+
+(defn create-metrics-for-command!
+  "Create a subtree of metrics for the given command and version (if
+  present).  If a subtree of metrics already exists, this function is
+  a no-op."
+  [command version]
+  (let [storage-path [(keyword (str command version))]]
+    (when (= ::not-found (get-in @metrics storage-path ::not-found))
+      (swap! metrics (fn [old-metrics]
+                       ;; This check is to avoid a race of another
+                       ;; thread adding in the storage path after the
+                       ;; above check but before we put the new
+                       ;; metrics in place
+                       (if (= ::not-found (get-in old-metrics storage-path ::not-found))
+                         (assoc-in old-metrics
+                                   storage-path
+                                   (create-metrics [(keyword command) (keyword (str version))]))
+                         old-metrics))))))
+
+(defn inc-cmd-depth
+  "Ensures the `command` + `version` metric exists, then increments the
+  depth for the given `command` and `version`"
+  [command version]
+  (create-metrics-for-command! command version)
+  (update-counter! :depth command version inc!))
+
+(defn mark-both-metrics!
+  "Calls `mark!` on the global and command specific metric for `k`"
+  [command version k]
+  (mark! (global-metric k))
+  (mark! (cmd-metric command version k)))
 
 (defn fatality
   "Create an object representing a fatal command-processing exception
@@ -98,6 +211,12 @@
   "
   [cause]
   {:fatal true :cause cause})
+
+(defn fatal?
+  "Tests if the supplied exception is a fatal command-processing
+  exception or not."
+  [exception]
+  (:fatal exception))
 
 (defmacro upon-error-throw-fatality
   [& body]
@@ -303,9 +422,11 @@
         (recur (dec n))
         result))))
 
+(def quick-retry-count 4)
+
 (defn process-command-and-respond! [{:keys [callback] :as cmd} db response-pub-chan stats-atom]
   (try
-    (let [result (call-with-quick-retry 4
+    (let [result (call-with-quick-retry quick-retry-count
                   (fn []
                     (process-command! cmd db)))]
       (swap! stats-atom update :executed-commands inc)
@@ -324,11 +445,116 @@
     (when (mig/activemq->stockpile config enqueue-fn dlo)
       (mig/lock-upgrade config))))
 
+;; The number of times a message can be retried before we discard it
+(def maximum-allowable-retries 5)
+
+(defn discard-message
+  "Discards the given `cmd` caused by `ex`"
+  [cmd ex q dlo]
+  (-> cmd
+      (queue/cons-attempt ex)
+      (dlo/discard-cmdref q dlo)))
+
+(defn process-delete-cmdref
+  "Processes a command ref marked for deletion. This is similar to
+  processing a non-delete cmdref except different metrics need to be
+  updated to indicate the difference in command"
+  [{:keys [command version] :as cmdref} q scf-write-db response-chan stats]
+  (process-command-and-respond! cmdref scf-write-db response-chan stats)
+  (queue/ack-command q {:entry (queue/cmdref->entry cmdref)})
+  (update-counter! :depth command version dec!)
+  (update-counter! :invalidated command version dec!))
+
+(defn process-cmdref
+  "Parses, processes and acknowledges a successful command ref and
+  updates the relevant metrics. Any exceptions that arise are
+  unhandled and expected to be caught by the caller."
+  [cmdref q scf-write-db response-chan stats]
+  (let [{:keys [command version] :as cmd} (queue/cmdref->cmd q cmdref)
+        retries (count (:attempts cmdref))]
+
+    (create-metrics-for-command! command version)
+
+    (mark-both-metrics! command version :seen)
+    (update! (global-metric :retry-counts) retries)
+    (update! (cmd-metric command version :retry-counts) retries)
+
+    (mutils/multitime!
+     [(global-metric :processing-time)
+      (cmd-metric command version :processing-time)]
+
+     (process-command-and-respond! cmd scf-write-db response-chan stats)
+     (mark-both-metrics! command version :processed))
+
+    (queue/ack-command q cmd)
+    (update-counter! :depth command version dec!)))
+
+(def command-delay-ms (* 1000 60 60))
+
+(defn send-delayed-message
+  "Will delay `cmd` in the `delay-pool` threadpool for
+  `command-delay-ms`. It will then be enqueued in `command-chan`
+  for another attempt at processing"
+  [cmd ex command-chan delay-pool]
+  (let [narrowed-entry (-> cmd
+                           (queue/cons-attempt ex)
+                           (dissoc :payload))]
+    (after command-delay-ms #(async/>!! command-chan narrowed-entry) delay-pool)))
+
+(defn message-handler
+  "Processes the message via (process-message msg), retrying messages
+  that fail via (delay-message msg), and discarding messages that have
+  fatal errors or have exceeded their maximum allowed attempts."
+  [q command-chan dlo delay-pool scf-write-db response-chan stats]
+  (fn [{:keys [certname command version delete? id] :as cmdref}]
+    (try+
+     (if delete?
+       (process-delete-cmdref cmdref q scf-write-db response-chan stats)
+       (let [retries (count (:attempts cmdref))]
+         (try+
+          (process-cmdref cmdref q scf-write-db response-chan stats)
+          (catch fatal? obj
+            (mark! (global-metric :fatal))
+            (let [ex (:cause obj)]
+              (log/error
+               (:wrapper &throw-context)
+               (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
+              (discard-message cmdref ex q dlo)))
+          (catch Exception _
+            (let [ex (:throwable &throw-context)]
+              (mark-both-metrics! command version :retried)
+              (if (< retries maximum-allowable-retries)
+                (do
+                  (log/errorf
+                   ex
+                   (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
+                             id command retries certname ex))
+                  (send-delayed-message cmdref ex command-chan delay-pool))
+                (do
+                  (log/error
+                   ex
+                   (i18n/trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3}" id command retries certname))
+                  (discard-message cmdref ex q dlo))))))))
+
+     (catch [:kind ::queue/parse-error] _
+       (mark! (global-metric :fatal))
+       (log/error (:wrapper &throw-context)
+                  (i18n/trs "Fatal error parsing command: {0}" (:id cmdref)))
+       (discard-message cmdref (:throwable &throw-context) q dlo)))))
+
+(defn create-command-handler-threadpool
+  "Creates an unbounded threadpool with the intent that access to the
+  threadpool is bounded by the semaphore. Implicitly the threadpool is
+  bounded by `size`, but since the semaphore is handling that aspect,
+  it's more efficient to use an unbounded pool and not duplicate the
+  constraint in both the semaphore and the threadpool"
+  [size]
+  (gtp/create-threadpool size "cmd-proc-thread-%d" 10000))
+
 (defservice command-service
   PuppetDBCommandDispatcher
   [[:DefaultedConfig get-config]
-   [:PuppetDBServer shared-globals]
-   [:MessageListenerService register-listener]]
+   [:PuppetDBServer shared-globals]]
   (init [this context]
     (let [response-chan (async/chan 1000)
           response-mult (async/mult response-chan)
@@ -336,6 +562,7 @@
           concurrent-writes (get-in (get-config) [:command-processing :concurrent-writes])]
       (async/tap response-mult response-chan-for-pub)
       (assoc context
+             :delay-pool (mk-pool)
              :write-semaphore (Semaphore. concurrent-writes)
              :stats (atom {:received-commands 0
                            :executed-commands 0})
@@ -346,18 +573,43 @@
 
   (start [this context]
     (let [{:keys [scf-write-db dlo q]} (shared-globals)
-          {:keys [response-chan response-pub]} context]
-      (register-listener
-       supported-command?
-       #(process-command-and-respond! % scf-write-db response-chan (:stats context)))
+          {:keys [response-chan response-pub]} context
+
+          ;; From mq_listener
+          command-threadpool (create-command-handler-threadpool (conf/mq-thread-count (get-config)))
+          {:keys [command-chan]} (shared-globals)
+          delay-pool (:delay-pool context)
+          handle-cmd (message-handler q
+                                      command-chan
+                                      dlo
+                                      delay-pool
+                                      scf-write-db
+                                      response-chan
+                                      (:stats context))]
+
+      (doto (Thread. (fn []
+                       (try+ (gtp/dochan command-threadpool handle-cmd command-chan)
+                             ;; This only occurs when new work is submitted after the threadpool has
+                             ;; started shutting down, which means PDB itself is shutting down. The
+                             ;; command will be retried when PDB next starts up, so there's no reason to
+                             ;; tell the user about this by letting it bubble up until it's printed.
+                             (catch [:kind :puppetlabs.puppetdb.threadpool/rejected] _))))
+        (.setDaemon false)
+        (.start))
 
       (upgrade-activemq (get-config)
                         (partial enqueue-command this)
                         dlo)
 
-      context))
+      (assoc context
+             :command-chan command-chan
+             :consumer-threadpool command-threadpool)))
 
-  (stop [this context]
+  (stop [this {:keys [consumer-threadpool command-chan delay-pool] :as context}]
+    (async/close! command-chan)
+    (gtp/shutdown consumer-threadpool)
+    (when delay-pool
+      (stop-and-reset-pool! delay-pool))
     (async/unsub-all (:response-pub context))
     (async/untap-all (:response-mult context))
     (async/close! (:response-chan-for-pub context))
@@ -380,7 +632,7 @@
           result (do-enqueue-command q command-chan write-semaphore command
                                      version certname command-stream command-callback)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
-      (mql/inc-cmd-metrics command version)
+      (inc-cmd-depth command version)
       (swap! (:stats (service-context this)) update :received-commands inc)
       result))
 
