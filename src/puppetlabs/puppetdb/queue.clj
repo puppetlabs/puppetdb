@@ -7,6 +7,8 @@
   (:require [clojure.string :as str :refer [re-quote-replacement]]
             [puppetlabs.stockpile.queue :as stock]
             [clj-time.coerce :as tcoerce]
+            [clojure.tools.logging :as log]
+            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as command-constants]
             [puppetlabs.puppetdb.constants :as constants]
@@ -19,7 +21,8 @@
             [clojure.core.async.impl.protocols :as async-protos]
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.utils :refer [match-any-of utf8-length
-                                               utf8-truncate]]))
+                                               utf8-truncate]]
+            [slingshot.slingshot :refer [try+]]))
 
 (def metadata-command->puppetdb-command
   ;; note that if there are multiple metadata names for the same command then
@@ -183,14 +186,48 @@
   (update cmdref :attempts conj {:exception exception
                                  :time (kitchensink/timestamp)}))
 
+(defn store-in-stockpile [q command-stream received
+                          command version certname]
+  (try+
+   (stock/store q command-stream
+                (serialize-metadata received command version certname))
+
+   (catch [:kind ::unable-to-commit] {:keys [stream-data]}
+     ;; stockpile has saved all of the data in command-stream to
+     ;; stream-data, but was unable to finish (e.g. the rename
+     ;; failed).  Try to delete the (possibly large) temp file and
+     ;; then rethrow the exception for logging at the "top level".
+     (try
+       (Files/delete stream-data)
+       (-> "Cleaned up orphaned command temp file: {0}"
+           (i18n/trs (pr-str (str stream-data)))
+           (log/warn))
+       (catch Exception ex
+         (-> "Unable to clean up orphaned command temp file: {0}"
+             (i18n/trs (pr-str (str stream-data)))
+             (log/warn ex))))
+     (throw+))
+
+   (catch [:kind ::path-cleanup-failure-after-error] {:keys [path exception]}
+     ;; stockpile/store failed with the exception described by
+     ;; the :cause, and then, on the way out, the attempt to remove the temporary
+     ;; file described by path failed with the given exception.
+     ;; Don't try to delete the path again, just log the path with the
+     ;; removal exception, and then rethrow the exception for logging
+     ;; at the "top level".
+     (-> "Unable to remove temp file while trying to store incoming command: {0}"
+         (i18n/trs (pr-str (str path)))
+         (log/warn exception))
+     (throw+))))
+
 (defn store-command
   ([q command version certname command-stream]
    (store-command q command version certname command-stream identity))
   ([q command version certname command-stream command-callback]
    (let [current-time (time/now)
-         entry (stock/store q
-                            command-stream
-                            (serialize-metadata current-time command version certname))]
+         entry (store-in-stockpile q command-stream
+                                   current-time
+                                   command version certname)]
      (map->CommandRef {:id (stock/entry-id entry)
                        :command command
                        :version version
