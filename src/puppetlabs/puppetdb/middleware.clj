@@ -2,7 +2,7 @@
   "Ring middleware"
   (:require [puppetlabs.i18n.core :as i18n]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.jdbc :as jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.query-eng :as qe]
             [puppetlabs.puppetdb.utils.metrics :refer [multitime!]]
             [puppetlabs.puppetdb.http :as http]
@@ -14,7 +14,6 @@
             [clojure.set :as set]
             [pantomime.media :as media]
             [puppetlabs.puppetdb.metrics.core :as metrics]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [metrics.timers :refer [timer time!]]
             [metrics.meters :refer [meter mark!]]
             [clojure.walk :refer [keywordize-keys]]
