@@ -974,7 +974,7 @@
                        :version 4
                        :payload facts}
 
-            hand-off-queue (java.util.concurrent.SynchronousQueue.)
+            latch (java.util.concurrent.CountDownLatch. 2)
             storage-replace-facts! scf-store/update-facts!]
 
         (jdbc/with-db-transaction []
@@ -991,16 +991,13 @@
                       command-delay-ms 10000
                       scf-store/update-facts!
                       (fn [fact-data]
-                        (.put hand-off-queue "got the lock")
-                        (.poll hand-off-queue 5 TimeUnit/SECONDS)
+                        (.countDown latch)
                         (storage-replace-facts! fact-data))]
           (let [first-message? (atom false)
                 second-message? (atom false)
                 fut (future
                       (handle-message (store-command' q command))
                       (reset! first-message? true))
-
-                _ (.poll hand-off-queue 5 TimeUnit/SECONDS)
 
                 new-facts (update-in facts [:values]
                                      (fn [values]
@@ -1013,6 +1010,9 @@
 
             (handle-message (store-command' q new-facts-cmd))
             (reset! second-message? true)
+
+            @fut
+
             (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
               (is (re-matches
@@ -1024,7 +1024,6 @@
                        .getNextException
                        .getMessage))))
 
-            @fut
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
 
@@ -1200,8 +1199,8 @@
                      :version 6
                      :payload wire-catalog}
 
-            hand-off-queue (java.util.concurrent.SynchronousQueue.)
-            storage-replace-catalog! scf-store/replace-catalog!]
+            latch (java.util.concurrent.CountDownLatch. 2)
+            orig-replace-existing-catalog scf-store/replace-existing-catalog]
 
         (jdbc/with-db-transaction []
           (scf-store/add-certname! certname)
@@ -1209,18 +1208,15 @@
 
         (with-redefs [quick-retry-count 0
                       command-delay-ms 1
-                      scf-store/replace-catalog!
-                      (fn [catalog timestamp]
-                        (.put hand-off-queue "got the lock")
-                        (.poll hand-off-queue 5 TimeUnit/SECONDS)
-                        (storage-replace-catalog! catalog timestamp))]
+                      scf-store/replace-existing-catalog
+                      (fn [& args]
+                        (.countDown latch)
+                        (apply orig-replace-existing-catalog args))]
           (let [first-message? (atom false)
                 second-message? (atom false)
                 fut (future
                       (handle-message (store-command' q command))
                       (reset! first-message? true))
-
-                _ (.poll hand-off-queue 5 TimeUnit/SECONDS)
 
                 new-wire-catalog (assoc-in wire-catalog [:edges]
                                            #{{:relationship "contains"
@@ -1234,6 +1230,8 @@
             (reset! second-message? true)
             (is (empty? (fs/list-dir (:path dlo))))
 
+            @fut
+
             (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
               (is (re-matches
@@ -1244,7 +1242,7 @@
                        :exception
                        .getNextException
                        .getMessage))))
-            @fut
+
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
 
@@ -1258,8 +1256,8 @@
                      :version 6
                      :payload wire-catalog}
 
-            hand-off-queue (java.util.concurrent.SynchronousQueue.)
-            storage-replace-catalog! scf-store/replace-catalog!]
+            latch (java.util.concurrent.CountDownLatch. 2)
+            orig-replace-existing-catalog scf-store/replace-existing-catalog]
 
         (jdbc/with-db-transaction []
           (scf-store/add-certname! certname)
@@ -1267,18 +1265,15 @@
 
         (with-redefs [quick-retry-count 0
                       command-delay-ms 1
-                      scf-store/replace-catalog!
-                      (fn [catalog timestamp]
-                        (.put hand-off-queue "got the lock")
-                        (.poll hand-off-queue 5 TimeUnit/SECONDS)
-                        (storage-replace-catalog! catalog timestamp))]
+                      scf-store/replace-existing-catalog
+                      (fn [& args]
+                        (.countDown latch)
+                        (apply orig-replace-existing-catalog args))]
           (let [first-message? (atom false)
                 second-message? (atom false)
                 fut (future
                       (handle-message (store-command' q command))
                       (reset! first-message? true))
-
-                _ (.poll hand-off-queue 5 TimeUnit/SECONDS)
 
                 new-wire-catalog (update wire-catalog :resources
                                          conj
@@ -1298,6 +1293,8 @@
             (handle-message (store-command' q new-catalog-cmd))
             (reset! second-message? true)
 
+            @fut
+
             (is (empty? (fs/list-dir (:path dlo))))
             (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
@@ -1310,7 +1307,6 @@
                        .getNextException
                        .getMessage))))
 
-            @fut
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
 
