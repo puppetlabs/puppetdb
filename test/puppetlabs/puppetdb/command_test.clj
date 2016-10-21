@@ -958,6 +958,18 @@
       first
       second))
 
+(defn pg-serialization-failure-ex? [ex]
+  ;; Before pg 9.4, the message was in the first exception.  Now it's
+  ;; in a second chained exception.  Look for both.
+  (letfn [(failure? [candidate]
+            (when candidate
+              (when-let [m (.getMessage candidate)]
+                (re-matches
+                 #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
+                 m))))]
+    (or (failure? (.getNextException ex))
+        (failure? ex))))
+
 (deftest concurrent-fact-updates
   (testing "Should allow only one replace facts update for a given cert at a time"
     (with-message-handler {:keys [handle-message dlo delay-pool q command-chan]}
@@ -1015,14 +1027,8 @@
 
             (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
-              (is (re-matches
-                   #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
-                   (-> failed-cmdref
-                       :attempts
-                       first
-                       :exception
-                       .getNextException
-                       .getMessage))))
+              (is (-> failed-cmdref :attempts first :exception
+                      pg-serialization-failure-ex?)))
 
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
@@ -1234,14 +1240,8 @@
 
             (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
-              (is (re-matches
-                   #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
-                   (-> failed-cmdref
-                       :attempts
-                       first
-                       :exception
-                       .getNextException
-                       .getMessage))))
+              (is (-> failed-cmdref :attempts first :exception
+                      pg-serialization-failure-ex?)))
 
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
@@ -1298,14 +1298,8 @@
             (is (empty? (fs/list-dir (:path dlo))))
             (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
-              (is (re-matches
-                   #"(?sm).*ERROR: could not serialize access due to concurrent update.*"
-                   (-> failed-cmdref
-                       :attempts
-                       first
-                       :exception
-                       .getNextException
-                       .getMessage))))
+              (is (-> failed-cmdref :attempts first :exception
+                      pg-serialization-failure-ex?)))
 
             (is (true? @first-message?))
             (is (true? @second-message?))))))))
