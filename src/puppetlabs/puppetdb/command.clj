@@ -70,7 +70,8 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [clj-time.core :refer [now]]
+            [clj-time.core :as time :refer [now]]
+            [clj-time.format :as fmt-time]
             [clojure.set :as set]
             [clojure.core.async :as async]
             [metrics.timers :refer [timer time!]]
@@ -97,9 +98,12 @@
 ;;         :processed <meter>
 ;;         :fatal <meter>
 ;;         :retried <meter>
+;;         :awaiting-retry <counter>
 ;;         :discarded <meter>
 ;;         :processing-time <timer>
+;;         :queue-time <histogram>
 ;;         :retry-counts <histogram>
+;;         :size <histogram>
 ;;        }
 ;;      "command name"
 ;;        {<version number>
@@ -119,11 +123,16 @@
 ;;
 ;; * `:seen`: the number of commands (valid or not) encountered
 ;; * `:processeed`: the number of commands successfully processed
+;; * `:size`: the size of the message as reported by the submitting HTTP
+;;            request's Content-Length header.
 ;; * `:fatal`: the number of fatal errors
 ;; * `:retried`: the number of commands re-queued for retry
+;; * `:awaiting-retry`: the number of commands that are currently
+;;                      waiting to be re-inserted into the queue
 ;; * `:discarded`: the number of commands discarded for exceeding the
 ;;                 maximum allowable retry count
 ;; * `:processing-time`: how long it takes to process a command
+;; * `:queue-time`: how long the message spent in the queue before processing
 ;; * `:retry-counts`: histogram containing the number of times
 ;;                    messages have been retried prior to suceeding
 ;; * `:invalidated`: *CURRENTLY DISABLED* - see PDB-3108 commands marked as delete?,
@@ -139,6 +148,7 @@
     {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
      :message-persistence-time (timer mq-metrics-registry
                                       (to-metric-name-fn :message-persistence-time))
+     :queue-time (histogram mq-metrics-registry (to-metric-name-fn :queue-time))
      :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
      :depth (counter mq-metrics-registry (to-metric-name-fn :depth))
 
@@ -147,9 +157,11 @@
      ;; :invalidated (counter mq-metrics-registry (to-metric-name-fn :invalidated))
 
      :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
+     :size (histogram mq-metrics-registry (to-metric-name-fn :size))
      :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
      :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
      :retried (meter mq-metrics-registry (to-metric-name-fn :retried))
+     :awaiting-retry (counter mq-metrics-registry (to-metric-name-fn :awaiting-retry))
      :discarded (meter mq-metrics-registry (to-metric-name-fn :discarded))}))
 
 (def metrics
@@ -507,16 +519,33 @@
   [cmd ex command-chan delay-pool]
   (let [narrowed-entry (-> cmd
                            (queue/cons-attempt ex)
-                           (dissoc :payload))]
-    (after command-delay-ms #(async/>!! command-chan narrowed-entry) delay-pool)))
+                           (dissoc :payload))
+        {:keys [command version]} cmd]
+    (update-counter! :awaiting-retry command version inc!)
+    (after command-delay-ms
+           #(do
+              (async/>!! command-chan narrowed-entry)
+              (update-counter! :awaiting-retry command version dec!))
+           delay-pool)))
+
+(def ^:private iso-formatter (fmt-time/formatters :date-time))
 
 (defn message-handler
   "Processes the message via (process-message msg), retrying messages
   that fail via (delay-message msg), and discarding messages that have
   fatal errors or have exceeded their maximum allowed attempts."
   [q command-chan dlo delay-pool scf-write-db response-chan stats]
-  (fn [{:keys [certname command version delete? id] :as cmdref}]
+  (fn [{:keys [certname command version received delete? id] :as cmdref}]
     (try+
+
+     (when received
+       (let [q-time (-> (fmt-time/parse iso-formatter received)
+                        (time/interval (time/now))
+                        time/in-seconds)]
+         (create-metrics-for-command! command version)
+         (update! (global-metric :queue-time) q-time)
+         (update! (cmd-metric command version :queue-time) q-time)))
+
      (if delete?
        (process-delete-cmdref cmdref q scf-write-db response-chan stats)
        (let [retries (count (:attempts cmdref))]

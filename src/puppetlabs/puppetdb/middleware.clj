@@ -2,7 +2,7 @@
   "Ring middleware"
   (:require [puppetlabs.i18n.core :as i18n]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.jdbc :as jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.query-eng :as qe]
             [puppetlabs.puppetdb.utils.metrics :refer [multitime!]]
             [puppetlabs.puppetdb.http :as http]
@@ -14,16 +14,17 @@
             [clojure.set :as set]
             [pantomime.media :as media]
             [puppetlabs.puppetdb.metrics.core :as metrics]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [metrics.timers :refer [timer time!]]
             [metrics.meters :refer [meter mark!]]
+            [metrics.histograms :refer [update!]]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.utils :as utils]
             [bidi.bidi :as bidi]
             [bidi.ring :as bring]
             [bidi.schema :as bidi-schema]
             [puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [puppetlabs.puppetdb.command :as cmd]))
 
 (def handler-schema (s/=> s/Any {s/Any s/Any}))
 
@@ -251,8 +252,14 @@
     (if (= :post (:request-method req))
       (let [length-in-bytes (request/content-length req)]
 
-        (if length-in-bytes
+        (when length-in-bytes
           (log/debug (i18n/trs "Processing command with a content-length of {0} bytes" length-in-bytes))
+          (let [{:strs [command version]} (:query-params req)]
+            (update! (cmd/global-metric :size) length-in-bytes)
+            (when (and command version)
+              (cmd/create-metrics-for-command! command version)
+              (update! (cmd/cmd-metric command version :size) length-in-bytes))))
+        (when-not length-in-bytes
           (log/warn (i18n/trs "No content length found for POST. POST bodies that are too large could cause memory-related failures.")))
 
         (if (and length-in-bytes
