@@ -1,748 +1,2373 @@
 {
-    "cached_catalog_status": "not_used",
-    "certname": "pg2.vm",
-    "configuration_version": "1423833741",
-    "end_time": "2015-02-13T13:26:57.691Z",
-    "environment": "production",
-    "corrective_change": true,
-    "noop_pending": false,
-    "logs": [
-        {
-            "file": null,
-            "level": "notice",
-            "line": null,
-            "message": "Finished catalog run in 4.55 seconds",
-            "source": "Puppet",
-            "tags": [
-                "notice"
-            ],
-            "time": "2015-02-13T13:27:01.557+00:00"
-        },
-        {
-            "file": "/etc/puppet/modules/postgresql/manifests/server/service.pp",
-            "level": "notice",
-            "line": 41,
-            "message": "Triggered 'refresh' from 1 events",
-            "source": "/Stage[main]/Postgresql::Server::Service/Anchor[postgresql::server::service::end]",
-            "tags": [
-                "node",
-                "notice",
-                "postgresql::server::service::end",
-                "postgresql",
-                "postgresql::server",
-                "anchor",
-                "postgresql::server::service",
-                "server",
-                "pg2.vm",
-                "end",
-                "class",
-                "service"
-            ],
-            "time": "2015-02-13T13:27:01.513+00:00"
-        },
-        {
-            "file": "/etc/puppet/modules/postgresql/manifests/validate_db_connection.pp",
-            "level": "notice",
-            "line": 51,
-            "message": "Triggered 'refresh' from 1 events",
-            "source": "/Stage[main]/Postgresql::Server::Service/Postgresql::Validate_db_connection[validate_service_is_running]/Exec[validate postgres connection for /postgres]",
-            "tags": [
-                "node",
-                "notice",
-                "validate_service_is_running",
-                "postgresql",
-                "postgresql::server",
-                "postgresql::server::service",
-                "server",
-                "validate_db_connection",
-                "pg2.vm",
-                "exec",
-                "class",
-                "postgresql::validate_db_connection",
-                "service"
-            ],
-            "time": "2015-02-13T13:27:01.509+00:00"
-        },
-        {
-            "file": null,
-            "level": "info",
-            "line": null,
-            "message": "Scheduling refresh of Exec[validate postgres connection for /postgres]",
-            "source": "Postgresql::Validate_db_connection[validate_service_is_running]",
-            "tags": [
-                "admissible_postgresql",
-                "validate_service_is_running",
-                "validate_db_connection",
-                "admissible_postgresql::validate_db_connection",
-                "info"
-            ],
-            "time": "2015-02-13T13:27:01.378+00:00"
-        },
-        {
-            "file": "/etc/puppet/modules/postgresql/manifests/server/service.pp",
-            "level": "info",
-            "line": 14,
-            "message": "Unscheduling refresh on Service[postgresqld]",
-            "source": "/Stage[main]/Postgresql::Server::Service/Service[postgresqld]",
-            "tags": [
-                "node",
-                "postgresqld",
-                "postgresql",
-                "postgresql::server",
-                "postgresql::server::service",
-                "server",
-                "pg2.vm",
-                "info",
-                "class",
-                "service"
-            ],
-            "time": "2015-02-13T13:27:01.376+00:00"
-        },
-        {
-            "file": "/etc/puppet/modules/postgresql/manifests/server/service.pp",
-            "level": "notice",
-            "line": 14,
-            "message": "ensure changed 'stopped' to 'running'",
-            "source": "/Stage[main]/Postgresql::Server::Service/Service[postgresqld]/ensure",
-            "tags": [
-                "node",
-                "notice",
-                "postgresqld",
-                "postgresql",
-                "postgresql::server",
-                "postgresql::server::service",
-                "server",
-                "pg2.vm",
-                "class",
-                "service"
-            ],
-            "time": "2015-02-13T13:27:01.375+00:00"
-        },
-        {
-            "file": "/etc/puppet/modules/postgresql/manifests/server/service.pp",
-            "level": "notice",
-            "line": 12,
-            "message": "Triggered 'refresh' from 1 events",
-            "source": "/Stage[main]/Postgresql::Server::Service/Anchor[postgresql::server::service::begin]",
-            "tags": [
-                "node",
-                "notice",
-                "begin",
-                "postgresql::server::service::begin",
-                "postgresql",
-                "postgresql::server",
-                "anchor",
-                "postgresql::server::service",
-                "server",
-                "pg2.vm",
-                "class",
-                "service"
-            ],
-            "time": "2015-02-13T13:26:59.222+00:00"
-        },
-        {
-            "file": null,
-            "level": "info",
-            "line": null,
-            "message": "Scheduling refresh of Anchor[postgresql::server::service::begin]",
-            "source": "Class[Postgresql::Server::Service]",
-            "tags": [
-                "admissible_class",
-                "postgresql",
-                "postgresql::server::service",
-                "server",
-                "info",
-                "service"
-            ],
-            "time": "2015-02-13T13:26:59.221+00:00"
-        },
-        {
-            "file": null,
-            "level": "info",
-            "line": null,
-            "message": "Scheduling refresh of Anchor[postgresql::server::service::end]",
-            "source": "Class[Postgresql::Server::Service]",
-            "tags": [
-                "admissible_class",
-                "postgresql",
-                "postgresql::server::service",
-                "server",
-                "info",
-                "service"
-            ],
-            "time": "2015-02-13T13:26:59.22+00:00"
-        },
-        {
-            "file": null,
-            "level": "info",
-            "line": null,
-            "message": "Scheduling refresh of Postgresql::Validate_db_connection[validate_service_is_running]",
-            "source": "Class[Postgresql::Server::Service]",
-            "tags": [
-                "admissible_class",
-                "postgresql",
-                "postgresql::server::service",
-                "server",
-                "info",
-                "service"
-            ],
-            "time": "2015-02-13T13:26:59.22+00:00"
-        },
-        {
-            "file": null,
-            "level": "info",
-            "line": null,
-            "message": "Scheduling refresh of Service[postgresqld]",
-            "source": "Class[Postgresql::Server::Service]",
-            "tags": [
-                "admissible_class",
-                "postgresql",
-                "postgresql::server::service",
-                "server",
-                "info",
-                "service"
-            ],
-            "time": "2015-02-13T13:26:59.22+00:00"
-        },
-        {
-            "file": "/etc/puppet/manifests/site.pp",
-            "level": "notice",
-            "line": 6,
-            "message": "defined 'message' as 'foo'",
-            "source": "/Stage[main]/Main/Node[pg2.vm]/Notify[foo]/message",
-            "tags": [
-                "node",
-                "notice",
-                "foo",
-                "pg2.vm",
-                "class",
-                "notify"
-            ],
-            "time": "2015-02-13T13:26:58.976+00:00"
-        },
-        {
-            "file": null,
-            "level": "notice",
-            "line": null,
-            "message": "foo",
-            "source": "Puppet",
-            "tags": [
-                "notice"
-            ],
-            "time": "2015-02-13T13:26:58.976+00:00"
-        },
-        {
-            "file": "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
-            "level": "info",
-            "line": 105,
-            "message": "Scheduling refresh of Class[Postgresql::Server::Service]",
-            "source": "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Postgresql_conf[data_directory]",
-            "tags": [
-                "node",
-                "postgresql::server::config",
-                "postgresql::server::config_entry",
-                "postgresql_conf",
-                "data_directory",
-                "postgresql::server",
-                "postgresql",
-                "server",
-                "pg2.vm",
-                "config_entry",
-                "config",
-                "info",
-                "class"
-            ],
-            "time": "2015-02-13T13:26:58.824+00:00"
-        },
-        {
-            "file": null,
-            "level": "info",
-            "line": null,
-            "message": "Computing checksum on file /var/lib/pgsql/data/postgresql.conf",
-            "source": "Puppet",
-            "tags": [
-                "info"
-            ],
-            "time": "2015-02-13T13:26:58.815+00:00"
-        },
-        {
-            "file": "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
-            "level": "notice",
-            "line": 105,
-            "message": "created",
-            "source": "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Postgresql_conf[data_directory]/ensure",
-            "tags": [
-                "node",
-                "notice",
-                "postgresql::server::config",
-                "postgresql::server::config_entry",
-                "postgresql_conf",
-                "data_directory",
-                "postgresql::server",
-                "postgresql",
-                "server",
-                "pg2.vm",
-                "config_entry",
-                "config",
-                "class"
-            ],
-            "time": "2015-02-13T13:26:58.814+00:00"
-        },
-        {
-            "file": "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
-            "level": "info",
-            "line": 90,
-            "message": "Scheduling refresh of Class[Postgresql::Server::Service]",
-            "source": "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Augeas[override PGDATA in /etc/sysconfig/pgsql/postgresql]",
-            "tags": [
-                "node",
-                "postgresql::server::config",
-                "postgresql::server::config_entry",
-                "data_directory",
-                "postgresql::server",
-                "postgresql",
-                "augeas",
-                "server",
-                "pg2.vm",
-                "config_entry",
-                "config",
-                "info",
-                "class"
-            ],
-            "time": "2015-02-13T13:26:58.806+00:00"
-        },
-        {
-            "file": "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
-            "level": "notice",
-            "line": 90,
-            "message": "executed successfully",
-            "source": "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Augeas[override PGDATA in /etc/sysconfig/pgsql/postgresql]/returns",
-            "tags": [
-                "node",
-                "notice",
-                "postgresql::server::config",
-                "postgresql::server::config_entry",
-                "data_directory",
-                "postgresql::server",
-                "postgresql",
-                "augeas",
-                "server",
-                "pg2.vm",
-                "config_entry",
-                "config",
-                "class"
-            ],
-            "time": "2015-02-13T13:26:58.805+00:00"
-        },
-        {
-            "file": null,
-            "level": "notice",
-            "line": null,
-            "message": "\n--- /etc/sysconfig/pgsql/postgresql\t2014-09-18 15:48:23.129826040 +0100\n+++ /etc/sysconfig/pgsql/postgresql.augnew\t2015-02-13 13:26:58.619877991 +0000\n@@ -1,2 +1,3 @@\n \n PGPORT=5432\n+PGDATA=/var/lib/pgsql/data\n",
-            "source": "Augeas[override PGDATA in /etc/sysconfig/pgsql/postgresql](provider=augeas)",
-            "tags": [
-                "notice"
-            ],
-            "time": "2015-02-13T13:26:58.78+00:00"
-        },
-        {
-            "file": "/etc/puppet/modules/postgresql/manifests/server/config.pp",
-            "level": "notice",
-            "line": 120,
-            "message": "created",
-            "source": "/Stage[main]/Postgresql::Server::Config/File[/etc/sysconfig/pgsql/postgresql-8.4]/ensure",
-            "tags": [
-                "node",
-                "notice",
-                "postgresql::server::config",
-                "file",
-                "postgresql::server",
-                "postgresql",
-                "server",
-                "pg2.vm",
-                "config",
-                "class"
-            ],
-            "time": "2015-02-13T13:26:58.583+00:00"
-        },
-        {
-            "file": "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
-            "level": "notice",
-            "line": 83,
-            "message": "executed successfully",
-            "source": "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Exec[postgresql_data_directory]/returns",
-            "tags": [
-                "node",
-                "notice",
-                "postgresql_data_directory",
-                "postgresql::server::config",
-                "postgresql::server::config_entry",
-                "data_directory",
-                "postgresql::server",
-                "postgresql",
-                "server",
-                "pg2.vm",
-                "config_entry",
-                "config",
-                "exec",
-                "class"
-            ],
-            "time": "2015-02-13T13:26:58.57+00:00"
-        },
-        {
-            "file": null,
-            "level": "info",
-            "line": null,
-            "message": "Applying configuration version '1423833741'",
-            "source": "Puppet",
-            "tags": [
-                "info"
-            ],
-            "time": "2015-02-13T13:26:57.059+00:00"
-        },
-        {
-            "file": null,
-            "level": "warning",
-            "line": null,
-            "message": "The package type's allow_virtual parameter will be changing its default value from false to true in a future release. If you do not want to allow virtual packages, please explicitly set allow_virtual to false.\n   (at /usr/lib/ruby/site_ruby/1.8/puppet/type/package.rb:430:in `default')",
-            "source": "Puppet",
-            "tags": [
-                "warning"
-            ],
-            "time": "2015-02-13T13:26:56.789+00:00"
-        },
-        {
-            "file": null,
-            "level": "info",
-            "line": null,
-            "message": "Caching catalog for pg2.vm",
-            "source": "Puppet",
-            "tags": [
-                "info"
-            ],
-            "time": "2015-02-13T13:26:56.714+00:00"
-        },
-        {
-            "file": null,
-            "level": "info",
-            "line": null,
-            "message": "Loading facts",
-            "source": "Puppet",
-            "tags": [
-                "info"
-            ],
-            "time": "2015-02-13T13:26:54.936+00:00"
-        },
-        {
-            "file": null,
-            "level": "info",
-            "line": null,
-            "message": "Retrieving plugin",
-            "source": "Puppet",
-            "tags": [
-                "info"
-            ],
-            "time": "2015-02-13T13:26:52.669+00:00"
-        },
-        {
-            "file": null,
-            "level": "info",
-            "line": null,
-            "message": "Retrieving pluginfacts",
-            "source": "Puppet",
-            "tags": [
-                "info"
-            ],
-            "time": "2015-02-13T13:26:52.621+00:00"
-        }
-    ],
-    "metrics": [
-        {
-            "category": "time",
-            "name": "anchor",
-            "value": 0.000567
-        },
-        {
-            "category": "time",
-            "name": "augeas",
-            "value": 0.250754
-        },
-        {
-            "category": "time",
-            "name": "config_retrieval",
-            "value": 0.956570863723755
-        },
-        {
-            "category": "time",
-            "name": "exec",
-            "value": 1.549255
-        },
-        {
-            "category": "time",
-            "name": "file",
-            "value": 0.202946
-        },
-        {
-            "category": "time",
-            "name": "filebucket",
-            "value": 0.000101
-        },
-        {
-            "category": "time",
-            "name": "notify",
-            "value": 0.00144
-        },
-        {
-            "category": "time",
-            "name": "package",
-            "value": 0.001022
-        },
-        {
-            "category": "time",
-            "name": "postgresql_conf",
-            "value": 0.01103
-        },
-        {
-            "category": "time",
-            "name": "schedule",
-            "value": 0.000922
-        },
-        {
-            "category": "time",
-            "name": "service",
-            "value": 2.152731
-        },
-        {
-            "category": "time",
-            "name": "total",
-            "value": 5.12733886372376
-        },
-        {
-            "category": "resources",
-            "name": "changed",
-            "value": 6
-        },
-        {
-            "category": "resources",
-            "name": "failed",
-            "value": 0
-        },
-        {
-            "category": "resources",
-            "name": "failed_to_restart",
-            "value": 0
-        },
-        {
-            "category": "resources",
-            "name": "out_of_sync",
-            "value": 6
-        },
-        {
-            "category": "resources",
-            "name": "restarted",
-            "value": 3
-        },
-        {
-            "category": "resources",
-            "name": "scheduled",
-            "value": 0
-        },
-        {
-            "category": "resources",
-            "name": "skipped",
-            "value": 0
-        },
-        {
-            "category": "resources",
-            "name": "total",
-            "value": 50
-        },
-        {
-            "category": "events",
-            "name": "failure",
-            "value": 0
-        },
-        {
-            "category": "events",
-            "name": "success",
-            "value": 6
-        },
-        {
-            "category": "events",
-            "name": "total",
-            "value": 6
-        },
-        {
-            "category": "changes",
-            "name": "total",
-            "value": 6
-        }
-    ],
-    "noop": true,
-    "puppet_version": "3.7.1",
-    "report_format": 4,
-    "resources": [
-        {
-            "containment_path": [
-                "Stage[main]",
-                "Postgresql::Server::Config",
-                "Postgresql::Server::Config_entry[data_directory]",
-                "Exec[postgresql_data_directory]"
-            ],
-            "events": [
-                {
-                    "message": "executed successfully",
-                    "new_value": [
-                        "0"
-                    ],
-                    "old_value": "notrun",
-                    "property": "returns",
-                    "status": "success",
-                    "corrective_change": true,
-                    "timestamp": "2015-02-13T13:26:57.409Z"
-                }
-            ],
-            "file": "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
-            "line": 83,
-            "corrective_change": true,
-            "resource_title": "postgresql_data_directory",
-            "resource_type": "Exec",
-            "skipped": false,
-            "timestamp": "2015-02-13T13:26:57.409Z"
-        },
-        {
-            "containment_path": [
-                "Stage[main]",
-                "Postgresql::Server::Config",
-                "File[/etc/sysconfig/pgsql/postgresql-8.4]"
-            ],
-            "events": [
-                {
-                    "message": "created",
-                    "new_value": "link",
-                    "old_value": "absent",
-                    "property": "ensure",
-                    "status": "success",
-                    "corrective_change": false,
-                    "timestamp": "2015-02-13T13:26:58.573Z"
-                }
-            ],
-            "file": "/etc/puppet/modules/postgresql/manifests/server/config.pp",
-            "line": 120,
-            "resource_title": "/etc/sysconfig/pgsql/postgresql-8.4",
-            "resource_type": "File",
-            "corrective_change": false,
-            "skipped": false,
-            "timestamp": "2015-02-13T13:26:58.573Z"
-        },
-        {
-            "containment_path": [
-                "Stage[main]",
-                "Postgresql::Server::Config",
-                "Postgresql::Server::Config_entry[data_directory]",
-                "Augeas[override PGDATA in /etc/sysconfig/pgsql/postgresql]"
-            ],
-            "events": [
-                {
-                    "message": "executed successfully",
-                    "new_value": 0,
-                    "old_value": "need_to_run",
-                    "property": "returns",
-                    "status": "success",
-                    "corrective_change": false,
-                    "timestamp": "2015-02-13T13:26:58.781Z"
-                }
-            ],
-            "file": "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
-            "line": 90,
-            "corrective_change": false,
-            "resource_title": "override PGDATA in /etc/sysconfig/pgsql/postgresql",
-            "resource_type": "Augeas",
-            "skipped": false,
-            "timestamp": "2015-02-13T13:26:58.781Z"
-        },
-        {
-            "containment_path": [
-                "Stage[main]",
-                "Postgresql::Server::Config",
-                "Postgresql::Server::Config_entry[data_directory]",
-                "Postgresql_conf[data_directory]"
-            ],
-            "events": [
-                {
-                    "message": "created",
-                    "new_value": "present",
-                    "old_value": "absent",
-                    "property": "ensure",
-                    "status": "success",
-                    "corrective_change": false,
-                    "timestamp": "2015-02-13T13:26:58.814Z"
-                }
-            ],
-            "file": "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
-            "line": 105,
-            "resource_title": "data_directory",
-            "resource_type": "Postgresql_conf",
-            "corrective_change": false,
-            "skipped": false,
-            "timestamp": "2015-02-13T13:26:58.814Z"
-        },
-        {
-            "containment_path": [
-                "Stage[main]",
-                "Main",
-                "Node[pg2.vm]",
-                "Notify[foo]"
-            ],
-            "events": [
-                {
-                    "message": "defined 'message' as 'foo'",
-                    "new_value": "foo",
-                    "old_value": "absent",
-                    "property": "message",
-                    "status": "success",
-                    "corrective_change": false,
-                    "timestamp": "2015-02-13T13:26:58.975Z"
-                }
-            ],
-            "file": "/etc/puppet/manifests/site.pp",
-            "line": 6,
-            "resource_title": "foo",
-            "corrective_change": false,
-            "resource_type": "Notify",
-            "skipped": false,
-            "timestamp": "2015-02-13T13:26:58.975Z"
-        },
-        {
-            "containment_path": [
-                "Stage[main]",
-                "Postgresql::Server::Service",
-                "Service[postgresqld]"
-            ],
-            "events": [
-                {
-                    "message": "ensure changed 'stopped' to 'running'",
-                    "new_value": "running",
-                    "old_value": "stopped",
-                    "property": "ensure",
-                    "status": "success",
-                    "corrective_change": false,
-                    "timestamp": "2015-02-13T13:26:59.281Z"
-                }
-            ],
-            "file": "/etc/puppet/modules/postgresql/manifests/server/service.pp",
-            "line": 14,
-            "corrective_change": false,
-            "resource_title": "postgresqld",
-            "resource_type": "Service",
-            "skipped": false,
-            "timestamp": "2015-02-13T13:26:59.281Z"
-        }
-    ],
-    "start_time": "2015-02-13T13:26:52.564Z",
-    "status": "changed",
-    "catalog_uuid": "f9e15df3-bbfb-404c-80bd-f29ecdbe5283",
-    "producer": "foo.com",
-    "code_id": "8589ce99-5690-4900-a249-a052e044ca11",
-    "transaction_uuid": "9df4e7ce-5646-4178-8ff8-db6add84e9fc"
+  "corrective_change" : true,
+  "code_id" : "8589ce99-5690-4900-a249-a052e044ca11",
+  "noop" : true,
+  "certname" : "pg2.vm",
+  "puppet_version" : "3.7.1",
+  "cached_catalog_status" : "not_used",
+  "transaction_uuid" : "9df4e7ce-5646-4178-8ff8-db6add84e9fc",
+  "configuration_version" : "1423833741",
+  "status" : "changed",
+  "producer" : "foo.com",
+  "catalog_uuid" : "f9e15df3-bbfb-404c-80bd-f29ecdbe5283",
+  "logs" : [ {
+    "file" : null,
+    "level" : "notice",
+    "line" : null,
+    "message" : "Finished catalog run in 4.55 seconds",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:27:01.557+00:00"
+  }, {
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/service.pp",
+    "level" : "notice",
+    "line" : 41,
+    "message" : "Triggered 'refresh' from 1 events",
+    "source" : "/Stage[main]/Postgresql::Server::Service/Anchor[postgresql::server::service::end]",
+    "tags" : [ "node", "notice", "postgresql::server::service::end", "postgresql", "postgresql::server", "anchor", "postgresql::server::service", "server", "pg2.vm", "end", "class", "service" ],
+    "time" : "2015-02-13T13:27:01.513+00:00"
+  }, {
+    "file" : "/etc/puppet/modules/postgresql/manifests/validate_db_connection.pp",
+    "level" : "notice",
+    "line" : 51,
+    "message" : "Triggered 'refresh' from 1 events",
+    "source" : "/Stage[main]/Postgresql::Server::Service/Postgresql::Validate_db_connection[validate_service_is_running]/Exec[validate postgres connection for /postgres]",
+    "tags" : [ "node", "notice", "validate_service_is_running", "postgresql", "postgresql::server", "postgresql::server::service", "server", "validate_db_connection", "pg2.vm", "exec", "class", "postgresql::validate_db_connection", "service" ],
+    "time" : "2015-02-13T13:27:01.509+00:00"
+  }, {
+    "file" : null,
+    "level" : "info",
+    "line" : null,
+    "message" : "Scheduling refresh of Exec[validate postgres connection for /postgres]",
+    "source" : "Postgresql::Validate_db_connection[validate_service_is_running]",
+    "tags" : [ "admissible_postgresql", "validate_service_is_running", "validate_db_connection", "admissible_postgresql::validate_db_connection", "info" ],
+    "time" : "2015-02-13T13:27:01.378+00:00"
+  }, {
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/service.pp",
+    "level" : "info",
+    "line" : 14,
+    "message" : "Unscheduling refresh on Service[postgresqld]",
+    "source" : "/Stage[main]/Postgresql::Server::Service/Service[postgresqld]",
+    "tags" : [ "node", "postgresqld", "postgresql", "postgresql::server", "postgresql::server::service", "server", "pg2.vm", "info", "class", "service" ],
+    "time" : "2015-02-13T13:27:01.376+00:00"
+  }, {
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/service.pp",
+    "level" : "notice",
+    "line" : 14,
+    "message" : "ensure changed 'stopped' to 'running'",
+    "source" : "/Stage[main]/Postgresql::Server::Service/Service[postgresqld]/ensure",
+    "tags" : [ "node", "notice", "postgresqld", "postgresql", "postgresql::server", "postgresql::server::service", "server", "pg2.vm", "class", "service" ],
+    "time" : "2015-02-13T13:27:01.375+00:00"
+  }, {
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/service.pp",
+    "level" : "notice",
+    "line" : 12,
+    "message" : "Triggered 'refresh' from 1 events",
+    "source" : "/Stage[main]/Postgresql::Server::Service/Anchor[postgresql::server::service::begin]",
+    "tags" : [ "node", "notice", "begin", "postgresql::server::service::begin", "postgresql", "postgresql::server", "anchor", "postgresql::server::service", "server", "pg2.vm", "class", "service" ],
+    "time" : "2015-02-13T13:26:59.222+00:00"
+  }, {
+    "file" : null,
+    "level" : "info",
+    "line" : null,
+    "message" : "Scheduling refresh of Anchor[postgresql::server::service::begin]",
+    "source" : "Class[Postgresql::Server::Service]",
+    "tags" : [ "admissible_class", "postgresql", "postgresql::server::service", "server", "info", "service" ],
+    "time" : "2015-02-13T13:26:59.221+00:00"
+  }, {
+    "file" : null,
+    "level" : "info",
+    "line" : null,
+    "message" : "Scheduling refresh of Anchor[postgresql::server::service::end]",
+    "source" : "Class[Postgresql::Server::Service]",
+    "tags" : [ "admissible_class", "postgresql", "postgresql::server::service", "server", "info", "service" ],
+    "time" : "2015-02-13T13:26:59.22+00:00"
+  }, {
+    "file" : null,
+    "level" : "info",
+    "line" : null,
+    "message" : "Scheduling refresh of Postgresql::Validate_db_connection[validate_service_is_running]",
+    "source" : "Class[Postgresql::Server::Service]",
+    "tags" : [ "admissible_class", "postgresql", "postgresql::server::service", "server", "info", "service" ],
+    "time" : "2015-02-13T13:26:59.22+00:00"
+  }, {
+    "file" : null,
+    "level" : "info",
+    "line" : null,
+    "message" : "Scheduling refresh of Service[postgresqld]",
+    "source" : "Class[Postgresql::Server::Service]",
+    "tags" : [ "admissible_class", "postgresql", "postgresql::server::service", "server", "info", "service" ],
+    "time" : "2015-02-13T13:26:59.22+00:00"
+  }, {
+    "file" : "/etc/puppet/manifests/site.pp",
+    "level" : "notice",
+    "line" : 6,
+    "message" : "defined 'message' as 'foo'",
+    "source" : "/Stage[main]/Main/Node[pg2.vm]/Notify[foo]/message",
+    "tags" : [ "node", "notice", "foo", "pg2.vm", "class", "notify" ],
+    "time" : "2015-02-13T13:26:58.976+00:00"
+  }, {
+    "file" : null,
+    "level" : "notice",
+    "line" : null,
+    "message" : "foo",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:26:58.976+00:00"
+  }, {
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "level" : "info",
+    "line" : 105,
+    "message" : "Scheduling refresh of Class[Postgresql::Server::Service]",
+    "source" : "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Postgresql_conf[data_directory]",
+    "tags" : [ "node", "postgresql::server::config", "postgresql::server::config_entry", "postgresql_conf", "data_directory", "postgresql::server", "postgresql", "server", "pg2.vm", "config_entry", "config", "info", "class" ],
+    "time" : "2015-02-13T13:26:58.824+00:00"
+  }, {
+    "file" : null,
+    "level" : "info",
+    "line" : null,
+    "message" : "Computing checksum on file /var/lib/pgsql/data/postgresql.conf",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:26:58.815+00:00"
+  }, {
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "level" : "notice",
+    "line" : 105,
+    "message" : "created",
+    "source" : "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Postgresql_conf[data_directory]/ensure",
+    "tags" : [ "node", "notice", "postgresql::server::config", "postgresql::server::config_entry", "postgresql_conf", "data_directory", "postgresql::server", "postgresql", "server", "pg2.vm", "config_entry", "config", "class" ],
+    "time" : "2015-02-13T13:26:58.814+00:00"
+  }, {
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "level" : "info",
+    "line" : 90,
+    "message" : "Scheduling refresh of Class[Postgresql::Server::Service]",
+    "source" : "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Augeas[override PGDATA in /etc/sysconfig/pgsql/postgresql]",
+    "tags" : [ "node", "postgresql::server::config", "postgresql::server::config_entry", "data_directory", "postgresql::server", "postgresql", "augeas", "server", "pg2.vm", "config_entry", "config", "info", "class" ],
+    "time" : "2015-02-13T13:26:58.806+00:00"
+  }, {
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "level" : "notice",
+    "line" : 90,
+    "message" : "executed successfully",
+    "source" : "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Augeas[override PGDATA in /etc/sysconfig/pgsql/postgresql]/returns",
+    "tags" : [ "node", "notice", "postgresql::server::config", "postgresql::server::config_entry", "data_directory", "postgresql::server", "postgresql", "augeas", "server", "pg2.vm", "config_entry", "config", "class" ],
+    "time" : "2015-02-13T13:26:58.805+00:00"
+  }, {
+    "file" : null,
+    "level" : "notice",
+    "line" : null,
+    "message" : "\n--- /etc/sysconfig/pgsql/postgresql\t2014-09-18 15:48:23.129826040 +0100\n+++ /etc/sysconfig/pgsql/postgresql.augnew\t2015-02-13 13:26:58.619877991 +0000\n@@ -1,2 +1,3 @@\n \n PGPORT=5432\n+PGDATA=/var/lib/pgsql/data\n",
+    "source" : "Augeas[override PGDATA in /etc/sysconfig/pgsql/postgresql](provider=augeas)",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:26:58.78+00:00"
+  }, {
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config.pp",
+    "level" : "notice",
+    "line" : 120,
+    "message" : "created",
+    "source" : "/Stage[main]/Postgresql::Server::Config/File[/etc/sysconfig/pgsql/postgresql-8.4]/ensure",
+    "tags" : [ "node", "notice", "postgresql::server::config", "file", "postgresql::server", "postgresql", "server", "pg2.vm", "config", "class" ],
+    "time" : "2015-02-13T13:26:58.583+00:00"
+  }, {
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "level" : "notice",
+    "line" : 83,
+    "message" : "executed successfully",
+    "source" : "/Stage[main]/Postgresql::Server::Config/Postgresql::Server::Config_entry[data_directory]/Exec[postgresql_data_directory]/returns",
+    "tags" : [ "node", "notice", "postgresql_data_directory", "postgresql::server::config", "postgresql::server::config_entry", "data_directory", "postgresql::server", "postgresql", "server", "pg2.vm", "config_entry", "config", "exec", "class" ],
+    "time" : "2015-02-13T13:26:58.57+00:00"
+  }, {
+    "file" : null,
+    "level" : "info",
+    "line" : null,
+    "message" : "Applying configuration version '1423833741'",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:26:57.059+00:00"
+  }, {
+    "file" : null,
+    "level" : "warning",
+    "line" : null,
+    "message" : "The package type's allow_virtual parameter will be changing its default value from false to true in a future release. If you do not want to allow virtual packages, please explicitly set allow_virtual to false.\n   (at /usr/lib/ruby/site_ruby/1.8/puppet/type/package.rb:430:in `default')",
+    "source" : "Puppet",
+    "tags" : [ "warning" ],
+    "time" : "2015-02-13T13:26:56.789+00:00"
+  }, {
+    "file" : null,
+    "level" : "info",
+    "line" : null,
+    "message" : "Caching catalog for pg2.vm",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:26:56.714+00:00"
+  }, {
+    "file" : null,
+    "level" : "info",
+    "line" : null,
+    "message" : "Loading facts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:26:54.936+00:00"
+  }, {
+    "file" : null,
+    "level" : "info",
+    "line" : null,
+    "message" : "Retrieving plugin",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:26:52.669+00:00"
+  }, {
+    "file" : null,
+    "level" : "info",
+    "line" : null,
+    "message" : "Retrieving pluginfacts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:26:52.621+00:00"
+  } ],
+  "noop_pending" : false,
+  "end_time" : "2015-02-13T13:26:57.691Z",
+  "environment" : "production",
+  "start_time" : "2015-02-13T13:26:52.564Z",
+  "metrics" : [ {
+    "category" : "time",
+    "name" : "anchor",
+    "value" : 5.67E-4
+  }, {
+    "category" : "time",
+    "name" : "augeas",
+    "value" : 0.250754
+  }, {
+    "category" : "time",
+    "name" : "config_retrieval",
+    "value" : 0.956570863723755
+  }, {
+    "category" : "time",
+    "name" : "exec",
+    "value" : 1.549255
+  }, {
+    "category" : "time",
+    "name" : "file",
+    "value" : 0.202946
+  }, {
+    "category" : "time",
+    "name" : "filebucket",
+    "value" : 1.01E-4
+  }, {
+    "category" : "time",
+    "name" : "notify",
+    "value" : 0.00144
+  }, {
+    "category" : "time",
+    "name" : "package",
+    "value" : 0.001022
+  }, {
+    "category" : "time",
+    "name" : "postgresql_conf",
+    "value" : 0.01103
+  }, {
+    "category" : "time",
+    "name" : "schedule",
+    "value" : 9.22E-4
+  }, {
+    "category" : "time",
+    "name" : "service",
+    "value" : 2.152731
+  }, {
+    "category" : "time",
+    "name" : "total",
+    "value" : 5.12733886372376
+  }, {
+    "category" : "resources",
+    "name" : "changed",
+    "value" : 6
+  }, {
+    "category" : "resources",
+    "name" : "failed",
+    "value" : 0
+  }, {
+    "category" : "resources",
+    "name" : "failed_to_restart",
+    "value" : 0
+  }, {
+    "category" : "resources",
+    "name" : "out_of_sync",
+    "value" : 6
+  }, {
+    "category" : "resources",
+    "name" : "restarted",
+    "value" : 3
+  }, {
+    "category" : "resources",
+    "name" : "scheduled",
+    "value" : 0
+  }, {
+    "category" : "resources",
+    "name" : "skipped",
+    "value" : 0
+  }, {
+    "category" : "resources",
+    "name" : "total",
+    "value" : 50
+  }, {
+    "category" : "events",
+    "name" : "failure",
+    "value" : 0
+  }, {
+    "category" : "events",
+    "name" : "success",
+    "value" : 6
+  }, {
+    "category" : "events",
+    "name" : "total",
+    "value" : 6
+  }, {
+    "category" : "changes",
+    "name" : "total",
+    "value" : 6
+  } ],
+  "report_format" : 4,
+  "resources" : [ {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "alias",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 9,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/alias.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/_etc_apache2_ports.conf/fragments/10_Apache ports header",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authn_file.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/etc/apache2/sites-enabled",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 222,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "cgid.conf symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 127,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default",
+    "resource_type" : "Apache::Vhost",
+    "events" : [ ],
+    "line" : 339,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "mkdir /etc/apache2/mods-enabled",
+    "resource_type" : "Exec",
+    "events" : [ ],
+    "line" : 184,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf/fragments/50_default-ssl-directories",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authz_groupfile.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "deflate.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/_etc_apache2_ports.conf/fragments/10_Listen 80",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "ntp::end",
+    "resource_type" : "Anchor",
+    "events" : [ ],
+    "line" : 62,
+    "file" : "/home/wyatt/.puppet/modules/ntp/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "setup",
+    "resource_type" : "Stage",
+    "events" : [ ],
+    "line" : 35,
+    "file" : "/home/wyatt/.puppet/modules/stdlib/manifests/stages.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "reqtimeout.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 13,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/reqtimeout.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Service",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : 130,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "setenvif.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Stdlib",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dir",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 9,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/dir.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf/fragments/90_default-ssl-access_log",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "setenvif.conf symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 127,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Ntp::Config",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : 60,
+    "file" : "/home/wyatt/.puppet/modules/ntp/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/_etc_apache2_ports.conf/fragments.concat.out",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 167,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dav_fs.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/etc/apache2/mods-available/worker.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 45,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/worker.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/etc/ntp.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 20,
+    "file" : "/home/wyatt/.puppet/modules/ntp/manifests/config.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default.conf/fragments/0_default-apache-header",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "mime.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "autoindex.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 11,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/autoindex.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "negotiation.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-ssl-apache-header",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 453,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf/fragments/80_default-ssl-serversignature",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "cgid.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 21,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/cgid.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/var/log/apache2",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 256,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default.conf/fragments/999_default-file_footer",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Default_mods",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : 311,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "15-default.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 179,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "setenvif",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 2,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/setenvif.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dir.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 20,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/dir.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Mod::Alias",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default.conf/fragments.concat.out",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 167,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "hdyu",
+    "resource_type" : "ZID",
+    "events" : [ ],
+    "line" : 400,
+    "file" : "JlvbbGQ2Fx",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "ntp",
+    "resource_type" : "Service",
+    "events" : [ ],
+    "line" : 15,
+    "file" : "/home/wyatt/.puppet/modules/ntp/manifests/service.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "main",
+    "resource_type" : "Stage",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Mod::Dav_fs",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "reqtimeout.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default.conf/fragments.concat",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 162,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf/fragments/10_default-ssl-docroot",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "deploy_app",
+    "resource_type" : "Stage",
+    "events" : [ ],
+    "line" : 40,
+    "file" : "/home/wyatt/.puppet/modules/stdlib/manifests/stages.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dir.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "autoindex",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 2,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/autoindex.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dav.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Default_confd_files",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : 315,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "reqtimeout",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 4,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/reqtimeout.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/etc/apache2/apache2.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 299,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "cgid",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 11,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/cgid.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf/fragments/999_default-ssl-file_footer",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/etc/apache2/ports.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 179,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dav.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dav_fs.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "15-default.conf",
+    "resource_type" : "Concat",
+    "events" : [ ],
+    "line" : 426,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authz_user",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 139,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/default_mods.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "alias.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "mkdir /etc/apache2/mods-available",
+    "resource_type" : "Exec",
+    "events" : [ ],
+    "line" : 167,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authz_host.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/bin/concatfragments.sh",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 58,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/setup.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authn_file.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/etc/apache2/ports.conf",
+    "resource_type" : "Concat",
+    "events" : [ ],
+    "line" : 233,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/etc/apache2/mods-enabled",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 191,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/etc/apache2/sites-available",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 207,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default.conf/fragments/70_default-logging",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-ssl",
+    "resource_type" : "Apache::Vhost",
+    "events" : [ ],
+    "line" : 355,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-directories",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 506,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dav_fs.conf symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 127,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default.conf/fragments/50_default-directories",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf/fragments.concat",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 209,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "httpd",
+    "resource_type" : "Package",
+    "events" : [ ],
+    "line" : 99,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "ntp",
+    "resource_type" : "Package",
+    "events" : [ ],
+    "line" : 6,
+    "file" : "/home/wyatt/.puppet/modules/ntp/manifests/install.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-docroot",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 462,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "setup_infra",
+    "resource_type" : "Stage",
+    "events" : [ ],
+    "line" : 37,
+    "file" : "/home/wyatt/.puppet/modules/stdlib/manifests/stages.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/etc/apache2/conf.d",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 161,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "env",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 140,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/default_mods.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dir.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authz_default.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-ssl-serversignature",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 537,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "mkdir /etc/apache2/sites-enabled",
+    "resource_type" : "Exec",
+    "events" : [ ],
+    "line" : 215,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "mime",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 5,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/mime.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Mod::Negotiation",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "negotiation.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 24,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/negotiation.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Mod::Deflate",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authz_host.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "alias.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Mod::Worker",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : 317,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dav",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 2,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/dav.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authz_groupfile",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 138,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/default_mods.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authz_host",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 23,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/default_mods.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authz_user.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 147,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authn_file",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 121,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/default_mods.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "mime.conf symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 127,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "env.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "autoindex.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-file_footer",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 821,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Version",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "deploy_infra",
+    "resource_type" : "Stage",
+    "events" : [ ],
+    "line" : 38,
+    "file" : "/home/wyatt/.puppet/modules/stdlib/manifests/stages.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "NameVirtualHost *:80",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 9,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/namevirtualhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "negotiation",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 15,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/negotiation.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "autoindex.conf symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 127,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "mkdir /etc/apache2/sites-available",
+    "resource_type" : "Exec",
+    "events" : [ ],
+    "line" : 200,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/_etc_apache2_ports.conf/fragments",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 157,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "httpd",
+    "resource_type" : "Service",
+    "events" : [ ],
+    "line" : 43,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/service.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "concat_15-default.conf",
+    "resource_type" : "Exec",
+    "events" : [ ],
+    "line" : 199,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Ntp::Params",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "deploy",
+    "resource_type" : "Stage",
+    "events" : [ ],
+    "line" : 41,
+    "file" : "/home/wyatt/.puppet/modules/stdlib/manifests/stages.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "deflate.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "cgid.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-serversignature",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 537,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/_etc_apache2_ports.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 147,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Ntp::Install",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : 59,
+    "file" : "/home/wyatt/.puppet/modules/ntp/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/etc/apache2/sites-available/15-default-ssl.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 214,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Concat::Setup",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "mime-support",
+    "resource_type" : "Package",
+    "events" : [ ],
+    "line" : 19,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/mime.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-logging",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 529,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "apache2-mpm-worker",
+    "resource_type" : "Package",
+    "events" : [ ],
+    "line" : 53,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mpm.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/bin",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 63,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/setup.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/etc/apache2/mods-available",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 176,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf/fragments/0_default-ssl-apache-header",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Ntp::Service",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : 61,
+    "file" : "/home/wyatt/.puppet/modules/ntp/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "auth_basic.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "autoindex.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "80",
+    "resource_type" : "Apache::Listen",
+    "events" : [ ],
+    "line" : 334,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "ntp::begin",
+    "resource_type" : "Anchor",
+    "events" : [ ],
+    "line" : 58,
+    "file" : "/home/wyatt/.puppet/modules/ntp/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Mod::Dav",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Settings",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-ssl-ssl",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 696,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Mod::Setenvif",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 63,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/setup.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "concat_15-default-ssl.conf",
+    "resource_type" : "Exec",
+    "events" : [ ],
+    "line" : 232,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "15-default-ssl.conf",
+    "resource_type" : "Concat",
+    "events" : [ ],
+    "line" : 426,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-access_log",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 550,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dav_fs.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 19,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/dav_fs.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "env.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dir.conf symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 127,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "main",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-ssl-access_log",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 550,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "reqtimeout.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "alias.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 18,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/alias.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "deflate",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 14,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/deflate.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "deflate.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 23,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/deflate.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "concat_/etc/apache2/ports.conf",
+    "resource_type" : "Exec",
+    "events" : [ ],
+    "line" : 199,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authz_default.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "auth_basic",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 120,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/default_mods.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "setup_app",
+    "resource_type" : "Stage",
+    "events" : [ ],
+    "line" : 39,
+    "file" : "/home/wyatt/.puppet/modules/stdlib/manifests/stages.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 209,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "15-default-ssl.conf symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 442,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default.conf/fragments",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 157,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "reqtimeout.conf symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 127,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "dav_fs",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 9,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/dav_fs.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default.conf/fragments/10_default-docroot",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authz_user.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authz_default",
+    "resource_type" : "Apache::Mod",
+    "events" : [ ],
+    "line" : 135,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/default_mods.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "negotiation.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "authz_groupfile.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "setenvif.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf/fragments.concat.out",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 209,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf/fragments",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 209,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf/fragments/70_default-ssl-logging",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "cgid.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-apache-header",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 453,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "mime.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 14,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/mime.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default.conf/fragments/80_default-serversignature",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default-ssl.conf/fragments/200_default-ssl-ssl",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "mkdir /etc/apache2/conf.d",
+    "resource_type" : "Exec",
+    "events" : [ ],
+    "line" : 154,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Stdlib::Stages",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : 18,
+    "file" : "/home/wyatt/.puppet/modules/stdlib/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Mod::Dir",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Mod::Autoindex",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "deflate.conf symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 127,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Mod::Mime",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Mod::Reqtimeout",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/15-default.conf/fragments/90_default-access_log",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-ssl-file_footer",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 821,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-ssl-directories",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 506,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/etc/apache2/mods-enabled/worker.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 38,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mpm.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "negotiation.conf symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 127,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "mime.load symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 109,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "setenvif.conf",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 11,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/setenvif.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "auth_basic.load",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 92,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-ssl-logging",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 529,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "15-default.conf symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 442,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache ports header",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 238,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "www-data",
+    "resource_type" : "User",
+    "events" : [ ],
+    "line" : 111,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/var/www",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 246,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "*:80",
+    "resource_type" : "Apache::Namevirtualhost",
+    "events" : [ ],
+    "line" : 339,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Listen 80",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 9,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/listen.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/_etc_apache2_ports.conf/fragments.concat",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 162,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "www-data",
+    "resource_type" : "Group",
+    "events" : [ ],
+    "line" : 118,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/init.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "alias.conf symlink",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 127,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "/home/wyatt/.puppet/var/concat/_etc_apache2_ports.conf/fragments/10_NameVirtualHost *_80",
+    "resource_type" : "File",
+    "events" : [ ],
+    "line" : 123,
+    "file" : "/home/wyatt/.puppet/modules/concat/manifests/fragment.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Params",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "runtime",
+    "resource_type" : "Stage",
+    "events" : [ ],
+    "line" : 36,
+    "file" : "/home/wyatt/.puppet/modules/stdlib/manifests/stages.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Apache::Mod::Cgid",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "worker",
+    "resource_type" : "Apache::Mpm",
+    "events" : [ ],
+    "line" : 68,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/mod/worker.pp",
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "Ntp",
+    "resource_type" : "Class",
+    "events" : [ ],
+    "line" : null,
+    "file" : null,
+    "skipped" : false
+  }, {
+    "corrective_change" : null,
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "timestamp" : "2016-10-14T10:07:38.735055076-05:00",
+    "resource_title" : "default-ssl-docroot",
+    "resource_type" : "Concat::Fragment",
+    "events" : [ ],
+    "line" : 462,
+    "file" : "/home/wyatt/.puppet/modules/apache/manifests/vhost.pp",
+    "skipped" : false
+  } ]
 }
