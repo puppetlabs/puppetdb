@@ -1004,6 +1004,7 @@
                       scf-store/update-facts!
                       (fn [fact-data]
                         (.countDown latch)
+                        (.await latch)
                         (storage-replace-facts! fact-data))]
           (let [first-message? (atom false)
                 second-message? (atom false)
@@ -1217,6 +1218,7 @@
                       scf-store/replace-catalog!
                       (fn [& args]
                         (.countDown latch)
+                        (.await latch)
                         (apply orig-replace-catalog! args))]
           (let [first-message? (atom false)
                 second-message? (atom false)
@@ -1268,6 +1270,7 @@
                       scf-store/replace-catalog!
                       (fn [& args]
                         (.countDown latch)
+                        (.await latch)
                         (apply orig-replace-catalog! args))]
           (let [first-message? (atom false)
                 fut (future
