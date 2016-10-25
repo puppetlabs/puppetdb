@@ -1272,10 +1272,9 @@
                         (.countDown latch)
                         (.await latch)
                         (apply orig-replace-catalog! args))]
-          (let [first-message? (atom false)
-                fut (future
+          (let [fut (future
                       (handle-message (store-command' q command))
-                      (reset! first-message? true))
+                      ::handled-first-message)
 
                 new-wire-catalog (update wire-catalog :resources
                                          conj
@@ -1294,15 +1293,12 @@
 
             (handle-message (store-command' q new-catalog-cmd))
 
-            @fut
-
+            (is (= ::handled-first-message (deref fut (* 1000 60) nil)))
             (is (empty? (fs/list-dir (:path dlo))))
             (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
               (is (-> failed-cmdref :attempts first :exception
-                      pg-serialization-failure-ex?)))
-
-            (is (true? @first-message?))))))))
+                      pg-serialization-failure-ex?)))))))))
 
 (let [cases [{:certname "foo.example.com"
               :command {:command (command-names :deactivate-node)
