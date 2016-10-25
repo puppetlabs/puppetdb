@@ -1206,7 +1206,7 @@
                      :payload wire-catalog}
 
             latch (java.util.concurrent.CountDownLatch. 2)
-            orig-replace-existing-catalog scf-store/replace-existing-catalog]
+            orig-replace-catalog! scf-store/replace-catalog!]
 
         (jdbc/with-db-transaction []
           (scf-store/add-certname! certname)
@@ -1214,10 +1214,10 @@
 
         (with-redefs [quick-retry-count 0
                       command-delay-ms 1
-                      scf-store/replace-existing-catalog
+                      scf-store/replace-catalog!
                       (fn [& args]
                         (.countDown latch)
-                        (apply orig-replace-existing-catalog args))]
+                        (apply orig-replace-catalog! args))]
           (let [first-message? (atom false)
                 second-message? (atom false)
                 fut (future
@@ -1257,7 +1257,7 @@
                      :payload wire-catalog}
 
             latch (java.util.concurrent.CountDownLatch. 2)
-            orig-replace-existing-catalog scf-store/replace-existing-catalog]
+            orig-replace-catalog! scf-store/replace-catalog!]
 
         (jdbc/with-db-transaction []
           (scf-store/add-certname! certname)
@@ -1265,10 +1265,10 @@
 
         (with-redefs [quick-retry-count 0
                       command-delay-ms 1
-                      scf-store/replace-existing-catalog
+                      scf-store/replace-catalog!
                       (fn [& args]
                         (.countDown latch)
-                        (apply orig-replace-existing-catalog args))]
+                        (apply orig-replace-catalog! args))]
           (let [first-message? (atom false)
                 fut (future
                       (handle-message (store-command' q command))
