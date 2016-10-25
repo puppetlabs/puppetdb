@@ -1270,7 +1270,6 @@
                         (.countDown latch)
                         (apply orig-replace-existing-catalog args))]
           (let [first-message? (atom false)
-                second-message? (atom false)
                 fut (future
                       (handle-message (store-command' q command))
                       (reset! first-message? true))
@@ -1291,7 +1290,6 @@
                                  :payload new-wire-catalog}]
 
             (handle-message (store-command' q new-catalog-cmd))
-            (reset! second-message? true)
 
             @fut
 
@@ -1301,8 +1299,7 @@
               (is (-> failed-cmdref :attempts first :exception
                       pg-serialization-failure-ex?)))
 
-            (is (true? @first-message?))
-            (is (true? @second-message?))))))))
+            (is (true? @first-message?))))))))
 
 (let [cases [{:certname "foo.example.com"
               :command {:command (command-names :deactivate-node)
