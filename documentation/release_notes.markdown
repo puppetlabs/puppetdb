@@ -14,6 +14,57 @@ canonical: "/puppetdb/latest/release_notes.html"
 [metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
 [pqltutorial]: ./api/query/tutorial-pql.html
 
+4.2.4
+-----
+
+PuppetDB 4.2.4 is a minor bugfix release.
+
+### Bug fixes and maintenance:
+
+* Fixed a bug affecting in clauses with an array on fact values ([PDB-2330](https://tickets.puppetlabs.com/browse/PDB-2330))
+
+* Added code to check for existing reports and ignore duplicates ([PDB-2939](https://tickets.puppetlabs.com/browse/PDB-2939))
+
+* Changed the dashboard to cache PDB version rather than querying for
+  it every 5 seconds ([PDB-2836](https://tickets.puppetlabs.com/browse/PDB-2836))
+
+* Added a warning if retired server/port config items are in use ([PDB-3071](https://tickets.puppetlabs.com/browse/PDB-3071))
+
+* Switched log file rotation to be based on size, not date ([PDB-3077](https://tickets.puppetlabs.com/browse/PDB-3077))
+
+* Added missing inventory relationships to other entities allowing
+  implicit joins on inventory ([PDB-2962](https://tickets.puppetlabs.com/browse/PDB-2962))
+
+* Fixed a bug where version 6 reports incorrectly rejected ([PDB-3064](https://tickets.puppetlabs.com/browse/PDB-3064))
+
+* Added validation on content-type of POST requests ([PDB-2851](https://tickets.puppetlabs.com/browse/PDB-2851))
+
+* Removed memoization of resource identity hashes. The memoization was based
+  on count, not overall pool size so it could consume arbitrary
+  RAM. It was responsible for overrunning a 32GB JVM heap in the field ([PDB-3065](https://tickets.puppetlabs.com/browse/PDB-3065))
+
+* Updated the default sample data to include new data added in by the
+  most recent wire-format revisions ([PDB-2810](https://tickets.puppetlabs.com/browse/PDB-2810))
+
+* Improve event-counts and aggregate-event-counts endpoint to provide
+  information about corrective changes (PE only) ([PDB-3047](https://tickets.puppetlabs.com/browse/PDB-3047))
+
+* Added a partial index in resource_events for querying corrective events (PE only)
+
+* Added support for querying resource events by corrective_change flag (PE only)
+
+* Updated the following dependencies
+
+  - clj-i18n 0.4.2 -> 0.4.3
+  - beaker 2.43.0 -> 2.50.0
+  - EZBake 0.5.1 -> 1.1.2
+  - trapperkeeper 1.4.1 -> 1.5.1
+  - tk-status 0.4.0 -> 0.5.0
+
+### Documentation:
+
+* Updated docs to clarify the effect of setting the time to live
+settings to '0s'
 
 4.2.3
 -----
