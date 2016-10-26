@@ -4,7 +4,8 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
-            [clj-time.coerce :refer [to-timestamp to-string]]))
+            [clj-time.coerce :refer [to-timestamp to-string]]
+            [puppetlabs.puppetdb.scf.storage :as scf-store]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utility functions for massaging results and example data into formats that
@@ -22,9 +23,9 @@
              :configuration_version (:configuration_version report)
              :run_start_time (to-timestamp (:start_time report))
              :run_end_time (to-timestamp (:end_time report))
-             :report_receive_time (to-timestamp (:receive_time report))
-             ;; corrective_change is nil in FOSS
-             :corrective_change nil)
+             :report_receive_time (to-timestamp (:receive_time report)))
+      ;; corrective_change is nil in FOSS
+      (cond-> (not @scf-store/store-corrective-change?) (assoc :corrective_change nil))
       ;; we need to convert the datetime fields from the examples to timestamp objects
       ;; in order to compare them.
       (update :timestamp to-timestamp)

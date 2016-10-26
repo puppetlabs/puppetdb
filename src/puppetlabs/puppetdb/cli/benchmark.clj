@@ -83,6 +83,11 @@
         data
         (log/error (format "Supplied directory %s contains no usable data!" dir))))))
 
+(def producers (vec (repeatedly 4 #(random-string 10))))
+
+(defn random-producer []
+  (rand-nth producers))
+
 (def mutate-fns
   "Functions that randomly change a wire-catalog format"
   [catutils/add-random-resource-to-wire-catalog
@@ -90,10 +95,21 @@
    catutils/add-random-edge-to-wire-catalog
    catutils/swap-edge-targets-in-wire-catalog])
 
+(defn add-catalog-varying-fields
+  "This function adds the fields that change when there is a different
+  catalog. code_id and catalog_uuid should be different whenever the
+  catalog is different"
+  [catalog]
+  (assoc catalog
+         "catalog_uuid" (kitchensink/uuid)
+         "code_id" (kitchensink/utf8-string->sha1 (random-string 100))))
+
 (defn rand-catalog-mutation
   "Grabs one of the mutate-fns randomly and returns it"
   [catalog]
-  ((rand-nth mutate-fns) catalog))
+  (let [mutation-fn (comp add-catalog-varying-fields
+                          (rand-nth mutate-fns))]
+    (mutation-fn catalog)))
 
 (declare random-fact-value-vector)
 
@@ -134,7 +150,8 @@
   [catalog rand-percentage uuid stamp]
   (let [catalog' (assoc catalog
                         "producer_timestamp" stamp
-                        "transaction_uuid" uuid)]
+                        "transaction_uuid" uuid
+                        "producer" (random-producer))]
     (if (< (rand 100) rand-percentage)
       (rand-catalog-mutation catalog')
       catalog')))
@@ -164,7 +181,8 @@
              "transaction_uuid" uuid
              "start_time" (time/minus stamp (time/seconds 10))
              "end_time" (time/minus stamp (time/seconds 5))
-             "producer_timestamp" stamp)
+             "producer_timestamp" stamp
+             "producer" (random-producer))
       clojure.walk/keywordize-keys))
 
 (defn randomize-map-leaf
@@ -196,7 +214,8 @@
    of the factset based on a percentage provided in `rand-percentage`."
   [factset rand-percentage stamp]
   (-> factset
-      (assoc "producer_timestamp" stamp)
+      (assoc "producer_timestamp" stamp
+             "producer" (random-producer))
       (update "values" (partial randomize-map-leaves rand-percentage))))
 
 (defn update-host
@@ -211,9 +230,9 @@
                        (update-report uuid stamp))
         factset (some-> factset
                         (update-factset rand-percentage stamp))]
-    (when catalog (>!! command-send-ch [:catalog host 6 catalog]))
+    (when catalog (>!! command-send-ch [:catalog host 9 catalog]))
     (when report (>!! command-send-ch [:report host 8 report]))
-    (when factset (>!! command-send-ch [:factset host 4 factset]))
+    (when factset (>!! command-send-ch [:factset host 5 factset]))
 
     (assoc state
            :catalog catalog

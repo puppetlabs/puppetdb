@@ -21,7 +21,8 @@
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.zip :as zip]
             [schema.core :as s])
-  (:import [honeysql.types SqlCall SqlRaw]))
+  (:import [honeysql.types SqlCall SqlRaw]
+           [org.postgresql.util PGobject]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
@@ -244,6 +245,7 @@
                                                    :field :reports_environment.environment}}
 
                :relationships {;; Children - direct
+                               "inventory" {:columns ["certname"]}
                                "factsets" {:columns ["certname"]}
                                "reports" {:columns ["certname"]}
                                "catalogs" {:columns ["certname"]}
@@ -949,6 +951,8 @@
                :selection {:from [:environments]}
 
                :relationships {;; Children - direct
+                               "inventory" {:local-columns ["name"]
+                                            :foreign-columns ["environment"]}
                                "factsets" {:local-columns ["name"]
                                            :foreign-columns ["environment"]}
                                "catalogs" {:local-columns ["name"]
@@ -1739,6 +1743,13 @@
                                          :value (su/array-to-param "text"
                                                                    String
                                                                    (map facts/factpath-to-string value))})
+
+                :multi
+                (map->InArrayExpression
+                  {:column cinfo
+                   :value (su/array-to-param "jsonb"
+                                             org.postgresql.util.PGobject
+                                             (map su/munge-jsonb-for-storage value))})
 
                 (map->InArrayExpression {:column cinfo
                                          :value (su/array-to-param "text"

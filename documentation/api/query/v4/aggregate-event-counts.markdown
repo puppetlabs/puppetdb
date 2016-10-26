@@ -71,6 +71,25 @@ event-count results that were aggregated.
         "total": 3
     } ]
 
+#### Puppet Enterprise
+
+In PE, the `successes` and `noops` counts are subdivided into intentional and corrective parts.
+Events are mapped to the corresponding counts based on the value of `corrective_change` flag.
+
+    [ {
+        "summarize_by": "containing_class",
+        "intentional_successes": 2,
+        "corrective_successes": 0,
+        "failures": 0,
+        "intentional_noops": 0,
+        "corrective_noops": 0,
+        "skips": 1,
+        "total": 3
+    } ]
+
+`intentional_successes`, `corrective_successes`, `intentional_noops`, and `corrective_noops` fields
+can be used in `counts_filter` too.
+
 ### Examples
 
 You can use [`curl`][curl] to query information about aggregated resource event counts:

@@ -682,7 +682,7 @@
              ;; these fields allow NULL, which causes a change in semantics when
              ;; wrapped in a NOT(...) clause, so we have to be very explicit
              ;; about the NULL case.
-             [(field :guard #{"property" "message" "file" "line" "containing_class"})]
+             [(field :guard #{"property" "message" "file" "line" "containing_class" "corrective_change"})]
              (if-not (nil? value)
                {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
                 :params [value] }
@@ -739,7 +739,7 @@
 (defn compile-event-count-equality
   "Compile an = predicate for event-count query.  The `path` represents
   the field to query against, and `value` is the value of the field."
-  [& [path value :as args]]
+  [fields & [path value :as args]]
   {:post [(map? %)
           (string? (:where %))]}
   (when-not (= (count args) 2)
@@ -747,7 +747,7 @@
             (i18n/tru "= requires exactly two arguments, but {0} were supplied" (count args)))))
   (let [db-field (utils/dashes->underscores path)]
     (match [db-field]
-           [(field :guard #{"successes" "failures" "noops" "skips"})]
+           [(field :guard fields)]
            {:where (format "%s = ?" field)
             :params [value]}
 
@@ -757,7 +757,7 @@
 (defn compile-event-count-inequality
   "Compile an inequality for an event-counts query (> < >= <=).  The `path`
   represents the field to query against, and the `value` is the value of the field."
-  [& [op path value :as args]]
+  [fields & [op path value :as args]]
   {:post [(map? %)
           (string? (:where %))]}
   (when-not (= (count args) 3)
@@ -765,7 +765,7 @@
             (i18n/tru "{0} requires exactly two arguments, but {1} were supplied"
                       op (dec (count args))))))
   (match [path]
-         [(field :guard #{"successes" "failures" "noops" "skips"})]
+         [(field :guard fields)]
          {:where (format "%s %s ?" field op)
           :params [value]}
 
@@ -835,8 +835,8 @@
 (defn event-count-ops
   "Maps resource event count operators to the functions implementing them.
   Returns nil if the operator is unknown."
-  [op]
+  [fields op]
   (let [op (str/lower-case op)]
     (cond
-     (= "=" op) compile-event-count-equality
-     (#{">" "<" ">=" "<="} op) (partial compile-event-count-inequality op))))
+     (= "=" op) (partial compile-event-count-equality fields)
+     (#{">" "<" ">=" "<="} op) (partial compile-event-count-inequality fields op))))

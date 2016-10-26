@@ -178,6 +178,10 @@
 
    #{{:certname "foo" :name "ipaddress" :value "192.168.1.100" :environment "DEV"}}
 
+   ;; array query with value field
+   ["in" "value" ["array" ["192.168.1.100"]]]
+   #{{:certname "foo" :name "ipaddress" :value "192.168.1.100" :environment "DEV"}}
+
    ;; Multiple fact subqueries
    ["and"
     ["=" "name" "ipaddress"]

@@ -62,7 +62,11 @@ PuppetDB will react to certain types of processing failures by storing a complet
 
 PuppetDB's log file lives at `/var/log/puppetlabs/puppetdb/puppetdb.log`. Check the log when you need to confirm that PuppetDB is working correctly or to troubleshoot visible malfunctions. If you have changed the logging settings, examine the [logback.xml file][logback] to find the log.
 
-The PuppetDB packages install a logrotate job in `/etc/logrotate.d/puppetdb`, which will keep the log from becoming too large.
+The PuppetDB packages configure log file rotation via Logback in order to keep
+log files from becoming too large.  The "logback.xml" file contains the rotation
+parameters.  By default, the active log file is compressed into a .gz file if
+it exceeds 200 MB in size.  At most 90 days and at most 1 GB of the most recent
+.gz archives are preserved on disk.
 
 ## Tune the max heap size
 
