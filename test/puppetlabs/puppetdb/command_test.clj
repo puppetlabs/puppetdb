@@ -1004,6 +1004,7 @@
                       scf-store/update-facts!
                       (fn [fact-data]
                         (.countDown latch)
+                        (.await latch)
                         (storage-replace-facts! fact-data))]
           (let [first-message? (atom false)
                 second-message? (atom false)
@@ -1206,7 +1207,7 @@
                      :payload wire-catalog}
 
             latch (java.util.concurrent.CountDownLatch. 2)
-            orig-replace-existing-catalog scf-store/replace-existing-catalog]
+            orig-replace-catalog! scf-store/replace-catalog!]
 
         (jdbc/with-db-transaction []
           (scf-store/add-certname! certname)
@@ -1214,10 +1215,11 @@
 
         (with-redefs [quick-retry-count 0
                       command-delay-ms 1
-                      scf-store/replace-existing-catalog
+                      scf-store/replace-catalog!
                       (fn [& args]
                         (.countDown latch)
-                        (apply orig-replace-existing-catalog args))]
+                        (.await latch)
+                        (apply orig-replace-catalog! args))]
           (let [first-message? (atom false)
                 second-message? (atom false)
                 fut (future
@@ -1257,7 +1259,7 @@
                      :payload wire-catalog}
 
             latch (java.util.concurrent.CountDownLatch. 2)
-            orig-replace-existing-catalog scf-store/replace-existing-catalog]
+            orig-replace-catalog! scf-store/replace-catalog!]
 
         (jdbc/with-db-transaction []
           (scf-store/add-certname! certname)
@@ -1265,15 +1267,14 @@
 
         (with-redefs [quick-retry-count 0
                       command-delay-ms 1
-                      scf-store/replace-existing-catalog
+                      scf-store/replace-catalog!
                       (fn [& args]
                         (.countDown latch)
-                        (apply orig-replace-existing-catalog args))]
-          (let [first-message? (atom false)
-                second-message? (atom false)
-                fut (future
+                        (.await latch)
+                        (apply orig-replace-catalog! args))]
+          (let [fut (future
                       (handle-message (store-command' q command))
-                      (reset! first-message? true))
+                      ::handled-first-message)
 
                 new-wire-catalog (update wire-catalog :resources
                                          conj
@@ -1291,18 +1292,13 @@
                                  :payload new-wire-catalog}]
 
             (handle-message (store-command' q new-catalog-cmd))
-            (reset! second-message? true)
 
-            @fut
-
+            (is (= ::handled-first-message (deref fut (* 1000 60) nil)))
             (is (empty? (fs/list-dir (:path dlo))))
             (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
               (is (-> failed-cmdref :attempts first :exception
-                      pg-serialization-failure-ex?)))
-
-            (is (true? @first-message?))
-            (is (true? @second-message?))))))))
+                      pg-serialization-failure-ex?)))))))))
 
 (let [cases [{:certname "foo.example.com"
               :command {:command (command-names :deactivate-node)
