@@ -68,36 +68,51 @@ puppetlabs.puppetdb.database:PDBWritePool.<HikariCP metric>
 puppetlabs.puppetdb.database:PDBReadPool.<HikariCP metric>
 ```
 
-### Message Queue (MQ) metrics
+### Message queue metrics
 
-Each of the following metrics is available for each command supported
-in PuppetDB. In the following list of metrics, `<name>` should be
-substituted with a command specifier. Example substitutes for `<name>` you can use
-include:
+PuppetDB maintains various command processing metrics, all computed
+with respect to the last restart.  There are `global` statistics,
+aggregated across all commands, and individual statistics, computed
+for each version of each command.
 
-* `global`: aggregate stats for _all_ commands.
-* `replace catalog.1`: stats for catalog replacement.
-* `replace facts.1`: stats for facts replacement.
-* `deactivate node.1`: stats for node deactivation.
+#### Global metrics
 
-Other than `global`, all command specifiers are of the form
-`<command>.<version>`. As we version commands, you'll be able to get statistics
-for each version independently.
+Each of these metrics can be accessed as
+`puppetlabs.puppetdb.mq:name=global.<item>`, using any of the
+following `<item>`s:
 
-Metrics available for each command:
+* `seen`: meter measuring commands received (valid or invalid)
+* `proceseed`: meter measuring commands successfully processed
+* `fatal`: meter measuring fatal processing errors
+* `retried`: meter measuring commands scheduled for retrial
+* `awaiting-retry`: number of commands waiting to be retried
+* `retry-counts`: histogram of retry counts (until success or discard)
+* `discarded`: meter measuring commands discarded as invalid
+* `processing-time`: timing statistics for the processing of
+  previously enqueued commands
+* `queue-time`: histogram of the time commands have spent waiting in the queue
+* `depth`: number of currently enqueued commands
+* `size`: histogram of submitted command sizes (i.e. HTTP Content-Lengths)
 
-* `puppetlabs.puppetdb.mq:name=<name>.discarded`: stats
-  about commands we've discarded (we've retried them as many times as
-  we can, to no avail).
-* `puppetlabs.puppetdb.mq:name=<name>.fatal`: stats about
-  commands we failed to process.
-* `puppetlabs.puppetdb.mq:name=<name>.processed`: stats
-  about commands we've successfully processed
-* `puppetlabs.puppetdb.mq:name=<name>.processing-time`:
-  stats about how long it takes to process commands
-* `puppetlabs.puppetdb.mq:name=<name>.retried`: stats about
-  commands that have been submitted for retry (due to transient
-  errors).
+For example: `puppetlabs.puppetdb.mq:name=global.seen`.
+
+#### Metrics for each command version
+
+Each of the command-specific metrics can be accessed as
+`puppetlabs.puppetdb.mq:name=<command>.<version>.<item>`, where
+`<command>` must be a valid command name, `<version>` must be the
+integer command version, and `<item>` must be one of the following:
+
+* `seen`: meter measuring commands received (valid or invalid)
+* `proceseed`: meter measuring commands successfully processed
+* `fatal`: meter measuring fatal processing errors
+* `retried`: meter measuring commands scheduled for retrial
+* `retry-counts`: histogram of retry counts (until success or discard)
+* `discarded`: meter measuring commands discarded as invalid
+* `processing-time`: timing statistics for the processing of
+  previously enqueued commands
+
+For example: `puppetlabs.puppetdb.mq:name=replace catalog.9.processed`.
 
 ### HTTP metrics
 
@@ -149,53 +164,3 @@ resources, storing edges, etc.). Metrics of particular note include:
 
 * `java.lang:type=Memory`: memory usage statistics.
 * `java.lang:type=Threading`: stats about JVM threads.
-
-### MQ metrics
-
-* `org.apache.activemq:type=Broker,brokerName=localhost,destinationType=Queue,destinationName=puppetlabs.puppetdb.commands`:
-  stats about the command processing queue: queue depth, how long messages remain in the queue, etc.
-
-## Example
-
-[Using `curl` from localhost][curl]:
-
-    curl 'http://localhost:8080/metrics/v1/mbeans/puppetlabs.puppetdb.mq%3Aname%3Dglobal.processing-time'
-    {
-        "EventType" : "calls",
-        "OneMinuteRate" : 0.015222994059151214,
-        "MeanRate" : 0.05202494702450243,
-        "FifteenMinuteRate" : 0.024600100098031683,
-        "Max" : 69.326,
-        "50thPercentile" : 0.441,
-        "Mean" : 4.334236842105263,
-        "95thPercentile" : 22.597399999999862,
-        "99thPercentile" : 69.326,
-        "98thPercentile" : 69.326,
-        "Min" : 0.319,
-        "999thPercentile" : 69.326,
-        "RateUnit" : "SECONDS",
-        "75thPercentile" : 1.492,
-        "LatencyUnit" : "MILLISECONDS",
-        "Count" : 38,
-        "StdDev" : 11.981603160418109,
-        "FiveMinuteRate" : 0.028576112435005956
-    }
-
-    curl 'http://localhost:8080/metrics/v1/mbeans/java.lang:type=Memory'
-    {
-      "ObjectPendingFinalizationCount" : 0,
-      "HeapMemoryUsage" : {
-        "committed" : 807403520,
-        "init" : 268435456,
-        "max" : 3817865216,
-        "used" : 129257096
-      },
-      "NonHeapMemoryUsage" : {
-        "committed" : 85590016,
-        "init" : 24576000,
-        "max" : 184549376,
-        "used" : 85364904
-      },
-      "Verbose" : false,
-      "ObjectName" : "java.lang:type=Memory"
-    }
