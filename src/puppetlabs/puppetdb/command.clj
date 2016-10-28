@@ -466,11 +466,12 @@
 (def maximum-allowable-retries 5)
 
 (defn discard-message
-  "Discards the given `cmd` caused by `ex`"
-  [cmd ex q dlo]
-  (-> cmd
+  "Discards the given `cmdref` caused by `ex`"
+  [cmdref ex q dlo]
+  (-> cmdref
       (queue/cons-attempt ex)
-      (dlo/discard-cmdref q dlo)))
+      (dlo/discard-cmdref q dlo))
+  (mark-both-metrics! (:command cmdref) (:version cmdref) :discarded))
 
 (defn process-delete-cmdref
   "Note that currently this function is unreachable, because commands
