@@ -12,7 +12,8 @@
             [schema.core :as s]
             [slingshot.slingshot :refer [throw+]]
             [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.metrics.core :as metrics]))
+            [puppetlabs.puppetdb.metrics.core :as metrics]
+            [puppetlabs.i18n.core :refer [trs]]))
 
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
@@ -36,7 +37,7 @@
           (fn? usage-fn)
           (string? desc)]}
   (when megabytes
-    (log/info "Setting ActiveMQ " desc " limit to " megabytes " MB")
+    (log/info (trs "Setting ActiveMQ {0} limit to {1} MB" desc megabytes))
     (-> broker
         (.getSystemUsage)
         (usage-fn)
@@ -155,16 +156,18 @@
     (start-broker! (build-embedded-broker brokername dir config))
     (catch java.io.EOFException e
       (log/warn
-       "Caught EOFException on broker startup, trying again."
-       "This is probably due to KahaDB corruption"
-       "(see \"KahaDB Corruption\" in the PuppetDB manual).")
+       (str
+        (trs "Caught EOFException on broker startup, trying again.")
+        " "
+        (trs "This is probably due to KahaDB corruption (see \"KahaDB Corruption\" in the PuppetDB manual).")))
       (start-broker! (build-embedded-broker brokername dir config)))
     (catch java.io.IOException e
       (throw (java.io.IOException.
-              (str "Unable to start broker in " (str (pr-str dir) ".")
-                   " This is probably due to KahaDB corruption"
-                   " or version incompatibility after a PuppetDB downgrade"
-                   " (see \"KahaDB Corruption\" in the PuppetDB manual).")
+              (str
+               (trs
+                "Unable to start broker in {0}." (str (pr-str dir)))
+               " "
+               (trs "This is probably due to KahaDB corruption or version incompatibility after a PuppetDB downgrade (see \"KahaDB Corruption\" in the PuppetDB manual)."))
               e)))))
 
 (defn extract-headers
@@ -190,12 +193,12 @@
          buf (byte-array len)
          n (.readBytes bytes-message buf)]
      (when (not= len n)
-       (throw (Exception. (format "Only read %d/%d bytes from incoming message"
-                                  n len))))
+       (throw (Exception. (trs "Only read {0}/{1} bytes from incoming message"
+                               n len))))
      (String. buf "UTF-8"))
    :else
-   (throw (Exception. (format "Expected TextMessage or BytesMessage; found %s "
-                              (class message))))))
+   (throw (Exception. (trs "Expected TextMessage or BytesMessage; found {0}"
+                           (class message))))))
 
 (defn convert-jms-message [m]
   {:headers (extract-headers m) :body (convert-message-body m)})

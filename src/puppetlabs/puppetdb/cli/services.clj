@@ -76,7 +76,8 @@
             [slingshot.slingshot :refer [throw+ try+]]
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.command :as cmd]
-            [puppetlabs.puppetdb.queue :as queue])
+            [puppetlabs.puppetdb.queue :as queue]
+            [puppetlabs.i18n.core :refer [trs tru]])
   (:import [javax.jms ExceptionListener]
            [java.util.concurrent.locks ReentrantLock]
            [org.joda.time Period]))
@@ -101,9 +102,9 @@
              (format-period node-ttl))
      (jdbc/with-transacted-connection db
        (doseq [node (scf-store/expire-stale-nodes node-ttl)]
-         (log/infof "Auto-expired node %s" node))))
+         (log/info (trs "Auto-expired node {0}" node)))))
     (catch Exception e
-      (log/error e "Error while deactivating stale nodes"))))
+      (log/error e (trs "Error while deactivating stale nodes")))))
 
 (defn purge-nodes!
   "Delete nodes which have been *deactivated or expired* longer than
@@ -118,7 +119,7 @@
      (jdbc/with-transacted-connection db
        (scf-store/purge-deactivated-and-expired-nodes! (ago node-purge-ttl))))
     (catch Exception e
-      (log/error e "Error while purging deactivated and expired nodes"))))
+      (log/error e (trs "Error while purging deactivated and expired nodes")))))
 
 (defn sweep-reports!
   "Delete reports which are older than than `report-ttl`."
@@ -132,7 +133,7 @@
      (jdbc/with-transacted-connection db
        (scf-store/delete-reports-older-than! (ago report-ttl))))
     (catch Exception e
-      (log/error e "Error while sweeping reports"))))
+      (log/error e (trs "Error while sweeping reports")))))
 
 (defn garbage-collect!
   "Perform garbage collection on `db`, which means deleting any orphaned data.
@@ -145,7 +146,7 @@
       "database garbage collection"
       (scf-store/garbage-collect! db))
     (catch Exception e
-      (log/error e "Error during garbage collection"))))
+      (log/error e (trs "Error during garbage collection")))))
 
 (def clean-options #{"expire_nodes" "purge_nodes" "purge_reports" "other"})
 
@@ -196,7 +197,7 @@
    ;; Later, the values might be maps, i.e. {:limit 1000}
    request :- clean-request-schema]
   (when-not (.isHeldByCurrentThread lock)
-    (throw (IllegalStateException. "cleanup lock is not already held")))
+    (throw (IllegalStateException. (tru "cleanup lock is not already held"))))
   (let [request (if (empty? request) clean-options (set request))
         status (clean-options->status request)]
     (try
@@ -246,14 +247,14 @@
                                           (version/check-for-updates! read-db))
              job-pool
              :desc "A reoccuring job to checkin the PuppetDB version"))
-    (log/debug "Skipping update check on Puppet Enterprise")))
+    (log/debug (trs "Skipping update check on Puppet Enterprise"))))
 
 (defn stop-puppetdb
   "Shuts down PuppetDB, releasing resources when possible.  If this is
   not a normal shutdown, emergency? must be set, which currently just
   produces a fatal level level log message, instead of info."
   [context]
-  (log/info "Shutdown request received; puppetdb exiting.")
+  (log/info (trs "Shutdown request received; puppetdb exiting."))
   (when-let [ds (get-in context [:shared-globals :scf-write-db :datasource])]
     (.close ds))
   (when-let [ds (get-in context [:shared-globals :scf-read-db :datasource])]
@@ -299,7 +300,7 @@
                    (initialize-schema db-pool-map config)
                    ::success))
                (catch java.sql.SQLTransientConnectionException e
-                 (log/error e "Error while attempting to create connection pool")))]
+                 (log/error e (trs "Error while attempting to create connection pool"))))]
       result
       (recur db-spec))))
 
@@ -321,7 +322,7 @@
                                         database-metrics-registry)]
 
     (when-let [v (version/version)]
-      (log/infof "PuppetDB version %s" v))
+      (log/info (trs "PuppetDB version {0}" v)))
 
     (init-with-db database config)
 

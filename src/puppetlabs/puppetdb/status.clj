@@ -5,7 +5,8 @@
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
             [puppetlabs.trapperkeeper.services.status.status-core :as status-core]
-            [trptcolin.versioneer.core :as versioneer]))
+            [trptcolin.versioneer.core :as versioneer]
+            [puppetlabs.i18n.core :refer [trs]]))
 
 (def status-details-schema {:maintenance_mode? s/Bool
                             :queue_depth (s/maybe s/Int)
@@ -20,9 +21,10 @@
   (let [version (versioneer/get-version group-id artifact-id)]
     (when (empty? version)
       (throw (IllegalStateException.
-               (format "Unable to find version number for '%s/%s'"
-                 group-id
-                 artifact-id))))
+              (trs
+               "Unable to find version number for ''{0}/{1}''"
+               group-id
+               artifact-id))))
     version))
 
 (pls/defn-validated status-details :- status-details-schema

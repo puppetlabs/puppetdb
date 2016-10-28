@@ -57,7 +57,8 @@
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.config :as conf]))
+            [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.i18n.core :refer [trs]]))
 
 ;; taken from storage.clj; preserved here in case of change
 (defn insert-records*
@@ -1292,21 +1293,23 @@
     (when (and latest-applied-migration
                (< latest-applied-migration (first known-migrations)))
       (throw (IllegalStateException.
-              (format (str "Found an old and unuspported database migration (migration number %s)."
-                           " PuppetDB only supports upgrading from the previous major version to the current major version."
-                           " As an example, users wanting to upgrade from 2.x to 4.x should first upgrade to 3.x.")
-                      latest-applied-migration))))
+              (str
+               (trs "Found an old and unuspported database migration (migration number {0})." latest-applied-migration)
+               " "
+               (trs "PuppetDB only supports upgrading from the previous major version to the current major version.")
+               " "
+               (trs "As an example, users wanting to upgrade from 2.x to 4.x should first upgrade to 3.x.")))))
 
     (when-let [unexpected (first (unrecognized-migrations applied-migration-versions known-migrations))]
       (throw (IllegalStateException.
-              (format "Your PuppetDB database contains a schema migration numbered %d, but this version of PuppetDB does not recognize that version."
-                      unexpected))))
+              (trs "Your PuppetDB database contains a schema migration numbered {0}, but this version of PuppetDB does not recognize that version."
+                   unexpected))))
 
     (if-let [pending (seq (pending-migrations))]
       (do
         (jdbc/with-db-transaction []
           (doseq [[version migration] pending]
-            (log/infof "Applying database migration version %d" version)
+            (log/info (trs "Applying database migration version {0}" version))
             (sql-or-die (fn [] (migration) (record-migration! version)))))
         (sutils/analyze-small-tables small-tables)
         true)

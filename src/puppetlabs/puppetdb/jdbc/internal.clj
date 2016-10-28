@@ -2,18 +2,15 @@
   "JDBC helper functions
 
    *External code should not call any of these functions directly, as they are*
-   *subject to change without notice.*")
+   *subject to change without notice.*"
+  (:require [puppetlabs.i18n.core :refer [tru]]))
 
 (defn limit-exception
   "Helper method; simply throws an exception with a message explaining
   that a query result limit was exceeded."
   [limit]
-  ;; TODO: tempted to create a custom exception for this, or at least
-  ;; some kind of general-purpose PuppetDBException
   (IllegalStateException.
-   (format
-    "Query returns more than the maximum number of results (max: %s)"
-    limit)))
+   (tru "Query returns more than the maximum number of results (max: {0})" limit)))
 
 
 (defn limit-result-set!

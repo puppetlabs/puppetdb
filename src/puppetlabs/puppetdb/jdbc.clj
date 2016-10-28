@@ -11,7 +11,8 @@
             [puppetlabs.puppetdb.jdbc.internal :refer [limit-result-set!]]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]
-            [clojure.math.numeric-tower :as math]))
+            [clojure.math.numeric-tower :as math]
+            [puppetlabs.i18n.core :refer [trs]]))
 
 (def ^:dynamic *db* nil)
 
@@ -258,17 +259,17 @@
   (cond
    (zero? remaining)
    (do
-     (log/warn "Caught exception. Last attempt, throwing exception.")
+     (log/warn (trs "Caught exception. Last attempt, throwing exception."))
      (throw exception))
 
    :else
    (do
-     (log/debugf "Caught %s: '%s'. SQL Error code: '%s'. Attempt: %s of %s."
-                 (.getName (class exception))
-                 (.getMessage exception)
-                 (.getSQLState exception)
-                 (inc current)
-                 (+ current remaining))
+     (log/debug (trs "Caught {0}: ''{1}''. SQL Error code: ''{2}''. Attempt: {3} of {4}."
+                     (.getName (class exception))
+                     (.getMessage exception)
+                     (.getSQLState exception)
+                     (inc current)
+                     (+ current remaining)))
      (exponential-sleep! current 1.3)
      false)))
 

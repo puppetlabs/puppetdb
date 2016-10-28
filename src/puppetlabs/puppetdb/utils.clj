@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.utils
   (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.i18n.core :refer [trs tru]]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [schema.core :as s]
@@ -36,7 +36,7 @@
   "Returns error message instructing the user to switch to JDK 1.7"
   []
   (attention-msg
-   (i18n/trs "JDK 1.6 is no longer supported. PuppetDB requires JDK 1.7+, currently running: {0}" kitchensink/java-version)))
+   (trs "JDK 1.6 is no longer supported. PuppetDB requires JDK 1.7+, currently running: {0}" kitchensink/java-version)))
 
 (defn println-err
   "Redirects output to standard error before invoking println"
@@ -295,7 +295,8 @@
 (defn regex-quote
   [s]
   (when (and (string? s) (re-find #"\\E" s))
-    (throw (IllegalArgumentException. "cannot regex-quote strings containing '\\E'")))
+    (throw (IllegalArgumentException.
+            (tru "cannot regex-quote strings containing '\\E'"))))
   (format "\\Q%s\\E" (str s)))
 
 (defn match-any-of

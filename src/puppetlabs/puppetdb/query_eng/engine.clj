@@ -1,13 +1,12 @@
 (ns puppetlabs.puppetdb.query-eng.engine
   (:require [clojure.core.match :as cm]
             [clojure.string :as str]
-            [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.i18n.core :refer [tru trs]]
             [clojure.set :refer [map-invert]]
             [clojure.tools.logging :as log]
             [honeysql.core :as hcore]
             [honeysql.helpers :as hsql]
             [honeysql.types :as htypes]
-            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.facts :as facts]
@@ -1308,11 +1307,11 @@
                                    (integer? value) "value_integer"
                                    (float? value) "value_float"
                                    :else (throw (IllegalArgumentException.
-                                                 (i18n/tru "Value {0} of type {1} unsupported." value (type value)))))]
+                                                 (tru "Value {0} of type {1} unsupported." value (type value)))))]
 
                 (if (or (and (or (ks/boolean? value) (number? value)) (= op "~"))
                         (and (or (ks/boolean? value) (string? value)) (contains? #{"<=" "<" ">" ">="} op)))
-                  (throw (i18n/tru "Operator ''{0}'' not allowed on value ''{1}''" op value))
+                  (throw (tru "Operator ''{0}'' not allowed on value ''{1}''" op value))
                   ["in" "certname"
                    ["extract" "certname"
                     ["select_fact_contents"
@@ -1374,7 +1373,7 @@
                             ["in" "value_integer" ["array" fact-values]]]
 
                            :else (throw (IllegalArgumentException.
-                                         "All values in 'array' must be the same type.")))]
+                                         (tru "All values in 'array' must be the same type."))))]
               ["in" "certname"
                ["extract" "certname"
                 ["select_facts"
@@ -1384,7 +1383,7 @@
 
             [[(op :guard #{"=" ">" "<" "<=" ">="}) ["fact" fact-name] fact-value]]
             (if-not (number? fact-value)
-              (throw (IllegalArgumentException. (format "Operator '%s' not allowed on value '%s'" op fact-value)))
+              (throw (IllegalArgumentException. (tru "Operator ''{0}'' not allowed on value ''{1}''" op fact-value)))
               ["in" "certname"
                ["extract" "certname"
                 ["select_facts"
@@ -1399,13 +1398,13 @@
               (if relationships
                 (let [{:keys [columns local-columns foreign-columns]} relationships]
                   (when-not (or columns (and local-columns foreign-columns))
-                    (throw (IllegalArgumentException. (format "Column definition for entity relationship '%s' not valid" sub-entity))))
+                    (throw (IllegalArgumentException. (tru "Column definition for entity relationship ''{0}'' not valid" sub-entity))))
                   (do
-                    (log/warn "The `subquery` operator is experimental and may change in the future.")
+                    (log/warn (trs "The `subquery` operator is experimental and may change in the future."))
                     ["in" (or local-columns columns)
                      ["extract" (or foreign-columns columns)
                       [(str "select_" sub-entity) expr]]]))
-                (throw (IllegalArgumentException. (format "No implicit relationship for entity '%s'" sub-entity)))))
+                (throw (IllegalArgumentException. (tru "No implicit relationship for entity ''{0}''" sub-entity)))))
 
             [["=" "latest_report?" value]]
             (let [entity (get-in (meta node) [:query-context :entity])
@@ -1421,7 +1420,7 @@
                                       ["select_latest_report"]]]
 
                                     (throw (IllegalArgumentException.
-                                            (i18n/tru "Field 'latest_report?' not supported on endpoint ''{0}''" entity))))]
+                                            (tru "Field 'latest_report?' not supported on endpoint ''{0}''" entity))))]
               (if value
                 expanded-latest
                 ["not" expanded-latest]))
@@ -1467,21 +1466,22 @@
                 (when (and (or (= :integer col-type)
                                (= :float col-type)) (string? value))
                   (throw
-                    (IllegalArgumentException.
-                      (format "Argument \"%s\" is incompatible with numeric field \"%s\"."
-                              value (name field))))))
+                   (IllegalArgumentException.
+                    (tru
+                     "Argument \"{0}\" is incompatible with numeric field \"{1}\"."
+                     value (name field))))))
 
               [[(:or ">" ">=" "<" "<=") field _]]
               (let [col-type (get-in query-context [:projections field :type])]
                 (when-not (or (vec? field)
                               (contains? #{:float :integer :timestamp :multi}
                                          col-type))
-                  (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field)))))
+                  (throw (IllegalArgumentException. (tru "Query operators >,>=,<,<= are not allowed on field {0}" field)))))
 
               [["~>" field _]]
               (let [col-type (get-in query-context [:projections field :type])]
                 (when-not (contains? #{:path} col-type)
-                  (throw (IllegalArgumentException. (format "Query operator ~> is not allowed on field %s" field)))))
+                  (throw (IllegalArgumentException. (tru "Query operator ~> is not allowed on field {0}" field)))))
 
               ;;This validation check is added to fix a failing facts
               ;;test. The facts test is checking that you can't submit
@@ -1492,19 +1492,19 @@
               ;;needs to be added
               [["and" & clauses]]
               (when (some (complement seq) clauses)
-                (throw (IllegalArgumentException. "[] is not well-formed: queries must contain at least one operator")))
+                (throw (IllegalArgumentException. (tru "[] is not well-formed: queries must contain at least one operator"))))
 
               ;;Facts is doing validation against nots only having 1
               ;;clause, adding this here to fix that test, need to make
               ;;another pass once other validations are known
               [["not" & clauses]]
               (when (not= 1 (count clauses))
-                (throw (IllegalArgumentException. (format "'not' takes exactly one argument, but %s were supplied" (count clauses)))))
+                (throw (IllegalArgumentException. (tru "''not'' takes exactly one argument, but {0} were supplied" (count clauses)))))
 
               [[op & _]]
               (when (and (contains? binary-operators op)
                          (binary-operator-checker node))
-                (throw (IllegalArgumentException. (format "%s requires exactly two arguments" op))))
+                (throw (IllegalArgumentException. (tru "{0} requires exactly two arguments" op))))
 
               :else nil)))
 
@@ -1559,11 +1559,11 @@
     (cond
       (> (count candidates) 1)
       (throw (IllegalArgumentException.
-               (format "Multiple '%s' clauses are not permitted" clause)))
+              (tru "Multiple ''{0}'' clauses are not permitted" clause)))
 
       (not (second (first candidates)))
       (throw (IllegalArgumentException.
-               (format "Received '%s' clause without an argument" clause))))
+              (tru "Received ''{0}'' clause without an argument" clause))))
 
       :else (second (first candidates))))
 
@@ -1716,10 +1716,12 @@
             [["in" column-name ["array" value]]]
             (let [cinfo (get-in query-rec [:projections column-name])]
               (when-not (coll? value)
-                (throw (IllegalArgumentException. "Operator 'array' requires a vector argument")))
+                (throw (IllegalArgumentException.
+                        (tru "Operator 'array' requires a vector argument"))))
               (case (:type cinfo)
                 :array
-                (throw (IllegalArgumentException. "Operator 'in'...'array' is not supported on array types"))
+                (throw (IllegalArgumentException.
+                        (tru "Operator 'in'...'array' is not supported on array types")))
 
                 :timestamp
                 (map->InArrayExpression {:column cinfo
@@ -1767,9 +1769,9 @@
                                                   (to-timestamp value)
                                                   value)})
                 (throw
-                  (IllegalArgumentException.
-                    (format "Argument \"%s\" and operator \"%s\" have incompatible types."
-                            value op)))))
+                 (IllegalArgumentException.
+                  (tru "Argument \"{0}\" and operator \"{1}\" have incompatible types."
+                       value op)))))
 
             [["null?" column-name value]]
             (let [cinfo (get-in query-rec [:projections column-name])]
@@ -1914,8 +1916,8 @@
                 [["extract" column [subquery-name :guard (complement #{"not" "group_by" "or" "and"}) _]]]
                 (let [underscored-subquery-name (utils/dashes->underscores subquery-name)
                       error (if (contains? (set (keys user-name->query-rec-name)) underscored-subquery-name)
-                              (i18n/trs "Unsupported subquery `{0}` - did you mean `{1}`?" subquery-name underscored-subquery-name)
-                              (i18n/trs "Unsupported subquery `{0}`" subquery-name))]
+                              (tru "Unsupported subquery `{0}` - did you mean `{1}`?" subquery-name underscored-subquery-name)
+                              (tru "Unsupported subquery `{0}`" subquery-name))]
                   {:node node
                    :state (conj state error)
                    :cut true})
@@ -2044,9 +2046,8 @@
   "Show a warning if the endpoint is experimental."
   [entity]
   (when (contains? experimental-entities entity)
-    (log/warn (format
-                "The %s entity is experimental and may be altered or removed in the future."
-                (name entity)))))
+    (log/warn (trs "The {0} entity is experimental and may be altered or removed in the future."
+                   (name entity)))))
 
 (defn paging-clause?
   [v]
@@ -2075,7 +2076,12 @@
 
                             []
                             {:query []}
-                            :else (throw (IllegalArgumentException. "Your `from` query accepts an optional query only as a second argument. Check your query and try again.")))
+                            :else (throw
+                                   (IllegalArgumentException.
+                                    (str
+                                     (tru "Your `from` query accepts an optional query only as a second argument.")
+                                     " "
+                                     (tru "Check your query and try again.")))))
           entity (keyword (utils/underscores->dashes entity-str))]
       (when warn
         (warn-experimental entity))
@@ -2083,7 +2089,11 @@
        :paging-clauses (:paging-clauses remaining-query)
        :entity entity})
 
-   :else (throw (IllegalArgumentException. (format "Your initial query must be of the form: [\"from\",<entity>,(<optional-query>)]. Check your query and try again.")))))
+    :else (throw (IllegalArgumentException.
+                  (str
+                   (trs "Your initial query must be of the form: [\"from\",<entity>,(<optional-query>)].")
+                   " "
+                   (trs "Check your query and try again."))))))
 
 (pls/defn-validated ^:private fix-in-expr-multi-comparison
   "Returns [column projection] after adjusting the type of one of them

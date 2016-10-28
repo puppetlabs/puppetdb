@@ -20,13 +20,13 @@
             [clojure.java.io :as io]
             [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.i18n.core :as i18n]
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as ks]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [puppetlabs.i18n.core :refer [trs]]))
 
 (def cli-description "Transfer messages from ActiveMQ to Stockpile")
 
@@ -44,7 +44,8 @@
     (.setExceptionListener
      (reify ExceptionListener
        (onException [this ex]
-         (log/error ex (i18n/trs "receiver queue connection error")))))
+         (log/error ex
+                    (trs "receiver queue connection error")))))
     (.start)))
 
 (defn extract-headers
@@ -70,7 +71,7 @@
           buf (byte-array len)
           n (.readBytes msg buf)]
       (when (not= len n)
-        (throw (Exception. (i18n/trs "Only read {0}/{1} bytes from incoming message" n len))))
+        (throw (Exception. (trs "Only read {0}/{1} bytes from incoming message" n len))))
       buf)))
 
 (defn convert-old-command-format
@@ -125,14 +126,17 @@
             (try
               (enqueue-fn command version certname payload)
               (catch Exception ex
-                (log/error ex (i18n/trs "[{0}] [{1}] [{2}] Unable to process message"
-                                        command version certname))
+                (log/error ex
+                           (trs
+                            "[{0}] [{1}] [{2}] Unable to process message"
+                            command version certname))
                 (discard-amq-message message-bytes id headers ex dlo))))
           (catch AssertionError ex
-            (log/error ex (i18n/trs "Unable to process message: {0}" id))
+            (log/error ex
+                       (trs "Unable to process message: {0}" id))
             (discard-amq-message message-bytes id headers ex dlo))
           (catch Exception ex
-            (log/error ex (i18n/trs "Unable to process message: {0}" id))
+            (log/error ex (trs "Unable to process message: {0}" id))
             (discard-amq-message message-bytes id headers ex dlo))
           (finally
             (.acknowledge message)))))))
@@ -145,30 +149,28 @@
               session (create-session connection)
               producer (.createProducer session (create-queue session endpoint))
               consumer (.createConsumer session (create-queue session endpoint))]
-    (log/info (i18n/trs "Transferring {0} commands to new queue" endpoint))
+    (log/info (trs "Transferring {0} commands to new queue" endpoint))
     (mq/send-message! connection endpoint
                       "\"ignore me\""
                       {"command" "end-of-line"})
     (letfn [(get-msg []
               (or (.receive consumer 5000)
                   (do
-                    (-> "No ActiveMQ delivery for 5s; waiting 120s"
-                        i18n/trs log/info)
+                    (log/info (trs "No ActiveMQ delivery for 5s; waiting 120s"))
                     (.receive consumer 120000))))]
       (try
         (loop []
           (when-let [msg (get-msg)]
             (if (= "end-of-line" (.getStringProperty msg "command"))
               (do
-                (log/info (i18n/trs "Completed transfer from {0}" endpoint))
+                (log/info (trs "Completed transfer from {0}" endpoint))
                 true)
               (do
                 (process-message (swap! id inc) msg)
                 (recur)))))
         (catch javax.jms.IllegalStateException e
-          (-> "Abandoning transfer from {0} after IllegalStateException"
-              (i18n/trs endpoint)
-              log/info)
+          (log/info (trs "Abandoning transfer from {0} after IllegalStateException"
+                         endpoint))
           false)
         (catch Exception e
           (log/error e)
@@ -203,14 +205,14 @@
                                                (discard-amq-message (convert-message-body msg) (swap! id inc) {} e dlo))))]
           (.send producer request)
           (Thread/sleep 2000)
-          (log/info (i18n/trs "Processing messages from the scheduler"))
+          (log/info (trs "Processing messages from the scheduler"))
           (try
             (loop []
               (when-let [msg (.receive consumer 5000)]
                 (process-message-and-remove (swap! id inc) msg)
                 (recur)))
             (catch javax.jms.IllegalStateException e
-              (log/info (i18n/trs "Received IllegalStateException, shutting down"))
+              (log/info (trs "Received IllegalStateException, shutting down"))
               false)
             (catch Exception e
               (log/error e)
@@ -236,7 +238,7 @@
   {:pre [((some-fn nil? integer?) megabytes)
          (fn? usage-fn)]}
   (when-let [limit (some-> megabytes (* 1024 1024))]
-    (log/info (i18n/trs "Setting ActiveMQ {0} limit to {1} MB" desc megabytes))
+    (log/info (trs "Setting ActiveMQ {0} limit to {1} MB" desc megabytes))
     (-> (.getSystemUsage broker)
         usage-fn
         (.setLimit limit)))
@@ -301,7 +303,13 @@
   (try
     (start-broker! (build-embedded-broker brokername dir config))
     (catch java.io.EOFException e
-      (log/error e (i18n/trs "EOF Exception caught during broker start. This might be due to KahaDB corruption. Consult the PuppetDB troubleshooting guide."))
+      (log/error e
+                 (str
+                  (trs "EOF Exception caught during broker start.")
+                  " "
+                  (trs "This might be due to KahaDB corruption.")
+                  " "
+                  (trs "Consult the PuppetDB troubleshooting guide.")))
       (throw e))))
 
 (defn ^BrokerService build-and-start-broker!
@@ -311,11 +319,17 @@
     (try
       (start-broker! (build-embedded-broker brokername dir config))
       (catch java.io.EOFException e
-        (log/warn (i18n/trs "Caught EOFException on broker startup, trying again. This is probably due to KahaDB corruption (see \"KahaDB Corruption\" in the PuppetDB manual)."))
+        (log/warn
+         (str (trs "Caught EOFException on broker startup, trying again.")
+              " "
+              (trs "This is probably due to KahaDB corruption (see \"KahaDB Corruption\" in the PuppetDB manual).")))
         (retry-build-and-start-broker! brokername dir config)))
     (catch java.io.IOException e
       (throw (java.io.IOException.
-              (i18n/trs "Unable to start broker in {0}. This is probably due to KahaDB corruption or version incompatibility after a PuppetDB downgrade (see \"KahaDB Corruption\" in the PuppetDB manual)." (pr-str dir))
+              (str
+               (trs "Unable to start broker in {0}." (pr-str dir))
+               " "
+               (trs "This is probably due to KahaDB corruption or version incompatibility after a PuppetDB downgrade (see \"KahaDB Corruption\" in the PuppetDB manual)."))
               e)))))
 
 (defn activemq-connection-factory [spec]
@@ -358,9 +372,9 @@
         mq-endpoint (:endpoint mq-config default-mq-endpoint)
         process-message (create-message-processor enqueue-fn dlo)
         id (atom 0)
-        fail-msg (i18n/trs "Unable to migrate all ActiveMQ messages (will retry on restart)")]
+        fail-msg (trs "Unable to migrate all ActiveMQ messages (will retry on restart)")]
     (try
-      (let [broker (do (log/info (i18n/trs "Starting broker"))
+      (let [broker (do (log/info (trs "Starting broker"))
                        (build-and-start-broker! "localhost" mq-dir cmd-proc-config))]
         (try
           (let [conn-pool (activemq-connection-factory mq-broker-url)]
@@ -374,7 +388,7 @@
                    (transfer-mq-messages conn-pool retired-mq-endpoint
                                          process-message id)
                    (do
-                     (log/info (i18n/trs "You may safely delete {0}" mq-dir))
+                     (log/info (trs "You may safely delete {0}" mq-dir))
                      true))
               (catch Exception e
                 (log/error e fail-msg)

@@ -10,7 +10,8 @@
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [schema.core :as s])
+            [schema.core :as s]
+            [puppetlabs.i18n.core :refer [trs]])
   (:import [org.postgresql.util PGobject]))
 
 ;; SCHEMA
@@ -298,7 +299,7 @@
 
 (defn analyze-small-tables
   [small-tables]
-  (log/info "Analyzing small tables")
+  (log/info (trs "Analyzing small tables"))
   (apply jdbc/do-commands-outside-txn
          (map #(str "analyze " %) small-tables)))
 

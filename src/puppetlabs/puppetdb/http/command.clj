@@ -15,7 +15,8 @@
             [puppetlabs.comidi :as cmdi]
             [ring.util.request :as request]
             [schema.core :as s]
-            [slingshot.slingshot :refer [try+ throw+]])
+            [slingshot.slingshot :refer [try+ throw+]]
+            [puppetlabs.i18n.core :refer [trs tru]])
   (:import [org.apache.commons.io IOUtils]
            [org.apache.commons.fileupload.util LimitedInputStream]))
 
@@ -133,13 +134,14 @@
 
 (defn-validated ^:private normalize-old-request
   [{:keys [params body] :as req} :- old-request-schema]
-  (log/warn (str "Unable to stream command posted without parameters"
-                 " (loading into RAM)"))
+  (log/warn (trs "Unable to stream command posted without parameters (loading into RAM)"))
   (if-not body
-    (http/error-response "Empty application/json POST body")
+    (http/error-response
+     (tru "Empty application/json POST body"))
     (let [body (json/parse-strict (:body req))]
       (if (empty? body)
-        (http/error-response "Empty application/json POST body")
+        (http/error-response
+         (tru "Empty application/json POST body"))
         (do
           (s/validate {(s/required-key "command") s/Str
                        (s/required-key "version") s/Int
@@ -181,7 +183,7 @@
       (java.io.ByteArrayInputStream. (.getBytes body "UTF-8"))
 
       :else
-      (throw (Exception. (str "Unexpected body type: " (class body)))))
+      (throw (Exception. (tru "Unexpected body type: {0}" (class body)))))
     (cond
       (instance? java.io.InputStream body)
       (restrained-drained-stream body (long max-command-size))
@@ -194,7 +196,7 @@
         (java.io.ByteArrayInputStream. (.getBytes body "UTF-8")))
 
       :else
-      (throw (Exception. (str "Unexpected body type: " (class body)))))))
+      (throw (Exception. (tru "Unexpected body type: {0}" (class body)))))))
 
 (defn- enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
@@ -228,7 +230,7 @@
            (do-submit identity)
            (http/json-response {:uuid (kitchensink/uuid)}))))
      (catch (= ::body-stream-overflow %) _
-       (http/error-response "Command size exceeds max-command-size"
+       (http/error-response (tru "Command size exceeds max-command-size")
                             http/status-entity-too-large)))))
 
 (defn- add-received-param

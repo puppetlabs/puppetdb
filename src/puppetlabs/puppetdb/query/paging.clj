@@ -13,7 +13,8 @@
                                                                  parse-int]]
             [puppetlabs.puppetdb.honeysql :as h]
             [puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [puppetlabs.i18n.core :refer [trs tru]]))
 
 (def query-params ["query" "limit" "offset" "order_by" "include_total"])
 (def count-header "X-Records")
@@ -62,8 +63,7 @@
     (json/parse-strict-string order_by true)
     (catch JsonParseException e
       (throw (IllegalArgumentException.
-              (str "Illegal value '" order_by "' for :order_by; expected a JSON "
-                   "array of maps.")
+              (tru "Illegal value ''{0}'' for :order_by; expected a JSON array of maps." order_by)
               e)))))
 
 (defn parse-order-str
@@ -84,8 +84,7 @@
           ((every-pred sequential? #(every? map? %)) order_by))
     order_by
     (throw (IllegalArgumentException.
-            (str "Illegal value '" order_by "' for :order_by; expected "
-                 "an array of maps.")))))
+            (tru "Illegal value ''{0}'' for :order_by; expected an array of maps." order_by)))))
 
 (defn parse-required-order-by-fields
   "Validates that each map in the order_by list contains the required
@@ -99,14 +98,13 @@
                            (fn [x] (when-not (contains? x :field) x))
                            order_by)]
     (throw (IllegalArgumentException.
-            (str "Illegal value '" bad-order-by "' in :order_by; "
-                 "missing required key 'field'."))))
+            (tru "Illegal value ''{0}'' in :order_by; missing required key 'field'."))))
   (when-let [bad-order-by (some
                            (fn [x] (when-not (valid-order-str? (:order x)) x))
                            order_by)]
     (throw (IllegalArgumentException.
-            (str "Illegal value '" bad-order-by "' in :order_by; "
-                 "'order' must be either 'asc' or 'desc'"))))
+            (tru "Illegal value ''{0}'' in :order_by; ''order'' must be either ''asc'' or ''desc''"
+                 bad-order-by))))
   (map
    (fn [x]
      [(keyword (:field x)) (parse-order-str (:order x))])
@@ -121,10 +119,9 @@
                          (fn [x] (when (keys (dissoc x :field :order)) x))
                          order_by)]
     (throw (IllegalArgumentException.
-            (str "Illegal value '" bad-order-by "' in :order_by; "
-                 "unknown key '"
-                 (-> bad-order-by (dissoc :field :order) keys first name)
-                 "'.")))
+            (tru "Illegal value ''{0}'' in :order_by; unknown key ''{1}''."
+                 bad-order-by
+                 (-> bad-order-by (dissoc :field :order) keys first name))))
     order_by))
 
 (defn parse-order-by
@@ -176,8 +173,7 @@
   (let [l (coerce-to-int limit)]
     (if ((some-fn nil? neg? zero?) l)
       (throw (IllegalArgumentException.
-              (format (str "Illegal value '%s' for :limit;"
-                           " expected a positive non-zero integer.") limit)))
+              (tru "Illegal value ''{0}'' for :limit; expected a positive non-zero integer." limit)))
       l)))
 
 (pls/defn-validated parse-limit :- (s/maybe s/Int)
@@ -197,8 +193,7 @@
   (let [o (coerce-to-int offset)]
     (if ((some-fn nil? neg?) o)
       (throw (IllegalArgumentException.
-              (format (str "Illegal value '%s' for :offset;"
-                           " expected a non-negative integer.") offset)))
+              (tru "Illegal value ''{0}'' for :offset; expected a non-negative integer." offset)))
       o)))
 
 (defn parse-offset
@@ -219,9 +214,9 @@
   (doseq [field (map first (:order_by paging-options))]
     (when-not (seq-contains? columns field)
       (throw (IllegalArgumentException.
-               (format "Unrecognized column '%s' specified in :order_by; Supported columns are '%s'"
-                       (name field)
-                       (string/join "', '" (map name columns)))))))
+               (tru "Unrecognized column ''{0}'' specified in :order_by; Supported columns are ''{1}''"
+                    (name field)
+                    (string/join "', '" (map name columns)))))))
   paging-options)
 
 (defn requires-paging?

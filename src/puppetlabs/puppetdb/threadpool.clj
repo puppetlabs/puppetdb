@@ -6,7 +6,7 @@
            [org.apache.commons.lang3.concurrent BasicThreadFactory BasicThreadFactory$Builder])
   (:require [clojure.core.async :as async]
             [clojure.tools.logging :as log]
-            [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.i18n.core :refer [trs tru]]
             [slingshot.slingshot :refer [throw+]]))
 
 (def logging-exception-handler
@@ -15,7 +15,7 @@
   (reify Thread$UncaughtExceptionHandler
     (uncaughtException [_ thread throwable]
       (log/error throwable
-                 (i18n/trs "Error processing command on thread {0}" (.getName thread))))))
+                 (trs "Error processing command on thread {0}" (.getName thread))))))
 
 (defn thread-factory
   "Creates a command thread factory, wrapping the
@@ -48,13 +48,13 @@
   (when-not (.awaitTermination threadpool shutdown-timeout java.util.concurrent.TimeUnit/MILLISECONDS)
 
     (log/warn
-     (i18n/trs "Threadpool not stopped after {0} milliseconds, forcibly shutting it down" shutdown-timeout))
+     (trs "Threadpool not stopped after {0} milliseconds, forcibly shutting it down" shutdown-timeout))
 
     ;; This will force the shutdown of the threadpool and will
     ;; not allow current threads to finish
     (.shutdownNow threadpool)
     (log/warn
-     (i18n/trs "Threadpool forcibly shutdown"))))
+     (trs "Threadpool forcibly shutdown"))))
 
 (defrecord GatedThreadpool [^Semaphore semaphore ^ExecutorService threadpool shutdown-timeout]
   java.io.Closeable
@@ -94,7 +94,7 @@
                            (try
                              (f)
                              (catch InterruptedException e
-                               (log/debug e (i18n/trs "Thread interrupted while processing on threadpool")))
+                               (log/debug e (trs "Thread interrupted while processing on threadpool")))
                              (finally
                                (.release semaphore)))))
     ;; RejectedExecutionExceptions only occur when attempting ot
@@ -119,5 +119,5 @@
           (throw+ {:kind ::rejected
                    :message cmd}
                   e
-                  (i18n/trs "Threadpool shutting down, message rejected"))))
+                  (tru "Threadpool shutting down, message rejected"))))
       (recur (async/<!! in-chan)))))

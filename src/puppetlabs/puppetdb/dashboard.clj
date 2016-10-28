@@ -3,7 +3,8 @@
             [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [ring.util.response :as rr]
-            [puppetlabs.comidi :as cmdi]))
+            [puppetlabs.comidi :as cmdi]
+            [puppetlabs.i18n.core :refer [trs]]))
 
 (def dashboard-routes
   (cmdi/context "/"
@@ -14,6 +15,6 @@
   [[:WebroutingService add-ring-handler get-route]]
 
   (start [this context]
-         (log/info "Redirecting / to the PuppetDB dashboard")
+         (log/info (trs "Redirecting / to the PuppetDB dashboard"))
          (add-ring-handler this (mid/make-pdb-handler dashboard-routes))
          context))
