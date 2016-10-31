@@ -2,11 +2,13 @@
   (:require [me.raynes.fs :as fs]
             [clj-http.client :as client]
             [clojure.java.jdbc :as sql]
+            [metrics.meters :as meters]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants
              :refer [latest-catalog-version latest-facts-version]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
-            [puppetlabs.puppetdb.metrics.core :refer [new-metrics]]
+            [puppetlabs.puppetdb.metrics.core
+             :refer [metrics-registries new-metrics]]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.catalogs :as catalog]
@@ -127,6 +129,12 @@
     port
     ([v] v)))
 
+(defn discard-count []
+  (-> (meters/meter (get-in metrics-registries [:mq :registry])
+                    ["global" "discarded"])
+      meters/rates
+      :total))
+
 (deftest command-processor-integration
   (let [command {:command "replace catalog" :version 5
                  :payload (get-in wire-catalogs [5 :empty])}]
@@ -143,7 +151,9 @@
         (testing "when a fatal error occurs should be discarded to the dead letter queue"
           (with-redefs [process-command-and-respond! (fn [& _] (throw+ (fatality (Exception. "fatal error"))))]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
-              (handle-message (store-command' q command))
+              (let [discards (discard-count)]
+                (handle-message (store-command' q command))
+                (is (= (inc discards) (discard-count))))
               (is (= 0 (count (scheduled-jobs delay-pool))))
               (is (= 2 (count (fs/list-dir (:path dlo))))))))
 
@@ -173,7 +183,9 @@
           (with-redefs [process-command-and-respond! (fn [& _] (throw (RuntimeException. "Expected failure")))]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
               (let [cmdref (store-command' q (assoc command :version 9))]
-                (handle-message (add-fake-attempts cmdref maximum-allowable-retries))
+                (let [discards (discard-count)]
+                  (handle-message (add-fake-attempts cmdref maximum-allowable-retries))
+                  (is (= (inc discards) (discard-count))))
                 (is (= 0 (task-count delay-pool)))
                 (is (= 2 (count (fs/list-dir (:path dlo)))))))))))
 
@@ -182,7 +194,9 @@
             process-counter (call-counter)]
         (with-redefs [process-command-and-respond! process-counter]
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
-            (handle-message (store-command' q command))
+            (let [discards (discard-count)]
+              (handle-message (store-command' q command))
+              (is (= (inc discards) (discard-count))))
             (is (= 0 (task-count delay-pool)))
             (is (= 2 (count (fs/list-dir (:path dlo)))))
             (is (= 0 (times-called process-counter)))))))))
