@@ -4,7 +4,6 @@ layout: default
 subtitle: "Frequently asked questions"
 ---
 
-[trouble_kahadb]: ./trouble_kahadb_corruption.html
 [maintaining_tuning]: ./maintain_and_tune.html
 [connect_puppet_apply]: ./connect_puppet_apply.html
 [low_catalog_dupe]: ./trouble_low_catalog_duplication.html
@@ -77,18 +76,29 @@ with ActiveRecord in Ruby. We have no plans to support any other databases,
 including MySQL, which lacks important features such as array columns and
 recursive queries.
 
-## I may have a corrupt KahaDB store. What does this mean, what causes it, and how can I recover?
+## Why does PDB crash on startup while upgrading?
 
-If PuppetDB throws an exception when the application starts or while receiving
-a command, it may be due to KahaDB corruption. The exception generally includes some
-mention of the KahaDB libraries (org.apache.activemq.store.kahadb). For example:
+If you're upgrading from an older version of PDB that stored incoming
+commands in ActiveMQ, it's possible that you have a currupted KahaDB.
+If so, you might see an exception that mentions the KahaDB libraries
+(org.apache.activemq.store.kahadb). For example:
 
     java.io.EOFException
         at java.io.RandomAccessFile.readInt(RandomAccessFile.java:776)
         at org.apache.activemq.store.kahadb.disk.journal.DataFileAccessor.readRecord(DataFileAccessor.java:81)
 
-You should consult the [troubleshooting guide for KahaDB][trouble_kahadb] for
-details on how to rememdy this.
+This problem may be fixed by stopping PDB, moving the mq directory
+somewhere else, and restarting PDB, but any messages that were in the
+mq directory will be lost.
+
+Note that this ActiveMQ message:
+
+      2016-02-29 15:20:53,571 WARN  [o.a.a.b.BrokerService] Store limit is
+      102400 mb (current store usage is 1 mb). The data directory:
+      /home/wyatt/work/puppetdb-mq-tmp/mq/localhost/KahaDB only has 71730 mb of
+      usable space. - resetting to maximum available disk space: 71730 mb
+
+is harmless and does not indicate an issue.
 
 ## The PuppetDB daemon shuts down with a "Cannot assign requested address" error. What does this mean, and how do I fix it?
 

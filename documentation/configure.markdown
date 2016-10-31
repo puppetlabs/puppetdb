@@ -644,24 +644,27 @@ disabled. The default value is one day.
 
 ### `store-usage`
 
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
+**Note**: This setting is deprecated and is ignored by PuppetDB,
+except when migrating away from ActiveMQ.  It will be removed from
+PuppetDB in a future release.
 
 Sets the maximum amount of space in megabytes that
 PuppetDB's ActiveMQ can use for persistent message storage.
 
 ### `temp-usage`
 
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
+**Note**: This setting is deprecated and ignored by PuppetDB, except
+when migrating away from ActiveMQ.  It will be removed from PuppetDB
+in a future release.
 
 Sets the maximum amount of space in megabytes that
 PuppetDB's ActiveMQ can use for temporary message storage.
 
 ### `memory-usage`
 
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
+**Note**: This setting is deprecated and ignored by PuppetDB, except
+when migrating away from ActiveMQ.  It will be removed in a future
+release.
 
 This setting sets the maximum amount of memory in megabytes available for
 PuppetDB's ActiveMQ Broker.
@@ -674,8 +677,9 @@ and `threads` parameters.
 
 ### `max-frame-size`
 
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
+**Note**: This setting is deprecated and ignored by PuppetDB, except
+when migrating away from ActiveMQ.  It will be removed from PuppetDB
+in a future release.
 
 Sets the maximum frame size for persisted ActiveMQ messages
 supplied in bytes. Default value is 209715200 (or 200MB).

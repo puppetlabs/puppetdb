@@ -19,11 +19,11 @@ its internals.
 
 ## PDB Architectural Overview
 
-Data stored in PDB flows through four components: the terminus, a message
-queue, the actual application, and the database. The ordering is terminus ->
-application -> queue -> application -> database. It may be useful to consider
-the terminus, application plus queue, and database as residing on three
-separate machines.
+Data stored in PDB flows through four components.  It's passed from
+the terminus to a filesystem queue, from which it is picked up later
+by the application, and then recorded in the database.  It's not
+unusual for the terminus, the application managing the queue, and the
+database to reside on three separate machines.
 
 ### Terminus
 
@@ -33,10 +33,13 @@ PDB in the form of "commands". PDB has four commands, as described in the
 
 ### Queue
 
-When the terminus sends a command to PDB, the command is dumped to an ActiveMQ
-message queue on disk unprocessed, where it waits for the application to take
-it and submit it to the database. Commands may be processed out of order,
-though an approximate ordering by submission time can be loosely assumed.
+The commands sent from the terminus to PDB are likely to be deferred
+to a filesystem queue for later processing, at which point they will
+be submitted to the database.  Commands may not always be processed in
+the order received, but will ususally be handled in roughly the order
+submitted.  Although "stale" commands might be ignored.  For example,
+older fact sets or catalogs that are still in the queue might be
+dropped when newer ones are received for the same certname.
 
 ### Command processing
 
@@ -113,6 +116,7 @@ collecting and inspecting the following:
 Search the PDB logs for recurring errors that line up with the timing of
 the issue. Some common errors that may show in the PDB logs
 are:
+
 * database constraint violations: These will appear from time to time in most
   installs due to concurrent command processing, but if they occur frequently
   and in relation to multiple nodes it usually indicates an issue. Note that
@@ -120,26 +124,6 @@ are:
   retried 16 times over a period of a day or so, with the retry count displayed
   in the log. Seeing 16 retries of a single command indicates an issue with the
   command, but not necessarily with the application.
-* ActiveMQ/KahaDB errors: PDB can occasionally get into a state where ActiveMQ
-  becomes corrupt and the queue itself needs to be deleted. This can be caused
-  by a failed PDB upgrade, a JVM crash, or running out of space on disk, among
-  other things. If you see frequent errors in the logs related to ActiveMQ, try
-  stopping PDB, moving the mq directory somewhere else, and restarting PDB
-  (which will recreate the mq directory). Note that this message:
-
-      2016-02-29 15:20:53,571 WARN  [o.a.a.b.BrokerService] Store limit is
-      102400 mb (current store usage is 1 mb). The data directory:
-      /home/wyatt/work/puppetdb-mq-tmp/mq/localhost/KahaDB only has 71730 mb of
-      usable space. - resetting to maximum available disk space: 71730 mb
-
-  is harmless noise and does not indicate an issue. Users can make it go away
-  by lowering the store-usage or temp-usage settings in their PDB
-  configuration.
-
-  Note also that 2.x versions of PDB will sometimes throw harmless
-  AMQ noise on shutdown. If you are on 2.x and the errors you're seeing occur
-  on shutdown only, you are probably running into [PDB-880][PDB-880] and your
-  problem likely lies somewhere else.
 
 * Out of memory errors: PDB can crash if it receives a command too large
   for its heap. This can be trivially fixed by raising the Xmx setting in the
