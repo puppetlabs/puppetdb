@@ -134,7 +134,7 @@
   :classifiers  [["test" :testutils]]
 
   :profiles {:dev {:resource-paths ["test-resources"],
-                   :dependencies [[ring-mock]
+                   :dependencies [[ring-mock nil]
                                   [puppetlabs/trapperkeeper nil :classifier "test"]
                                   [puppetlabs/kitchensink nil :classifier "test"]
                                   [puppetlabs/trapperkeeper-webserver-jetty9 nil :classifier "test"]
@@ -147,7 +147,7 @@
                                   (require 'schema.core)
                                   (schema.core/set-fn-validation! true))]}
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
-                                               [org.clojure/tools.nrepl "0.2.3"]]
+                                               [org.clojure/tools.nrepl nil]]
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "1.1.3"
                                  :exclusions [org.clojure/clojure]]]}
