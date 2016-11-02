@@ -66,6 +66,12 @@ PuppetDB 4.2.4 is a minor bugfix release.
 * Updated docs to clarify the effect of setting the time to live
 settings to '0s'
 
+### Contributors
+
+Andrew Roetker, Jeremy Barlow, Karel Březina, Ken Barber, Kylo
+Ginsberg, Melissa Stone, Molly Waggett, Rob Browning, Ruth Linehan,
+Ryan Senior, Tiffany Longworth, and Wyatt Alt.
+
 4.2.3
 -----
 PuppetDB 4.2.3 was not publically released.
