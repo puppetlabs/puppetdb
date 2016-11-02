@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.2: Release notes"
+title: "PuppetDB 4.3: Release notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
@@ -13,6 +13,31 @@ canonical: "/puppetdb/latest/release_notes.html"
 [upgrades]: ./upgrade.html
 [metrics]: ./api/metrics/v1/changes-from-puppetdb-v3.html
 [pqltutorial]: ./api/query/tutorial-pql.html
+[stockpile]: https://github.com/puppetlabs/stockpile
+[queue_support_guide]: ./pdb_support_guide.html#message-queue
+
+4.3.0
+-----
+
+PuppetDB 4.3.0 is a backward-compatible feature release that changes
+the way PuppetDB handles incoming commands.  Previously they were
+stored in ActiveMQ for future processing, but now they're being
+handled by [stockpile][stockpile].  This should increase performance
+and may decrease the maximum heap required for a given workload.
+Please see the [queue information][queue_support_guide] in the support
+guide if you're interested in the details.
+
+### New features / Enhancements
+
+* PuppetDB now stores incoming commands in [stockpile][stockpile]
+  rather than ActiveMQ.
+  ([PDB-2730](https://tickets.puppetlabs.com/browse/PDB-2730))
+
+### Contributors
+
+Andrew Roetker, Dan Lidral-Porter, Jeremy Barlow, Karel Březina, Ken Barber,
+Kylo Ginsberg, Molly Waggett, Rob Browning, Ryan Senior, Tiffany
+Longworth, and Wyatt Alt.
 
 4.2.4
 -----
