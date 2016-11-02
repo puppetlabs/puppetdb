@@ -6,11 +6,11 @@ layout: default
 [commands]: ./api/command/v1/commands.html#list-of-commands
 [threads]: https://docs.puppetlabs.com/puppetdb/latest/configure.html#threads
 [erd]: ./images/pdb_erd.png
-[pdb-880]: https://tickets.puppetlabs.com/browse/PDB-880
 [pgstattuple]: http://www.postgresql.org/docs/9.4/static/pgstattuple.html
 [pgtune]: https://github.com/gregs1104/pgtune
 [postgres-config]: http://www.postgresql.org/docs/current/static/runtime-config-resource.html
 [fact-precedence]: https://docs.puppetlabs.com/facter/3.1/custom_facts.html#fact-precedence
+[stockpile]: https://github.com/puppetlabs/stockpile
 
 ## Support and Troubleshooting for PuppetDB
 
@@ -31,15 +31,72 @@ The terminus resides on the Puppet master and redirects agent data to
 PDB in the form of "commands". PDB has four commands, as described in the
 [commands documentation][commands].
 
-### Queue
+### Message Queue
 
-The commands sent from the terminus to PDB are likely to be deferred
-to a filesystem queue for later processing, at which point they will
-be submitted to the database.  Commands may not always be processed in
-the order received, but will ususally be handled in roughly the order
-submitted.  Although "stale" commands might be ignored.  For example,
-older fact sets or catalogs that are still in the queue might be
-dropped when newer ones are received for the same certname.
+Currently, all of the commands sent from the terminus to PDB are
+deferred to a filesystem queue for later processing, at which point
+they will be submitted to the database in roughly the order received.
+
+Previous versions of PDB stored deferred messages in ActiveMQ, which
+conglomerated them in opaque binary files inside `vardir`/mq.  Now PDB
+stores the messages via [stockpile][stockpile], which records each
+message as a normal file inside `vardir`/stockpile/cmd/q, and while
+it's unlikely to be necessary, it's safe to manually remove queue
+commands when PDB is not running.
+
+Whenever PDB starts up it checks to see if it has already migrated
+older messages from ActiveMQ to stockpile by looking for the file
+`vardir`/mq-migrated.  If that file doesn't exist, then it migrates
+any older messages, and creates mq-migrated.
+
+The message names are designed to provide some information about their
+content.  For example:
+
+    stockpile/cmd/q/167-1478013718598_facts_5_somehost.json
+
+Contains a version 5 "replace facts" command for certname "somehost"
+that was received at 1478013718598 milliseconds since the epoch
+(1970-01-01 UTC).  The 167 is a stockpile sequence number, and as
+suggested by the .json extension, the command files are just plain
+text JSON representations of the incoming commands.
+
+Given this arrangement, you can use normal filesystem commands for
+rough examinations of the queue.  For example, something like this
+
+    find cmd/q | grep -cE '^cmd/q/[0-9]+-[0-9]+_facts_'
+
+should provide a count of "replace facts" commands in the queue, and
+something like this:
+
+    find cmd/q -printf "%s %p\n" | sort -n | tail
+
+should list the largest commands in the queue.
+
+Note that the certname may be altered to accommodate filesystem
+restrictions.  Currently that means replacing the characters "/", ":",
+"\", and 0 with "-", and truncating the certname so that it's UTF-8
+encoding never exceeds about 255 characters.  A truncated certname
+will be followed by an underscore and a hash of the full certname.
+For example:
+
+    stockpile/cmd/q/167-1478013718598_facts_5_LONGNAME_HASH.json
+
+As a result of this, PDB expects the `vardir` filesystem to be able to
+handle all of your certnames, UTF-8 encoded, as filenames, excepting
+of course, any characters that are translated to dashes as mentioned
+above.
+
+PDB also expects the `vardir` filesystem to be able to handle
+filenames up to a maximum of 255 bytes, although the actual queue
+message filename lengths will depend on your certnames.  Filesystems
+like ext4 and xfs should work fine.
+
+In addition to the message files, you may also see some files in the
+queue whose names begin with "tmp-".  These are just temporary files
+created during message delivery and can be ignored.  Under normal
+circumstances, they should be very short lived, but if they were to
+accumulate (likely indicating some other problem), PDB will attempt to
+clean them up when restarted.
 
 ### Command processing
 
