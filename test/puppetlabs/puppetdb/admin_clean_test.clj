@@ -81,7 +81,7 @@
           (finally
             (.await test-finished)
             (is (not= ::timed-out
-                      (deref cleanup-result 10000 ::timed-out)))))))))
+                      (deref cleanup-result 120000 ::timed-out)))))))))
 
 (defn- clean-status []
   (gauges/value (:cleaning cli-svc/admin-metrics)))
