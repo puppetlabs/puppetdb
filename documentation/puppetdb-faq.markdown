@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.2 » FAQ"
+title: "PuppetDB 4.3 » FAQ"
 layout: default
 subtitle: "Frequently asked questions"
 ---

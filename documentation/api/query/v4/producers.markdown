@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.2: Producers endpoint"
+title: "PuppetDB 4.3: Producers endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/producers.html"
 ---

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.2: Commands endpoint"
+title: "PuppetDB 4.3: Commands endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/command/v1/commands.html"
 ---

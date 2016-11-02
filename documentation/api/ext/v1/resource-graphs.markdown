@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.2 » Extensions API (PE only)"
+title: "PuppetDB 4.3 » Extensions API (PE only)"
 layout: default
 canonical: "/puppetdb/latest/api/ext/v1/resource-graphs.html"
 ---

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.2: Edges endpoint"
+title: "PuppetDB 4.3: Edges endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/edges.html"
 ---
