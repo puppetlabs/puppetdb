@@ -185,7 +185,7 @@ retries for common error scenarios.
   selectively, perhaps via cron, to avoid increasing the load during
   peak usage times.  See the [admin command](./api/admin/v1/cmd.html)
   endpoint documentation for more information.
-  ([PDB-2487](https://tickets.puppetlabs.com/browse/PDB-2487))
+  ([PDB-2478](https://tickets.puppetlabs.com/browse/PDB-2478))
 
 * Added `depth` as a queryable fact-path endpoint field.
   ([PDB-2771](https://tickets.puppetlabs.com/browse/PDB-2771))
