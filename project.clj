@@ -1,4 +1,4 @@
-(def pdb-version "4.3.0")
+(def pdb-version "4.4.0-SNAPSHOT")
 
 (defn deploy-info
   "Generate deployment information from the URL supplied and the username and
