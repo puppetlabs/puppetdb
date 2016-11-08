@@ -316,13 +316,6 @@ If `gc-interval` is set to zero, all database GC processes will be disabled. Whe
 using this value, you should explicitly set a `dlo-compression-interval` if your
 system will receive any commands.
 
-### `dlo-compression-interval`
-
-Any PuppetDB instance which receives commands must perform periodic maintenance
-on the message queue. This setting controls the interval at which that process
-is performed. By default, it is equal to `gc-interval` (60 minutes by default).
-You may wish to set this explicitly if you are using a zero `gc-interval`.
-
 ### `node-ttl`
 
 Mark as 'expired' nodes that haven't seen any activity (no new catalogs,
@@ -628,6 +621,16 @@ If your load is low, your disk is fast (i.e. an SSD), and commands
 aren't being processed quickly enough, then you could increasing this
 value in order to alleviate that, but this is unlikely to be the
 bottleneck for command processing.
+
+### `dlo-compression-interval`
+
+**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
+from PuppetDB in a future release.
+
+Any PuppetDB instance which receives commands must perform periodic maintenance
+on the message queue. This setting controls the interval at which that process
+is performed. By default, it is equal to `gc-interval` (60 minutes by default).
+You may wish to set this explicitly if you are using a zero `gc-interval`.
 
 ### `dlo-compression-threshold`
 
