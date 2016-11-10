@@ -22,6 +22,9 @@ group :test do
   # Pinning for Ruby < 2.2.0 support
   gem 'activesupport', '~> 4.2'
 
+  # addressable 2.5 requires public_suffix, which requires ruby 2.
+  gem 'addressable', '< 2.5.0'
+
   # Pinning to work-around an incompatiblity with 2.14 in puppetlabs_spec_helper
   gem 'rspec', '~> 3.1'
   gem 'puppetlabs_spec_helper', '0.10.3', :require => false
