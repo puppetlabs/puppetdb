@@ -1255,9 +1255,9 @@
   (try
     (f)
     (catch java.sql.SQLException e
-      (log/error e "Caught SQLException during migration")
+      (log/error e (trs "Caught SQLException during migration"))
       (when-let [next (.getNextException e)]
-        (log/error next "Unravelled exception"))
+        (log/error next (trs "Unravelled exception")))
       (binding [*out* *err*] (flush)) (flush)
       (System/exit 1))))
 
@@ -1314,7 +1314,7 @@
         (sutils/analyze-small-tables small-tables)
         true)
       (do
-        (log/info "There are no pending migrations")
+        (log/info (trs "There are no pending migrations"))
         false))))
 
 ;; SPECIAL INDEX HANDLING
@@ -1323,11 +1323,11 @@
   "Create trgm indexes if they do not currently exist."
   []
   (when-not (sutils/index-exists? "fact_paths_path_trgm")
-    (log/info "Creating additional index `fact_paths_path_trgm`")
+    (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
     (jdbc/do-commands
      "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
   (when-not (sutils/index-exists? "fact_values_string_trgm")
-    (log/info "Creating additional index `fact_values_string_trgm`")
+    (log/info (trs "Creating additional index `fact_values_string_trgm`"))
     (jdbc/do-commands
      "CREATE INDEX fact_values_string_trgm ON fact_values USING gin (value_string gin_trgm_ops)")))
 
@@ -1339,9 +1339,8 @@
       (trgm-indexes!)
       (log/warn
        (str
-        "Missing PostgreSQL extension `pg_trgm`\n\n"
-        "We are unable to create the recommended pg_trgm indexes due to\n"
-        "the extension not being installed correctly. Run the command:\n\n"
-        "    CREATE EXTENSION pg_trgm;\n\n"
-        "as the database super user on the PuppetDB database to correct\n"
-        "this, then restart PuppetDB.\n")))))
+        (trs "Missing PostgreSQL extension `pg_trgm`")
+        "\n\n"
+        (trs "We are unable to create the recommended pg_trgm indexes due to\nthe extension not being installed correctly.")
+        " "
+        (trs " Run the command:\n\n    CREATE EXTENSION pg_trgm;\n\nas the database super user on the PuppetDB database to correct\nthis, then restart PuppetDB.\n"))))))
