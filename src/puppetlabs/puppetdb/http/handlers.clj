@@ -15,7 +15,8 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
-            [clojure.walk :refer [keywordize-keys]]))
+            [clojure.walk :refer [keywordize-keys]]
+            [puppetlabs.i18n.core :refer [trs]]))
 
 (def params-schema {(s/optional-key :optional) [s/Str]
                     (s/optional-key :required) [s/Str]})
@@ -58,7 +59,7 @@
             (-> (http-q/query-handler version)
                 (http-q/extract-query-pql {:optional (conj paging/query-params "ast_only")
                                            :required ["query"]})
-                (http/experimental-warning "The root endpoint is experimental"))))
+                (http/experimental-warning (trs "The root endpoint is experimental")))))
 
 (defn report-data-responder
   "Respond with either metrics or logs for a given report hash.

@@ -17,7 +17,8 @@
             [clj-time.format :as time-fmt]
             [clj-time.coerce :as time-coerce]
             [puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [puppetlabs.i18n.core :refer [trs]]))
 
 (def export-metadata-file-name "export-metadata.json")
 (def query-api-version :v4)
@@ -94,10 +95,10 @@
 (defn export!
   ([outfile query-fn] (export! outfile query-fn nil))
   ([outfile query-fn anonymize-profile]
-   (log/info "Export triggered for PuppetDB")
+   (log/info (trs "Export triggered for PuppetDB"))
    (with-open [tar-writer (archive/tarball-writer outfile)]
      (utils/add-tar-entry
       tar-writer {:file-suffix [export-metadata-file-name]
                   :contents (json/generate-pretty-string {:timestamp (now) :command_versions latest-command-versions})})
      (export!* tar-writer query-fn anonymize-profile))
-   (log/infof "Finished exporting PuppetDB")))
+   (log/info (trs "Finished exporting PuppetDB"))))

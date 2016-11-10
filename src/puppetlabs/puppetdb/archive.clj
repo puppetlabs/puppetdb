@@ -20,7 +20,8 @@
             GzipCompressorInputStream])
   (:require [clojure.java.io :refer :all]
             [clj-time.core :refer [now]]
-            [clj-time.coerce :refer [to-date]]))
+            [clj-time.coerce :refer [to-date]]
+            [puppetlabs.i18n.core :refer [tru]]))
 
 ;; A simple type for writing tar/gz streams
 (defrecord TarGzWriter [tar-stream tar-writer gzip-stream]
@@ -50,9 +51,8 @@
    out
    :else
    (throw (IOException.
-           (format (str "Unable to convert type '%s' to an OutputStream; "
-                        "expected String, File, or OutputStream")
-                   (type out))))))
+           (tru "Unable to convert type ''{0}'' to an OutputStream; expected String, File, or OutputStream"
+                (type out))))))
 
 (defn- get-instream
   "Private helper function for coercing an object into an `InputStream`.  Currently
@@ -67,9 +67,8 @@
    in
    :else
    (throw (IOException.
-           (format (str "Unable to convert type '%s' to an InputStream; "
-                        "expected String, File, or InputStream")
-                   (type in))))))
+           (tru "Unable to convert type ''{0}'' to an InputStream; expected String, File, or InputStream"
+                (type in))))))
 
 (defn tarball-writer
   "Returns a `TarGzWriter` object, which can be used to write entries to a

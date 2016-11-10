@@ -3,8 +3,7 @@
 
    Consolidates our disparate REST endpoints into a single Ring
    application."
-  (:require [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.http :as http]
+  (:require [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.middleware :refer [wrap-with-globals
                                                     wrap-with-metrics
                                                     wrap-with-illegal-argument-catch
@@ -13,13 +12,14 @@
                                                     make-pdb-handler]]
             [ring.util.response :as rr]
             [puppetlabs.comidi :as cmdi]
-            [puppetlabs.puppetdb.http.handlers :as handlers]))
+            [puppetlabs.puppetdb.http.handlers :as handlers]
+            [puppetlabs.i18n.core :refer [trs tru]]))
 
 (defn- refuse-retired-api
   [version]
   (constantly
    (http/error-response
-    (format "The %s API has been retired; please use v4" version)
+    (tru "The {0} API has been retired; please use v4" version)
     404)))
 
 (defn retired-api-route

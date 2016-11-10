@@ -17,7 +17,8 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.kitchensink.core :as ks]
-            [puppetlabs.puppetdb.status :as pdb-status]))
+            [puppetlabs.puppetdb.status :as pdb-status]
+            [puppetlabs.i18n.core :refer [trs tru]]))
 
 
 (defn resource-request-handler [req]
@@ -26,9 +27,9 @@
 (defn maint-mode-handler [maint-mode-fn]
   (fn [req]
     (when (maint-mode-fn)
-      (log/info "HTTP request received while in maintenance mode")
+      (log/info (trs "HTTP request received while in maintenance mode"))
       {:status 503
-       :body "PuppetDB is currently down. Try again later."})))
+       :body (tru "PuppetDB is currently down. Try again later.")})))
 
 (defn wrap-with-context [uri route]
   (compojure/context uri [] route))
@@ -62,7 +63,7 @@
     (maint-mode-handler maint-mode-fn)
     (apply compojure/routes
            (concat app-routes
-                   [(route/not-found "Not Found")]))))
+                   [(route/not-found (tru "Not Found"))]))))
 
 (defprotocol MaintenanceMode
   (enable-maint-mode [this])
@@ -107,7 +108,7 @@
               cert-whitelist (get-in config [:puppetdb :certificate-whitelist])]
           (set-url-prefix query-prefix)
 
-          (log/info "Starting PuppetDB, entering maintenance mode")
+          (log/info (trs "Starting PuppetDB, entering maintenance mode"))
           (add-ring-handler
            this
            (-> (pdb-app context-root
@@ -127,7 +128,7 @@
                                              (pdb-status/status-details config shared-globals maint-mode?)))))
         context)
   (start [this context]
-         (log/info "PuppetDB finished starting, disabling maintenance mode")
+         (log/info (trs "PuppetDB finished starting, disabling maintenance mode"))
          (disable-maint-mode)
          context)
 

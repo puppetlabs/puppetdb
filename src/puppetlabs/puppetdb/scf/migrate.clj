@@ -57,7 +57,8 @@
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
-            [puppetlabs.puppetdb.config :as conf]))
+            [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.i18n.core :refer [trs]]))
 
 ;; taken from storage.clj; preserved here in case of change
 (defn insert-records*
@@ -1254,9 +1255,9 @@
   (try
     (f)
     (catch java.sql.SQLException e
-      (log/error e "Caught SQLException during migration")
+      (log/error e (trs "Caught SQLException during migration"))
       (when-let [next (.getNextException e)]
-        (log/error next "Unravelled exception"))
+        (log/error next (trs "Unravelled exception")))
       (binding [*out* *err*] (flush)) (flush)
       (System/exit 1))))
 
@@ -1292,26 +1293,28 @@
     (when (and latest-applied-migration
                (< latest-applied-migration (first known-migrations)))
       (throw (IllegalStateException.
-              (format (str "Found an old and unuspported database migration (migration number %s)."
-                           " PuppetDB only supports upgrading from the previous major version to the current major version."
-                           " As an example, users wanting to upgrade from 2.x to 4.x should first upgrade to 3.x.")
-                      latest-applied-migration))))
+              (str
+               (trs "Found an old and unuspported database migration (migration number {0})." latest-applied-migration)
+               " "
+               (trs "PuppetDB only supports upgrading from the previous major version to the current major version.")
+               " "
+               (trs "As an example, users wanting to upgrade from 2.x to 4.x should first upgrade to 3.x.")))))
 
     (when-let [unexpected (first (unrecognized-migrations applied-migration-versions known-migrations))]
       (throw (IllegalStateException.
-              (format "Your PuppetDB database contains a schema migration numbered %d, but this version of PuppetDB does not recognize that version."
-                      unexpected))))
+              (trs "Your PuppetDB database contains a schema migration numbered {0}, but this version of PuppetDB does not recognize that version."
+                   unexpected))))
 
     (if-let [pending (seq (pending-migrations))]
       (do
         (jdbc/with-db-transaction []
           (doseq [[version migration] pending]
-            (log/infof "Applying database migration version %d" version)
+            (log/info (trs "Applying database migration version {0}" version))
             (sql-or-die (fn [] (migration) (record-migration! version)))))
         (sutils/analyze-small-tables small-tables)
         true)
       (do
-        (log/info "There are no pending migrations")
+        (log/info (trs "There are no pending migrations"))
         false))))
 
 ;; SPECIAL INDEX HANDLING
@@ -1320,11 +1323,11 @@
   "Create trgm indexes if they do not currently exist."
   []
   (when-not (sutils/index-exists? "fact_paths_path_trgm")
-    (log/info "Creating additional index `fact_paths_path_trgm`")
+    (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
     (jdbc/do-commands
      "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
   (when-not (sutils/index-exists? "fact_values_string_trgm")
-    (log/info "Creating additional index `fact_values_string_trgm`")
+    (log/info (trs "Creating additional index `fact_values_string_trgm`"))
     (jdbc/do-commands
      "CREATE INDEX fact_values_string_trgm ON fact_values USING gin (value_string gin_trgm_ops)")))
 
@@ -1336,9 +1339,8 @@
       (trgm-indexes!)
       (log/warn
        (str
-        "Missing PostgreSQL extension `pg_trgm`\n\n"
-        "We are unable to create the recommended pg_trgm indexes due to\n"
-        "the extension not being installed correctly. Run the command:\n\n"
-        "    CREATE EXTENSION pg_trgm;\n\n"
-        "as the database super user on the PuppetDB database to correct\n"
-        "this, then restart PuppetDB.\n")))))
+        (trs "Missing PostgreSQL extension `pg_trgm`")
+        "\n\n"
+        (trs "We are unable to create the recommended pg_trgm indexes due to\nthe extension not being installed correctly.")
+        " "
+        (trs " Run the command:\n\n    CREATE EXTENSION pg_trgm;\n\nas the database super user on the PuppetDB database to correct\nthis, then restart PuppetDB.\n"))))))

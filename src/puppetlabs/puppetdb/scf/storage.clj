@@ -44,7 +44,8 @@
             [metrics.timers :refer [timer time!]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [honeysql.core :as hcore])
+            [honeysql.core :as hcore]
+            [puppetlabs.i18n.core :refer [trs]])
   (:import [org.postgresql.util PGobject]
            [org.joda.time Period]))
 
@@ -760,7 +761,7 @@
               (cond
                 (some-> latest-producer-timestamp
                         (.after (to-timestamp producer_timestamp)))
-                (log/warnf "Not replacing catalog for certname %s because local data is newer." certname)
+                (log/warn (trs "Not replacing catalog for certname {0} because local data is newer." certname))
 
                 (= stored-hash hash)
                 (update-existing-catalog catalog-id hash catalog received-timestamp)
@@ -1313,8 +1314,8 @@
    (deactivate-node! certname (now)))
   ([certname :- String timestamp :- pls/Timestamp]
    (if (have-newer-record-for-certname? certname timestamp)
-     (log/warnf "Not deactivating node %s because local data is newer than %s."
-                certname timestamp)
+     (log/warn (trs "Not deactivating node {0} because local data is newer than {1}."
+                    certname timestamp))
      (let [sql-timestamp (to-timestamp timestamp)]
        (jdbc/do-prepared "UPDATE certnames SET deactivated = ?
                             WHERE certname=?
@@ -1357,7 +1358,7 @@
          (if-let [local-factset-producer-ts (timestamp-of-newest-record :factsets certname)]
            (if-not (.after local-factset-producer-ts (to-timestamp producer_timestamp))
              (update-facts! fact-data)
-             (log/warnf "Not updating facts for certname %s because local data is newer." certname))
+             (log/warn (trs "Not updating facts for certname {0} because local data is newer." certname)))
            (add-facts! fact-data))))
 
 (s/defn add-report!

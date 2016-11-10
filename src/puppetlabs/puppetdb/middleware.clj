@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.middleware
   "Ring middleware"
-  (:require [puppetlabs.i18n.core :as i18n]
+  (:require [puppetlabs.i18n.core :as i18n :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.query-eng :as qe]
@@ -35,7 +35,7 @@
   `<logger name=\"puppetlabs.puppetdb.middleware\" level=\"debug\"/>`"
   [app]
   (fn [req]
-    (log/debug (i18n/trs "Processing HTTP request to URI: ''{0}''" (:uri req)))
+    (log/debug (trs "Processing HTTP request to URI: ''{0}''" (:uri req)))
     (app req)))
 
 (defn build-whitelist-authorizer
@@ -50,8 +50,8 @@
     (fn [{:keys [ssl-client-cn] :as req}]
       (when-not (allowed? req)
         (when ssl-client-cn
-          (log/warn (i18n/trs "{0} rejected by certificate whitelist {1}" ssl-client-cn whitelist)))
-        (http/denied-response (i18n/tru "The client certificate name {0} doesn't appear in the certificate whitelist. Is your master''s (or other PuppetDB client''s) certname listed in PuppetDB''s certificate-whitelist file?" ssl-client-cn)
+          (log/warn (trs "{0} rejected by certificate whitelist {1}" ssl-client-cn whitelist)))
+        (http/denied-response (tru "The client certificate name {0} doesn't appear in the certificate whitelist. Is your master''s (or other PuppetDB client''s) certname listed in PuppetDB''s certificate-whitelist file?" ssl-client-cn)
                          http/status-forbidden)))))
 
 (defn wrap-cert-authn
@@ -112,7 +112,7 @@
          content-type
          (headers "accept"))
       (app req)
-      (http/error-response (i18n/tru "must accept {0}" content-type)
+      (http/error-response (tru "must accept {0}" content-type)
                            http/status-not-acceptable))))
 
 (defn verify-content-type
@@ -127,7 +127,7 @@
                           (str (media/base-type content-type)))]
         (if (or (nil? mediatype) (some #{mediatype} content-types))
           (app req)
-          (http/error-response (i18n/tru "content type {0} not supported" mediatype)
+          (http/error-response (tru "content type {0} not supported" mediatype)
                                http/status-unsupported-type)))
       (app req))))
 
@@ -144,13 +144,13 @@
   (fn [{:keys [params] :as req}]
     (kitchensink/cond-let [p]
                           (kitchensink/excludes-some params (:required param-specs))
-                          (http/error-response (i18n/tru "Missing required query parameter ''{0}''" p))
+                          (http/error-response (tru "Missing required query parameter ''{0}''" p))
 
                           (let [diff (set/difference (kitchensink/keyset params)
                                                      (set (:required param-specs))
                                                      (set (:optional param-specs)))]
                             (seq diff))
-                          (http/error-response (i18n/tru "Unsupported query parameter ''{0}''" (first p)))
+                          (http/error-response (tru "Unsupported query parameter ''{0}''" (first p)))
 
                           :else
                           (app req))))
@@ -253,25 +253,28 @@
       (let [length-in-bytes (request/content-length req)]
 
         (when length-in-bytes
-          (log/debug (i18n/trs "Processing command with a content-length of {0} bytes" length-in-bytes))
+          (log/debug (trs "Processing command with a content-length of {0} bytes" length-in-bytes))
           (let [{:strs [command version]} (:query-params req)]
             (update! (cmd/global-metric :size) length-in-bytes)
             (when (and command version)
               (cmd/create-metrics-for-command! command version)
               (update! (cmd/cmd-metric command version :size) length-in-bytes))))
         (when-not length-in-bytes
-          (log/warn (i18n/trs "No content length found for POST. POST bodies that are too large could cause memory-related failures.")))
+          (log/warn (str
+                     (trs "No content length found for POST.")
+                     " "
+                     (trs "POST bodies that are too large could cause memory-related failures."))))
 
         (if (and length-in-bytes
                  reject-large-commands?
                  (> length-in-bytes max-command-size))
           (do
-            (log/warn (i18n/trs "content-length of command is {0} bytes and is larger than the maximum allowed command size of {1} bytes"
-                                length-in-bytes
-                                max-command-size))
+            (log/warn (trs "content-length of command is {0} bytes and is larger than the maximum allowed command size of {1} bytes"
+                           length-in-bytes
+                           max-command-size))
             (consume-and-close (:body req) length-in-bytes)
             (http/error-response
-             (i18n/tru "Command rejected due to size exceeding max-command-size")
+             (tru "Command rejected due to size exceeding max-command-size")
              http/status-entity-too-large))
           (app req)))
       (app req))))
@@ -300,7 +303,7 @@
       (if (jdbc/with-transacted-connection scf-read-db
             (qe/object-exists? parent (get route-params route-param-key)))
         (app req)
-        (http/json-response {:error (i18n/tru "No information is known about {0} {1}" (name parent) (get route-params route-param-key))} http/status-not-found)))))
+        (http/json-response {:error (tru "No information is known about {0} {1}" (name parent) (get route-params route-param-key))} http/status-not-found)))))
 
 (pls/defn-validated url-decode :- s/Str
   [x :- s/Str]
@@ -324,4 +327,3 @@
           (handler-fn handler)
           (update req :route-params merge (kitchensink/mapvals url-decode route-params))
           (apply dissoc match-context :handler (keys req))))))))
-

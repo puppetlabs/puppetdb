@@ -11,7 +11,8 @@
             [puppetlabs.comidi :as cmdi]
             [bidi.schema :as bidi-schema]
             [puppetlabs.puppetdb.schema :as pls]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [puppetlabs.i18n.core :refer [trs tru]]))
 
 (defn current-version-fn
   "Returns a function that always returns a JSON object with the running
@@ -20,7 +21,8 @@
   (fn [_]
     (if version
       (http/json-response {:version version})
-      (http/error-response "Could not find version" 404))))
+      (http/error-response
+       (tru "Could not find version") 404))))
 
 (defn latest-version-fn
   "Returns a function returning the latest version of PuppetDB as a JSON
@@ -42,14 +44,15 @@
           (try+
            (http/json-response (v/update-info update-server scf-read-db))
            (catch map? {m :message}
-             (log/debug m (format "Could not retrieve update information (%s)"
-                                  update-server))
-             (http/error-response "Could not find version" 404))))
+             (log/debug m
+                        (trs "Could not retrieve update information ({0})"
+                             update-server))
+             (http/error-response (tru "Could not find version") 404))))
 
         (catch java.io.IOException e
-          (log/debugf "Error when checking for latest version: %s" e)
+          (log/debug e (trs "Error when checking for latest version") )
           (http/error-response
-           (format "Error when checking for latest version: %s" e)))))))
+           (tru "Error when checking for latest version: {0}" (.getMessage e))))))))
 
 (pls/defn-validated meta-routes :- bidi-schema/RoutePair
   [get-shared-globals :- (s/pred fn?)

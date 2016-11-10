@@ -52,7 +52,7 @@
    JSON-formatted string with the aforementioned structure."
   (:import [java.util.concurrent Semaphore])
   (:require [clojure.tools.logging :as log]
-            [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
             [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.reports :as report]
@@ -262,8 +262,8 @@
                        q command version certname command-stream command-callback)
                  {:keys [id received]} cmd]
              (async/>!! command-chan cmd)
-             (log/debugf (i18n/trs "[%s-%d] '%s' command enqueued for %s")
-                         id (tcoerce/to-long received) command certname)))
+             (log/debug (trs "[{0}-{1}] ''{2}'' command enqueued for {3}"
+                             id (tcoerce/to-long received) command certname))))
     (finally
       (.release write-semaphore)
       (when command-stream
@@ -277,8 +277,8 @@
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-catalog! catalog received))
-    (log/infof (i18n/trs "[%s-%d] '%s' command processed for %s")
-               id (tcoerce/to-long received) (command-names :replace-catalog) certname)))
+    (log/info (trs "[{0}-{1}] ''{2}'' command processed for {3}"
+                   id (tcoerce/to-long received) (command-names :replace-catalog) certname))))
 
 (defn replace-catalog [{:keys [payload received version] :as command} db]
   (let [validated-payload (upon-error-throw-fatality
@@ -296,8 +296,8 @@
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-facts! fact-data))
-    (log/infof (i18n/trs "[%s-%d] '%s' command processed for %s")
-               id (tcoerce/to-long received) (command-names :replace-facts) certname)))
+    (log/info (trs "[{0}-{1}] ''{2}'' command processed for {3}"
+                   id (tcoerce/to-long received) (command-names :replace-facts) certname))))
 
 (defn replace-facts [{:keys [payload version received] :as command} db]
   (let [validated-payload (upon-error-throw-fatality
@@ -332,8 +332,8 @@
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname producer-timestamp))
-    (log/infof (i18n/trs "[%s-%d] '%s' command processed for %s")
-               id (tcoerce/to-long received) (command-names :deactivate-node) certname)))
+    (log/info (trs "[{0}-{1}] ''{2}'' command processed for {3}"
+                   id (tcoerce/to-long received) (command-names :deactivate-node) certname))))
 
 (defn deactivate-node [{:keys [payload version] :as command} db]
   (-> command
@@ -352,12 +352,12 @@
     (jdbc/with-transacted-connection db
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/add-report! report received))
-    (log/infof (i18n/trs "[%s-%d] '%s' puppet v%s command processed for %s")
-               id
-               (tcoerce/to-long received)
-               (command-names :store-report)
-               puppet_version
-               certname)))
+    (log/info (trs "[{0}-{1}] ''{2}'' puppet v%s command processed for {3}"
+                   id
+                   (tcoerce/to-long received)
+                   (command-names :store-report)
+                   puppet_version
+                   certname))))
 
 (defn store-report [{:keys [payload version received] :as command} db]
   (let [validated-payload (upon-error-throw-fatality
@@ -400,7 +400,7 @@
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"
   [version command]
-  (log/warnf "command '%s' version %s is deprecated, use the latest version" command version))
+  (log/warn (trs "command ''{0}'' version {1} is deprecated, use the latest version" command version)))
 
 (defprotocol PuppetDBCommandDispatcher
   (enqueue-command
@@ -433,7 +433,9 @@
                   (catch Throwable e
                     (if (zero? n)
                       (throw e)
-                      (do (log/debug e (i18n/trs "Exception throw in L1 retry attempt {0}" (- (inc num-retries) n)))
+                      (do (log/debug e
+                                     (trs "Exception throw in L1 retry attempt {0}"
+                                          (- (inc num-retries) n)))
                           ::failure))))]
       (if (= result ::failure)
         (recur (dec n))
@@ -557,28 +559,28 @@
             (let [ex (:cause obj)]
               (log/error
                (:wrapper &throw-context)
-               (i18n/trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
+               (trs "[{0}] [{1}] Fatal error on attempt {2} for {3}" id command retries certname))
               (discard-message cmdref ex q dlo)))
           (catch Exception _
             (let [ex (:throwable &throw-context)]
               (mark-both-metrics! command version :retried)
               (if (< retries maximum-allowable-retries)
                 (do
-                  (log/errorf
+                  (log/error
                    ex
-                   (i18n/trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
-                             id command retries certname ex))
+                   (trs "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
+                        id command retries certname ex))
                   (send-delayed-message cmdref ex command-chan delay-pool))
                 (do
                   (log/error
                    ex
-                   (i18n/trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3}" id command retries certname))
+                   (trs "[{0}] [{1}] Exceeded max attempts ({2}) for {3}" id command retries certname))
                   (discard-message cmdref ex q dlo))))))))
 
      (catch [:kind ::queue/parse-error] _
        (mark! (global-metric :fatal))
        (log/error (:wrapper &throw-context)
-                  (i18n/trs "Fatal error parsing command: {0}" (:id cmdref)))
+                  (trs "Fatal error parsing command: {0}" (:id cmdref)))
        (discard-message cmdref (:throwable &throw-context) q dlo)))))
 
 (defn create-command-handler-threadpool

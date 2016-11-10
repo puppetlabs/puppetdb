@@ -54,7 +54,8 @@
             [clojure.core.async :refer [go go-loop >! <! >!! <!! timeout chan close! dropping-buffer pipeline]]
             [clojure.core.match :as cm]
             [puppetlabs.puppetdb.mq :as mq]
-            [taoensso.nippy :as nippy])
+            [taoensso.nippy :as nippy]
+            [puppetlabs.i18n.core :refer [trs]])
   (:import [org.apache.activemq.broker BrokerService]
            [javax.jms MessageConsumer MessageProducer Session]
            [clojure.core.async.impl.protocols Buffer]))
@@ -68,7 +69,7 @@
   (try
     (json/parse-string (slurp file))
     (catch Exception e
-      (log/errorf "Error parsing %s; skipping" file))))
+      (log/error (trs "Error parsing {0}; skipping" file)))))
 
 (defn load-sample-data
   "Load all .json files contained in `dir`."
@@ -81,7 +82,8 @@
                     (filterv (complement nil?)))]
       (if (seq data)
         data
-        (log/error (format "Supplied directory %s contains no usable data!" dir))))))
+        (log/error
+         (trs "Supplied directory {0} contains no usable data!" dir))))))
 
 (def producers (vec (repeatedly 4 #(random-string 10))))
 
@@ -243,8 +245,9 @@
    is recursive to accumulate possible catalog mutations (i.e. changing a previously
    mutated catalog as opposed to different mutations of the same catalog)."
   [hosts num-msgs rand-percentage command-send-ch]
-  (log/infof "Sending %s messages for %s hosts, will exit upon completion"
-             num-msgs (count hosts))
+  (log/info
+   (trs "Sending {0} messages for {1} hosts, will exit upon completion"
+        num-msgs (count hosts)))
   (loop [mutated-hosts hosts
          msgs-to-send num-msgs
          stamp (time/minus (time/now) (time/minutes (* 30 num-msgs)))]
@@ -504,9 +507,9 @@
     (dotimes [_ threads]
       (start-command-sender base-url command-send-ch rate-monitor-ch))
 
-    (when-not catalogs (log/info "No catalogs specified; skipping catalog submission"))
-    (when-not reports (log/info "No reports specified; skipping report submission"))
-    (when-not facts (log/info "No facts specified; skipping fact submission"))
+    (when-not catalogs (log/info (trs "No catalogs specified; skipping catalog submission")))
+    (when-not reports (log/info (trs "No reports specified; skipping report submission")))
+    (when-not facts (log/info (trs "No facts specified; skipping fact submission")))
 
     (if nummsgs
       (do

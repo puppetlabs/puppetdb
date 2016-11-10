@@ -8,7 +8,7 @@
             [clojure.core.match :as cm]
             [puppetlabs.puppetdb.query-eng :as qeng]
             [clojure.set :as set]
-            [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s]
             [puppetlabs.puppetdb.http :as http]
@@ -233,14 +233,14 @@
       [p]
       (kitchensink/excludes-some params (:required param-spec))
       (throw (IllegalArgumentException.
-               (str "Missing required query parameter '" p "'")))
+              (tru "Missing required query parameter ''{0}''" p)))
 
       (let [diff (set/difference (kitchensink/keyset params)
                                  (set (:required param-spec))
                                  (set (:optional param-spec)))]
         (seq diff))
       (throw (IllegalArgumentException.
-               (str "Unsupported query parameter '" (first p) "'")))
+               (tru "Unsupported query parameter ''{0}''" (first p))))
 
       :else
       params)))
@@ -289,7 +289,7 @@
    (case (:request-method req)
      :get (get-req->query req parse-fn)
      :post (post-req->query req parse-fn)
-     (throw (IllegalArgumentException. "PuppetDB queries must be made via GET/POST")))
+     (throw (IllegalArgumentException. (tru "PuppetDB queries must be made via GET/POST"))))
    param-spec))
 
 (defn extract-query
@@ -332,8 +332,8 @@
            end   (to-timestamp distinct_end_time)]
        (when (some nil? [start end])
          (throw (IllegalArgumentException.
-                 (str "query parameters 'distinct_start_time' and 'distinct_end_time' must be valid datetime strings: "
-                      distinct_start_time " " distinct_end_time))))
+                 (tru "query parameters ''distinct_start_time'' and ''distinct_end_time'' must be valid datetime strings: {0} {1}"
+                      distinct_start_time distinct_end_time))))
        (merge params
               {:distinct_resources (boolean distinct_resources)
                :distinct_start_time start
@@ -341,11 +341,13 @@
 
      #{:distinct_start_time :distinct_end_time}
      (throw
-       (IllegalArgumentException.
-         "'distinct_resources' query parameter must accompany parameters 'distinct_start_time' and 'distinct_end_time'"))
+      (IllegalArgumentException.
+       (tru
+        "''distinct_resources'' query parameter must accompany parameters ''distinct_start_time'' and ''distinct_end_time''")))
      (throw
-       (IllegalArgumentException.
-         "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
+      (IllegalArgumentException.
+       (tru
+        "''distinct_resources'' query parameter requires accompanying parameters ''distinct_start_time'' and ''distinct_end_time''"))))))
 
 (defn narrow-globals
   "Reduces the number of globals to limit their reach in the codebase"

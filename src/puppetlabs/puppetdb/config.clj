@@ -6,7 +6,7 @@
    and the format expected by the rest of the application."
   (:import [java.security KeyStore]
            [org.joda.time Minutes Days Period])
-  (:require [puppetlabs.i18n.core :as i18n]
+  (:require [puppetlabs.i18n.core :refer [trs]]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.trapperkeeper.bootstrap :as tk-bootstrap]
@@ -34,7 +34,8 @@
 (defn warn-unknown-keys
   [schema data]
   (doseq [k (pls/unknown-keys schema data)]
-    (log/warnf "The configuration item `%s` does not exist and should be removed from the config." k)))
+    (log/warn
+     (trs "The configuration item `{0}` does not exist and should be removed from the config." k))))
 
 (defn warn-and-validate
   "Warns a user about unknown configurations items, removes them and validates the config."
@@ -388,8 +389,8 @@
     (doseq [[svc route] filtered-web-router-config]
       (when (get-in config-data [:web-router-service svc])
         (utils/println-err
-         (i18n/trs "Configuring the route for `{0}` is not allowed. The default route is `{1}` and server is `{2}`."
-                   svc (:route route) (:server route)))))
+         (trs "Configuring the route for `{0}` is not allowed. The default route is `{1}` and server is `{2}`."
+              svc (:route route) (:server route)))))
     ;; We override the users settings as to make the above routes *not*
     ;; configurable
     (-> config-data

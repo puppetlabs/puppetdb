@@ -14,7 +14,8 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.i18n.core :refer [trs tru]]))
 
 (defn make-certname-matcher
   "Returns a function that find a certname in the `file-path` for the
@@ -64,17 +65,17 @@
     (case command-type
       "catalogs"
       (do
-        (log/infof "Importing catalog from archive entry '%s'" path)
+        (log/info (trs "Importing catalog from archive entry ''{0}''" path))
         (command-fn' :replace-catalog
                      (:replace_catalog command-versions)))
       "reports"
       (do
-        (log/infof "Importing report from archive entry '%s'" path)
+        (log/info (trs "Importing report from archive entry ''{0}''" path))
         (command-fn' :store-report
                     (:store_report command-versions)))
       "facts"
       (do
-        (log/infof "Importing facts from archive entry '%s'" path)
+        (log/info (trs "Importing facts from archive entry ''{0}''" path))
         (command-fn' :replace-facts
                      (:replace_facts command-versions)))
       nil)))
@@ -90,8 +91,7 @@
           (:command_versions %)]}
   (when-not (archive/find-entry tar-reader metadata-path)
     (throw (IllegalStateException.
-            (format "Unable to find export metadata file '%s' in archive"
-                    metadata-path))))
+            (tru "Unable to find export metadata file ''{0}'' in archive" metadata-path))))
   (utils/read-json-content tar-reader true))
 
 (defn import!

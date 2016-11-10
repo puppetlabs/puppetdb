@@ -8,7 +8,7 @@
             [puppetlabs.stockpile.queue :as stock]
             [clj-time.coerce :as tcoerce]
             [clojure.tools.logging :as log]
-            [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as command-constants]
             [puppetlabs.puppetdb.constants :as constants]
@@ -114,7 +114,7 @@
   ([puppetdb-command->metadata-command]
    (fn [received command version certname]
      (when-not (puppetdb-command->metadata-command command)
-       (throw (IllegalArgumentException. (format "unknown command '%s'" command))))
+       (throw (IllegalArgumentException. (trs "unknown command ''{0}''" command))))
      (let [certname (or certname "unknown-host")
            recvd-long (tcoerce/to-long received)
            short-command (puppetdb-command->metadata-command command)
@@ -199,13 +199,11 @@
      ;; then rethrow the exception for logging at the "top level".
      (try
        (Files/delete stream-data)
-       (-> "Cleaned up orphaned command temp file: {0}"
-           (i18n/trs (pr-str (str stream-data)))
-           (log/warn))
+       (log/warn (trs "Cleaned up orphaned command temp file: {0}"
+                      (pr-str (str stream-data))))
        (catch Exception ex
-         (-> "Unable to clean up orphaned command temp file: {0}"
-             (i18n/trs (pr-str (str stream-data)))
-             (log/warn ex))))
+         (log/warn (trs "Unable to clean up orphaned command temp file: {0}"
+                        (pr-str (str stream-data))))))
      (throw+))
 
    (catch [:kind ::path-cleanup-failure-after-error] {:keys [path exception]}
@@ -215,9 +213,8 @@
      ;; Don't try to delete the path again, just log the path with the
      ;; removal exception, and then rethrow the exception for logging
      ;; at the "top level".
-     (-> "Unable to remove temp file while trying to store incoming command: {0}"
-         (i18n/trs (pr-str (str path)))
-         (log/warn exception))
+     (log/warn (trs "Unable to remove temp file while trying to store incoming command: {0}"
+                    (pr-str (str path))))
      (throw+))))
 
 (defn store-command
@@ -257,7 +254,7 @@
 
   (add!* [this item]
     (when-not (instance? CommandRef item)
-      (throw (IllegalArgumentException. (str "Cannot enqueue item of type " (class item)))))
+      (throw (IllegalArgumentException. (trs "Cannot enqueue item of type {0}" (class item)))))
 
     (let [^CommandRef cmdref item
           command-type (:command cmdref)

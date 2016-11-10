@@ -93,7 +93,8 @@
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [puppetlabs.i18n.core :refer [trs]]))
 
 (def ^:const catalog-version
   "Constant representing the version number of the PuppetDB
@@ -310,7 +311,10 @@
     (when-let [invalid-tag (first
                             (remove #(re-find tag-pattern %) (:tags resource)))]
       (throw (IllegalArgumentException.
-              (format "Resource '%s' has an invalid tag '%s'. Tags must match the pattern /%s/." resource-spec invalid-tag tag-pattern)))))
+              (str
+               (trs "Resource ''{0}'' has an invalid tag ''{1}''." resource-spec invalid-tag)
+               " "
+               (trs "Tags must match the pattern /{0}/." tag-pattern))))))
   catalog)
 
 (defn validate-edges
@@ -324,10 +328,10 @@
           resource [source target]]
     (when-not (resources resource)
       (throw (IllegalArgumentException.
-              (format "Edge '%s' refers to resource '%s', which doesn't exist in the catalog." edge resource))))
+              (trs "Edge ''{0}'' refers to resource ''{1}'', which doesn't exist in the catalog." edge resource))))
     (when-not (valid-relationships relationship)
       (throw (IllegalArgumentException.
-              (format "Edge '%s' has invalid relationship type '%s'" edge relationship)))))
+              (trs "Edge ''{0}'' has invalid relationship type ''{1}''" edge relationship)))))
   catalog)
 
 (defn validate-keys
@@ -340,9 +344,11 @@
           extra-keys (set/difference present-keys valid-catalog-attrs)
           missing-keys (set/difference valid-catalog-attrs present-keys)]
       (when (seq extra-keys)
-        (throw (IllegalArgumentException. (format "Catalog has unexpected keys: %s" (string/join ", " (map name extra-keys))))))
+        (throw (IllegalArgumentException.
+                (trs "Catalog has unexpected keys: {0}" (string/join ", " (map name extra-keys))))))
       (when (seq missing-keys)
-        (throw (IllegalArgumentException. (format "Catalog is missing keys: %s" (string/join ", " (map name missing-keys)))))))
+        (throw (IllegalArgumentException.
+                (trs "Catalog is missing keys: {0}" (string/join ", " (map name missing-keys)))))))
     catalog))
 
 (defn validate
@@ -377,12 +383,14 @@
            version
 
            [(_ :guard map?) (_ :guard (complement number?))]
-           (throw (IllegalArgumentException. (format "Catalog version '%s' is not a legal version number" version)))
+           (throw (IllegalArgumentException.
+                   (trs "Catalog version ''{0}'' is not a legal version number" version)))
 
            ;; At this point, catalog can't be a string or a map (regardless of
            ;; what version is), so there's our problem!
            :else
-           (throw (IllegalArgumentException. (format "Catalog must be specified as a string or a map, not '%s'" (class catalog)))))))
+           (throw (IllegalArgumentException.
+                   (trs "Catalog must be specified as a string or a map, not ''{0}''" (class catalog)))))))
 
 (defmethod parse-catalog String
   [catalog version received-time]
@@ -437,7 +445,8 @@
 
 (defmethod parse-catalog :default
   [catalog version _]
-  (throw (IllegalArgumentException. (format "Unknown catalog version '%s'" version))))
+  (throw (IllegalArgumentException.
+          (trs "Unknown catalog version ''{0}''" version))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Query -> Wire format conversions

@@ -4,7 +4,7 @@
             [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
-            [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.i18n.core :refer [trs tru]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -67,8 +67,8 @@
   (if-let [munge-result (get-in @entity-fn-idx [entity :munge])]
     munge-result
     (throw (IllegalArgumentException.
-            (i18n/tru "Invalid entity ''{0}'' in query"
-                      (utils/dashes->underscores (name entity)))))))
+            (tru "Invalid entity ''{0}'' in query"
+                 (utils/dashes->underscores (name entity)))))))
 
 (defn orderable-columns
   [query-rec]
@@ -200,18 +200,19 @@
       (catch com.fasterxml.jackson.core.JsonParseException e
         (log/error
          e
-         (i18n/trs "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 error code."
-                   query query-options))
+         (trs "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 error code."
+              query query-options))
         (http/error-response e))
       (catch IllegalArgumentException e
         (log/error
          e
-         (i18n/trs "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 error code."
-                   query query-options))
+         (trs
+          "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 error code."
+          query query-options))
         (http/error-response e))
       (catch org.postgresql.util.PSQLException e
         (if (= (.getSQLState e) "2201B")
-          (do (log/debug e (i18n/trs "Caught PSQL processing exception"))
+          (do (log/debug e (trs "Caught PSQL processing exception"))
               (http/error-response (.getMessage e)))
           (throw e))))))
 

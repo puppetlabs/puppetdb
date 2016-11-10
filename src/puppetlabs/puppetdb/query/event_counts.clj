@@ -6,7 +6,8 @@
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query-eng.engine :as qe]
-            [puppetlabs.puppetdb.scf.storage :refer [store-corrective-change?]]))
+            [puppetlabs.puppetdb.scf.storage :refer [store-corrective-change?]]
+            [puppetlabs.i18n.core :refer [tru]]))
 
 (defn- get-group-by
   "Given the value to summarize by, return the appropriate database field to be used in the SQL query.
@@ -19,7 +20,7 @@
     "certname" ["certname"]
     "containing_class" ["containing_class"]
     "resource" ["resource_type" "resource_title"]
-    (throw (IllegalArgumentException. (format "Unsupported value for 'summarize_by': '%s'" summarize_by)))))
+    (throw (IllegalArgumentException. (tru "Unsupported value for ''summarize_by'': ''{0}''" summarize_by)))))
 
 (def ^:private fields-basic ["failures" "skips" "successes" "noops"])
 (def ^:private fields-with-correctives ["failures" "skips" "intentional_successes" "corrective_successes" "intentional_noops" "corrective_noops"])
@@ -53,7 +54,7 @@
     "resource"  sql
     "certname"  (let [field-string (if (= group-by ["certname"]) "" (str ", " (string/join ", " group-by)))]
                   (format "SELECT DISTINCT certname, status, corrective_change%s FROM (%s) distinct_events" field-string sql))
-    (throw (IllegalArgumentException. (format "Unsupported value for 'count_by': '%s'" count-by)))))
+    (throw (IllegalArgumentException. (tru "Unsupported value for ''count_by'': ''{0}''" count-by)))))
 
 (defn- event-counts-columns
   [group-by]

@@ -47,7 +47,7 @@
       :else
       (http/json-response
        {:kind "conflict"
-        :msg (i18n/trs "Another cleanup is already in progress")
+        :msg (i18n/tru "Another cleanup is already in progress")
         :details nil}
        http/status-conflict))))
 
