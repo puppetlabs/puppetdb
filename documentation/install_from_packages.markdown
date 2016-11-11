@@ -5,11 +5,11 @@ layout: default
 
 [connect_master]: ./connect_puppet_master.html
 [connect_apply]: ./connect_puppet_apply.html
-[ssl_script]: ./install_from_source.html#step-3-option-a-run-the-ssl-configuration-script
+[ssl_script]: ./maintain_and_tune.html#redo-ssl-setup-after-changing-certificates
 [configure_postgres]: ./configure.html#using-postgresql
 [configure_heap]: ./configure.html#configuring-the-java-heap-size
 [configure_jetty]: ./configure.html#jetty-http-settings
-[requirements]: ./index.html#standard-install-rhel-centos-debian-ubuntu-or-fedora
+[requirements]: ./index.html#standard-install-rhel-centos-debian-and-ubuntu
 [module]: ./install_via_module.html
 
 > **Note:** If you are running Puppet Enterprise version 3.0 or later, you do

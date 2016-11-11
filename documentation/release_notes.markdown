@@ -5,7 +5,7 @@ canonical: "/puppetdb/latest/release_notes.html"
 ---
 
 [configure_postgres]: ./configure.html#using-postgresql
-[kahadb_corruption]: ./trouble_kahadb_corruption.html
+[kahadb_corruption]: /puppetdb/4.2/trouble_kahadb_corruption.html
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
 [upgrading]: ./api/query/v4/upgrading-from-v3.html
 [puppetdb-module]: https://forge.puppetlabs.com/puppetlabs/puppetdb
@@ -2019,10 +2019,10 @@ Ryan Senior, and Wyatt Alt
   documentation.
 
 * A missing `-L` option has been added to a curl invocation
-  [here](http://docs.puppetlabs.com/puppetdb/2.3/install_from_souce.html).
+  [here](http://docs.puppetlabs.com/puppetdb/2.3/install_from_source.html).
 
 * An incorrect reference to "Java" has been changed to "JVM" in the
-  [configuration](http://docs.puppetlabs.com/puppetdb/2.32.3/configure.html) documentation.
+  [configuration](http://docs.puppetlabs.com/puppetdb/2.3/configure.html) documentation.
 
 * The relationship between "MQ depth" and "Command Queue depth" has
   been clarified in the [tuning and maintenance](http://docs.puppetlabs.com/puppetdb/2.3/maintain_and_tune.html)
@@ -2391,13 +2391,13 @@ Brian Cain, Eric Timmerman, Justin Holguin, Ken Barber, Nick Fagerlund, Ryan Sen
 
 #### Changes to endpoints
 
-* [/v4/facts](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/facts)
+* [/v4/facts](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/facts.html)
 
     This endpoint is now capable of returning structured facts. Facts that contain hashes, arrays, floats, integers,
     booleans, strings (and combinations thereof) will be preserved when stored and able to now be returned via this
     endpoint.
 
-* [/v3/facts](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v3/facts)
+* [/v3/facts](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v3/facts.html)
 
     This endpoint will return JSON stringified structured facts to preserve backwards compatibility.
 
@@ -2425,7 +2425,7 @@ Brian Cain, Eric Timmerman, Justin Holguin, Ken Barber, Nick Fagerlund, Ryan Sen
 
     This new operator was designed for the `path` field type to allow for matching a path
     against an array of regular expressions. The only endpoints that contains such fields today
-    are [/v4/fact-contents](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/fact-contents.html) and [/v4/fact-paths](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/fact-paths).
+    are [/v4/fact-contents](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/fact-contents.html) and [/v4/fact-paths](http://docs.puppetlabs.com/puppetdb/2.2/api/query/v4/fact-paths.html).
 
 #### Commands
 
