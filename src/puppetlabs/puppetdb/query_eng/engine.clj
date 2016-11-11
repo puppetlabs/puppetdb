@@ -402,7 +402,7 @@
 
                :relationships {;; Parents - direct
                                "factsets" {:columns ["certname"]}
-
+                               "inventory" {:columns ["certname"]}
                                ;; Parents - transitive
                                "nodes" {:columns ["certname"]}
                                "environments" {:local-columns ["environment"]
