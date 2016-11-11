@@ -11,7 +11,7 @@ canonical: "/puppetdb/latest/api/query/v4/inventory.html"
 [factsets]: ./factsets.html
 [catalogs]: ./catalogs.html
 [facts]: ./facts.html
-[fact-contents]: ./fact_contents.html
+[fact-contents]: ./fact-contents.html
 [events]: ./events.html
 [edges]: ./edges.html
 [resources]: ./resources.html
