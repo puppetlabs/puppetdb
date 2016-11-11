@@ -17,7 +17,9 @@
             [puppetlabs.kitchensink.core :as ks]
             [metrics.counters :as mc]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-suppressed-unless-notable]]
-            [puppetlabs.puppetdb.testutils.log :as tlog]))
+            [puppetlabs.puppetdb.testutils.log :as tlog]
+            [puppetlabs.puppetdb.metrics.core :refer [metrics-registries]]
+            [metrics.meters :as meters]))
 
 (defn enqueue-and-shutdown [config commands]
   (let [broker (mq/build-and-start-broker! "localhost"
@@ -52,6 +54,43 @@
     (mapv (comp str #(.toAbsolutePath %))
           (-> path-stream .iterator iterator-seq))))
 
+(defn processed-state []
+  (reduce (fn [acc metric]
+            (assoc acc
+                   (keyword metric)
+                   (->> ["global" metric]
+                        (meters/meter (get-in metrics-registries [:mq :registry]))
+                        meters/rates
+                        :total)))
+          {} ["processed" "retried" "discarded"]))
+
+(defn await-processed [await-how-many starting-processed-state timeout-ms]
+  (let [stop-time (+ (System/currentTimeMillis)
+                     timeout-ms)
+        {prev-processed :processed
+         prev-retried :retried
+         prev-discarded :discarded} starting-processed-state]
+    (loop []
+      (let [{:keys [processed retried discarded]} (processed-state)]
+        (cond
+
+          (> (System/currentTimeMillis) stop-time)
+          (throw (Exception. "Timed out waiting for message to be processed"))
+
+          (< prev-retried retried)
+          (throw (Exception. "Unexepcted retry of message"))
+
+          (< prev-discarded discarded)
+          (throw (Exception. "Unexpected message discard"))
+
+          (>= processed (+ await-how-many prev-processed))
+          true
+
+          :else
+          (do
+            (Thread/sleep 10)
+            (recur)))))))
+
 (deftest shovel-upgrade-test
   (testing "an upgrade with existing catalogs"
     (with-log-suppressed-unless-notable tlog/critical-errors
@@ -76,18 +115,20 @@
                                                    cat2]])
           (is (needs-upgrade? config))
 
-          (svc-utils/call-with-puppetdb-instance
-           (assoc config :database *db*)
-           (fn []
-             (is (not (needs-upgrade? config)))
-             (let [results (cli-utils/get-catalogs "basic.wire-catalogs.com")]
-               (is (= 1 (count results)))
-               (is (= (:catalog_uuid cat)
-                      (:catalog_uuid (first results)))))
-             (let [results (cli-utils/get-catalogs "empty.wire-catalogs.com")]
-               (is (= 1 (count results)))
-               (is (= (:transaction_uuid cat)
-                      (:transaction_uuid (first results)))))))))))
+          (let [before-start-state (processed-state)]
+            (svc-utils/call-with-puppetdb-instance
+             (assoc config :database *db*)
+             (fn []
+               (await-processed 2 before-start-state tutils/default-timeout-ms)
+               (is (not (needs-upgrade? config)))
+               (let [results (cli-utils/get-catalogs "basic.wire-catalogs.com")]
+                 (is (= 1 (count results)))
+                 (is (= (:catalog_uuid cat)
+                        (:catalog_uuid (first results)))))
+               (let [results (cli-utils/get-catalogs "empty.wire-catalogs.com")]
+                 (is (= 1 (count results)))
+                 (is (= (:transaction_uuid cat)
+                        (:transaction_uuid (first results))))))))))))
 
   (testing "an upgrade with a bad catalog"
     (with-log-suppressed-unless-notable (every-pred tlog/critical-errors
@@ -112,18 +153,21 @@
                                                     "id" (ks/uuid)}
                                                    cat]])
           (is (needs-upgrade? config))
-          (svc-utils/call-with-puppetdb-instance
-           (assoc config :database *db*)
-           (fn []
-             (is (= 2
-                    (-> svc-utils/*server*
-                        dlo-paths
-                        count)))
-             (is (not (needs-upgrade? config)))
-             (let [results (cli-utils/get-catalogs (:certname cat))]
-               (is (= 1 (count results)))
-               (is (= (:catalog_uuid cat)
-                      (:catalog_uuid (first results)))))))))))
+
+          (let [before-start-state (processed-state)]
+            (svc-utils/call-with-puppetdb-instance
+             (assoc config :database *db*)
+             (fn []
+               (await-processed 1 before-start-state tutils/default-timeout-ms)
+               (is (= 2
+                      (-> svc-utils/*server*
+                          dlo-paths
+                          count)))
+               (is (not (needs-upgrade? config)))
+               (let [results (cli-utils/get-catalogs (:certname cat))]
+                 (is (= 1 (count results)))
+                 (is (= (:catalog_uuid cat)
+                        (:catalog_uuid (first results))))))))))))
   (testing "no upgrade needed"
     (with-log-suppressed-unless-notable tlog/critical-errors
       (with-test-db
