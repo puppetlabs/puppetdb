@@ -278,8 +278,8 @@
     (jdbc/with-db-transaction []
       (jdbc/do-commands
        (sql/create-table-ddl :test
-                             [:key "VARCHAR(256)" "PRIMARY KEY"]
-                             [:value "VARCHAR(256)" "NOT NULL"]))
+                             [[:key "VARCHAR(256)" "PRIMARY KEY"]
+                              [:value "VARCHAR(256)" "NOT NULL"]]))
       (insert-entries antonym-data))
     (function)))
 
