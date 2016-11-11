@@ -60,14 +60,6 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.i18n.core :refer [trs]]))
 
-;; taken from storage.clj; preserved here in case of change
-(defn insert-records*
-  "Nil/empty safe insert-records, see java.jdbc's insert-records for more "
-  [table
-   record-coll]
-  (when (seq record-coll)
-    (apply jdbc/insert! table record-coll)))
-
 (defn init-through-2-3-8
   []
 
@@ -1092,8 +1084,7 @@
       [(format "select %s from %s" columns (name table1))]
       #(->> %
             (map munge-fn)
-            (map (partial jdbc/insert! (name table2)))
-            dorun))))
+            (jdbc/insert-multi! (name table2))))))
 
 (defn resource-params-cache-parameters-to-jsonb
   []

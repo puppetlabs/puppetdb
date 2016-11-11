@@ -4,7 +4,7 @@
             [puppetlabs.puppetdb.testutils.db
              :refer [*db* antonym-data
                      create-temp-db
-                     insert-map
+                     insert-entries
                      defaulted-read-db-config
                      defaulted-write-db-config
                      call-with-antonym-test-database
@@ -35,7 +35,7 @@
                             subject/pooled-datasource)]
          (with-open [_ (:datasource write-pool)]
            (subject/with-transacted-connection write-pool
-             (insert-map {"foo" 1})
+             (insert-entries {"foo" 1})
              (is (= [{:value "1"}]
                     (subject/query-to-vec
                      "SELECT value FROM test WHERE key='foo'"))))))
@@ -45,7 +45,7 @@
          (with-open [_ (:datasource read-pool)]
            (subject/with-transacted-connection read-pool
              (let [msg (try
-                         (insert-map {"bar" 1})
+                         (insert-entries {"bar" 1})
                          ""
                          (catch java.sql.SQLException ex
                            (full-sql-exception-msg ex)))]

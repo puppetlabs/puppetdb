@@ -101,36 +101,37 @@
                       {:status "testing1" :id 1})
         (jdbc/insert! :environments
                       {:id 1 :name "testing1"})
-        (jdbc/insert! :certnames
-                      {:name "testing1" :deactivated nil}
-                      {:name "testing2" :deactivated nil})
-        (jdbc/insert! :reports
-                      {:hash "01"
-                       :configuration_version  "thisisacoolconfigversion"
-                       :transaction_uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"
-                       :certname "testing1"
-                       :puppet_version "0.0.0"
-                       :report_format 1
-                       :start_time current-time
-                       :end_time current-time
-                       :receive_time current-time
-                       :environment_id 1
-                       :status_id 1}
-                      {:hash "0000"
-                       :transaction_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
-                       :configuration_version "blahblahblah"
-                       :certname "testing2"
-                       :puppet_version "911"
-                       :report_format 1
-                       :start_time current-time
-                       :end_time current-time
-                       :receive_time current-time
-                       :environment_id 1
-                       :status_id 1})
+        (jdbc/insert-multi! :certnames
+                            [{:name "testing1" :deactivated nil}
+                             {:name "testing2" :deactivated nil}])
+        (jdbc/insert-multi!
+          :reports
+          [{:hash "01"
+            :configuration_version  "thisisacoolconfigversion"
+            :transaction_uuid "bbbbbbbb-2222-bbbb-bbbb-222222222222"
+            :certname "testing1"
+            :puppet_version "0.0.0"
+            :report_format 1
+            :start_time current-time
+            :end_time current-time
+            :receive_time current-time
+            :environment_id 1
+            :status_id 1}
+           {:hash "0000"
+            :transaction_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
+            :configuration_version "blahblahblah"
+            :certname "testing2"
+            :puppet_version "911"
+            :report_format 1
+            :start_time current-time
+            :end_time current-time
+            :receive_time current-time
+            :environment_id 1
+            :status_id 1}])
 
-        (jdbc/insert! :latest_reports
-                      {:report "01" :certname "testing1"}
-                      {:report "0000" :certname "testing2"})
+        (jdbc/insert-multi! :latest_reports
+                            [{:report "01" :certname "testing1"}
+                             {:report "0000" :certname "testing2"}])
 
         (apply-migration-for-testing! 29)
 
@@ -167,40 +168,41 @@
                       {:status "testing1" :id 1})
         (jdbc/insert! :environments
                       {:id 1 :environment "testing1"})
-        (jdbc/insert! :certnames
-                      {:certname "testing1" :deactivated nil}
-                      {:certname "testing2" :deactivated nil})
-        (jdbc/insert! :reports
-                      {:hash (sutils/munge-hash-for-storage "01")
-                       :transaction_uuid (sutils/munge-uuid-for-storage
-                                          "bbbbbbbb-2222-bbbb-bbbb-222222222222")
-                       :configuration_version "thisisacoolconfigversion"
-                       :certname "testing1"
-                       :puppet_version "0.0.0"
-                       :report_format 1
-                       :start_time current-time
-                       :end_time current-time
-                       :receive_time current-time
-                       :producer_timestamp current-time
-                       :environment_id 1
-                       :status_id 1
-                       :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
-                       :logs (sutils/munge-json-for-storage [{:bar "baz"}])}
-                      {:hash (sutils/munge-hash-for-storage "0000")
-                       :transaction_uuid (sutils/munge-uuid-for-storage
-                                          "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa")
-                       :configuration_version "blahblahblah"
-                       :certname "testing2"
-                       :puppet_version "911"
-                       :report_format 1
-                       :start_time current-time
-                       :end_time current-time
-                       :receive_time current-time
-                       :producer_timestamp current-time
-                       :environment_id 1
-                       :status_id 1
-                       :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
-                       :logs (sutils/munge-json-for-storage [{:bar "baz"}])})
+        (jdbc/insert-multi! :certnames
+                            [{:certname "testing1" :deactivated nil}
+                             {:certname "testing2" :deactivated nil}])
+        (jdbc/insert-multi!
+          :reports
+          [{:hash (sutils/munge-hash-for-storage "01")
+            :transaction_uuid (sutils/munge-uuid-for-storage
+                                "bbbbbbbb-2222-bbbb-bbbb-222222222222")
+            :configuration_version "thisisacoolconfigversion"
+            :certname "testing1"
+            :puppet_version "0.0.0"
+            :report_format 1
+            :start_time current-time
+            :end_time current-time
+            :receive_time current-time
+            :producer_timestamp current-time
+            :environment_id 1
+            :status_id 1
+            :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+            :logs (sutils/munge-json-for-storage [{:bar "baz"}])}
+           {:hash (sutils/munge-hash-for-storage "0000")
+            :transaction_uuid (sutils/munge-uuid-for-storage
+                                "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa")
+            :configuration_version "blahblahblah"
+            :certname "testing2"
+            :puppet_version "911"
+            :report_format 1
+            :start_time current-time
+            :end_time current-time
+            :receive_time current-time
+            :producer_timestamp current-time
+            :environment_id 1
+            :status_id 1
+            :metrics (sutils/munge-json-for-storage [{:foo "bar"}])
+            :logs (sutils/munge-json-for-storage [{:bar "baz"}])}])
 
         (jdbc/update! :certnames
                       {:latest_report_id 1}
@@ -313,10 +315,10 @@
                               {:certname "baz.com"
                                :hash (sutils/munge-hash-for-storage "abc123")}])]
 
-      (apply jdbc/insert! :certnames (map (fn [{:keys [certname]}]
+      (jdbc/insert-multi! :certnames (map (fn [{:keys [certname]}]
                                             {:certname certname :deactivated nil})
                                           factset-data))
-      (apply jdbc/insert! :factsets factset-data)
+      (jdbc/insert-multi! :factsets factset-data)
 
       (is (= 2 (:c (first (query-to-vec "SELECT count(*) as c FROM factsets where hash is null")))))
 

@@ -457,8 +457,7 @@
   "Nil/empty safe insert-records, see java.jdbc's insert-records for more "
   [table :- s/Keyword
    record-coll :- [{s/Keyword s/Any}]]
-  (when (seq record-coll)
-    (apply jdbc/insert! table record-coll)))
+  (jdbc/insert-multi! table record-coll))
 
 (s/defn add-params!
   "Persists the new parameters found in `refs-to-resources` and populates the
@@ -666,7 +665,7 @@
                   :type type})]
 
       (update! (:catalog-volatility performance-metrics) (count rows))
-      (apply jdbc/insert! :edges rows))))
+      (jdbc/insert-multi! :edges rows))))
 
 (s/defn replace-edges!
   "Persist the given edges in the database
@@ -943,11 +942,10 @@
   [factset-id :- s/Int
    pairs :- (s/cond-pre [(s/pair s/Int "path-id" s/Int "value-id")]
                         #{(s/pair s/Int "path-id" s/Int "value-id")})]
-  (when-let [rows (seq (for [[pid vid] pairs]
-                         {:factset_id factset-id
-                          :fact_path_id pid
-                          :fact_value_id vid}))]
-    (apply jdbc/insert! :facts rows)))
+  (jdbc/insert-multi! :facts (for [[pid vid] pairs]
+                               {:factset_id factset-id
+                                :fact_path_id pid
+                                :fact_value_id vid})))
 
 (defn existing-row-ids
   "Returns a map from value to id for each value that's already in the
@@ -973,7 +971,7 @@
          records
          (->> records
               (map munge-fn)
-              (apply jdbc/insert! table)
+              (jdbc/insert-multi! table)
               (map :id)))))
 
 (defn realize-paths!
@@ -1036,11 +1034,12 @@
           valuemaps (map second paths-and-valuemaps)
           vhashes (map :value_hash valuemaps)
           paths-to-ids (realize-paths! pathstrs)
-          vhashes-to-ids (realize-values! valuemaps)]
+          vhashes-to-ids (realize-values! valuemaps)
+          pairs (map #(vector (get paths-to-ids %1)
+                              (get vhashes-to-ids %2))
+                     pathstrs vhashes)]
       (insert-facts-pv-pairs! (certname-to-factset-id certname)
-                              (map #(vector (get paths-to-ids %1)
-                                            (get vhashes-to-ids %2))
-                                   pathstrs vhashes))))))
+                              pairs)))))
 
 (defn-validated update-facts!
   "Given a certname, querys the DB for existing facts for that
@@ -1234,7 +1233,8 @@
                      (->> resource_events
                           (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
                           (map adjust-event-metadata)
-                          (apply jdbc/insert! :resource_events)))
+                          (jdbc/insert-multi! :resource_events)
+                          dorun))
                    (when update-latest-report?
                      (update-latest-report! certname)))))))))
 
