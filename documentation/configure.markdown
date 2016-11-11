@@ -713,7 +713,7 @@ logging for the `puppetlabs.puppetdb.middleware` appender in the
 
 The `[jetty]` section configures HTTP for PuppetDB.
 
-> **Note:** If you are using Puppet Enterprise and want to enable the PuppetDB dashboard from the PE console, refer to [our guide to changing PuppetDB's parameters](/pe/latest/maintain_console-db.html#changing-puppetdbs-parameters) for more information. PE users should not edit `jetty.ini`.
+> **Note:** If you are using Puppet Enterprise and want to enable the PuppetDB dashboard from the PE console, refer to [our guide to changing PuppetDB's parameters]({{pe}}/maintain_console-db.html#changing-puppetdbs-parameters) for more information. PE users should not edit `jetty.ini`.
 
 ### `host`
 

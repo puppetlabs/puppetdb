@@ -4,7 +4,7 @@ layout: default
 canonical: "/puppetdb/latest/api/wire_format/report_format_v5.html"
 ---
 
-[puppetreportformat]: http://docs.puppetlabs.com/puppet/latest/reference/format_report.html
+[puppetreportformat]: {{puppet}}/format_report.html
 [reportsv4]: ../query/v4/reports.markdown
 
 ## Report interchange format

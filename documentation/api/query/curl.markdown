@@ -45,8 +45,8 @@ make sure to authorize the certificate you are using:
       --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
       --cert /etc/puppetlabs/puppet/ssl/certs/<node>.pem \
       --key /etc/puppetlabs/puppet/ssl/private_keys/<node>.pem
-      
-      
+
+
 ### Using an RBAC token (PE only)
 
 To make secured requests from other hosts, you will need to supply the following
@@ -58,7 +58,7 @@ via the command line:
 Any node managed by Puppet agent will already have the CA certificate, and you
 can reuse the CA certificate for contacting PuppetDB. You can read more about
 generating RBAC tokens and how they work in the
-[PE documention](https://docs.puppet.com/pe/latest/rbac_token_auth.html).
+[PE documention]({{pe}}/rbac_token_auth.html).
 
 **Note:** The token the user is for must have the correct permissions for
 viewing or editting node data depending on the operation.
@@ -67,7 +67,7 @@ viewing or editting node data depending on the operation.
       -H "X-Authentication: <token contents>"
       --tlsv1 \
       --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
-      
+
 **Note:** PE 2016.2 users will need to set `client-auth = want` under the
 `[jetty]` header of their jetty.ini configuration. Later versions of PE have
 this setting managed by the `puppetlabs-puppet_enterprise` module by default.
