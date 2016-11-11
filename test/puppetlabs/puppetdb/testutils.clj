@@ -456,3 +456,6 @@
              (Semaphore. 100))
     false
     nil)))
+
+(def default-timeout-ms
+  (* 1000 60 5))
