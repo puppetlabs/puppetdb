@@ -73,6 +73,9 @@
    #'maint-mode-service
    #'config-service])
 
+(defn strip-retired-config [config]
+  (update config :database dissoc :classname :subprotocol))
+
 (defn call-with-puppetdb-instance
   "Stands up a puppetdb instance with the specified config, calls f,
   and then tears the instance down, binding *server* to the instance
@@ -94,6 +97,7 @@
    (when (zero? bind-attempts)
      (throw (RuntimeException. "Repeated attempts to bind port failed, giving up")))
    (let [config (-> config
+                    strip-retired-config
                     conf/adjust-and-validate-tk-config
                     assoc-open-port)
          port (or (get-in config [:jetty :port])
