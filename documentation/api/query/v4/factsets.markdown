@@ -11,7 +11,7 @@ canonical: "/puppetdb/latest/api/query/v4/factsets.html"
 [subqueries]: ./ast.html#subquery-operators
 [ast]: ./ast.html
 [facts]: ./facts.html
-[fact-contents]: ./fact_contents.html
+[fact-contents]: ./fact-contents.html
 [environments]: ./environments.html
 [producers]: ./producers.html
 [nodes]: ./nodes.html

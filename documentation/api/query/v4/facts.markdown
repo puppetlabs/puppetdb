@@ -11,7 +11,7 @@ canonical: "/puppetdb/latest/api/query/v4/facts.html"
 [ast]: ./ast.html
 [environments]: ./environments.html
 [factsets]: ./factsets.html
-[fact-contents]: ./fact_contents.html
+[fact-contents]: ./fact-contents.html
 [nodes]: ./nodes.html
 
 You can query facts by making an HTTP request to the `/facts` endpoint.
