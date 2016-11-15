@@ -10,7 +10,7 @@ subtitle: "Frequently asked questions"
 [puppetdb3]: /puppetdb/3.2/migrate.html
 [threads]: ./configure.html#threads
 [concurrent-writes]: ./configure.html#concurrent-writes
-[mq metrics]: ./api/metrics/v1/mbeans.html#mq-metrics
+[mq metrics]: ./api/metrics/v1/mbeans.html#message-queue-metrics
 [java heap]: ./configure.html#configuring-the-java-heap-size
 
 ## Can I migrate my data from ActiveRecord storeconfigs?

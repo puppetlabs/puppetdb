@@ -6,15 +6,15 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 
 [puppetdb_download]: http://downloads.puppetlabs.com/puppetdb
 [puppetdb_conf]: ./puppetdb_connection.html
-[routes_yaml]: /puppet/latest/reference/config_file_routes.html
-[exported]: /puppet/latest/reference/lang_exported.html
+[routes_yaml]: {{puppet}}/config_file_routes.html
+[exported]: {{puppet}}/lang_exported.html
 [install_via_module]: ./install_via_module.html
-[report_processors]: /guides/reporting.html
+[report_processors]: {{puppet}}/reporting_about.html
 [event]: ./api/query/v4/events.html
 [report]: ./api/query/v4/reports.html
-[store_report]: ./api/command/v1/commands.html#store-report-version-1
+[store_report]: ./api/command/v1/commands.html#store-report-version-7
 [report_format]: ./api/wire_format/report_format_v5.html
-[puppetdb_server_urls]: ./puppetdb_connection.html#server_urls
+[puppetdb_server_urls]: ./puppetdb_connection.html#serverurls
 
 > Note: To use PuppetDB, your site's Puppet master(s) must be running Puppet version 4.0.0 or later.
 
@@ -33,7 +33,7 @@ Currently, Puppet masters need additional Ruby plug-ins in order to use PuppetDB
 
 ### On platforms with packages
 
-[Enable the Puppet Collection repo](/puppet/latest/reference/puppet_collections.html) and then install the `puppetdb-termini` package:
+[Enable the Puppet Collection repo]({{puppet}}/puppet_collections.html) and then install the `puppetdb-termini` package:
 
     $ sudo puppet resource package puppetdb-termini ensure=latest
 

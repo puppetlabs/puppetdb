@@ -4,7 +4,7 @@ layout: default
 canonical: "/puppetdb/latest/api/admin/v1/cmd.html"
 ---
 
-[curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
+[curl]: ../../query/curl.html#using-curl-from-localhost-non-sslhttp
 
 The `/cmd` endpoint can be used to trigger PuppetDB maintenance
 operations.  Only one maintenance operation can be running at a time.

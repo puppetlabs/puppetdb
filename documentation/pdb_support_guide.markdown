@@ -4,12 +4,12 @@ layout: default
 ---
 
 [commands]: ./api/command/v1/commands.html#list-of-commands
-[threads]: https://docs.puppetlabs.com/puppetdb/latest/configure.html#threads
+[threads]: ./configure.html#threads
 [erd]: ./images/pdb_erd.png
 [pgstattuple]: http://www.postgresql.org/docs/9.4/static/pgstattuple.html
 [pgtune]: https://github.com/gregs1104/pgtune
 [postgres-config]: http://www.postgresql.org/docs/current/static/runtime-config-resource.html
-[fact-precedence]: https://docs.puppetlabs.com/facter/3.1/custom_facts.html#fact-precedence
+[fact-precedence]: {{facter}}/custom_facts.html#fact-precedence
 [stockpile]: https://github.com/puppetlabs/stockpile
 
 ## Support and Troubleshooting for PuppetDB

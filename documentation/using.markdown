@@ -4,7 +4,7 @@ layout: default
 canonical: "/puppetdb/latest/using.html"
 ---
 
-[exported]: /puppet/latest/reference/lang_exported.html
+[exported]: {{puppet}}/lang_exported.html
 
 
 Currently, PuppetDB's primary use is enabling advanced Puppet features. As use becomes more widespread, we expect additional applications to be built on PuppetDB.

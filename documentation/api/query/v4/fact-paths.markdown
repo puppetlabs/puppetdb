@@ -7,7 +7,7 @@ canonical: "/puppetdb/latest/api/query/v4/fact-paths.html"
 [curl]: ../curl.html#using-curl-from-localhost-non-sslhttp
 [paging]: ./paging.html
 [query]: ./query.html
-[fact-names]: ./query/v4/fact-names.html
+[fact-names]: ./fact-names.html
 [subqueries]: ./ast.html#subquery-operators
 [ast]: ./ast.html
 [facts]: ./facts.html
