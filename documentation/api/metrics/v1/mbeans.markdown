@@ -82,7 +82,7 @@ Each of these metrics can be accessed as
 following `<item>`s:
 
 * `seen`: meter measuring commands received (valid or invalid)
-* `proceseed`: meter measuring commands successfully processed
+* `processed`: meter measuring commands successfully processed
 * `fatal`: meter measuring fatal processing errors
 * `retried`: meter measuring commands scheduled for retrial
 * `awaiting-retry`: number of commands waiting to be retried
@@ -104,7 +104,7 @@ Each of the command-specific metrics can be accessed as
 integer command version, and `<item>` must be one of the following:
 
 * `seen`: meter measuring commands received (valid or invalid)
-* `proceseed`: meter measuring commands successfully processed
+* `processed`: meter measuring commands successfully processed
 * `fatal`: meter measuring fatal processing errors
 * `retried`: meter measuring commands scheduled for retrial
 * `retry-counts`: histogram of retry counts (until success or discard)
