@@ -27,7 +27,7 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils
-             :refer [args-supplied call-counter dotestseq times-called mock-fn]]
+             :refer [args-supplied call-counter dotestseq times-called mock-fn default-timeout-ms]]
             [puppetlabs.puppetdb.test-protocols :refer [called?]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.jdbc-test :refer [full-sql-exception-msg]]
@@ -115,9 +115,6 @@
 
 (defn store-command' [q old-command]
   (apply tqueue/store-command q (unroll-old-command old-command)))
-
-(def default-timeout-ms
-  (* 1000 60 5))
 
 (defn take-with-timeout!!
   "Takes from `port` via <!!, but will throw an exception if
