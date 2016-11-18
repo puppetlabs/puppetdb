@@ -244,6 +244,22 @@ for information on these settings.
 
 There are a few things to watch for in the PDB dashboard:
 
+* Low catalog duplication rate: PuppetDB includes some optimizations built on
+  the assumption that the catalog for a given node changes relatively
+  infrequently. Namely, when PuppetDB receives a catalog for a node that hashes
+  to the same value as the node's previous catalog, PuppetDB will
+  simply update the timestamp associated with the last catalog, rather than
+  insert the data again. This works fine most of the time, but is failure prone
+  in cases where aspects of the catalog are guaranteed to change on every run.
+  For example, if the catalog contains a resource that embeds the current
+  timestamp, the hashes will never match and additional work must be done to
+  assess which resources need to be replaced. The catalog duplication rate
+  metric in the dashboard shows the ratio of hash matches to catalogs received.
+  Typically the duplication rate will be above 70%, and often above 90%. If
+  your duplication rate is substantially lower than this, it may be worth
+  investigating whether anything can be done to reduce the rate of change
+  between runs.
+
 * Deep command queue: Under sustainable conditions, the command queue depth
   should be in the neighborhood of 0-100 most of the time, with occasional
   spikes allowed. If the command queue is deeper than 10,000 for any extended

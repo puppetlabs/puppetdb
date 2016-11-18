@@ -6,7 +6,7 @@ subtitle: "Frequently asked questions"
 
 [maintaining_tuning]: ./maintain_and_tune.html
 [connect_puppet_apply]: ./connect_puppet_apply.html
-[low_catalog_dupe]: ./trouble_low_catalog_duplication.html
+[support_guide]: ./pdb_support_guide.markdown
 [puppetdb3]: /puppetdb/3.2/migrate.html
 [threads]: ./configure.html#threads
 [concurrent-writes]: ./configure.html#concurrent-writes
@@ -111,24 +111,14 @@ PuppetDB will error with this message if the IP address associated with the
 ssl-host parameter in the jetty.ini isn't linked to a known interface or
 resolvable.
 
-## Why is the load so high on the database server?
+## Why is PuppetDB using so much CPU?
 
-There are many possible reasons for a high load on the database server,
-including the total number of nodes managed by Puppet, the frequency of the
-agent runs, and the number of changes to the nodes on each run. One possible
-cause of execessive load on the database server is a low catalog duplication
-rate. See the [PuppetDB dashboard][maintaining_tuning] to find this rate for
-your PuppetDB instance. If this rate is significantly lower than 90%, see
-[Why is my catalog duplication rate so low?](#why-is-my-catalog-duplication-rate-so-low).
-
-## Why is my catalog duplication rate so low?
-
-The catalog duplication rate can be found on the
-[dashboard][maintaining_tuning]. Typically, the duplication rate should be 90%
-or above. If the duplication rate is lower, it might cause a much heavier I/O
-load on the database. Refer to the
-[low catalog duplication troubleshooting guide][low_catalog_dupe] for help
-diagnosing the problem.
+There are numerous possible contributing factors to high CPU usage by PuppetDB,
+both on the application server and (if different) the database. Examples
+include the total number of nodes managed by Puppet, the frequency of the agent
+runs, and the number of changes to the nodes on each run. For more information
+on possible causes and ways to mitigate them, refer to the [support and
+troubleshooting guide][support_guide].
 
 ## My Puppet master is running slower since I enabled PuppetDB. How can I profile it?
 
