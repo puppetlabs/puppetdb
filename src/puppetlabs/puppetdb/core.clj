@@ -88,4 +88,4 @@
 
 (defn -main
   [& args]
-  (run-command #(System/exit 0) #(System/exit 1) args))
+  (run-command #(utils/flush-and-exit 0) #(utils/flush-and-exit 1) args))

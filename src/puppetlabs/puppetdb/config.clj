@@ -353,9 +353,7 @@
                             " please remove this item from your config."
                             " PuppetDB has a non-configurable context route of `/pdb`."
                             " Consult the documentation for more details."))
-    (flush)
-    (binding [*out* *err*] (flush))
-    (System/exit 1)) ; cf. PDB-2053
+    (utils/flush-and-exit 1)) ; cf. PDB-2053
   config-data)
 
 (def default-web-router-config

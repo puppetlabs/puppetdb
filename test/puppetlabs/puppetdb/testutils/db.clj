@@ -8,7 +8,8 @@
             [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :refer [transform-data]]
-            [puppetlabs.puppetdb.testutils :refer [pprint-str]]))
+            [puppetlabs.puppetdb.testutils :refer [pprint-str]]
+            [puppetlabs.puppetdb.utils :refer [flush-and-exit]]))
 
 (defn valid-sql-id? [id]
   (re-matches #"[a-zA-Z][a-zA-Z0-9_]*" id))
@@ -22,7 +23,7 @@
         (binding [*out* *err*]
           (println (format "Invalid test %s name %s" who (pr-str name)))
           (flush))
-        (System/exit 1)))
+        (flush-and-exit 1)))
     {:host (env :pdb-test-db-host "127.0.0.1")
      :port (env :pdb-test-db-port 5432)
      :user {:name user
