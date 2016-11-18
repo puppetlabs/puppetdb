@@ -19,33 +19,34 @@
         (is (= 0 (pop/num-resources))))
 
       (testing "should only count current resources"
-        (jdbc/insert! :certnames
-                      {:certname "h1" :id 1}
-                      {:certname "h2" :id 2})
+        (jdbc/insert-multi! :certnames
+                            [{:certname "h1" :id 1}
+                             {:certname "h2" :id 2}])
 
         (deactivate-node! "h2")
 
-        (jdbc/insert! :catalogs
-                      {:id 1 :hash (sutils/munge-hash-for-storage "c1")
-                       :api_version 1 :catalog_version "1"
-                       :certname "h1" :producer_timestamp (to-timestamp (now))}
-                      {:id 2 :hash (sutils/munge-hash-for-storage "c2")
-                       :api_version 1 :catalog_version "1"
-                       :certname "h2" :producer_timestamp (to-timestamp (now))})
+        (jdbc/insert-multi!
+          :catalogs
+          [{:id 1 :hash (sutils/munge-hash-for-storage "c1")
+            :api_version 1 :catalog_version "1"
+            :certname "h1" :producer_timestamp (to-timestamp (now))}
+           {:id 2 :hash (sutils/munge-hash-for-storage "c2")
+            :api_version 1 :catalog_version "1"
+            :certname "h2" :producer_timestamp (to-timestamp (now))}])
 
-        (jdbc/insert!
-         :resource_params_cache
-         {:resource (sutils/munge-hash-for-storage "01") :parameters nil}
-         {:resource (sutils/munge-hash-for-storage "02") :parameters nil}
-         {:resource (sutils/munge-hash-for-storage "03") :parameters nil})
+        (jdbc/insert-multi!
+          :resource_params_cache
+          [{:resource (sutils/munge-hash-for-storage "01") :parameters nil}
+           {:resource (sutils/munge-hash-for-storage "02") :parameters nil}
+           {:resource (sutils/munge-hash-for-storage "03") :parameters nil}])
 
-        (jdbc/insert!
+        (jdbc/insert-multi!
          :catalog_resources
-         {:certname_id 1 :resource (sutils/munge-hash-for-storage "01") :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
-         ;; c2's resource shouldn'sutils/munge-hash-for-storage t be counted, as they don't correspond to an active node
-         {:certname_id 2 :resource (sutils/munge-hash-for-storage "01") :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
-         {:certname_id 1 :resource (sutils/munge-hash-for-storage "02") :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
-         {:certname_id 1 :resource (sutils/munge-hash-for-storage "03") :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
+          [{:certname_id 1 :resource (sutils/munge-hash-for-storage "01") :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
+           ;; c2's resource shouldn'sutils/munge-hash-for-storage t be counted, as they don't correspond to an active node
+           {:certname_id 2 :resource (sutils/munge-hash-for-storage "01") :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
+           {:certname_id 1 :resource (sutils/munge-hash-for-storage "02") :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
+           {:certname_id 1 :resource (sutils/munge-hash-for-storage "03") :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])}])
 
         (sutils/vacuum-analyze *db*)
         (is (= 4 (pop/num-resources)))))))
@@ -57,9 +58,9 @@
         (is (= 0 (pop/num-active-nodes))))
 
       (testing "should only count active nodes"
-        (jdbc/insert! :certnames
-                      {:certname "h1"}
-                      {:certname "h2"})
+        (jdbc/insert-multi! :certnames
+                            [{:certname "h1"}
+                             {:certname "h2"}])
 
         (is (= 2 (pop/num-active-nodes)))
 
@@ -75,31 +76,31 @@
         (is (= 0 (pop/pct-resource-duplication))))
 
       (testing "should equal (total-unique) / total"
-        (jdbc/insert! :certnames
-                      {:certname "h1"}
-                      {:certname "h2"})
+        (jdbc/insert-multi! :certnames
+                            [{:certname "h1"}
+                             {:certname "h2"}])
 
-        (jdbc/insert!
+        (jdbc/insert-multi!
          :catalogs
-         {:id 1 :hash (sutils/munge-hash-for-storage "c1") :api_version 1
-          :transaction_uuid (sutils/munge-uuid-for-storage "68b08e2a-eeb1-4322-b241-bfdf151d294b")
-          :catalog_version "1" :certname "h1" :producer_timestamp (to-timestamp (now))}
-         {:id 2 :hash (sutils/munge-hash-for-storage "c2") :api_version 1
-          :transaction_uuid (sutils/munge-uuid-for-storage "68b08e2a-eeb1-4322-b241-bfdf151d294b")
-          :catalog_version "1" :certname "h2" :producer_timestamp (to-timestamp (now))})
+          [{:id 1 :hash (sutils/munge-hash-for-storage "c1") :api_version 1
+            :transaction_uuid (sutils/munge-uuid-for-storage "68b08e2a-eeb1-4322-b241-bfdf151d294b")
+            :catalog_version "1" :certname "h1" :producer_timestamp (to-timestamp (now))}
+           {:id 2 :hash (sutils/munge-hash-for-storage "c2") :api_version 1
+            :transaction_uuid (sutils/munge-uuid-for-storage "68b08e2a-eeb1-4322-b241-bfdf151d294b")
+            :catalog_version "1" :certname "h2" :producer_timestamp (to-timestamp (now))}])
 
-        (jdbc/insert!
+        (jdbc/insert-multi!
          :resource_params_cache
-         {:resource (sutils/munge-hash-for-storage "01") :parameters nil}
-         {:resource (sutils/munge-hash-for-storage "02") :parameters nil}
-         {:resource (sutils/munge-hash-for-storage "03") :parameters nil})
+          [{:resource (sutils/munge-hash-for-storage "01") :parameters nil}
+           {:resource (sutils/munge-hash-for-storage "02") :parameters nil}
+           {:resource (sutils/munge-hash-for-storage "03") :parameters nil}])
 
-        (jdbc/insert!
+        (jdbc/insert-multi!
          :catalog_resources
-         {:certname_id 1 :resource  (sutils/munge-hash-for-storage "01") :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
-         {:certname_id 2 :resource  (sutils/munge-hash-for-storage "01") :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
-         {:certname_id 1 :resource  (sutils/munge-hash-for-storage "02") :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
-         {:certname_id 1 :resource  (sutils/munge-hash-for-storage "03") :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])})
+          [{:certname_id 1 :resource  (sutils/munge-hash-for-storage "01") :type "Foo" :title "Bar" :exported true :tags (to-jdbc-varchar-array [])}
+           {:certname_id 2 :resource  (sutils/munge-hash-for-storage "01") :type "Foo" :title "Baz" :exported true :tags (to-jdbc-varchar-array [])}
+           {:certname_id 1 :resource  (sutils/munge-hash-for-storage "02") :type "Foo" :title "Boo" :exported true :tags (to-jdbc-varchar-array [])}
+           {:certname_id 1 :resource  (sutils/munge-hash-for-storage "03") :type "Foo" :title "Goo" :exported true :tags (to-jdbc-varchar-array [])}])
 
         (let [total  4
               unique 3

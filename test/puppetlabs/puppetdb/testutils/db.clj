@@ -269,8 +269,8 @@
                    "blandness"  "zest"
                    "lethargy"   "zest"})
 
-(defn insert-map [data]
-  (apply (partial jdbc/insert! :test [:key :value]) data))
+(defn insert-entries [m]
+  (jdbc/insert-multi! :test [:key :value] (seq m)))
 
 (defn call-with-antonym-test-database
   [function]
@@ -278,9 +278,9 @@
     (jdbc/with-db-transaction []
       (jdbc/do-commands
        (sql/create-table-ddl :test
-                             [:key "VARCHAR(256)" "PRIMARY KEY"]
-                             [:value "VARCHAR(256)" "NOT NULL"]))
-      (insert-map antonym-data))
+                             [[:key "VARCHAR(256)" "PRIMARY KEY"]
+                              [:value "VARCHAR(256)" "NOT NULL"]]))
+      (insert-entries antonym-data))
     (function)))
 
 (def indexes-sql

@@ -185,8 +185,8 @@
         ;;Ensuring here that new records are inserted, updated
         ;;facts are updated (not deleted and inserted) and that
         ;;the necessary deletes happen
-        (tu/with-wrapped-fn-args [adds sql/insert!
-                                  updates sql/update!]
+        (tu/with-wrapped-fn-args [insert-multis jdbc/insert-multi!
+                                  updates jdbc/update!]
           (let [new-facts {"domain" "mynewdomain.com"
                            "fqdn" "myhost.mynewdomain.com"
                            "hostname" "myhost"
@@ -229,16 +229,16 @@
                         (map (fn [itm]
                                (-> (second itm)
                                    (update-in [:hash] sutils/parse-db-hash)))
-                             (map rest @updates))))
+                             @updates)))
               (is (some (fn [update-call]
                           (and (= :factsets (first update-call))
                                (:timestamp (second update-call))))
-                        (map rest @updates))))
+                        @updates)))
             (testing "should only insert uptime_seconds"
-              (is (some #{[:fact_paths {:path "uptime_seconds"
-                                        :name "uptime_seconds"
-                                        :depth 0}]}
-                        (map rest @adds)))))))
+              (is (some #{[:fact_paths [{:path "uptime_seconds"
+                                         :name "uptime_seconds"
+                                         :depth 0}]]}
+                        @insert-multis))))))
 
       (testing "replacing all new facts"
         (delete-certname-facts! certname)
@@ -459,9 +459,9 @@
           (jdbc/insert! :fact_paths (str->pathmap "foo"))
           (delete-orphaned-paths! 11)
           (is (empty? (map #(dissoc % :id) (db-paths))))
-          (apply jdbc/insert!
-                 :fact_paths
-                 (for [x (range 10)] (str->pathmap (str "foo-" x))))
+          (jdbc/insert-multi!
+            :fact_paths
+            (for [x (range 10)] (str->pathmap (str "foo-" x))))
           (delete-orphaned-paths! 3)
           (is (= 7 (:c (first
                         (query-to-vec
@@ -480,7 +480,7 @@
                                  [:value_hash] sutils/munge-hash-for-storage))
         (delete-orphaned-values! 11)
         (is (empty? (db-vals)))
-        (apply jdbc/insert!
+        (jdbc/insert-multi!
                :fact_values
                (for [x (range 10)] (update-in (value->valuemap (str "foo-" x))
                                               [:value_hash]
@@ -622,8 +622,8 @@
       ;; Lets intercept the insert/update/delete level so we can test it later
       ;; Here we only replace edges, so we can capture those specific SQL
       ;; operations
-      (tu/with-wrapped-fn-args [adds sql/insert!
-                                deletes sql/delete!]
+      (tu/with-wrapped-fn-args [insert-multis jdbc/insert-multi!
+                                deletes jdbc/delete!]
         (let [resources    (:resources modified-catalog)
               refs-to-hash (reduce-kv (fn [i k v]
                                         (assoc i k (shash/resource-identity-hash v)))
@@ -652,21 +652,21 @@
                                (sutils/bytea-escape source-hash)
                                (sutils/bytea-escape target-hash)
                                "contains"]]]
-                     (map rest @deletes)))))
+                     @deletes))))
           (testing "should only insert the 1 edge"
-            (is (= [[:edges {:certname "basic.catalogs.com"
+            (is (= [[:edges [{:certname "basic.catalogs.com"
                              :source (sutils/munge-hash-for-storage "57495b553981551c5194a21b9a26554cd93db3d9")
                              :target (sutils/munge-hash-for-storage "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1")
-                             :type "before"}]]
-                   (map rest @adds))))
+                             :type "before"}]]]
+                   @insert-multis)))
           (testing "when reran to check for idempotency"
-            (reset! adds [])
+            (reset! insert-multis [])
             (reset! deletes [])
             (replace-edges! certname modified-edges refs-to-hash)
             (testing "should delete no edges"
               (is (empty? @deletes)))
             (testing "should insert no edges"
-              (is (empty?@adds)))))))))
+              (is (empty? @insert-multis)))))))))
 
 (deftest-db catalog-duplicates
   (testing "should share structure when duplicate catalogs are detected for the same host"
@@ -736,10 +736,10 @@
     x))
 
 (defn table-args
-  "Many of the java.jdbc functions accept a table name as the second arg, this
+  "Many of the puppetdb.jdbc functions accept a table name as the first arg, this
    function grabs that argument"
   [coll]
-  (map second coll))
+  (map first coll))
 
 (defn remove-edge-changes
   "Remove the edge related changes from the `coll` of function call arguments"
@@ -788,9 +788,10 @@
                                    ON certnames.id=cr.certname_id
                                    WHERE c.certname=?" certname))))
 
-        (tu/with-wrapped-fn-args [inserts sql/insert!
-                                  deletes sql/delete!
-                                  updates sql/update!]
+        (tu/with-wrapped-fn-args [inserts jdbc/insert!
+                                  insert-multis jdbc/insert-multi!
+                                  deletes jdbc/delete!
+                                  updates jdbc/update!]
           (with-redefs [performance-metrics
                         (assoc metrics-map
                                :catalog-volatility (histogram storage-metrics-registry [(str (gensym))]))]
@@ -805,13 +806,14 @@
             (is (= 8 (apply + (sample (:catalog-volatility performance-metrics))))))
 
           (is (sort= [:resource_params_cache :resource_params :catalog_resources :edges]
-                     (table-args @inserts)))
+                     (table-args (concat @inserts @insert-multis))))
+
           (is (= [:catalogs]
                  (table-args @updates)))
           (is (= [[:catalog_resources ["certname_id = ? and type = ? and title = ?"
-                                       (-> @updates first (#(nth % 3)) second)
+                                       (-> @updates first (nth 2) second)
                                        "File" "/etc/foobar"]]]
-                 (remove-edge-changes (map rest @deletes)))))
+                 (remove-edge-changes @deletes))))
 
         (is (= #{{:type "Class" :title "foobar"}
                  {:type "File" :title "/etc/foobar2"}
@@ -837,6 +839,10 @@
           (is (not= orig-tx-id new-tx-id))
           (is (not= orig-timestamp new-timestamp)))))))
 
+(comment
+  (existing-catalog-update)
+  )
+
 (deftest-db add-resource-to-existing-catalog
   (let [{certname :certname :as catalog} (:basic catalogs)
         old-date (-> 2 days ago)
@@ -846,9 +852,10 @@
 
     (is (= 3 (:c (first (query-to-vec "SELECT count(*) AS c FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname)))))
 
-    (tu/with-wrapped-fn-args [inserts sql/insert!
-                              updates sql/update!
-                              deletes sql/delete!]
+    (tu/with-wrapped-fn-args [inserts jdbc/insert!
+                              insert-multis jdbc/insert-multi!
+                              updates jdbc/update!
+                              deletes jdbc/delete!]
       (replace-catalog! (assoc-in catalog
                               [:resources {:type "File" :title "/etc/foobar2"}]
                               {:type "File"
@@ -863,7 +870,7 @@
                     old-date)
 
       (is (sort= [:resource_params_cache :resource_params :catalog_resources]
-                 (table-args @inserts)))
+                 (table-args (concat @inserts @insert-multis))))
       (is (= [:catalogs] (table-args @updates)))
       (is (empty? @deletes)))
 
@@ -1004,9 +1011,9 @@
     (let [certname-id (:id (first (query-to-vec "SELECT id from certnames where certname=?" certname)))]
       (is (= 4 (count (query-to-vec "SELECT * from catalog_resources where certname_id = ?" certname-id))))
 
-      (tu/with-wrapped-fn-args [inserts sql/insert!
-                                updates sql/update!
-                                deletes sql/delete!]
+      (tu/with-wrapped-fn-args [inserts jdbc/insert!
+                                updates jdbc/update!
+                                deletes jdbc/delete!]
 
         (replace-catalog! catalog yesterday)
         (is (empty? @inserts))
@@ -1074,18 +1081,21 @@
       (is (= (get-in catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache)))
 
-      (tu/with-wrapped-fn-args [inserts sql/insert!
-                                updates sql/update!
-                                deletes sql/delete!]
+      (tu/with-wrapped-fn-args [inserts jdbc/insert!
+                                insert-multis jdbc/insert-multi!
+                                updates jdbc/update!
+                                deletes jdbc/delete!]
 
         (replace-catalog! add-param-catalog yesterday)
         (is (sort= [:catalogs :catalog_resources]
                    (table-args @updates)))
 
-        (is (empty? (remove-edge-changes (map rest @deletes))))
+        (is (empty? (remove-edge-changes @deletes)))
 
         (is (sort= [:resource_params_cache :resource_params :edges]
-                   (table-args @inserts))))
+                   (->> (concat @inserts @insert-multis)
+                     (remove #(empty? (second %))) ;; remove inserts w/out rows
+                     table-args))))
 
       (is (not= orig-resource-hash (foobar-param-hash)))
 
@@ -1094,13 +1104,16 @@
 
       (is (= (get-in add-param-catalog [:resources {:type "File" :title "/etc/foobar"} :parameters])
              (foobar-params-cache)))
-      (tu/with-wrapped-fn-args [inserts sql/insert!
-                                updates sql/update!
-                                deletes sql/delete!]
+
+      (tu/with-wrapped-fn-args [inserts jdbc/insert!
+                                insert-multis jdbc/insert-multi!
+                                updates jdbc/update!
+                                deletes jdbc/delete!]
         (replace-catalog! catalog old-date)
 
-        (is (empty? (remove #(= :edges (first %)) (map rest @inserts))))
-        (is (empty? (remove #(= :edges (first %)) (map rest @deletes))))
+        (is (empty? (remove #(or (= :edges (first %)) (empty? (second %)))
+                            (concat @inserts @insert-multis))))
+        (is (empty? (remove #(= :edges (first %)) @deletes)))
         (is (= (sort [:catalog_resources :catalogs])
                (sort (table-args @updates)))))
 

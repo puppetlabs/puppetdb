@@ -60,14 +60,6 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.i18n.core :refer [trs]]))
 
-;; taken from storage.clj; preserved here in case of change
-(defn insert-records*
-  "Nil/empty safe insert-records, see java.jdbc's insert-records for more "
-  [table
-   record-coll]
-  (when (seq record-coll)
-    (apply jdbc/insert! table record-coll)))
-
 (defn init-through-2-3-8
   []
 
@@ -473,12 +465,12 @@
 
       (sql/create-table-ddl
        :factsets_transform
-       ["id" "bigint NOT NULL DEFAULT nextval('factsets_id_seq')"]
-       ["certname" "text NOT NULL"]
-       ["timestamp" "timestamp with time zone NOT NULL"]
-       ["environment_id" "bigint"]
-       ["hash" hash-type]
-       ["producer_timestamp" "timestamp with time zone NOT NULL"])
+       [["id" "bigint NOT NULL DEFAULT nextval('factsets_id_seq')"]
+        ["certname" "text NOT NULL"]
+        ["timestamp" "timestamp with time zone NOT NULL"]
+        ["environment_id" "bigint"]
+        ["hash" hash-type]
+        ["producer_timestamp" "timestamp with time zone NOT NULL"]])
 
       "INSERT INTO factsets_transform
          (id, certname, timestamp, environment_id, producer_timestamp)
@@ -487,14 +479,14 @@
 
       (sql/create-table-ddl
        :fact_values_transform
-       ["id" "bigint NOT NULL DEFAULT nextval('fact_values_id_seq')"]
-       ["value_hash" hash-type "NOT NULL"]
-       ["value_type_id" "bigint NOT NULL"]
-       ["value_integer" "bigint"]
-       ["value_float" "double precision"]
-       ["value_string" "text"]
-       ["value_boolean" "boolean"]
-       ["value_json" "text"])
+       [["id" "bigint NOT NULL DEFAULT nextval('fact_values_id_seq')"]
+        ["value_hash" hash-type "NOT NULL"]
+        ["value_type_id" "bigint NOT NULL"]
+        ["value_integer" "bigint"]
+        ["value_float" "double precision"]
+        ["value_string" "text"]
+        ["value_boolean" "boolean"]
+        ["value_json" "text"]])
 
       (str "INSERT INTO fact_values_transform
               (id, value_hash, value_type_id, value_integer, value_float,
@@ -505,8 +497,8 @@
                 FROM fact_values")
 
       (sql/create-table-ddl :resource_params_cache_transform
-                            ["resource" hash-type "NOT NULL"]
-                            ["parameters" "TEXT"])
+                            [["resource" hash-type "NOT NULL"]
+                             ["parameters" "TEXT"]])
 
       (str "INSERT INTO resource_params_cache_transform
               (resource, parameters)
@@ -515,14 +507,14 @@
 
       (sql/create-table-ddl
        :catalog_resources_transform
-       ["catalog_id" "bigint NOT NULL"]
-       ["resource" hash-type "NOT NULL"]
-       ["tags" (sutils/sql-array-type-string "TEXT") "NOT NULL"]
-       ["type" "TEXT" "NOT NULL"]
-       ["title" "TEXT" "NOT NULL"]
-       ["exported" "BOOLEAN" "NOT NULL"]
-       ["file" "TEXT"]
-       ["line" "INT"])
+       [["catalog_id" "bigint NOT NULL"]
+        ["resource" hash-type "NOT NULL"]
+        ["tags" (sutils/sql-array-type-string "TEXT") "NOT NULL"]
+        ["type" "TEXT" "NOT NULL"]
+        ["title" "TEXT" "NOT NULL"]
+        ["exported" "BOOLEAN" "NOT NULL"]
+        ["file" "TEXT"]
+        ["line" "INT"]])
 
       (str "INSERT INTO catalog_resources_transform
               (resource, catalog_id, tags, type, title, exported, file, line)
@@ -531,9 +523,9 @@
                 FROM catalog_resources")
 
       (sql/create-table-ddl :resource_params_transform
-                            ["resource" hash-type "NOT NULL"]
-                            ["name"  "TEXT" "NOT NULL"]
-                            ["value" "TEXT" "NOT NULL"])
+                            [["resource" hash-type "NOT NULL"]
+                             ["name"  "TEXT" "NOT NULL"]
+                             ["value" "TEXT" "NOT NULL"]])
 
       (str "INSERT INTO resource_params_transform
               (resource, name, value)
@@ -541,10 +533,10 @@
                 FROM resource_params")
 
       (sql/create-table-ddl :edges_transform
-                            ["certname" "TEXT" "NOT NULL"]
-                            ["source" hash-type "NOT NULL"]
-                            ["target" hash-type "NOT NULL"]
-                            ["type" "TEXT" "NOT NULL"])
+                            [["certname" "TEXT" "NOT NULL"]
+                             ["source" hash-type "NOT NULL"]
+                             ["target" hash-type "NOT NULL"]
+                             ["type" "TEXT" "NOT NULL"]])
 
       (str "INSERT INTO edges_transform (certname, source, target, type)
               SELECT certname, " (munge-hash "source") ",
@@ -555,15 +547,15 @@
 
       (sql/create-table-ddl
        :catalogs_transform
-       ["id" "bigint NOT NULL DEFAULT nextval('catalogs_id_seq')"]
-       ["hash" hash-type "NOT NULL"]
-       ["transaction_uuid" uuid-type]
-       ["certname" "text NOT NULL"]
-       ["producer_timestamp" "timestamp with time zone NOT NULL"]
-       ["api_version" "INTEGER NOT NULL"]
-       ["timestamp" "TIMESTAMP WITH TIME ZONE"]
-       ["catalog_version" "TEXT NOT NULL"]
-       ["environment_id" "bigint"])
+       [["id" "bigint NOT NULL DEFAULT nextval('catalogs_id_seq')"]
+        ["hash" hash-type "NOT NULL"]
+        ["transaction_uuid" uuid-type]
+        ["certname" "text NOT NULL"]
+        ["producer_timestamp" "timestamp with time zone NOT NULL"]
+        ["api_version" "INTEGER NOT NULL"]
+        ["timestamp" "TIMESTAMP WITH TIME ZONE"]
+        ["catalog_version" "TEXT NOT NULL"]
+        ["environment_id" "bigint"]])
 
       (str "INSERT INTO catalogs_transform
               (id, hash, transaction_uuid, certname, producer_timestamp,
@@ -579,24 +571,24 @@
 
       (sql/create-table-ddl
        :reports_transform
-       ["id" "bigint NOT NULL DEFAULT nextval('reports_id_seq')"]
-       ["hash" hash-type "NOT NULL"]
-       ["transaction_uuid" uuid-type]
-       ["certname" "text NOT NULL"]
-       ["puppet_version" "varchar(255) NOT NULL"]
-       ["report_format" "smallint NOT NULL"]
-       ["configuration_version" "varchar(255) NOT NULL"]
-       ["start_time" "timestamp with time zone NOT NULL"]
-       ["end_time" "timestamp with time zone NOT NULL"]
-       ["receive_time" "timestamp with time zone NOT NULL"]
-       ;; Insert a column in reports to be populated by boolean noop flag
-       ["noop" "boolean"]
-       ["environment_id" "bigint"]
-       ["status_id" "bigint"]
-       ;; Insert columns in reports to be populated by metrics and logs.
-       ;; Text for hsql, JSON for postgres.
-       ["metrics" json-type]
-       ["logs" json-type])
+       [["id" "bigint NOT NULL DEFAULT nextval('reports_id_seq')"]
+        ["hash" hash-type "NOT NULL"]
+        ["transaction_uuid" uuid-type]
+        ["certname" "text NOT NULL"]
+        ["puppet_version" "varchar(255) NOT NULL"]
+        ["report_format" "smallint NOT NULL"]
+        ["configuration_version" "varchar(255) NOT NULL"]
+        ["start_time" "timestamp with time zone NOT NULL"]
+        ["end_time" "timestamp with time zone NOT NULL"]
+        ["receive_time" "timestamp with time zone NOT NULL"]
+        ;; Insert a column in reports to be populated by boolean noop flag
+        ["noop" "boolean"]
+        ["environment_id" "bigint"]
+        ["status_id" "bigint"]
+        ;; Insert columns in reports to be populated by metrics and logs.
+        ;; Text for hsql, JSON for postgres.
+        ["metrics" json-type]
+        ["logs" json-type]])
 
       (str "INSERT INTO reports_transform (
             hash, certname, puppet_version, report_format, configuration_version,
@@ -609,19 +601,19 @@
 
       (sql/create-table-ddl
        :resource_events_transform
-       ["report_id" "bigint NOT NULL"]
-       ["status" "varchar(40) NOT NULL"]
-       ["timestamp" "timestamp with time zone NOT NULL"]
-       ["resource_type" "text NOT NULL"]
-       ["resource_title" "text NOT NULL"]
-       ["property" "varchar (40)"]
-       ["new_value" "text"]
-       ["old_value" "text"]
-       ["message" "text"]
-       ["file" "varchar(1024) DEFAULT NULL"]
-       ["line" "integer"]
-       ["containment_path" (sutils/sql-array-type-string "TEXT")]
-       ["containing_class" "varchar(255)"])
+       [["report_id" "bigint NOT NULL"]
+        ["status" "varchar(40) NOT NULL"]
+        ["timestamp" "timestamp with time zone NOT NULL"]
+        ["resource_type" "text NOT NULL"]
+        ["resource_title" "text NOT NULL"]
+        ["property" "varchar (40)"]
+        ["new_value" "text"]
+        ["old_value" "text"]
+        ["message" "text"]
+        ["file" "varchar(1024) DEFAULT NULL"]
+        ["line" "integer"]
+        ["containment_path" (sutils/sql-array-type-string "TEXT")]
+        ["containing_class" "varchar(255)"]])
 
       (str "INSERT INTO resource_events_transform (
             report_id, status, timestamp, resource_type, resource_title, property,
@@ -636,9 +628,9 @@
       (sql/create-table-ddl
        :certnames_transform
        ;; Rename the 'name' column of certnames to 'certname'.
-       ["certname" "text NOT NULL"]
-       ["latest_report_id" "bigint"]
-       ["deactivated" "timestamp with time zone"])
+       [["certname" "text NOT NULL"]
+        ["latest_report_id" "bigint"]
+        ["deactivated" "timestamp with time zone"]])
 
       (str "INSERT INTO certnames_transform(certname,latest_report_id,deactivated)
             SELECT c.name, rt.id as latest_report_id, c.deactivated FROM
@@ -947,11 +939,11 @@
    (sql/create-table-ddl
     :certnames_transform
     ;; Rename the 'name' column of certnames to 'certname'.
-    ["id" "bigint NOT NULL PRIMARY KEY default nextval('certname_id_seq')"]
-    ["certname" "text NOT NULL UNIQUE"]
-    ["latest_report_id" "bigint"]
-    ["deactivated" "timestamp with time zone"]
-    ["expired" "timestamp with time zone"])
+    [["id" "bigint NOT NULL PRIMARY KEY default nextval('certname_id_seq')"]
+     ["certname" "text NOT NULL UNIQUE"]
+     ["latest_report_id" "bigint"]
+     ["deactivated" "timestamp with time zone"]
+     ["expired" "timestamp with time zone"]])
 
    "INSERT INTO certnames_transform
      (certname, latest_report_id, deactivated, expired)
@@ -979,20 +971,20 @@
   (jdbc/do-commands
    (sql/create-table-ddl
     :resource_events_transform
-    ["report_id" "bigint NOT NULL"]
-    ["certname_id" "bigint NOT NULL"]
-    ["status" "varchar(40) NOT NULL"]
-    ["timestamp" "timestamp with time zone NOT NULL"]
-    ["resource_type" "text NOT NULL"]
-    ["resource_title" "text NOT NULL"]
-    ["property" "varchar (40)"]
-    ["new_value" "text"]
-    ["old_value" "text"]
-    ["message" "text"]
-    ["file" "varchar(1024) DEFAULT NULL"]
-    ["line" "integer"]
-    ["containment_path" (sutils/sql-array-type-string "TEXT")]
-    ["containing_class" "varchar(255)"])
+    [["report_id" "bigint NOT NULL"]
+     ["certname_id" "bigint NOT NULL"]
+     ["status" "varchar(40) NOT NULL"]
+     ["timestamp" "timestamp with time zone NOT NULL"]
+     ["resource_type" "text NOT NULL"]
+     ["resource_title" "text NOT NULL"]
+     ["property" "varchar (40)"]
+     ["new_value" "text"]
+     ["old_value" "text"]
+     ["message" "text"]
+     ["file" "varchar(1024) DEFAULT NULL"]
+     ["line" "integer"]
+     ["containment_path" (sutils/sql-array-type-string "TEXT")]
+     ["containing_class" "varchar(255)"]])
 
    "INSERT INTO resource_events_transform (
        report_id, certname_id, status, timestamp, resource_type, resource_title,
@@ -1043,8 +1035,8 @@
   (jdbc/do-commands
     (sql/create-table-ddl
       :producers
-      ["id" "bigint PRIMARY KEY"]
-      ["name" "text NOT NULL UNIQUE"])
+      [["id" "bigint PRIMARY KEY"]
+       ["name" "text NOT NULL UNIQUE"]])
     "CREATE SEQUENCE producers_id_seq CYCLE"
     "ALTER TABLE producers ALTER COLUMN id SET DEFAULT nextval('producers_id_seq')"
     "ALTER TABLE reports ADD COLUMN producer_id bigint"
@@ -1092,15 +1084,14 @@
       [(format "select %s from %s" columns (name table1))]
       #(->> %
             (map munge-fn)
-            (map (partial jdbc/insert! (name table2)))
-            dorun))))
+            (jdbc/insert-multi! (name table2))))))
 
 (defn resource-params-cache-parameters-to-jsonb
   []
   (jdbc/do-commands
     (sql/create-table-ddl :resource_params_cache_transform
-                          ["resource" "bytea NOT NULL"]
-                          ["parameters" "jsonb"]))
+                          [["resource" "bytea NOT NULL"]
+                           ["parameters" "jsonb"]]))
 
   (migrate-through-app
     :resource_params_cache
@@ -1129,14 +1120,14 @@
   []
   (jdbc/do-commands
     (sql/create-table-ddl :fact_values_transform
-                          ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('fact_values_id_seq')"]
-                          ["value_hash" "bytea NOT NULL UNIQUE"]
-                          ["value_type_id" "bigint NOT NULL"]
-                          ["value_integer" "bigint"]
-                          ["value_float" "double precision"]
-                          ["value_string" "text"]
-                          ["value_boolean" "boolean"]
-                          ["value" "jsonb"]))
+                          [["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('fact_values_id_seq')"]
+                           ["value_hash" "bytea NOT NULL UNIQUE"]
+                           ["value_type_id" "bigint NOT NULL"]
+                           ["value_integer" "bigint"]
+                           ["value_float" "double precision"]
+                           ["value_string" "text"]
+                           ["value_boolean" "boolean"]
+                           ["value" "jsonb"]]))
 
   (migrate-through-app
     :fact_values

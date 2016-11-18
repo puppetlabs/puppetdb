@@ -240,7 +240,7 @@
 (defn vacuum-analyze
   [db]
   (sql/with-db-connection [conn db]
-    (sql/execute! db ["vacuum analyze"] :transaction? false)))
+    (sql/execute! db ["vacuum analyze"] {:transaction? false})))
 
 (defn parse-db-hash
   [db-hash]

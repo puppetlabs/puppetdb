@@ -25,25 +25,20 @@
        ~@body)))
 
 (defmacro with-db-transaction [opts & body]
-  `(sql/with-db-transaction [db# (db) ~@opts]
+  `(sql/with-db-transaction [db# (db) (hash-map ~@opts)]
      (binding [*db* db#]
        ~@body)))
 
 (defn do-commands
-  "Calls clojure.jdbc/db-do-commands after adding (jdbc/db) as the
-  first argument."
-  {:arglists '([sql-command & sql-commands]
-               [transaction? sql-command & sql-commands])}
-  [transaction? & commands]
-  (apply sql/db-do-commands *db* transaction? commands))
+  "Runs the given commands in a transaction on the database given by (jdbc/db)."
+  [& commands]
+  (sql/db-do-commands *db* true commands))
 
 (defn do-prepared
-  "Calls clojure.jdbc/db-do-prepared after adding (jdbc/db) as the
-  first argument."
-  {:arglists '([sql & param-groups]
-               [transaction? sql & param-groups])}
-  [transaction? & remainder]
-  (apply sql/db-do-prepared *db* transaction? remainder))
+  "Executes an optionally parametrized sql expression in a transaction on the
+  database given by (jdbc/db)."
+  [sql & params]
+  (sql/db-do-prepared *db* true (into [sql] params) {:multi? true}))
 
 (defn do-commands-outside-txn [& commands]
   (let [conn (:connection *db*)
@@ -56,29 +51,38 @@
       (finally (.setAutoCommit conn orig)))))
 
 (defn insert!
-  "Calls clojure.jdbc/insert! after adding (jdbc/db) as the first argument."
-  {:arglists '([table row-map :transaction? true :entities identity]
-               [table row-map & row-maps :transaction? true :entities identity]
-               [table col-name-vec col-val-vec
-                & col-val-vecs :transaction? true :entities identity])}
-  [table & options]
-  (apply sql/insert! *db* table options))
+  "Inserts a single row in either map form or lists of columns & values form. The
+  database to use is given by (jdbc/db). Returns a one-element sequence with the
+  inserted row as returned by the database."
+  ([table row]
+   (sql/insert! *db* table row {}))
+  ([table columns values]
+   (sql/insert! *db* table columns values {})))
+
+(defn insert-multi!
+  "Inserts multiple rows in either map form or lists of columns & values form. The
+  database to use is given by (jdbc/db). Returns a sequence with every inserted
+  row as returned by the database."
+  ;; since clojure.java.jdbc will open a connection even when given an empty
+  ;; rows or values sequence, bypass it here if either of those are empty
+  ([table rows]
+   (if (seq rows)
+     (sql/insert-multi! *db* table rows {})
+     ()))
+  ([table columns values]
+   (if (seq values)
+     (sql/insert-multi! *db* table columns values {})
+     ())))
 
 (defn update!
   "Calls clojure.jdbc/update! after adding (jdbc/db) as the first argument."
-  {:arglists '([[table set-map where-clause
-                 & {:keys [entities transaction?]
-                    :or {entities identity transaction? true}}]])}
-  [table set-map where-clause & options]
-  (apply sql/update! *db* table set-map where-clause options))
+  [table set-map where-clause]
+  (sql/update! *db* table set-map where-clause {}))
 
 (defn delete!
   "Calls clojure.jdbc/delete! after adding (jdbc/db) as the first argument."
-  {:arglists '([table where-clause
-                & {:keys [entities transaction?]
-                   :or {entities identity transaction? true}}])}
-  [table where-clause & options]
-  (apply sql/delete! *db* table where-clause options))
+  [table where-clause]
+  (sql/delete! *db* table where-clause {}))
 
 (defn query
   "Calls clojure.jdbc/query after adding (jdbc/db) as the first argument."

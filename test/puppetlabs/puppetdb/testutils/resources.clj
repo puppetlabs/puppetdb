@@ -13,46 +13,47 @@
   ([] (store-example-resources true))
   ([environment?]
    (jdbc/with-transacted-connection *db*
-     (jdbc/insert!
+     (jdbc/insert-multi!
        :resource_params_cache
-       {:resource (sutils/munge-hash-for-storage "01")
-        :parameters (sutils/munge-jsonb-for-storage
-                      {"ensure" "file"
-                       "owner"  "root"
-                       "group"  "root"
-                       "acl"    ["john:rwx" "fred:rwx"]})}
-       {:resource (sutils/munge-hash-for-storage "02")
-        :parameters nil})
-     (jdbc/insert!
+       [{:resource (sutils/munge-hash-for-storage "01")
+         :parameters (sutils/munge-jsonb-for-storage
+                       {"ensure" "file"
+                        "owner"  "root"
+                        "group"  "root"
+                        "acl"    ["john:rwx" "fred:rwx"]})}
+        {:resource (sutils/munge-hash-for-storage "02")
+         :parameters nil}])
+     (jdbc/insert-multi!
        :resource_params
-       {:resource (sutils/munge-hash-for-storage "01") :name "ensure"
-        :value (sutils/db-serialize "file")}
-       {:resource (sutils/munge-hash-for-storage "01") :name "owner"
-        :value (sutils/db-serialize "root")}
-       {:resource (sutils/munge-hash-for-storage "01") :name "group"
-        :value (sutils/db-serialize "root")}
-       {:resource (sutils/munge-hash-for-storage "01") :name "acl"
-        :value (sutils/db-serialize ["john:rwx" "fred:rwx"])})
-       (jdbc/insert!
+       [{:resource (sutils/munge-hash-for-storage "01") :name "ensure"
+         :value (sutils/db-serialize "file")}
+        {:resource (sutils/munge-hash-for-storage "01") :name "owner"
+         :value (sutils/db-serialize "root")}
+        {:resource (sutils/munge-hash-for-storage "01") :name "group"
+         :value (sutils/db-serialize "root")}
+        {:resource (sutils/munge-hash-for-storage "01") :name "acl"
+         :value (sutils/db-serialize ["john:rwx" "fred:rwx"])}])
+       (jdbc/insert-multi!
         :certnames
-        {:id 1 :certname "one.local"}
-        {:id 2 :certname "two.local"})
-       (jdbc/insert!
+         [{:id 1 :certname "one.local"}
+          {:id 2 :certname "two.local"}])
+       (jdbc/insert-multi!
         :catalogs
-        {:id 1
-         :hash (sutils/munge-hash-for-storage "f0")
-         :api_version 1
-         :catalog_version "12"
-         :certname "one.local"
-         :producer_timestamp (to-timestamp (now))
-         :environment_id (when environment? (ensure-environment "DEV"))}
-        {:id 2
-         :hash (sutils/munge-hash-for-storage "ba")
-         :api_version 1
-         :catalog_version "14"
-         :certname "two.local"
-         :producer_timestamp (to-timestamp (now))
-         :environment_id (when environment? (ensure-environment "PROD"))})
+         [{:id 1
+           :hash (sutils/munge-hash-for-storage "f0")
+           :api_version 1
+           :catalog_version "12"
+           :certname "one.local"
+           :producer_timestamp (to-timestamp (now))
+           :environment_id (when environment? (ensure-environment "DEV"))}
+          {:id 2
+           :hash (sutils/munge-hash-for-storage "ba")
+           :api_version 1
+           :catalog_version "14"
+           :certname "two.local"
+           :producer_timestamp (to-timestamp (now))
+           :environment_id (when environment? (ensure-environment "PROD"))}])
+
        (add-facts! {:certname "one.local"
                     :values {"operatingsystem" "Debian"
                              "kernel" "Linux"
@@ -71,20 +72,20 @@
                     :producer_timestamp (to-timestamp (now))
                     :producer "foo.com"})
 
-       (jdbc/insert!
+       (jdbc/insert-multi!
         :catalog_resources
-        {:certname_id 1 :resource (sutils/munge-hash-for-storage "01")
-         :type "File" :title "/etc/passwd" :exported false
-         :tags (to-jdbc-varchar-array ["one" "two"])}
-        {:certname_id 1 :resource (sutils/munge-hash-for-storage "02")
-         :type "Notify" :title "hello" :exported false
-         :tags (to-jdbc-varchar-array [])}
-        {:certname_id 2 :resource (sutils/munge-hash-for-storage "01")
-         :type "File" :title "/etc/passwd" :exported false
-         :tags (to-jdbc-varchar-array ["one" "two"])}
-        {:certname_id 2 :resource (sutils/munge-hash-for-storage "02")
-         :type "Notify" :title "hello" :exported true :file "/foo/bar" :line 22
-         :tags (to-jdbc-varchar-array [])}))
+         [{:certname_id 1 :resource (sutils/munge-hash-for-storage "01")
+           :type "File" :title "/etc/passwd" :exported false
+           :tags (to-jdbc-varchar-array ["one" "two"])}
+          {:certname_id 1 :resource (sutils/munge-hash-for-storage "02")
+           :type "Notify" :title "hello" :exported false
+           :tags (to-jdbc-varchar-array [])}
+          {:certname_id 2 :resource (sutils/munge-hash-for-storage "01")
+           :type "File" :title "/etc/passwd" :exported false
+           :tags (to-jdbc-varchar-array ["one" "two"])}
+          {:certname_id 2 :resource (sutils/munge-hash-for-storage "02")
+           :type "Notify" :title "hello" :exported true :file "/foo/bar" :line 22
+           :tags (to-jdbc-varchar-array [])}]))
 
      {:foo1 {:certname   "one.local"
              :resource   "01"
