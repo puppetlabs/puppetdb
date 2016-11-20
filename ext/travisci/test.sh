@@ -5,6 +5,9 @@ set -x
 
 ulimit -u 4096
 
+cat /etc/hosts
+hostname --fqdn
+
 run-unit-tests()
 (
   pgdir="$(pwd)/test-resources/var/pg"
