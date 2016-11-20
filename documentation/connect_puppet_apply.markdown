@@ -4,19 +4,19 @@ layout: default
 canonical: "/puppetdb/latest/connect_puppet_apply.html"
 ---
 
-[exported]: /puppet/latest/reference/lang_exported.html
-[package]: /references/latest/type.html#package
-[file]: /references/latest/type.html#file
-[yumrepo]: /references/latest/type.html#yumrepo
+[exported]: {{puppet}}/lang_exported.html
+[package]: {{puppet}}/type.html#package
+[file]: {{puppet}}/type.html#file
+[yumrepo]: {{puppet}}/type.html#yumrepo
 [apt]: http://forge.puppetlabs.com/puppetlabs/apt
 [puppetdb_download]: http://downloads.puppetlabs.com/puppetdb
-[puppetdb_conf]: /puppet/latest/reference/config_file_puppetdb.html
-[routes_yaml]: /puppet/latest/reference/config_file_routes.html
-[exported]: /puppet/latest/reference/lang_exported.html
+[puppetdb_conf]: {{puppet}}/config_file_puppetdb.html
+[routes_yaml]: {{puppet}}/config_file_routes.html
+[exported]: {{puppet}}/lang_exported.html
 [jetty]: ./configure.html#jetty-http-settings
-[settings_namespace]: /puppet/latest/reference/lang_facts_and_builtin_vars.html#variables-set-by-the-puppet-master
-[ssl_script]: ./install_from_source.html#step-3-option-a-run-the-ssl-configuration-script
-[package_repos]: /puppet/latest/reference/puppet_collections.html
+[ssl_script]: ./maintain_and_tune.html#redo-ssl-setup-after-changing-certificates
+[settings_namespace]: {{puppet}}/lang_facts_and_builtin_vars.html#puppet-master-variables
+[package_repos]: {{puppet}}/puppet_collections.html
 
 > Note: To use PuppetDB, the nodes at your site must be running Puppet version 3.8.1 or later.
 
@@ -43,7 +43,7 @@ PuppetDB requires client authentication (CA) for its SSL connections, and the Pu
 
 When talking to PuppetDB, `puppet apply` can use the certificates issued by a Puppet master's certificate authority. You can issue certificates to every node by setting up a Puppet master server with dummy manifests, running `puppet agent --test` once on every node, signing every certificate request on the Puppet master, and running `puppet agent --test` again on every node.
 
-Do the same on your PuppetDB node, then [re-run the SSL setup script][ssl_script]. PuppetDB will now trust connections from your Puppet nodes.
+Do the same on your PuppetDB node, then [re-run the SSL setup script][ssl_script] (which usually runs automatically during installation). PuppetDB will now trust connections from your Puppet nodes.
 
 You will have to sign a certificate for every new node you add to your site.
 

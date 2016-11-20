@@ -11,7 +11,7 @@ This interface is mostly of use to developers who know Clojure and are familiar 
 Enabling the REPL
 -----
 
-To enable the REPL, you must edit PuppetDB's config file to [enable it, configure the listening IP address, and choose a port](./configure.html#repl-settings):
+To enable the REPL, you must edit PuppetDB's config file to [enable it, configure the listening IP address, and choose a port](./configure.html#nrepl-settings):
 
     # /etc/puppetdb/conf.d/repl.ini
     [nrepl]

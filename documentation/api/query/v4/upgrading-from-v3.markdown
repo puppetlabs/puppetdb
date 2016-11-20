@@ -12,7 +12,7 @@ marked 'experimental' since 2.0.0 but is the only API available in 3.0.
 Note that this document focuses on API changes only, and only includes changes
 leading up to the release of 3.0. For a more complete description
 of the changes listed and changes in versions subsequent to 3.0, see the
-[release notes](https://docs.puppetlabs.com/puppetdb/latest/release_notes.html).
+[release notes]({{puppetdb}}/release_notes.html).
 
 Each change below is marked with the corresponding release version.
 
@@ -23,7 +23,7 @@ Each change below is marked with the corresponding release version.
 * (3.0) The query API has been moved from `/` to `/pdb/query`, so
   http://localhost:8080/v4/facts has become
   http://localhost:8080/pdb/query/v4/facts.
-  
+
 * (3.0) The `/commands` endpoint has been moved to its own API at `/pdb/cmd`, so
   http://localhost:8080/v3/commands has become
   http://localhost:8080/pdb/cmd/v1.
@@ -60,7 +60,7 @@ Each change below is marked with the corresponding release version.
   compose the v4 response body, along with the new fields
   `producer_timestamp`, `hash`, and `environment`. For more
   information, see the
-  [/pdb/query/v4/catalogs documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/catalogs.html).
+  [/pdb/query/v4/catalogs documentation]({{puppetdb}}/api/query/v4/catalogs.html).
 
 #### /pdb/query/v4/facts
 
@@ -73,13 +73,13 @@ Each change below is marked with the corresponding release version.
 
 * (2.2) The v4 factsets endpoint was added to facilitate the grouping
   of facts per node. For more information, see the
-  [/pdb/query/v4/factsets documentation](./api/query/v4/factsets.html).
+  [/pdb/query/v4/factsets documentation]({{puppetdb}}/api/query/v4/factsets.html).
 
 * (3.0) We added a `hash` field to the endpoint fields to support a unique identifer for factsets.
 
 * (3.0) The `facts` field is now expanded as per our new expansion
   convention, so the data format has changed. For more information, see
-  the [/pdb/query/v4/factsets documentation](./api/query/v4/factsets.html).
+  the [/pdb/query/v4/factsets documentation]({{puppetdb}}/api/query/v4/factsets.html).
 
 * (3.0) The `/pdb/query/v4/factsets/<node>/facts` endpoints will now
   return results even for deactivated or expired nodes.
@@ -92,14 +92,14 @@ Each change below is marked with the corresponding release version.
   parameters and returns an array of maps instead of a map. An additional
   `summarize_by` field has also been added to describe the parameter used. For
   more information, see the [aggregate-event-counts
-  documentation](./api/query/v4/aggregate_event_counts).
+  documentation]({{puppetdb}}/api/query/v4/aggregate_event_counts).
 
 #### /metrics/v1 (formerly /v3/metrics)
 
 * (3.0) The former metrics endpoint has been split off into a separate service, and
   reversioned at v1. If you are currently accessing mbeans at
   http://localhost:8080/v3/metrics/mbeans, you will now access them at
-  http://localhost:8080/metrics/v1/mbeans and so on, according to the [metrics api documentation](https://docs.puppetlabs.com/puppetdb/master/api/metrics/v1/index.html).
+  http://localhost:8080/metrics/v1/mbeans and so on, according to the [metrics api documentation]({{puppetdb}}/api/metrics/v1/mbeans.html).
 
 * (3.0) PuppetDB's mbeans (listed at /metrics/v1/mbeans) are no longer prefixed with
   "com."
@@ -109,9 +109,9 @@ Each change below is marked with the corresponding release version.
   * (3.0) For users posting commands directly to the
     /pdb/cmd/v1 endpoint, the only valid command submission
     versions will be
-    [replace catalogs v6](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/catalog_format_v6.html),
-    [store report v5](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/report_format_v5.html),
-    and [replace facts v4](https://docs.puppetlabs.com/puppetdb/master/api/wire_format/facts_format_v4.html).
+    [replace catalogs v6]({{puppetdb}}/api/wire_format/catalog_format_v6.html),
+    [store report v5]({{puppetdb}}/api/wire_format/report_format_v5.html),
+    and [replace facts v4]({{puppetdb}}/api/wire_format/facts_format_v4.html).
 
 #### /pdb/meta/v1/version (formerly /v3/version)
 * (3.0) The version endpoint has been split from the query service and mounted
@@ -127,16 +127,16 @@ Each change below is marked with the corresponding release version.
 
 * (2.2.0) `/pdb/query/v4/factsets` This endpoint returns a key-value
   hash for each certname. For more information, see the
-  [/pdb/query/v4/factsets documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/factsets.html#response-format).
+  [/pdb/query/v4/factsets documentation]({{puppetdb}}/api/query/v4/factsets.html#response-format).
 
 * (2.2.0) `/pdb/query/v4/fact-paths` This endpoint is similar to the
   existing fact-names endpoint in that one expected use is GUI
   autocompletion. For more information, see the
-  [/pdb/query/v4/fact-paths documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/fact-paths.html).
+  [/pdb/query/v4/fact-paths documentation]({{puppetdb}}/api/query/v4/fact-paths.html).
 
 * (2.2.0) `/pdb/query/v4/fact-contents` This endpoint allows
   fine-grained querying of structured facts. For more information, see
-  the [/pdb/query/v4/fact-contents documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/fact-contents.html).
+  the [/pdb/query/v4/fact-contents documentation]({{puppetdb}}/api/query/v4/fact-contents.html).
 
 * (3.0) `/pdb/query/v4/edges` This endpoint allows querying edges
   inside a catalog. For more information, see the
@@ -157,12 +157,12 @@ Each change below is marked with the corresponding release version.
 * (3.0) `/pdb/query/v4/catalogs/<node>/[resources|edges]` Both of
   these endpoints provide convenience for drilling into resources and
   edges data specific to a particular catalog. See
-  [/pdb/query/v4/catalogs documentation](./catalogs)
+  [/pdb/query/v4/catalogs documentation](./catalogs.html)
 
 #### Features affecting all endpoints
 
 * (3.0) Extract is available as a top-level query operator, useful for selecting only
-  certain fields from a response. See the [documentation on the extract operator](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/ast.html#extract) for more information.
+  certain fields from a response. See the [documentation on the extract operator]({{puppetdb}}/api/query/v4/ast.html#extract) for more information.
 
 * (2.2.0) The `in` and `extract` operators have been changed to accept multiple fields,
   allowing more concise subquerying as explained [here](https://github.com/puppetlabs/puppetdb/pull/1053).
@@ -171,18 +171,18 @@ Each change below is marked with the corresponding release version.
 
 * (3.0) The v4 events endpoint does not require a query parameter, so
   `/pdb/query/v4/events` is now a valid query. See the
-  [events endpoint documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/events.html#get-v4events)
+  [events endpoint documentation]({{puppetdb}}/api/query/v4/events.html#pdbqueryv4events)
   for more information.
 
 #### /pdb/query/v4/reports
 
 * (3.0) The response of the reports endpoint includes the new fields `noop`,
-  `environment`, `status`, `resource_events`, `logs`, and `metrics`. For more information, see the [documentation on the reports endpoint](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/reports.html). For comparison, see [an example of the new format](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/reports.html#examples), and [an example of the old format](https://docs.puppetlabs.com/puppetdb/latest/api/query/v3/reports.html#response-format).
+  `environment`, `status`, `resource_events`, `logs`, and `metrics`. For more information, see the [documentation on the reports endpoint]({{puppetdb}}/api/query/v4/reports.html). For comparison, see [an example of the new format]({{puppetdb}}/api/query/v4/reports.html#examples), and [an example of the old format](/puppetdb/2.3/api/query/v3/reports.html#response-format) (PuppetDB 2.3 docs).
 
 * (3.0) The reports endpoint takes a `latest_report?` query to return only reports
   associated with the most recent puppet run for their nodes. Similar to the
   corresponding events query, there is no corresponding field in the response.
-  For more information, see the [documentation on the report query fields](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/reports.html#query-fields).
+  For more information, see the [documentation on the report query fields]({{puppetdb}}/api/query/v4/reports.html#query-fields).
 
 #### /pdb/query/v4/catalogs
 
@@ -191,17 +191,17 @@ Each change below is marked with the corresponding release version.
   single host. The old query format (`/pdb/query/v4/catalogs/myhost`)
   still works as before, but `/pdb/query/v4/catalogs` returns results
   too. For more information, see the
-  [catalog query examples](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/catalogs.html#examples).
+  [catalog query examples]({{puppetdb}}/api/query/v4/catalogs.html#examples).
 
 #### Operators
 
 * (2.2.0) The new `select_fact_contents` subquery operator allows for filtering the
   results of other endpoints based on detailed queries about structured fact
-  values. This is exhibited on the bottom of the [subquery examples documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/ast.html#subquery-examples).
+  values. This is exhibited on the bottom of the [subquery examples documentation]({{puppetdb}}/api/query/v4/ast.html#explicit-subquery-examples).
 
 * (2.2.0) We have added the regexp array match operator `~>` for querying fact paths on
-  the `fact-contents` or `fact-paths endpoints`. This is documented with the other [operators](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/ast.html#regexp-array-match).
-  An example of usage is given at the bottom of the [subquery examples page](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/ast.html#subquery-examples).
+  the `fact-contents` or `fact-paths endpoints`. This is documented with the other [operators]({{puppetdb}}/api/query/v4/ast.html#regexp-array-match).
+  An example of usage is given at the bottom of the [subquery examples page]({{puppetdb}}/api/query/v4/ast.html#explicit-subquery-examples).
 
 * (3.0) We have added the `group_by` and `function` operators, as well as
-  support for the `count` function. For more information, see the [operators documentation](https://docs.puppetlabs.com/puppetdb/master/api/query/v4/ast.html#function).
+  support for the `count` function. For more information, see the [operators documentation]({{puppetdb}}/api/query/v4/ast.html#function).

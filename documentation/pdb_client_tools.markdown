@@ -3,10 +3,10 @@ title: "PuppetDB 4.3: PuppetDB CLI"
 layout: default
 ---
 
-[installpuppet]: /puppet/latest/reference/install_pre.html
-[repos]: /puppet/latest/reference/puppet_collections.html
+[installpuppet]: {{puppet}}/install_pre.html
+[repos]: {{puppet}}/puppet_collections.html
 [export]: ./anonymization.html
-[installpeclienttools]: /pe/latest/install_pe_client_tools.html
+[installpeclienttools]: {{pe}}/install_pe_client_tools.html
 
 # PuppetDB CLI
 
@@ -73,9 +73,9 @@ take the following settings:
 
 - `cacert` The path for the CA cert.
 
-  *nix sytems - /etc/puppetlabs/puppet/ssl/certs/ca.pem  
+  *nix sytems - /etc/puppetlabs/puppet/ssl/certs/ca.pem
   Windows - C:\ProgramData\PuppetLabs\puppet\etc\ssl\certs\ca.pem
-  
+
 - `cert` An SSL certificate signed by your site's Puppet CA. Note that the PE
  version of the CLI supports token auth via `puppet-access` and this option
  should not be necessary.
@@ -93,7 +93,7 @@ necessary configuration items are `server_urls` and `cacert`.
 below for an example configuration) but setting `cert` and `key` in the PuppetDB
 CLI configuration will prevent you from using token authentication (i.e.
 certicate authentication takes precendence over token authentication).
- 
+
 ```json
 {
   "puppetdb": {
@@ -102,7 +102,7 @@ certicate authentication takes precendence over token authentication).
   }
 }
 ```
- 
+
 #### Example configuration file (puppet-client-tools)
 
 The open source version of the PuppetDB CLI requires certificate authentication

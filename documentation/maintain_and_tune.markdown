@@ -11,7 +11,7 @@ canonical: "/puppetdb/latest/maintain_and_tune.html"
 [puppetdb_report_processor]: ./connect_puppet_master.html#enabling-report-storage
 [node_ttl]: ./configure.html#node-ttl
 [report_ttl]: ./configure.html#report-ttl
-[resources_type]: /references/latest/type.html#resources
+[resources_type]: {{puppet}}/type.html#resources
 [logback]: ./configure.html#the-logback-logging-config-file
 [dashboard]: #monitor-the-performance-dashboard
 
@@ -19,7 +19,7 @@ PuppetDB requires a relatively small amount of maintenance and tuning. However, 
 
 ## Monitor the performance dashboard
 
-Once PuppetDB is running, visit `http://localhost:8080/pdb/dashboard/index.html`, substituting the name and port of your PuppetDB server. 
+Once PuppetDB is running, visit `http://localhost:8080/pdb/dashboard/index.html`, substituting the name and port of your PuppetDB server.
 
 > **Note:** You may need to [edit PuppetDB's HTTP configuration][configure_jetty] first, changing the `host` setting to the server's externally-accessible hostname. If you installed with the PuppetDB module, [set the `listen_address` parameter](./install_via_module.html#step-2-assign-classes-to-nodes). When you do this, you should also configure your firewall to control access to PuppetDB's cleartext HTTP port.
 

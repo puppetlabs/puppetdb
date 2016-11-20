@@ -6,7 +6,7 @@ canonical: "/puppetdb/latest/puppetdb_connection.html"
 
 [puppetdb_root]: ./index.html
 [connect_to_puppetdb]: ./connect_puppet_master.html
-[confdir]: /puppet/latest/reference/dirs_confdir.html
+[confdir]: {{puppet}}/dirs_confdir.html
 [puppetdb_conf]: ./connect_puppet_master.html#edit-puppetdb\.conf
 
 The `puppetdb.conf` file contains the hostname and port of the [PuppetDB][puppetdb_root] server. It is only used if you are using PuppetDB and have [connected your Puppet master to it][connect_to_puppetdb].
@@ -50,7 +50,7 @@ You can use a comma-separated list of URLs if there are multiple PuppetDB instan
 
 The default value is `https://puppetdb:8081`.
 
-The PuppetDB terminus will always attempt to connect to the first PuppetDB instance specified (listed above as `puppetdb1`). If a server-side exception occurs, or the request takes too long (see [`server_url_timeout`](#server_url_timeout)), the PuppetDB terminus will attempt the same operation on the next instance in the list.
+The PuppetDB terminus will always attempt to connect to the first PuppetDB instance specified (listed above as `puppetdb1`). If a server-side exception occurs, or the request takes too long (see [`server_url_timeout`](#serverurltimeout)), the PuppetDB terminus will attempt the same operation on the next instance in the list.
 
 ### `submit_only_server_urls`
 
@@ -91,7 +91,7 @@ The default value in PE is true.
 
 **Note: For use with Puppet Enterprise only.**
 
-When using multiple `server_urls`, this flag can be set to `true` to cause queries to be made to the last PuppetDB instance that was successfully contacted. 
+When using multiple `server_urls`, this flag can be set to `true` to cause queries to be made to the last PuppetDB instance that was successfully contacted.
 
 The default value is false.
 

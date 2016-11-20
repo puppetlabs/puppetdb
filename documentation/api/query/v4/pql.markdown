@@ -79,7 +79,7 @@ In this case, this would return only the certname field of nodes starting with
 The entity or context of a query (or subquery) defines what results you will get
 returned when performing a query, and provides the main context for any
 projections or filters in the query. There are many entities; for a full list
-see the [entities] documentation.
+see the [entities][] documentation.
 
 For PQL queries, the entity context is the minimal amount of information one
 must provide, as it defines the results returned. For example, if you wanted to
@@ -89,8 +89,10 @@ see all node information, you could provide a query as follows:
 
 And it would be enough to return all node data, without filtering or pagination.
 
-The entity context can also be used within a subquery, see the [subquery]
-section for more details.
+The entity context can also be used within a subquery; for more details, see:
+
+* [The `in` operator][in], which can take a subquery.
+* [Implicit subqueries][].
 
 ## Projection
 
@@ -240,6 +242,8 @@ operator and a valid regular expression:
 
 #### Array Match: `in`
 
+[in]: #array-match-in
+
 The `in` operator matches a field or set of fields against either an array or a
 subquery.
 
@@ -376,6 +380,8 @@ Currently lists are only supported with the `in` operator.
 
 ### Implicit Subqueries
 
+[Implicit subqueries]: #implicit-subqueries
+
 Implicit subqueries work the same way as the `in` operator,
 however the relationship between some entities is clear. When an implicit
 relationship exists between two entity types, you can avoid the overhead of
@@ -395,7 +401,7 @@ only Debian nodes).
 
 This often allows you to avoid having to know which fields are
 required, unlike the `in` operator, but be aware that only some relationships are well
-defined. See the [entities] documentation for each entity to learn which
+defined. See the [entities][] documentation for each entity to learn which
 implicit subqueries are provided automatically.
 
 Also, implicit subqueries are like any other conditional operator, and therefore
@@ -408,7 +414,7 @@ subquery as before, included with a `certname` match on the node itself:
     }
 
 They can even be combined with other implict subqueries, to provide more complex
-matching capabilities. This query combines everything we've discussed so far, 
+matching capabilities. This query combines everything we've discussed so far,
 and adds a `resource` subquery for `Package[tomcat]`:
 
     nodes {

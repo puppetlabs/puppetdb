@@ -4,19 +4,19 @@ layout: default
 canonical: "/puppetdb/latest/api/wire_format/catalog_format_v8.html"
 ---
 
-[containment]: /puppet/latest/reference/lang_containment.html
-[relationship]: /puppet/latest/reference/lang_relationships.html
-[chain]: /puppet/latest/reference/lang_relationships.html#chaining-arrows
-[metaparameters]: /puppet/latest/reference/lang_relationships.html#relationship-metaparameters
-[require]: /puppet/latest/reference/lang_relationships.html#the-require-function
-[resource_ref]: /puppet/latest/reference/lang_datatypes.html#resource-references
-[numbers]: /puppet/latest/reference/lang_datatypes.html#numbers
-[undef]: /puppet/latest/reference/lang_datatypes.html#undef
-[namevar]: /puppet/latest/reference/lang_resources.html#namenamevar
-[resource]: /puppet/latest/reference/lang_resources.html
-[title]: /puppet/latest/reference/lang_resources.html#title
-[type]: /puppet/latest/reference/lang_resources.html#type
-[attributes]: /puppet/latest/reference/lang_resources.html#attributes
+[containment]: {{puppet}}/lang_containment.html
+[relationship]: {{puppet}}/lang_relationships.html
+[chain]: {{puppet}}/lang_relationships.html#syntax-chaining-arrows
+[metaparameters]: {{puppet}}/lang_relationships.html#syntax-relationship-metaparameters
+[require]: {{puppet}}/lang_relationships.html#syntax-the-require-function
+[resource_ref]: {{puppet}}/lang_data_resource_reference.html
+[numbers]: {{puppet}}/lang_data_number.html
+[undef]: {{puppet}}/lang_data_undef.html
+[namevar]: {{puppet}}/lang_resources.html#namenamevar
+[resource]: {{puppet}}/lang_resources.html
+[title]: {{puppet}}/lang_resources.html#title
+[type]: {{puppet}}/lang_resources.html#type
+[attributes]: {{puppet}}/lang_resources.html#attributes
 
 PuppetDB receives catalogs from Puppet masters in the following wire format.
 This format is subtly different from the internal format used by Puppet, so
@@ -60,7 +60,7 @@ String. The name of the node for which the catalog was compiled.
 
 String. An arbitrary string that uniquely identifies this specific catalog
 across time for a single node. This is controlled by Puppet's
-[`config_version` setting](/references/latest/configuration.html#configversion)
+[`config_version` setting]({{puppet}}/configuration.html#configversion)
 and is usually the seconds elapsed since the epoch.
 
 #### `environment`

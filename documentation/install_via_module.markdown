@@ -26,7 +26,7 @@ Step 1: Enable the Puppet Collection package repository
 
 If you haven't done so already, you will need to do **one** of the following:
 
-* [Enable the Puppet Collection package repository](/puppet/latest/reference/puppet_collections.html)
+* [Enable the Puppet Collection package repository]({{puppet}}/puppet_collections.html)
   on your PuppetDB server and Puppet master server.
 * Grab the PuppetDB and PuppetDB-termini packages, and import them into your
   site's local package repos.

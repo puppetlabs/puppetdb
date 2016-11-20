@@ -4,12 +4,12 @@ layout: default
 ---
 
 [commands]: ./api/command/v1/commands.html#list-of-commands
-[threads]: https://docs.puppetlabs.com/puppetdb/latest/configure.html#threads
+[threads]: ./configure.html#threads
 [erd]: ./images/pdb_erd.png
 [pgstattuple]: http://www.postgresql.org/docs/9.4/static/pgstattuple.html
 [pgtune]: https://github.com/gregs1104/pgtune
 [postgres-config]: http://www.postgresql.org/docs/current/static/runtime-config-resource.html
-[fact-precedence]: https://docs.puppetlabs.com/facter/3.1/custom_facts.html#fact-precedence
+[fact-precedence]: {{facter}}/custom_facts.html#fact-precedence
 [stockpile]: https://github.com/puppetlabs/stockpile
 
 ## Support and Troubleshooting for PuppetDB
@@ -243,6 +243,22 @@ for information on these settings.
 ### PDB dashboard screenshot
 
 There are a few things to watch for in the PDB dashboard:
+
+* Low catalog duplication rate: PuppetDB includes some optimizations built on
+  the assumption that the catalog for a given node changes relatively
+  infrequently. Namely, when PuppetDB receives a catalog for a node that hashes
+  to the same value as the node's previous catalog, PuppetDB will
+  simply update the timestamp associated with the last catalog, rather than
+  insert the data again. This works fine most of the time, but is failure prone
+  in cases where aspects of the catalog are guaranteed to change on every run.
+  For example, if the catalog contains a resource that embeds the current
+  timestamp, the hashes will never match and additional work must be done to
+  assess which resources need to be replaced. The catalog duplication rate
+  metric in the dashboard shows the ratio of hash matches to catalogs received.
+  Typically the duplication rate will be above 70%, and often above 90%. If
+  your duplication rate is substantially lower than this, it may be worth
+  investigating whether anything can be done to reduce the rate of change
+  between runs.
 
 * Deep command queue: Under sustainable conditions, the command queue depth
   should be in the neighborhood of 0-100 most of the time, with occasional
