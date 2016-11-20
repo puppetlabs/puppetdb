@@ -68,7 +68,7 @@ depending on the operation.
       -H "X-Authentication: <token contents>" \
       --tlsv1 \
       --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem
-      
+
 **Note:** PE 2016.2 users will need to set `client-auth = want` under the
 `[jetty]` header of their jetty.ini configuration. Later versions of PE have
 this setting managed by the `puppetlabs-puppet_enterprise` module by default.
