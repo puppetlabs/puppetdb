@@ -1,4 +1,17 @@
 unless (test_config[:skip_presuite_provisioning])
+
+  step "Update CA cerificates" do
+    os = test_config[:os_families][master.name]
+    case os
+    when :redhat
+      on master, "yum install -y ca-certificates"
+    when :fedora
+      on master, "yum install -y ca-certificates"
+    when :debian
+      on master, "apt-get install -y ca-certificates"
+    end
+  end
+
   step "Install other dependencies on database" do
     databases.each do |database|
       os = test_config[:os_families][database.name]

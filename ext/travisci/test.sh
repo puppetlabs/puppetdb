@@ -5,6 +5,9 @@ set -x
 
 ulimit -u 4096
 
+cat /etc/hosts
+hostname --fqdn
+
 run-unit-tests()
 (
   pgdir="$(pwd)/test-resources/var/pg"
@@ -15,9 +18,6 @@ run-unit-tests()
   ext/bin/setup-pdb-pg "$pgdir"
   ext/bin/pdb-test-env "$pgdir" lein2 test
 )
-
-cat /etc/hosts
-hostname --fqdn
 
 case "$PDB_TEST_LANG" in
   clojure)

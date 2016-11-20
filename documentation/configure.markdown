@@ -228,9 +228,19 @@ SSL client certificates.
 
 ### `disable-update-checking`
 
-Setting this to `true` disables checking for updated versions of PuppetDB.
-Defaults to `false`.
+Optional. Setting this to `true` disables checking for updated
+versions of PuppetDB and sending basic analytics data to Puppet. Defaults to `false`.
 
+If `disable-update-checking` is set to `false`, PuppetDB checks for updates upon start or restart, and every 24 hours thereafter, and sends the following data to Puppet:
+
+* Product name
+* Database name
+* Database version
+* PuppetDB version
+* IP address
+* Data collection timestamp
+
+The data Puppet collects provides just one of many methods we use for learning about our community of users. The more we know about how you use Puppet, the better we can address your needs. No personally identifiable information is collected, and the data we collect is never used or shared outside Puppet.
 
 `[database]` settings
 -----
