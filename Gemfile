@@ -26,6 +26,9 @@ else
 end
 
 group :test do
+  # Add test-unit for ruby 2.2+ support (has been removed from stdlib)
+  gem 'test-unit'
+
   # Pinning for Ruby 1.9.3 support
   gem 'json_pure', '~> 1.8'
   # Pinning for Ruby < 2.2.0 support
@@ -65,9 +68,6 @@ group :acceptance do
     gem 'beaker', *location_for(beaker_version)
   else
     # use the pinned version
-    gem 'beaker', '~> 2.30.1'
+    gem 'beaker', '~> 3.4'
   end
-  # This forces google-api-client to not download retirable 2.0.0 which lacks
-  # ruby 1.9.x support.
-  gem 'retriable', '~> 1.4'
 end
