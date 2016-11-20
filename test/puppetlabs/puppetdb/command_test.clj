@@ -18,6 +18,7 @@
             [puppetlabs.puppetdb.testutils
              :refer [args-supplied call-counter dotestseq times-called]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
+            [puppetlabs.puppetdb.jdbc-test :refer [full-sql-exception-msg]]
             [puppetlabs.puppetdb.examples :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
