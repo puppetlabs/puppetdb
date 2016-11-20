@@ -19,9 +19,6 @@ run-unit-tests()
   ext/bin/pdb-test-env "$pgdir" lein2 test
 )
 
-cat /etc/hosts
-hostname --fqdn
-
 case "$PDB_TEST_LANG" in
   clojure)
     java -version
