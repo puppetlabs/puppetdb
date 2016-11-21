@@ -1,4 +1,5 @@
 require 'json'
+require 'time'
 
 puppetdb_query_url = "http://localhost:8080/pdb/query"
 puppetdb_cmd_url = "http://localhost:8080/pdb/cmd"
@@ -63,6 +64,22 @@ test_name "structured and trusted facts should be available through facts termin
       result = on database, %Q|curl -G '#{puppetdb_query_url}/v4/facts' --data 'query=#{query}'|
       facts = parse_json_with_error(result.stdout)
       assert_equal(structured_data, facts.first["value"])
+    end
+
+    step "create a fact with a null byte" do
+      time = Time.now.iso8601
+      on master, "mkdir /tmp/custom-facts"
+      on master, 'echo "Facter.add(:nullfact) do setcode do {\'nullfact\' => \'\u0000\' } end end" >> /tmp/custom-facts/nullfact.rb'
+      on master, "FACTERLIB=/tmp/custom-facts puppet agent -t"
+    end
+
+    sleep_until_queue_empty database
+
+    step "Ensure that the null fact is passed through properly" do
+      query = CGI.escape('["=","name","nullfact"]')
+      result = on database, %Q|curl -G '#{puppetdb_query_url}/v4/facts' --data 'query=#{query}'|
+      facts = parse_json_with_error(result.stdout)
+      assert_equal(1, facts.count)
     end
   end
 end
