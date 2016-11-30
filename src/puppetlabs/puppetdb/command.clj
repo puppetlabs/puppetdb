@@ -135,9 +135,8 @@
 ;; * `:queue-time`: how long the message spent in the queue before processing
 ;; * `:retry-counts`: histogram containing the number of times
 ;;                    messages have been retried prior to suceeding
-;; * `:invalidated`: *CURRENTLY DISABLED* - see PDB-3108 commands marked as delete?,
-;;                   caused by a newer command was enqueued that will overwrite an
-;;                   existing one in the queue
+;; * `:invalidated`: commands marked as delete?, caused by a newer command
+;;                   was enqueued that will overwrite an existing one in the queue
 ;; * `:depth`: number of commands currently enqueued
 ;;
 
@@ -151,11 +150,7 @@
      :queue-time (histogram mq-metrics-registry (to-metric-name-fn :queue-time))
      :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
      :depth (counter mq-metrics-registry (to-metric-name-fn :depth))
-
-     ;; There's currently no way for a command to be invalidated due to a replication/HA issue that
-     ;; is to be addressed in PDB-3108.
-     ;; :invalidated (counter mq-metrics-registry (to-metric-name-fn :invalidated))
-
+     :invalidated (counter mq-metrics-registry (to-metric-name-fn :invalidated))
      :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
      :size (histogram mq-metrics-registry (to-metric-name-fn :size))
      :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
@@ -485,11 +480,7 @@
   (mark-both-metrics! (:command cmdref) (:version cmdref) :discarded))
 
 (defn process-delete-cmdref
-  "Note that currently this function is unreachable, because commands
-  cannot currently be invalidated due to a replication/HA issue that
-  is to be addressed in PDB-3108.
-
-  Processes a command ref marked for deletion. This is similar to
+  "Processes a command ref marked for deletion. This is similar to
   processing a non-delete cmdref except different metrics need to be
   updated to indicate the difference in command"
   [{:keys [command version] :as cmdref} q scf-write-db response-chan stats]
