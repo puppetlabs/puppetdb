@@ -51,6 +51,7 @@
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.utils :refer [flush-and-exit]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [clojure.set :refer :all]
@@ -1237,11 +1238,11 @@
 
 (defn- sql-or-die
   "Calls (f) and returns its result.  If f throws an SQLException,
-  logs the exception and its parent and then calls (System/exit 1)"
+  logs the exception and its parent and then calls (flush-and-exit 1)"
   [f]
   ;; Here we've preserved existing behavior, but this may warrant
   ;; further consideration later.  If possible, we might want to
-  ;; avoid System/exit in favor of careful exception
+  ;; avoid flush-and-exit in favor of careful exception
   ;; handling (cf. PDB-1118).
   (try
     (f)
@@ -1250,7 +1251,7 @@
       (when-let [next (.getNextException e)]
         (log/error next (trs "Unravelled exception")))
       (binding [*out* *err*] (flush)) (flush)
-      (System/exit 1))))
+      (flush-and-exit 1))))
 
 (defn previous-migrations
   "Returns the list of migration numbers that existed before the

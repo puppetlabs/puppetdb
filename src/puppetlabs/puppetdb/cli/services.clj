@@ -272,7 +272,7 @@
   This function will return true iff any migrations were run."
   [db-conn-pool config]
   (jdbc/with-db-connection db-conn-pool
-    (scf-store/validate-database-version #(System/exit 1))
+    (scf-store/validate-database-version #(utils/flush-and-exit 1))
     @sutils/db-metadata
     (let [migrated? (migrate! db-conn-pool)]
       (indexes! config)

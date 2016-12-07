@@ -18,6 +18,20 @@
            [java.nio.charset Charset CharsetEncoder CoderResult StandardCharsets]
            [org.postgresql.util PGobject]))
 
+(defn flush-and-exit [status]
+  "Attempts to flush *out* and *err*, reporting any failures to *err*,
+  if possible, and then invokes (System/exit status)."
+  (let [out-ex (try (flush) nil (catch Exception ex ex))]
+    (when out-ex
+      (try
+        (binding [*out* *err*]
+          (println "stdout flush on exit failed: " out-ex)
+          (catch Exception _ nil)))))
+  (try
+    (binding [*out* *err*] (flush))
+    (catch Exception _ nil))
+  (System/exit status))
+
 (defn jdk6?
   "Returns true when the current JDK version is 1.6"
   []
@@ -219,8 +233,8 @@
    (catch map? m
      (println (:message m))
      (case (kitchensink/without-ns (:type m))
-       :cli-error (System/exit 1)
-       :cli-help (System/exit 0)
+       :cli-error (flush-and-exit 1)
+       :cli-help (flush-and-exit 0)
        (throw+ m)))))
 
 (defn pdb-query-base-url
