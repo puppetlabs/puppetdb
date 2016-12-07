@@ -185,10 +185,7 @@
     inner join resource_params on
     catalog_resources.resource=resource_params.resource
     where type='File' and name='source'
-    group by certname_id) foo"
-
-   :num_distinct_edges_source_target
-   "select count(distinct (source, target)) from edges"})
+    group by certname_id) foo"})
 
 (defn- collect-stats [db queries-map]
   (jdbc/with-transacted-connection db
