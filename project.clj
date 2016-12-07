@@ -26,7 +26,7 @@
 
   :min-lein-version "2.7.1"
 
-  :parent-project {:coords [puppetlabs/clj-parent "0.1.7"]
+  :parent-project {:coords [puppetlabs/clj-parent "0.2.5"]
                    :inherit [:managed-dependencies]}
 
   ;; Abort when version ranges or version conflicts are detected in
@@ -43,7 +43,7 @@
                  [org.clojure/tools.macro]
                  [org.clojure/math.combinatorics "0.1.1"]
                  [org.clojure/math.numeric-tower "0.0.4"]
-                 [org.clojure/tools.logging "0.3.1"]
+                 [org.clojure/tools.logging]
 
                  ;; Puppet specific
                  [puppetlabs/comidi]
@@ -55,12 +55,12 @@
                  [puppetlabs/tools.namespace "0.2.4.1"]
                  [puppetlabs/trapperkeeper]
                  [puppetlabs/trapperkeeper-webserver-jetty9]
-                 [puppetlabs/trapperkeeper-metrics "0.2.0" :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]
+                 [puppetlabs/trapperkeeper-metrics :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]
                  [puppetlabs/trapperkeeper-status]
 
                  ;; Various
                  [cheshire]
-                 [clj-stacktrace "0.2.8"]
+                 [clj-stacktrace]
                  [clj-time]
                  [com.rpl/specter "0.5.7"]
                  [com.taoensso/nippy "2.10.0" :exclusions [org.clojure/tools.reader]]
@@ -72,10 +72,10 @@
                  [prismatic/schema "1.1.2"]
                  [robert/hooke "1.3.0"]
                  [slingshot]
-                 [trptcolin/versioneer "0.2.0"]
+                 [trptcolin/versioneer]
 
                  ;; Filesystem utilities
-                 [org.apache.commons/commons-lang3 "3.3.1"]
+                 [org.apache.commons/commons-lang3 "3.4"]
                  ;; Version information
                  ;; Job scheduling
                  [overtone/at-at "1.2.0"]
@@ -134,23 +134,40 @@
   :classifiers  [["test" :testutils]]
 
   :profiles {:dev {:resource-paths ["test-resources"],
-                   :dependencies [[ring-mock nil]
-                                  [puppetlabs/trapperkeeper nil :classifier "test"]
-                                  [puppetlabs/kitchensink nil :classifier "test"]
-                                  [puppetlabs/trapperkeeper-webserver-jetty9 nil :classifier "test"]
+                   :dependencies [[ring-mock]
+                                  [puppetlabs/trapperkeeper :classifier "test"]
+                                  [puppetlabs/kitchensink :classifier "test"]
+                                  [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
                                   [org.flatland/ordered "1.5.3"]
                                   [org.clojure/test.check "0.5.9"]
                                   [environ "1.0.2"]
-                                  [org.clojure/tools.cli "0.3.3"] ; prevents dependency clash caused by lein-cloverage
                                   [riddley "0.1.12"]]
                    :injections [(do
                                   (require 'schema.core)
                                   (schema.core/set-fn-validation! true))]}
-             :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
+             :ezbake {:dependencies ^:replace [;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                               ;; NOTE: we need to explicitly pass in `nil` values
+                                               ;; for the version numbers here in order to correctly
+                                               ;; inherit the versions from our parent project.
+                                               ;; This is because of a bug in lein 2.7.1 that
+                                               ;; prevents the deps from being processed properly
+                                               ;; with `:managed-dependencies` when you specify
+                                               ;; dependencies in a profile.  See:
+                                               ;; https://github.com/technomancy/leiningen/issues/2216
+                                               ;; Hopefully we can remove those `nil`s (if we care)
+                                               ;; and this comment when lein 2.7.2 is available.
+                                               ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+                                               ;; we need to explicitly pull in our parent project's
+                                               ;; clojure version here, because without it, lein
+                                               ;; brings in its own version, and older versions of
+                                               ;; lein depend on clojure 1.6.
+                                               [org.clojure/clojure nil]
+                                               [puppetlabs/puppetdb ~pdb-version]
+                                               [puppetlabs/trapperkeeper-webserver-jetty9 nil]
                                                [org.clojure/tools.nrepl nil]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "1.1.3"
-                                 :exclusions [org.clojure/clojure]]]}
+                      :plugins [[puppetlabs/lein-ezbake "1.1.5"]]}
              :testutils {:source-paths ^:replace ["test"]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
 

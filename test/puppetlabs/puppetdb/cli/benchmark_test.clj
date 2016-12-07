@@ -41,20 +41,20 @@
 
 (deftest config-is-required
   (is (thrown+-with-msg?
-       [:type ::ks/cli-error]
+       [:kind ::ks/cli-error]
        #"Missing required argument '--config'"
        (run-benchmark {}))))
 
 (deftest config-is-required
   (is (thrown+-with-msg?
-       [:type ::ks/cli-error]
+       [:kind ::ks/cli-error]
        #"Missing required argument '--numhosts'"
        (run-benchmark {}
                       "--config" "anything.ini"))))
 
 (deftest nummsgs-or-runinterval-is-required
   (is (thrown+-with-msg?
-       [:type ::utils/cli-error]
+       [:kind ::utils/cli-error]
        #"Either -N/--nummsgs or -i/--runinterval is required."
        (run-benchmark {}
                       "--config" "anything.ini"

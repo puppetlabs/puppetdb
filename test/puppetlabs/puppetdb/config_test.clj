@@ -76,7 +76,7 @@
         ;; Valid config
         (is (= cfg (validate-db-settings cfg)))
         ;; Empty config
-        (is (thrown+-with-msg? [:type ::conf/cli-error] req-re
+        (is (thrown+-with-msg? [:kind ::conf/cli-error] req-re
                                (validate-db-settings {})))))
 
     (testing "the read-db defaulted to the specified write-db"

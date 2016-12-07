@@ -14,6 +14,7 @@
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
             [puppetlabs.trapperkeeper.services.status.status-service :refer [status-service]]
+            [puppetlabs.trapperkeeper.services.scheduler.scheduler-service :refer [scheduler-service]]
             [puppetlabs.trapperkeeper.services.metrics.metrics-service :refer [metrics-webservice]]
             [puppetlabs.puppetdb.client :as pdb-client]
             [puppetlabs.puppetdb.cli.services :as svcs]
@@ -67,6 +68,7 @@
    #'svcs/puppetdb-service
    #'command-service
    #'status-service
+   #'scheduler-service
    #'metrics-webservice
    #'dashboard-redirect-service
    #'pdb-routing-service

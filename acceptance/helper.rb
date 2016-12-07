@@ -519,7 +519,7 @@ module PuppetDBExtensions
     begin
       Timeout.timeout(timeout) do
         until queue_size == 0
-          result = on host, %Q(curl http://localhost:8080/metrics/v1/mbeans/#{CGI.escape(metric)} 2> /dev/null | grep Count | awk -F ":" '{print $2}')
+          result = on host, %Q(curl http://localhost:8080/metrics/v1/mbeans/#{CGI.escape(metric)} 2> /dev/null | python -c "import sys, json; print json.load(sys.stdin)['Count']")
           queue_size = Integer(result.stdout.chomp)
         end
       end
