@@ -5,6 +5,19 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.kitchensink.core :as ks]))
 
+(def simple-size-queries
+  {:node_count
+   "select count(*) from certnames"
+
+   :catalog_count
+   "select count(*) from catalogs"
+
+   :factset_count
+   "select count(*) from factsets"
+
+   :report_count
+   "select count(*) from reports"})
+
 (def metadata-queries
   {:table_usage
    "select * from pg_stat_user_tables"
@@ -177,10 +190,13 @@
    :num_distinct_edges_source_target
    "select count(distinct (source, target)) from edges"})
 
-(defn collect-metadata
-  [get-shared-globals]
-  (let [{:keys [scf-read-db] :as db} (get-shared-globals)]
-    (jdbc/with-transacted-connection scf-read-db
-      (-> (ks/mapvals jdbc/query-to-vec metadata-queries)
-          (assoc :version (v/version))
-          json/generate-pretty-string))))
+(defn- collect-stats [db queries-map]
+  (jdbc/with-transacted-connection db
+    (-> (ks/mapvals jdbc/query-to-vec queries-map)
+        (assoc :version (v/version)))))
+
+(defn collect-metadata [db]
+  (collect-stats db (merge metadata-queries simple-size-queries)))
+
+(defn collect-simple-size-stats [db]
+  (collect-stats db simple-size-queries))
