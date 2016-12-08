@@ -1161,6 +1161,11 @@
   (jdbc/do-commands
     "CREATE INDEX resource_events_status_for_corrective_change_idx ON resource_events (status) WHERE corrective_change"))
 
+(defn drop-resource-events-resource-type-idx
+  []
+  (jdbc/do-commands
+    "DROP INDEX IF EXISTS resource_events_resource_type_idx"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1191,7 +1196,8 @@
    50 remove-historical-catalogs
    51 fact-values-value-to-jsonb
    52 resource-params-cache-parameters-to-jsonb
-   53 add-corrective-change-index})
+   53 add-corrective-change-index
+   54 drop-resource-events-resource-type-idx})
 
 
 (def desired-schema-version (apply max (keys migrations)))
