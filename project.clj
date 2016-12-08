@@ -13,7 +13,7 @@
 
 (def activity-version"0.5.1")
 
-(def tk-version "1.3.1")
+(def tk-version "1.5.1")
 (def ks-version "1.3.1")
 (def i18n-version "0.2.2")
 
@@ -30,7 +30,8 @@
                  ["snapshots"  "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
   :source-paths ["src"]
   :dependencies [[puppetlabs/puppetdb ~pdb-version]
-                 [net.logstash.logback/logstash-logback-encoder "4.6"]
+                 [net.logstash.logback/logstash-logback-encoder "4.6"
+                  :exclusions [ch.qos.logback/logback-core]]
                  [puppetlabs/structured-logging "0.1.0" :exclusions [org.slf4j/slf4j-api]]
                  [puppetlabs/rbac-client ~rbac-client-version
                   :exclusions [puppetlabs/http-client
@@ -49,7 +50,8 @@
   :lein-ezbake {:vars {:user "pe-puppetdb"
                        :group "pe-puppetdb"
                        :build-type "pe"
-                       :main-namespace "puppetlabs.puppetdb.main"}
+                       :main-namespace "puppetlabs.puppetdb.main"
+                       :logrotate-enabled false}
                 :config-dir "ext/config/pe"}
 
   :puppetdb ~pdb-version
@@ -99,7 +101,7 @@
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]
                                                [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]]
-                      :plugins [[puppetlabs/lein-ezbake "0.5.1"
+                      :plugins [[puppetlabs/lein-ezbake "1.1.3"
                                 :exclusions [org.clojure/clojure]]]
                       :version ~pe-pdb-version
                       :name "pe-puppetdb"}
