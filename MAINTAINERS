@@ -33,6 +33,11 @@
       "github": "rbrw",
       "email": "rlb@puppet.com",
       "name": "Rob Browning"
+    },
+    {
+      "github": "briancain",
+      "email": "brian.cain@puppet.com",
+      "name": "Brian Cain"
     }
   ]
 }
