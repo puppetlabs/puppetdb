@@ -21,7 +21,8 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.testutils
-             :refer [args-supplied call-counter dotestseq times-called]]
+             :refer [args-supplied call-counter default-timeout-ms dotestseq
+                     times-called]]
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.jdbc-test :refer [full-sql-exception-msg]]
             [puppetlabs.puppetdb.examples :refer :all]
@@ -1512,7 +1513,10 @@
           expected-stamp (DateTime. deactivate-ms DateTimeZone/UTC)]
       (enqueue-command (command-names :deactivate-node) 3
                        {:certname "foo.local" :producer_timestamp input-stamp})
-      (is (svc-utils/wait-for-server-processing svc-utils/*server* 5000))
+
+      (is (svc-utils/wait-for-server-processing svc-utils/*server* default-timeout-ms)
+          (format "Server didn't process received commands after %dms" default-timeout-ms))
+
       ;; While we're here, check the value in the database too...
       (is (= expected-stamp
              (jdbc/with-transacted-connection

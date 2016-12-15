@@ -442,3 +442,6 @@
                              false
                              nil))]
      (f))))
+
+(def default-timeout-ms
+  (* 1000 60 5))
