@@ -1514,14 +1514,8 @@
       (enqueue-command (command-names :deactivate-node) 3
                        {:certname "foo.local" :producer_timestamp input-stamp})
 
-      (let [processing-finished?
-            (svc-utils/wait-for-server-processing svc-utils/*server*
-                                                  default-timeout-ms)]
-        (is processing-finished?)
-        (when-not processing-finished?
-          (throw (Exception.
-                  (format "Server didn't process received commands after %dms"
-                          default-timeout-ms)))))
+      (is (svc-utils/wait-for-server-processing svc-utils/*server* default-timeout-ms)
+          (format "Server didn't process received commands after %dms" default-timeout-ms))
 
       ;; While we're here, check the value in the database too...
       (is (= expected-stamp
