@@ -9,10 +9,6 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def tk-version "1.5.1")
-(def tk-jetty9-version "1.5.9")
-(def ks-version "1.3.1")
-(def tk-status-version "0.5.0")
 (def i18n-version "0.4.3")
 
 (def pdb-jvm-opts
@@ -28,73 +24,82 @@
 
   :url "https://docs.puppetlabs.com/puppetdb/"
 
+  :min-lein-version "2.7.1"
+
+  :parent-project {:coords [puppetlabs/clj-parent "0.2.5"]
+                   :inherit [:managed-dependencies]}
+
   ;; Abort when version ranges or version conflicts are detected in
   ;; dependencies. Also supports :warn to simply emit warnings.
   ;; requires lein 2.2.0+.
   :pedantic? :abort
 
-  :dependencies [[org.clojure/clojure "1.8.0"]
-                 [puppetlabs/i18n ~i18n-version]
-                 [cheshire "5.6.1"]
-                 [digest "1.4.3"]
+  :dependencies [;; Clojure org
+                 [org.clojure/clojure "1.8.0"]
+                 [org.clojure/core.async]
                  [org.clojure/core.match "0.3.0-alpha4" :exclusions [org.clojure/tools.analyzer.jvm]]
+                 [org.clojure/core.memoize "0.5.9"]
+                 [org.clojure/java.jdbc "0.6.1"]
+                 [org.clojure/tools.macro]
                  [org.clojure/math.combinatorics "0.1.1"]
                  [org.clojure/math.numeric-tower "0.0.4"]
-                 [org.clojure/tools.logging "0.3.1"]
-                 [org.clojure/core.memoize "0.5.8"]
+                 [org.clojure/tools.logging]
+
+                 ;; Puppet specific
+                 [puppetlabs/comidi]
+                 [puppetlabs/dujour-version-check]
+                 [puppetlabs/http-client]
+                 [puppetlabs/i18n]
+                 [puppetlabs/kitchensink]
+                 [puppetlabs/stockpile "0.0.4"]
                  [puppetlabs/tools.namespace "0.2.4.1"]
-                 [clj-stacktrace "0.2.8"]
+                 [puppetlabs/trapperkeeper]
+                 [puppetlabs/trapperkeeper-webserver-jetty9]
+                 [puppetlabs/trapperkeeper-metrics :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]
+                 [puppetlabs/trapperkeeper-status]
+
+                 ;; Various
+                 [cheshire]
+                 [clj-stacktrace]
+                 [clj-time]
+                 [com.rpl/specter "0.5.7"]
+                 [com.taoensso/nippy "2.10.0" :exclusions [org.clojure/tools.reader]]
+                 [digest "1.4.3"]
+                 [fast-zip-visit "1.0.2"]
+                 [instaparse "1.4.1"]
+                 [me.raynes/fs]
                  [metrics-clojure "2.6.1" :exclusions [org.clojure/clojure org.slf4j/slf4j-api]]
-                 [clj-time "0.11.0"]
+                 [prismatic/schema "1.1.2"]
+                 [robert/hooke "1.3.0"]
+                 [slingshot]
+                 [trptcolin/versioneer]
+
                  ;; Filesystem utilities
-                 [me.raynes/fs "1.4.6"]
-                 [org.apache.commons/commons-lang3 "3.3.1"]
+                 [org.apache.commons/commons-lang3 "3.4"]
                  ;; Version information
-                 [puppetlabs/dujour-version-check "0.1.3"]
                  ;; Job scheduling
                  [overtone/at-at "1.2.0"]
-                 ;; Nicer exception handling with try+/throw+
-                 [slingshot "0.12.2"]
 
                  ;; Database connectivity
                  [com.zaxxer/HikariCP "2.4.3" :exclusions [org.slf4j/slf4j-api]]
-                 [org.clojure/java.jdbc "0.6.1"]
+                 [honeysql "0.6.3"]
                  [org.postgresql/postgresql "9.4.1208.jre7"]
 
                  ;; MQ connectivity
                  [org.apache.activemq/activemq-broker "5.13.2" :exclusions [org.slf4j/slf4j-api]]
                  [org.apache.activemq/activemq-kahadb-store "5.13.2" :exclusions [org.slf4j/slf4j-api]]
                  [org.apache.activemq/activemq-pool "5.13.2" :exclusions [org.slf4j/slf4j-api]]
-
-                 ;; Parsing library required by PQL
-                 [instaparse "1.4.1"]
-
                  ;; bridge to allow some spring/activemq stuff to log over slf4j
                  [org.slf4j/jcl-over-slf4j "1.7.14" :exclusions [org.slf4j/slf4j-api]]
+
                  ;; WebAPI support libraries.
-                 [compojure "1.5.0"]
-                 [clj-http "2.0.1"  :exclusions [org.apache.httpcomponents/httpcore org.apache.httpcomponents/httpclient]]
-                 [ring/ring-core "1.4.0" :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
-                 [org.apache.commons/commons-compress "1.10"]
-                 [puppetlabs/kitchensink ~ks-version]
-                 [puppetlabs/trapperkeeper ~tk-version]
-                 [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]
-                 [puppetlabs/trapperkeeper-metrics "0.2.0" :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]
-                 [prismatic/schema "1.1.2"]
-                 [trptcolin/versioneer "0.2.0"]
-                 [puppetlabs/trapperkeeper-status ~tk-status-version :exclusions [org.slf4j/slf4j-api]]
-                 [org.clojure/tools.macro "0.1.5"]
-                 [com.novemberain/pantomime "2.1.0"]
-                 [fast-zip-visit "1.0.2"]
-                 [robert/hooke "1.3.0"]
-                 [honeysql "0.6.3"]
-                 [com.rpl/specter "0.5.7"]
-                 [org.clojure/core.async "0.2.374"]
-                 [puppetlabs/http-client "0.5.0" :exclusions [org.slf4j/slf4j-api]]
-                 [com.taoensso/nippy "2.10.0" :exclusions [org.clojure/tools.reader]]
                  [bidi "1.25.1" :exclusions [org.clojure/clojurescript]]
-                 [puppetlabs/comidi "0.3.1"]
-                 [puppetlabs/stockpile "0.0.4"]]
+                 [clj-http "2.0.1" :exclusions [org.apache.httpcomponents/httpcore org.apache.httpcomponents/httpclient]]
+                 [com.novemberain/pantomime "2.1.0"]
+                 [compojure]
+                 [org.apache.commons/commons-compress "1.10"]
+                 [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
+                 ]
 
   :jvm-opts ~pdb-jvm-opts
 
@@ -103,6 +108,7 @@
 
   :plugins [[lein-release "1.0.5" :exclusions [org.clojure/clojure]]
             [lein-cloverage "1.0.6" :exclusions [org.clojure/clojure]]
+            [lein-parent "0.3.1"]
             [puppetlabs/i18n ~i18n-version]]
 
   :lein-release {:scm        :git
@@ -128,23 +134,40 @@
   :classifiers  [["test" :testutils]]
 
   :profiles {:dev {:resource-paths ["test-resources"],
-                   :dependencies [[ring-mock "0.1.5"]
-                                  [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
-                                  [puppetlabs/kitchensink ~ks-version :classifier "test"]
-                                  [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version :classifier "test"]
+                   :dependencies [[ring-mock]
+                                  [puppetlabs/trapperkeeper :classifier "test"]
+                                  [puppetlabs/kitchensink :classifier "test"]
+                                  [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
                                   [org.flatland/ordered "1.5.3"]
                                   [org.clojure/test.check "0.5.9"]
                                   [environ "1.0.2"]
-                                  [org.clojure/tools.cli "0.3.3"] ; prevents dependency clash caused by lein-cloverage
                                   [riddley "0.1.12"]]
                    :injections [(do
                                   (require 'schema.core)
                                   (schema.core/set-fn-validation! true))]}
-             :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
-                                               [org.clojure/tools.nrepl "0.2.3"]]
+             :ezbake {:dependencies ^:replace [;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                               ;; NOTE: we need to explicitly pass in `nil` values
+                                               ;; for the version numbers here in order to correctly
+                                               ;; inherit the versions from our parent project.
+                                               ;; This is because of a bug in lein 2.7.1 that
+                                               ;; prevents the deps from being processed properly
+                                               ;; with `:managed-dependencies` when you specify
+                                               ;; dependencies in a profile.  See:
+                                               ;; https://github.com/technomancy/leiningen/issues/2216
+                                               ;; Hopefully we can remove those `nil`s (if we care)
+                                               ;; and this comment when lein 2.7.2 is available.
+                                               ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+                                               ;; we need to explicitly pull in our parent project's
+                                               ;; clojure version here, because without it, lein
+                                               ;; brings in its own version, and older versions of
+                                               ;; lein depend on clojure 1.6.
+                                               [org.clojure/clojure nil]
+                                               [puppetlabs/puppetdb ~pdb-version]
+                                               [puppetlabs/trapperkeeper-webserver-jetty9 nil]
+                                               [org.clojure/tools.nrepl nil]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "1.1.3"
-                                 :exclusions [org.clojure/clojure]]]}
+                      :plugins [[puppetlabs/lein-ezbake "1.1.5"]]}
              :testutils {:source-paths ^:replace ["test"]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
 
