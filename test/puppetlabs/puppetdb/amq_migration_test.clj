@@ -1,7 +1,9 @@
 (ns puppetlabs.puppetdb.amq-migration-test
-  (:import [java.nio.file Files])
+  (:import [java.nio.file Files]
+           [org.apache.activemq.broker BrokerService])
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.amq-migration :refer :all]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
@@ -19,19 +21,20 @@
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-suppressed-unless-notable]]
             [puppetlabs.puppetdb.testutils.log :as tlog]
             [puppetlabs.puppetdb.metrics.core :refer [metrics-registries]]
+            [me.raynes.fs :as fs]
             [metrics.meters :as meters]))
 
 (defn enqueue-and-shutdown [config commands]
-  (let [broker (mq/build-and-start-broker! "localhost"
+  (let [broker (build-and-start-broker! "localhost"
                                            (mq-dir config)
                                            (:command-processing config))
         endpoint (conf/mq-endpoint config)]
 
     (.setPersistent broker true)
     (try
-      (mq/start-broker! broker)
+      (start-broker! broker)
 
-      (with-open [factory (mq/activemq-connection-factory (conf/mq-broker-url config))
+      (with-open [factory (activemq-connection-factory (conf/mq-broker-url config))
                   conn (doto (.createConnection factory) .start)]
         (doseq [[header command] commands]
           (mq/send-message! conn
@@ -39,7 +42,7 @@
                             (json/generate-string command)
                             header)))
       (finally
-        (mq/stop-broker! broker)))))
+        (stop-broker! broker)))))
 
 (defn dlo-context [server]
   (-> (get-service server :PuppetDBServer)
@@ -183,3 +186,68 @@
              (fn []
                (is (not @mock-upgrade-fn))
                (is (not (needs-upgrade? config)))))))))))
+
+(deftest corrupt-kahadb-journal
+  (testing "corrupt kahadb journal handling"
+    (testing "corruption should return exception"
+      ;; We are capturing the previous known failure here, just in case in the
+      ;; future ActiveMQ changes behaviour (hopefully fixing this problem) so
+      ;; we can make a decision about weither capturing EOFException and
+      ;; restarting the broker ourselves is still needed.
+      ;;
+      ;; Upstream bug is: https://issues.apache.org/jira/browse/AMQ-4339
+      (let [dir (kitchensink/absolute-path (fs/temp-dir "corrupt-kahadb-handling"))
+            broker-name  "test"]
+        (try
+          ;; Start and stop a broker, then corrupt the journal
+          (let [broker (build-embedded-broker broker-name dir {})]
+            (start-broker! broker)
+            (stop-broker! broker)
+            (spit (fs/file dir "test" "KahaDB" "db-1.log") "asdf"))
+          ;; Upon next open, we should get an EOFException
+          (let [broker (build-embedded-broker broker-name dir {})]
+            (is (thrown? java.io.EOFException (start-broker! broker))))
+          ;; Now lets clean up
+          (finally
+            (fs/delete-dir dir)))))
+    (testing "build-and-start-broker! should ignore the corruption"
+      ;; Current work-around is to restart the broker upon this kind of
+      ;; corruption. This test makes sure this continues to work for the
+      ;; lifetime of this code.
+      (let [dir (kitchensink/absolute-path (fs/temp-dir "ignore-kahadb-corruption"))
+            broker-name "test"]
+        (try
+          ;; Start and stop a broker, then corrupt the journal
+          (let [broker (build-embedded-broker broker-name dir {})]
+            (start-broker! broker)
+            (stop-broker! broker)
+            (spit (fs/file dir "test" "KahaDB" "db-1.log") "asdf"))
+          ;; Now lets use the more resilient build-and-start-broker!
+          (let [broker (build-and-start-broker! broker-name dir {})]
+            (stop-broker! broker))
+          ;; Now lets clean up
+          (finally
+            (fs/delete-dir dir)))))))
+
+(deftest test-build-broker
+  (testing "build-embedded-broker"
+    (try
+      (let [broker (build-embedded-broker "localhost" "somedir" {})]
+        (is (instance? BrokerService broker)))
+      (let [size-megs 50
+            size-bytes (* size-megs 1024 1024)
+
+            broker (build-embedded-broker "localhost" "somedir"
+                                          {:store-usage size-megs
+                                           :temp-usage  size-megs
+                                           :memory-usage size-megs})]
+        (is (instance? BrokerService broker))
+        (is (.. broker (getPersistenceAdapter) (isIgnoreMissingJournalfiles)))
+        (is (.. broker (getPersistenceAdapter) (isArchiveCorruptedIndex)))
+        (is (.. broker (getPersistenceAdapter) (isCheckForCorruptJournalFiles)))
+        (is (.. broker (getPersistenceAdapter) (isChecksumJournalFiles)))
+        (is (= size-bytes (.. broker (getSystemUsage) (getMemoryUsage) (getLimit))))
+        (is (= size-bytes (.. broker (getSystemUsage) (getStoreUsage) (getLimit))))
+        (is (= size-bytes (.. broker (getSystemUsage) (getTempUsage) (getLimit)))))
+      (finally
+        (fs/delete-dir "somedir")))))

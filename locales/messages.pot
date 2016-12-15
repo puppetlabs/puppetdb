@@ -65,7 +65,7 @@ msgstr ""
 msgid "Received IllegalStateException, shutting down"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/amq_migration.clj src/puppetlabs/puppetdb/mq.clj
+#: src/puppetlabs/puppetdb/amq_migration.clj
 msgid "Setting ActiveMQ {0} limit to {1} MB"
 msgstr ""
 
@@ -81,21 +81,21 @@ msgstr ""
 msgid "Consult the PuppetDB troubleshooting guide."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/amq_migration.clj src/puppetlabs/puppetdb/mq.clj
+#: src/puppetlabs/puppetdb/amq_migration.clj
 msgid "Caught EOFException on broker startup, trying again."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/amq_migration.clj src/puppetlabs/puppetdb/mq.clj
+#: src/puppetlabs/puppetdb/amq_migration.clj
 msgid ""
 "This is probably due to KahaDB corruption (see \"KahaDB Corruption\" in the "
 "PuppetDB manual)."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/amq_migration.clj src/puppetlabs/puppetdb/mq.clj
+#: src/puppetlabs/puppetdb/amq_migration.clj
 msgid "Unable to start broker in {0}."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/amq_migration.clj src/puppetlabs/puppetdb/mq.clj
+#: src/puppetlabs/puppetdb/amq_migration.clj
 msgid ""
 "This is probably due to KahaDB corruption or version incompatibility after a "
 "PuppetDB downgrade (see \"KahaDB Corruption\" in the PuppetDB manual)."

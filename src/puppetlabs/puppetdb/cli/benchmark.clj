@@ -54,6 +54,7 @@
             [clojure.core.async :refer [go go-loop >! <! >!! <!! timeout chan close! dropping-buffer pipeline]]
             [clojure.core.match :as cm]
             [puppetlabs.puppetdb.mq :as mq]
+            [puppetlabs.puppetdb.amq-migration :as amq]
             [taoensso.nippy :as nippy]
             [puppetlabs.i18n.core :refer [trs]])
   (:import [org.apache.activemq.broker BrokerService]
@@ -428,7 +429,7 @@
   (close-buf! [this]
     (println "Shutting down AMQ...")
     (reset! queue-count 0)
-    (mq/stop-broker! broker)
+    (amq/stop-broker! broker)
     (fs/delete-dir mq-dir))
   clojure.lang.Counted
   (count [this] @queue-count))
@@ -441,14 +442,14 @@
                       "&jms.useCompression=true"
                       "&jms.copyMessageOnSend=false")
         size-megs 20000
-        broker (mq/build-embedded-broker broker-name
+        broker (amq/build-embedded-broker broker-name
                                          dir
                                          {:store-usage size-megs
                                           :temp-usage  size-megs})
         _ (println "Using amq in" dir)
         _ (.setPersistent broker false)
-        _ (mq/start-broker! broker)
-        factory (mq/activemq-connection-factory conn-str)
+        _ (amq/start-broker! broker)
+        factory (amq/activemq-connection-factory conn-str)
         connection (doto (.createConnection factory) .start)
         session (.createSession connection true 0)]
     (AMQBrokerBuffer. broker
