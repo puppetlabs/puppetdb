@@ -50,7 +50,8 @@
 
    In either case, the command itself, once string-ified, must be a
    JSON-formatted string with the aforementioned structure."
-  (:import [java.util.concurrent Semaphore])
+  (:import [java.util.concurrent Semaphore]
+           [org.joda.time DateTime])
   (:require [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.scf.storage :as scf-storage]
@@ -248,13 +249,14 @@
    command :- s/Str
    version :- s/Int
    certname :- s/Str
+   producer-ts :- (s/maybe DateTime)
    command-stream
    command-callback]
   (try
     (.acquire write-semaphore)
     (time! (get @metrics :message-persistence-time)
            (let [cmd (queue/store-command
-                       q command version certname command-stream command-callback)
+                       q command version certname producer-ts command-stream command-callback)
                  {:keys [id received]} cmd]
              (async/>!! command-chan cmd)
              (log/debug (trs "[{0}-{1}] ''{2}'' command enqueued for {3}"
@@ -408,8 +410,8 @@
 
 (defprotocol PuppetDBCommandDispatcher
   (enqueue-command
-    [this command version certname payload]
-    [this command version certname payload command-callback]
+    [this command version certname producer-ts payload]
+    [this command version certname producer-ts payload command-callback]
     "Submits the command for processing, and then returns its unique id.")
 
   (stats [this]
@@ -661,17 +663,17 @@
   (stats [this]
     @(:stats (service-context this)))
 
-  (enqueue-command [this command version certname command-stream]
-                   (enqueue-command this command version certname command-stream identity))
+  (enqueue-command [this command version certname producer-ts command-stream]
+                   (enqueue-command this command version certname producer-ts command-stream identity))
 
-  (enqueue-command [this command version certname command-stream command-callback]
+  (enqueue-command [this command version certname producer-ts command-stream command-callback]
     (let [config (get-config)
           q (:q (shared-globals))
           command-chan (:command-chan (shared-globals))
           write-semaphore (:write-semaphore (service-context this))
           command (if (string? command) command (command-names command))
           result (do-enqueue-command q command-chan write-semaphore command
-                                     version certname command-stream command-callback)]
+                                     version certname producer-ts command-stream command-callback)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (inc-cmd-depth command version)
       (swap! (:stats (service-context this)) update :received-commands inc)

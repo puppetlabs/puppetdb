@@ -11,7 +11,8 @@
             [puppetlabs.puppetdb.testutils :as tu]
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.testutils.nio :as nio]
-            [puppetlabs.puppetdb.utils :refer [utf8-length]]))
+            [puppetlabs.puppetdb.utils :refer [utf8-length]]
+            [puppetlabs.puppetdb.command.constants :as cconst]))
 
 (deftest test-sanitize-certname
   (are [raw sanitized] (= sanitized (sanitize-certname raw))
@@ -34,20 +35,20 @@
             safe-cname "foo-bar-baz"
             cname-hash (kitchensink/utf8-string->sha1 cname)]
         (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver safe-cname cname-hash)
-               (serialize-metadata recvd cmd cmd-ver cname)))))
+               (serialize-metadata recvd nil cmd cmd-ver cname)))))
 
     (testing "long certnames are truncated"
       (let [long-cname (apply str "trol" (repeat 1000 "lo"))
             trunc-cname (subs long-cname 0 (truncated-certname-length recvd cmd-abbrev cmd-ver))
             cname-hash (kitchensink/utf8-string->sha1 long-cname)]
         (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver trunc-cname cname-hash)
-               (serialize-metadata recvd cmd cmd-ver long-cname)))
-        (is (<= (utf8-length (serialize-metadata recvd cmd cmd-ver long-cname)) 255))))
+               (serialize-metadata recvd nil cmd cmd-ver long-cname)))
+        (is (<= (utf8-length (serialize-metadata recvd nil cmd cmd-ver long-cname)) 255))))
 
     (testing "multi-byte characters in UTF-8 are counted correctly"
       (let [cname-max-length (max-certname-length recvd cmd cmd-ver)
             disapproval-monster (apply str (repeat (inc (/ cname-max-length 4)) "ಠ_"))]
-        (is (<= (utf8-length (serialize-metadata recvd cmd cmd-ver disapproval-monster)) 255))))
+        (is (<= (utf8-length (serialize-metadata recvd nil cmd cmd-ver disapproval-monster)) 255))))
 
     (testing "sanitized certnames are truncated to leave room for hash"
       (let [cname-trunc-length (truncated-certname-length recvd cmd-abbrev cmd-ver)
@@ -55,22 +56,23 @@
             cname-hash (kitchensink/utf8-string->sha1 tricky-cname)
             trunc-cname (subs (sanitize-certname tricky-cname) 0 cname-trunc-length)]
         (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver trunc-cname cname-hash)
-               (serialize-metadata recvd cmd cmd-ver tricky-cname)))
-        (is (<= (utf8-length (serialize-metadata recvd cmd cmd-ver tricky-cname)) 255))))
+               (serialize-metadata recvd nil cmd cmd-ver tricky-cname)))
+        (is (<= (utf8-length (serialize-metadata recvd nil cmd cmd-ver tricky-cname)) 255))))
 
     (testing "short & safe certnames are preserved and the hash is omitted"
       (let [cname "bender.myowncasino.moon"]
         (is (= (format "%d_%s_%d_%s.json" recvd-long cmd-abbrev cmd-ver cname)
-               (serialize-metadata recvd cmd cmd-ver cname)))))))
+               (serialize-metadata recvd nil cmd cmd-ver cname)))))))
 
 (deftest test-metadata
   (tqueue/with-stockpile q
     (let [now (time/now)
           ;; Sleep to ensure the command has a different time
           _ (Thread/sleep 1)
-          cmdref (store-command q "replace facts" 1 "foo.com" (-> "{\"message\": \"payload\"}"
-                                                                (.getBytes "UTF-8")
-                                                                java.io.ByteArrayInputStream.))
+          cmdref (store-command q "replace facts" 1 "foo.com" nil
+                                (-> "{\"message\": \"payload\"}"
+                                    (.getBytes "UTF-8")
+                                    java.io.ByteArrayInputStream.))
            command (cmdref->cmd q cmdref)]
       (is (= {:command "replace facts"
               :version 1
@@ -83,22 +85,28 @@
   (testing "newer catalogs/facts cause older catalogs to be deleted"
     (let [buff (sorted-command-buffer 4)
           c (async/chan buff)
+          now (time/now)
+          received-time (tcoerce/to-string now)
           foo-cmd-1 (map->CommandRef {:id 1
                                       :command "replace catalog"
                                       :certname "foo.com"
-                                      :received (tcoerce/to-string (time/now))})
+                                      :received received-time
+                                      :producer-ts now})
           foo-cmd-2 (map->CommandRef {:id 2
                                       :command "replace catalog"
                                       :certname "foo.com"
-                                      :received (tcoerce/to-string (time/now))})
+                                      :received received-time
+                                      :producer-ts (time/plus now (time/seconds 10))})
           foo-cmd-3 (map->CommandRef {:id 3
                                       :command "replace facts"
                                       :certname "foo.com"
-                                      :received (tcoerce/to-string (time/now))})
+                                      :received received-time
+                                      :producer-ts now})
           foo-cmd-4 (map->CommandRef {:id 4
                                       :command "replace facts"
                                       :certname "foo.com"
-                                      :received (tcoerce/to-string (time/now))})]
+                                      :received received-time
+                                      :producer-ts (time/plus now (time/seconds 10))})]
       (is (= 0 (count buff)))
 
       (are [cmd] (async/offer! c cmd)
@@ -137,20 +145,25 @@
       (is (async/offer! c foo-cmd-2))
       (is (= foo-cmd-2 (async/<!! c)))))
 
-  (testing "multiple older catalogs all get marged as deleted"
-    (let [c (async/chan (sorted-command-buffer 3))
+  (testing "multiple older catalogs all get marked as deleted"
+    (let [now (time/now)
+          received-time (tcoerce/to-string now)
+          c (async/chan (sorted-command-buffer 3))
           foo-cmd-1 (map->CommandRef {:id 1
                                       :command "replace catalog"
                                       :certname "foo.com"
-                                      :received (tcoerce/to-string (time/now))})
+                                      :received received-time
+                                      :producer-ts now})
           foo-cmd-2 (map->CommandRef {:id 2
                                       :command "replace catalog"
                                       :certname "foo.com"
-                                      :received (tcoerce/to-string (time/now))})
+                                      :received received-time
+                                      :producer-ts (time/plus now (time/seconds 10))})
           foo-cmd-3 (map->CommandRef {:id 3
                                       :command "replace catalog"
                                       :certname "foo.com"
-                                      :received (tcoerce/to-string (time/now))})]
+                                      :received received-time
+                                      :producer-ts (time/plus now (time/seconds 20))})]
       (are [cmd] (async/offer! c cmd)
         foo-cmd-1
         foo-cmd-2
@@ -161,6 +174,37 @@
       (is (= (assoc foo-cmd-2 :delete? true)
              (async/<!! c)))
       (is (= foo-cmd-3
+             (async/<!! c)))))
+
+  (testing "catalogs should be marked as deleted based on producer-ts, regardless of stockpile id"
+    (let [now (time/now)
+          received-time (tcoerce/to-string now)
+          c (async/chan (sorted-command-buffer 3))
+          foo-cmd-1 (map->CommandRef {:id 1
+                                      :command "replace catalog"
+                                      :certname "foo.com"
+                                      :received received-time
+                                      :producer-ts (time/plus now (time/seconds 20))})
+          foo-cmd-2 (map->CommandRef {:id 2
+                                      :command "replace catalog"
+                                      :certname "foo.com"
+                                      :received received-time
+                                      :producer-ts (time/plus now (time/seconds 10))})
+          foo-cmd-3 (map->CommandRef {:id 3
+                                      :command "replace catalog"
+                                      :certname "foo.com"
+                                      :received received-time
+                                      :producer-ts now})]
+      (are [cmd] (async/offer! c cmd)
+        foo-cmd-3
+        foo-cmd-2
+        foo-cmd-1)
+
+      (is (= foo-cmd-1
+             (async/<!! c)))
+      (is (= (assoc foo-cmd-2 :delete? true)
+             (async/<!! c)))
+      (is (= (assoc foo-cmd-3 :delete? true)
              (async/<!! c)))))
 
   (testing "multiple reports should remain unchanged"
@@ -178,7 +222,69 @@
         foo-cmd-2)
 
       (is (= foo-cmd-1 (async/<!! c)))
-      (is (= foo-cmd-2 (async/<!! c))))))
+      (is (= foo-cmd-2 (async/<!! c)))))
+
+  (testing "catalogs without a producer-ts should never be bashed"
+    (let [now (time/now)
+          received-time (tcoerce/to-string now)
+          c (async/chan (sorted-command-buffer 3))
+          foo-cmd-1 (map->CommandRef {:id 1
+                                      :command "replace catalog"
+                                      :certname "foo.com"
+                                      :received received-time
+                                      :producer-ts nil})
+          foo-cmd-2 (map->CommandRef {:id 2
+                                      :command "replace catalog"
+                                      :certname "foo.com"
+                                      :received received-time
+                                      :producer-ts nil})
+          foo-cmd-3 (map->CommandRef {:id 3
+                                      :command "replace catalog"
+                                      :certname "foo.com"
+                                      :received received-time
+                                      :producer-ts now})]
+      (are [cmd] (async/offer! c cmd)
+        foo-cmd-3
+        foo-cmd-2
+        foo-cmd-1)
+
+      (is (= foo-cmd-1
+             (async/<!! c)))
+      (is (= foo-cmd-2
+             (async/<!! c)))
+      (is (= foo-cmd-3
+             (async/<!! c)))))
+
+  (testing "catalogs without a producer-ts should remain, but with a timestamp are fair game"
+    (let [now (time/now)
+          received-time (tcoerce/to-string now)
+          c (async/chan (sorted-command-buffer 3))
+          foo-cmd-1 (map->CommandRef {:id 1
+                                      :command "replace catalog"
+                                      :certname "foo.com"
+                                      :received received-time
+                                      :producer-ts nil})
+          foo-cmd-2 (map->CommandRef {:id 2
+                                      :command "replace catalog"
+                                      :certname "foo.com"
+                                      :received received-time
+                                      :producer-ts (time/plus now (time/seconds 10))})
+          foo-cmd-3 (map->CommandRef {:id 3
+                                      :command "replace catalog"
+                                      :certname "foo.com"
+                                      :received received-time
+                                      :producer-ts now})]
+      (are [cmd] (async/offer! c cmd)
+        foo-cmd-3
+        foo-cmd-2
+        foo-cmd-1)
+
+      (is (= foo-cmd-1
+             (async/<!! c)))
+      (is (= foo-cmd-2
+             (async/<!! c)))
+      (is (= (assoc foo-cmd-3 :delete? true)
+             (async/<!! c))))))
 
 (deftest test-loading-existing-messages
   (testing "loading existing messages into a channel"
@@ -237,3 +343,46 @@
                 (set (map :certname (repeatedly 2 #(async/poll! command-chan))))))
 
          (is (not (async/poll! command-chan))))))))
+
+(deftest test-producer-serialization
+  (let [received-time (now)
+        received-time-long (tcoerce/to-long received-time)]
+    (is (= (str received-time-long "-5000")
+           (encode-command-time received-time
+                                (time/minus received-time (seconds 5)))))
+    (is (= (str received-time-long "+0")
+           (encode-command-time received-time received-time)))
+    (is (= (str received-time-long "+5000")
+           (encode-command-time received-time
+                                (time/plus received-time (seconds 5)))))))
+
+(deftest test-metadata-parsing
+  (let [received (time/now)
+        producer-ts (time/minus received (seconds 5))]
+    (is (= (parse-metadata
+            (serialize-metadata received producer-ts "replace catalog" cconst/latest-catalog-version "foo.com"))
+           {:certname "foo.com"
+            :command "replace catalog"
+            :version cconst/latest-catalog-version
+            :received (kitchensink/timestamp received)
+            :producer-ts producer-ts})))
+
+  (let [received (time/now)
+        producer-ts (time/plus received (seconds 5))]
+    (is (= (parse-metadata
+            (serialize-metadata received producer-ts "replace facts" cconst/latest-facts-version "foo.com"))
+           {:certname "foo.com"
+            :command "replace facts"
+            :version cconst/latest-facts-version
+            :received (kitchensink/timestamp received)
+            :producer-ts producer-ts})))
+
+  (let [received (time/now)
+        producer-ts received]
+    (is (= (parse-metadata
+            (serialize-metadata received producer-ts "store report" cconst/latest-report-version "foo.com"))
+           {:certname "foo.com"
+            :command "store report"
+            :version cconst/latest-report-version
+            :received (kitchensink/timestamp received)
+            :producer-ts producer-ts}))))

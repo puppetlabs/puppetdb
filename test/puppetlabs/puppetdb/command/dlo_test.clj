@@ -34,7 +34,7 @@
 (defn store-catalog [q dlo]
   (let [cmd (get-in wire-catalogs [9 :basic])
         cmd-bytes (-> cmd json/generate-string (.getBytes "UTF-8"))]
-    (store-command q "replace catalog" 9 (:certname cmd)
+    (store-command q "replace catalog" 9 (:certname cmd) nil
                    (java.io.ByteArrayInputStream. cmd-bytes))))
 
 (defn err-attempt-line? [n s]
@@ -48,19 +48,19 @@
 
     (are [cmd-info metadata-str] (= cmd-info (#'dlo/parse-cmd-filename metadata-str))
 
-      {:received r0 :version 0 :command "replace catalog" :certname "foo"}
+      {:received r0 :version 0 :command "replace catalog" :certname "foo" :producer-ts nil}
       "0-0_catalog_0_foo.json"
 
-      {:received r0 :version 0 :command "replace catalog" :certname "foo.json"}
+      {:received r0 :version 0 :command "replace catalog" :certname "foo.json" :producer-ts nil}
       "0-0_catalog_0_foo.json.json"
 
-      {:received r10 :version 10 :command "replace catalog" :certname "foo"}
+      {:received r10 :version 10 :command "replace catalog" :certname "foo" :producer-ts nil}
       "10-10_catalog_10_foo.json"
 
-      {:received r10 :version 42 :command "replace catalog" :certname "foo"}
+      {:received r10 :version 42 :command "replace catalog" :certname "foo" :producer-ts nil}
       "10-10_catalog_42_foo.json"
 
-      {:received r10 :version 10 :command "unknown" :certname "foo"}
+      {:received r10 :version 10 :command "unknown" :certname "foo" :producer-ts nil}
       "10-10_unknown_10_foo.json")
 
     (is (not (#'dlo/parse-cmd-filename "0-0_foo_0_foo.json")))))

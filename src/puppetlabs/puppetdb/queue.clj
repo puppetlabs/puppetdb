@@ -103,6 +103,23 @@
       (utf8-truncate sanitized-certname trunc-length)
       sanitized-certname)))
 
+(defn encode-command-time
+  "This takes the two time fields in the command header and encodes it
+  in a way that is more compact. These times need to be included in
+  the stockpile metadata string, so they should be as short as
+  possible. This will return a string that is `received-ts` as a long,
+  followed by a + or - and the difference between `received-ts` and
+  `producer-ts` as a long."
+  [received-ts producer-ts]
+  (let [received-time (tcoerce/to-long received-ts)]
+    (if-let [producer-offset (and producer-ts
+                                  (- (tcoerce/to-long producer-ts)
+                                     received-time))]
+      (str received-time
+           (when-not (neg? producer-offset) \+)
+           producer-offset)
+      (str received-time))))
+
 (defn metadata-serializer
   "Given an (optional) map between the command names used in the rest of
   PuppetDB and the command names to use in metadata strings, return a function
@@ -112,24 +129,24 @@
   certname if the certname is long or contains filesystem special characters."
   ([] (metadata-serializer puppetdb-command->metadata-command))
   ([puppetdb-command->metadata-command]
-   (fn [received command version certname]
+   (fn [received producer-ts command version certname]
      (when-not (puppetdb-command->metadata-command command)
        (throw (IllegalArgumentException. (trs "unknown command ''{0}''" command))))
      (let [certname (or certname "unknown-host")
-           recvd-long (tcoerce/to-long received)
+           received+producer-time (encode-command-time received producer-ts)
            short-command (puppetdb-command->metadata-command command)
            safe-certname (embeddable-certname received short-command version certname)]
        (if (= safe-certname certname)
-         (format "%d_%s_%d_%s.json" recvd-long short-command version safe-certname)
+         (format "%s_%s_%d_%s.json" received+producer-time short-command version safe-certname)
          (let [name-hash (kitchensink/utf8-string->sha1 certname)]
-           (format "%d_%s_%d_%s_%s.json"
-                   recvd-long short-command version safe-certname name-hash)))))))
+           (format "%s_%s_%d_%s_%s.json"
+                   received+producer-time short-command version safe-certname name-hash)))))))
 
 (def serialize-metadata (metadata-serializer))
 
 (defn metadata-rx [valid-commands]
   (re-pattern (str
-               "([0-9]+)_"
+               "([0-9]+)([+|-][0-9]+)?_"
                (match-any-of valid-commands)
                "_([0-9]+)_(.*)\\.json")))
 
@@ -147,32 +164,37 @@
    (let [rx (metadata-rx (keys metadata-command->puppetdb-command))
          md-cmd->pdb-cmd metadata-command->puppetdb-command]
      (fn [s]
-       (when-let [[_ stamp md-command version certname] (re-matches rx s)]
-         (and certname
-              {:received (-> stamp
-                             Long/parseLong
-                             tcoerce/from-long
-                             kitchensink/timestamp)
-               :version (Long/parseLong version)
-               :command (get md-cmd->pdb-cmd md-command "unknown")
-               :certname certname}))))))
+       (when-let [[_ received-stamp producer-offset md-command version certname] (re-matches rx s)]
+         (let [received-time-long (Long/parseLong received-stamp)
+               producer-offset (and producer-offset (Long/parseLong producer-offset))]
+           (and certname
+                {:received (-> received-time-long
+                               tcoerce/from-long
+                               kitchensink/timestamp)
+                 :producer-ts (some-> producer-offset
+                                      (+ received-time-long)
+                                      tcoerce/from-long)
+                 :version (Long/parseLong version)
+                 :command (get md-cmd->pdb-cmd md-command "unknown")
+                 :certname certname})))))))
 
 (def parse-metadata (metadata-parser))
 
-(defrecord CommandRef [id command version certname received callback delete?])
+(defrecord CommandRef [id command version certname received producer-ts callback delete?])
 
-(defn cmdref->entry [{:keys [id command version certname received]}]
-  (stock/entry id (serialize-metadata received command version certname)))
+(defn cmdref->entry [{:keys [id command version certname received producer-ts]}]
+  (stock/entry id (serialize-metadata received producer-ts command version certname)))
 
 (defn entry->cmdref [entry]
-  (let [{:keys [received command version certname]} (-> entry
-                                                        stock/entry-meta
-                                                        parse-metadata)]
+  (let [{:keys [received command version certname producer-ts]} (-> entry
+                                                                    stock/entry-meta
+                                                                    parse-metadata)]
     (map->CommandRef {:id (stock/entry-id entry)
                       :command command
                       :version version
                       :certname certname
                       :received received
+                      :producer-ts producer-ts
                       :callback identity})))
 
 (defn cmdref->cmd [q cmdref]
@@ -187,10 +209,10 @@
                                  :time (kitchensink/timestamp)}))
 
 (defn store-in-stockpile [q command-stream received
-                          command version certname]
+                          producer-ts command version certname]
   (try+
    (stock/store q command-stream
-                (serialize-metadata received command version certname))
+                (serialize-metadata received producer-ts command version certname))
 
    (catch [:kind ::unable-to-commit] {:keys [stream-data]}
      ;; stockpile has saved all of the data in command-stream to
@@ -218,17 +240,19 @@
      (throw+))))
 
 (defn store-command
-  ([q command version certname command-stream]
-   (store-command q command version certname command-stream identity))
-  ([q command version certname command-stream command-callback]
+  ([q command version certname producer-ts command-stream]
+   (store-command q command version certname producer-ts command-stream identity))
+  ([q command version certname producer-ts command-stream command-callback]
    (let [current-time (time/now)
          entry (store-in-stockpile q command-stream
                                    current-time
+                                   producer-ts
                                    command version certname)]
      (map->CommandRef {:id (stock/entry-id entry)
                        :command command
                        :version version
                        :certname certname
+                       :producer-ts producer-ts
                        :callback command-callback
                        :received (kitchensink/timestamp current-time)}))))
 
@@ -257,18 +281,38 @@
       (throw (IllegalArgumentException. (trs "Cannot enqueue item of type {0}" (class item)))))
 
     (let [^CommandRef cmdref item
-          command-type (:command cmdref)
-          certname (:certname cmdref)]
+          {command-type :command
+           certname :certname
+           producer-ts :producer-ts} cmdref]
 
-      (when (or (= command-type "replace catalog")
-                (= command-type "replace facts"))
-        (when-let [^CommandRef old-command (.get certnames-map [command-type certname])]
-          (.put fifo-queue
-                (:id old-command)
-                (assoc old-command :delete? true))
-          (delete-update-fn (:command old-command) (:version old-command)))
-        (.put certnames-map [command-type certname] cmdref))
-      (.put fifo-queue (:id cmdref) cmdref))
+      (if (and producer-ts
+               (or (= command-type "replace catalog")
+                   (= command-type "replace facts")))
+        (let [^CommandRef maybe-old-command (.get certnames-map [command-type certname])]
+          (cond
+            (nil? maybe-old-command)
+            (do
+              (.put certnames-map [command-type certname] cmdref)
+              (.put fifo-queue (:id cmdref) cmdref))
+
+            (time/after? producer-ts
+                         (:producer-ts maybe-old-command))
+            (do
+              (.put certnames-map [command-type certname] cmdref)
+              (.put fifo-queue
+                    (:id maybe-old-command)
+                    (assoc maybe-old-command :delete? true))
+              (.put fifo-queue (:id cmdref) cmdref)
+              (delete-update-fn (:command maybe-old-command) (:version maybe-old-command)))
+
+            :else
+            (do
+              (.put fifo-queue
+                    (:id cmdref)
+                    (assoc cmdref :delete? true))
+              (delete-update-fn (:command cmdref) (:version cmdref)))))
+
+        (.put fifo-queue (:id cmdref) cmdref)))
     this)
 
   (close-buf! [this])

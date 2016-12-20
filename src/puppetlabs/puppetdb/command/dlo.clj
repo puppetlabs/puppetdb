@@ -168,7 +168,7 @@
   (let [{:keys [path registry metrics]} dlo
         {:keys [id received command version certname attempts]} cmdref
         entry (stock/entry id (serialize-metadata
-                                received command version certname))
+                                received nil command version certname))
         cmd-dest (.resolve path (entry-cmd-data-filename entry))]
     ;; We're going to assume that our moves will be atomic, and if
     ;; they're not, that we don't care about the possibility of
@@ -201,7 +201,7 @@
   ;; indicator that the unknown message may be complete.
   (let [{:keys [path registry metrics]} dlo
         digest (digest/sha1 [bytes])
-        metadata (serialize-metadata received "unknown" 0 digest)
+        metadata (serialize-metadata received nil "unknown" 0 digest)
         cmd-dest (.resolve path (str id \- metadata))]
     (Files/write cmd-dest bytes (oopts []))
     (let [info-dest (store-failed-command-info id metadata "unknown"

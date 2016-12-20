@@ -43,5 +43,8 @@
 (defn coerce-to-stream [x]
   (-coerce-to-stream x))
 
-(defn store-command [q command-type version certname payload]
-  (q/store-command q command-type version certname (coerce-to-stream payload)))
+(defn store-command
+  ([q command-type version certname payload]
+   (store-command q command-type version certname nil payload))
+  ([q command-type version certname producer-ts payload]
+   (q/store-command q command-type version certname producer-ts (coerce-to-stream payload))))

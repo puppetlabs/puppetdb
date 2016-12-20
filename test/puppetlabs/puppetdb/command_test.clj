@@ -64,6 +64,7 @@
    version
    (or (:certname payload)
        (:name payload))
+   nil
    payload])
 
 (defrecord CommandHandlerContext [message-handler command-chan dlo delay-pool response-chan q]
@@ -1535,6 +1536,7 @@
           (enqueue-command (command-names :replace-facts)
                            4
                            "foo.local"
+                           nil
                            (tqueue/coerce-to-stream
                             {:environment "DEV" :certname "foo.local"
                              :values {:foo "foo"}
@@ -1560,6 +1562,7 @@
       (enqueue-command (command-names :deactivate-node)
                        3
                        "foo.local"
+                       nil
                        (tqueue/coerce-to-stream
                         {:certname "foo.local" :producer_timestamp input-stamp}))
       (is (svc-utils/wait-for-server-processing svc-utils/*server* default-timeout-ms)
@@ -1599,6 +1602,7 @@
       (enqueue-command (command-names :deactivate-node)
                        3
                        "foo.local"
+                       nil
                        (tqueue/coerce-to-stream
                         {:certname "foo.local" :producer_timestamp producer-ts}))
 
@@ -1649,6 +1653,7 @@
            (enqueue-command (command-names :replace-catalog)
                             9
                             "foo.com"
+                            nil
                             (->  base-cmd
                                  (assoc :producer_timestamp old-producer-ts
                                         :certname "foo.com")
@@ -1658,6 +1663,7 @@
            (enqueue-command (command-names :replace-catalog)
                             9
                             (:certname base-cmd)
+                            nil
                             (-> base-cmd
                                 (assoc :producer_timestamp old-producer-ts)
                                 tqueue/coerce-to-stream)
@@ -1666,6 +1672,7 @@
            (enqueue-command (command-names :replace-catalog)
                             9
                             (:certname base-cmd)
+                            nil
                             (-> base-cmd
                                 (assoc :producer_timestamp new-producer-ts)
                                 tqueue/coerce-to-stream)

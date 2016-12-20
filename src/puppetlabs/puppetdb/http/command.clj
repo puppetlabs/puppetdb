@@ -16,7 +16,8 @@
             [ring.util.request :as request]
             [schema.core :as s]
             [slingshot.slingshot :refer [try+ throw+]]
-            [puppetlabs.i18n.core :refer [trs tru]])
+            [puppetlabs.i18n.core :refer [trs tru]]
+            [puppetlabs.puppetdb.time :as pdbtime])
   (:import [org.apache.commons.io IOUtils]
            [org.apache.commons.fileupload.util LimitedInputStream]))
 
@@ -219,6 +220,7 @@
                         (get submit-params "command")
                         (Integer/parseInt (get submit-params "version"))
                         (get submit-params "certname")
+                        (pdbtime/from-string (get submit-params "producer-ts"))
                         (stream-with-max-check body max-command-size)
                         command-callback))]
 
