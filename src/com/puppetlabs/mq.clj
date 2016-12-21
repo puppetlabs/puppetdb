@@ -4,6 +4,7 @@
   (:import [org.apache.activemq.broker BrokerService]
            [org.apache.activemq ScheduledMessage]
            [org.apache.activemq.usage SystemUsage]
+           [org.apache.activemq.usage SystemUsage MemoryUsage]
            [javax.jms Message TextMessage BytesMessage ExceptionListener MessageListener]
            [org.apache.activemq ActiveMQConnectionFactory]
            [org.springframework.jms.connection CachingConnectionFactory]
@@ -53,6 +54,15 @@
   [broker megabytes]
   (set-usage!* broker megabytes #(.getStoreUsage %) "StoreUsage"))
 
+(defn- set-memory-usage!
+  "Configures the `MemoryUsage` setting for an instance of `BrokerService`.
+  `broker`     - the `BrokerService` to configure
+  `megabytes ` - the maximum amount of memory usage to allow for the
+  BrokerService, or `nil` to use the default value of 1GB.
+  Returns the (potentially modified) `broker` object."
+  [broker megabytes]
+(set-usage!* broker megabytes #(.getMemoryUsage %) "MemoryUsage"))
+
 (defn- set-temp-usage!
   "Configures the `TempUsage` setting for an instance of `BrokerService`.
 
@@ -100,6 +110,7 @@
                (.setDataDirectory dir)
                (.setSchedulerSupport true)
                (.setPersistent true)
+	       (set-memory-usage! (:memory-usage config))
                (set-store-usage! (:store-usage config))
                (set-temp-usage!  (:temp-usage config)))
           mc (doto (.getManagementContext mq)
