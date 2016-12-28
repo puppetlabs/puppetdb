@@ -1,7 +1,6 @@
 ---
 title: "PuppetDB 4.2: PuppetDB HA"
 layout: default
-canonical: "/puppetdb/latest/ha.html
 ---
 
 [configure]: ./configure.html
