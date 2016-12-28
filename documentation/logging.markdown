@@ -1,7 +1,6 @@
 ---
 title: "PuppetDB 4.2 » Logging Configuration"
 layout: default
-canonical: "/puppetdb/latest/logging.html
 ---
 
 Structured logging
@@ -75,7 +74,7 @@ You can also log directly to logstash with an appender configured like this:
 You will also need to add a reference to the appender from the `<root>` element:
 
     <root>
-      ... 
+      ...
       <appender-ref ref="stash" />
     </root>
 
