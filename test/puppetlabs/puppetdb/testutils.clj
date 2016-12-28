@@ -7,6 +7,7 @@
             [puppetlabs.puppetdb.middleware
              :refer [wrap-with-puppetdb-middleware]]
             [puppetlabs.puppetdb.mq :as mq]
+            [puppetlabs.puppetdb.amq-migration :as amq]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.command :refer [command-app]]
             [puppetlabs.puppetdb.query.paging :as paging]
@@ -53,9 +54,7 @@
   the same instance, their JMX beans will collide. Disabling JMX will
   allow them both to be started."
   [& body]
-  `(with-redefs [puppetlabs.puppetdb.mq/enable-jmx (fn [broker# _#]
-                                                     (.setUseJmx broker# false))
-                 puppetlabs.puppetdb.jdbc/enable-jmx (fn [config# _#] nil)]
+  `(with-redefs [puppetlabs.puppetdb.jdbc/enable-jmx (fn [config# _#] nil)]
      (do ~@body)))
 
 (defmacro with-test-broker
@@ -68,19 +67,19 @@
            broker-name#           ~name
            conn-str#              (str "vm://" ~name)
            size-megs#              50
-           ^BrokerService broker# (mq/build-embedded-broker
+           ^BrokerService broker# (amq/build-embedded-broker
                                    broker-name#
                                    dir#
                                    {:store-usage size-megs#
                                     :temp-usage  size-megs#})]
        (.setPersistent broker# false)
-       (mq/start-broker! broker#)
+       (amq/start-broker! broker#)
        (try
-         (with-open [factory# (mq/activemq-connection-factory conn-str#)
+         (with-open [factory# (amq/activemq-connection-factory conn-str#)
                      ~conn-var (doto (.createConnection factory#) .start)]
            ~@body)
          (finally
-           (mq/stop-broker! broker#)
+           (amq/stop-broker! broker#)
            (fs/delete-dir dir#))))))
 
 (def ^:dynamic *mq* nil)
