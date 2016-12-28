@@ -12,6 +12,8 @@ canonical: "/puppetdb/latest/configure.html"
 [module]: ./install_via_module.html
 [low_catalog_dupe]: ./trouble_low_catalog_duplication.html
 [puppetdb.conf]: ./connect_puppet_master.html#edit-puppetdbconf
+[ha]: ./ha.html
+[node-ttl]: #node-ttl
 
 Summary
 -----
@@ -914,3 +916,53 @@ Enabling default pretty-printing is not recommended in production because it
 incurs a penalty in data transfer speed and size. Users may override this
 setting on a per-query basis by supplying a `?pretty=` parameter in the URL,
 valued `true` or `false`.
+
+`[sync]` settings (Puppet Enterprise only)
+-----
+
+The `[sync]` section of the PuppetDB configuration file is used to configure
+synchronization for a high-availability system. See
+the [HA configuration guide][ha] for complete system configuration instructions.
+
+### `remotes`
+
+The `remotes` configuration key indicates that PuppetDB should poll a remote
+PuppetDB server for changes. When it finds changed or updated records on that
+server, it will download the records and submit them to the local command queue.
+
+In the configuration file, you specify a `remote` for each server you want to
+pull data from. It is perfectly reasonable, and expected, for two servers to
+pull data from each other. For each remote, you must provide:
+
+ - The remote server url. This is a root url which should include the protocol
+   and port to use (eg. "https://puppetdb.myco.net:8081"). The protocol is
+   mandatory and must be either "http" or "https". If the port is not provided,
+   it will default to `8080` for http and `8081` for https.
+
+ - The interval at which to poll the remote server for new data. This is
+   formatted as a timespan with units (e.g. '2m'). See the
+   [node-ttl documentation][node-ttl] for further reference.
+
+You should not configure PuppetDB to sync with itself.
+
+#### HOCON
+
+If you are using HOCON to configure PuppetDB, use the following structure in
+your .conf file:
+
+    sync: {
+      remotes: [{server_url: "https://remote-puppetdb.myco.net:8081",
+                 interval: 2m}]
+    }
+
+#### ini
+
+If you are using a .ini file to configure PuppetDB, use the following structure:
+
+    [sync]
+    server_urls = https://remote-puppetdb.myco.net:8081
+    intervals = 2m
+
+Multiple values may be provided by comma-separating them, with no whitespace.
+You must have exactly the same number of entries in the `server_urls` and
+`intervals` values.
