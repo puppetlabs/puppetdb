@@ -1561,7 +1561,7 @@
                        (tqueue/coerce-to-stream
                         {:certname "foo.local" :producer_timestamp input-stamp}))
       (is (svc-utils/wait-for-server-processing svc-utils/*server* default-timeout-ms)
-          (format "Server didn't process received commands after %dms" default-timeout-ms)
+          (format "Server didn't process received commands after %dms" default-timeout-ms))
 
       ;; While we're here, check the value in the database too...
       (is (= expected-stamp
