@@ -99,9 +99,10 @@ The default value is false.
 
 **Note: For use with Puppet Enterprise only.**
 
-When using multiple `server_urls`, this flag can be set to `true` to cause commands to be sent to all configured PuppetDB instances.
+When set to `true` in installations using multiple `server_urls`, commands are sent to all configured PuppetDB instances. 
 
-The default value is false.
+In open source Puppet and PE versions earlier than 2016.5, the default setting is `false`. In PE 2016.5 and later, the default setting is `true`. 
+
 
 #### `min_successful_submissions`
 

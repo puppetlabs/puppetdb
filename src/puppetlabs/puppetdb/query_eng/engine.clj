@@ -468,7 +468,7 @@
                                   [:= :fv.value_type_id :vt.id]]
                            :left-join [[:environments :env]
                                        [:= :fs.environment_id :env.id]]
-                           :where [:!= :fv.value_type_id 5]}
+                           :where [:!= :vt.id 5]}
 
                :relationships {;; Parents - direct
                                "facts" {:columns ["certname" "name"]}
