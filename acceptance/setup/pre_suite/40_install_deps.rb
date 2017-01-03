@@ -12,6 +12,26 @@ unless (test_config[:skip_presuite_provisioning])
     end
   end
 
+  step "Ensure python 2 is available" do
+    master_os = test_config[:os_families][master.name]
+    case master_os
+    when :debian
+      on master, "apt-get -y install python"
+    else
+      raise ArgumentError, "Unsupported OS '#{master_os}'"
+    end
+
+    databases.each do |database|
+      os = test_config[:os_families][database.name]
+      case os
+      when :debian
+        on database, "apt-get -y install python"
+      else
+        raise ArgumentError, "Unsupported OS '#{os}'"
+      end
+    end
+  end
+
   step "Install other dependencies on database" do
     databases.each do |database|
       os = test_config[:os_families][database.name]
