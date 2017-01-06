@@ -52,13 +52,7 @@ describe Puppet::Node::Facts::Puppetdb do
       }
 
       http.expects(:post).with do |uri, body, headers|
-
-        req = JSON.parse(body)
-        actual_producer_timestamp = extract_producer_timestamp(req)
-        req.delete("producer_timestamp")
-        req == payload &&
-          actual_producer_timestamp <= Time.now.to_i
-
+        assert_command_req(payload, body)
       end.returns response
 
       save

@@ -12,8 +12,10 @@ class Puppet::Node::Puppetdb < Puppet::Indirector::REST
   end
 
   def destroy(request)
+    current_time = Time.now
     payload = { :certname => request.key,
-                :producer_timestamp => Puppet::Util::Puppetdb.to_wire_time(Time.now) }
-    submit_command(request.key, payload, CommandDeactivateNode, 3)
+                :producer_timestamp => Puppet::Util::Puppetdb.to_wire_time(current_time) }
+
+    submit_command(request.key, payload, CommandDeactivateNode, 3, current_time.clone.utc)
   end
 end

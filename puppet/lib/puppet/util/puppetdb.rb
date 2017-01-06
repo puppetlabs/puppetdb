@@ -55,10 +55,10 @@ module Puppet::Util::Puppetdb
   # @param command_name [String] name of command
   # @param version [Number] version number of command
   # @return [Hash <String, String>]
-  def submit_command(certname, payload, command_name, version)
+  def submit_command(certname, payload, command_name, version, producer_timestamp_utc)
     profile("Submitted command '#{command_name}' version '#{version}'",
             [:puppetdb, :command, :submit, command_name, version]) do
-      command = Puppet::Util::Puppetdb::Command.new(command_name, version, certname, payload)
+      command = Puppet::Util::Puppetdb::Command.new(command_name, version, certname, producer_timestamp_utc, payload)
       command.submit
     end
   end

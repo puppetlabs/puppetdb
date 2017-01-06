@@ -117,7 +117,8 @@
             (s/required-key "certname") s/Str
             (s/required-key "received") s/Str
             (s/optional-key "secondsToWaitForCompletion") s/Str
-            (s/optional-key "checksum") s/Str}
+            (s/optional-key "checksum") s/Str
+            (s/optional-key "producer-timestamp") s/Str}
    :body java.io.InputStream
    s/Any s/Any})
 
@@ -261,7 +262,7 @@
       add-received-param ;; must be (temporally) after validate-query-params
       ;; The checksum here is vestigial.  It is no longer checked
       (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"
-                                             "certname" "command" "version"]})
+                                             "certname" "command" "version" "producer-timestamp"]})
       mid/verify-accepts-json
       (mid/verify-content-type ["application/json"])
       (mid/fail-when-payload-too-large reject-large-commands? max-command-size)

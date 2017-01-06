@@ -23,7 +23,7 @@ class Puppet::Util::Puppetdb::Command
   # @param payload Object the payload of the command.  This object should be a
   #   primitive (numeric type, string, array, or hash) that is natively supported
   #   by JSON serialization / deserialization libraries.
-  def initialize(command, version, certname, payload)
+  def initialize(command, version, certname, producer_timestamp_utc, payload)
     profile("Format payload", [:puppetdb, :payload, :format]) do
       @checksum_payload = Puppet::Util::Puppetdb::CharEncoding.utf8_string({
         :command => command,
@@ -45,10 +45,11 @@ class Puppet::Util::Puppetdb::Command
     @command = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(command).gsub(" ", "_")
     @version = version
     @certname = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(certname)
+    @producer_timestamp_utc = producer_timestamp_utc
     @payload = Puppet::Util::Puppetdb::CharEncoding.coerce_to_utf8(payload.to_pson)
   end
 
-  attr_reader :command, :version, :certname, :payload, :checksum_payload
+  attr_reader :command, :version, :certname, :producer_timestamp_utc, :payload, :checksum_payload
 
   # Submit the command, returning the result hash.
   #
@@ -57,7 +58,7 @@ class Puppet::Util::Puppetdb::Command
     checksum = Digest::SHA1.hexdigest(checksum_payload)
 
     for_whom = " for #{certname}" if certname
-    params = "checksum=#{checksum}&version=#{version}&certname=#{certname}&command=#{command}"
+    params = "checksum=#{checksum}&version=#{version}&certname=#{certname}&command=#{command}&producer-timestamp=#{producer_timestamp_utc.to_i}"
     begin
       response = profile("Submit command HTTP post", [:puppetdb, :command, :submit]) do
         Http.action("#{CommandsUrl}?#{params}", :command) do |http_instance, path|

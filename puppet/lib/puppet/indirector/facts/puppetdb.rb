@@ -18,6 +18,9 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
 
   def save(request)
     profile("facts#save", [:puppetdb, :facts, :save, request.key]) do
+
+      current_time = Time.now
+
       payload = profile("Encode facts command submission payload",
                         [:puppetdb, :facts, :encode]) do
         facts = request.instance.dup
@@ -30,12 +33,12 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           # when we attempt to use ActiveSupport 2.3.16 on RHEL 5 with
           # legacy storeconfigs.
           "environment" => request.options[:environment] || request.environment.to_s,
-          "producer_timestamp" => Puppet::Util::Puppetdb.to_wire_time(Time.now),
+          "producer_timestamp" => Puppet::Util::Puppetdb.to_wire_time(current_time),
           "producer" => Puppet[:node_name_value]
         }
       end
 
-      submit_command(request.key, payload, CommandReplaceFacts, 5)
+      submit_command(request.key, payload, CommandReplaceFacts, 5, current_time.clone.utc)
     end
   end
 

@@ -34,7 +34,7 @@ describe processor do
       httpok.stubs(:body).returns '{"uuid": "a UUID"}'
       subject.stubs(:run_duration).returns(10)
 
-      expected_body = subject.send(:report_to_hash).to_json
+      expected_body = subject.report_to_hash(Time.now.utc).to_json
 
       Puppet::Network::HttpPool.expects(:http_instance).returns(http)
       http.expects(:post).with {|path, body, headers|
@@ -75,7 +75,7 @@ describe processor do
         subject.catalog_uuid = 'bde432'
       end
 
-      result = subject.send(:report_to_hash)
+      result = subject.report_to_hash(Time.now.utc)
       result["transaction_uuid"].should == 'abc123'
 
       # This won't be defined on < Puppet 4.3.3
@@ -90,7 +90,7 @@ describe processor do
       if defined?(subject.code_id) then
         subject.code_id = 'bde432'
       end
-      result = subject.send(:report_to_hash)
+      result = subject.report_to_hash(Time.now.utc)
       if defined?(subject.code_id) then
         result["code_id"].should == 'bde432'
       else
@@ -100,7 +100,7 @@ describe processor do
 
     it "should include the producer or nil" do
       Puppet[:node_name_value] = "foo"
-      result = subject.send(:report_to_hash)
+      result = subject.report_to_hash(Time.now.utc)
       result["producer"].should == "foo"
     end
 
@@ -108,7 +108,7 @@ describe processor do
       if defined?(subject.noop_pending) then
         subject.noop_pending = false
       end
-      result = subject.send(:report_to_hash)
+      result = subject.report_to_hash(Time.now.utc)
       if defined?(subject.noop_pending) then
         result["noop_pending"].should == false
       else
@@ -120,7 +120,7 @@ describe processor do
       if defined?(subject.corrective_change) then
         subject.stubs(:corrective_change).returns(false)
       end
-      result = subject.send(:report_to_hash)
+      result = subject.report_to_hash(Time.now.utc)
       if defined?(subject.corrective_change) then
         result["corrective_change"].should == false
       else
@@ -132,7 +132,7 @@ describe processor do
       if defined?(subject.cached_catalog_status) then
         subject.cached_catalog_status = 'not_used'
       end
-      result = subject.send(:report_to_hash)
+      result = subject.report_to_hash(Time.now.utc)
       if defined?(subject.cached_catalog_status) then
         result["cached_catalog_status"].should == 'not_used'
       else
@@ -151,7 +151,7 @@ describe processor do
           event.status = "noop"
           status.add_event(event)
         end
-        result = subject.send(:report_to_hash)
+        result = subject.report_to_hash(Time.now.utc)
         result["noop"].should == true
       end
     end
@@ -167,7 +167,7 @@ describe processor do
           event.status = "success"
           status.add_event(event)
         end
-        result = subject.send(:report_to_hash)
+        result = subject.report_to_hash(Time.now.utc)
         result["noop"].should == false
       end
     end
@@ -182,7 +182,7 @@ describe processor do
       end
 
       it "should use run_duration to calculate the end_time" do
-        result = subject.send(:report_to_hash)
+        result = subject.report_to_hash(Time.now.utc)
         duration = Time.parse(result["end_time"]) - Time.parse(result["start_time"])
         duration.should == subject.send(:run_duration)
       end
@@ -195,7 +195,7 @@ describe processor do
 
       context "resource without events" do
         it "should not include the resource" do
-          result = subject.send(:report_to_hash)
+          result = subject.report_to_hash(Time.now.utc)
           # the server will populate the report id, so we validate that the
           # client doesn't include one
           result.has_key?("report").should be_falsey
@@ -221,7 +221,7 @@ describe processor do
           end
           status.add_event(event)
 
-          result = subject.send(:report_to_hash)
+          result = subject.report_to_hash(Time.now.utc)
 
           result["resources"].length.should == 1
           res = result["resources"][0]
@@ -253,7 +253,7 @@ describe processor do
       context "skipped resource status" do
         it "should include the resource" do
           status.skipped = true
-          result = subject.send(:report_to_hash)
+          result = subject.report_to_hash(Time.now.utc)
 
           result["resources"].length.should == 1
           resource = result["resources"][0]
@@ -271,7 +271,7 @@ describe processor do
 
         context "with no events" do
           it "should have no events" do
-            result = subject.send(:report_to_hash)
+            result = subject.report_to_hash(Time.now.utc)
             result["resources"].length.should == 0
           end
         end
@@ -285,7 +285,7 @@ describe processor do
             event.message = "barmessage"
             status.add_event(event)
 
-            result = subject.send(:report_to_hash)
+            result = subject.report_to_hash(Time.now.utc)
             result["resources"].length.should == 1
             resource = result["resources"][0]
             resource["resource_type"].should == "Foo"
@@ -335,7 +335,7 @@ describe processor do
 
         context "with an unchanged resource" do
           it "should include the actual event" do
-            result = subject.send(:report_to_hash)
+            result = subject.report_to_hash(Time.now.utc)
             unchanged_resources = result["resources"].select { |res| res["events"].empty? and ! (res["skipped"])}
             unchanged_resources.length.should == 1
             resource = unchanged_resources[0]

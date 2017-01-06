@@ -40,15 +40,10 @@ describe Puppet::Resource::Catalog::Puppetdb do
     end
 
     it "should POST the catalog command as a JSON string" do
-      before_test_time = Time.now
-      command_payload = subject.munge_catalog(catalog, options)
+      command_payload = subject.munge_catalog(catalog, Time.now.utc, options)
       http.expects(:post).with do |uri, body, headers|
-        req = JSON.parse(body)
-        actual_producer_timestamp = extract_producer_timestamp(req)
-        req.delete("producer_timestamp")
         command_payload.delete("producer_timestamp")
-        req == command_payload &&
-          actual_producer_timestamp <= Time.now.to_i
+        assert_command_req(command_payload, body)
       end.returns response
 
       save
@@ -367,7 +362,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         exec{'/bin/true': subscribe => Exec["foo\nbar"]}
         MANIFEST
 
-        expect { subject.munge_catalog(catalog) }.not_to raise_error
+        expect { subject.munge_catalog(catalog, Time.now.utc) }.not_to raise_error
       end
 
       describe "exported resources" do
@@ -396,7 +391,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           Notify <<| |>>
           MANIFEST
 
-          result = subject.munge_catalog(catalog)
+          result = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should include(edge)
         end
@@ -412,7 +407,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           Notify <<| |>>
           MANIFEST
 
-          result = subject.munge_catalog(catalog)
+          result = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should include(edge)
         end
@@ -427,7 +422,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           MANIFEST
 
           expect do
-            subject.munge_catalog(catalog)
+            subject.munge_catalog(catalog, Time.now.utc)
           end.to raise_error(Puppet::Error, "Invalid relationship: Notify[source] { before => Notify[target] }, because Notify[target] is exported but not collected")
         end
 
@@ -440,7 +435,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           notify { target: }
           MANIFEST
 
-          result = subject.munge_catalog(catalog)
+          result = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should_not include(edge)
         end
@@ -466,7 +461,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           Notify <| |>
           MANIFEST
 
-          result = subject.munge_catalog(catalog)
+          result = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should include(edge)
         end
@@ -482,7 +477,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           Notify <| |>
           MANIFEST
 
-          result = subject.munge_catalog(catalog)
+          result = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should include(edge)
         end
@@ -498,7 +493,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           realize Notify[target]
           MANIFEST
 
-          result = subject.munge_catalog(catalog)
+          result = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should include(edge)
         end
@@ -514,7 +509,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           realize Notify[source]
           MANIFEST
 
-          result = subject.munge_catalog(catalog)
+          result = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should include(edge)
         end
@@ -529,7 +524,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           MANIFEST
 
           expect do
-            subject.munge_catalog(catalog)
+            subject.munge_catalog(catalog, Time.now.utc)
           end.to raise_error(Puppet::Error, "Invalid relationship: Notify[source] { before => Notify[target] }, because Notify[target] doesn't seem to be in the catalog")
         end
 
@@ -542,7 +537,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           notify { target: }
           MANIFEST
 
-          result = subject.munge_catalog(catalog)
+          result = subject.munge_catalog(catalog, Time.now.utc)
 
           result['edges'].should_not include(edge)
         end
@@ -616,7 +611,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         resource[:require] = 'Notify[completely_different]'
         Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
 
-        result = subject.munge_catalog(catalog)
+        result = subject.munge_catalog(catalog, Time.now.utc)
 
         edge = {'source' => {'type' => 'Notify', 'title' => 'noone'},
                 'target' => {'type' => 'Notify', 'title' => 'anyone'},
@@ -631,7 +626,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           other_resource = Puppet::Resource.new(:file, resource_title)
           resource[:require] = "File[#{require_title}]"
           Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
-          result = subject.munge_catalog(catalog)
+          result = subject.munge_catalog(catalog, Time.now.utc)
 
           edge = {'source' => {'type' => 'File', 'title' => resource_title},
                   'target' => {'type' => 'Notify', 'title' => 'anyone'},
@@ -662,7 +657,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         resource[:require] = 'Exec[completely_different]'
         Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
 
-        result = subject.munge_catalog(catalog)
+        result = subject.munge_catalog(catalog, Time.now.utc)
 
         edge = {'source' => {'type' => 'Exec', 'title' => 'noone'},
                 'target' => {'type' => 'Notify', 'title' => 'anyone'},
@@ -676,7 +671,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         @notify { something: }
         MANIFEST
 
-        result = subject.munge_catalog(catalog)
+        result = subject.munge_catalog(catalog, Time.now.utc)
 
         result['resources'].each do |res|
           [res['type'], res['title']].should_not == ['Notify', 'something']
@@ -684,7 +679,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
       end
 
       it "should have the correct set of keys" do
-        result = subject.munge_catalog(catalog)
+        result = subject.munge_catalog(catalog, Time.now.utc)
 
         result.keys.should =~ ['certname', 'version', 'edges', 'resources',
           'transaction_uuid', 'environment', 'producer_timestamp', "code_id",

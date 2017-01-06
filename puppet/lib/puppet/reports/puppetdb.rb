@@ -19,7 +19,9 @@ Puppet::Reports.register_report(:puppetdb) do
   # @return [void]
   def process
     profile("report#process", [:puppetdb, :report, :process]) do
-      submit_command(self.host, report_to_hash, CommandStoreReport, 8)
+      current_time = Time.now
+      report_hash = report_to_hash(current_time)
+      submit_command(self.host, report_hash, CommandStoreReport, 8, current_time.utc)
     end
 
     nil
@@ -30,7 +32,7 @@ Puppet::Reports.register_report(:puppetdb) do
   #
   # @return Hash[<String, Object>]
   # @api private
-  def report_to_hash
+  def report_to_hash(producer_timestamp)
     profile("Convert report to wire format hash",
             [:puppetdb, :report, :convert_to_wire_format_hash]) do
       if environment.nil?
@@ -53,7 +55,7 @@ Puppet::Reports.register_report(:puppetdb) do
         "puppet_version" => puppet_version,
         "report_format" => report_format,
         "configuration_version" => configuration_version.to_s,
-        "producer_timestamp" => Puppet::Util::Puppetdb.to_wire_time(Time.now),
+        "producer_timestamp" => Puppet::Util::Puppetdb.to_wire_time(producer_timestamp),
         "start_time" => Puppet::Util::Puppetdb.to_wire_time(time),
         "end_time" => Puppet::Util::Puppetdb.to_wire_time(time + run_duration),
         "environment" => environment,
