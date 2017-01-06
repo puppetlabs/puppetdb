@@ -6,7 +6,8 @@ require 'puppet/indirector/facts/puppetdb'
 require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
 require 'json'
-
+require 'date'
+require 'time'
 
 describe Puppet::Node::Facts::Puppetdb do
 
@@ -26,7 +27,6 @@ describe Puppet::Node::Facts::Puppetdb do
     let(:facts)    { Puppet::Node::Facts.new('foo') }
 
     let(:options) {{
-      :producer_timestamp => 'a test',
       :environment => "my_environment",
     }}
 
@@ -48,12 +48,17 @@ describe Puppet::Node::Facts::Puppetdb do
         "certname" => facts.name,
         "values" => facts.values.merge({"trusted" => trusted_data}),
         "environment" => "my_environment",
-        "producer_timestamp" => "a test",
         "producer" => "mom"
-      }.to_pson
+      }
 
       http.expects(:post).with do |uri, body, headers|
-        expect(body).to eq(payload)
+
+        req = JSON.parse(body)
+        actual_producer_timestamp = extract_producer_timestamp(req)
+        req.delete("producer_timestamp")
+        req == payload &&
+          actual_producer_timestamp <= Time.now.to_i
+
       end.returns response
 
       save

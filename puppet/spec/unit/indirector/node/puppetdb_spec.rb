@@ -5,6 +5,8 @@ require 'spec_helper'
 require 'puppet/indirector/node/puppetdb'
 require 'puppet/util/puppetdb/command_names'
 require 'json'
+require 'date'
+require 'time'
 
 describe Puppet::Node::Puppetdb do
 
@@ -15,10 +17,10 @@ describe Puppet::Node::Puppetdb do
   end
 
   let(:node) { "something.example.com" }
-  let(:producer_timestamp) { Time.now.iso8601(5) }
+  let(:producer_timestamp) { Puppet::Util::Puppetdb.to_wire_time(Time.now) }
 
   def destroy
-    Puppet::Node.indirection.destroy(node, {:producer_timestamp => producer_timestamp})
+    Puppet::Node.indirection.destroy(node)
   end
 
   describe "#destroy" do
@@ -30,12 +32,10 @@ describe Puppet::Node::Puppetdb do
 
     it "should POST a '#{CommandDeactivateNode}' command" do
       response.stubs(:body).returns '{"uuid": "a UUID"}'
-
-      payload = { :certname => node,
-                  :producer_timestamp => producer_timestamp }.to_json
-
       http.expects(:post).with do |uri,body,headers|
-        expect(body).to eq(payload)
+        req = JSON.parse(body)
+        req["certname"] == node &&
+          extract_producer_timestamp(req) <= Time.now.to_i
       end.returns response
 
       destroy

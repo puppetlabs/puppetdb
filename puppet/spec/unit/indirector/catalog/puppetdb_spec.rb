@@ -8,6 +8,8 @@ require 'puppet/util/puppetdb/command_names'
 require 'json'
 require 'puppet/resource/catalog'
 require 'puppet/version'
+require 'date'
+require 'time'
 
 describe Puppet::Resource::Catalog::Puppetdb do
   before :each do
@@ -25,8 +27,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
     end
     let(:options) {{
       :transaction_uuid => 'abcdefg',
-      :environment => 'my_environment',
-      :producer_timestamp => "a test",
+      :environment => 'my_environment'
     }}
 
     before :each do
@@ -39,10 +40,15 @@ describe Puppet::Resource::Catalog::Puppetdb do
     end
 
     it "should POST the catalog command as a JSON string" do
-      command_payload = subject.munge_catalog(catalog, options).to_json
-
+      before_test_time = Time.now
+      command_payload = subject.munge_catalog(catalog, options)
       http.expects(:post).with do |uri, body, headers|
-        expect(body).to eq(command_payload)
+        req = JSON.parse(body)
+        actual_producer_timestamp = extract_producer_timestamp(req)
+        req.delete("producer_timestamp")
+        command_payload.delete("producer_timestamp")
+        req == command_payload &&
+          actual_producer_timestamp <= Time.now.to_i
       end.returns response
 
       save

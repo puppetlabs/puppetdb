@@ -30,12 +30,10 @@ module Puppet::Util::Puppetdb
   end
 
   # Given an instance of ruby's Time class, this method converts it to a String
-  # that conforms to PuppetDB's wire format for representing a date/time.
+  # that conforms to PuppetDB's wire format for representing a date/time. All PuppetDB
+  # timestamps are stored at millisecond accurace (i.e. 10^-3)
   def self.to_wire_time(time)
-    # The current implementation simply calls iso8601, but having this method
-    # allows us to change that in the future if needed w/o being forced to
-    # update all of the date objects elsewhere in the code.
-    time.iso8601(9)
+    time.iso8601(3)
   end
 
   # Convert a value (usually a string) to a boolean

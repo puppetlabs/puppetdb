@@ -20,6 +20,10 @@ def create_environmentdir(environment)
   end
 end
 
+def extract_producer_timestamp(command)
+  DateTime.parse(command["producer_timestamp"]).to_time.to_i
+end
+
 RSpec.configure do |config|
 
   config.before :each do

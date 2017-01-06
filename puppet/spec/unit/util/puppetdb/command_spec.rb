@@ -9,7 +9,7 @@ describe Puppet::Util::Puppetdb::Command do
   let(:payload) { {'resistance' =>  'futile', 'opinion' => 'irrelevant'} }
 
   let(:subject) { described_class.new("OPEN SESAME", 1,
-                                      'foo.localdomain', producer-time-ms, payload) }
+                                      'foo.localdomain', payload) }
 
 
   describe "#submit" do
