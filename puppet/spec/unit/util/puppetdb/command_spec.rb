@@ -2,12 +2,14 @@ require 'spec_helper'
 require 'digest/sha1'
 require 'puppet/network/http_pool'
 require 'puppet/util/puppetdb'
-
+require 'uri'
+require 'cgi'
 
 describe Puppet::Util::Puppetdb::Command do
   let(:payload) { {'resistance' =>  'futile', 'opinion' => 'irrelevant'} }
+
   let(:subject) { described_class.new("OPEN SESAME", 1,
-                                      'foo.localdomain', payload) }
+                                      'foo.localdomain', producer-time-ms, payload) }
 
 
   describe "#submit" do
@@ -21,7 +23,13 @@ describe Puppet::Util::Puppetdb::Command do
 
       it "should issue the HTTP POST and log success" do
         httpok.stubs(:body).returns '{"uuid": "a UUID"}'
-        http.expects(:post).returns httpok
+        http.expects(:post).with() do | path, payload, headers |
+          param_map = CGI::parse(URI(path).query)
+          param_map['certname'].first.should == 'foo.localdomain' &&
+            param_map['version'].first.should == '1' &&
+            param_map['command'].first.should == 'OPEN_SESAME'
+
+        end.returns(httpok)
 
         subject.submit
         test_logs.find_all { |m|
