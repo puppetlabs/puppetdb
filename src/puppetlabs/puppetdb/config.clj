@@ -252,12 +252,11 @@
   [config]
   (doseq [cmd-proc-key retired-cmd-proc-keys]
     (when (get-in config [:command-processing cmd-proc-key])
-      (utils/println-err (format
-                          (str "The configuration item `%s`"
-                               " in the [command-processing] section is retired,"
-                               " please remove this item from your config."
-                               " Consult the documentation for more details.")
-                          (name cmd-proc-key))))))
+      (utils/println-err
+       (str (trs "The configuration item `{0}` in the [command-processing] section is retired, please remove this item from your config."
+                 (name cmd-proc-key))
+            " "
+            (trs "Consult the documentation for more details."))))))
 
 (defn configure-command-processing
   [config]
@@ -289,23 +288,27 @@
     (cond
      (nil? vardir)
      (throw (IllegalArgumentException.
-             "Required setting 'vardir' is not specified. Please set it to a writable directory."))
+             (format "%s %s"
+                     (trs "Required setting ''vardir'' is not specified.")
+                     (trs "Please set it to a writable directory."))))
 
      (not (.isAbsolute vardir))
      (throw (IllegalArgumentException.
-             (format "Vardir %s must be an absolute path." vardir)))
+             (trs "Vardir {0} must be an absolute path." vardir)))
 
      (not (.exists vardir))
      (throw (java.io.FileNotFoundException.
-             (format "Vardir %s does not exist. Please create it and ensure it is writable." vardir)))
+             (format "%s %s"
+                     (trs "Vardir {0} does not exist." vardir)
+                     (trs "Please create it and ensure it is writable."))))
 
      (not (.isDirectory vardir))
      (throw (java.io.FileNotFoundException.
-             (format "Vardir %s is not a directory." vardir)))
+             (trs "Vardir {0} is not a directory." vardir)))
 
      (not (.canWrite vardir))
      (throw (java.io.FileNotFoundException.
-             (format "Vardir %s is not writable." vardir)))
+             (trs "Vardir {0} is not writable." vardir)))
 
      :else
      config)))
@@ -319,7 +322,7 @@
   (let [lower-product-name (str/lower-case product-name)]
     (when-not (#{"puppetdb" "pe-puppetdb"} lower-product-name)
       (throw (IllegalArgumentException.
-              (format "product-name %s is illegal; either puppetdb or pe-puppetdb are allowed" product-name))))
+              (trs "product-name {0} is illegal; either puppetdb or pe-puppetdb are allowed" product-name))))
     lower-product-name))
 
 (defn configure-globals
@@ -338,21 +341,24 @@
   (doseq [param [:classname :subprotocol]]
     (when (get-in config-data [:database param])
       (utils/println-err
-       (format "The [database] %s setting has been retired and will be ignored."
-               (name param)))))
+       (trs "The [database] {0} setting has been retired and will be ignored."
+            (name param)))))
   (when (get-in config-data [:global :catalog-hash-conflict-debugging])
-    (utils/println-err (str "The configuration item `catalog-hash-conflict-debugging`"
-                            " in the [global] section is retired,"
-                            " please remove this item from your config."
-                            " Consult the documentation for more details.")))
+    (utils/println-err (format "%s %s"
+                               (trs "The configuration item `catalog-hash-conflict-debugging` in the [global] section is retired, lease remove this item from your config.")
+                               (trs"Consult the documentation for more details."))))
+
   (when (get-in config-data [:repl])
-    (utils/println-err (str "The configuration block [repl] is now retired and will be ignored."
-                            " Use [nrepl] instead. Consult the documentation for more details.")))
+    (utils/println-err (format "%s %s %s"
+                               (trs "The configuration block [repl] is now retired and will be ignored.")
+                               (trs "Use [nrepl] instead.")
+                               (trs "Consult the documentation for more details."))))
+
   (when (get-in config-data [:global :url-prefix])
-    (utils/println-err (str "The configuration item `url-prefix` in the [global] section is retired,"
-                            " please remove this item from your config."
-                            " PuppetDB has a non-configurable context route of `/pdb`."
-                            " Consult the documentation for more details."))
+    (utils/println-err (format "%s %s %s"
+                               (trs "The configuration item `url-prefix` in the [global] section is retired, please remove this item from your config.")
+                               (trs "PuppetDB has a non-configurable context route of `/pdb`.")
+                               (trs "Consult the documentation for more details.")))
     (utils/flush-and-exit 1)) ; cf. PDB-2053
   config-data)
 
