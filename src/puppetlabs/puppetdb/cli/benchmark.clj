@@ -43,7 +43,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [me.raynes.fs :as fs]
             [clojure.java.io :as io]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clj-time.core :as time]
             [puppetlabs.puppetdb.client :as client]
@@ -241,7 +241,7 @@
            :catalog catalog
            :factset factset)))
 
-(defn submit-n-messages
+(defn submit-messages
   "Given a list of host maps, send `num-messages` to each host.  The function
    is recursive to accumulate possible catalog mutations (i.e. changing a previously
    mutated catalog as opposed to different mutations of the same catalog)."
@@ -472,6 +472,33 @@
           (<! message-timeout)
           (recur))))))
 
+(defn random-hosts
+  [n pdb-host catalogs reports facts]
+  (let [random-entity (fn [host entities]
+                        (some-> entities
+                                rand-nth
+                                (assoc "certname" host)))]
+    (for [i (range n)]
+      (let [host (str "host-" i)]
+        {:host host
+         :catalog (when-let [cat (random-entity host catalogs)]
+                    (update cat "resources"
+                            (partial map #(update % "tags"
+                                                  conj
+                                                  pdb-host))))
+         :report (random-entity host reports)
+         :factset (random-entity host facts)}))))
+
+(defn populate-queue
+  "Fills queue with host entries.  Stops if mq is closed."
+  [mq numhosts run-interval pdb-host catalogs reports facts]
+  (println-err (trs "Populating queue in the background"))
+  (doseq [host (random-hosts numhosts pdb-host catalogs reports facts)
+          :while (>!! mq (assoc host :lastrun
+                                (rand-lastrun run-interval)))]
+    true)
+  (println-err (trs "Finished populating queue")))
+
 (defn benchmark-main
   [& args]
   (let [{:keys [config rand-perc numhosts nummsgs threads] :as options} (validate-cli! args)
@@ -481,18 +508,6 @@
          :or {pdb-host "127.0.0.1" pdb-port 8080}} (:jetty config)
         base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1)
         ;; Create an agent for each host
-        get-random-entity (fn [host entities]
-                            (some-> entities
-                                    rand-nth
-                                    (assoc "certname" host)))
-        make-host (fn [i]
-                    (let [host (str "host-" i)]
-                      {:host host
-                       :catalog (when-let [catalog (get-random-entity host catalogs)]
-                                  (update catalog "resources" (partial map #(update % "tags" conj pdb-host))))
-                       :report (get-random-entity host reports)
-                       :factset (get-random-entity host facts)}))
-        hosts (map make-host (range numhosts))
         command-send-ch (if nummsgs
                           (chan)
                           (chan (dropping-buffer 10000)))
@@ -514,7 +529,8 @@
 
     (if nummsgs
       (do
-        (submit-n-messages hosts nummsgs rand-perc command-send-ch)
+        (submit-messages (random-hosts numhosts pdb-host catalogs reports facts)
+                         nummsgs rand-perc command-send-ch)
         (dotimes [_ threads]
           (>!! command-send-ch :stop))
         (close! command-send-ch))
@@ -525,15 +541,10 @@
         ;; be sure to clear the temp queue on exit
         (.addShutdownHook (Runtime/getRuntime) (Thread. #(close! mq)))
 
-        ;; initial queue population
         (future
-          (println "Populating the queue in the background")
-          (dotimes [n numhosts]
-            (let [h (-> (make-host n)
-                        (assoc :lastrun (rand-lastrun run-interval)))]
-              (>!! mq h)))
-
-          (println "... finished filling the queue, continuing with the simulation."))
+          (populate-queue mq numhosts run-interval
+                          pdb-host
+                          catalogs reports facts))
 
         (let [run-interval-minutes (time/in-minutes run-interval)
               hosts-per-second (/ numhosts (* run-interval-minutes 60))
