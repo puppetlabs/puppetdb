@@ -38,7 +38,7 @@
                   ;; This normally calls System/exit on a cli error;
                   ;; we'd rather have the exception.
                   utils/try+-process-cli! (fn [body] (body))]
-      (f submitted-records (apply benchmark/benchmark-main cli-args)))))
+      (f submitted-records (benchmark/benchmark cli-args)))))
 
 (defn benchmark-nummsgs
   [config & cli-args]
@@ -71,7 +71,7 @@
   (call-with-benchmark-status
    {}
    ["--config" "anything.ini" "--numhosts" "42" "--runinterval" "1"]
-   (fn [submitted chan]
+   (fn [submitted stop]
      (let [enough-records (* 3 42)
            finished (promise)
            watch-key (Object.)
@@ -82,7 +82,7 @@
        (when-not (>= (count @submitted) enough-records) ;; avoids add-watch race
          (deref finished tu/default-timeout-ms nil))
        (is (>= (count @submitted) enough-records))
-       (close! chan)))))
+       (stop)))))
 
 (deftest multiple-messages-and-hosts
   (let [submitted (benchmark-nummsgs {}

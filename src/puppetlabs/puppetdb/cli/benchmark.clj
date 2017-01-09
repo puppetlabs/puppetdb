@@ -499,8 +499,39 @@
     true)
   (println-err (trs "Finished populating queue")))
 
-(defn benchmark-main
-  [& args]
+(defn cycle-commands
+  [numhosts run-interval rand-perc simulation-threads
+   rate-monitor-ch command-send-ch
+   pdb-host catalogs reports facts]
+  (let [close-to-stop-ch (chan)
+        mq (chan (amq-broker-buffer "benchmark-mq" "benchmark-endpoint"))]
+
+    ;; be sure to clear the temp queue on exit
+    (.addShutdownHook (Runtime/getRuntime) (Thread. #(close! mq)))
+
+    (future
+      (populate-queue mq numhosts run-interval
+                      pdb-host
+                      catalogs reports facts))
+
+    (let [run-interval-minutes (time/in-minutes run-interval)
+          hosts-per-second (/ numhosts (* run-interval-minutes 60))
+          rate-limited-mq-out (chan)]
+      (relay-messages-at-rate mq rate-limited-mq-out hosts-per-second)
+      (pipeline simulation-threads
+                mq
+                (map #(update-host % rand-perc (time/now) command-send-ch))
+                rate-limited-mq-out)
+      (go
+        (<! close-to-stop-ch)
+        (mapv close! [rate-limited-mq-out mq rate-monitor-ch command-send-ch])))
+    close-to-stop-ch))
+
+(defn benchmark
+  "Feeds commands to PDB as requested by args.  Returns either nil, or
+  if --runinterval is active, a stop function accepting no arguments
+  that can be called to stop processing and clean up."
+  [args]
   (let [{:keys [config rand-perc numhosts nummsgs threads] :as options} (validate-cli! args)
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
@@ -533,38 +564,15 @@
                          nummsgs rand-perc command-send-ch)
         (dotimes [_ threads]
           (>!! command-send-ch :stop))
-        (close! command-send-ch))
-
-      (let [close-to-stop-ch (chan)
-            mq (chan (amq-broker-buffer "benchmark-mq" "benchmark-endpoint"))]
-
-        ;; be sure to clear the temp queue on exit
-        (.addShutdownHook (Runtime/getRuntime) (Thread. #(close! mq)))
-
-        (future
-          (populate-queue mq numhosts run-interval
-                          pdb-host
-                          catalogs reports facts))
-
-        (let [run-interval-minutes (time/in-minutes run-interval)
-              hosts-per-second (/ numhosts (* run-interval-minutes 60))
-              rate-limited-mq-out (chan)]
-          (relay-messages-at-rate mq rate-limited-mq-out hosts-per-second)
-          (pipeline simulation-threads
-                    mq
-                    (map #(update-host % rand-perc (time/now) command-send-ch))
-                    rate-limited-mq-out)
-          (go
-            (<! close-to-stop-ch)
-            (mapv close! [rate-limited-mq-out mq rate-monitor-ch command-send-ch])))
-        close-to-stop-ch))))
-
-(defn chan? [x]
-  (satisfies? clojure.core.async.impl.protocols/Channel x))
-
+        (close! command-send-ch)
+        nil)
+      (let [stop-chan (cycle-commands numhosts run-interval rand-perc simulation-threads
+                                      rate-monitor-ch command-send-ch
+                                      pdb-host catalogs reports facts)]
+        #(close! stop-chan)))))
 
 (defn -main [& args]
-  (let [x (apply benchmark-main args)]
-    (when (chan? x)
-      (println "Press ctrl-c to stop.")
-      (<!! x))))
+  (when-let [stop (benchmark args)]
+    (println-err (trs "Press ctrl-c to stop"))
+    (while true
+      (Thread/sleep 10000))))
