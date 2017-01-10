@@ -12,6 +12,22 @@ unless (test_config[:skip_presuite_provisioning])
     end
   end
 
+  step "Ensure python 2 is available" do
+    master_os = test_config[:os_families][master.name]
+    case master_os
+    when :debian
+      on master, "apt-get -y install python"
+    end
+
+    databases.each do |database|
+      os = test_config[:os_families][database.name]
+      case os
+      when :debian
+        on database, "apt-get -y install python"
+      end
+    end
+  end
+
   step "Install other dependencies on database" do
     databases.each do |database|
       os = test_config[:os_families][database.name]
@@ -111,6 +127,7 @@ unless (test_config[:skip_presuite_provisioning])
             # /usr/lib/x86_64-linux-gnu/ruby/2.1.0/openssl.so
             on master, "apt-get install -y openssl"
           end
+
           on master, "apt-get install -y ruby ruby-dev libsqlite3-dev build-essential"
           # this is to get around the activesupport dependency on Ruby 1.9.3 for
           # Ubuntu 12.04. We can remove it when we drop support for 1.8.7.
