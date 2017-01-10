@@ -56,10 +56,14 @@
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.amq-migration :as amq]
             [taoensso.nippy :as nippy]
-            [puppetlabs.i18n.core :refer [trs]])
-  (:import [org.apache.activemq.broker BrokerService]
-           [javax.jms MessageConsumer MessageProducer Session]
-           [clojure.core.async.impl.protocols Buffer]))
+            [puppetlabs.i18n.core :refer [trs]]
+            [puppetlabs.puppetdb.nio :refer [get-path]])
+  (:import
+   [clojure.core.async.impl.protocols Buffer]
+   [java.io ByteArrayInputStream]
+   [java.nio.file.attribute FileAttribute]
+   [java.nio.file Files OpenOption]
+   [java.util ArrayDeque]))
 
 (def cli-description "Development-only benchmarking tool")
 
@@ -281,7 +285,11 @@
                ["-C" "--catalogs CATALOGS" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
                ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
                ["-A" "--archive ARCHIVE" "Path to a PuppetDB export tarball. Incompatible with -C, -F or -R"]
-               ["-i" "--runinterval RUNINTERVAL" "What runinterval (in minutes) to use during simulation"
+               ["-i" (str "--runinterval RUNINTERVAL" "interval (in minutes)"
+                          " to use during simulation. This option"
+                          " requires some temporary filesystem space, which"
+                          " will be allocated in TMPDIR (if set in the"
+                          " environment) or java.io.tmpdir.")
                 :parse-fn #(Integer/parseInt %)]
                ["-n" "--numhosts NUMHOSTS" "How many hosts to use during simulation (required)"
                 :parse-fn #(Integer/parseInt %)]
@@ -385,79 +393,34 @@
   (jitter (time/minus (time/now) run-interval)
           (time/in-seconds run-interval)))
 
-(defn partition-into-buckets [num-buckets s]
-  (loop [s s
-         buckets (into clojure.lang.PersistentQueue/EMPTY
-                       (repeat num-buckets '()))]
-    (if (seq s)
-      (recur (rest s)
-             (conj (pop buckets)
-                   (cons (first s) (first buckets))))
-      (seq buckets))))
+(defn delete-dir-or-report [dir]
+  (try
+    (fs/delete-dir dir)
+    (catch Exception ex
+      (println-err ex))))
 
-(defn make-jms-nippy-message
-  "Create a jms message containing the clojure data structure 'payload' encoded
-  into a byte array using nippy."
-  [session payload]
-  (let [msg (.createBytesMessage session)
-        payload-bytes (nippy/freeze payload)]
-    (.writeBytes msg payload-bytes)
-    msg))
-
-(defn unpack-jms-nippy-message
-  "Return the clojure data payload from a message created with
-  'make-jms-nippy-message'."
-  [msg]
-  (let [bytes (byte-array (.getBodyLength msg))]
-    (.readBytes msg bytes)
-    (nippy/thaw bytes)))
-
-(deftype AMQBrokerBuffer [^BrokerService broker
-                          ^Session session
-                          ^MessageProducer producer
-                          ^MessageConsumer consumer
-                          mq-dir
-                          queue-count]
+(deftype TempFileBuffer [storage-dir q]
   Buffer
   (full? [this] false)
   (remove! [this]
-    (swap! queue-count dec)
-    (mq/commit-or-rollback session (unpack-jms-nippy-message (.receive consumer))))
+    (let [path (.poll q)
+          result (nippy/thaw (Files/readAllBytes path))]
+      (Files/delete path)
+      result))
   (add!* [this item]
-    (swap! queue-count inc)
-    (mq/commit-or-rollback session (.send producer (make-jms-nippy-message session item))))
+    (let [path (Files/createTempFile storage-dir "bench-tmp-" ""
+                                     (into-array FileAttribute []))]
+      (Files/write path (nippy/freeze item) (into-array OpenOption []))
+      (.add q path)))
   (close-buf! [this]
-    (println "Shutting down AMQ...")
-    (reset! queue-count 0)
-    (amq/stop-broker! broker)
-    (fs/delete-dir mq-dir))
+    true)
   clojure.lang.Counted
-  (count [this] @queue-count))
+  (count [this] (.size q)))
 
-(defn amq-broker-buffer [broker-name endpoint-name]
-  (let [dir (kitchensink/absolute-path broker-name)
-        conn-str (str "vm://" broker-name
-                      "?broker.useJmx=false"
-                      "&broker.enableStatistics=false"
-                      "&jms.useCompression=true"
-                      "&jms.copyMessageOnSend=false")
-        size-megs 20000
-        broker (amq/build-embedded-broker broker-name
-                                         dir
-                                         {:store-usage size-megs
-                                          :temp-usage  size-megs})
-        _ (println "Using amq in" dir)
-        _ (.setPersistent broker false)
-        _ (amq/start-broker! broker)
-        factory (amq/activemq-connection-factory conn-str)
-        connection (doto (.createConnection factory) .start)
-        session (.createSession connection true 0)]
-    (AMQBrokerBuffer. broker
-                      session
-                      (.createProducer session (.createQueue session endpoint-name))
-                      (.createConsumer session (.createQueue session endpoint-name))
-                      dir
-                      (atom 0))))
+(defn message-buffer
+  [storage-dir expected-size]
+  (let [q (ArrayDeque. expected-size)]
+    (TempFileBuffer. storage-dir q)))
 
 (defn relay-messages-at-rate
   "Relay messages from in-ch to out-ch at the given rate in
@@ -538,7 +501,6 @@
         {pdb-host :host pdb-port :port
          :or {pdb-host "127.0.0.1" pdb-port 8080}} (:jetty config)
         base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1)
-        ;; Create an agent for each host
         command-send-ch (if nummsgs
                           (chan)
                           (chan (dropping-buffer 10000)))

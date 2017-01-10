@@ -70,7 +70,7 @@
 (deftest runs-with-runinterval
   (call-with-benchmark-status
    {}
-   ["--config" "anything.ini" "--numhosts" "42" "--runinterval" "1"]
+   ["--config" "anything.ini" "--numhosts" "333" "--runinterval" "1"]
    (fn [submitted stop]
      (let [enough-records (* 3 42)
            finished (promise)
@@ -79,7 +79,7 @@
                      (when (>= (count new) enough-records)
                        (deliver finished true)))]
        (add-watch submitted watch-key watcher)
-       (when-not (>= (count @submitted) enough-records) ;; avoids add-watch race
+       (when-not (>= (count @submitted) enough-records) ; avoid add-watch race
          (deref finished tu/default-timeout-ms nil))
        (is (>= (count @submitted) enough-records))
        (stop)))))
