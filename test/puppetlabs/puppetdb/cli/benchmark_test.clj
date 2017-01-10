@@ -25,53 +25,70 @@
             :payload-string payload-string
             :payload (clojure.walk/keywordize-keys payload-string)})))
 
-(defn run-benchmark [config & cli-args]
+(defn call-with-benchmark-status
+  [config cli-args f]
   (let [submitted-records (atom [])]
-    (with-redefs [client/submit-catalog (mock-submit-record-fn submitted-records :catalog)
-                  client/submit-report (mock-submit-record-fn submitted-records :report)
-                  client/submit-facts (mock-submit-record-fn submitted-records :factset)
+    (with-redefs [client/submit-catalog (mock-submit-record-fn submitted-records
+                                                               :catalog)
+                  client/submit-report (mock-submit-record-fn submitted-records
+                                                              :report)
+                  client/submit-facts (mock-submit-record-fn submitted-records
+                                                             :factset)
                   config/load-config (fn [_] config)
-                  ;; this normally calls System/exit on a cli error; we'd rather have the exception.
+                  ;; This normally calls System/exit on a cli error;
+                  ;; we'd rather have the exception.
                   utils/try+-process-cli! (fn [body] (body))]
-      (let [result (apply benchmark/benchmark-main cli-args)]
-        (when (benchmark/chan? result)
-          (<!! (timeout 1000))
-          (close! result)))
-      @submitted-records)))
+      (f submitted-records (apply benchmark/benchmark-main cli-args)))))
+
+(defn benchmark-nummsgs
+  [config & cli-args]
+  ;; Assumes cli-args does not indicate a --runinterval) run
+  (call-with-benchmark-status config cli-args
+                              (fn [submitted _] @submitted)))
 
 (deftest config-is-required
   (is (thrown+-with-msg?
        [:kind ::ks/cli-error]
        #"Missing required argument '--config'"
-       (run-benchmark {}))))
+       (benchmark-nummsgs {}))))
 
-(deftest config-is-required
+(deftest numhosts-is-required
   (is (thrown+-with-msg?
        [:kind ::ks/cli-error]
        #"Missing required argument '--numhosts'"
-       (run-benchmark {}
-                      "--config" "anything.ini"))))
+       (benchmark-nummsgs {}
+                          "--config" "anything.ini"))))
 
 (deftest nummsgs-or-runinterval-is-required
   (is (thrown+-with-msg?
        [:kind ::utils/cli-error]
        #"Either -N/--nummsgs or -i/--runinterval is required."
-       (run-benchmark {}
-                      "--config" "anything.ini"
-                      "--numhosts" "42"))))
+       (benchmark-nummsgs {}
+                          "--config" "anything.ini"
+                          "--numhosts" "42"))))
 
 (deftest runs-with-runinterval
-  (let [submitted (run-benchmark {}
-                                 "--config" "anything.ini"
-                                 "--numhosts" "42"
-                                 "--runinterval" "1")]
-    (is (>= (count submitted)) (* 3 42))))
+  (call-with-benchmark-status
+   {}
+   ["--config" "anything.ini" "--numhosts" "42" "--runinterval" "1"]
+   (fn [submitted chan]
+     (let [enough-records (* 3 42)
+           finished (promise)
+           watch-key (Object.)
+           watcher (fn [k ref old new]
+                     (when (>= (count new) enough-records)
+                       (deliver finished true)))]
+       (add-watch submitted watch-key watcher)
+       (when-not (>= (count @submitted) enough-records) ;; avoids add-watch race
+         (deref finished tu/default-timeout-ms nil))
+       (is (>= (count @submitted) enough-records))
+       (close! chan)))))
 
 (deftest multiple-messages-and-hosts
-  (let [submitted (run-benchmark {}
-                                 "--config" "anything.ini"
-                                 "--numhosts" "2"
-                                 "--nummsgs" "3")]
+  (let [submitted (benchmark-nummsgs {}
+                                     "--config" "anything.ini"
+                                     "--numhosts" "2"
+                                     "--nummsgs" "3")]
     (is (= 18 (count submitted)))))
 
 (deftest archive-flag-works
@@ -86,18 +103,18 @@
        (#'cli-export/-main "--outfile" export-out-file
                            "--host" (:host svc-utils/*base-url*)
                            "--port" (str (:port svc-utils/*base-url*)))))
-    (let [submitted (run-benchmark {}
-                                   "--config" "anything.ini"
-                                   "--numhosts" "2"
-                                   "--nummsgs" "3"
-                                   "--archive" export-out-file)]
+    (let [submitted (benchmark-nummsgs {}
+                                       "--config" "anything.ini"
+                                       "--numhosts" "2"
+                                       "--nummsgs" "3"
+                                       "--archive" export-out-file)]
       (is (= 18 (count submitted))))))
 
 (deftest consecutive-reports-are-distinct
-  (let [submitted (run-benchmark {}
-                                 "--config" "anything.ini"
-                                 "--numhosts" "1"
-                                 "--nummsgs" "10")
+  (let [submitted (benchmark-nummsgs {}
+                                     "--config" "anything.ini"
+                                     "--numhosts" "1"
+                                     "--nummsgs" "10")
         reports (->> submitted
                      (filter #(= :report (:entity %)))
                      (map :payload))]
@@ -106,11 +123,11 @@
     (is (= 10 (->> reports (map :end_time) distinct count)))))
 
 (deftest randomize-catalogs-and-factsets
-  (let [submitted (run-benchmark {}
-                                 "--config" "anything.ini"
-                                 "--numhosts" "1"
-                                 "--nummsgs" "10"
-                                 "--rand-perc" "100")
+  (let [submitted (benchmark-nummsgs {}
+                                     "--config" "anything.ini"
+                                     "--numhosts" "1"
+                                     "--nummsgs" "10"
+                                     "--rand-perc" "100")
         catalog-hashes (->> submitted
                             (filter #(= :catalog (:entity %)))
                             (map :payload)
