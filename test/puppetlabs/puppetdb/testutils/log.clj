@@ -10,7 +10,8 @@
    [ch.qos.logback.core.spi LifeCycle]
    [ch.qos.logback.classic Level Logger]
    [ch.qos.logback.classic.encoder PatternLayoutEncoder]
-   [org.slf4j LoggerFactory]))
+   [org.slf4j LoggerFactory]
+   [ch.qos.logback.classic.spi ILoggingEvent]))
 
 (defmacro with-started
   "Ensures that if a given name's init form executes without throwing
@@ -196,10 +197,15 @@
 ;;The below functions are useful with
 ;;puppetlabs.trapperkeeper.testutils.logging/with-log-suppressed-unless-notable
 
-(def critical-errors (comp #{:fatal :error} :level))
+(defn critical-errors
+  [^ILoggingEvent event]
+  (= Level/ERROR
+     (.getLevel event)))
 
 (defn starting-with
   "Filters log events that have a message starting with `string`"
   [string]
-  (fn [event]
-    (.startsWith (:message event) string)))
+  (fn [^ILoggingEvent event]
+    (-> event
+        .getMessage
+        (.startsWith string))))
