@@ -22,7 +22,10 @@
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.utils :refer [match-any-of utf8-length
                                                utf8-truncate]]
-            [slingshot.slingshot :refer [try+]]))
+            [slingshot.slingshot :refer [try+]]
+            [schema.core :as s]
+            [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.time :as pdbtime]))
 
 (def metadata-command->puppetdb-command
   ;; note that if there are multiple metadata names for the same command then
@@ -129,7 +132,7 @@
   certname if the certname is long or contains filesystem special characters."
   ([] (metadata-serializer puppetdb-command->metadata-command))
   ([puppetdb-command->metadata-command]
-   (fn [received producer-ts command version certname]
+   (fn [received {:keys [producer-ts command version certname]}]
      (when-not (puppetdb-command->metadata-command command)
        (throw (IllegalArgumentException. (trs "unknown command ''{0}''" command))))
      (let [certname (or certname "unknown-host")
@@ -180,10 +183,35 @@
 
 (def parse-metadata (metadata-parser))
 
+(def command-req-schema
+  "Represents an incoming command, before it has been enqueued"
+  {:command (apply s/enum (vals metadata-command->puppetdb-command))
+   :version s/Int
+   :certname s/Str
+   :producer-ts (s/maybe pls/Timestamp)
+   :callback (s/=> s/Any s/Any)
+   :command-stream java.io.InputStream})
+
+(s/defn create-command-req :- command-req-schema
+  "Validating constructor function for command requests"
+  [command :- s/Str
+   version :- s/Int
+   certname :- s/Str
+   producer-ts :- (s/maybe s/Str)
+   callback :- (s/=> s/Any s/Any)
+   command-stream :- java.io.InputStream]
+  {:command command
+   :version version
+   :certname certname
+   :producer-ts (when producer-ts
+                  (pdbtime/from-string producer-ts))
+   :callback callback
+   :command-stream command-stream})
+
 (defrecord CommandRef [id command version certname received producer-ts callback delete?])
 
-(defn cmdref->entry [{:keys [id command version certname received producer-ts]}]
-  (stock/entry id (serialize-metadata received producer-ts command version certname)))
+(defn cmdref->entry [{:keys [id received] :as cmdref}]
+  (stock/entry id (serialize-metadata received cmdref)))
 
 (defn entry->cmdref [entry]
   (let [{:keys [received command version certname producer-ts]} (-> entry
@@ -208,11 +236,14 @@
   (update cmdref :attempts conj {:exception exception
                                  :time (kitchensink/timestamp)}))
 
-(defn store-in-stockpile [q command-stream received
-                          producer-ts command version certname]
+(s/defn store-in-stockpile
+  [q
+   received :- pls/Timestamp
+   command-req :- command-req-schema]
   (try+
-   (stock/store q command-stream
-                (serialize-metadata received producer-ts command version certname))
+   (stock/store q
+                (:command-stream command-req)
+                (serialize-metadata received command-req))
 
    (catch [:kind ::unable-to-commit] {:keys [stream-data]}
      ;; stockpile has saved all of the data in command-stream to
@@ -239,22 +270,18 @@
                     (pr-str (str path))))
      (throw+))))
 
-(defn store-command
-  ([q command version certname producer-ts command-stream]
-   (store-command q command version certname producer-ts command-stream identity))
-  ([q command version certname producer-ts command-stream command-callback]
-   (let [current-time (time/now)
-         entry (store-in-stockpile q command-stream
-                                   current-time
-                                   producer-ts
-                                   command version certname)]
-     (map->CommandRef {:id (stock/entry-id entry)
-                       :command command
-                       :version version
-                       :certname certname
-                       :producer-ts producer-ts
-                       :callback command-callback
-                       :received (kitchensink/timestamp current-time)}))))
+(s/defn store-command
+  [q
+   command-req :- command-req-schema]
+  (let [current-time (time/now)
+        entry (store-in-stockpile q
+                                  current-time
+                                  command-req)]
+    (-> command-req
+        (select-keys [:command :version :certname :producer-ts :callback])
+        (assoc :id (stock/entry-id entry)
+               :received (kitchensink/timestamp current-time))
+        map->CommandRef)))
 
 (defn ack-command
   [q command]

@@ -246,21 +246,18 @@
   [q
    command-chan
    ^Semaphore write-semaphore
-   command :- s/Str
-   version :- s/Int
-   certname :- s/Str
-   producer-ts :- (s/maybe DateTime)
-   command-stream
-   command-callback]
+   {:keys [command certname command-stream] :as command-req} :- queue/command-req-schema]
   (try
     (.acquire write-semaphore)
     (time! (get @metrics :message-persistence-time)
-           (let [cmd (queue/store-command
-                       q command version certname producer-ts command-stream command-callback)
+           (let [cmd (queue/store-command q command-req)
                  {:keys [id received]} cmd]
              (async/>!! command-chan cmd)
              (log/debug (trs "[{0}-{1}] ''{2}'' command enqueued for {3}"
-                             id (tcoerce/to-long received) command certname))))
+                             id
+                             (tcoerce/to-long received)
+                             command
+                             certname))))
     (finally
       (.release write-semaphore)
       (when command-stream
@@ -672,8 +669,8 @@
           command-chan (:command-chan (shared-globals))
           write-semaphore (:write-semaphore (service-context this))
           command (if (string? command) command (command-names command))
-          result (do-enqueue-command q command-chan write-semaphore command
-                                     version certname producer-ts command-stream command-callback)]
+          command-req (queue/create-command-req command version certname producer-ts command-callback command-stream)
+          result (do-enqueue-command q command-chan write-semaphore command-req)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (inc-cmd-depth command version)
       (swap! (:stats (service-context this)) update :received-commands inc)

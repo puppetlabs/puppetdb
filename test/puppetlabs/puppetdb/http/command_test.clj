@@ -253,10 +253,12 @@
 
 (defn handler-with-max [q command-chan max-command-size]
   (#'tgt/enqueue-command-handler
-   (partial cmd/do-enqueue-command
-            q
-            command-chan
-            (Semaphore. 100))
+   (fn [command version certname producer-ts stream callback]
+     (cmd/do-enqueue-command
+              q
+              command-chan
+              (Semaphore. 100)
+              (queue/create-command-req command version certname producer-ts callback stream)))
    max-command-size))
 
 (deftest enqueue-max-command-size

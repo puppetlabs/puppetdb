@@ -14,6 +14,15 @@
             [puppetlabs.puppetdb.utils :refer [utf8-length]]
             [puppetlabs.puppetdb.command.constants :as cconst]))
 
+(defn catalog->command-req [version {:keys [certname name] :as catalog}]
+  (create-command-req "replace catalog"
+                            version
+                            (or certname name)
+                            nil
+                            identity
+                            (tqueue/coerce-to-stream catalog)))
+
+
 (deftest test-sanitize-certname
   (are [raw sanitized] (= sanitized (sanitize-certname raw))
     "foo/bar" "foo-bar"
@@ -22,6 +31,12 @@
     "/foo//bar///baz/" "-foo--bar---baz-")
   (doseq [bad-char (conj constants/filename-forbidden-characters \_)]
     (is (= "sanitize-me" (sanitize-certname (format "sanitize%cme" bad-char))))))
+
+(defn cmd-req-stub [producer-ts command version certname]
+  {:command command
+   :version version
+   :certname certname
+   :producer-ts producer-ts})
 
 (deftest test-metadata-serializer
   (let [recvd (now)
@@ -35,20 +50,20 @@
             safe-cname "foo-bar-baz"
             cname-hash (kitchensink/utf8-string->sha1 cname)]
         (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver safe-cname cname-hash)
-               (serialize-metadata recvd nil cmd cmd-ver cname)))))
+               (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver cname))))))
 
     (testing "long certnames are truncated"
       (let [long-cname (apply str "trol" (repeat 1000 "lo"))
             trunc-cname (subs long-cname 0 (truncated-certname-length recvd cmd-abbrev cmd-ver))
             cname-hash (kitchensink/utf8-string->sha1 long-cname)]
         (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver trunc-cname cname-hash)
-               (serialize-metadata recvd nil cmd cmd-ver long-cname)))
-        (is (<= (utf8-length (serialize-metadata recvd nil cmd cmd-ver long-cname)) 255))))
+               (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver long-cname))))
+        (is (<= (utf8-length (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver long-cname))) 255))))
 
     (testing "multi-byte characters in UTF-8 are counted correctly"
       (let [cname-max-length (max-certname-length recvd cmd cmd-ver)
             disapproval-monster (apply str (repeat (inc (/ cname-max-length 4)) "ಠ_"))]
-        (is (<= (utf8-length (serialize-metadata recvd nil cmd cmd-ver disapproval-monster)) 255))))
+        (is (<= (utf8-length (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver disapproval-monster))) 255))))
 
     (testing "sanitized certnames are truncated to leave room for hash"
       (let [cname-trunc-length (truncated-certname-length recvd cmd-abbrev cmd-ver)
@@ -56,23 +71,23 @@
             cname-hash (kitchensink/utf8-string->sha1 tricky-cname)
             trunc-cname (subs (sanitize-certname tricky-cname) 0 cname-trunc-length)]
         (is (= (format "%d_%s_%d_%s_%s.json" recvd-long cmd-abbrev cmd-ver trunc-cname cname-hash)
-               (serialize-metadata recvd nil cmd cmd-ver tricky-cname)))
-        (is (<= (utf8-length (serialize-metadata recvd nil cmd cmd-ver tricky-cname)) 255))))
+               (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver tricky-cname))))
+        (is (<= (utf8-length (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver tricky-cname))) 255))))
 
     (testing "short & safe certnames are preserved and the hash is omitted"
       (let [cname "bender.myowncasino.moon"]
         (is (= (format "%d_%s_%d_%s.json" recvd-long cmd-abbrev cmd-ver cname)
-               (serialize-metadata recvd nil cmd cmd-ver cname)))))))
+               (serialize-metadata recvd (cmd-req-stub nil cmd cmd-ver cname))))))))
 
 (deftest test-metadata
   (tqueue/with-stockpile q
     (let [now (time/now)
           ;; Sleep to ensure the command has a different time
           _ (Thread/sleep 1)
-          cmdref (store-command q "replace facts" 1 "foo.com" nil
-                                (-> "{\"message\": \"payload\"}"
-                                    (.getBytes "UTF-8")
-                                    java.io.ByteArrayInputStream.))
+          cmdref (->> {:message "payload"}
+                      tqueue/coerce-to-stream
+                      (create-command-req "replace facts" 1 "foo.com" nil identity)
+                      (store-command q))
            command (cmdref->cmd q cmdref)]
       (is (= {:command "replace facts"
               :version 1
@@ -295,10 +310,14 @@
        (let [[q load-messages] (create-or-open-stockpile temp-path)]
 
          (is (nil? load-messages))
-         (tqueue/store-command q "replace catalog" 1 "foo1" {:message "payload 1"})
-         (tqueue/store-command q "replace catalog" 1 "foo2" {:message "payload 2"})
-         (tqueue/store-command q "replace catalog" 1 "foo3" {:message "payload 3"})
-         (tqueue/store-command q "replace catalog" 1 "foo4" {:message "payload 4"}))
+         (store-command q (catalog->command-req 1 {:message "payload 1"
+                                                         :certname "foo1"}))
+         (store-command q (catalog->command-req 1 {:message "payload 2"
+                                                         :certname "foo2"}))
+         (store-command q (catalog->command-req 1 {:message "payload 3"
+                                                         :certname "foo3"}))
+         (store-command q (catalog->command-req 1 {:message "payload 4"
+                                                         :certname "foo4"})))
 
        (let [[q load-messages] (create-or-open-stockpile temp-path)
              command-chan (async/chan 4)
@@ -323,15 +342,20 @@
        (let [[q load-messages] (create-or-open-stockpile temp-path)]
 
          (is (nil? load-messages))
-         (tqueue/store-command q "replace catalog" 1 "foo1" {:message "payload 1"})
-         (tqueue/store-command q "replace catalog" 1 "foo2" {:message "payload 2"}))
+         (store-command q (catalog->command-req 1 {:message "payload 1"
+                                                   :certname "foo1"}))
+         (store-command q (catalog->command-req 1 {:message "payload 2"
+                                                   :certname "foo2"})))
 
        (let [[q load-messages] (create-or-open-stockpile temp-path)
              command-chan (async/chan 4)
              cc (tu/call-counter)]
 
-         (tqueue/store-command q "replace catalog" 1 "foo3" {:message "payload 3"})
-         (tqueue/store-command q "replace catalog" 1 "foo4" {:message "payload 4"})
+         (store-command q (catalog->command-req 1 {:message "payload 3"
+                                                   :certname "foo3"}))
+         (store-command q (catalog->command-req 1 {:message "payload 4"
+                                                   :certname "foo4"}))
+
 
          (load-messages command-chan cc)
 
@@ -360,7 +384,7 @@
   (let [received (time/now)
         producer-ts (time/minus received (seconds 5))]
     (is (= (parse-metadata
-            (serialize-metadata received producer-ts "replace catalog" cconst/latest-catalog-version "foo.com"))
+            (serialize-metadata received (cmd-req-stub producer-ts "replace catalog" cconst/latest-catalog-version "foo.com")))
            {:certname "foo.com"
             :command "replace catalog"
             :version cconst/latest-catalog-version
@@ -370,7 +394,7 @@
   (let [received (time/now)
         producer-ts (time/plus received (seconds 5))]
     (is (= (parse-metadata
-            (serialize-metadata received producer-ts "replace facts" cconst/latest-facts-version "foo.com"))
+            (serialize-metadata received (cmd-req-stub producer-ts "replace facts" cconst/latest-facts-version "foo.com")))
            {:certname "foo.com"
             :command "replace facts"
             :version cconst/latest-facts-version
@@ -380,7 +404,7 @@
   (let [received (time/now)
         producer-ts received]
     (is (= (parse-metadata
-            (serialize-metadata received producer-ts "store report" cconst/latest-report-version "foo.com"))
+            (serialize-metadata received (cmd-req-stub producer-ts "store report" cconst/latest-report-version "foo.com")))
            {:certname "foo.com"
             :command "store report"
             :version cconst/latest-report-version
