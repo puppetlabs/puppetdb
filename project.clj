@@ -139,7 +139,8 @@
                                   [puppetlabs/kitchensink :classifier "test"]
                                   [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
                                   [org.flatland/ordered "1.5.3"]
-                                  [org.clojure/test.check "0.5.9"]
+                                  [org.clojure/test.check "0.9.0"]
+                                  [com.gfredericks/test.chuck "0.2.7" :exclusions [clj-time instaparse joda-time org.clojure/clojure]]
                                   [environ "1.0.2"]
                                   [riddley "0.1.12"]]
                    :injections [(do
