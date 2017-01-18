@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.3: Root endpoint (experimental)"
+title: "PuppetDB 4.3: Root endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/index.html"
 ---
@@ -11,8 +11,6 @@ canonical: "/puppetdb/latest/api/query/v4/index.html"
 [entities]: ./entities.html
 [pql]: ./pql.html
 [ast]: ./ast.html
-
-*Note:* This endpoint is experimental and is subject to rapid development and change.
 
 The root query endpoint can be used to retrieve any known entities from a
 single endpoint. Unlike the various entity-specific endpoints, the root

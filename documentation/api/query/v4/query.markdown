@@ -75,7 +75,7 @@ The most common URL parameter is `query`, which lets you define the set of resul
 There are two query languages available in PuppetDB, consult the documentation for each for more details.
 
 * [AST query language][ast]: a JSON based query language.
-* [Puppet query language (experimental)][pql]: a new query language designed for human users to simplify
+* [Puppet query language][pql]: a new query language designed for human users to simplify
   querying over the legacy AST language.
 
 A complete query string describes a comparison operation. When submitting a query, PuppetDB will check every _possible_

@@ -17,12 +17,11 @@
 
 (def parse
   (insta/parser
-   (clojure.java.io/resource "puppetlabs/puppetdb/pql/pql-grammar-experimental.ebnf")))
+   (clojure.java.io/resource "puppetlabs/puppetdb/pql/pql-grammar.ebnf")))
 
 (defn pql->ast
   "Convert a PQL string to AST format."
   [pql]
-  (log/warn (trs "The syntax for PQL is still experimental, and may change in the future."))
   (transform (parse pql)))
 
 (defn print-reason

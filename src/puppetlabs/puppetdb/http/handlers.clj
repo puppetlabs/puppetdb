@@ -53,13 +53,12 @@
    route-param-key :- s/Keyword]
   (cmdi/wrap-routes route #(parent-check % version entity route-param-key)))
 
-(pls/defn-validated experimental-root-routes :- bidi-schema/RoutePair
+(pls/defn-validated root-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (cmdi/ANY "" []
             (-> (http-q/query-handler version)
                 (http-q/extract-query-pql {:optional (conj paging/query-params "ast_only")
-                                           :required ["query"]})
-                (http/experimental-warning (trs "The root endpoint is experimental")))))
+                                           :required ["query"]}))))
 
 (defn report-data-responder
   "Respond with either metrics or logs for a given report hash.

@@ -274,6 +274,76 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
 msgid ""
+"The configuration item `{0}` in the [command-processing] section is retired, "
+"please remove this item from your config."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Consult the documentation for more details."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Required setting ''vardir'' is not specified."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Please set it to a writable directory."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Vardir {0} must be an absolute path."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Vardir {0} does not exist."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Please create it and ensure it is writable."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Vardir {0} is not a directory."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Vardir {0} is not writable."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "product-name {0} is illegal; either puppetdb or pe-puppetdb are allowed"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "The [database] {0} setting has been retired and will be ignored."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid ""
+"The configuration item `catalog-hash-conflict-debugging` in the [global] "
+"section is retired, lease remove this item from your config."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "The configuration block [repl] is now retired and will be ignored."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "Use [nrepl] instead."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid ""
+"The configuration item `url-prefix` in the [global] section is retired, "
+"please remove this item from your config."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid "PuppetDB has a non-configurable context route of `/pdb`."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj
+msgid ""
 "Configuring the route for `{0}` is not allowed. The default route is `{1}` "
 "and server is `{2}`."
 msgstr ""
@@ -326,10 +396,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/http/command.clj
 msgid "Command size exceeds max-command-size"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/http/handlers.clj
-msgid "The root endpoint is experimental"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/query.clj
@@ -475,10 +541,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/pdb_routing.clj
 msgid "PuppetDB finished starting, disabling maintenance mode"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/pql.clj
-msgid "The syntax for PQL is still experimental, and may change in the future."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/pql.clj
@@ -671,10 +733,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "Column definition for entity relationship ''{0}'' not valid"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/query_eng/engine.clj
-msgid "The `subquery` operator is experimental and may change in the future."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
