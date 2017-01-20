@@ -101,13 +101,6 @@ body {
 </table>
 
 <script>(function() {
-  // Formatting middleware that collapses small values to 0
-  function clampToZero(f, window) {
-    return function(n) {
-      return f(Math.abs(n) < window ? 0 : n);
-    };
-  };
-
   // Parse URL arguments
   function getParameter(paramName) {
     var searchString = window.location.search.substring(1),
@@ -135,7 +128,6 @@ body {
 
   function checkForUpdates() {
     d3.json("/pdb/meta/v1/version/latest", function (res) {
-      console.log(res);
       if (res != null && res.newer) {
         d3.select('#latest-version').html('v' + res.version);
         d3.select('#update-link').classed('hidden', false);
@@ -158,125 +150,29 @@ body {
                  width: width,
                  height: height,
                  container: "#metrics"};
+  var data_url = "/pdb/dashboard/data";
 
-  function getValueSnag(res) {
-      return res["Value"];
-  }
+  var meterUpdateFunctions = {};
 
-  function getCountSnag(res) {
-      return res["Count"];
-  }
+  // Initial fetch of the meters to create the UI
+  d3.json(data_url, function cb(meters) {
+    for(var i=0; i<meters.length; i++) {
+      m = meters[i];
+      meterUpdateFunctions[m.id] = counterAndSparkline(m, options);
+    }
+  });
 
-  function getPercentileSnag(res) {
-      return res["50thPercentile"] / 1000;
-  }
+  function tick() {
+    // Get the meters in bulk, then update each widget
+    d3.json(data_url, function cb(meters) {
+      for(var i=0; i<meters.length; i++) {
+        m = meters[i];
+        meterUpdateFunctions[m.id](m.value);
+      }
+    });
+  };
 
-  var metrics = [
-      {description: "JVM Heap",
-       addendum: "bytes",
-       url: "/metrics/v1/mbeans/java.lang:type=Memory",
-       format: d3.format(",.3s"),
-       snag: function(res) { return res["HeapMemoryUsage"]["used"]; }},
-      {description: "Active Nodes",
-       addendum: "in the population",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.population:name=num-active-nodes",
-       format: d3.format(","),
-       snag: getValueSnag},
-      {description: "Inactive Nodes",
-       addendum: "in the population",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.population:name=num-inactive-nodes",
-       format: d3.format(","),
-       snag: getValueSnag},
-      {description: "Resources",
-       addendum: "in the population",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.population:name=num-resources",
-       format: d3.format(","),
-       snag: getValueSnag},
-      {description: "Resource duplication",
-       addendum: "% of resources stored",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.population:name=pct-resource-dupes",
-       format: d3.format(",.1%"),
-       snag: getValueSnag},
-      {description: "Catalog duplication",
-       addendum: "% of catalogs encountered",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.storage:name=duplicate-pct",
-       format: d3.format(",.1%"),
-       snag: getValueSnag},
-      {description: "Command Queue",
-       addendum: "depth",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.mq%3Aname%3Dglobal.depth",
-       format: d3.format(",s"),
-       snag: function(res) { return res["Count"]; }},
-      {description: "Command Processing",
-       addendum: "sec/command",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.mq:name=global.processing-time",
-       format: d3.format(",.3s"),
-       snag: getPercentileSnag},
-      {description: "Command Processing",
-       addendum: "command/sec",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.mq:name=global.processed",
-       format: clampToZero(d3.format(",.3s"), 0.001),
-       snag: function(res) { return res["FiveMinuteRate"]; }},
-      {description: "Processed",
-       addendum: "since startup",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.mq:name=global.processed",
-       format: d3.format(","),
-       snag: getCountSnag},
-      {description: "Retried",
-       addendum: "since startup",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.mq:name=global.retried",
-       format: d3.format(","),
-       snag: getCountSnag},
-      {description: "Discarded",
-       addendum: "since startup",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.mq:name=global.discarded",
-       format: d3.format(","),
-       snag: getCountSnag},
-      {description: "Rejected",
-       addendum: "since startup",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.mq:name=global.fatal",
-       format: d3.format(","),
-       snag: getCountSnag},
-      {description: "Enqueueing",
-       addendum: "service time, seconds",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.http:name=/pdb/cmd/v1.service-time",
-       format: d3.format(",.3s"),
-       snag: getPercentileSnag},
-      {description: "Command Persistence",
-       addendum: "Message persistence time, milliseconds",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.mq%3Aname%3Dglobal.message-persistence-time",
-       format: d3.format(",.2s"),
-       snag: function(res) { return res["FiveMinuteRate"]; }},
-      {description: "Collection Queries",
-       addendum: "service time, seconds",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.http:name=/pdb/query/v4/resources.service-time",
-       format: d3.format(",.3s"),
-       snag: getPercentileSnag},
-      {description: "DB Compaction",
-       addendum: "round trip time, seconds",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.storage:name=gc-time",
-       format: d3.format(",.3s"),
-       snag: getPercentileSnag},
-      {description: "DLO Size on Disk",
-       addendum: "bytes",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.dlo:name=global.filesize",
-       format: d3.format(",.3s"),
-       snag: getValueSnag},
-      {description: "Discarded Messages",
-       addendum: "to be reviewed",
-       url: "/metrics/v1/mbeans/puppetlabs.puppetdb.dlo:name=global.messages",
-       format: d3.format(","),
-       snag: getValueSnag}]
-
-  for (i = 0; i < metrics.length; i++) {
-      var metric = metrics[i];
-      counterAndSparkline(metric.description,
-                          metric.addendum,
-                          metric.url,
-                          metric.format,
-                          metric.snag,
-                          options);
-  }
+  setInterval(tick, 5 * 1000);
 
   // Check the current version and for updates now, and then check for updates every 5 minutes
   setVersion();

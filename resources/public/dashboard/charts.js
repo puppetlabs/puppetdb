@@ -1,18 +1,23 @@
+// Formatting middleware that collapses small values to 0
+function clampToZero(f, window) {
+    return function(n) {
+        return f(Math.abs(n) < window ? 0 : n);
+    };
+};
+
 /*
-  Displays a set of counters and a sparkline for a metric (JSON that's
-  fetched via AJAX).
-*/
-// Top-line label to use
+ Displays a set of counters and a sparkline for a metric
+ - meter.description: Top-line label to use
+ - meter.addendum: Sub-heading describing the metric
+ - meter.value: The current value
+ - meter.format: How to format the value for display
+ */
+function counterAndSparkline(meter, options) {
+    var format = d3.format(meter.format);
+    if(meter.clampToZero) {
+        format = clampToZero(format, meter.clampToZero);
+    }
 
-// Sub-heading describing the metric
-
-// What URL to poll for JSON
-
-// How to format the snagged number for display
-
-// Function used to return a number from the JSON response;
-// defaults to the identity function
-function counterAndSparkline(description, addendum, url, format, snag, options) {
     // Defaults
 
     // How many data points to retain for the sparkline
@@ -56,10 +61,10 @@ function counterAndSparkline(description, addendum, url, format, snag, options) 
     var label = box.append("td");
     label.append("div")
         .attr("class", "counterdesc")
-        .html(description);
+        .html(meter.description);
     label.append("div")
         .attr("class", "counteraddendum")
-        .html(addendum);
+        .html(meter.addendum);
 
     // Add the placeholder for the actual metric value
     box.append("td").attr("class", "countertext");
@@ -133,16 +138,12 @@ function counterAndSparkline(description, addendum, url, format, snag, options) 
         // perfectly smooth relative to the polling interval; the
         // scroll rate matches the data update rate (in theory,
         // anyways)
-        //
-        // After the transition is done, call the tick() function
-        // again to re-update.
         svg.select(".line")
            .attr("d", line(data))
            .transition()
            .duration(duration)
            .ease("linear")
-           .attr("transform", "translate(" + x(xmin + duration) + ")")
-           .each("end", tick);
+           .attr("transform", "translate(" + x(xmin + duration) + ")");
 
         yaxis.transition()
              .call(y.axis
@@ -151,31 +152,17 @@ function counterAndSparkline(description, addendum, url, format, snag, options) 
                     .tickFormat(format));
     };
 
-    // Update function
-    function tick() {
-        // Grab our metric over HTTP
-        d3.json(url, function cb(res) {
-            // Append the new datum to our data set.
-            //
-            // If we didn't get a response, add a 0. otherwise use the
-            // user-supplied callback to parse out a value
-            var now = new Date();
-            var value = (res != null) ? snag(res) : 0;
+    // Return a function which will update the widget
+    return function update(newValue) {
+        var now = new Date();
+        var valueOrZero = (newValue != null) ? newValue : 0;
 
-            var countertext = (res != null) ? format(value) : "?";
-            box.select(".countertext").html(countertext);
+        var countertext = (newValue != null) ? format(newValue) : "?";
+        box.select(".countertext").html(countertext);
 
-            data.push({time: now, value: value});
-            redraw(now, data);
-            // pop the old data point off the front
-            if (data.length > n) { data.shift(); };
-
-        });
+        data.push({time: now, value: valueOrZero});
+        redraw(now, data);
+        // pop the old data point off the front
+        if (data.length > n) { data.shift(); };
     };
-
-    // Start the update routine. We randomize the startup time
-    // to introduce jitter between this chart and other charts
-    // rendered on the same page. Otherwise, you could end up
-    // with many simultaneous AJAX requests.
-    setTimeout(tick, Math.ceil(Math.random() * 5000));
 }
