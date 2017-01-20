@@ -450,12 +450,12 @@
   (wrap-with-puppetdb-middleware
    (command-app
     (fn [] {})
-    (fn [command version certname producer-ts stream callback]
+    (fn [command version certname producer-ts stream compression callback]
       (dispatch/do-enqueue-command
        q
        command-chan
        (Semaphore. 100)
-       (queue/create-command-req command version certname producer-ts callback stream)))
+       (queue/create-command-req command version certname producer-ts compression callback stream)))
 
     false
     nil)))

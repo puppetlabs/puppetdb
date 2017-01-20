@@ -115,6 +115,21 @@
       (http/error-response (tru "must accept {0}" content-type)
                            http/status-not-acceptable))))
 
+(defn verify-content-encoding
+  "Verification for the specified list of content-encodings."
+  [app content-encodings]
+  {:pre [(coll? content-encodings)
+         (every? string? content-encodings)]}
+  (fn [{:keys [headers request-method] :as req}]
+    (let [content-encoding (headers "content-encoding")]
+      (if (or (not= request-method :post)
+              (empty? content-encoding)
+              (some #{content-encoding} content-encodings))
+        (app req)
+        (http/error-response (tru "content encoding {0} not supported"
+                                  content-encoding)
+                             http/status-unsupported-type)))))
+
 (defn verify-content-type
   "Verification for the specified list of content-types."
   [app content-types]

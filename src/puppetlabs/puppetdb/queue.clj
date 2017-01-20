@@ -3,7 +3,8 @@
            [java.io InputStreamReader BufferedReader InputStream]
            [java.util TreeMap HashMap]
            [java.nio.file Files LinkOption]
-           [java.nio.file.attribute FileAttribute])
+           [java.nio.file.attribute FileAttribute]
+           (org.apache.commons.compress.compressors.gzip GzipCompressorInputStream))
   (:require [clojure.string :as str :refer [re-quote-replacement]]
             [puppetlabs.stockpile.queue :as stock]
             [clj-time.coerce :as tcoerce]
@@ -132,18 +133,22 @@
   certname if the certname is long or contains filesystem special characters."
   ([] (metadata-serializer puppetdb-command->metadata-command))
   ([puppetdb-command->metadata-command]
-   (fn [received {:keys [producer-ts command version certname]}]
+   (fn [received {:keys [producer-ts command version certname compression]}]
      (when-not (puppetdb-command->metadata-command command)
        (throw (IllegalArgumentException. (trs "unknown command ''{0}''" command))))
      (let [certname (or certname "unknown-host")
            received+producer-time (encode-command-time received producer-ts)
            short-command (puppetdb-command->metadata-command command)
-           safe-certname (embeddable-certname received short-command version certname)]
-       (if (= safe-certname certname)
-         (format "%s_%s_%d_%s.json" received+producer-time short-command version safe-certname)
-         (let [name-hash (kitchensink/utf8-string->sha1 certname)]
-           (format "%s_%s_%d_%s_%s.json"
-                   received+producer-time short-command version safe-certname name-hash)))))))
+           safe-certname (embeddable-certname received short-command version certname)
+           name (if (= safe-certname certname)
+                  safe-certname
+                  (format "%s_%s"
+                          safe-certname
+                          (kitchensink/utf8-string->sha1 certname)))
+           extension (str "json" (if (not-empty compression)
+                                   (str "." compression)))]
+       (format "%s_%s_%d_%s.%s"
+               received+producer-time short-command version name extension)))))
 
 (def serialize-metadata (metadata-serializer))
 
@@ -151,7 +156,7 @@
   (re-pattern (str
                "([0-9]+)([+|-][0-9]+)?_"
                (match-any-of valid-commands)
-               "_([0-9]+)_(.*)\\.json")))
+               "_([0-9]+)_(.*)\\.json(\\..*)?")))
 
 (defn metadata-parser
   "Given an (optional) map between the command names that appear in metadata
@@ -167,7 +172,7 @@
    (let [rx (metadata-rx (keys metadata-command->puppetdb-command))
          md-cmd->pdb-cmd metadata-command->puppetdb-command]
      (fn [s]
-       (when-let [[_ received-stamp producer-offset md-command version certname] (re-matches rx s)]
+       (when-let [[_ received-stamp producer-offset md-command version certname compression] (re-matches rx s)]
          (let [received-time-long (Long/parseLong received-stamp)
                producer-offset (and producer-offset (Long/parseLong producer-offset))]
            (and certname
@@ -179,7 +184,10 @@
                                       tcoerce/from-long)
                  :version (Long/parseLong version)
                  :command (get md-cmd->pdb-cmd md-command "unknown")
-                 :certname certname})))))))
+                 :certname certname
+                 :compression (if (nil? compression)
+                                ""
+                                (subs compression 1))})))))))
 
 (def parse-metadata (metadata-parser))
 
@@ -190,7 +198,8 @@
    :certname s/Str
    :producer-ts (s/maybe pls/Timestamp)
    :callback (s/=> s/Any s/Any)
-   :command-stream java.io.InputStream})
+   :command-stream java.io.InputStream
+   :compression s/Str})
 
 (s/defn create-command-req :- command-req-schema
   "Validating constructor function for command requests"
@@ -198,6 +207,7 @@
    version :- s/Int
    certname :- s/Str
    producer-ts :- (s/maybe s/Str)
+   compression :- s/Str
    callback :- (s/=> s/Any s/Any)
    command-stream :- java.io.InputStream]
   {:command command
@@ -205,32 +215,48 @@
    :certname certname
    :producer-ts (when producer-ts
                   (pdbtime/from-string producer-ts))
+   :compression compression
    :callback callback
    :command-stream command-stream})
 
-(defrecord CommandRef [id command version certname received producer-ts callback delete?])
+(defrecord CommandRef [id command version certname received producer-ts callback delete? compression])
 
 (defn cmdref->entry [{:keys [id received] :as cmdref}]
   (stock/entry id (serialize-metadata received cmdref)))
 
 (defn entry->cmdref [entry]
-  (let [{:keys [received command version certname producer-ts]} (-> entry
-                                                                    stock/entry-meta
-                                                                    parse-metadata)]
+  (let [{:keys [received command version
+                certname producer-ts compression]} (-> entry
+                                                       stock/entry-meta
+                                                       parse-metadata)]
     (map->CommandRef {:id (stock/entry-id entry)
                       :command command
                       :version version
                       :certname certname
                       :received received
                       :producer-ts producer-ts
-                      :callback identity})))
+                      :callback identity
+                      :compression compression})))
+
+(defn wrap-decompression-stream
+  [compression command-stream]
+  (condp = compression
+    nil command-stream
+    "" command-stream
+    "gz" (GzipCompressorInputStream. command-stream)
+    (throw+ {:kind ::parse-error} nil
+            (trs "Unsupported compression format for command: {0}"
+                 compression))))
 
 (defn cmdref->cmd [q cmdref]
-  (let [entry (cmdref->entry cmdref)]
+  (let [compression (:compression cmdref)
+        entry (cmdref->entry cmdref)]
     (with-open [command-stream (stock/stream q entry)]
       (assoc cmdref
-             :payload (stream->json command-stream)
-             :entry entry))))
+        :payload (stream->json (wrap-decompression-stream
+                                compression
+                                command-stream))
+        :entry entry))))
 
 (defn cons-attempt [cmdref exception]
   (update cmdref :attempts conj {:exception exception
@@ -278,7 +304,7 @@
                                   current-time
                                   command-req)]
     (-> command-req
-        (select-keys [:command :version :certname :producer-ts :callback])
+        (select-keys [:command :version :certname :producer-ts :callback :compression])
         (assoc :id (stock/entry-id entry)
                :received (kitchensink/timestamp current-time))
         map->CommandRef)))

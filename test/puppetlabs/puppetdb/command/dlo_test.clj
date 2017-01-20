@@ -48,19 +48,19 @@
 
     (are [cmd-info metadata-str] (= cmd-info (#'dlo/parse-cmd-filename metadata-str))
 
-      {:received r0 :version 0 :command "replace catalog" :certname "foo" :producer-ts nil}
+      {:received r0 :version 0 :command "replace catalog" :certname "foo" :producer-ts nil :compression ""}
       "0-0_catalog_0_foo.json"
 
-      {:received r0 :version 0 :command "replace catalog" :certname "foo.json" :producer-ts nil}
+      {:received r0 :version 0 :command "replace catalog" :certname "foo.json" :producer-ts nil :compression ""}
       "0-0_catalog_0_foo.json.json"
 
-      {:received r10 :version 10 :command "replace catalog" :certname "foo" :producer-ts nil}
+      {:received r10 :version 10 :command "replace catalog" :certname "foo" :producer-ts nil :compression ""}
       "10-10_catalog_10_foo.json"
 
-      {:received r10 :version 42 :command "replace catalog" :certname "foo" :producer-ts nil}
+      {:received r10 :version 42 :command "replace catalog" :certname "foo" :producer-ts nil :compression ""}
       "10-10_catalog_42_foo.json"
 
-      {:received r10 :version 10 :command "unknown" :certname "foo" :producer-ts nil}
+      {:received r10 :version 10 :command "unknown" :certname "foo" :producer-ts nil :compression ""}
       "10-10_unknown_10_foo.json")
 
     (is (not (#'dlo/parse-cmd-filename "0-0_foo_0_foo.json")))))

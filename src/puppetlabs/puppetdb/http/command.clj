@@ -27,6 +27,10 @@
    "store report" 5
    "deactivate node" 3})
 
+(defn content-encoding->file-extension
+  [encoding]
+  (get {"gzip" "gz"} encoding ""))
+
 (def valid-commands-str (str/join ", " (sort (vals command-names))))
 
 (defn- validate-command-version
@@ -203,7 +207,7 @@
 (defn- enqueue-command-handler
   "Enqueues the command in request and returns a UUID"
   [enqueue-fn max-command-size]
-  (fn [{:keys [body params] :as request}]
+  (fn [{:keys [body params headers]}]
     ;; For now body will be in-memory, but eventually may be a stream.
     (try+
      (let [uuid (kitchensink/uuid)
@@ -215,6 +219,8 @@
            submit-params (if-let [v (submit-params "version")]
                            (update submit-params "version" str)
                            submit-params)
+           compression (content-encoding->file-extension
+                        (get headers "content-encoding"))
            ;; Replace read-body when our queue supports streaming
            do-submit (fn [command-callback]
                        (enqueue-fn
@@ -223,6 +229,7 @@
                         (get submit-params "certname")
                         (pdbtime/from-string (get submit-params "producer-ts"))
                         (stream-with-max-check body max-command-size)
+                        compression
                         command-callback))]
 
        (if (some-> completion-timeout-ms pos?)
@@ -265,6 +272,7 @@
                                              "certname" "command" "version" "producer-timestamp"]})
       mid/verify-accepts-json
       (mid/verify-content-type ["application/json"])
+      (mid/verify-content-encoding ["gzip" "identity"])
       (mid/fail-when-payload-too-large reject-large-commands? max-command-size)
       (mid/wrap-with-metrics (atom {}) http/leading-uris)
       (mid/wrap-with-globals get-shared-globals)))

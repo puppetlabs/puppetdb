@@ -32,8 +32,9 @@
             [puppetlabs.puppetdb.testutils.queue :as tqueue]
             [puppetlabs.puppetdb.queue :as queue])
   (:import [clojure.lang ExceptionInfo]
-           [java.io ByteArrayInputStream]
-           [java.util.concurrent Semaphore]))
+           [java.io ByteArrayInputStream ByteArrayOutputStream]
+           [java.util.concurrent Semaphore]
+           (java.util.zip GZIPOutputStream)))
 
 (def endpoints [[:v1 "/v1"]])
 
@@ -46,7 +47,9 @@
   "Makes a post body request"
   [path params payload]
   (let [body (when-not (nil? payload)
-               (ByteArrayInputStream. (.getBytes payload "UTF-8")))]
+               (ByteArrayInputStream. (if (string? payload)
+                                        (.getBytes payload "UTF-8")
+                                        payload)))]
     (post-request path params {"content-type" "application/json"
                                "accept" "application/json"} body)))
 
@@ -71,24 +74,54 @@
                                      {:foo 1
                                       :bar 2})
                checksum (kitchensink/utf8-string->sha1 payload)
-               req (internal-request {"payload" payload "checksum" checksum})
                [command-chan app] (create-handler q)
-               response (app (post-request* endpoint
-                                            {"checksum" checksum
-                                             "version" (str (get min-supported-commands "replace facts"))
-                                             "certname" "foo.com"
-                                             "command" "replace facts"}
-                                            payload))]
-           (assert-success! response)
+               version (str (get min-supported-commands "replace facts"))
+               request-params {"checksum" checksum
+                               "version" version
+                               "certname" "foo.com"
+                               "command" "replace facts"}]
 
-           (let [cmdref (async/<!! command-chan)]
-             (is (= {:foo 1
-                     :bar 2}
-                    (:payload (queue/cmdref->cmd q cmdref)))))
+           (testing "for raw json requests"
+             (let [response (app (post-request* endpoint
+                                                request-params
+                                                payload))]
+               (assert-success! response)
 
-           (is (= (content-type response)
-                  http/json-response-content-type))
-           (is (uuid-in-response? response)))))
+               (let [cmdref (async/<!! command-chan)]
+                 (is (= {:foo 1
+                         :bar 2}
+                        (:payload (queue/cmdref->cmd q cmdref)))))
+
+               (is (= (content-type response)
+                      http/json-response-content-type))
+               (is (uuid-in-response? response))))
+
+           (testing "for gzipped json requests"
+             (let [gzipped-payload-stream (ByteArrayOutputStream.)
+                   _ (with-open [gzip-output-stream (GZIPOutputStream.
+                                                     gzipped-payload-stream)]
+                       (->> payload
+                            (.getBytes)
+                            (.write gzip-output-stream)))
+                   gzipped-payload (.toByteArray gzipped-payload-stream)
+                   request (post-request* endpoint
+                                          request-params
+                                          gzipped-payload)
+                   request-with-content-encoding (assoc-in request
+                                                           [:headers
+                                                            "content-encoding"]
+                                                           "gzip")
+                   response (app request-with-content-encoding)]
+               (assert-success! response)
+
+               (let [cmdref (async/<!! command-chan)]
+                 (is (= {:foo 1
+                         :bar 2}
+                        (:payload (queue/cmdref->cmd q cmdref)))))
+
+               (is (= (content-type response)
+                      http/json-response-content-type))
+               (is (uuid-in-response? response)))))))
 
      (testing "should return status-bad-request when missing payload"
        (tqueue/with-stockpile q
@@ -253,12 +286,12 @@
 
 (defn handler-with-max [q command-chan max-command-size]
   (#'tgt/enqueue-command-handler
-   (fn [command version certname producer-ts stream callback]
+   (fn [command version certname producer-ts stream compression callback]
      (cmd/do-enqueue-command
               q
               command-chan
               (Semaphore. 100)
-              (queue/create-command-req command version certname producer-ts callback stream)))
+              (queue/create-command-req command version certname producer-ts compression callback stream)))
    max-command-size))
 
 (deftest enqueue-max-command-size

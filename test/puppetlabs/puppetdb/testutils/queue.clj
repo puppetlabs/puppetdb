@@ -50,6 +50,7 @@
                         version
                         (or certname name)
                         (ks/timestamp (now))
+                        ""
                         identity
                         (coerce-to-stream catalog)))
 
@@ -58,6 +59,7 @@
                         version
                         (or certname name)
                         (ks/timestamp (now))
+                        ""
                         identity
                         (coerce-to-stream facts)))
 
@@ -69,6 +71,7 @@
                           2 (json/parse-string command)
                           1 (json/parse-string (json/parse-string command)))
                         (ks/timestamp (now))
+                        ""
                         identity
                         (coerce-to-stream command)))
 
@@ -77,5 +80,6 @@
                         version
                         (or certname name)
                         (ks/timestamp (now))
+                        ""
                         identity
                         (coerce-to-stream command)))

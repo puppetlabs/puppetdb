@@ -246,7 +246,7 @@
   [q
    command-chan
    ^Semaphore write-semaphore
-   {:keys [command certname command-stream] :as command-req} :- queue/command-req-schema]
+   {:keys [command certname command-stream compression] :as command-req} :- queue/command-req-schema]
   (try
     (.acquire write-semaphore)
     (time! (get @metrics :message-persistence-time)
@@ -407,8 +407,8 @@
 
 (defprotocol PuppetDBCommandDispatcher
   (enqueue-command
-    [this command version certname producer-ts payload]
-    [this command version certname producer-ts payload command-callback]
+    [this command version certname producer-ts payload compression]
+    [this command version certname producer-ts payload compression command-callback]
     "Submits the command for processing, and then returns its unique id.")
 
   (stats [this]
@@ -660,16 +660,16 @@
   (stats [this]
     @(:stats (service-context this)))
 
-  (enqueue-command [this command version certname producer-ts command-stream]
-                   (enqueue-command this command version certname producer-ts command-stream identity))
+  (enqueue-command [this command version certname producer-ts command-stream compression]
+                   (enqueue-command this command version certname producer-ts command-stream compression identity))
 
-  (enqueue-command [this command version certname producer-ts command-stream command-callback]
+  (enqueue-command [this command version certname producer-ts command-stream compression command-callback]
     (let [config (get-config)
           q (:q (shared-globals))
           command-chan (:command-chan (shared-globals))
           write-semaphore (:write-semaphore (service-context this))
           command (if (string? command) command (command-names command))
-          command-req (queue/create-command-req command version certname producer-ts command-callback command-stream)
+          command-req (queue/create-command-req command version certname producer-ts compression command-callback command-stream)
           result (do-enqueue-command q command-chan write-semaphore command-req)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (inc-cmd-depth command version)
