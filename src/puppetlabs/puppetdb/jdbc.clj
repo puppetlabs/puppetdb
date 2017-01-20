@@ -102,7 +102,7 @@
   "Calls clojure.jdbc/db-query-with-resultset after adding (jdbc/db)
    as the first argument. Note that this will hold the whole resultset in memory
    due to the default jdbc fetchsize of 0. If streaming is required, use
-   with-query-results-cursor."
+   call-with-query-rows."
   {:arglists '([[sql-string & params] func]
                [[stmt & params] func]
                [[options-map sql-string & params] func])}
@@ -127,17 +127,43 @@
    #(and (map? %)
          (valid-jdbc-query? (:results-query %)))))
 
-(defn convert-result-arrays
-  "Converts Java and JDBC arrays in a result set using the provided function
-  (eg. vec, set). Values which aren't arrays are unchanged."
-  ([result-set]
-     (convert-result-arrays vec result-set))
-  ([f result-set]
-     (let [convert #(cond
-                     (kitchensink/array? %) (f %)
-                     (isa? (class %) java.sql.Array) (f (.getArray %))
-                     :else %)]
-       (map #(kitchensink/mapvals convert %) result-set))))
+(defn coerce-to-array
+  ([x] (coerce-to-array vec x))
+  ([convert x]
+   (cond
+     (kitchensink/array? x) (convert x)
+     (isa? (class x) java.sql.Array) (convert (.getArray x))
+     :else x)))
+
+(defn call-with-query-rows
+  "Calls (f rows), where rows is a lazy sequence of rows generated
+  from within a transaction.  Converts any java.sql.Array
+  or (.isArray (class v)) values to a vector.  The sequence is backed
+  by an active database cursor which will be closed when f returns.
+  Cancels the query if f throws an exception.  The option names that
+  correspond to jdbc/result-set-seq options will affect the rows
+  produced as they do for that function.  So for example, when
+  as-arrays? is logically true, the result rows will be vectors, not
+  maps, and the first result row will be a vector of column names."
+  ([query f] (call-with-query-rows query {} f))
+  ([[sql & params]
+    {:keys [as-arrays? identifiers qualifier read-columns] :as opts}
+    f]
+   (with-db-transaction []
+     (with-open [stmt (.prepareStatement (:connection *db*) sql)]
+       (doall (map-indexed (fn [i param] (.setObject stmt (inc i) param))
+                           params))
+       (.setFetchSize stmt 500)
+       (let [fix-vals (if as-arrays?
+                        (fn [row] (mapv coerce-to-array row))
+                        (fn [row] (kitchensink/mapvals coerce-to-array row)))]
+         (with-open [rset (.executeQuery stmt)]
+           (try
+             (f (map fix-vals (sql/result-set-seq rset opts)))
+             (catch Exception e
+               ;; Cancel the current query
+               (.cancel stmt)
+               (throw e)))))))))
 
 (defn limited-query-to-vec
   "Take a limit and an SQL query (with optional parameters), and return the
@@ -158,10 +184,11 @@
           ((some-fn string? vector?) query)]
    :post [(or (zero? limit) (<= (count %) limit))]}
   (let [sql-query-and-params (if (string? query) [query] query)]
-    (query-with-resultset sql-query-and-params
-                          #(-> (limit-result-set! limit (sql/result-set-seq %))
-                               convert-result-arrays
-                               vec))))
+    (call-with-query-rows
+     sql-query-and-params
+     (fn [rows]
+       (mapv #(kitchensink/mapvals coerce-to-array %)
+             (limit-result-set! limit rows))))))
 
 (defn query-to-vec
   "Take an SQL query and parameters, and return the result of the
@@ -329,33 +356,6 @@
   `(with-transacted-connection-fn ~db-spec nil
      (fn []
        ~@body)))
-
-(defn with-query-results-cursor
-  "Executes the given parameterized query within a transaction,
-  producing a lazy sequence of rows. The callback `func` is executed
-  on the entire sequence.
-
-  The lazy sequence is backed by an active database cursor, and is thus
-  useful for streaming very large resultsets.
-
-  The cursor is closed when `func` returns. If an exception is thrown,
-  the query is cancelled."
-  [[sql & params] func]
-  (with-db-transaction []
-   (with-open [stmt (.prepareStatement (:connection *db*) sql)]
-     (doseq [[index value] (map-indexed vector params)]
-       (.setObject stmt (inc index) value))
-     (.setFetchSize stmt 500)
-     (with-open [rset (.executeQuery stmt)]
-       (try
-         (-> rset
-             sql/result-set-seq
-             convert-result-arrays
-             func)
-         (catch Exception e
-           ;; Cancel the current query
-           (.cancel stmt)
-           (throw e)))))))
 
 (defn ^:dynamic enable-jmx
   "This function exists to enable starting multiple PuppetDB instances

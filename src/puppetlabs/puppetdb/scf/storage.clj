@@ -24,7 +24,6 @@
             [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
             [com.rpl.specter :as sp]
             [clojure.java.jdbc :as sql]
             [clojure.set :as set]
@@ -42,7 +41,7 @@
             [metrics.gauges :refer [gauge-fn]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.jdbc :refer [query-to-vec]]
+            [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [honeysql.core :as hcore]
             [puppetlabs.i18n.core :refer [trs]])
@@ -439,7 +438,9 @@
    (fn [rs]
      (let [rss (sql/result-set-seq rs)]
        (zipmap (map #(select-keys % [:type :title]) rss)
-               (jdbc/convert-result-arrays set rss))))))
+               (for [rowmap rss]
+                 (kitchensink/mapvals #(jdbc/coerce-to-array set %)
+                                      rowmap)))))))
 
 (s/defn new-params-only
   "Returns a map of not persisted parameters, keyed by hash"
@@ -978,17 +979,29 @@
   "Ensures that all paths exist in the database and returns a map of
   paths to ids."
   [pathstrs]
-  (if-let [pathstrs (seq pathstrs)]
-    (let [existing-path-ids (existing-row-ids "fact_paths"
-                                              "path" pathstrs)
+  (when-let [pathstrs (seq pathstrs)]
+    (let [array-to-param sutils/array-to-param
+          existing-path-ids (jdbc/call-with-query-rows
+                             [(str "select path, id from fact_paths"
+                                   "  where path in (select * from unnest(?))")
+                              (array-to-param "text" String pathstrs)]
+                             {:as-arrays? true}
+                             (fn [[col-names & rows]]
+                               (into {} rows)))
           missing-db-paths (set/difference (set pathstrs)
-                                           (set (keys existing-path-ids)))]
-      (into existing-path-ids
-            (->> missing-db-paths
-                 (map (comp facts/path->pathmap facts/string-to-factpath))
-                 (realize-records! :fact_paths identity)
-                 (map #(vector (:path %) (:id %))))))
-    {}))
+                                           (set (keys existing-path-ids)))
+          new-paths (map facts/string-to-factpath missing-db-paths)]
+
+      (jdbc/call-with-query-rows
+       [(str "insert into fact_paths (path, name, depth)"
+             "  (select * from unnest(?, ?, ?)) returning path, id")
+        (array-to-param "text" String (map facts/factpath-to-string new-paths))
+        (array-to-param "text" String (map first new-paths))
+        (array-to-param "integer" Integer (map #(-> (count %) dec int)
+                                               new-paths))]
+       {:as-arrays? true}
+       (fn [[col-names & rows]]
+         (into existing-path-ids rows))))))
 
 (defn realize-values!
   "Ensures that all valuemaps exist in the database and returns a

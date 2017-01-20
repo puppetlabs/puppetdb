@@ -796,12 +796,13 @@
         value-keys [:value_string :value_integer
                     :value_json :value_boolean
                     :value_float]]
-    (jdbc/with-query-results-cursor query
-      (fn [rs]
-        (->> rs
-             (map (partial coalesce-values value-keys))
-             (map update-value-json)
-             dorun)))
+    (jdbc/call-with-query-rows
+     query
+     (fn [rows]
+       (->> rows
+            (map (partial coalesce-values value-keys))
+            (map update-value-json)
+            dorun)))
     (jdbc/do-commands
       "ALTER TABLE fact_values RENAME COLUMN value_json TO value")))
 
@@ -1087,11 +1088,11 @@
 (defn migrate-through-app
   [table1 table2 column-list munge-fn]
   (let [columns (string/join "," column-list)]
-    (jdbc/with-query-results-cursor
-      [(format "select %s from %s" columns (name table1))]
-      #(->> %
-            (map munge-fn)
-            (jdbc/insert-multi! (name table2))))))
+    (jdbc/call-with-query-rows
+     [(format "select %s from %s" columns (name table1))]
+     #(->> %
+           (map munge-fn)
+           (jdbc/insert-multi! (name table2))))))
 
 (defn resource-params-cache-parameters-to-jsonb
   []

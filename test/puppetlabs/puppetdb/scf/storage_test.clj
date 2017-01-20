@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.scf.storage-test
   (:require [clojure.java.jdbc :as sql]
+            [clojure.set :as set]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.scf.hash :as shash]
@@ -27,7 +28,8 @@
             [clojure.math.combinatorics :refer [combinations subsets]]
             [clj-time.core :refer [ago before? from-now now days]]
             [clj-time.coerce :refer [to-timestamp to-string]]
-            [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]))
+            [puppetlabs.puppetdb.jdbc :as jdbc
+             :refer [call-with-query-rows query-to-vec]]))
 
 (def reference-time "2014-10-28T20:26:21.727Z")
 (def previous-time "2014-10-26T20:26:21.727Z")
@@ -185,9 +187,12 @@
         ;;Ensuring here that new records are inserted, updated
         ;;facts are updated (not deleted and inserted) and that
         ;;the necessary deletes happen
-        (tu/with-wrapped-fn-args [insert-multis jdbc/insert-multi!
-                                  updates jdbc/update!]
-          (let [new-facts {"domain" "mynewdomain.com"
+        (tu/with-wrapped-fn-args [updates jdbc/update!]
+          (let [fact-path-set #(->> (query-to-vec "select * from fact_paths")
+                                    (map :path)
+                                    set)
+                initial-paths (fact-path-set)
+                new-facts {"domain" "mynewdomain.com"
                            "fqdn" "myhost.mynewdomain.com"
                            "hostname" "myhost"
                            "kernel" "Linux"
@@ -235,11 +240,9 @@
                           (and (= :factsets (first update-call))
                                (:timestamp (second update-call))))
                         @updates)))
-            (testing "should only insert uptime_seconds"
-              (is (some #{[:fact_paths [{:path "uptime_seconds"
-                                         :name "uptime_seconds"
-                                         :depth 0}]]}
-                        @insert-multis))))))
+            (testing "only new path is uptime_seconds"
+              (is (= #{"uptime_seconds"}
+                     (set/difference (fact-path-set) initial-paths)))))))
 
       (testing "replacing all new facts"
         (delete-certname-facts! certname)
@@ -967,10 +970,12 @@
            {:title "/etc/foobar/baz"
             :tags #{"file" "class" "foobar"}
             :line 20}}
-         (-> (query-to-vec "SELECT title, tags, line FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname)
-             jdbc/convert-result-arrays
-             tags->set
-             set)))
+         (call-with-query-rows
+          [(str "select title, tags, line from catalog_resources"
+                "  inner join certnames c on c.id = certname_id"
+                "  where c.certname = ?")
+           certname]
+          #(-> % tags->set set))))
 
   (replace-catalog! (update-in catalog [:resources]
                            (fn [resources]
@@ -986,10 +991,12 @@
            {:title "/etc/foobar/baz"
             :line 20
             :tags #{"file" "class" "foobar"}}}
-         (-> (query-to-vec "SELECT title, tags, line FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname)
-             jdbc/convert-result-arrays
-             tags->set
-             set))))
+         (call-with-query-rows
+          [(str "select title, tags, line from catalog_resources"
+                "  inner join certnames c on c.id = certname_id"
+                "  where c.certname = ?")
+           certname]
+          #(-> % tags->set set)))))
 
 (deftest-db removing-resources
   (let [{certname :certname :as catalog} (:basic catalogs)
