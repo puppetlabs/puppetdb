@@ -10,7 +10,8 @@
             [puppetlabs.puppetdb.command :as command]
             [clj-time.core :as time :refer [now]]
             [puppetlabs.puppetdb.query-eng :as qeng]
-            [puppetlabs.puppetdb.generative.generators :as pdb-gen]))
+            [puppetlabs.puppetdb.generative.generators :as pdb-gen]
+            [puppetlabs.puppetdb.examples.reports :as example-reports]))
 
 (def ten-timestamps #{"2016-12-19T23:30:00.000Z"
                       "2016-12-19T23:31:00.000Z"
@@ -144,3 +145,7 @@
    {:payload {:certname "b.com", :environment "production", :producer_timestamp "2016-12-19T23:38:00.000Z", :producer "b.com", :values {"b", 43}}, :received (now), :command "replace facts", :version 5, :certname "b.com"}
    {:payload {:certname "b.com", :environment "production", :producer_timestamp "2016-12-19T23:32:00.000Z", :producer "c.com", :values {"a", 42}}, :received (now), :command "replace facts", :version 5, :certname "b.com"}))
 
+(t/deftest reports-with-different-producer-timestamps-commute-test
+  (check-commands-commute
+   {:payload (assoc example-reports/v8-report :producer_timestamp "2016-12-19T23:38:00.000Z"), :received (now), :command "store report", :version 8, :certname "b.com"}
+   {:payload (assoc example-reports/v8-report :producer_timestamp "2016-12-19T23:32:00.000Z"), :received (now), :command "store report", :version 8, :certname "b.com"}))
