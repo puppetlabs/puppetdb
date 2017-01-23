@@ -138,3 +138,9 @@
      (print "-") (flush)
      (apply check-commands-commute commands))))
 
+;;; Regression tests for specific issues found via generative tests
+(t/deftest factsets-with-different-producers-commute-test
+  (check-commands-commute
+   {:payload {:certname "b.com", :environment "production", :producer_timestamp "2016-12-19T23:38:00.000Z", :producer "b.com", :values {"b", 43}}, :received (now), :command "replace facts", :version 5, :certname "b.com"}
+   {:payload {:certname "b.com", :environment "production", :producer_timestamp "2016-12-19T23:32:00.000Z", :producer "c.com", :values {"a", 42}}, :received (now), :command "replace facts", :version 5, :certname "b.com"}))
+

@@ -1095,7 +1095,8 @@
                     :producer_timestamp (to-timestamp producer_timestamp)
                     :hash (-> fact-data
                               shash/fact-identity-hash
-                              sutils/munge-hash-for-storage)}
+                              sutils/munge-hash-for-storage)
+                    :producer_id (ensure-producer producer)}
                    ["id=?" factset-id]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
