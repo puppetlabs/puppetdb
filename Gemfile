@@ -67,7 +67,8 @@ group :acceptance do
     #use the specified version
     gem 'beaker', *location_for(beaker_version)
   else
-    # use the pinned version
-    gem 'beaker', '~> 3.4'
+    # TEMP: this is so we can include the duplicate aws keys fix, until released
+    gem 'beaker', :git => 'git://github.com/puppetlabs/beaker.git',
+      :ref => '38873baa8f7b17d5ffdfaa92803d5a6beb21256f'
   end
 end
