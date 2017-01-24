@@ -1,109 +1,96 @@
 (ns puppetlabs.puppetdb.generative.generators
-  (:require [clojure.test.check.generators :as gen]
-            [com.gfredericks.test.chuck.generators :as chuck-gen]
-            [clj-time.core :as time :refer [now]]))
-
+  (:require [puppetlabs.puppetdb.generative.overridable-generators :as gen :refer [defgen]]))
 
 ;;; common data types and combinators
-(defn nilable [g]
-  (gen/one-of [(gen/return nil) g]))
 
 (defn string+
-  ([]
-   (gen/fmap clojure.string/join (gen/vector gen/char-alphanumeric 1 255)))
-  ([max-len]
-   (gen/fmap clojure.string/join (gen/vector gen/char-alphanumeric 1 max-len))))
+  ([] (string+ 255))
+  ([max-len] (gen/fmap clojure.string/join (gen/vector gen/char-alphanumeric 1 max-len))))
 
-(defn pg-smallint [] (gen/choose -32768 32767))
-(defn pg-integer [] (gen/choose -2147483648 2147483647))
-(defn pg-pos-integer [] (gen/choose 1 2147483647))
-(defn pg-bigint [] (gen/choose -9223372036854775808 9223372036854775807))
+(def pg-smallint (gen/choose -32768 32767))
+(def pg-integer (gen/choose -2147483648 2147483647))
+(def pg-pos-integer (gen/choose 1 2147483647))
+(def pg-bigint (gen/choose -9223372036854775808 9223372036854775807))
 
-(defn uuid-string [] (gen/fmap str gen/uuid))
+(def uuid-string (gen/fmap str gen/uuid))
 
-(defn datetime []
+(def datetime
   (gen/fmap clj-time.coerce/from-long
-            (gen/choose 50000000000 2000000000000)))
+        (gen/choose 50000000000 2000000000000)))
 
-
+(def json-value
+  (let [leaf-gen (gen/one-of [(string+)
+                              pg-integer
+                              gen/boolean])]
+    (gen/one-of [leaf-gen
+                 (gen/recursive-gen
+                  (fn [inner-gen] (gen/one-of [(gen/vector inner-gen)
+                                               (gen/map (string+) inner-gen)]))
+                  leaf-gen)])))
 
 ;;; catalog generator
 
-(defn certname [] (string+))
-(defn environment [] (string+))
-(defn transaction_uuid [] (uuid-string))
-(defn catalog_uuid [] (uuid-string))
-(defn producer_timestamp [] (string+))
+(defgen :puppet/certname (string+))
+(defgen :puppet/environment (string+))
+(defgen :puppet/transaction_uuid uuid-string)
+(defgen :puppet/catalog_uuid uuid-string)
+(defgen :puppet/producer_timestamp (string+))
+(defgen :puppet/producer (string+))
 
-(defn producer [] (string+))
-(defn code_id [] (nilable (string+)))
+(defgen :catalog/code_id (gen/nilable (string+)))
+(defgen :catalog/version (gen/fmap str gen/nat))
 
-(defn version [] (string+))
+(defgen :edge/resource-spec (gen/keys :resource/type :resource/title))
+(defgen :edge/source :edge/resource-spec)
+(defgen :edge/target :edge/resource-spec)
+(defgen :edge/relationship
+  (gen/elements ["contains"
+                 "required-by"
+                 "notifies"
+                 "before"
+                 "subscription-of"]))
 
-(defn resource-type [] (string+))
-(defn resource-title [] (string+))
-(defn resource_spec []
-  (gen/hash-map :type (resource-type)
-                :title (resource-title)))
+(defgen :catalog/edge (gen/keys :edge/source :edge/target :edge/relationship))
+(defgen :catalog/edges (gen/vector :catalog/edge))
 
-(defn source [] (resource_spec))
-(defn target [] (resource_spec))
-(defn relationship []
-  (gen/one-of (map gen/return
-                   ["contains"
-                    "required-by"
-                    "notifies"
-                    "before"
-                    "subscription-of"])))
+(defgen :resource/type (string+))
+(defgen :resource/title (string+))
+(defgen :resource/exported gen/boolean)
+(defgen :resource/file (string+ 1024))
+(defgen :resource/line pg-pos-integer)
 
-(defn edge []
-  (gen/hash-map :source (source)
-                :target (target)
-                :relationship (relationship)))
+(defgen :resource/tag  (gen/string-from-regex #"[a-z0-9_][a-z0-9_:\-.]*"))
+(defgen :resource/tags (gen/vector :resource/tag 0 3))
 
-(defn edges [] (gen/vector (edge)))
-
-(defn exported [] gen/boolean)
-(defn file [] (string+ 1024))
-(defn line [] (pg-pos-integer))
-
-(defn tag [] (chuck-gen/string-from-regex #"[a-z0-9_][a-z0-9_:\-.]*"))
-(defn tags [] (gen/vector (tag) 0 3))
-
-(defn resource-param-name [] (string+ 40))
-
-(defn resource-param-value []
+(defgen :resource.param/name (string+ 40))
+(defgen :resource.param/value
   (gen/recursive-gen
    (fn [inner-gen]
      (gen/one-of [(gen/map (string+) inner-gen)
                   (gen/vector inner-gen)]))
    (gen/one-of [(string+)
-                (pg-smallint)
+                pg-smallint
                 gen/boolean])))
 
-(defn resource-parameters []
-  (gen/map (resource-param-name) (resource-param-value)))
+(defgen :resource/parameters (gen/map :resource.param/name :resource.param/value))
+(defgen :catalog/resource (gen/keys :resource/type
+                                    :resource/title
+                                    :resource/exported
+                                    :resource/file
+                                    :resource/line
+                                    :resource/parameters
+                                    :resource/tags))
 
-(defn resource []
-  (gen/hash-map :type (resource-type)
-                :title (resource-title)
-                :exported (exported)
-                :file (file)
-                :line (line)
-                :parameters (resource-parameters)
-                :tags (tags)))
+(defgen :catalog/resources
+  (gen/vector-distinct :catalog/resource))
 
-(defn resources []
-  (gen/vector-distinct (resource)))
-
-(defn resource-tree []
+(defgen :catalog/resource-tree
   (gen/recursive-gen
    (fn [inner-gen]
      (gen/hash-map :children (gen/vector inner-gen)
-                   :resource (resource)
-                   :relationship (relationship)))
-   (gen/fmap (fn [r] {:resource r})
-             (resource))))
+                   :resource :catalog/resource
+                   :relationship :edge/relationship))
+   (gen/keys :catalog/resource)))
 
 (defn resource-tree-to-edge-list [rt]
   (let [nodes (tree-seq :children :children rt)
@@ -122,176 +109,176 @@
     {:resources resources
      :edges edges}))
 
-(defn catalog []
+(defgen :puppet/catalog
   (gen/fmap (fn [cat]
               (-> cat
                   (dissoc :resource-tree)
                   (merge (resource-tree-to-edge-list (:resource-tree cat)))))
-            (gen/hash-map :certname (certname)
-                          :version (version)
-                          :environment (environment)
-                          :transaction_uuid (transaction_uuid)
-                          :catalog_uuid (catalog_uuid)
-                          :producer_timestamp (producer_timestamp)
-                          :producer (producer)
-                          :code_id (code_id)
-                          ;; :edges (edges)
-                          ;; :resources (resources)
-                          :resource-tree (resource-tree))))
+            (gen/keys :puppet/certname
+                      :puppet/environment
+                      :puppet/transaction_uuid
+                      :puppet/catalog_uuid
+                      :puppet/producer_timestamp
+                      :puppet/producer
+                      :catalog/version
+                      :catalog/code_id
+                      :catalog/resource-tree)))
 
 ;;; factset generator
 
-(defn json-value []
-  (gen/recursive-gen
-   (fn [inner-gen]
-     (gen/one-of [(gen/vector inner-gen)
-                  (gen/map (string+) inner-gen)]))
-   (gen/one-of [(string+)
-                (pg-integer)
-                gen/boolean])))
+(defgen :fact/name (string+))
+(defgen :fact/value json-value)
+(defgen :fact/values (gen/map :fact/name :fact/value))
 
-(defn fact-name [] (string+))
-(defn fact-value [] (json-value))
-
-(defn factset []
-  (gen/hash-map :certname (certname)
-                :environment (environment)
-                :producer_timestamp (producer_timestamp)
-                :producer (producer)
-                :values (gen/map (fact-name)
-                                 (fact-value))))
+(defgen :puppet/factset
+  (gen/keys :puppet/certname
+            :puppet/environment
+            :puppet/producer_timestamp
+            :puppet/producer
+            :fact/values))
 
 ;;; report generator
 
-(defn puppet_version [] (string+))
-(defn configuration_version [] (string+))
-(defn start_time [] (datetime))
-(defn end_time [] (datetime))
-(defn status [] (string+ 40))
-(defn noop [] gen/boolean)
-(defn corrective_change [] (nilable gen/boolean))
+(defgen :report/puppet_version (string+))
+(defgen :report/configuration_version (string+))
+(defgen :report/start_time datetime)
+(defgen :report/end_time datetime)
+(defgen :report/status (string+ 40))
+(defgen :report/noop gen/boolean)
+(defgen :report/corrective_change (gen/nilable gen/boolean))
 
-(defn resource-event-status [] (gen/elements ["success" "failure" "noop" "skipped"]))
-(defn resource-event-timestamp [] (datetime))
-(defn resource-event-property [] (resource-param-name))
-(defn resource-event-new-value [] (resource-param-value))
-(defn resource-event-old-value [] (resource-param-value))
-(defn resource-event-message [] (string+))
-(defn resource-event-containment-path [] (gen/vector (string+)))
+(defgen :resource-event/status (gen/elements ["success" "failure" "noop" "skipped"]))
+(defgen :resource-event/timestamp datetime)
+(defgen :resource-event/property :resource.param/name)
+(defgen :resource-event/new_value :resource.param/value)
+(defgen :resource-event/old_value :resource.param/value)
+(defgen :resource-event/message (string+))
+(defgen :resource-event/containment_path (gen/vector (string+)))
+(defgen :resource-event/corrective_change (gen/nilable gen/boolean))
 
-(defn resource-event []
-  (gen/hash-map :status (resource-event-status)
-                :timestamp (resource-event-timestamp)
-                :property (resource-event-property)
-                :new_value (resource-event-new-value)
-                :old_value (resource-event-old-value)
-                :message (resource-event-message)
-                :corrective_change (corrective_change)))
+(defgen :report-resource/event
+  (gen/keys :resource-event/status
+            :resource-event/timestamp
+            :resource-event/property
+            :resource-event/new_value
+            :resource-event/old_value
+            :resource-event/message
+            :resource-event/corrective_change))
 
-(defn resource-events []
-  (gen/vector-distinct-by :property (resource-event)
-                          {:min-elements 1
-                           :max-elements 10}))
+(defgen :report-resource/events
+  (gen/vector-distinct-by :property
+                          :report-resource/event
+                          {:min-elements 1 :max-elements 10}))
 
-(defn resource-timestamp [] (datetime))
-(defn resource-skipped [] gen/boolean)
+(defgen :report-resource/timestamp datetime)
+(defgen :report-resource/resource_type :resource/type)
+(defgen :report-resource/resource_title :resource/title)
+(defgen :report-resource/skipped gen/boolean)
+(defgen :report-resource/file :resource/file)
+(defgen :report-resource/line :resource/line)
+(defgen :report-resource/containment_path :resource-event/containment_path)
 
-(defn report-resource []
-  (gen/hash-map :timestamp (resource-timestamp)
-                :resource_type (resource-type)
-                :resource_title (resource-title)
-                :skipped (resource-skipped)
-                :events (resource-events)
-                :file (file)
-                :line (line)
-                :containment_path (resource-event-containment-path)))
+(defgen :report/resource
+  (gen/keys :report-resource/timestamp
+            :report-resource/resource_type
+            :report-resource/resource_title
+            :report-resource/skipped
+            :report-resource/events
+            :report-resource/file
+            :report-resource/line
+            :report-resource/containment_path))
 
-(defn report-resources  []
+(defgen :report/resources
   (gen/vector-distinct-by (juxt :resource_type :resource_title)
-                          (report-resource)
+                          :report/resource
                           {:min-elements 0
                            :max-elements 10}))
 
-(defn metric-category [] (gen/elements ["resources" "time" "changes" "events"]))
-(defn metric-name [] (string+))
-(defn metric-value [] gen/double)
+(defgen :metric/category (gen/elements ["resources" "time" "changes" "events"]))
+(defgen :metric/name (string+))
+(defgen :metric/value gen/double)
 
-(defn metric []
-  (gen/hash-map :category (metric-category)
-                :name (metric-name)
-                :value (metric-value)))
+(defgen :report/metric
+  (gen/keys :metric/category :metric/name :metric/value))
 
-(defn metrics []
-  (gen/vector (metric) 1 10))
+(defgen :report/metrics
+  (gen/vector :report/metric 1 10))
 
-(defn log-level [] (gen/elements ["info" "warn" "error" "debug"]))
-(defn log-source [] (string+))
-(defn log-timestamp [] (datetime))
-(defn log-message [] (string+))
+(defgen :log/file :resource/file)
+(defgen :log/line :resource/line)
+(defgen :log/level (gen/elements ["info" "warn" "error" "debug"]))
+(defgen :log/message (string+))
+(defgen :log/source (string+))
+(defgen :log/tags :resource/tags)
+(defgen :log/time datetime)
 
-(defn log []
-  (gen/hash-map :file (file)
-                :line (line)
-                :level (log-level)
-                :message (log-message)
-                :source (log-source)
-                :tags (tags)
-                :time (log-timestamp)))
+(defgen :report/log
+  (gen/keys :log/file
+            :log/line
+            :log/level
+            :log/message
+            :log/source
+            :log/tags
+            :log/time))
 
-(defn logs []
-  (gen/vector (log) 1 10))
+(defgen :report/logs
+  (gen/vector :report/log 1 10))
 
-(defn report []
-  (gen/hash-map :certname (certname)
-                :environment (environment)
-                :puppet_version (puppet_version)
-                :configuration_version (configuration_version)
-                :start_time (start_time)
-                :end_time (end_time)
-                :producer_timestamp (producer_timestamp)
-                :transaction_uuid (transaction_uuid)
-                :status (status)
-                :noop (noop)
-                :resources (report-resources)
-                :metrics (metrics)
-                :logs (logs)
-                :transaction_uuid (transaction_uuid)
-                :catalog_uuid (catalog_uuid)
-                :code_id (code_id)
-                :cached_catalog_status (gen/return nil)
-                :corrective_change (corrective_change)
-                :report_format (gen/return 4)))
+(defgen :report/cached_catalog_status
+  (gen/return nil))
+
+(defgen :report/report_format
+  (gen/return 4))
+
+(defgen :puppet/report
+  (gen/keys :puppet/certname
+            :puppet/environment
+            :puppet/transaction_uuid
+            :puppet/catalog_uuid
+            :report/puppet_version
+            :report/configuration_version
+            :report/start_time
+            :puppet/producer_timestamp
+            :report/end_time
+            :report/status
+            :report/noop
+            :report/resources
+            :report/metrics
+            :report/logs
+            :catalog/code_id
+            :report/cached_catalog_status
+            :report/corrective_change
+            :report/report_format))
 
 ;;; command generator
 
-(defn command-received []
-  (string+))
+(defgen :command/received (string+))
 
-(defn replace-catalog-command []
+(defgen :puppetdb.commands/replace-catalog
   (gen/fmap #(assoc %
-                    :command "replace catalog"
                     :version (Integer/parseInt (-> % :payload :version))
                     :certname (-> % :payload :certname))
-            (gen/hash-map :payload (catalog)
-                          :received (command-received))))
+            (gen/hash-map :command (gen/return "replace catalog")
+                          :payload :puppet/catalog
+                          :received :command/received)))
 
-(defn replace-facts-command []
+(defgen :puppetdb.commands/replace-facts
   (gen/fmap #(assoc %
-                    :command "replace facts"
-                    :version 5
                     :certname (-> % :payload :certname))
-            (gen/hash-map :payload (factset)
-                          :received (command-received))))
+            (gen/hash-map :command (gen/return "replace facts")
+                          :version (gen/return 5)
+                          :payload :puppet/factset
+                          :received :command/received)))
 
-(defn store-report-command []
+(defgen :puppetdb.commands/store-report
   (gen/fmap #(assoc %
-                    :command "store report"
-                    :version 7
                     :certname (-> % :payload :certname))
-            (gen/hash-map :payload (report)
-                          :received (command-received))))
+            (gen/hash-map :command (gen/return "store report")
+                          :version (gen/return 7)
+                          :payload :puppet/report
+                          :received :command/received)))
 
-(defn command []
-  (gen/one-of [(replace-catalog-command)
-               (replace-facts-command)
-               (store-report-command)]))
+(defgen :puppetdb/command
+  (gen/one-of [:puppetdb.commands/replace-catalog
+               :puppetdb.commands/replace-facts
+               :puppetdb.commands/store-report]))

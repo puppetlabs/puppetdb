@@ -2,7 +2,6 @@
   (:require [puppetlabs.puppetdb.command :as cmd]
             [clojure.test :as t]
             [clojure.test.check.clojure-test :as tc]
-            [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
@@ -10,6 +9,7 @@
             [puppetlabs.puppetdb.command :as command]
             [clj-time.core :as time :refer [now]]
             [puppetlabs.puppetdb.query-eng :as qeng]
+            [puppetlabs.puppetdb.generative.overridable-generators :as gen]
             [puppetlabs.puppetdb.generative.generators :as pdb-gen]
             [puppetlabs.puppetdb.examples.reports :as example-reports]))
 
@@ -24,26 +24,25 @@
                       "2016-12-19T23:38:00.000Z"
                       "2016-12-19T23:39:00.000Z"})
 
-(defmacro with-catalog-overrides [body]
-  `(with-redefs [pdb-gen/certname #(gen/elements ["a.com" "b.com" "c.com"])
-                 pdb-gen/version #(gen/return "9")
-                 pdb-gen/environment #(gen/return "production")
-                 pdb-gen/producer_timestamp #(gen/elements ten-timestamps)
-                 pdb-gen/command-received #(gen/fmap clj-time.coerce/from-string
-                                                     (gen/elements ten-timestamps))
-                 pdb-gen/datetime #(gen/fmap clj-time.coerce/from-string
-                                                     (gen/elements ten-timestamps))
-                 pdb-gen/producer #(gen/elements ["a.com" "b.com" "c.com"])
-                 pdb-gen/edges #(gen/return [])
-                 pdb-gen/resource-parameters #(gen/map (pdb-gen/string+)
-                                                       (gen/one-of [(pdb-gen/string+)
-                                                                    (pdb-gen/pg-smallint)
-                                                                    gen/boolean])
-                                                       {:min-elements 0
-                                                        :max-elements 3})]
-     ~body))
+(def timestamp-gen
+  (gen/fmap clj-time.coerce/from-string
+            (gen/elements ten-timestamps)))
+
+(def overrides {:puppet/certname (gen/elements ["a.com" "b.com" "c.com"])
+                :catalog/version (gen/return "9")
+                :puppet/environment (gen/elements ["production" "development" "test"])
+                :puppet/producer_timestamp timestamp-gen
+                :command/received timestamp-gen
+                :puppet/producer (gen/elements ["a.com" "b.com" "c.com"])
+                :catalog/resource-parameters (gen/map (pdb-gen/string+)
+                                                      (gen/one-of [(pdb-gen/string+)
+                                                                   pdb-gen/pg-smallint
+                                                                   gen/boolean])
+                                                      {:min-elements 0
+                                                       :max-elements 3})})
 
 ;;; Utilities for comparing puppetdb states
+
 (defn all-catalogs [db]
   (->> (qeng/stream-query-result :v4
                              ["from" "catalogs"]
@@ -93,30 +92,28 @@
 
 ;;; Generative tests
 
-(tc/defspec submit-commands 60
-  (with-catalog-overrides
-    (prop/for-all
-     [cmd (gen/no-shrink (pdb-gen/command))]
-     (print "-") (flush)
-     (with-test-db
-       (t/is (= nil (cmd/process-command! cmd *db*)))))))
+(tc/defspec submit-commands 25
+  (prop/for-all
+   [cmd (->> :puppetdb/command
+             (gen/override overrides)
+             gen/no-shrink
+             gen/convert)]
+   (with-test-db
+     (t/is (= nil (cmd/process-command! cmd *db*))))))
 
-(tc/defspec same-command-produces-equal-snapshots 60
-  (with-catalog-overrides
-    (prop/for-all
-     [cmd (gen/no-shrink (pdb-gen/command))]
-     (print "-") (flush)
-     (let [state-1 (with-test-db
-                     (cmd/process-command! cmd *db*)
-                     (state-snapshot *db*))
-           state-2 (with-test-db
-                     (cmd/process-command! cmd *db*)
-                     (state-snapshot *db*))]
-       (t/is (= state-1 state-2))))))
-
-(defn extract-producer-timestamp [command-map]
-  (-> command-map :payload (json/parse-string true) :producer_timestamp))
-
+(tc/defspec same-command-produces-equal-snapshots 25
+  (prop/for-all
+   [cmd (->> :puppetdb/command
+             (gen/override overrides)
+             gen/no-shrink
+             gen/convert)]
+   (let [state-1 (with-test-db
+                   (cmd/process-command! cmd *db*)
+                   (state-snapshot *db*))
+         state-2 (with-test-db
+                   (cmd/process-command! cmd *db*)
+                   (state-snapshot *db*))]
+     (t/is (= state-1 state-2)))))
 
 (defn check-commands-commute [cmd1 cmd2]
   (let [state-1 (with-test-db
@@ -129,15 +126,14 @@
                   (state-snapshot *db*))]
     (t/is (= state-1 state-2))))
 
-(tc/defspec commands-are-commutative 60
-  (with-catalog-overrides
-    (prop/for-all
-     ;; we know that commands must be unique by certname + producer-timestamp to commute
-     [commands (gen/vector-distinct-by (juxt :certname (comp :producer_timestamp :payload))
-                                         (gen/no-shrink (pdb-gen/command))
-                                         {:num-elements 2})]
-     (print "-") (flush)
-     (apply check-commands-commute commands))))
+(tc/defspec commands-are-commutative 25
+  (prop/for-all
+   ;; we know that commands must be unique by certname + producer-timestamp to commute
+   [commands (gen/convert (gen/vector-distinct-by (juxt :certname (comp :producer_timestamp :payload))
+                                                  (gen/no-shrink (gen/override overrides
+                                                                               :puppetdb/command))
+                                                  {:num-elements 2}))]
+   (apply check-commands-commute commands)))
 
 ;;; Regression tests for specific issues found via generative tests
 (t/deftest factsets-with-different-producers-commute-test
