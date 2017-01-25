@@ -20,7 +20,8 @@
             [clojure.tools.logging :as log]
             [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.middleware :as mid]
-            [clojure.core.match :as cm]))
+            [clojure.core.match :as cm]
+            [puppetlabs.puppetdb.testutils :as tu]))
 
 (defn notable-pdb-event? [event] true)
 
@@ -109,7 +110,7 @@
   (let [response (http/post dest-sync-url
                              {:headers {"content-type" "application/json"}
                               :body (json/generate-string {:remote_host_path source-pdb-url})
-                              :query-params {"secondsToWaitForCompletion" "15"}
+                              :query-params {"secondsToWaitForCompletion" (str (/ tu/default-timeout-ms 1000))}
                               :as :text})]
     (when (>= (:status response) 400)
       (log/errorf "Failed to perform blocking sync, response is:\n %s" (pprint-str response))
