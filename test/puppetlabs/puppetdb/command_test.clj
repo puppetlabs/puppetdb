@@ -1672,9 +1672,9 @@
 
            (.release semaphore)
 
-           (is (not= ::timed-out (deref cmd-1 5000 ::timed-out)))
-           (is (not= ::timed-out (deref cmd-2 5000 ::timed-out)))
-           (is (not= ::timed-out (deref cmd-3 5000 ::timed-out)))
+           (is (not= ::timed-out (deref cmd-1 15000 ::timed-out)))
+           (is (not= ::timed-out (deref cmd-2 15000 ::timed-out)))
+           (is (not= ::timed-out (deref cmd-3 15000 ::timed-out)))
 
            ;; There's currently a lot of layering in the messaging
            ;; stack. The callback mechanism that delivers the promise
