@@ -60,15 +60,14 @@
   [certname :- String]
   (let [result (jdbc/query
                 ["SELECT fp.path as name,
-                    COALESCE(fv.value_string,
-                             cast(fv.value_integer as text),
-                             cast(fv.value_boolean as text),
-                             cast(fv.value_float as text),
+                    COALESCE(f.value_string,
+                             cast(f.value_integer as text),
+                             cast(f.value_boolean as text),
+                             cast(f.value_float as text),
                              '') as value
                     FROM factsets fs
                     INNER JOIN facts as f on fs.id = f.factset_id
                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                    INNER JOIN fact_values as fv on f.fact_value_id = fv.id
                     WHERE fp.depth = 0 AND fs.certname = ?"
                  certname])]
     (zipmap (map :name result)
@@ -77,11 +76,13 @@
 (deftest-db large-fact-update
   (testing "updating lots of facts"
     (let [certname "scale.com"
-          facts1 (zipmap (take 10000 (repeatedly #(random/random-string 10)))
-                         (take 10000 (repeatedly #(random/random-string 10))))
+          n1 10000
+          n2 11000
+          facts1 (zipmap (take n1 (repeatedly #(random/random-string 10)))
+                         (take n1 (repeatedly #(random/random-string 10))))
           timestamp1 (-> 2 days ago)
-          facts2 (zipmap (take 11000 (repeatedly #(random/random-string 10)))
-                         (take 11000 (repeatedly #(random/random-string 10))))
+          facts2 (zipmap (take n2 (repeatedly #(random/random-string 10)))
+                         (take n2 (repeatedly #(random/random-string 10))))
           timestamp2 (-> 1 days ago)
           producer "bar.com"]
       (add-certname! certname)
@@ -92,9 +93,9 @@
                    :producer_timestamp timestamp1
                    :producer producer})
 
-      (testing "10000 facts stored"
-        (is (= 10000
-               (->> (query-to-vec "SELECT count(*) as c from fact_values")
+      (testing (str n1 " facts stored")
+        (is (= n1
+               (->> (query-to-vec "SELECT count(*) as c from facts")
                     first
                     :c))))
 
@@ -105,9 +106,9 @@
                       :producer_timestamp timestamp2
                       :producer producer})
 
-      (testing "11000 facts stored"
-        (is (= 11000
-               (->> (query-to-vec "SELECT count(*) as c from fact_values")
+      (testing (str n2 " facts stored")
+        (is (= n2
+               (->> (query-to-vec "SELECT count(*) as c from facts")
                     first
                     :c)))))))
 
@@ -158,15 +159,14 @@
       (testing "should have entries for each fact"
         (is (= (query-to-vec
                 "SELECT fp.path as name,
-                        COALESCE(fv.value_string,
-                                 cast(fv.value_integer as text),
-                                 cast(fv.value_boolean as text),
-                                 cast(fv.value_float as text),
+                        COALESCE(f.value_string,
+                                 cast(f.value_integer as text),
+                                 cast(f.value_boolean as text),
+                                 cast(f.value_float as text),
                                  '') as value,
                         fs.certname
                  FROM factsets fs
                    INNER JOIN facts as f on fs.id = f.factset_id
-                   INNER JOIN fact_values as fv on f.fact_value_id = fv.id
                    INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                  WHERE fp.depth = 0
                  ORDER BY name")
@@ -206,14 +206,13 @@
             (testing "should have only the new facts"
               (is (= (query-to-vec
                       "SELECT fp.path as name,
-                              COALESCE(fv.value_string,
-                                       cast(fv.value_integer as text),
-                                       cast(fv.value_boolean as text),
-                                       cast(fv.value_float as text),
+                              COALESCE(f.value_string,
+                                       cast(f.value_integer as text),
+                                       cast(f.value_boolean as text),
+                                       cast(f.value_float as text),
                                        '') as value
                        FROM factsets fs
                          INNER JOIN facts as f on fs.id = f.factset_id
-                         INNER JOIN fact_values as fv on f.fact_value_id = fv.id
                          INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                        WHERE fp.depth = 0
                        ORDER BY name")
@@ -340,14 +339,13 @@
                (into {} (map (juxt :name :value)
                              (query-to-vec
                               "SELECT fp.path as name,
-                                      COALESCE(fv.value_string,
-                                               cast(fv.value_integer as text),
-                                               cast(fv.value_boolean as text),
-                                               cast(fv.value_float as text),
+                                      COALESCE(f.value_string,
+                                               cast(f.value_integer as text),
+                                               cast(f.value_boolean as text),
+                                               cast(f.value_float as text),
                                                '') as value
                                FROM factsets fs
                                  INNER JOIN facts as f on fs.id = f.factset_id
-                                 INNER JOIN fact_values as fv on f.fact_value_id = fv.id
                                  INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                                WHERE fp.depth = 0
                                ORDER BY name")))))
@@ -371,14 +369,13 @@
                (into {} (map (juxt :name :value)
                              (query-to-vec
                               "SELECT fp.path as name,
-                                      COALESCE(fv.value_string,
-                                               cast(fv.value_integer as text),
-                                               cast(fv.value_boolean as text),
-                                               cast(fv.value_float as text),
+                                      COALESCE(f.value_string,
+                                               cast(f.value_integer as text),
+                                               cast(f.value_boolean as text),
+                                               cast(f.value_float as text),
                                                '') as value
                                FROM factsets fs
                                  INNER JOIN facts as f on fs.id = f.factset_id
-                                 INNER JOIN fact_values as fv on f.fact_value_id = fv.id
                                  INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                                WHERE fp.depth = 0
                                ORDER BY name")))))
@@ -387,7 +384,7 @@
                  :environment_id (environment-id "DEV")}]
                (query-to-vec "SELECT certname, environment_id FROM factsets")))))))
 
-(deftest fact-path-value-gc
+(deftest fact-path-gc
   (letfn [(facts-now [c v]
             {:certname c :values v
              :environment nil :timestamp (now) :producer_timestamp (now) :producer nil})
@@ -399,17 +396,17 @@
           (db-vals []
             (set (mapv :value (query-to-vec
                                ;; Note: currently can't distinguish 10 from "10".
-                               "SELECT COALESCE(fv.value_string,
-                                                cast(fv.value_integer as text),
-                                                cast(fv.value_boolean as text),
-                                                cast(fv.value_float as text),
+                               "SELECT COALESCE(f.value_string,
+                                                cast(f.value_integer as text),
+                                                cast(f.value_boolean as text),
+                                                cast(f.value_float as text),
                                                 '') as value
-                                  FROM fact_values fv"))))]
+                                  FROM facts f"))))]
     (testing "during add/replace (generally)"
       (with-test-db
         ;; Keep resetting the db facts to match the current state of
         ;; @fact-x and @facts-y, and then verify that fact_paths always
-        ;; contains exactly the set of keys across both, and fact_values
+        ;; contains exactly the set of keys across both, and facts
         ;; contains exactly the set of values across both.
         (let [facts-x (atom  {"a" "1" "b" "2" "c" "3"})
               facts-y (atom  {})]
@@ -439,6 +436,7 @@
           (is (= (db-vals) (values @facts-x @facts-y)))
           ;; CLEAR ALL THE FACTS!?
           (replace-facts! (facts-now "c-y" {})))))
+
     (testing "during replace, when value is only referred to by the same factset"
       (with-test-db
         (let [facts {"a" "1" "b" "1"}]
@@ -469,30 +467,7 @@
           (delete-orphaned-paths! 3)
           (is (= 7 (:c (first
                         (query-to-vec
-                         "select count(id) as c from fact_paths"))))))))
-    (testing "values - globally, incrementally"
-      (with-test-db
-        (jdbc/insert! :fact_values
-                      (update-in (value->valuemap "foo")
-                                 [:value_hash] sutils/munge-hash-for-storage))
-        (delete-orphaned-values! 0)
-        (is (= (db-vals) #{"foo"}))
-        (delete-orphaned-values! 1)
-        (is (empty? (db-vals)))
-        (jdbc/insert! :fact_values
-                      (update-in (value->valuemap "foo")
-                                 [:value_hash] sutils/munge-hash-for-storage))
-        (delete-orphaned-values! 11)
-        (is (empty? (db-vals)))
-        (jdbc/insert-multi!
-               :fact_values
-               (for [x (range 10)] (update-in (value->valuemap (str "foo-" x))
-                                              [:value_hash]
-                                              sutils/munge-hash-for-storage)))
-        (delete-orphaned-values! 3)
-        (is (= 7 (:c (first
-                      (query-to-vec
-                       "select count(id) as c from fact_values")))))))))
+                         "select count(id) as c from fact_paths"))))))))))
 
 (def catalog (:basic catalogs))
 (def certname (:certname catalog))
@@ -716,13 +691,9 @@
                  :environment "ENV3"
                  :producer_timestamp (-> 2 days ago)
                  :producer "bar.com"}))
-  (let [factset-id (:id (first (query-to-vec ["SELECT id from factsets"])))
-        fact-value-ids (set (map :id (query-to-vec ["SELECT id from fact_values"])))]
-
-    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 7))
+  (let [factset-id (:id (first (query-to-vec ["SELECT id from factsets"])))]
     (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 7))
     (delete-certname-facts! certname)
-    (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_values"]))) 0))
     (is (= (:c (first (query-to-vec ["SELECT count(id) as c FROM fact_paths"]))) 0))))
 
 (deftest-db catalog-bad-input
