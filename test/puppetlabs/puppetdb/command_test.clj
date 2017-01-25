@@ -54,7 +54,7 @@
             [puppetlabs.trapperkeeper.services
              :refer [service-context]]
             [overtone.at-at :refer [mk-pool scheduled-jobs]]
-            [puppetlabs.puppetdb.testutils :as tutils])
+            [puppetlabs.puppetdb.testutils :as tu])
   (:import [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
 
@@ -1305,7 +1305,7 @@
 
             (handle-message (store-command' q new-catalog-cmd))
 
-            (is (= ::handled-first-message (deref fut tutils/default-timeout-ms nil)))
+            (is (= ::handled-first-message (deref fut tu/default-timeout-ms nil)))
             (is (empty? (fs/list-dir (:path dlo))))
             (let [failed-cmdref (take-with-timeout!! command-chan default-timeout-ms)]
               (is (= 1 (count (:attempts failed-cmdref))))
@@ -1672,9 +1672,9 @@
 
            (.release semaphore)
 
-           (is (not= ::timed-out (deref cmd-1 tutils/default-timeout-ms ::timed-out)))
-           (is (not= ::timed-out (deref cmd-2 tutils/default-timeout-ms ::timed-out)))
-           (is (not= ::timed-out (deref cmd-3 tutils/default-timeout-ms ::timed-out)))
+           (is (not= ::timed-out (deref cmd-1 tu/default-timeout-ms ::timed-out)))
+           (is (not= ::timed-out (deref cmd-2 tu/default-timeout-ms ::timed-out)))
+           (is (not= ::timed-out (deref cmd-3 tu/default-timeout-ms ::timed-out)))
 
            ;; There's currently a lot of layering in the messaging
            ;; stack. The callback mechanism that delivers the promise
