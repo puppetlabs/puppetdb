@@ -10,6 +10,8 @@
 (defn transfer-meta [old-node new-node]
   (with-meta new-node (meta old-node)))
 
+;; In another commit
+
 (extend-protocol NodeTraversal
 
   clojure.lang.IPersistentMap
