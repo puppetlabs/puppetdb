@@ -13,7 +13,7 @@
             [puppetlabs.puppetdb.cli.services :refer [shared-globals]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
-            [puppetlabs.puppetdb.testutils :as tutils]
+            [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.services :refer [service-context]]
             [puppetlabs.kitchensink.core :as ks]
@@ -122,7 +122,7 @@
             (svc-utils/call-with-puppetdb-instance
              (assoc config :database *db*)
              (fn []
-               (await-processed 2 before-start-state tutils/default-timeout-ms)
+               (await-processed 2 before-start-state tu/default-timeout-ms)
                (is (not (needs-upgrade? config)))
                (let [results (cli-utils/get-catalogs "basic.wire-catalogs.com")]
                  (is (= 1 (count results)))
@@ -161,7 +161,7 @@
             (svc-utils/call-with-puppetdb-instance
              (assoc config :database *db*)
              (fn []
-               (await-processed 1 before-start-state tutils/default-timeout-ms)
+               (await-processed 1 before-start-state tu/default-timeout-ms)
                (is (= 2
                       (-> svc-utils/*server*
                           dlo-paths
@@ -176,7 +176,7 @@
       (with-test-db
         (let [config (svc-utils/create-temp-config)
               defaulted-config (conf/process-config! (assoc config :database *db*))
-              mock-upgrade-fn (tutils/mock-fn)]
+              mock-upgrade-fn (tu/mock-fn)]
 
           (is (not (needs-upgrade? config)))
 
