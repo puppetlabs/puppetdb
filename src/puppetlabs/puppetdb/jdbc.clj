@@ -18,6 +18,7 @@
 
 (defn db []
   *db*)
+;; A change here
 
 (defmacro with-db-connection [spec & body]
   `(sql/with-db-connection [db# ~spec]

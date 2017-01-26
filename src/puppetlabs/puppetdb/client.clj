@@ -40,6 +40,9 @@
                             :character-encoding "UTF-8"
                             :accept :json}))))
 
+
+;; And a change here
+
 (defn-validated submit-catalog
   "Send the given wire-format `catalog` (associated with `host`) to a
   command-processing endpoint located at `puppetdb-host`:`puppetdb-port`."
