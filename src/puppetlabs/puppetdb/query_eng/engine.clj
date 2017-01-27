@@ -1400,7 +1400,6 @@
                   (when-not (or columns (and local-columns foreign-columns))
                     (throw (IllegalArgumentException. (tru "Column definition for entity relationship ''{0}'' not valid" sub-entity))))
                   (do
-                    (log/warn (trs "The `subquery` operator is experimental and may change in the future."))
                     ["in" (or local-columns columns)
                      ["extract" (or foreign-columns columns)
                       [(str "select_" sub-entity) expr]]]))

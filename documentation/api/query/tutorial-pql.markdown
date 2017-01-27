@@ -16,9 +16,6 @@ layout: default
 [cli_install]: ../../pdb_client_tools.html
 [examples]: ./examples-pql.html
 
-> **Experimental Feature**: PQL is experimental, and it may be altered or
-> removed in a future release.
-
 This page walks through the construction of several types of PuppetDB PQL
 queries. We use the **version 4 API** in all examples.
 

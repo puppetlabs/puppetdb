@@ -32,7 +32,7 @@ PuppetDB's data can be queried with a REST API.
 
 * [Specification of the general query structure](./query/v4/query.html)
 * [AST query language][ast]
-* [Puppet query language (experimental)][pql]
+* [Puppet query language][pql]
 * [Query tutorial](./query/tutorial.html)
 * [Curl tips](./query/curl.html)
 

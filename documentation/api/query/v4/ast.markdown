@@ -218,10 +218,10 @@ To get the average uptime for your nodes:
 
 ## Dot notation
 
-*Note*: Dot notation for hash descendence is experimental. Currently it has
+*Note*: Dot notation for hash descendence is under development. Currently it has
 full support on the `facts` and `trusted` response keys of the `inventory`
 endpoint, and partial support on the `parameters` column of the resources
-endpoint.
+endpoint. It may be expanded to other endpoints in the future based on demand.
 
 Certain types of JSON data returned by PuppetDB can be queried in a structured
 way using `dot notation`. The rules for dot notation are:
@@ -283,8 +283,8 @@ valid queries would include
 
 ## Context operators
 
-*Note:* Context setting support is new and experimental. Setting the context at
-the top of the query is only supported on the [root] endpoint.
+*Note:* Setting the context at the top of the query is only supported on the
+[root] endpoint.
 
 Setting context in a query allows you to choose the entity you are querying
 on. This augments the endpoint support we have today, whereby the endpoint
@@ -370,8 +370,6 @@ data should be joined during the subquery.
 
 ### `subquery` (implicit subqueries)
 
-*Note:* Implicit subqueries are an experimental feature. Be warned that the functionality may change as we provide improvements.
-
 Implicit queries work like most operators, and simply require you to specify the
 related entity and the query to use:
 
@@ -425,8 +423,6 @@ The second new methodology uses `from` to set the context, and now looks like th
 
     ["in", ["<FIELDS>"], ["from", <ENTITY>, ["extract", ["<FIELDS>"], <SUBQUERY>] ] ]
 
-*Note:* This new format is experimental and may be changed or removed in the future.
-
 That is:
 
 * The `in` operator results in a complete query string. The `extract` operator and the subqueries do not.
@@ -457,7 +453,7 @@ An `in` statement constitutes a full query string, which can be used alone or as
   * an **`extract` statement,** which acts as a list of fields to extract during
    the subquery for matching against the **fields** in the `in` clause.
   * a **`from` statement,** which sets the context, and allows for an extract
-   statement to be provided. *Note:* this syntax is new and experimental.
+   statement to be provided.
   * an **`array` statement,** which acts as a list of values to match against the
    **field** in the `in` clause.
 
@@ -496,9 +492,6 @@ For example, the following query on the `/nodes` endpoint is valid:
        300000]]]
 
 #### `from`
-
-*Note:* The use of `from` in a subquery is experimental. It may change or be
- removed in the future.
 
 This statement works like the top-level [`from`](#context-operators) operator,
 and expects an [entity][entities] as the first argument and an optional query in
@@ -631,12 +624,10 @@ For the previous query, we also allow the shorthand
 
 and its counterpart with `false`.
 
-#### Explicit subquery examples (new experimental format)
+#### Explicit subquery examples (with the `from` operator)
 
-*Note:* The new syntax is experimental and may change or be removed.
-
-The new format re-orders the precedence of the context selection and the extraction
-so the format has changed. For example, a query such as this:
+Additions to the query language in support of PQL introduced new ways to
+express subqueries using the `from` operator. For example, a query such as this:
 
     ["and",
       ["=", "name", "ipaddress"],

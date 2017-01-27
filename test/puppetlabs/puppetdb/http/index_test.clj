@@ -58,8 +58,7 @@
     (testing "invalid from query"
       (let [{:keys [status body headers]} (query-response method endpoint ["from" "foobar"])]
         (is (re-find #"Invalid entity" body))
-        (is (= headers {"Content-Type" http/error-response-content-type
-                        "Warning" "The root endpoint is experimental"}))
+        (is (= headers {"Content-Type" http/error-response-content-type}))
         (is (= status http/status-bad-request)))
 
       ;; Ensure we parse anything that looks like AST/JSON as JSON not PQL
