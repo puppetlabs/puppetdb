@@ -36,10 +36,11 @@ To start using PuppetDB today:
 Version Note
 -----
 
-This manual covers the 2.3.x series of PuppetDB releases, which adds
-several new features and contains some breaking changes since the 1.x
-series. [See the release notes][releasenotes] for information on all
-changes.
+This manual covers the 2.3.x series of PuppetDB releases, which adds several
+new features and contains some breaking changes since the 1.x series. [See the
+release notes][releasenotes] for information on all changes. **Note** The 2.3.x
+series is End of Life: it is not expected to receive additional bugfixes and
+we strongly encourage users to upgrade away from it.
 
 
 What Data?
