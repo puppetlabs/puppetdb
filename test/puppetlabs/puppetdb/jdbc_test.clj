@@ -54,19 +54,21 @@
   (testing "max connections setting defaults to 25"
     (call-with-antonym-test-database
       (fn []
-        (let [pool (-> *db*
-                       defaulted-read-db-config
-                       subject/pooled-datasource)]
-          (is (= 25 (.getMaximumPoolSize (:datasource pool))))))))
+        (with-open [data-source (-> *db*
+                                    defaulted-read-db-config
+                                    subject/pooled-datasource
+                                    :datasource)]
+          (is (= 25 (.getMaximumPoolSize data-source)))))))
 
   (testing "max connections setting takes effect"
     (call-with-antonym-test-database
       (fn []
-        (let [pool (-> *db*
-                       defaulted-read-db-config
-                       (assoc :maximum-pool-size 5)
-                       subject/pooled-datasource)]
-          (is (= 5 (.getMaximumPoolSize (:datasource pool)))))))))
+        (with-open [data-source (-> *db*
+                                    defaulted-read-db-config
+                                    (assoc :maximum-pool-size 5)
+                                    subject/pooled-datasource
+                                    :datasource)]
+          (is (= 5 (.getMaximumPoolSize data-source))))))))
 
 (deftest-antonyms query-to-vec
   (testing "query string only"
