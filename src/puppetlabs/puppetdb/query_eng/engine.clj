@@ -35,11 +35,11 @@
                               {:select s/Any s/Any s/Any}))
 
 (def column-schema
-  "Column information: [\"value\" {:type :string :field fv.value_string ...}]"
+  "Column information: [\"value\" {:type :string :field f.value_string ...}]"
   {:type s/Keyword :field field-schema s/Any s/Any})
 
 (def projection-schema
-  "Named projection: [\"value\" {:type :string :field fv.value_string ...}]"
+  "Named projection: [\"value\" {:type :string :field f.value_string ...}]"
   [(s/one s/Str "name") (s/one column-schema "column")])
 
 (s/defrecord Query
@@ -126,73 +126,67 @@
 
 (def inventory-query
   "Query for inventory"
-  (map->Query {:projections {"certname" {:type :string
-                                         :queryable? true
-                                         :field :certnames.certname}
-                             "timestamp" {:type :timestamp
-                                          :queryable? true
-                                          :field :fs.timestamp}
-                             "environment" {:type :string
-                                            :queryable? true
-                                            :field :environments.environment}
-                             "facts" {:type :json
-                                      :queryable? true
-                                      :field {:select [[(h/json-object-agg :name :value) :facts]]
-                                              :from [[{:select [:fp.name  :fv.value]
-                                                       :from [[:facts :f]]
-                                                       :join [[:fact_values :fv]
-                                                              [:= :fv.id :f.fact_value_id]
+  (map->Query
+   {:projections {"certname" {:type :string
+                              :queryable? true
+                              :field :certnames.certname}
+                  "timestamp" {:type :timestamp
+                               :queryable? true
+                               :field :fs.timestamp}
+                  "environment" {:type :string
+                                 :queryable? true
+                                 :field :environments.environment}
+                  "facts" {:type :json
+                           :queryable? true
+                           :field {:select [[(h/json-object-agg :name :value)
+                                             :facts]]
+                                   :from [[{:select [:fp.name  :f.value]
+                                            :from [[:facts :f]]
+                                            :join [[:fact_paths :fp]
+                                                   [:= :fp.id :f.fact_path_id]
+                                                   [:value_types :vt]
+                                                   [:= :vt.id :f.value_type_id]]
+                                            :where [:and
+                                                    [:= :fp.depth 0]
+                                                    [:= :f.factset_id :fs.id]]}
+                                           :facts_data]]}}
+                  "trusted" {:type :queryable-json
+                             :queryable? true
+                             :field  {:select [[:f.value :trusted]]
+                                      :from [[:facts :f]]
+                                      :join [[:fact_paths :fp]
+                                             [:= :fp.id :f.fact_path_id]
+                                             [:value_types :vt]
+                                             [:= :vt.id :f.value_type_id]]
+                                      :where [:and
+                                              [:= :fp.depth 0]
+                                              [:= :f.factset_id :fs.id]
+                                              [:= :fp.name (hcore/raw "'trusted'")]]}}}
 
-                                                              [:fact_paths :fp]
-                                                              [:= :fp.id :f.fact_path_id]
+    :selection {:from [[:factsets :fs]]
+                :left-join [:environments
+                            [:= :fs.environment_id :environments.id]
 
-                                                              [:value_types :vt]
-                                                              [:= :vt.id :fv.value_type_id]]
-                                                       :where [:and
-                                                               [:= :fp.depth 0]
-                                                               [:= :f.factset_id :fs.id]]}
-                                                      :facts_data]]}}
-                             "trusted" {:type :queryable-json
-                                        :queryable? true
-                                        :field  {:select [[:fv.value :trusted]]
-                                                 :from [[:facts :f]]
-                                                 :join [[:fact_values :fv]
-                                                        [:= :fv.id :f.fact_value_id]
+                            :producers
+                            [:= :fs.producer_id :producers.id]
 
-                                                        [:fact_paths :fp]
-                                                        [:= :fp.id :f.fact_path_id]
+                            :certnames
+                            [:= :fs.certname :certnames.certname]]}
 
-                                                        [:value_types :vt]
-                                                        [:= :vt.id :fv.value_type_id]]
-                                                 :where [:and
-                                                         [:= :fp.depth 0]
-                                                         [:= :f.factset_id :fs.id]
-                                                         [:= :fp.name (hcore/raw "'trusted'")]]}}}
+    :alias "inventory"
+    :relationships {"factsets" {:columns ["certname"]}
+                    "reports" {:columns ["certname"]}
+                    "catalogs" {:columns ["certname"]}
+                    "nodes" {:columns ["certname"]}
+                    "facts" {:columns ["certname"]}
+                    "fact_contents" {:columns ["certname"]}
+                    "events" {:columns ["certname"]}
+                    "edges" {:columns ["certname"]}
+                    "resources" {:columns ["certname"]}}
 
-               :selection {:from [[:factsets :fs]]
-                           :left-join [:environments
-                                       [:= :fs.environment_id :environments.id]
-
-                                       :producers
-                                       [:= :fs.producer_id :producers.id]
-
-                                       :certnames
-                                       [:= :fs.certname :certnames.certname]]}
-
-              :alias "inventory"
-              :relationships {"factsets" {:columns ["certname"]}
-                              "reports" {:columns ["certname"]}
-                              "catalogs" {:columns ["certname"]}
-                              "nodes" {:columns ["certname"]}
-                              "facts" {:columns ["certname"]}
-                              "fact_contents" {:columns ["certname"]}
-                              "events" {:columns ["certname"]}
-                              "edges" {:columns ["certname"]}
-                              "resources" {:columns ["certname"]}}
-
-              :dotted-fields ["facts\\..*" "trusted\\..*"]
-              :entity :inventory
-              :subquery? false}))
+    :dotted-fields ["facts\\..*" "trusted\\..*"]
+    :entity :inventory
+    :subquery? false}))
 
 (def nodes-query
   "Query for nodes entities, mostly used currently for subqueries"
@@ -314,14 +308,10 @@
                :selection {:from [[:fact_paths :fp]]
                            :join [[:facts :f]
                                   [:= :f.fact_path_id :fp.id]
-
-                                  [:fact_values :fv]
-                                  [:= :f.fact_value_id :fv.id]
-
                                   [:value_types :vt]
-                                  [:= :fv.value_type_id :vt.id]]
+                                  [:= :f.value_type_id :vt.id]]
                            :modifiers [:distinct]
-                           :where [:!= :fv.value_type_id 5]}
+                           :where [:!= :f.value_type_id 5]}
 
                :relationships {;; Children - direct
                                "facts" {:columns ["name"]}
@@ -349,7 +339,7 @@
                                      :field :fp.path}
                              "value" {:type :multi
                                       :queryable? true
-                                      :field :fv.value}
+                                      :field :f.value}
                              "depth" {:type :integer
                                       :queryable? false
                                       :query-only? true
@@ -363,19 +353,19 @@
                              "value_integer" {:type :integer
                                               :query-only? true
                                               :queryable? false
-                                              :field :fv.value_integer}
+                                              :field :f.value_integer}
                              "value_float" {:type :float
                                             :query-only? true
                                             :queryable? false
-                                            :field :fv.value_float}
+                                            :field :f.value_float}
                              "value_string" {:type :string
                                             :query-only? true
                                             :queryable? false
-                                            :field :fv.value_string}
+                                            :field :f.value_string}
                              "value_boolean" {:type :boolean
                                               :query-only? true
                                               :queryable? false
-                                              :field :fv.value_boolean}
+                                              :field :f.value_boolean}
                              "name" {:type :string
                                      :queryable? true
                                      :field :fp.name}
@@ -387,15 +377,10 @@
                :selection {:from [[:factsets :fs]]
                            :join [[:facts :f]
                                   [:= :fs.id :f.factset_id]
-
-                                  [:fact_values :fv]
-                                  [:= :f.fact_value_id :fv.id]
-
                                   [:fact_paths :fp]
                                   [:= :f.fact_path_id :fp.id]
-
                                   [:value_types :vt]
-                                  [:= :vt.id :fv.value_type_id]]
+                                  [:= :vt.id :f.value_type_id]]
                            :left-join [[:environments :env]
                                        [:= :fs.environment_id :env.id]]
                            :where [:= :fp.depth 0]}
@@ -423,7 +408,7 @@
                                      :field :fp.path}
                              "value" {:type :multi
                                       :queryable? true
-                                      :field :fv.value}
+                                      :field :f.value}
                              "certname" {:type :string
                                          :queryable? true
                                          :field :fs.certname}
@@ -435,20 +420,20 @@
                                             :field :env.environment}
                              "value_integer" {:type :integer
                                               :queryable? false
-                                              :field :fv.value_integer
+                                              :field :f.value_integer
                                               :query-only? true}
                              "value_float" {:type :float
                                             :queryable? false
-                                            :field :fv.value_float
+                                            :field :f.value_float
                                             :query-only? true}
                              "value_string" {:type :string
                                             :query-only? true
                                             :queryable? false
-                                            :field :fv.value_string}
+                                            :field :f.value_string}
                              "value_boolean" {:type :boolean
                                               :query-only? true
                                               :queryable? false
-                                              :field :fv.value_boolean}
+                                              :field :f.value_boolean}
                              "type" {:type :string
                                      :queryable? false
                                      :field :vt.type
@@ -457,15 +442,10 @@
                :selection {:from [[:factsets :fs]]
                            :join [[:facts :f]
                                   [:= :fs.id :f.factset_id]
-
-                                  [:fact_values :fv]
-                                  [:= :f.fact_value_id :fv.id]
-
                                   [:fact_paths :fp]
                                   [:= :f.fact_path_id :fp.id]
-
                                   [:value_types :vt]
-                                  [:= :fv.value_type_id :vt.id]]
+                                  [:= :f.value_type_id :vt.id]]
                            :left-join [[:environments :env]
                                        [:= :fs.environment_id :env.id]]
                            :where [:!= :vt.id 5]}
@@ -1004,12 +984,15 @@
                :field {:select [(h/row-to-json :facts_data)]
                        :from [[{:select [[(json-agg-row :t) :data]
                                          [(hsql-hash-as-href "factsets.certname" :factsets :facts) :href]]
-                                :from [[{:select [:fp.name (h/scast :fv.value :jsonb)]
+                                :from [[{:select [:fp.name (h/scast :f.value :jsonb)]
                                          :from [[:facts :f]]
-                                         :join [[:fact_values :fv] [:= :fv.id :f.fact_value_id]
-                                                [:fact_paths :fp] [:= :fp.id :f.fact_path_id]
-                                                [:value_types :vt] [:= :vt.id :fv.value_type_id]]
-                                         :where [:and [:= :depth 0] [:= :f.factset_id :factsets.id]]}
+                                         :join [[:fact_paths :fp]
+                                                [:= :fp.id :f.fact_path_id]
+                                                [:value_types :vt]
+                                                [:= :vt.id :f.value_type_id]]
+                                         :where [:and
+                                                 [:= :depth 0]
+                                                 [:= :f.factset_id :factsets.id]]}
                                         :t]]}
                                :facts_data]]}}
       "certname" {:type :string
@@ -1654,7 +1637,7 @@
         coalesce-fact-values (fn [col]
                                (if (and (= "facts" (:source-table query-rec))
                                         (= "value" col))
-                                 (h/coalesce :fv.value_integer :fv.value_float)
+                                 (h/coalesce :f.value_integer :f.value_float)
                                  (or (get-in query-rec [:projections col :field])
                                      col)))]
     (if-let [calls (seq
@@ -1673,13 +1656,13 @@
 (defn- fv-variant [x]
   (case x
     :integer {:type :integer
-              :field :fv.value_integer}
+              :field :f.value_integer}
     :float {:type :float
-            :field :fv.value_float}
+            :field :f.value_float}
     :string {:type :string
-             :field :fv.value_string}
+             :field :f.value_string}
     :boolean {:type :boolean
-              :field :fv.value_boolean}))
+              :field :f.value_boolean}))
 
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
@@ -2100,24 +2083,24 @@
   isn't."
   [column :- column-schema
    projection :- projection-schema]
-  ;; For now we have to assume it's fv.*, etc.
+  ;; For now we have to assume it's f.*, etc.
   (let [[proj-name proj-info] projection
         multi-col? (= :multi (:type column))
         multi-proj? (= :multi (:type proj-info))]
     (cond
       (and multi-col? multi-proj?)
       (do
-        (assert (= (:field column) :fv.value))
-        (assert (= (:field proj-info) :fv.value))
+        (assert (= (:field column) :f.value))
+        (assert (= (:field proj-info) :f.value))
         [column projection])
       multi-col?
       (do
-        (assert (= (:field column) :fv.value))
+        (assert (= (:field column) :f.value))
         [(merge column (fv-variant (:type proj-info)))
          projection])
       multi-proj?
       (do
-        (assert (= (:field proj-info) :fv.value))
+        (assert (= (:field proj-info) :f.value))
         [column
          [proj-name (merge proj-info (fv-variant (:type column)))]])
       :else
