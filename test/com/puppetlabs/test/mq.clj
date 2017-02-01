@@ -98,12 +98,14 @@
 
           broker (build-embedded-broker "localhost" "somedir"
                       {:store-usage size-megs
-                       :temp-usage  size-megs})]
+                       :temp-usage  size-megs
+                       :memory-usage  size-megs})]
       (is (instance? BrokerService broker))
       (is (.. broker (getPersistenceAdapter) (isIgnoreMissingJournalfiles)))
       (is (.. broker (getPersistenceAdapter) (isArchiveCorruptedIndex)))
       (is (.. broker (getPersistenceAdapter) (isCheckForCorruptJournalFiles)))
       (is (.. broker (getPersistenceAdapter) (isChecksumJournalFiles)))
+      (is (= size-bytes (.. broker (getSystemUsage) (getMemoryUsage) (getLimit))))
       (is (= size-bytes (.. broker (getSystemUsage) (getStoreUsage) (getLimit))))
       (is (= size-bytes (.. broker (getSystemUsage) (getTempUsage) (getLimit)))))))
 
