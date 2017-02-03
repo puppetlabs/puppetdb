@@ -18,7 +18,8 @@
             [puppetlabs.puppetdb.middleware :as mid]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.status :as pdb-status]
-            [puppetlabs.i18n.core :refer [trs tru]]))
+            [puppetlabs.i18n.core :refer [trs tru]]
+            [puppetlabs.puppetdb.dashboard :as dashboard]))
 
 
 (defn resource-request-handler [req]
@@ -46,6 +47,7 @@
                       rreq/request-url
                       (format "%s/dashboard/index.html")
                       rr/redirect))
+           "/dashboard" (dashboard/build-app dashboard/default-meter-defs)
            "/meta" (meta/build-app db-cfg defaulted-config)
            "/cmd" (cmd/command-app get-shared-globals
                                    enqueue-command-fn
