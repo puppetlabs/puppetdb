@@ -1031,6 +1031,12 @@
   (jdbc/do-commands
     "CREATE INDEX idx_certnames_latest_report_id on certnames(latest_report_id)"))
 
+(defn index-certnames-unique-latest-report-id
+  []
+  (jdbc/do-commands
+    "DROP INDEX IF EXISTS idx_certnames_latest_report_id"
+    "CREATE UNIQUE INDEX idx_certnames_latest_report_id on certnames(latest_report_id)"))
+
 (defn add-producer-to-reports-catalogs-and-factsets
   []
   (jdbc/do-commands
@@ -1197,8 +1203,8 @@
    51 fact-values-value-to-jsonb
    52 resource-params-cache-parameters-to-jsonb
    53 add-corrective-change-index
-   54 drop-resource-events-resource-type-idx})
-
+   54 drop-resource-events-resource-type-idx
+   55 index-certnames-unique-latest-report-id})
 
 (def desired-schema-version (apply max (keys migrations)))
 
