@@ -159,6 +159,7 @@ body {
     for(var i=0; i<meters.length; i++) {
       m = meters[i];
       meterUpdateFunctions[m.id] = counterAndSparkline(m, options);
+      meterUpdateFunctions[m.id](m.value);
     }
   });
 
