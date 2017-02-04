@@ -37,14 +37,17 @@
                   config/load-config (fn [_] config)
                   ;; This normally calls System/exit on a cli error;
                   ;; we'd rather have the exception.
-                  utils/try+-process-cli! (fn [body] (body))]
+                  utils/try+-process-cli! (fn [body] (body))
+                  benchmark/benchmark-shutdown-timeout tu/default-timeout-ms]
       (f submitted-records (benchmark/benchmark cli-args)))))
 
 (defn benchmark-nummsgs
   [config & cli-args]
   ;; Assumes cli-args does not indicate a --runinterval) run
   (call-with-benchmark-status config cli-args
-                              (fn [submitted _] @submitted)))
+                              (fn [submitted {:keys [join]}]
+                                (is (= true (join tu/default-timeout-ms)))
+                                @submitted)))
 
 (deftest config-is-required
   (is (thrown+-with-msg?
@@ -71,7 +74,7 @@
   (call-with-benchmark-status
    {}
    ["--config" "anything.ini" "--numhosts" "333" "--runinterval" "1"]
-   (fn [submitted stop]
+   (fn [submitted {:keys [stop]}]
      (let [enough-records (* 3 42)
            finished (promise)
            watch-key (Object.)
@@ -85,11 +88,13 @@
        (stop)))))
 
 (deftest multiple-messages-and-hosts
-  (let [submitted (benchmark-nummsgs {}
+  (let [numhosts 2
+        nummsgs 3
+        submitted (benchmark-nummsgs {}
                                      "--config" "anything.ini"
-                                     "--numhosts" "2"
-                                     "--nummsgs" "3")]
-    (is (= 18 (count submitted)))))
+                                     "--numhosts" (str numhosts)
+                                     "--nummsgs" (str nummsgs))]
+    (is (= (* numhosts nummsgs 3) (count submitted)))))
 
 (deftest archive-flag-works
   (let [export-out-file (.getPath (tu/temp-file "benchmark-test" ".tar.gz"))]
@@ -103,12 +108,14 @@
        (#'cli-export/-main "--outfile" export-out-file
                            "--host" (:host svc-utils/*base-url*)
                            "--port" (str (:port svc-utils/*base-url*)))))
-    (let [submitted (benchmark-nummsgs {}
+    (let [numhosts 2
+          nummsgs 3
+          submitted (benchmark-nummsgs {}
                                        "--config" "anything.ini"
-                                       "--numhosts" "2"
-                                       "--nummsgs" "3"
+                                       "--numhosts" (str numhosts)
+                                       "--nummsgs" (str nummsgs)
                                        "--archive" export-out-file)]
-      (is (= 18 (count submitted))))))
+      (is (= (* numhosts nummsgs 3) (count submitted))))))
 
 (deftest consecutive-reports-are-distinct
   (let [submitted (benchmark-nummsgs {}
