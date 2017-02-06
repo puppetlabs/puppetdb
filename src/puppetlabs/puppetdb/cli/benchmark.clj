@@ -227,8 +227,8 @@
 (defn update-host
   "Perform a simulation step on host-map. Always update timestamps and uuids;
   randomly mutate other data depending on rand-percentage. "
-  [{:keys [host catalog report factset] :as state} rand-percentage current-time]
-  (let [stamp (jitter current-time 1800)
+  [{:keys [host catalog report factset] :as state} rand-percentage current-time run-interval]
+  (let [stamp (jitter current-time (time/in-seconds run-interval))
         uuid (kitchensink/uuid)]
     (assoc state
            :catalog (some-> catalog (update-catalog rand-percentage uuid stamp))
@@ -467,7 +467,7 @@
      (map (fn [host-state]
             (when-not num-msgs
               (Thread/sleep (int (+ (rand) ms-per-message))))
-            (let [updated-host-state (update-host host-state rand-perc (time/now))]
+            (let [updated-host-state (update-host host-state rand-perc (time/now) run-interval)]
               (>!! mq-ch updated-host-state)
               updated-host-state)))
      mq-ch)))
