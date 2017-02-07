@@ -20,6 +20,18 @@ def create_environmentdir(environment)
   end
 end
 
+def extract_producer_timestamp(command)
+  DateTime.parse(command["producer_timestamp"]).to_time.to_i
+end
+
+def assert_command_req(expected_payload, actual_payload)
+  req = JSON.parse(actual_payload)
+  actual_producer_timestamp = extract_producer_timestamp(req)
+  req.delete("producer_timestamp")
+  req == expected_payload &&
+    actual_producer_timestamp <= Time.now.to_i
+end
+
 RSpec.configure do |config|
 
   config.before :each do

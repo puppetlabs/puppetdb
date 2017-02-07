@@ -6,7 +6,9 @@
             [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.testutils.nio :refer [create-temp-dir]]
             [puppetlabs.puppetdb.queue :as q]
-            [puppetlabs.puppetdb.cheshire :as json]))
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.kitchensink.core :as ks]
+            [clj-time.core :refer [now]]))
 
 (defmacro with-stockpile [queue-sym & body]
   `(let [ns-str#  (str (ns-name ~*ns*))
@@ -43,5 +45,37 @@
 (defn coerce-to-stream [x]
   (-coerce-to-stream x))
 
-(defn store-command [q command-type version certname payload]
-  (q/store-command q command-type version certname (coerce-to-stream payload)))
+(defn catalog->command-req [version {:keys [certname name] :as catalog}]
+  (q/create-command-req "replace catalog"
+                        version
+                        (or certname name)
+                        (ks/timestamp (now))
+                        identity
+                        (coerce-to-stream catalog)))
+
+(defn facts->command-req [version {:keys [certname name] :as facts}]
+  (q/create-command-req "replace facts"
+                        version
+                        (or certname name)
+                        (ks/timestamp (now))
+                        identity
+                        (coerce-to-stream facts)))
+
+(defn deactivate->command-req [version {:keys [certname] :as command}]
+  (q/create-command-req "deactivate node"
+                        version
+                        (case version
+                          3 certname
+                          2 (json/parse-string command)
+                          1 (json/parse-string (json/parse-string command)))
+                        (ks/timestamp (now))
+                        identity
+                        (coerce-to-stream command)))
+
+(defn report->command-req [version {:keys [certname name] :as command}]
+  (q/create-command-req "store report"
+                        version
+                        (or certname name)
+                        (ks/timestamp (now))
+                        identity
+                        (coerce-to-stream command)))

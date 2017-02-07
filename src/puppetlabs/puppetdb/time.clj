@@ -224,8 +224,9 @@
 (s/defn ^:always-validate from-string :- (s/maybe DateTime)
   "Similar to the clj-time.coerce/from-string, but prioritizes the
   more likely formatters first"
-  [s :- String]
-  (some #(attempt-date-time-parse % s) ordered-formatters))
+  [s :- (s/maybe String)]
+  (when s
+    (some #(attempt-date-time-parse % s) ordered-formatters)))
 
 (s/defn ^:always-validate to-timestamp :- (s/maybe java.sql.Timestamp)
   "Delegates to clj-time.core/to-timestamp, except when `ts` is a

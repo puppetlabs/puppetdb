@@ -71,6 +71,7 @@
                        "replace facts"
                        4
                        "foo.local"
+                       nil
                        (tqueue/coerce-to-stream
                         {:certname "foo.local"
                          :environment "DEV"
@@ -107,6 +108,7 @@
                        "replace facts"
                        4
                        "foo.local"
+                       nil
                        (tqueue/coerce-to-stream
                         {:certname "foo.local"
                          :environment "DEV"

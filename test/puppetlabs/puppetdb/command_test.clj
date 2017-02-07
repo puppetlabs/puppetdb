@@ -50,7 +50,8 @@
             [clojure.string :as str]
             [puppetlabs.stockpile.queue :as stock]
             [puppetlabs.puppetdb.testutils.nio :as nio]
-            [puppetlabs.puppetdb.testutils.queue :as tqueue]
+            [puppetlabs.puppetdb.testutils.queue :as tqueue
+             :refer [catalog->command-req facts->command-req report->command-req deactivate->command-req]]
             [puppetlabs.puppetdb.queue :as queue]
             [puppetlabs.trapperkeeper.services
              :refer [service-context]]
@@ -58,13 +59,6 @@
             [puppetlabs.puppetdb.testutils :as tu])
   (:import [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
-
-(defn unroll-old-command [{:keys [command version payload]}]
-  [command
-   version
-   (or (:certname payload)
-       (:name payload))
-   payload])
 
 (defrecord CommandHandlerContext [message-handler command-chan dlo delay-pool response-chan q]
   java.io.Closeable
@@ -115,9 +109,6 @@
       .getQueue
       count))
 
-(defn store-command' [q old-command]
-  (apply tqueue/store-command q (unroll-old-command old-command)))
-
 (defn take-with-timeout!!
   "Takes from `port` via <!!, but will throw an exception if
   `timeout-in-ms` expires"
@@ -134,16 +125,19 @@
       meters/rates
       :total))
 
+(defn failed-catalog-req [version certname payload]
+  (queue/create-command-req "replace catalog" version certname nil identity
+                            (tqueue/coerce-to-stream payload)))
+
 (deftest command-processor-integration
-  (let [command {:command "replace catalog" :version 5
-                 :payload (get-in wire-catalogs [5 :empty])}]
+  (let [v5-catalog (get-in wire-catalogs [5 :empty])]
     (testing "correctly formed messages"
 
       (testing "which are not yet expired"
 
         (testing "when successful should not raise errors or retry"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
-            (handle-message (store-command' q command))
+            (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
             (is (= 0 (count (scheduled-jobs delay-pool))))
             (is (empty? (fs/list-dir (:path dlo))))))
 
@@ -151,7 +145,7 @@
           (with-redefs [process-command-and-respond! (fn [& _] (throw+ (fatality (Exception. "fatal error"))))]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
               (let [discards (discard-count)]
-                (handle-message (store-command' q command))
+                (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
                 (is (= (inc discards) (discard-count))))
               (is (= 0 (count (scheduled-jobs delay-pool))))
               (is (= 2 (count (fs/list-dir (:path dlo))))))))
@@ -163,7 +157,7 @@
                           command-delay-ms 1
                           quick-retry-count 0]
               (with-message-handler {:keys [handle-message command-chan dlo delay-pool q]}
-                (let [cmdref (store-command' q command)]
+                (let [cmdref (queue/store-command q (catalog->command-req 5 v5-catalog))]
 
                   (is (= 0 (task-count delay-pool)))
                   (handle-message cmdref)
@@ -178,23 +172,24 @@
                       actual-exception expected-exception))))))))
 
       (testing "should be discarded if expired"
-        (let [command (assoc command :version 9)]
-          (with-redefs [process-command-and-respond! (fn [& _] (throw (RuntimeException. "Expected failure")))]
-            (with-message-handler {:keys [handle-message dlo delay-pool q]}
-              (let [cmdref (store-command' q (assoc command :version 9))]
-                (let [discards (discard-count)]
-                  (handle-message (add-fake-attempts cmdref maximum-allowable-retries))
-                  (is (= (inc discards) (discard-count))))
-                (is (= 0 (task-count delay-pool)))
-                (is (= 2 (count (fs/list-dir (:path dlo)))))))))))
+        (with-redefs [process-command-and-respond! (fn [& _] (throw (RuntimeException. "Expected failure")))]
+          (with-message-handler {:keys [handle-message dlo delay-pool q]}
+            (let [cmdref (->> (get-in wire-catalogs [9 :empty])
+                              (catalog->command-req 9)
+                              (queue/store-command q))]
+              (let [discards (discard-count)]
+                (handle-message (add-fake-attempts cmdref maximum-allowable-retries))
+                (is (= (inc discards) (discard-count))))
+              (is (= 0 (task-count delay-pool)))
+              (is (= 2 (count (fs/list-dir (:path dlo))))))))))
 
     (testing "should be discarded if incorrectly formed"
-      (let [command (assoc command :payload "{\"malformed\": \"with no closing brace\"")
+      (let [catalog-req (failed-catalog-req 5 (:name v5-catalog) "{\"malformed\": \"with no closing brace\"")
             process-counter (call-counter)]
         (with-redefs [process-command-and-respond! process-counter]
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
             (let [discards (discard-count)]
-              (handle-message (store-command' q command))
+              (handle-message (queue/store-command q catalog-req))
               (is (= (inc discards) (discard-count))))
             (is (= 0 (task-count delay-pool)))
             (is (= 2 (count (fs/list-dir (:path dlo)))))
@@ -209,8 +204,8 @@
           (binding [*logger-factory* (atom-logger log-output)]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
               (is (= 0 (task-count delay-pool)))
-              (handle-message (-> (tqueue/store-command q "replace catalog" 10
-                                                        "cats" {:certname "cats"})
+              (handle-message (-> q
+                                  (queue/store-command (failed-catalog-req 10 "cats" {:certname "cats"}))
                                   (add-fake-attempts i)))
               (is (= 1 (task-count delay-pool)))
               (is (= 0 (count (fs/list-dir (:path dlo)))))
@@ -224,8 +219,8 @@
         (let [log-output (atom [])]
           (binding [*logger-factory* (atom-logger log-output)]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
-              (handle-message (-> (tqueue/store-command q "replace catalog" 10
-                                                        "cats" {:certname "cats"})
+              (handle-message (-> q
+                                  (queue/store-command (failed-catalog-req 10 "cats" {:certname "cats"}))
                                   (add-fake-attempts maximum-allowable-retries)))
               (is (= 0 (task-count delay-pool)))
               (is (= 2 (count (fs/list-dir (:path dlo)))))
@@ -239,9 +234,9 @@
   (testing "happy path, message acknowledgement when no failures occured"
     (tqueue/with-stockpile q
       (with-message-handler {:keys [handle-message dlo delay-pool q]}
-        (let [command {:command "replace catalog" :version 5
-                       :payload (get-in wire-catalogs [5 :empty])}
-              cmdref (store-command' q command)]
+        (let [cmdref (->> (get-in wire-catalogs [5 :empty])
+                          (catalog->command-req 5)
+                          (queue/store-command q))]
           (is (:payload (queue/cmdref->cmd q cmdref)))
           (handle-message cmdref)
           (is (thrown+-with-msg? [:kind :puppetlabs.stockpile.queue/no-such-entry]
@@ -254,7 +249,7 @@
     (tqueue/with-stockpile q
       (with-redefs [process-command-and-respond! (fn [& _] (throw+ (RuntimeException. "retry me")))]
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
-          (let [entry (tqueue/store-command q "replace catalog" 10 "cats" {:certname "cats"})]
+          (let [entry (queue/store-command q (failed-catalog-req 10 "cats" {:certname "cats"}))]
             (is (:payload (queue/cmdref->cmd q entry)))
             (handle-message entry)
             (is (= 1 (task-count delay-pool)))
@@ -345,21 +340,21 @@
 
 (deftest replace-catalog-test
   (dotestseq [version catalog-versions
-              :let [raw-command {:command (command-names :replace-catalog)
-                                 :version (version-kwd->num version)
-                                 :payload (-> (get-in wire-catalogs [(version-kwd->num version) :empty])
-                                              (assoc :producer_timestamp (now)))}]]
+              :let [version-num (version-kwd->num version)
+                    {:keys [certname] :as catalog} (-> wire-catalogs
+                                                       (get-in [version-num :empty])
+                                                       (assoc :producer_timestamp (now)))
+                    make-cmd-req #(catalog->command-req version-num catalog)]]
     (testing (str (command-names :replace-catalog) " " version)
-      (let [certname (get-in raw-command [:payload :certname])
-            catalog-hash (shash/catalog-similarity-hash
-                          (catalog/parse-catalog (:payload raw-command) (version-kwd->num version) (now)))
+      (let [catalog-hash (shash/catalog-similarity-hash
+                          (catalog/parse-catalog catalog version-num (now)))
             one-day      (* 24 60 60 1000)
             yesterday    (to-timestamp (- (System/currentTimeMillis) one-day))
             tomorrow     (to-timestamp (+ (System/currentTimeMillis) one-day))]
 
         (testing "with no catalog should store the catalog"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
-            (handle-message (store-command' q raw-command))
+            (handle-message (queue/store-command q (make-cmd-req)))
             (is (= [(with-env {:certname certname})]
                    (query-to-vec "SELECT certname, environment_id FROM catalogs")))
             (is (= 0 (task-count delay-pool)))
@@ -368,7 +363,7 @@
         (testing "with code-id should store the catalog"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
             (handle-message
-             (store-command' q (assoc-in raw-command [:payload :code_id] "my_git_sha1")))
+             (queue/store-command q (catalog->command-req version-num (assoc catalog :code_id "my_git_sha1"))))
             (is (= [(with-env {:certname certname :code_id "my_git_sha1"})]
                    (query-to-vec "SELECT certname, code_id, environment_id FROM catalogs")))
             (is (= 0 (task-count delay-pool)))
@@ -384,20 +379,25 @@
                                      :catalog_version "foo"
                                      :certname certname
                                      :producer_timestamp (to-timestamp (-> 1 days ago))})
-            (handle-message (store-command' q raw-command))
+            (handle-message (queue/store-command q (make-cmd-req)))
             (is (= [(with-env {:certname certname :catalog catalog-hash})]
                    (query-to-vec (format "SELECT certname, %s as catalog, environment_id FROM catalogs"
                                          (sutils/sql-hash-as-str "hash")))))
             (is (= 0 (task-count delay-pool)))
             (is (empty? (fs/list-dir (:path dlo))))))
 
-        (let [command (assoc raw-command :payload "bad stuff")]
-          (testing "with a bad payload should discard the message"
-            (with-message-handler {:keys [handle-message dlo delay-pool q]}
-              (handle-message (store-command' q command))
-              (is (empty? (query-to-vec "SELECT * FROM catalogs")))
-              (is (= 0 (task-count delay-pool)))
-              (is (seq (fs/list-dir (:path dlo)))))))
+        (testing "with a bad payload should discard the message"
+          (with-message-handler {:keys [handle-message dlo delay-pool q]}
+            (handle-message (queue/store-command q
+                                                 (queue/create-command-req "replace catalog"
+                                                                           version-num
+                                                                           certname
+                                                                           (ks/timestamp (now))
+                                                                           identity
+                                                                           (tqueue/coerce-to-stream "bad stuff"))))
+            (is (empty? (query-to-vec "SELECT * FROM catalogs")))
+            (is (= 0 (task-count delay-pool)))
+            (is (seq (fs/list-dir (:path dlo))))))
 
         (testing "with a newer catalog should ignore the message"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
@@ -407,8 +407,8 @@
                                      :catalog_version "foo"
                                      :certname certname
                                      :timestamp tomorrow
-                                     :producer_timestamp (to-timestamp (now))})
-            (handle-message (store-command' q raw-command))
+                                     :producer_timestamp (to-timestamp (t/plus (now) (days 1)))})
+            (handle-message (queue/store-command q (make-cmd-req)))
             (is (= [{:certname certname :catalog "ab"}]
                    (query-to-vec (format "SELECT certname, %s as catalog FROM catalogs"
                                          (sutils/sql-hash-as-str "hash")))))
@@ -419,7 +419,7 @@
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
             (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
 
-            (handle-message (store-command' q raw-command))
+            (handle-message (queue/store-command q (make-cmd-req)))
 
             (is (= [{:certname certname :deactivated nil}]
                    (query-to-vec "SELECT certname,deactivated FROM certnames")))
@@ -435,7 +435,7 @@
               (scf-store/delete-certname! certname)
               (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
 
-              (handle-message (store-command' q raw-command))
+              (handle-message (queue/store-command q (make-cmd-req)))
 
               (is (= [{:certname certname :deactivated tomorrow}]
                      (query-to-vec "SELECT certname,deactivated FROM certnames")))
@@ -459,7 +459,7 @@
 
       (with-message-handler {:keys [handle-message dlo delay-pool q]}
 
-        (handle-message (store-command' q command))
+        (handle-message (queue/store-command q (catalog->command-req 6 (get-in wire-catalogs [6 :empty]))))
 
         ;;names in v5 are hyphenated, this check ensures we're sending a v5 catalog
         (is (contains? (:payload command) :producer_timestamp))
@@ -476,17 +476,15 @@
 
 (deftest replace-catalog-with-v5
   (testing "catalog wireformat v5"
-    (let [command {:command (command-names :replace-catalog)
-                   :version 5
-                   :payload (get-in wire-catalogs [5 :empty])}
-          certname (get-in command [:payload :name])
-          cmd-producer-timestamp (get-in command [:payload :producer-timestamp])]
+    (let [{certname :name
+           producer-timestamp :producer-timestamp
+           :as v5-catalog} (get-in wire-catalogs [5 :empty])]
       (with-message-handler {:keys [handle-message dlo delay-pool q]}
 
-        (handle-message (store-command' q command))
+        (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
 
         ;;names in v5 are hyphenated, this check ensures we're sending a v5 catalog
-        (is (contains? (:payload command) :producer-timestamp))
+        (is (contains? v5-catalog :producer-timestamp))
         (is (= [(with-env {:certname certname})]
                (query-to-vec "SELECT certname, environment_id FROM catalogs")))
         (is (= 0 (task-count delay-pool)))
@@ -496,20 +494,17 @@
         (is (= (-> (query-to-vec "SELECT producer_timestamp FROM catalogs")
                    first
                    :producer_timestamp)
-               (to-timestamp cmd-producer-timestamp)))))))
+               (to-timestamp producer-timestamp)))))))
 
 (deftest replace-catalog-with-v4
-  (let [command {:command (command-names :replace-catalog)
-                 :version 4
-                 :payload (get-in wire-catalogs [4 :empty])}
-        certname (get-in command [:payload :name])
-        cmd-producer-timestamp (get-in command [:payload :producer-timestamp])
+  (let [{certname :name
+         producer-timestmap :producer-timestamp :as v4-catalog} (get-in wire-catalogs [4 :empty])
         recent-time (-> 1 seconds ago)]
     (with-message-handler {:keys [handle-message dlo delay-pool q]}
 
-      (handle-message (store-command' q command))
+      (handle-message (queue/store-command q (catalog->command-req 4 v4-catalog)))
 
-      (is (false? (contains? (:payload command) :producer-timestamp)))
+      (is (false? (contains? v4-catalog :producer-timestamp)))
       (is (= [(with-env {:certname certname})]
              (query-to-vec "SELECT certname, environment_id FROM catalogs")))
       (is (= 0 (task-count delay-pool)))
@@ -526,131 +521,114 @@
   "Updated the resource in `catalog` with the given `type` and `title`.
    `update-fn` is a function that accecpts the resource map as an argument
    and returns a (possibly mutated) resource map."
-  [version catalog type title update-fn]
-  (let [path [:payload :resources]]
-    (update-in catalog path
-               (fn [resources]
-                 (mapv (fn [res]
-                         (if (and (= (:title res) title)
-                                  (= (:type res) type))
-                           (update-fn res)
-                           res))
-                       resources)))))
+  [catalog type title update-fn]
+  (update catalog :resources
+          (fn [resources]
+            (mapv (fn [res]
+                    (if (and (= (:title res) title)
+                             (= (:type res) type))
+                      (update-fn res)
+                      res))
+                  resources))))
 
 (def basic-wire-catalog
   (get-in wire-catalogs [9 :basic]))
 
 (deftest catalog-with-updated-resource-line
-  (dotestseq [version catalog-versions
-              :let [command-1 {:command (command-names :replace-catalog)
-                               :version latest-catalog-version
-                               :payload basic-wire-catalog}
-                    command-2 (update-resource version command-1 "File" "/etc/foobar"
-                                               #(assoc % :line 20))]]
-    (with-message-handler {:keys [handle-message dlo delay-pool q]}
-      (handle-message (store-command' q command-1))
+  (with-message-handler {:keys [handle-message dlo delay-pool q]}
+    (handle-message (queue/store-command q (catalog->command-req 9 basic-wire-catalog)))
 
-      (let [orig-resources (scf-store/catalog-resources (:certname_id
-                                                         (scf-store/latest-catalog-metadata
-                                                          "basic.wire-catalogs.com")))]
-        (is (= 10
-               (get-in orig-resources [{:type "File" :title "/etc/foobar"} :line])))
-        (is (= 0 (task-count delay-pool)))
-        (is (empty? (fs/list-dir (:path dlo))))
+    (let [orig-resources (scf-store/catalog-resources (:certname_id
+                                                       (scf-store/latest-catalog-metadata
+                                                        "basic.wire-catalogs.com")))]
+      (is (= 10
+             (get-in orig-resources [{:type "File" :title "/etc/foobar"} :line])))
+      (is (= 0 (task-count delay-pool)))
+      (is (empty? (fs/list-dir (:path dlo))))
 
-        (handle-message (store-command' q command-2))
+      (handle-message (queue/store-command q (catalog->command-req 9
+                                                                   (update-resource basic-wire-catalog "File" "/etc/foobar"
+                                                                                    #(assoc % :line 20)))))
 
-        (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :line] 20)
-               (scf-store/catalog-resources (:certname_id
-                                             (scf-store/latest-catalog-metadata
-                                              "basic.wire-catalogs.com")))))
-        (is (= 0 (task-count delay-pool)))
-        (is (empty? (fs/list-dir (:path dlo))))))))
+      (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :line] 20)
+             (scf-store/catalog-resources (:certname_id
+                                           (scf-store/latest-catalog-metadata
+                                            "basic.wire-catalogs.com")))))
+      (is (= 0 (task-count delay-pool)))
+      (is (empty? (fs/list-dir (:path dlo)))))))
 
 (deftest catalog-with-updated-resource-file
-  (dotestseq [version catalog-versions
-              :let [command-1 {:command (command-names :replace-catalog)
-                               :version latest-catalog-version
-                               :payload basic-wire-catalog}
-                    command-2 (update-resource version command-1 "File" "/etc/foobar"
-                                               #(assoc % :file "/tmp/not-foo"))]]
-    (with-message-handler {:keys [handle-message dlo delay-pool q]}
-      (handle-message (store-command' q command-1))
+  (with-message-handler {:keys [handle-message dlo delay-pool q]}
+    (handle-message (queue/store-command q (catalog->command-req 9 basic-wire-catalog)))
 
 
-      (let [orig-resources (scf-store/catalog-resources (:certname_id
-                                                         (scf-store/latest-catalog-metadata
-                                                          "basic.wire-catalogs.com")))]
-        (is (= "/tmp/foo"
-               (get-in orig-resources [{:type "File" :title "/etc/foobar"} :file])))
-        (is (= 0 (task-count delay-pool)))
-        (is (empty? (fs/list-dir (:path dlo))))
+    (let [orig-resources (scf-store/catalog-resources (:certname_id
+                                                       (scf-store/latest-catalog-metadata
+                                                        "basic.wire-catalogs.com")))]
+      (is (= "/tmp/foo"
+             (get-in orig-resources [{:type "File" :title "/etc/foobar"} :file])))
+      (is (= 0 (task-count delay-pool)))
+      (is (empty? (fs/list-dir (:path dlo))))
 
-        (handle-message (store-command' q command-2))
+      (handle-message (queue/store-command q (catalog->command-req 9
+                                                                   (update-resource basic-wire-catalog "File" "/etc/foobar"
+                                                                                    #(assoc % :file "/tmp/not-foo")))))
 
-        (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :file] "/tmp/not-foo")
-               (scf-store/catalog-resources (:certname_id
-                                             (scf-store/latest-catalog-metadata
-                                              "basic.wire-catalogs.com")))))
-        (is (= 0 (task-count delay-pool)))
-        (is (empty? (fs/list-dir (:path dlo))))))))
+      (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :file] "/tmp/not-foo")
+             (scf-store/catalog-resources (:certname_id
+                                           (scf-store/latest-catalog-metadata
+                                            "basic.wire-catalogs.com")))))
+      (is (= 0 (task-count delay-pool)))
+      (is (empty? (fs/list-dir (:path dlo)))))))
 
 (deftest catalog-with-updated-resource-exported
-  (dotestseq [version catalog-versions
-              :let [command-1 {:command (command-names :replace-catalog)
-                               :version latest-catalog-version
-                               :payload basic-wire-catalog}
-                    command-2 (update-resource version command-1 "File" "/etc/foobar"
-                                               #(assoc % :exported true))]]
-    (with-message-handler {:keys [handle-message dlo delay-pool q]}
+  (with-message-handler {:keys [handle-message dlo delay-pool q]}
 
-      (handle-message (store-command' q command-1))
+    (handle-message (queue/store-command q (catalog->command-req 9 basic-wire-catalog)))
 
-      (let [orig-resources (scf-store/catalog-resources (:certname_id
-                                                         (scf-store/latest-catalog-metadata
-                                                          "basic.wire-catalogs.com")))]
-        (is (= false
-               (get-in orig-resources [{:type "File" :title "/etc/foobar"} :exported])))
-        (is (= 0 (task-count delay-pool)))
-        (is (empty? (fs/list-dir (:path dlo))))
+    (let [orig-resources (scf-store/catalog-resources (:certname_id
+                                                       (scf-store/latest-catalog-metadata
+                                                        "basic.wire-catalogs.com")))]
+      (is (= false
+             (get-in orig-resources [{:type "File" :title "/etc/foobar"} :exported])))
+      (is (= 0 (task-count delay-pool)))
+      (is (empty? (fs/list-dir (:path dlo))))
 
-        (handle-message (store-command' q command-2))
-        (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :exported] true)
-               (scf-store/catalog-resources (:certname_id
-                                             (scf-store/latest-catalog-metadata
-                                              "basic.wire-catalogs.com")))))))))
+      (handle-message (queue/store-command q (catalog->command-req 9
+                                                                   (update-resource basic-wire-catalog "File" "/etc/foobar"
+                                                                                    #(assoc % :exported true)))))
+      (is (= (assoc-in orig-resources [{:type "File" :title "/etc/foobar"} :exported] true)
+             (scf-store/catalog-resources (:certname_id
+                                           (scf-store/latest-catalog-metadata
+                                            "basic.wire-catalogs.com"))))))))
 
 (deftest catalog-with-updated-resource-tags
-  (dotestseq [version catalog-versions
-              :let [command-1 {:command (command-names :replace-catalog)
-                               :version latest-catalog-version
-                               :payload basic-wire-catalog}
-                    command-2 (update-resource version command-1 "File" "/etc/foobar"
-                                               #(assoc %
-                                                       :tags #{"file" "class" "foobar" "foo"}
-                                                       :line 20))]]
-    (with-message-handler {:keys [handle-message dlo delay-pool q]}
-      (handle-message (store-command' q command-1))
+  (with-message-handler {:keys [handle-message dlo delay-pool q]}
+    (handle-message (queue/store-command q (catalog->command-req 9 basic-wire-catalog)))
 
-      (let [orig-resources (scf-store/catalog-resources (:certname_id
-                                                         (scf-store/latest-catalog-metadata
-                                                          "basic.wire-catalogs.com")))]
-        (is (= #{"file" "class" "foobar"}
-               (get-in orig-resources [{:type "File" :title "/etc/foobar"} :tags])))
-        (is (= 10
-               (get-in orig-resources [{:type "File" :title "/etc/foobar"} :line])))
-        (is (= 0 (task-count delay-pool)))
-        (is (empty? (fs/list-dir (:path dlo))))
+    (let [orig-resources (scf-store/catalog-resources (:certname_id
+                                                       (scf-store/latest-catalog-metadata
+                                                        "basic.wire-catalogs.com")))]
+      (is (= #{"file" "class" "foobar"}
+             (get-in orig-resources [{:type "File" :title "/etc/foobar"} :tags])))
+      (is (= 10
+             (get-in orig-resources [{:type "File" :title "/etc/foobar"} :line])))
+      (is (= 0 (task-count delay-pool)))
+      (is (empty? (fs/list-dir (:path dlo))))
 
-        (handle-message (store-command' q command-2))
+      (handle-message (queue/store-command q (catalog->command-req 9
+                                                                   (update-resource basic-wire-catalog "File" "/etc/foobar"
+                                                                                    #(assoc %
+                                                                                            :tags #{"file" "class" "foobar" "foo"}
+                                                                                            :line 20)))))
 
-        (is (= (-> orig-resources
-                   (assoc-in [{:type "File" :title "/etc/foobar"} :tags]
-                             #{"file" "class" "foobar" "foo"})
-                   (assoc-in [{:type "File" :title "/etc/foobar"} :line] 20))
-               (scf-store/catalog-resources (:certname_id
-                                             (scf-store/latest-catalog-metadata
-                                              "basic.wire-catalogs.com")))))))))
+      (is (= (-> orig-resources
+                 (assoc-in [{:type "File" :title "/etc/foobar"} :tags]
+                           #{"file" "class" "foobar" "foo"})
+                 (assoc-in [{:type "File" :title "/etc/foobar"} :line] 20))
+             (scf-store/catalog-resources (:certname_id
+                                           (scf-store/latest-catalog-metadata
+                                            "basic.wire-catalogs.com"))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -678,10 +656,10 @@
 
   (deftest replace-facts-no-facts
     (dotestseq [version fact-versions
-                :let [command v4-command]]
+                :let [command facts]]
       (testing "should store the facts"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
-          (handle-message (store-command' q command))
+          (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
           (is (= (query-to-vec
                   "SELECT fp.path as name,
                           COALESCE(fv.value_string,
@@ -706,7 +684,7 @@
 
   (deftest replace-facts-existing-facts
     (dotestseq [version fact-versions
-                :let [command v4-command]]
+                :let [command facts]]
       (with-test-db
         (jdbc/with-db-transaction []
           (scf-store/ensure-environment "DEV")
@@ -720,7 +698,7 @@
 
         (testing "should replace the facts"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
-            (handle-message (store-command' q command))
+            (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
             (let [[result & _] (query-to-vec "SELECT certname,timestamp, environment_id FROM factsets")]
               (is (= (:certname result)
                      certname))
@@ -750,7 +728,7 @@
 
   (deftest replace-facts-newer-facts
     (dotestseq [version fact-versions
-                :let [command v4-command]]
+                :let [command facts]]
       (testing "should ignore the message"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (jdbc/with-db-transaction []
@@ -762,7 +740,7 @@
                                    :producer_timestamp (to-timestamp (now))
                                    :producer "bar.com"
                                    :environment "DEV"}))
-          (handle-message (store-command' q command))
+          (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
 
           (is (= (query-to-vec "SELECT certname,timestamp,environment_id FROM factsets")
                  [(with-env {:certname certname :timestamp tomorrow})]))
@@ -788,13 +766,13 @@
 
   (deftest replace-facts-deactivated-node-facts
     (dotestseq [version fact-versions
-                :let [command v4-command]]
+                :let [command facts]]
       (testing "should reactivate the node if it was deactivated before the message"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
 
           (jdbc/insert! :certnames {:certname certname :deactivated yesterday})
 
-          (handle-message (store-command' q command))
+          (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated nil}]))
           (is (= (query-to-vec
@@ -823,7 +801,7 @@
           (scf-store/delete-certname! certname)
           (jdbc/insert! :certnames {:certname certname :deactivated tomorrow})
 
-          (handle-message (store-command' q command))
+          (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
 
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated tomorrow}]))
@@ -856,16 +834,14 @@
                           json/generate-string
                           json/parse-string
                           pt/to-timestamp)
-        facts-cmd {:command (command-names :replace-facts)
-                   :version 3
-                   :payload {:name certname
-                             :environment "DEV"
-                             :producer-timestamp producer-time
-                             :values {"a" "1"
-                                      "b" "2"
-                                      "c" "3"}}}]
+        facts-cmd {:name certname
+                   :environment "DEV"
+                   :producer-timestamp producer-time
+                   :values {"a" "1"
+                            "b" "2"
+                            "c" "3"}}]
     (with-message-handler {:keys [handle-message dlo delay-pool q]}
-      (handle-message (store-command' q facts-cmd))
+      (handle-message (queue/store-command q (facts->command-req 3 facts-cmd)))
 
       (is (= (query-to-vec
               "SELECT fp.path as name,
@@ -895,16 +871,14 @@
 (deftest replace-facts-with-v2-wire-format
   (let [certname  "foo.example.com"
         before-test-starts-time (-> 1 seconds ago)
-        facts-cmd {:command (command-names :replace-facts)
-                   :version 2
-                   :payload {:name certname
-                             :environment "DEV"
-                             :values {"a" "1"
-                                      "b" "2"
-                                      "c" "3"}}}]
+        facts-cmd {:name certname
+                   :environment "DEV"
+                   :values {"a" "1"
+                            "b" "2"
+                            "c" "3"}}]
     (with-message-handler {:keys [handle-message dlo delay-pool q]}
 
-      (handle-message (store-command' q facts-cmd))
+      (handle-message (queue/store-command q (facts->command-req 2 facts-cmd)))
 
       (is (= (query-to-vec
               "SELECT fp.path as name,
@@ -938,30 +912,33 @@
         (is (= result [(with-env {:certname certname})]))))))
 
 (deftest replace-facts-bad-payload
-  (let [bad-command {:command (command-names :replace-facts)
-                     :version latest-facts-version
-                     :payload "bad stuff"}]
+  (let [bad-command "bad stuff"]
     (dotestseq [version fact-versions
                 :let [command bad-command]]
       (testing "should discard the message"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
-          (handle-message (apply tqueue/store-command q (unroll-old-command command)))
+          (handle-message (queue/store-command q (queue/create-command-req "replace facts"
+                                                                           latest-facts-version
+                                                                           "foo.example.com"
+                                                                           (ks/timestamp (now))
+                                                                           identity
+                                                                           (tqueue/coerce-to-stream "bad stuff"))))
           (is (empty? (query-to-vec "SELECT * FROM facts")))
           (is (= 0 (task-count delay-pool)))
           (is (seq (fs/list-dir (:path dlo)))))))))
 
 (deftest replace-facts-bad-payload-v2
-  (let [bad-command {:command (command-names :replace-facts)
-                     :version 2
-                     :payload "bad stuff"}]
-    (dotestseq [version fact-versions
-                :let [command bad-command]]
-      (testing "should discard the message"
-        (with-message-handler {:keys [handle-message dlo delay-pool q]}
-          (handle-message (store-command' q command))
-          (is (empty? (query-to-vec "SELECT * FROM facts")))
-          (is (= 0 (task-count delay-pool)))
-          (is (seq (fs/list-dir (:path dlo)))))))))
+  (testing "should discard the message"
+    (with-message-handler {:keys [handle-message dlo delay-pool q]}
+      (handle-message (queue/store-command q (queue/create-command-req "replace facts"
+                                                                       2
+                                                                       "foo.example.com"
+                                                                       (ks/timestamp (now))
+                                                                       identity
+                                                                       (tqueue/coerce-to-stream "bad stuff"))))
+      (is (empty? (query-to-vec "SELECT * FROM facts")))
+      (is (= 0 (task-count delay-pool)))
+      (is (seq (fs/list-dir (:path dlo)))))))
 
 (defn extract-error
   "Pulls the error from the publish var of a test-msg-handler"
@@ -1022,7 +999,7 @@
           (let [first-message? (atom false)
                 second-message? (atom false)
                 fut (future
-                      (handle-message (store-command' q command))
+                      (handle-message (queue/store-command q (facts->command-req 4 facts)))
                       (reset! first-message? true))
 
                 new-facts (update-in facts [:values]
@@ -1034,7 +1011,7 @@
                                :version 4
                                :payload new-facts}]
 
-            (handle-message (store-command' q new-facts-cmd))
+            (handle-message (queue/store-command q (facts->command-req 4 new-facts)))
             (reset! second-message? true)
 
             @fut
@@ -1113,18 +1090,6 @@
                            "operatingsystem" "Debian"}
                   :producer_timestamp (now)
                   :producer producer-2}
-        command-1b   {:command (command-names :replace-facts)
-                      :version 4
-                      :payload facts-1b}
-        command-2b   {:command (command-names :replace-facts)
-                      :version 4
-                      :payload facts-2b}
-        command-1c   {:command (command-names :replace-facts)
-                      :version 4
-                      :payload facts-1c}
-        command-2c   {:command (command-names :replace-facts)
-                      :version 4
-                      :payload facts-2c}
 
         ;; Wait for two threads to countdown before proceeding
         latch (java.util.concurrent.CountDownLatch. 2)
@@ -1171,10 +1136,10 @@
         (let [first-message? (atom false)
               second-message? (atom false)
               fut-1 (future
-                      (handle-message (store-command' q command-1b))
+                      (handle-message (queue/store-command q (facts->command-req 4 facts-1b)))
                       (reset! first-message? true))
               fut-2 (future
-                      (handle-message (store-command' q command-2b))
+                      (handle-message (queue/store-command q (facts->command-req 4 facts-2b)))
                       (reset! second-message? true))]
           ;; The two commands are being submitted in future, ensure they
           ;; have both completed before proceeding
@@ -1187,7 +1152,7 @@
           (is (true? @second-message?))
           ;; Submit another factset that does NOT include mytimestamp,
           ;; this disassociates certname-1's fact_value (which is 1b)
-          (handle-message (store-command' q command-1c))
+          (handle-message (queue/store-command q (facts->command-req 4 facts-1c)))
           (reset! first-message? true)
 
           ;; Do the same thing with certname-2. Since the reference to 1b
@@ -1196,7 +1161,7 @@
           ;; of 1 is still in the table. It's now attempting to delete
           ;; that fact path, when the mytimestamp 1 value is still in
           ;; there.
-          (handle-message (store-command' q command-2c))
+          (handle-message (queue/store-command q (facts->command-req 4 facts-2c)))
           (is (= 0 (task-count delay-pool)))
 
           ;; Can we see the orphaned value '1', and does the global gc remove it.
@@ -1215,10 +1180,6 @@
       (let [test-catalog (get-in catalogs [:empty])
             {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
             nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
-            command {:command (command-names :replace-catalog)
-                     :version 6
-                     :payload wire-catalog}
-
             latch (java.util.concurrent.CountDownLatch. 2)
             orig-replace-catalog! scf-store/replace-catalog!]
 
@@ -1236,18 +1197,15 @@
           (let [first-message? (atom false)
                 second-message? (atom false)
                 fut (future
-                      (handle-message (store-command' q command))
+                      (handle-message (queue/store-command q (catalog->command-req 4 wire-catalog)))
                       (reset! first-message? true))
 
                 new-wire-catalog (assoc-in wire-catalog [:edges]
                                            #{{:relationship "contains"
                                               :target       {:title "Settings" :type "Class"}
-                                              :source       {:title "main" :type "Stage"}}})
-                new-catalog-cmd {:command (command-names :replace-catalog)
-                                 :version 6
-                                 :payload new-wire-catalog}]
+                                              :source       {:title "main" :type "Stage"}}})]
 
-            (handle-message (store-command' q new-catalog-cmd))
+            (handle-message (queue/store-command q (catalog->command-req 6 new-wire-catalog)))
             (reset! second-message? true)
             (is (empty? (fs/list-dir (:path dlo))))
 
@@ -1267,10 +1225,6 @@
       (let [test-catalog (get-in catalogs [:empty])
             {certname :certname :as wire-catalog} (get-in wire-catalogs [6 :empty])
             nonwire-catalog (catalog/parse-catalog wire-catalog 6 (now))
-            command {:command (command-names :replace-catalog)
-                     :version 6
-                     :payload wire-catalog}
-
             latch (java.util.concurrent.CountDownLatch. 2)
             orig-replace-catalog! scf-store/replace-catalog!]
 
@@ -1286,7 +1240,7 @@
                         (.await latch)
                         (apply orig-replace-catalog! args))]
           (let [fut (future
-                      (handle-message (store-command' q command))
+                      (handle-message (queue/store-command q (catalog->command-req 6 wire-catalog)))
                       ::handled-first-message)
 
                 new-wire-catalog (update wire-catalog :resources
@@ -1299,12 +1253,9 @@
                                           :tags       #{"file" "class" "foobar2"}
                                           :parameters {:ensure "directory"
                                                        :group  "root"
-                                                       :user   "root"}})
-                new-catalog-cmd {:command (command-names :replace-catalog)
-                                 :version 6
-                                 :payload new-wire-catalog}]
+                                                       :user   "root"}})]
 
-            (handle-message (store-command' q new-catalog-cmd))
+            (handle-message (queue/store-command q (catalog->command-req 6 new-wire-catalog)))
 
             (is (= ::handled-first-message (deref fut tu/default-timeout-ms nil)))
             (is (empty? (fs/list-dir (:path dlo))))
@@ -1313,32 +1264,21 @@
               (is (-> failed-cmdref :attempts first :exception
                       pg-serialization-failure-ex?)))))))))
 
-(let [cases [{:certname "foo.example.com"
-              :command {:command (command-names :deactivate-node)
-                        :version 3
-                        :payload {:certname "foo.example.com"}}}
-             {:certname "bar.example.com"
-              :command {:command (command-names :deactivate-node)
-                        :version 3
-                        :payload {:certname "bar.example.com"
-                                  :producer_timestamp (now)}}}
-             {:certname "bar.example.com"
-              :command {:command (command-names :deactivate-node)
-                        :version 2
-                        :payload (json/generate-string "bar.example.com")}}
-             {:certname "bar.example.com"
-              :command {:command (command-names :deactivate-node)
-                        :version 1
-                        :payload (-> "bar.example.com"
-                                     json/generate-string
-                                     json/generate-string)}}]]
+(let [cases [[3 {:certname "foo.example.com"}]
+             [3 {:certname "bar.example.com"
+                 :producer_timestamp (now)}]
+             [2 (json/generate-string "bar.example.com")]
+             [1 (-> "bar.example.com"
+                    json/generate-string
+                    json/generate-string)]]]
 
   (deftest deactivate-node-node-active
     (testing "should deactivate the node"
-      (doseq [{:keys [certname command]} cases]
+      (doseq [[version command] cases
+              :let [{:keys [certname] :as command-req} (deactivate->command-req version command)]]
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (jdbc/insert! :certnames {:certname certname})
-          (handle-message (store-command' q command))
+          (handle-message (queue/store-command q command-req))
           (let [results (query-to-vec "SELECT certname,deactivated FROM certnames")
                 result  (first results)]
             (is (= (:certname result) certname))
@@ -1348,28 +1288,28 @@
             (jdbc/do-prepared "delete from certnames"))))))
 
   (deftest deactivate-node-node-inactive
-    (doseq [{:keys [certname command]} cases]
+    (doseq [[version orig-command] cases]
       (testing "should leave the node alone"
         (let [one-day   (* 24 60 60 1000)
               yesterday (to-timestamp (- (System/currentTimeMillis) one-day))
-              command (if (#{1 2} (:version command))
+              command (if (#{1 2} version)
                         ;; Can't set the :producer_timestamp for the older
                         ;; versions (so that we can control the deactivation
                         ;; timestamp).
-                        command
-                        (assoc-in command
-                                  [:payload :producer_timestamp] yesterday))]
+                        orig-command
+                        (assoc orig-command :producer_timestamp yesterday))
+              {:keys [certname] :as command-req} (deactivate->command-req version command)]
 
           (with-message-handler {:keys [handle-message dlo delay-pool q]}
             (jdbc/insert! :certnames
                           {:certname certname :deactivated yesterday})
-            (handle-message (store-command' q command))
+            (handle-message (queue/store-command q command-req))
 
             (let [[row & rest] (query-to-vec
                                 "SELECT certname,deactivated FROM certnames")]
               (is (empty? rest))
               (is (instance? java.sql.Timestamp (:deactivated row)))
-              (if (#{1 2} (:version command))
+              (if (#{1 2} version)
                 (do
                   ;; Since we can't control the producer_timestamp.
                   (is (= certname (:certname row)))
@@ -1382,9 +1322,10 @@
 
   (deftest deactivate-node-node-missing
     (testing "should add the node and deactivate it"
-      (doseq [{:keys [certname command]} cases]
+      (doseq [[version command] cases
+              :let [{:keys [certname] :as command-req} (deactivate->command-req version command)]]
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
-          (handle-message (store-command' q command))
+          (handle-message (queue/store-command q command-req))
           (let [result (-> "SELECT certname, deactivated FROM certnames"
                            query-to-vec first)]
             (is (= (:certname result) certname))
@@ -1402,66 +1343,51 @@
 (def store-report-name (command-names :store-report))
 
 (deftest store-v8-report-test
-  (let [command {:command store-report-name
-                 :version 8
-                 :payload v8-report}]
-    (with-message-handler {:keys [handle-message dlo delay-pool q]}
-      (handle-message (store-command' q command))
-      (is (= [(with-producer (select-keys v8-report [:certname]))]
-             (-> (str "select certname, producer_id"
-                      "  from reports")
-                 query-to-vec)))
-      (is (= 0 (task-count delay-pool)))
-      (is (empty? (fs/list-dir (:path dlo)))))))
+  (with-message-handler {:keys [handle-message dlo delay-pool q]}
+    (handle-message (queue/store-command q (report->command-req 8 v8-report)))
+    (is (= [(with-producer (select-keys v8-report [:certname]))]
+           (-> (str "select certname, producer_id"
+                    "  from reports")
+               query-to-vec)))
+    (is (= 0 (task-count delay-pool)))
+    (is (empty? (fs/list-dir (:path dlo))))))
 
 (deftest store-v7-report-test
-  (let [command {:command store-report-name
-                 :version 7
-                 :payload v7-report}]
-    (with-message-handler {:keys [handle-message dlo delay-pool q]}
-      (handle-message (store-command' q command))
-      (is (= [(select-keys v7-report [:certname :catalog_uuid :cached_catalog_status :code_id])]
-             (->> (str "select certname, catalog_uuid, cached_catalog_status, code_id"
-                       "  from reports")
-                  query-to-vec
-                  (map (fn [row] (update row :catalog_uuid sutils/parse-db-uuid))))))
-      (is (= 0 (task-count delay-pool)))
-      (is (empty? (fs/list-dir (:path dlo)))))))
+  (with-message-handler {:keys [handle-message dlo delay-pool q]}
+    (handle-message (queue/store-command q (report->command-req 7 v7-report)))
+    (is (= [(select-keys v7-report [:certname :catalog_uuid :cached_catalog_status :code_id])]
+           (->> (str "select certname, catalog_uuid, cached_catalog_status, code_id"
+                     "  from reports")
+                query-to-vec
+                (map (fn [row] (update row :catalog_uuid sutils/parse-db-uuid))))))
+    (is (= 0 (task-count delay-pool)))
+    (is (empty? (fs/list-dir (:path dlo))))))
 
 (deftest store-v6-report-test
-  (let [command {:command store-report-name
-                 :version 6
-                 :payload v6-report}]
-    (with-message-handler {:keys [handle-message dlo delay-pool q]}
-      (handle-message (store-command' q command))
-      (is (= [(with-env (select-keys v6-report [:certname :configuration_version]))]
-             (-> (str "select certname, configuration_version, environment_id"
-                      "  from reports")
-                 query-to-vec)))
-      (is (= 0 (task-count delay-pool)))
-      (is (empty? (fs/list-dir (:path dlo)))))))
+  (with-message-handler {:keys [handle-message dlo delay-pool q]}
+    (handle-message (queue/store-command q (report->command-req 6 v6-report)))
+    (is (= [(with-env (select-keys v6-report [:certname :configuration_version]))]
+           (-> (str "select certname, configuration_version, environment_id"
+                    "  from reports")
+               query-to-vec)))
+    (is (= 0 (task-count delay-pool)))
+    (is (empty? (fs/list-dir (:path dlo))))))
 
 (deftest store-v5-report-test
-  (let [command {:command store-report-name
-                 :version 5
-                 :payload v5-report}]
-    (with-message-handler {:keys [handle-message dlo delay-pool q]}
-      (handle-message (store-command' q command))
-      (is (= [(with-env (select-keys v5-report [:certname
-                                                :configuration_version]))]
-             (-> (str "select certname, configuration_version, environment_id"
-                      "  from reports")
-                 query-to-vec)))
-      (is (= 0 (task-count delay-pool)))
-      (is (empty? (fs/list-dir (:path dlo)))))))
+  (with-message-handler {:keys [handle-message dlo delay-pool q]}
+    (handle-message (queue/store-command q (report->command-req 5 v5-report)))
+    (is (= [(with-env (select-keys v5-report [:certname
+                                              :configuration_version]))]
+           (-> (str "select certname, configuration_version, environment_id"
+                    "  from reports")
+               query-to-vec)))
+    (is (= 0 (task-count delay-pool)))
+    (is (empty? (fs/list-dir (:path dlo))))))
 
 (deftest store-v4-report-test
-  (let [command {:command store-report-name
-                 :version 4
-                 :payload v4-report}
-        recent-time (-> 1 seconds ago)]
+  (let [recent-time (-> 1 seconds ago)]
     (with-message-handler {:keys [handle-message dlo delay-pool q]}
-      (handle-message (store-command' q command))
+      (handle-message (queue/store-command q (report->command-req 4 v4-report)))
       (is (= [(with-env (utils/dash->underscore-keys
                          (select-keys v4-report
                                       [:certname :configuration-version])))]
@@ -1485,12 +1411,9 @@
 
 (deftest store-v3-report-test
   (let [v3-report (dissoc v4-report :status)
-        recent-time (-> 1 seconds ago)
-        command {:command store-report-name
-                 :version 3
-                 :payload v3-report}]
+        recent-time (-> 1 seconds ago)]
     (with-message-handler {:keys [handle-message dlo delay-pool q]}
-      (handle-message (store-command' q command))
+      (handle-message (queue/store-command q (report->command-req 3 v3-report)))
       (is (= [(with-env (utils/dash->underscore-keys
                          (select-keys v3-report
                                       [:certname :configuration-version])))]
@@ -1535,6 +1458,7 @@
           (enqueue-command (command-names :replace-facts)
                            4
                            "foo.local"
+                           nil
                            (tqueue/coerce-to-stream
                             {:environment "DEV" :certname "foo.local"
                              :values {:foo "foo"}
@@ -1560,6 +1484,7 @@
       (enqueue-command (command-names :deactivate-node)
                        3
                        "foo.local"
+                       nil
                        (tqueue/coerce-to-stream
                         {:certname "foo.local" :producer_timestamp input-stamp}))
       (is (svc-utils/wait-for-server-processing svc-utils/*server* default-timeout-ms)
@@ -1599,6 +1524,7 @@
       (enqueue-command (command-names :deactivate-node)
                        3
                        "foo.local"
+                       nil
                        (tqueue/coerce-to-stream
                         {:certname "foo.local" :producer_timestamp producer-ts}))
 
@@ -1649,6 +1575,7 @@
            (enqueue-command (command-names :replace-catalog)
                             9
                             "foo.com"
+                            nil
                             (->  base-cmd
                                  (assoc :producer_timestamp old-producer-ts
                                         :certname "foo.com")
@@ -1658,6 +1585,7 @@
            (enqueue-command (command-names :replace-catalog)
                             9
                             (:certname base-cmd)
+                            nil
                             (-> base-cmd
                                 (assoc :producer_timestamp old-producer-ts)
                                 tqueue/coerce-to-stream)
@@ -1666,6 +1594,7 @@
            (enqueue-command (command-names :replace-catalog)
                             9
                             (:certname base-cmd)
+                            nil
                             (-> base-cmd
                                 (assoc :producer_timestamp new-producer-ts)
                                 tqueue/coerce-to-stream)

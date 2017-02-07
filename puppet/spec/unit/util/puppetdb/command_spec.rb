@@ -2,12 +2,15 @@ require 'spec_helper'
 require 'digest/sha1'
 require 'puppet/network/http_pool'
 require 'puppet/util/puppetdb'
-
+require 'uri'
+require 'cgi'
 
 describe Puppet::Util::Puppetdb::Command do
   let(:payload) { {'resistance' =>  'futile', 'opinion' => 'irrelevant'} }
+
   let(:subject) { described_class.new("OPEN SESAME", 1,
-                                      'foo.localdomain', payload) }
+                                      'foo.localdomain',
+                                      Time.now.utc, payload) }
 
 
   describe "#submit" do
@@ -21,7 +24,13 @@ describe Puppet::Util::Puppetdb::Command do
 
       it "should issue the HTTP POST and log success" do
         httpok.stubs(:body).returns '{"uuid": "a UUID"}'
-        http.expects(:post).returns httpok
+        http.expects(:post).with() do | path, payload, headers |
+          param_map = CGI::parse(URI(path).query)
+          param_map['certname'].first.should == 'foo.localdomain' &&
+            param_map['version'].first.should == '1' &&
+            param_map['command'].first.should == 'OPEN_SESAME'
+
+        end.returns(httpok)
 
         subject.submit
         test_logs.find_all { |m|
@@ -58,7 +67,7 @@ describe Puppet::Util::Puppetdb::Command do
 
   it "should not warn when the the string contains valid UTF-8 characters" do
     Puppet.expects(:warning).never
-    cmd = described_class.new("command-1", 1, "foo.localdomain", {"foo" => "\u2192"})
+    cmd = described_class.new("command-1", 1, "foo.localdomain", Time.now.utc, {"foo" => "\u2192"})
     cmd.payload.include?("\u2192").should be_truthy
   end
 
@@ -66,7 +75,7 @@ describe Puppet::Util::Puppetdb::Command do
 
     it "should warn when a command payload includes non-ascii UTF-8 characters" do
       Puppet.expects(:warning).with {|msg| msg =~ /Error encoding a 'command-1' command for host 'foo.localdomain' ignoring invalid UTF-8 byte sequences/}
-      cmd = described_class.new("command-1", 1, "foo.localdomain", {"foo" => [192].pack('c*')})
+      cmd = described_class.new("command-1", 1, "foo.localdomain", Time.now.utc, {"foo" => [192].pack('c*')})
       cmd.payload.include?("\ufffd").should be_truthy
     end
 
@@ -90,7 +99,7 @@ describe Puppet::Util::Puppetdb::Command do
             msg =~ Regexp.new(Regexp.quote('"command":"command-1","version":1,"certname":"foo.localdomain","payload":{"foo"')) &&
             msg =~ /1 invalid\/undefined/
         end
-        cmd = described_class.new("command-1", 1, "foo.localdomain", {"foo" => [192].pack('c*')})
+        cmd = described_class.new("command-1", 1, "foo.localdomain", Time.now.utc, {"foo" => [192].pack('c*')})
         cmd.payload.include?("\ufffd").should be_truthy
       end
     end

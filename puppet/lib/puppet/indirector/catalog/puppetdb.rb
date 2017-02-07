@@ -9,8 +9,9 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
 
   def save(request)
     profile("catalog#save", [:puppetdb, :catalog, :save, request.key]) do
-      catalog = munge_catalog(request.instance, extract_extra_request_data(request))
-      submit_command(request.key, catalog, CommandReplaceCatalog, 9)
+      current_time = Time.now
+      catalog = munge_catalog(request.instance, current_time, extract_extra_request_data(request))
+      submit_command(request.key, catalog, CommandReplaceCatalog, 9, current_time.clone.utc)
     end
   end
 
@@ -22,8 +23,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   def extract_extra_request_data(request)
     {
       :transaction_uuid => request.options[:transaction_uuid],
-      :environment => request.environment.to_s,
-      :producer_timestamp => request.options[:producer_timestamp] || Time.now.iso8601(5),
+      :environment => request.environment.to_s
     }
   end
 
@@ -32,7 +32,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     hash
   end
 
-  def munge_catalog(catalog, extra_request_data = {})
+  def munge_catalog(catalog, producer_timestamp, extra_request_data = {})
     profile("Munge catalog", [:puppetdb, :catalog, :munge]) do
       data = profile("Convert catalog to JSON data hash", [:puppetdb, :catalog, :convert_to_hash]) do
         catalog.to_data_hash
@@ -52,7 +52,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       filter_keys(data)
       add_transaction_uuid(data, extra_request_data[:transaction_uuid])
       add_environment(data, extra_request_data[:environment])
-      add_producer_timestamp(data, extra_request_data[:producer_timestamp])
+      add_producer_timestamp(data, producer_timestamp)
       add_producer(data, Puppet[:node_name_value])
 
       data
@@ -100,7 +100,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   # @return [Hash] returns original hash augmented with producer_timestamp
   # @api private
   def add_producer_timestamp(hash, producer_timestamp)
-    hash['producer_timestamp'] = producer_timestamp
+    hash['producer_timestamp'] = Puppet::Util::Puppetdb.to_wire_time(producer_timestamp)
 
     hash
   end

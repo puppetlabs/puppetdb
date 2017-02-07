@@ -21,7 +21,7 @@ describe Puppet::Util::Puppetdb do
 
   describe "#submit_command" do
     let(:payload) { {'resistance' =>  'futile', 'opinion' => 'irrelevant'} }
-    let(:command1) { Puppet::Util::Puppetdb::Command.new("OPEN SESAME", 1, 'foo.localdomain',
+    let(:command1) { Puppet::Util::Puppetdb::Command.new("OPEN SESAME", 1, 'foo.localdomain', Time.now.utc,
                                                          payload.merge(:uniqueprop => "command1")) }
 
     it "should submit the command" do
@@ -32,6 +32,7 @@ describe Puppet::Util::Puppetdb do
       subject.submit_command(command1.certname,
                              command1.payload,
                              command1.command,
+                             command1.producer_timestamp_utc,
                              command1.version)
     end
 

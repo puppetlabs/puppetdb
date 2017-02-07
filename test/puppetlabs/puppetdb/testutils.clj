@@ -26,7 +26,8 @@
             [environ.core :refer [env]]
             [clojure.test :refer :all]
             [clojure.set :refer [difference]]
-            [puppetlabs.puppetdb.test-protocols :as test-protos]))
+            [puppetlabs.puppetdb.test-protocols :as test-protos]
+            [puppetlabs.puppetdb.queue :as queue]))
 
 (defn ordered-matches?
   "Returns a false value if there isn't a match in items for each
@@ -449,10 +450,13 @@
   (wrap-with-puppetdb-middleware
    (command-app
     (fn [] {})
-    (partial dispatch/do-enqueue-command
-             q
-             command-chan
-             (Semaphore. 100))
+    (fn [command version certname producer-ts stream callback]
+      (dispatch/do-enqueue-command
+       q
+       command-chan
+       (Semaphore. 100)
+       (queue/create-command-req command version certname producer-ts callback stream)))
+
     false
     nil)))
 

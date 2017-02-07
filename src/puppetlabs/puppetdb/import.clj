@@ -57,6 +57,7 @@
                       (command-fn command-kwd
                                   command-version
                                   certname
+                                  nil ;-> No producer timestamp on imports
                                   (-> tar-reader
                                       utils/read-json-content
                                       json/generate-string

@@ -124,7 +124,14 @@
         (try
           (let [{:keys [command version certname payload] :as msg} (coerce-to-new-command headers message-bytes)]
             (try
-              (enqueue-fn command version certname payload)
+              ;; The nil below is for producer_timestamp. Older
+              ;; commands won't have that in the headers of the AMQ
+              ;; message, so the only way to get that is parsing the
+              ;; body. Rather than do that, nil is being passed. This
+              ;; is still correct, the only downside is comands won't
+              ;; be overwritten in the queue by newer commands.
+              (enqueue-fn command version certname nil payload)
+
               (catch Exception ex
                 (log/error ex
                            (trs

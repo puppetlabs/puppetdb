@@ -11,9 +11,10 @@
    [puppetlabs.puppetdb.examples :refer [wire-catalogs]]
    [puppetlabs.puppetdb.metrics.core :refer [new-metrics]]
    [puppetlabs.puppetdb.nio :refer [get-path]]
-   [puppetlabs.puppetdb.queue :refer [cmdref->entry cons-attempt store-command]]
+   [puppetlabs.puppetdb.queue :refer [cmdref->entry cons-attempt store-command create-command-req]]
    [puppetlabs.puppetdb.testutils :refer [ordered-matches?]]
    [puppetlabs.puppetdb.testutils.nio :refer [call-with-temp-dir-path]]
+   [puppetlabs.puppetdb.testutils.queue :refer [catalog->command-req]]
    [puppetlabs.stockpile.queue :as stock])
   (import
    [java.nio.file Files]))
@@ -32,10 +33,9 @@
     (slurp stream)))
 
 (defn store-catalog [q dlo]
-  (let [cmd (get-in wire-catalogs [9 :basic])
-        cmd-bytes (-> cmd json/generate-string (.getBytes "UTF-8"))]
-    (store-command q "replace catalog" 9 (:certname cmd)
-                   (java.io.ByteArrayInputStream. cmd-bytes))))
+  (->> (get-in wire-catalogs [9 :basic])
+       (catalog->command-req 9)
+       (store-command q)))
 
 (defn err-attempt-line? [n s]
   (-> (str "Attempt " n " @ \\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d\\d\\dZ")
@@ -48,19 +48,19 @@
 
     (are [cmd-info metadata-str] (= cmd-info (#'dlo/parse-cmd-filename metadata-str))
 
-      {:received r0 :version 0 :command "replace catalog" :certname "foo"}
+      {:received r0 :version 0 :command "replace catalog" :certname "foo" :producer-ts nil}
       "0-0_catalog_0_foo.json"
 
-      {:received r0 :version 0 :command "replace catalog" :certname "foo.json"}
+      {:received r0 :version 0 :command "replace catalog" :certname "foo.json" :producer-ts nil}
       "0-0_catalog_0_foo.json.json"
 
-      {:received r10 :version 10 :command "replace catalog" :certname "foo"}
+      {:received r10 :version 10 :command "replace catalog" :certname "foo" :producer-ts nil}
       "10-10_catalog_10_foo.json"
 
-      {:received r10 :version 42 :command "replace catalog" :certname "foo"}
+      {:received r10 :version 42 :command "replace catalog" :certname "foo" :producer-ts nil}
       "10-10_catalog_42_foo.json"
 
-      {:received r10 :version 10 :command "unknown" :certname "foo"}
+      {:received r10 :version 10 :command "unknown" :certname "foo" :producer-ts nil}
       "10-10_unknown_10_foo.json")
 
     (is (not (#'dlo/parse-cmd-filename "0-0_foo_0_foo.json")))))

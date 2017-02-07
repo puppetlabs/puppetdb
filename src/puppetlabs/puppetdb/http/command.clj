@@ -16,7 +16,8 @@
             [ring.util.request :as request]
             [schema.core :as s]
             [slingshot.slingshot :refer [try+ throw+]]
-            [puppetlabs.i18n.core :refer [trs tru]])
+            [puppetlabs.i18n.core :refer [trs tru]]
+            [puppetlabs.puppetdb.time :as pdbtime])
   (:import [org.apache.commons.io IOUtils]
            [org.apache.commons.fileupload.util LimitedInputStream]))
 
@@ -116,7 +117,8 @@
             (s/required-key "certname") s/Str
             (s/required-key "received") s/Str
             (s/optional-key "secondsToWaitForCompletion") s/Str
-            (s/optional-key "checksum") s/Str}
+            (s/optional-key "checksum") s/Str
+            (s/optional-key "producer-timestamp") s/Str}
    :body java.io.InputStream
    s/Any s/Any})
 
@@ -219,6 +221,7 @@
                         (get submit-params "command")
                         (Integer/parseInt (get submit-params "version"))
                         (get submit-params "certname")
+                        (pdbtime/from-string (get submit-params "producer-ts"))
                         (stream-with-max-check body max-command-size)
                         command-callback))]
 
@@ -259,7 +262,7 @@
       add-received-param ;; must be (temporally) after validate-query-params
       ;; The checksum here is vestigial.  It is no longer checked
       (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"
-                                             "certname" "command" "version"]})
+                                             "certname" "command" "version" "producer-timestamp"]})
       mid/verify-accepts-json
       (mid/verify-content-type ["application/json"])
       (mid/fail-when-payload-too-large reject-large-commands? max-command-size)

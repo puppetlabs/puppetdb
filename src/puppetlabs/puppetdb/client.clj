@@ -31,8 +31,8 @@
     timeout]
    (let [body (json/generate-string payload)
          url (str (utils/base-url->str base-url)
-                  (format "?command=%s&version=%s&certname=%s"
-                          (str/replace command #" " "_") version certname)
+                  (format "?command=%s&version=%s&certname=%s&producer-timestamp=%s"
+                          (str/replace command #" " "_") version certname (System/currentTimeMillis))
                   (when timeout (format "&secondsToWaitForCompletion=%s" timeout)))]
      (http-client/post url {:body body
                             :throw-exceptions false
