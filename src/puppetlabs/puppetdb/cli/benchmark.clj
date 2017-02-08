@@ -74,7 +74,7 @@
   (try
     (json/parse-string (slurp file))
     (catch Exception e
-      (log/error (trs "Error parsing {0}; skipping" file)))))
+      (println-err (trs "Error parsing {0}; skipping" file)))))
 
 (defn load-sample-data
   "Load all .json files contained in `dir`."
@@ -87,7 +87,7 @@
                     (filterv (complement nil?)))]
       (if (seq data)
         data
-        (log/error
+        (println-err
          (trs "Supplied directory {0} contains no usable data!" dir))))))
 
 (def producers (vec (repeatedly 4 #(random-string 10))))
@@ -365,9 +365,11 @@
           (if (> time-diff 5000)
             (let [time-diff-seconds (/ time-diff 1000)
                   messages-per-second (float (/ events-since-last-report time-diff-seconds))]
-              (println "Sending" messages-per-second "messages/s"
-                       "(load equivalent to" (int (/ messages-per-second expected-node-message-rate)) "nodes)")
-              (flush)
+              (println-err
+               (trs
+                "Sending {0} messages/s (load equivalent to {1} nodes)"
+                messages-per-second
+                (int (/ messages-per-second expected-node-message-rate))))
               (recur 0 t))
             (recur (inc events-since-last-report) last-report-time)))))))
 
