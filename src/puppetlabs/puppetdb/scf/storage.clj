@@ -1095,7 +1095,8 @@
                     :producer_timestamp (to-timestamp producer_timestamp)
                     :hash (-> fact-data
                               shash/fact-identity-hash
-                              sutils/munge-hash-for-storage)}
+                              sutils/munge-hash-for-storage)
+                    :producer_id (ensure-producer producer)}
                    ["id=?" factset-id]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1109,7 +1110,7 @@
   (let [latest-report (:id (first (query-to-vec
                                     ["SELECT id FROM reports
                                       WHERE certname = ?
-                                      ORDER BY end_time DESC
+                                      ORDER BY producer_timestamp DESC
                                       LIMIT 1" node])))]
     (jdbc/update! :certnames
                   {:latest_report_id latest-report}

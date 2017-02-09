@@ -54,9 +54,19 @@
       (conj #(gen/map (gen/one-of [gen/keyword gen/string]) %))
       (conj foo-gen)))
 
+
+(def simple-reflexively-equal
+  (gen/one-of [gen/int gen/large-integer
+               (gen/double* {:NaN? false :infinite? false})
+               gen/char gen/string gen/ratio gen/boolean gen/keyword
+               gen/keyword-ns gen/symbol gen/symbol-ns gen/uuid]))
+
+(def any-reflexively-equal
+  (gen/recursive-gen gen/container-type simple-reflexively-equal))
+
 (cct/defspec no-op-zipper
   50
-  (prop/for-all [v (gen/sized (tree-generator with-maps gen/any))]
+  (prop/for-all [v (gen/sized (tree-generator with-maps any-reflexively-equal))]
                 (= v
                    (:node (post-order-transform (tree-zipper v) [identity])))))
 

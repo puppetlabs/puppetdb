@@ -224,7 +224,8 @@
               (is (some #{{:timestamp (to-timestamp reference-time)
                            :environment_id 1
                            :hash "cf56e1d01b3517d26f875855da4459ce19f8cd18"
-                           :producer_timestamp (to-timestamp reference-time)}}
+                           :producer_timestamp (to-timestamp reference-time)
+                           :producer_id 1}}
                         ;; Again we grab the pertinent non-id bits
                         (map (fn [itm]
                                (-> (second itm)
