@@ -43,7 +43,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [me.raynes.fs :as fs]
             [clojure.java.io :as io]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.utils :as utils :refer [println-err]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clj-time.core :as time]
             [puppetlabs.puppetdb.client :as client]
@@ -51,15 +51,19 @@
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
             [puppetlabs.puppetdb.archive :as archive]
             [slingshot.slingshot :refer [try+ throw+]]
-            [clojure.core.async :refer [go go-loop >! <! >!! <!! timeout chan close! dropping-buffer pipeline]]
+            [clojure.core.async :refer [go go-loop >! <! >!! <!! chan] :as async]
             [clojure.core.match :as cm]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.puppetdb.amq-migration :as amq]
             [taoensso.nippy :as nippy]
-            [puppetlabs.i18n.core :refer [trs]])
-  (:import [org.apache.activemq.broker BrokerService]
-           [javax.jms MessageConsumer MessageProducer Session]
-           [clojure.core.async.impl.protocols Buffer]))
+            [puppetlabs.i18n.core :refer [trs]]
+            [puppetlabs.puppetdb.nio :refer [get-path]])
+  (:import
+   [clojure.core.async.impl.protocols Buffer]
+   [java.io ByteArrayInputStream]
+   [java.nio.file.attribute FileAttribute]
+   [java.nio.file Files OpenOption]
+   [java.util ArrayDeque]))
 
 (def cli-description "Development-only benchmarking tool")
 
@@ -70,7 +74,7 @@
   (try
     (json/parse-string (slurp file))
     (catch Exception e
-      (log/error (trs "Error parsing {0}; skipping" file)))))
+      (println-err (trs "Error parsing {0}; skipping" file)))))
 
 (defn load-sample-data
   "Load all .json files contained in `dir`."
@@ -83,7 +87,7 @@
                     (filterv (complement nil?)))]
       (if (seq data)
         data
-        (log/error
+        (println-err
          (trs "Supplied directory {0} contains no usable data!" dir))))))
 
 (def producers (vec (repeatedly 4 #(random-string 10))))
@@ -185,8 +189,7 @@
              "start_time" (time/minus stamp (time/seconds 10))
              "end_time" (time/minus stamp (time/seconds 5))
              "producer_timestamp" stamp
-             "producer" (random-producer))
-      clojure.walk/keywordize-keys))
+             "producer" (random-producer))))
 
 (defn randomize-map-leaf
   "Randomizes a fact leaf."
@@ -222,40 +225,15 @@
       (update "values" (partial randomize-map-leaves rand-percentage))))
 
 (defn update-host
-  "Submit a `catalog` for `hosts` (when present), possibly mutating it before
-  submission. Also submit a report for the host (if present)."
-  [{:keys [host catalog report factset] :as state} rand-percentage current-time command-send-ch]
-  (let [stamp (jitter current-time 1800)
-        uuid (kitchensink/uuid)
-        catalog (some-> catalog
-                        (update-catalog rand-percentage uuid stamp))
-        report (some-> report
-                       (update-report uuid stamp))
-        factset (some-> factset
-                        (update-factset rand-percentage stamp))]
-    (when catalog (>!! command-send-ch [:catalog host 9 catalog]))
-    (when report (>!! command-send-ch [:report host 8 report]))
-    (when factset (>!! command-send-ch [:factset host 5 factset]))
-
+  "Perform a simulation step on host-map. Always update timestamps and uuids;
+  randomly mutate other data depending on rand-percentage. "
+  [{:keys [host catalog report factset] :as state} rand-percentage current-time run-interval]
+  (let [stamp (jitter current-time (time/in-seconds run-interval))
+        uuid (kitchensink/uuid)]
     (assoc state
-           :catalog catalog
-           :factset factset)))
-
-(defn submit-n-messages
-  "Given a list of host maps, send `num-messages` to each host.  The function
-   is recursive to accumulate possible catalog mutations (i.e. changing a previously
-   mutated catalog as opposed to different mutations of the same catalog)."
-  [hosts num-msgs rand-percentage command-send-ch]
-  (log/info
-   (trs "Sending {0} messages for {1} hosts, will exit upon completion"
-        num-msgs (count hosts)))
-  (loop [mutated-hosts hosts
-         msgs-to-send num-msgs
-         stamp (time/minus (time/now) (time/minutes (* 30 num-msgs)))]
-    (when-not (zero? msgs-to-send)
-      (recur (mapv #(update-host % rand-percentage stamp command-send-ch) mutated-hosts)
-             (dec msgs-to-send)
-             (time/plus stamp (time/minutes 30))))))
+           :catalog (some-> catalog (update-catalog rand-percentage uuid stamp))
+           :factset (some-> factset (update-factset rand-percentage stamp))
+           :report (some-> report (update-report uuid stamp)))))
 
 (defn validate-options
   [options]
@@ -281,7 +259,11 @@
                ["-C" "--catalogs CATALOGS" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
                ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
                ["-A" "--archive ARCHIVE" "Path to a PuppetDB export tarball. Incompatible with -C, -F or -R"]
-               ["-i" "--runinterval RUNINTERVAL" "What runinterval (in minutes) to use during simulation"
+               ["-i" (str "--runinterval RUNINTERVAL" "interval (in minutes)"
+                          " to use during simulation. This option"
+                          " requires some temporary filesystem space, which"
+                          " will be allocated in TMPDIR (if set in the"
+                          " environment) or java.io.tmpdir.")
                 :parse-fn #(Integer/parseInt %)]
                ["-n" "--numhosts NUMHOSTS" "How many hosts to use during simulation (required)"
                 :parse-fn #(Integer/parseInt %)]
@@ -331,34 +313,42 @@
                                   [data-paths false])]
       (kitchensink/mapvals #(some-> % (load-sample-data from-cp?)) data-paths))))
 
-(defn try-read-and-send-command [base-url command-send-ch]
-  (try
-    (cm/match [(<!! command-send-ch)]
-              [:stop] nil
-              [nil] nil
-              [[entity host version payload]]
-              (do ((case entity
-                     :catalog client/submit-catalog
-                     :report client/submit-report
-                     :factset client/submit-facts)
-                   base-url host version payload)
-                  ::submitted))
-    (catch Exception e
-      (println "Exception while submitting command: " e)
-      ::error)))
-
 (defn start-command-sender
-  "Start a command sending thread. Reads commands from command-send-ch of the
-  form [entity version payload-string]. Writes a value to rate-monitor-ch for
-  every command sent."
-  [base-url command-send-ch rate-monitor-ch]
-  (future
-    (loop []
-      (case (try-read-and-send-command base-url command-send-ch)
-        ::submitted (do (>!! rate-monitor-ch true)
-                        (recur))
-        ::error (recur)
-        nil nil))))
+  "Start a command sending process in the background. Reads host-state maps from
+  command-send-ch and sends commands to the puppetdb at base-url. Writes
+  ::submitted to rate-monitor-ch for every command sent, or ::error if there was
+  a problem. Close command-send-ch to stop the background process."
+  [base-url command-send-ch rate-monitor-ch num-threads]
+  (let [fanout-commands-ch (chan)]
+    ;; fanout: given a single host state, emit 3 messages, one for each command.
+    ;; This gives better parallelism for message submission.
+    (async/pipeline
+     1
+     fanout-commands-ch
+     (mapcat (fn [host-state]
+               (let [{:keys [host catalog report factset]} host-state]
+                 (remove nil?
+                         [(when catalog [:catalog host 9 catalog])
+                          (when report [:report host 8 report])
+                          (when factset [:factset host 5 factset])]))))
+     command-send-ch)
+
+    ;; actual sender process
+    (async/pipeline-blocking
+     num-threads
+     rate-monitor-ch
+     (map (fn [[command host version payload]]
+            (let [submit-fn (case command
+                              :catalog client/submit-catalog
+                              :report client/submit-report
+                              :factset client/submit-facts)]
+              (try
+                (submit-fn base-url host version payload)
+                ::submitted
+                (catch Exception e
+                  (println-err (trs "Exception while submitting command: {0}" e))
+                  ::error)))))
+     fanout-commands-ch)))
 
 (defn start-rate-monitor
   "Start a task which monitors the rate of messages on rate-monitor-ch and
@@ -375,9 +365,11 @@
           (if (> time-diff 5000)
             (let [time-diff-seconds (/ time-diff 1000)
                   messages-per-second (float (/ events-since-last-report time-diff-seconds))]
-              (println "Sending" messages-per-second "messages/s"
-                       "(load equivalent to" (int (/ messages-per-second expected-node-message-rate)) "nodes)")
-              (flush)
+              (println-err
+               (trs
+                "Sending {0} messages/s (load equivalent to {1} nodes)"
+                messages-per-second
+                (int (/ messages-per-second expected-node-message-rate))))
               (recur 0 t))
             (recur (inc events-since-last-report) last-report-time)))))))
 
@@ -385,175 +377,206 @@
   (jitter (time/minus (time/now) run-interval)
           (time/in-seconds run-interval)))
 
-(defn partition-into-buckets [num-buckets s]
-  (loop [s s
-         buckets (into clojure.lang.PersistentQueue/EMPTY
-                       (repeat num-buckets '()))]
-    (if (seq s)
-      (recur (rest s)
-             (conj (pop buckets)
-                   (cons (first s) (first buckets))))
-      (seq buckets))))
+(defn delete-dir-or-report [dir]
+  (try
+    (fs/delete-dir dir)
+    (catch Exception ex
+      (println-err ex))))
 
-(defn make-jms-nippy-message
-  "Create a jms message containing the clojure data structure 'payload' encoded
-  into a byte array using nippy."
-  [session payload]
-  (let [msg (.createBytesMessage session)
-        payload-bytes (nippy/freeze payload)]
-    (.writeBytes msg payload-bytes)
-    msg))
+(def benchmark-shutdown-timeout 5000)
 
-(defn unpack-jms-nippy-message
-  "Return the clojure data payload from a message created with
-  'make-jms-nippy-message'."
-  [msg]
-  (let [bytes (byte-array (.getBodyLength msg))]
-    (.readBytes msg bytes)
-    (nippy/thaw bytes)))
-
-(deftype AMQBrokerBuffer [^BrokerService broker
-                          ^Session session
-                          ^MessageProducer producer
-                          ^MessageConsumer consumer
-                          mq-dir
-                          queue-count]
+(deftype TempFileBuffer [storage-dir q]
   Buffer
   (full? [this] false)
   (remove! [this]
-    (swap! queue-count dec)
-    (mq/commit-or-rollback session (unpack-jms-nippy-message (.receive consumer))))
+    (let [path (.poll q)
+          result (nippy/thaw (Files/readAllBytes path))]
+      (Files/delete path)
+      result))
+
   (add!* [this item]
-    (swap! queue-count inc)
-    (mq/commit-or-rollback session (.send producer (make-jms-nippy-message session item))))
+    (let [path (Files/createTempFile storage-dir "bench-tmp-" ""
+                                     (into-array FileAttribute []))]
+      (Files/write path (nippy/freeze item) (into-array OpenOption []))
+      (.add q path)))
+
   (close-buf! [this]
-    (println "Shutting down AMQ...")
-    (reset! queue-count 0)
-    (amq/stop-broker! broker)
-    (fs/delete-dir mq-dir))
+    (.clear q)
+    (println-err (trs "Cleaning up temp files from {0}"
+                      (pr-str (str storage-dir))))
+    (async/alt!!
+      (go (delete-dir-or-report storage-dir))
+      (println-err (trs "Finished cleaning up temp files"))
+
+      (async/timeout benchmark-shutdown-timeout)
+      (println-err (trs "Cleanup timeout expired; leaving files in {0}"
+                        (pr-str (str storage-dir)))))
+    nil)
+
   clojure.lang.Counted
-  (count [this] @queue-count))
+  (count [this] (.size q)))
 
-(defn amq-broker-buffer [broker-name endpoint-name]
-  (let [dir (kitchensink/absolute-path broker-name)
-        conn-str (str "vm://" broker-name
-                      "?broker.useJmx=false"
-                      "&broker.enableStatistics=false"
-                      "&jms.useCompression=true"
-                      "&jms.copyMessageOnSend=false")
-        size-megs 20000
-        broker (amq/build-embedded-broker broker-name
-                                         dir
-                                         {:store-usage size-megs
-                                          :temp-usage  size-megs})
-        _ (println "Using amq in" dir)
-        _ (.setPersistent broker false)
-        _ (amq/start-broker! broker)
-        factory (amq/activemq-connection-factory conn-str)
-        connection (doto (.createConnection factory) .start)
-        session (.createSession connection true 0)]
-    (AMQBrokerBuffer. broker
-                      session
-                      (.createProducer session (.createQueue session endpoint-name))
-                      (.createConsumer session (.createQueue session endpoint-name))
-                      dir
-                      (atom 0))))
+(defn message-buffer
+  [temp-dir expected-size]
+  (let [q (ArrayDeque. expected-size)
+        storage-dir (Files/createTempDirectory temp-dir
+                                               "pdb-bench-"
+                                               (into-array FileAttribute []))]
+    (TempFileBuffer. storage-dir q)))
 
-(defn relay-messages-at-rate
-  "Relay messages from in-ch to out-ch at the given rate in
-  messages-per-second."
-  [in-ch out-ch messages-per-second]
-  (let [ms-per-message (- (/ 1000 messages-per-second) 3)]
-    (go-loop []
-      (let [message (<! in-ch)
-            message-timeout (timeout (int (+ (rand) ms-per-message)))]
-        (when message
-          (>! out-ch message)
-          (<! message-timeout)
-          (recur))))))
+(defn random-hosts
+  [n pdb-host catalogs reports facts]
+  (let [random-entity (fn [host entities]
+                        (some-> entities
+                                rand-nth
+                                (assoc "certname" host)))]
+    (for [i (range n)]
+      (let [host (str "host-" i)]
+        {:host host
+         :catalog (when-let [cat (random-entity host catalogs)]
+                    (update cat "resources"
+                            (partial map #(update % "tags"
+                                                  conj
+                                                  pdb-host))))
+         :report (random-entity host reports)
+         :factset (random-entity host facts)}))))
 
-(defn benchmark-main
-  [& args]
+(defn start-populate-queue
+  "Fills queue with host entries in the background. Stops if mq-ch is closed."
+  [mq-ch numhosts run-interval pdb-host catalogs reports facts]
+  (go
+    (println-err (trs "Populating queue in the background"))
+    (doseq [host (random-hosts numhosts pdb-host catalogs reports facts)
+            :while (>! mq-ch (assoc host :lastrun (rand-lastrun run-interval)))]
+      true)
+    (println-err (trs "Finished populating queue"))))
+
+(defn start-simulation-loop
+  "Run a background process which takes host-state maps from mq-ch, updates them
+  with update-host, and puts them on on command-send-ch *and* back on mq-ch. If
+  num-msgs is given, closes mq-ch after than many simulation steps have been
+  performed. If not, uses numhosts and run-interval to run the simulatation at a
+  reasonable rate. Close mq-ch to terminate the background process. "
+  [numhosts run-interval num-msgs rand-perc simulation-threads
+   command-send-ch mq-ch]
+  (let [run-interval-minutes (time/in-minutes run-interval)
+        hosts-per-second (/ numhosts (* run-interval-minutes 60))
+        ms-per-message (- (/ 1000 hosts-per-second) 3)]
+
+    (async/pipeline-blocking
+     simulation-threads
+     command-send-ch
+     (map (fn [host-state]
+            (when-not num-msgs
+              (Thread/sleep (int (+ (rand) ms-per-message))))
+            (let [updated-host-state (update-host host-state rand-perc (time/now) run-interval)]
+              (>!! mq-ch updated-host-state)
+              updated-host-state)))
+     mq-ch)))
+
+(defn warn-missing-data [catalogs reports facts]
+  (when-not catalogs
+    (println-err (trs "No catalogs specified; skipping catalog submission")))
+  (when-not reports
+    (println-err (trs "No reports specified; skipping report submission")))
+  (when-not facts
+    (println-err (trs "No facts specified; skipping fact submission"))))
+
+(defn register-shutdown-hook! [f]
+  (.addShutdownHook (Runtime/getRuntime) (Thread. f)))
+
+;; The core.async processes and channels fit together like this:
+;;
+;; populate-queue
+;;    |
+;;    | (mq-ch: host-maps) <---\
+;;    v                        |
+;; simulation-loop ------------/
+;;    |
+;;    | (command-send-ch: host-maps)
+;;    v
+;; command-sender
+;;    |
+;;    | (rate-monitor-ch: ::success or ::error)
+;;    v
+;; rate-monitor
+;;
+;; It's all set up so that channel closes flow downstream (and upstream to the
+;; producer). Closing mq-ch shuts down everything.
+
+(defn benchmark
+  "Feeds commands to PDB as requested by args. Returns a map of :join, a
+  function to wait for the benchmark process to terminate (only happens when you
+  pass nummsgs), and :stop, function to request termination of the benchmark
+  process and and wait for it to stop cleanly. These functions return true if
+  shutdown happened cleanly, or false if there was a timeout."
+  [args]
   (let [{:keys [config rand-perc numhosts nummsgs threads] :as options} (validate-cli! args)
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
         {:keys [catalogs reports facts]} (load-data-from-options options)
+        _ (warn-missing-data catalogs reports facts)
         {pdb-host :host pdb-port :port
          :or {pdb-host "127.0.0.1" pdb-port 8080}} (:jetty config)
         base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1)
-        ;; Create an agent for each host
-        get-random-entity (fn [host entities]
-                            (some-> entities
-                                    rand-nth
-                                    (assoc "certname" host)))
-        make-host (fn [i]
-                    (let [host (str "host-" i)]
-                      {:host host
-                       :catalog (when-let [catalog (get-random-entity host catalogs)]
-                                  (update catalog "resources" (partial map #(update % "tags" conj pdb-host))))
-                       :report (get-random-entity host reports)
-                       :factset (get-random-entity host facts)}))
-        hosts (map make-host (range numhosts))
-        command-send-ch (if nummsgs
-                          (chan)
-                          (chan (dropping-buffer 10000)))
-        rate-monitor-ch (chan (* 2 threads))
         run-interval (-> (get options :runinterval 30) time/minutes)
         simulation-threads 4
         commands-per-puppet-run (+ (if catalogs 1 0)
                                    (if reports 1 0)
-                                   (if facts 1 0))]
+                                   (if facts 1 0))
+        temp-dir (get-path (or (System/getenv "TMPDIR")
+                               (System/getProperty "java.io.tmpdir")))
 
-    (start-rate-monitor rate-monitor-ch run-interval commands-per-puppet-run)
+        ;; channels
+        mq-ch (chan (message-buffer temp-dir numhosts))
+        _ (register-shutdown-hook! #(async/close! mq-ch))
 
-    (dotimes [_ threads]
-      (start-command-sender base-url command-send-ch rate-monitor-ch))
+        command-send-ch (chan)
+        rate-monitor-ch (chan)
 
-    (when-not catalogs (log/info (trs "No catalogs specified; skipping catalog submission")))
-    (when-not reports (log/info (trs "No reports specified; skipping report submission")))
-    (when-not facts (log/info (trs "No facts specified; skipping fact submission")))
+        ;; processes
+        rate-monitor-finished-ch (start-rate-monitor rate-monitor-ch
+                                                     run-interval
+                                                     commands-per-puppet-run)
+        command-sender-finished-ch (start-command-sender base-url
+                                                         (if nummsgs
+                                                           (async/take (* numhosts nummsgs)
+                                                                       command-send-ch)
+                                                           command-send-ch)
+                                                         rate-monitor-ch
+                                                         threads)
+        populate-finished-ch (start-populate-queue mq-ch numhosts run-interval pdb-host
+                                                   catalogs reports facts)
+        _ (start-simulation-loop numhosts run-interval nummsgs rand-perc
+                                 simulation-threads command-send-ch mq-ch)
+        join-fn (fn join-benchmark
+                  ([] (join-benchmark nil))
+                  ([timeout-ms]
+                   (let [t-ch (if timeout-ms (async/timeout timeout-ms) (chan))]
+                     (async/alt!! t-ch false populate-finished-ch true)
+                     (async/alt!! t-ch false command-sender-finished-ch true)
+                     (async/alt!! t-ch false rate-monitor-ch true))))
+        stop-fn (fn stop-benchmark []
+                  (async/close! mq-ch)
+                  (when-not (join-fn benchmark-shutdown-timeout)
+                    (println-err (trs "Timed out while waiting for benchmark to stop."))
+                    false))
+        _ (register-shutdown-hook! stop-fn)]
 
-    (if nummsgs
-      (do
-        (submit-n-messages hosts nummsgs rand-perc command-send-ch)
-        (dotimes [_ threads]
-          (>!! command-send-ch :stop))
-        (close! command-send-ch))
+    ;; When running with nummsgs, benchmark shuts down when the channel from
+    ;; async/take closes. This doesn't close the upstream channels
+    ;; though (pipeline only propagates channel closes downstream). This
+    ;; process watches the command sender and makes sure that mq-ch gets
+    ;; closed when it terminates, ensuring timely queue cleanup.
+    ;; NB: This relies on the undocumented behavior of pipeline-* returning a
+    ;; channel which closes when the pipeline shuts down.
+    (go
+      (async/<! command-sender-finished-ch)
+      (async/close! mq-ch))
 
-      (let [close-to-stop-ch (chan)
-            mq (chan (amq-broker-buffer "benchmark-mq" "benchmark-endpoint"))]
-
-        ;; be sure to clear the temp queue on exit
-        (.addShutdownHook (Runtime/getRuntime) (Thread. #(close! mq)))
-
-        ;; initial queue population
-        (future
-          (println "Populating the queue in the background")
-          (dotimes [n numhosts]
-            (let [h (-> (make-host n)
-                        (assoc :lastrun (rand-lastrun run-interval)))]
-              (>!! mq h)))
-
-          (println "... finished filling the queue, continuing with the simulation."))
-
-        (let [run-interval-minutes (time/in-minutes run-interval)
-              hosts-per-second (/ numhosts (* run-interval-minutes 60))
-              rate-limited-mq-out (chan)]
-          (relay-messages-at-rate mq rate-limited-mq-out hosts-per-second)
-          (pipeline simulation-threads
-                    mq
-                    (map #(update-host % rand-perc (time/now) command-send-ch))
-                    rate-limited-mq-out)
-          (go
-            (<! close-to-stop-ch)
-            (mapv close! [rate-limited-mq-out mq rate-monitor-ch command-send-ch])))
-        close-to-stop-ch))))
-
-(defn chan? [x]
-  (satisfies? clojure.core.async.impl.protocols/Channel x))
-
+    {:stop stop-fn
+     :join join-fn}))
 
 (defn -main [& args]
-  (let [x (apply benchmark-main args)]
-    (when (chan? x)
-      (println "Press ctrl-c to stop.")
-      (<!! x))))
+  (when-let [{:keys [join]} (benchmark args)]
+    (println-err (trs "Press ctrl-c to stop"))
+    (join)))

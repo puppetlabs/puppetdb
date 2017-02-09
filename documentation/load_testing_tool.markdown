@@ -33,7 +33,7 @@ Unzip the exported data. When unzipped/untared, find the
 directories. One or all of these directories can be used as input to the load
 testing tool.
 
-Running the load testing tool
+Running the load testing tool (benchmark)
 -----
 
 Before running the load testing tool, make sure you have the full path to your
@@ -49,8 +49,15 @@ entries:
 There is currently no script for running the tool, so you'll need a command like
 the one below:
 
-    $ /usr/bin/java -cp /opt/puppetlabs/server/apps/puppetdb/puppetdb.jar clojure.main -m puppetlabs.puppetdb.cli.benchmark --config myconfig.ini --catalogs /tmp/puppetdb-bak/catalogs --runinterval 30 --numhosts 1000 --rand-perc 10
+    $ java -cp /opt/puppetlabs/server/apps/puppetdb/puppetdb.jar clojure.main \
+        -m puppetlabs.puppetdb.cli.benchmark \
+        --config myconfig.ini \
+        --catalogs /tmp/puppetdb-bak/catalogs \
+        --runinterval 30 --numhosts 1000 --rand-perc 10
 
+Note that if you run it from the source tree via leiningen, you should
+make sure to use trampoline, i.e. `lein trampoline run benchmark ...`
+so that the tool can shut down and clean up normally.
 
 ### Arguments accepted by the benchmark command
 
@@ -64,13 +71,22 @@ the one below:
   from a previous PuppetDB export).
 - **`--archive / -A`**: tarball archive obtained via a PuppetDB export. This
   option is incompatible with the preceding four.
-- **`--runinterval / -i`**: integer indicating the amount of time in minutes
-  between puppet runs for each simulated node. Typical values are 30 or 60.
+- **`--runinterval / -i`**: integer indicating the amount of time in
+  minutes between puppet runs for each simulated node. Typical values
+  are 30 or 60.  Mutually exclusive with **`--nummsgs`**.  This option
+  requires some temporary filesystem space, which will be allocated in
+  TMPDIR (if set in the environment), java.io.tmpdir (if that JVM
+  property is set), or the default JVM location.
+- **`--nummsgs`** / **`-N`**: integer indicating the number of
+  commands and/or reports to send for each host, after which benchmark
+  will exit.  Mutually exclusive with **`--runinterval`**.
 - **`--numhosts / -n`**: number of separate hosts that the tool should simulate.
 - **`--rand-perc / -r`**: what percentage of catalogs submissions should be
   changed (this simulates typical catalog changes, such as adding a resource,
   edge, or something similar). More changes to catalogs will cause a higher load
   on PuppetDB. A typical change percentage is 10.
+- **`--threads`** / **`-t`**: number of threads to use for command
+  submission; defaults to four times the number of available processors.
 
 >**Note:** If --facts, --catalogs, --reports, and --archive are unspecified, the
 >PuppetDB sample data will be used. This data includes catalogs, facts, and
