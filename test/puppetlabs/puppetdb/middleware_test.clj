@@ -158,7 +158,13 @@
           (is (= (wrapped-fn test-req)
                  {:status 415
                   :headers {"Content-Type" http/error-response-content-type}
-                  :body "content encoding gzip not supported"})))))))
+                  :body "content encoding gzip not supported"}))))))
+  (testing "should succeed with no content-encoding"
+    (let [test-req {:request-method :post
+                    :content-type "application/json"
+                    :headers {}}
+          wrapped-fn (verify-content-encoding identity ["whatever"])]
+      (is (= (wrapped-fn test-req) test-req)))))
 
 (deftest whitelist-middleware
   (testing "should log on reject"

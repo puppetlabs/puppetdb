@@ -423,7 +423,8 @@
          (throw ex#)))))
 
 (def content-encodings->file-extensions
-  {"gzip" "gz"})
+  {"gzip" "gz"
+   "identity" ""})
 
 (defn content-encoding->file-extension
   [encoding]
@@ -434,3 +435,6 @@
        vals
        (cons "")
        (apply s/enum)))
+
+(def supported-content-encodings
+  (vec (keys content-encodings->file-extensions)))

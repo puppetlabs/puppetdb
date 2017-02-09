@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.http.command
   (:require [clojure.set :as set]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
-            [puppetlabs.puppetdb.utils :refer [content-encoding->file-extension]]
+            [puppetlabs.puppetdb.utils :refer [content-encoding->file-extension
+                                               supported-content-encodings]]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -18,7 +19,8 @@
             [schema.core :as s]
             [slingshot.slingshot :refer [try+ throw+]]
             [puppetlabs.i18n.core :refer [trs tru]]
-            [puppetlabs.puppetdb.time :as pdbtime])
+            [puppetlabs.puppetdb.time :as pdbtime]
+            [puppetlabs.puppetdb.utils :as utils])
   (:import [org.apache.commons.io IOUtils]
            [org.apache.commons.fileupload.util LimitedInputStream]))
 
@@ -269,7 +271,7 @@
                                              "certname" "command" "version" "producer-timestamp"]})
       mid/verify-accepts-json
       (mid/verify-content-type ["application/json"])
-      (mid/verify-content-encoding ["gzip" "identity"])
+      (mid/verify-content-encoding utils/supported-content-encodings)
       (mid/fail-when-payload-too-large reject-large-commands? max-command-size)
       (mid/wrap-with-metrics (atom {}) http/leading-uris)
       (mid/wrap-with-globals get-shared-globals)))
