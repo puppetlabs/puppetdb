@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.http.command
   (:require [clojure.set :as set]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
+            [puppetlabs.puppetdb.utils :refer [content-encoding->file-extension]]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -26,10 +27,6 @@
    "replace facts" 4
    "store report" 5
    "deactivate node" 3})
-
-(defn content-encoding->file-extension
-  [encoding]
-  (get {"gzip" "gz"} encoding ""))
 
 (def valid-commands-str (str/join ", " (sort (vals command-names))))
 

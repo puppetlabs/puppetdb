@@ -117,14 +117,14 @@
 
 (defn verify-content-encoding
   "Verification for the specified list of content-encodings."
-  [app content-encodings]
-  {:pre [(coll? content-encodings)
-         (every? string? content-encodings)]}
+  [app allowed-encodings]
+  {:pre [(coll? allowed-encodings)
+         (every? string? allowed-encodings)]}
   (fn [{:keys [headers request-method] :as req}]
     (let [content-encoding (headers "content-encoding")]
       (if (or (not= request-method :post)
               (empty? content-encoding)
-              (some #{content-encoding} content-encodings))
+              (some #{content-encoding} allowed-encodings))
         (app req)
         (http/error-response (tru "content encoding {0} not supported"
                                   content-encoding)

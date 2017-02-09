@@ -4,7 +4,7 @@
            [java.util TreeMap HashMap]
            [java.nio.file Files LinkOption]
            [java.nio.file.attribute FileAttribute]
-           (org.apache.commons.compress.compressors.gzip GzipCompressorInputStream))
+           [org.apache.commons.compress.compressors.gzip GzipCompressorInputStream])
   (:require [clojure.string :as str :refer [re-quote-replacement]]
             [puppetlabs.stockpile.queue :as stock]
             [clj-time.coerce :as tcoerce]
@@ -21,7 +21,8 @@
             [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as async-protos]
             [puppetlabs.puppetdb.nio :refer [get-path]]
-            [puppetlabs.puppetdb.utils :refer [match-any-of utf8-length
+            [puppetlabs.puppetdb.utils :refer [compression-file-extension-schema
+                                               match-any-of utf8-length
                                                utf8-truncate]]
             [slingshot.slingshot :refer [try+]]
             [schema.core :as s]
@@ -199,7 +200,7 @@
    :producer-ts (s/maybe pls/Timestamp)
    :callback (s/=> s/Any s/Any)
    :command-stream java.io.InputStream
-   :compression s/Str})
+   :compression compression-file-extension-schema})
 
 (s/defn create-command-req :- command-req-schema
   "Validating constructor function for command requests"
@@ -207,7 +208,7 @@
    version :- s/Int
    certname :- s/Str
    producer-ts :- (s/maybe s/Str)
-   compression :- s/Str
+   compression :- compression-file-extension-schema
    callback :- (s/=> s/Any s/Any)
    command-stream :- java.io.InputStream]
   {:command command
@@ -239,14 +240,14 @@
                       :compression compression})))
 
 (defn wrap-decompression-stream
-  [compression command-stream]
-  (condp = compression
+  [file-extension command-stream]
+  (case file-extension
     nil command-stream
     "" command-stream
     "gz" (GzipCompressorInputStream. command-stream)
     (throw+ {:kind ::parse-error} nil
-            (trs "Unsupported compression format for command: {0}"
-                 compression))))
+            (trs "Unsupported compression file extension for command: {0}"
+                 file-extension))))
 
 (defn cmdref->cmd [q cmdref]
   (let [compression (:compression cmdref)

@@ -935,8 +935,8 @@
       (handle-message (queue/store-command q (queue/create-command-req "replace facts"
                                                                        2
                                                                        "foo.example.com"
-                                                                       ""
                                                                        (ks/timestamp (now))
+                                                                       ""
                                                                        identity
                                                                        (tqueue/coerce-to-stream "bad stuff"))))
       (is (empty? (query-to-vec "SELECT * FROM facts")))
