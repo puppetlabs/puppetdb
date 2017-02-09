@@ -71,7 +71,8 @@
                               (cmdi/POST "" request
                                          (handle-clean-req request clean)))
                 (cmdi/ANY "/summary-stats" []
-                          (ss/collect-metadata get-shared-globals))))
+                          (let [db (:scf-read-db (get-shared-globals))]
+                            (json/generate-pretty-string (ss/collect-metadata db))))))
 
 (defn build-app
   [submit-command-fn query-fn get-shared-globals clean]

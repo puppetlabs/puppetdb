@@ -19,7 +19,11 @@
         (is (= {:maintenance_mode? false
                 :read_db_up? true
                 :write_db_up? true
-                :queue_depth 0}
+                :queue_depth 0
+                :node_count 0
+                :catalog_count 0
+                :factset_count 0
+                :report_count 0}
                (:status pdb-status))))))
 
   (testing "status returns as expected when in maintenance mode"
@@ -35,5 +39,9 @@
           (is (= {:maintenance_mode? true
                   :read_db_up? true
                   :write_db_up? true
-                  :queue_depth 0}
+                  :queue_depth 0
+                  :node_count 0
+                  :catalog_count 0
+                  :factset_count 0
+                  :report_count 0}
                  (:status pdb-status))))))))
