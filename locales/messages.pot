@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 84e0a138b263c68f382eb23ef818957cda262ad1\n"
+"X-Git-Ref: e506a9caa31882bae60b71625350dc43ee7f70db\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -174,7 +174,31 @@ msgid "Supplied directory {0} contains no usable data!"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
-msgid "Sending {0} messages for {1} hosts, will exit upon completion"
+msgid "Exception while submitting command: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/benchmark.clj
+msgid "Sending {0} messages/s (load equivalent to {1} nodes)"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/benchmark.clj
+msgid "Cleaning up temp files from {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/benchmark.clj
+msgid "Finished cleaning up temp files"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/benchmark.clj
+msgid "Cleanup timeout expired; leaving files in {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/benchmark.clj
+msgid "Populating queue in the background"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/benchmark.clj
+msgid "Finished populating queue"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
@@ -187,6 +211,14 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/benchmark.clj
 msgid "No facts specified; skipping fact submission"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/benchmark.clj
+msgid "Timed out while waiting for benchmark to stop."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/benchmark.clj
+msgid "Press ctrl-c to stop"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
