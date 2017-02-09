@@ -50,3 +50,4 @@ checkouts
 /resources/puppetlabs/puppetdb/*.class
 /resources/locales.clj
 /mp-*
+/dev-resources/i18n/bin
