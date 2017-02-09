@@ -35,7 +35,7 @@ endef
 export LOCALES_CLJ_CONTENTS
 
 
-i18n: update-pot msgfmt
+i18n: msgfmt
 
 # Update locales/messages.pot
 update-pot: locales/messages.pot
@@ -85,12 +85,11 @@ resources/$(BUNDLE_DIR)/Messages_%.class: locales/%.po | resources
 resources/$(BUNDLE_DIR)/Messages_$(MESSAGE_LOCALE).class: locales/messages.pot | resources
 	msgfmt --java2 -d resources -r $(BUNDLE).Messages -l $(MESSAGE_LOCALE) $<
 
-# Translators use this when they update translations; this copies any
-# changes in the pot file into their language-specific po file
-locales/%.po: locales/messages.pot
-	@if [ -f $@ ]; then                                           \
-	    msgmerge -U $@ $< && touch $@;                            \
-	else                                                          \
+# Use this to initialize translations. Updating the PO files is done
+# automatically through a CI job that utilizes the scripts in the project's
+# `bin` file, which themselves come from the `clj-i18n` project.
+locales/%.po: | locales
+	@if [ ! -f $@ ]; then                                         \
 	    touch $@ && msginit --no-translator -l $(*F) -o $@ -i $<; \
 	fi
 
@@ -118,7 +117,7 @@ You can use the following targets:
 
   i18n:             refresh all the files in locales/ and recompile resources
   update-pot:       extract strings and update locales/messages.pot
-  locales/LANG.po:  refresh or create translations for LANG
+  locales/LANG.po:  create translations for LANG
   msgfmt:           compile the translations into Java classes; this step is
                     needed to make translations available to the Clojure code
                     and produces Java class files in resources/
