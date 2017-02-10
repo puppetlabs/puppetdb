@@ -1,4 +1,6 @@
 (def pdb-version "4.4.0-SNAPSHOT")
+(def puppetserver-version "2.7.2")
+(def clj-parent-version "0.4.1")
 
 (defn deploy-info
   "Generate deployment information from the URL supplied and the username and
@@ -26,7 +28,7 @@
 
   :min-lein-version "2.7.1"
 
-  :parent-project {:coords [puppetlabs/clj-parent "0.3.2"]
+  :parent-project {:coords [puppetlabs/clj-parent ~clj-parent-version]
                    :inherit [:managed-dependencies]}
 
   ;; Abort when version ranges or version conflicts are detected in
@@ -98,8 +100,7 @@
                  [com.novemberain/pantomime "2.1.0"]
                  [compojure]
                  [org.apache.commons/commons-compress "1.10"]
-                 [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]
-                 ]
+                 [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]]
 
   :jvm-opts ~pdb-jvm-opts
 
@@ -138,6 +139,8 @@
                                   [puppetlabs/trapperkeeper :classifier "test"]
                                   [puppetlabs/kitchensink :classifier "test"]
                                   [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
+                                  [puppetlabs/puppetserver ~puppetserver-version]
+                                  [puppetlabs/puppetserver ~puppetserver-version :classifier "test"]
                                   [org.flatland/ordered "1.5.3"]
                                   [org.clojure/test.check "0.9.0"]
                                   [com.gfredericks/test.chuck "0.2.7" :exclusions [clj-time instaparse joda-time org.clojure/clojure]]
@@ -176,4 +179,13 @@
 
   :resource-paths ["resources" "puppet/lib" "resources/puppetlabs/puppetdb" "resources/ext/docs"]
 
-  :main ^:skip-aot puppetlabs.puppetdb.core)
+  :main ^:skip-aot puppetlabs.puppetdb.core
+
+  :test-selectors {:default (complement :integration)
+                   :unit (complement :integration)
+                   :integration :integration}
+
+  :aliases {"gem" ["trampoline" "run" "-m" "puppetlabs.puppetserver.cli.gem"
+                   "--config" "./test-resources/puppetserver/puppetserver.conf"]
+            "install-gems" ["trampoline" "run" "-m" "puppetlabs.puppetdb.integration.install-gems"
+                            "--config" "./test-resources/puppetserver/puppetserver.conf"]})

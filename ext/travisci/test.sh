@@ -16,12 +16,16 @@ run-unit-tests()
   export PGHOST=127.0.0.1
   export PGPORT=5432
   ext/bin/setup-pdb-pg "$pgdir"
-  ext/bin/pdb-test-env "$pgdir" lein2 test
+  ext/bin/pdb-test-env "$pgdir" lein2 test "$PDB_TEST_SELECTOR"
 )
 
 case "$PDB_TEST_LANG" in
   clojure)
     java -version
+    ruby -v
+    gem install bundler
+    bundle install --without acceptance
+    lein2 install-gems
     run-unit-tests
     ;;
   ruby)

@@ -88,6 +88,32 @@
 (defn strip-retired-config [config]
   (update config :database dissoc :classname :subprotocol))
 
+;; TODO: rework call-with-puppetdb-instance to use this
+(defn run-test-puppetdb [config services bind-attempts]
+  (when (zero? bind-attempts)
+    (throw (RuntimeException. "Repeated attempts to bind port failed, giving up")))
+  (let [config (-> config
+                   strip-retired-config
+                   conf/adjust-and-validate-tk-config
+                   assoc-open-port)
+        port (or (get-in config [:jetty :port])
+                 (get-in config [:jetty :ssl-port]))
+        is-ssl (boolean (get-in config [:jetty :ssl-port]))
+        base-url {:protocol (if is-ssl "https" "http")
+                  :host "localhost"
+                  :port port
+                  :prefix "/pdb/query"
+                  :version :v4}]
+    (try
+      (swap! dispatch/metrics clear-counters!)
+      {:app (tkbs/bootstrap-services-with-config (map var-get services) config)
+       :base-url base-url}
+
+      (catch java.net.BindException e
+        (log/errorf e "Error occured when Jetty tried to bind to port %s, attempt #%s"
+                    port bind-attempts)
+        (run-test-puppetdb config services (dec bind-attempts))))))
+
 (defn call-with-puppetdb-instance
   "Stands up a puppetdb instance with the specified config, calls f,
   and then tears the instance down, binding *server* to the instance
