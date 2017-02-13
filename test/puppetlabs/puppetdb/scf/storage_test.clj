@@ -23,6 +23,7 @@
             [puppetlabs.puppetdb.testutils.reports :refer :all]
             [puppetlabs.puppetdb.testutils.events :refer :all]
             [puppetlabs.puppetdb.random :as random]
+            [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.scf.storage :refer :all]
             [clojure.test :refer :all]
             [clojure.math.combinatorics :refer [combinations subsets]]
@@ -468,6 +469,64 @@
           (is (= 7 (:c (first
                         (query-to-vec
                          "select count(id) as c from fact_paths"))))))))))
+
+(deftest large-value-hash
+  (let [facts-now (fn [c v]
+                    {:certname c :values v
+                     :environment nil
+                     :timestamp (now)
+                     :producer_timestamp (now)
+                     :producer nil})
+        hex-hash-for (fn [x]
+                       (-> x
+                           hash/generic-identity-hash
+                           sutils/munge-hash-for-storage
+                           sutils/parse-db-hash))
+        bytes->hex (fn [x]
+                     (apply str (map #(format "%02x" %) x)))
+        db-items (fn [col]
+                   (->> (format (str "select path, %s, large_value_hash"
+                                     "  from facts"
+                                     "  inner join fact_paths on id = fact_path_id")
+                                (name col))
+                        query-to-vec
+                        (map (fn [row]
+                               (update row :large_value_hash bytes->hex)))))
+        by-path #(compare (:path %1) (:path %2))
+        threshold facts/large-value-threshold
+        large-str (apply str (repeat (* 2 threshold) \x))
+        large-str-hex (hex-hash-for large-str)]
+
+    (is (> threshold 20))
+
+    (testing "strings have a suitable large_value_hash when expected"
+      (with-test-db
+        (add-certname! "somehost")
+        (add-facts! (facts-now "somehost" {"small" "x" "large" large-str}))
+        (is (= [{:path "large"
+                 :value_string large-str
+                 :large_value_hash large-str-hex}
+                {:path "small"
+                 :value_string "x"
+                 :large_value_hash ""}]
+               (sort by-path (db-items :value_string))))))
+
+    (testing "structured values have a suitable large_value_hash when expected"
+      (with-test-db
+        (let [large-val [large-str]
+              large-val-hex (hex-hash-for large-val)]
+          (add-certname! "somehost")
+          (add-facts! (facts-now "somehost" {"small" ["x"] "large" large-val}))
+          (is (= [{:path "large"
+                   :value large-val
+                   :large_value_hash large-val-hex}
+                  {:path "large#~0"
+                   :value large-str
+                   :large_value_hash large-str-hex}
+                  {:path "small" :value ["x"] :large_value_hash ""}
+                  {:path "small#~0" :value "x" :large_value_hash ""}]
+                 (sort by-path (map #(update % :value sutils/parse-db-json)
+                                    (db-items :value))))))))))
 
 (def catalog (:basic catalogs))
 (def certname (:certname catalog))
