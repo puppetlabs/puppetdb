@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.jdbc
   "Database utilities"
   (:import (com.zaxxer.hikari HikariDataSource HikariConfig)
+           [java.sql Connection SQLException]
            (java.util.concurrent TimeUnit))
   (:require [clojure.java.jdbc :as sql]
             [clojure.string :as string]
@@ -47,7 +48,7 @@
   (sql/db-do-prepared *db* true (into [sql] params) {:multi? true}))
 
 (defn do-commands-outside-txn [& commands]
-  (let [conn (:connection *db*)
+  (let [^Connection conn (:connection *db*)
         orig (.getAutoCommit conn)]
     (.setAutoCommit conn true)
     (try
@@ -138,7 +139,7 @@
   ([convert x]
    (cond
      (kitchensink/array? x) (convert x)
-     (isa? (class x) java.sql.Array) (convert (.getArray x))
+     (isa? (class x) java.sql.Array) (convert (.getArray ^java.sql.Array x))
      :else x)))
 
 (defn call-with-query-rows
@@ -156,7 +157,7 @@
     {:keys [as-arrays? identifiers qualifier read-columns] :as opts}
     f]
    (with-db-transaction []
-     (with-open [stmt (.prepareStatement (:connection *db*) sql)]
+     (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
        (doall (map-indexed (fn [i param] (.setObject stmt (inc i) param))
                            params))
        (.setFetchSize stmt 500)
@@ -292,7 +293,7 @@
    If there are still retries to perform, returns false."
   [remaining :- s/Int
    current :- s/Int
-   exception]
+   ^SQLException exception]
   (cond
    (zero? remaining)
    (do
