@@ -24,12 +24,12 @@ describe Puppet::Util::Puppetdb::Command do
 
       it "should issue the HTTP POST and log success" do
         httpok.stubs(:body).returns '{"uuid": "a UUID"}'
-        http.expects(:post).with() do | path, payload, headers |
+        http.expects(:post).with() do | path, payload, headers, options |
           param_map = CGI::parse(URI(path).query)
           param_map['certname'].first.should == 'foo.localdomain' &&
             param_map['version'].first.should == '1' &&
             param_map['command'].first.should == 'OPEN_SESAME'
-
+          options[:compress].should == :gzip
         end.returns(httpok)
 
         subject.submit

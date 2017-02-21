@@ -143,6 +143,29 @@
         (let [wrapped-fn   (verify-content-type identity ["application/json"])]
           (is (= (wrapped-fn test-req) test-req)))))))
 
+(deftest verify-content-encoding-test
+  (testing "with content-encoding of gzip"
+    (let [test-req {:request-method :post
+                    :content-type "application/json"
+                    :headers {"content-encoding" "gzip"}}]
+
+      (testing "should succeed with matching content encoding"
+        (let [wrapped-fn (verify-content-encoding identity ["gzip"])]
+          (is (= (wrapped-fn test-req) test-req))))
+
+      (testing "should fail with no matching content encoding"
+        (let [wrapped-fn (verify-content-encoding identity ["compress" "deflate"])]
+          (is (= (wrapped-fn test-req)
+                 {:status 415
+                  :headers {"Content-Type" http/error-response-content-type}
+                  :body "content encoding gzip not supported"}))))))
+  (testing "should succeed with no content-encoding"
+    (let [test-req {:request-method :post
+                    :content-type "application/json"
+                    :headers {}}
+          wrapped-fn (verify-content-encoding identity ["whatever"])]
+      (is (= (wrapped-fn test-req) test-req)))))
+
 (deftest whitelist-middleware
   (testing "should log on reject"
     (let [wl (temp-file "whitelist-log-reject")]

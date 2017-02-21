@@ -130,7 +130,7 @@
               ;; body. Rather than do that, nil is being passed. This
               ;; is still correct, the only downside is comands won't
               ;; be overwritten in the queue by newer commands.
-              (enqueue-fn command version certname nil payload)
+              (enqueue-fn command version certname nil payload "")
 
               (catch Exception ex
                 (log/error ex

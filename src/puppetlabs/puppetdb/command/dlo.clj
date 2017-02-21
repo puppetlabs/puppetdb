@@ -204,7 +204,8 @@
                                      {:producer-ts nil
                                       :command "unknown"
                                       :version 0
-                                      :certname digest})
+                                      :certname digest
+                                      :compression ""})
         cmd-dest (.resolve path (str id \- metadata))]
     (Files/write cmd-dest bytes (oopts []))
     (let [info-dest (store-failed-command-info id metadata "unknown"

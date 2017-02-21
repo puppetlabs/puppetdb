@@ -421,3 +421,20 @@
          (binding [*out* *err*]
            (println ex#))
          (throw ex#)))))
+
+(def content-encodings->file-extensions
+  {"gzip" "gz"
+   "identity" ""})
+
+(defn content-encoding->file-extension
+  [encoding]
+  (get content-encodings->file-extensions encoding ""))
+
+(def compression-file-extension-schema
+  (->> content-encodings->file-extensions
+       vals
+       (cons "")
+       (apply s/enum)))
+
+(def supported-content-encodings
+  (vec (keys content-encodings->file-extensions)))

@@ -53,6 +53,7 @@
    command-versions]
   (let [path (.getName tar-entry)
         [command-type certname] (command-matcher path)
+        compression ""
         command-fn' (fn [command-kwd command-version]
                       (command-fn command-kwd
                                   command-version
@@ -62,7 +63,8 @@
                                       utils/read-json-content
                                       json/generate-string
                                       (.getBytes "UTF-8")
-                                      java.io.ByteArrayInputStream.)))]
+                                      java.io.ByteArrayInputStream.)
+                                  compression))]
     (case command-type
       "catalogs"
       (do

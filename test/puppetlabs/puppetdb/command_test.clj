@@ -126,7 +126,7 @@
       :total))
 
 (defn failed-catalog-req [version certname payload]
-  (queue/create-command-req "replace catalog" version certname nil identity
+  (queue/create-command-req "replace catalog" version certname nil "" identity
                             (tqueue/coerce-to-stream payload)))
 
 (deftest command-processor-integration
@@ -393,6 +393,7 @@
                                                                            version-num
                                                                            certname
                                                                            (ks/timestamp (now))
+                                                                           ""
                                                                            identity
                                                                            (tqueue/coerce-to-stream "bad stuff"))))
             (is (empty? (query-to-vec "SELECT * FROM catalogs")))
@@ -921,6 +922,7 @@
                                                                            latest-facts-version
                                                                            "foo.example.com"
                                                                            (ks/timestamp (now))
+                                                                           ""
                                                                            identity
                                                                            (tqueue/coerce-to-stream "bad stuff"))))
           (is (empty? (query-to-vec "SELECT * FROM facts")))
@@ -934,6 +936,7 @@
                                                                        2
                                                                        "foo.example.com"
                                                                        (ks/timestamp (now))
+                                                                       ""
                                                                        identity
                                                                        (tqueue/coerce-to-stream "bad stuff"))))
       (is (empty? (query-to-vec "SELECT * FROM facts")))
@@ -1462,7 +1465,8 @@
                            (tqueue/coerce-to-stream
                             {:environment "DEV" :certname "foo.local"
                              :values {:foo "foo"}
-                             :producer_timestamp (to-string (now))}))
+                             :producer_timestamp (to-string (now))})
+                           "")
           @received-cmd?
           (is (= {:received-commands 1 :executed-commands 0} (stats)))
           (deliver go-ahead-and-execute true)
@@ -1486,7 +1490,8 @@
                        "foo.local"
                        nil
                        (tqueue/coerce-to-stream
-                        {:certname "foo.local" :producer_timestamp input-stamp}))
+                        {:certname "foo.local" :producer_timestamp input-stamp})
+                       "")
       (is (svc-utils/wait-for-server-processing svc-utils/*server* default-timeout-ms)
           (format "Server didn't process received commands after %dms" default-timeout-ms))
 
@@ -1526,7 +1531,8 @@
                        "foo.local"
                        nil
                        (tqueue/coerce-to-stream
-                        {:certname "foo.local" :producer_timestamp producer-ts}))
+                        {:certname "foo.local" :producer_timestamp producer-ts})
+                       "")
 
       (let [received-uuid (async/alt!! response-chan ([msg] (:producer-timestamp msg))
                                        (async/timeout 10000) ::timeout)]
@@ -1580,6 +1586,7 @@
                                  (assoc :producer_timestamp old-producer-ts
                                         :certname "foo.com")
                                  tqueue/coerce-to-stream)
+                            ""
                             #(deliver cmd-1 %))
 
            (enqueue-command (command-names :replace-catalog)
@@ -1589,6 +1596,7 @@
                             (-> base-cmd
                                 (assoc :producer_timestamp old-producer-ts)
                                 tqueue/coerce-to-stream)
+                            ""
                             #(deliver cmd-2 %))
 
            (enqueue-command (command-names :replace-catalog)
@@ -1598,6 +1606,7 @@
                             (-> base-cmd
                                 (assoc :producer_timestamp new-producer-ts)
                                 tqueue/coerce-to-stream)
+                            ""
                             #(deliver cmd-3 %))
 
            (.release semaphore)
