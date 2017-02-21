@@ -11,7 +11,6 @@
             [puppetlabs.puppetdb.meta :as meta]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.http.command :as cmd]
-            [clj-http.client :as client]
             [puppetlabs.puppetdb.http.server :as server]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.config :as conf]

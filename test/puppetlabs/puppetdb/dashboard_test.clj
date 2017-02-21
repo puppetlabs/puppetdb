@@ -5,7 +5,6 @@
             [ring.mock.request :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [clojure.java.io :refer [file]]
-            [clj-http.client :as client]
             [puppetlabs.puppetdb.utils :refer [base-url->str-with-prefix]]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.dashboard :as dtu]
@@ -33,6 +32,6 @@
      (let [root-resp (-> svc-utils/*base-url*
                          (assoc :prefix "/")
                          base-url->str-with-prefix
-                         client/get)]
+                         svc-utils/get-unparsed)]
        (tu/assert-success! root-resp)
        (is (dtu/dashboard-page? root-resp))))))

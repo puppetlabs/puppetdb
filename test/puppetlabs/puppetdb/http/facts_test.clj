@@ -1969,7 +1969,8 @@
                             (jdbc/with-transacted-connection *db*
                               (scf-store/add-certname! "foo")
                               (scf-store/add-facts! facts))
-                            (-> (svc-utils/pdb-query-url)
-                                (svc-utils/get-url "/facts")))))))]
+                            (-> (svc-utils/query-url-str "/facts")
+                                svc-utils/get-unparsed
+                                :body))))))]
     (is (not (re-find #"\n\}, \{\n" (facts-body false))))
     (is (re-find #"\n\}, \{\n" (facts-body true)))))

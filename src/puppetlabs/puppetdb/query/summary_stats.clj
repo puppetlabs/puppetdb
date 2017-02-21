@@ -3,7 +3,8 @@
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.meta.version :as v]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.kitchensink.core :as ks]))
+            [puppetlabs.kitchensink.core :as ks]
+            [puppetlabs.puppetdb.http :as http]))
 
 (def metadata-queries
   {:table_usage
@@ -183,4 +184,4 @@
     (jdbc/with-transacted-connection scf-read-db
       (-> (ks/mapvals jdbc/query-to-vec metadata-queries)
           (assoc :version (v/version))
-          json/generate-pretty-string))))
+          http/json-response))))

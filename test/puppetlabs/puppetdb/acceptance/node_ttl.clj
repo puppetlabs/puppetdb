@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.acceptance.node-ttl
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [clj-http.client :as client]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils.http :as tuhttp]
@@ -27,19 +26,29 @@
              (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) certname
                                           "replace catalog" 8 catalog)
 
-             (is (= 1 (count (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes")))))
-             (is (nil? (:expired (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes/foo.com")))))
+             (is (= 1 (count (:body (svc-utils/get (svc-utils/query-url-str "/nodes"))))))
+             (is (nil? (-> (svc-utils/query-url-str "/nodes/foo.com")
+                           svc-utils/get
+                           (get-in [:body :expired]))))
              (Thread/sleep 1000)
              (run-expire-nodes)
 
-             (is (= 0 (count (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes")))))
-             (is (:expired (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes/foo.com"))))
+             (is (= 0 (count (:body (svc-utils/get (svc-utils/query-url-str "/nodes"))))))
+             (is (->  (svc-utils/query-url-str "/nodes/foo.com")
+                      svc-utils/get
+                      (get-in [:body :expired])))
              (Thread/sleep 1000)
              (run-purge-nodes)
 
-             (is (= 0 (count (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes")))))
+             (is (= 0
+                    (-> (svc-utils/query-url-str "/nodes")
+                        svc-utils/get
+                        :body
+                        count)))
              (is (= {:error "No information is known about node foo.com"}
-                    (:body (tuhttp/pdb-get (svc-utils/pdb-query-url) "/nodes/foo.com")))))))))))
+                    (-> (svc-utils/query-url-str "/nodes/foo.com")
+                        svc-utils/get
+                        :body))))))))))
 
 (deftest test-zero-gc-interval
   (with-redefs [puppetlabs.puppetdb.cli.services/purge-nodes! (tu/mock-fn)]
