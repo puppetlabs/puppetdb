@@ -33,7 +33,7 @@
             [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service
                                                      maint-mode-service]]
             [puppetlabs.puppetdb.config :refer [config-service]]
-            [puppetlabs.http.client.sync :as http2]
+            [puppetlabs.http.client.sync :as http]
             [puppetlabs.puppetdb.schema :as pls]))
 
 ;; See utils.clj for more information about base-urls.
@@ -190,11 +190,11 @@
   string."
   [url-str :- String
    & [opts]]
-    (http2/get url-str
-               (merge
-                {:as :text
-                 :headers {"Content-Type" "application/json"}}
-                opts)))
+  (http/get url-str
+            (merge
+             {:as :text
+              :headers {"Content-Type" "application/json"}}
+             opts)))
 
 (pls/defn-validated get
   "Executes a GET HTTP request against `url-str`. `opts` are merged
@@ -206,6 +206,20 @@
     (if (testutils/json-content-type? resp)
       (update resp :body #(json/parse-string % true))
       resp)))
+
+(def default-ca-cert "test-resources/puppetserver/ssl/certs/ca.pem")
+(def default-cert "test-resources/puppetserver/ssl/certs/localhost.pem")
+(def default-ssl-key "test-resources/puppetserver/ssl/private_keys/localhost.pem")
+
+(pls/defn-validated get-ssl
+  "Executes a mutually authenticated GET HTTPS request against
+  `url-str` using the above `get` function."
+  [url-str & [opts]]
+  (get url-str
+       (merge {:ssl-ca-cert default-ca-cert
+               :ssl-cert default-cert
+               :ssl-key  default-ssl-key}
+              opts)))
 
 (pls/defn-validated get-or-throw
   "Same as `get` except will throw if an error status is returned."
@@ -223,10 +237,25 @@
   "Executes a POST HTTP request against `url-str`. `body` is a clojure
   data structure that is converted to a JSON string before POSTing."
   [url-str :- String
-   body]
-  (http2/post url-str
+   body
+   & [opts]]
+  (http/post url-str
+             (merge
               {:body (json/generate-string body)
-               :headers {"Content-Type" "application/json"}}))
+               :headers {"Content-Type" "application/json"}}
+              opts)))
+
+(pls/defn-validated post-ssl
+  "Executes a mutually authenticated POST HTTP request against
+  `url-str`. Uses the above `post` function"
+  [url-str :- String
+   body
+   & [opts]]
+  (post url-str
+        body
+        {:ssl-ca-cert default-ca-cert
+         :ssl-cert default-cert
+         :ssl-key  default-ssl-key}))
 
 (defn certname-query
   "Returns a function that will query the given endpoint (`suffix`)
