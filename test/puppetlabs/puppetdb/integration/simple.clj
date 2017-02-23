@@ -185,14 +185,27 @@
 (deftest ^:integration simple-agent-run
   (with-open [pg (setup-postgres)
               pdb (run-puppetdb pg {})
-              ps (run-puppet-server pdb {})]
-    (let [{:keys [out]} (run-puppet ps "notify { 'hello, world!': }")]
-      (is (re-find #"hello, world" out)))
-    (are [query result] (= result (pql-query pdb query))
-      "nodes[certname] {}" [{:certname "localhost"}]
-      "catalogs[certname, environment] {}" [{:certname "localhost", :environment "production"}]
-      "factsets[certname, environment] {}" [{:certname "localhost", :environment "production"}]
-      "reports[certname, environment] {}" [{:certname "localhost", :environment "production"}])))
+              ps (run-puppet-server [pdb] {})]
+    (testing "Agent run succeeds"
+      (let [{:keys [out]} (run-puppet ps "notify { 'hello, world!': }")]
+        (is (re-find #"hello, world" out))))
+
+    (testing "Agent run data can be queried"
+      (are [query result] (= result (pql-query pdb query))
+        "nodes[certname] {}" [{:certname "localhost"}]
+        "catalogs[certname, environment] {}" [{:certname "localhost", :environment "production"}]
+        "factsets[certname, environment] {}" [{:certname "localhost", :environment "production"}]
+        "reports[certname, environment] {}" [{:certname "localhost", :environment "production"}]))
+
+    (testing "transaction-uuid"
+      (let [catalog-uuid (first (pql-query pdb "catalogs [transaction_uuid] {}"))
+            report-uuid (first (pql-query pdb "reports [transaction_uuid] {}"))]
+        (testing "is available from puppetdb"
+          (is (not (nil? catalog-uuid)))
+          (is (not (nil? report-uuid))))
+        (testing "is equal on the catalog and report"
+          (is (= catalog-uuid report-uuid)))))))
+
 (deftest ^:integration db-fallback
   (with-open [pg1 (setup-postgres)
               pg2 (setup-postgres)
