@@ -138,6 +138,10 @@
     (fs/copy+ "test-resources/puppetserver/puppet.conf" "target/puppetserver/master-conf/puppet.conf")
     (fs/mkdirs "target/puppetserver/master-code/environments/production/modules")
 
+    ;; the puppetdb_query function has to be inside puppet itself to work
+    (fs/copy "puppet/lib/puppet/functions/puppetdb_query.rb"
+             "vendor/puppetserver-gems/gems/puppet-4.9.2/lib/puppet/functions/puppetdb_query.rb")
+
     (fs/create puppetdb-conf)
     (ks/spit-ini puppetdb-conf
                  {:main {:server_urls (->> (for [pdb-info pdb-infos]
@@ -207,3 +211,27 @@
       (run-puppet ps "notify { 'hello, world!': }")
       (is (= 1 (count (pql-query pdb2 "nodes {}")))))))
 
+(deftest ^:integration puppetdb-query-function
+  (with-open [pg (setup-postgres)
+              pdb (run-puppetdb pg {})
+              ps (run-puppet-server [pdb] {})]
+    (testing "Initial agent run, to populate puppetdb with data to query"
+      (run-puppet ps "notify { 'hello, world!': }"))
+
+    (let [test-out-file "/tmp/test_puppetdb_query.txt"]
+      (testing "Agent run with puppedb_query in the manifest"
+        (when (fs/exists? test-out-file)
+          (fs/delete test-out-file))
+
+        (run-puppet ps (str "node default {"
+                            "  $counts = puppetdb_query(['from', 'catalogs',"
+                            "                            ['extract', [['function', 'count']]]])"
+                            "  $count = $counts[0]['count']"
+                            "  file { '" test-out-file "':"
+                            "        ensure  => present,"
+                            "        content => \"${count}\""
+                            "  }"
+                            "}"))
+
+        (testing "should write the correct catalog count to a temp file"
+          (is (= "1" (slurp "/tmp/test_puppetdb_query.txt"))))))))
