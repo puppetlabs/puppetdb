@@ -84,8 +84,9 @@
                   :version :v4}]
     (try
       (swap! dispatch/metrics svc-utils/clear-counters!)
-      {:app (tkbs/parse-and-bootstrap bootstrap-config-file
-                                      {:config tmp-puppetdb-conf})
+      {:app (tu/without-jmx
+             (tkbs/parse-and-bootstrap bootstrap-config-file
+                                       {:config tmp-puppetdb-conf}))
        :base-url base-url}
 
       (catch java.net.BindException e
@@ -104,7 +105,8 @@
                           :port port
                           :query-base-url (assoc base-url :prefix "/pdb/query" :version :v4)
                           :command-base-url (assoc base-url :prefix "/pdb/cmd" :version :v1)
-                          :admin-base-url (assoc base-url :prefix "/pdb/admin" :version :v1)}
+                          :admin-base-url (assoc base-url :prefix "/pdb/admin" :version :v1)
+                          :app app}
                          app)))
 
 (defn pql-query [pdb-server query]
@@ -129,8 +131,8 @@
 (def dev-config-file "./test-resources/puppetserver/puppetserver.conf")
 (def dev-bootstrap-file "./test-resources/puppetserver/bootstrap.cfg")
 
-(defn run-puppet-server [pdb-server config-overrides]
-  (let [pdb-info (info-map pdb-server)
+(defn run-puppet-server [pdb-servers config-overrides]
+  (let [pdb-infos (map info-map pdb-servers)
         puppetdb-conf (io/file "target/puppetserver/master-conf/puppetdb.conf")]
     (fs/copy-dir "test-resources/puppetserver/ssl" "./target/puppetserver/master-conf/ssl")
     (fs/copy+ "test-resources/puppetserver/puppet.conf" "target/puppetserver/master-conf/puppet.conf")
@@ -138,7 +140,9 @@
 
     (fs/create puppetdb-conf)
     (ks/spit-ini puppetdb-conf
-                 {:main {:server_urls (str "https://" (:hostname pdb-info) ":" (:port pdb-info))}})
+                 {:main {:server_urls (->> (for [pdb-info pdb-infos]
+                                             (str "https://" (:hostname pdb-info) ":" (:port pdb-info)))
+                                           (clojure.string/join ","))}})
 
     (let [services (tk-bootstrap/parse-bootstrap-config! dev-bootstrap-file)
           tmp-conf (ks/temp-file "puppetserver" ".conf")
@@ -185,3 +189,21 @@
       "catalogs[certname, environment] {}" [{:certname "localhost", :environment "production"}]
       "factsets[certname, environment] {}" [{:certname "localhost", :environment "production"}]
       "reports[certname, environment] {}" [{:certname "localhost", :environment "production"}])))
+(deftest ^:integration db-fallback
+  (with-open [pg1 (setup-postgres)
+              pg2 (setup-postgres)
+              pdb1 (run-puppetdb pg1 {})
+              pdb2 (run-puppetdb pg2 {})
+              ps (run-puppet-server [pdb1 pdb2] {})]
+
+    (testing "Agent run against pdb1"
+      (run-puppet ps "notify { 'hello, world!': }")
+      (is (= 1 (count (pql-query pdb1 "nodes {}")))))
+
+    (testing "Fallback to pdb2"
+      (tk-app/stop (:app pdb1))
+      (is (= 0 (count (pql-query pdb2 "nodes {}"))))
+
+      (run-puppet ps "notify { 'hello, world!': }")
+      (is (= 1 (count (pql-query pdb2 "nodes {}")))))))
+
