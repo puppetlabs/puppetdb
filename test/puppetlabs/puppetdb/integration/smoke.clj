@@ -7,7 +7,7 @@
               pdb (int/run-puppetdb pg {})
               ps (int/run-puppet-server [pdb] {})]
     (testing "Agent run succeeds"
-      (let [{:keys [out]} (int/run-puppet-as "my-agent" ps "notify { 'hello, world!': }")]
+      (let [{:keys [out]} (int/run-puppet-as "my-agent" ps pdb "notify { 'hello, world!': }")]
         (is (re-find #"hello, world" out))))
 
     (testing "Agent run data can be queried"

@@ -8,22 +8,23 @@
               pdb (int/run-puppetdb pg {})
               ps (int/run-puppet-server [pdb] {})]
     (testing "Initial agent run, to populate puppetdb with data to query"
-      (int/run-puppet ps "notify { 'hello, world!': }"))
+      (int/run-puppet ps pdb "notify { 'hello, world!': }"))
 
     (let [test-out-file "/tmp/test_puppetdb_query.txt"]
       (testing "Agent run with puppedb_query in the manifest"
         (when (fs/exists? test-out-file)
           (fs/delete test-out-file))
 
-        (int/run-puppet ps (str "node default {"
-                            "  $counts = puppetdb_query(['from', 'catalogs',"
-                            "                            ['extract', [['function', 'count']]]])"
-                            "  $count = $counts[0]['count']"
-                            "  file { '" test-out-file "':"
-                            "        ensure  => present,"
-                            "        content => \"${count}\""
-                            "  }"
-                            "}"))
+        (int/run-puppet ps pdb
+                        (str "node default {"
+                             "  $counts = puppetdb_query(['from', 'catalogs',"
+                             "                            ['extract', [['function', 'count']]]])"
+                             "  $count = $counts[0]['count']"
+                             "  file { '" test-out-file "':"
+                             "        ensure  => present,"
+                             "        content => \"${count}\""
+                             "  }"
+                             "}"))
 
         (testing "should write the correct catalog count to a temp file"
           (is (= "1" (slurp "/tmp/test_puppetdb_query.txt"))))))))

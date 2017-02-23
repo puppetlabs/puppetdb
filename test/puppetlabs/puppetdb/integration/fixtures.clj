@@ -114,6 +114,44 @@
 (defn ast-query [pdb-server query]
   (pql-query pdb-server (json/generate-string query)))
 
+(defn call-with-synchronized-command-processing [pdb-server num-commands f]
+  (let [dispatcher (-> pdb-server info-map :app (tk-app/get-service :PuppetDBCommandDispatcher))
+        initial-count (-> dispatcher dispatch/stats :executed-commands)
+        target-count (+ initial-count num-commands)
+        result (f)]
+    (let [timeout-start (System/currentTimeMillis)]
+      (loop []
+        (let [current-stats (dispatch/stats dispatcher)]
+          (cond
+            (= (:executed-commands current-stats) target-count)
+            result
+
+            ;; on the first run for an agent, puppetserver likes to send an extra factset
+            (= (:executed-commands current-stats) (inc target-count))
+            result
+
+            (> (:executed-commands current-stats) target-count)
+            (ex-info "PuppetDB executed more commands than expected"
+                     {:current-stats current-stats
+                      :initial-count initial-count
+                      :target-count target-count
+                      :body-result result})
+
+            (> (- (System/currentTimeMillis) timeout-start) tu/default-timeout-ms)
+            (throw (ex-info "Timeout while waiting for PuppetDB to finish executing commands"
+                            {:current-stats current-stats
+                             :initial-count initial-count
+                             :target-count target-count
+                             :timeout-ms tu/default-timeout-ms
+                             :body-result result}))
+
+            :default
+            (do (Thread/sleep 100)
+                (recur))))))))
+
+(defmacro with-synchronized-command-processing [pdb-server num-commands & body]
+  `(call-with-synchronized-command-processing ~pdb-server ~num-commands (fn [] (do ~@body))))
+
 ;;; Puppet Server fixture
 
 (defrecord PuppetServerTestServer [-info-map files-to-cleanup app]
@@ -166,7 +204,7 @@
                       result))
       result)))
 
-(defn run-puppet-as [certname puppet-server manifest-content]
+(defn run-puppet-as [certname puppet-server pdb-server manifest-content]
   (let [{:keys [code-dir conf-dir hostname port]} (info-map puppet-server)
         site-pp (str code-dir  "/environments/production/manifests/site.pp")
         agent-conf-dir (str "target/agent-conf/" certname)]
@@ -175,12 +213,13 @@
 
     (fs/copy+ "test-resources/puppetserver/ssl/certs/ca.pem" (str agent-conf-dir "/ssl/certs/ca.pem"))
 
-    (bundle-exec "puppet" "agent" "-t"
-                 "--confdir" agent-conf-dir
-                 "--server" hostname
-                 "--masterport" (str port)
-                 "--color" "false"
-                 "--certname" certname)))
+    (with-synchronized-command-processing pdb-server 3
+      (bundle-exec "puppet" "agent" "-t"
+                   "--confdir" agent-conf-dir
+                   "--server" hostname
+                   "--masterport" (str port)
+                   "--color" "false"
+                   "--certname" certname))))
 
-(defn run-puppet [puppet-server manifest-content]
-  (run-puppet-as "default-agent" puppet-server manifest-content))
+(defn run-puppet [puppet-server pdb-server manifest-content]
+  (run-puppet-as "default-agent" puppet-server pdb-server manifest-content))

@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.integration.db-resilience.db-fallback
   (:require [clojure.test :refer :all]
-            [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.integration.fixtures :as int]
             [puppetlabs.trapperkeeper.app :as tk-app]))
 
@@ -12,12 +11,12 @@
               ps (int/run-puppet-server [pdb1 pdb2] {})]
 
     (testing "Agent run against pdb1"
-      (int/run-puppet ps "notify { 'hello, world!': }")
+      (int/run-puppet ps pdb1 "notify { 'hello, world!': }")
       (is (= 1 (count (int/pql-query pdb1 "nodes {}")))))
 
     (testing "Fallback to pdb2"
       (tk-app/stop (:app pdb1))
       (is (= 0 (count (int/pql-query pdb2 "nodes {}"))))
 
-      (int/run-puppet ps "notify { 'hello, world!': }")
+      (int/run-puppet ps pdb2 "notify { 'hello, world!': }")
       (is (= 1 (count (int/pql-query pdb2 "nodes {}")))))))
