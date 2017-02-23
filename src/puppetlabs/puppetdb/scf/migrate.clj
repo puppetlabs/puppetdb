@@ -796,12 +796,13 @@
         value-keys [:value_string :value_integer
                     :value_json :value_boolean
                     :value_float]]
-    (jdbc/with-query-results-cursor query
-      (fn [rs]
-        (->> rs
-             (map (partial coalesce-values value-keys))
-             (map update-value-json)
-             dorun)))
+    (jdbc/call-with-query-rows
+     query
+     (fn [rows]
+       (->> rows
+            (map (partial coalesce-values value-keys))
+            (map update-value-json)
+            dorun)))
     (jdbc/do-commands
       "ALTER TABLE fact_values RENAME COLUMN value_json TO value")))
 
@@ -1087,11 +1088,11 @@
 (defn migrate-through-app
   [table1 table2 column-list munge-fn]
   (let [columns (string/join "," column-list)]
-    (jdbc/with-query-results-cursor
-      [(format "select %s from %s" columns (name table1))]
-      #(->> %
-            (map munge-fn)
-            (jdbc/insert-multi! (name table2))))))
+    (jdbc/call-with-query-rows
+     [(format "select %s from %s" columns (name table1))]
+     #(->> %
+           (map munge-fn)
+           (jdbc/insert-multi! (name table2))))))
 
 (defn resource-params-cache-parameters-to-jsonb
   []
@@ -1172,6 +1173,54 @@
   (jdbc/do-commands
     "DROP INDEX IF EXISTS resource_events_resource_type_idx"))
 
+(defn merge-fact-values-into-facts
+  []
+  (jdbc/do-commands
+   ["create table facts_transform"
+    "  (factset_id bigint not null,"
+    "   fact_path_id bigint not null,"
+    "   value_integer bigint,"
+    "   value_float double precision,"
+    "   value_type_id bigint not null,"
+    "   value_string text,"
+    "   value jsonb,"
+    "   large_value_hash bytea,"
+    "   value_boolean boolean)"]
+
+   ["insert into facts_transform"
+    "  (factset_id,"
+    "   fact_path_id,"
+    "   value_integer,"
+    "   value_float,"
+    "   value_type_id,"
+    "   value_string,"
+    "   value,"
+    "   large_value_hash,"
+    "   value_boolean)"
+    "  select factset_id, fact_path_id,"
+    "         value_integer, value_float, value_type_id, value_string, value,"
+    "         case when pg_column_size(value) >= 50"
+    "              then value_hash"
+    "         end,"
+    "         value_boolean"
+    "    from facts inner join fact_values on fact_value_id = fact_values.id"]
+
+   "drop index facts_fact_value_id_idx"
+   "drop table facts"
+   "drop table fact_values"
+   "drop sequence fact_values_id_seq"
+
+    "alter table facts_transform rename to facts"
+
+    "create index facts_factset_id_idx on facts using btree (factset_id)"
+    "create index facts_fact_path_id_idx on facts using btree (fact_path_id)"
+    "create index facts_value_integer_idx on facts(value_integer)"
+    "create index facts_value_float_idx on facts(value_float)"
+
+    ["alter table facts add constraint facts_value_type_id_fk"
+     "  foreign key (value_type_id) references value_types (id) match simple"
+     "    on update restrict on delete restrict"]))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1204,7 +1253,8 @@
    52 resource-params-cache-parameters-to-jsonb
    53 add-corrective-change-index
    54 drop-resource-events-resource-type-idx
-   55 index-certnames-unique-latest-report-id})
+   55 index-certnames-unique-latest-report-id
+   56 merge-fact-values-into-facts})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -1330,10 +1380,13 @@
     (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
     (jdbc/do-commands
      "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
-  (when-not (sutils/index-exists? "fact_values_string_trgm")
-    (log/info (trs "Creating additional index `fact_values_string_trgm`"))
+  (jdbc/do-commands
+   "drop index if exists fact_values_string_trgm")
+  (when-not (sutils/index-exists? "facts_value_string_trgm")
+    (log/info (trs "Creating additional index `facts_value_string_trgm`"))
     (jdbc/do-commands
-     "CREATE INDEX fact_values_string_trgm ON fact_values USING gin (value_string gin_trgm_ops)")))
+     ["create index facts_value_string_trgm on facts"
+      "  using gin (value_string gin_trgm_ops)"])))
 
 (defn indexes!
   "Create missing indexes for applicable database platforms."

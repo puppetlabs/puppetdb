@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.scf.migrate-test
-  (:require [puppetlabs.puppetdb.scf.hash :as hash]
+  (:require [clojure.set :as set]
+            [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.scf.migrate :as migrate]
             [puppetlabs.puppetdb.scf.storage :as store]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -645,3 +646,214 @@
                  :column_default nil,
                  :numeric_scale nil}}}
               (set (:table-diff schema-diff))))))))
+
+(deftest fact-values-reduplication-schema-diff
+  ;; This does not check the value_string trgm index since it is
+  ;; created opportunistically later in trgm-indexes!
+  (clear-db-for-testing!)
+  (fast-forward-to-migration! 55)
+  (let [initial (schema-info-map *db*)]
+    (apply-migration-for-testing! 56)
+    (let [migrated (schema-info-map *db*)
+          rename-idx (fn [smap idx-id new-table new-name]
+                       (let [idxs (:indexes smap)
+                             idx-info (get idxs idx-id)
+                             new-info (assoc idx-info
+                                             :table new-table
+                                             :index new-name)
+                             new-id (assoc idx-id 0 new-table)]
+                         (assert idx-info)
+                         (update smap :indexes
+                                 #(-> %
+                                      (dissoc idx-id)
+                                      (assoc new-id new-info)))))
+          move-col (fn [smap idx-id new-table]
+                     (let [idxs (:tables smap)
+                           idx-info (get idxs idx-id)
+                           new-info (assoc idx-info
+                                           :table_name new-table)
+                           new-id (assoc idx-id 0 new-table)]
+                       (assert idx-info)
+                       (update smap :tables
+                               #(-> %
+                                    (dissoc idx-id)
+                                    (assoc new-id new-info)))))
+          exp-smap (-> initial
+                       (rename-idx ["fact_values" ["value_integer"]]
+                                   "facts" "facts_value_integer_idx")
+                       (rename-idx ["fact_values" ["value_float"]]
+                                   "facts" "facts_value_float_idx")
+                       (move-col ["fact_values" "value_type_id"] "facts")
+                       (move-col ["fact_values" "value"] "facts")
+                       (move-col ["fact_values" "value_boolean"] "facts")
+                       (move-col ["fact_values" "value_integer"] "facts")
+                       (move-col ["fact_values" "value_float"] "facts")
+                       (move-col ["fact_values" "value_string"] "facts"))
+          diff (-> (diff-schema-maps exp-smap migrated)
+                   (update :index-diff set)
+                   (update :table-diff set))
+          exp-idx-diffs #{ ;; removed indexes
+                          {:left-only
+                           {:schema "public"
+                            :table "fact_values"
+                            :index "fact_values_pkey"
+                            :index_keys ["id"]
+                            :type "btree"
+                            :unique? true
+                            :functional? false
+                            :is_partial false
+                            :primary? true
+                            :user "pdb_test"}
+                           :right-only nil
+                           :same nil}
+                          {:left-only
+                           {:schema "public"
+                            :table "facts"
+                            :index "facts_fact_value_id_idx"
+                            :index_keys ["fact_value_id"]
+                            :type "btree"
+                            :unique? false
+                            :functional? false
+                            :is_partial false
+                            :primary? false
+                            :user "pdb_test"}
+                           :right-only nil
+                           :same nil}
+                          {:left-only
+                           {:schema "public"
+                            :table "fact_values"
+                            :index "fact_values_value_hash_key"
+                            :index_keys ["value_hash"]
+                            :type "btree"
+                            :unique? true
+                            :functional? false
+                            :is_partial false
+                            :primary? false
+                            :user "pdb_test"}
+                           :right-only nil
+                           :same nil}
+                          ;; new indexes
+                          {:left-only nil
+                           :right-only
+                           {:schema "public"
+                            :table "facts"
+                            :index "facts_factset_id_idx"
+                            :index_keys ["factset_id"]
+                            :type "btree"
+                            :unique? false
+                            :functional? false
+                            :is_partial false
+                            :primary? false
+                            :user "pdb_test"}
+                           :same nil}
+                          {:left-only
+                           {:schema "public"
+                            :table "facts"
+                            :index "facts_factset_id_fact_path_id_fact_key"
+                            :index_keys ["factset_id" "fact_path_id"]
+                            :type "btree"
+                            :unique? true
+                            :functional? false
+                            :is_partial false
+                            :primary? false
+                            :user "pdb_test"}
+                           :right-only nil
+                           :same nil}}
+          exp-table-diffs  #{ ;; removed columns
+                             {:left-only
+                              {:numeric_scale nil
+                               :column_default nil
+                               :character_octet_length nil
+                               :datetime_precision nil
+                               :nullable? "NO"
+                               :character_maximum_length nil
+                               :numeric_precision nil
+                               :numeric_precision_radix nil
+                               :data_type "bytea"
+                               :column_name "value_hash"
+                               :table_name "fact_values"}
+                              :right-only nil
+                              :same nil}
+                             {:left-only
+                              {:numeric_scale 0
+                               :column_default nil
+                               :character_octet_length nil
+                               :datetime_precision nil
+                               :nullable? "NO"
+                               :character_maximum_length nil
+                               :numeric_precision 64
+                               :numeric_precision_radix 2
+                               :data_type "bigint"
+                               :column_name "fact_value_id"
+                               :table_name "facts"}
+                              :right-only nil
+                              :same nil}
+                             {:left-only
+                              {:numeric_scale 0
+                               :column_default "nextval('fact_values_id_seq'::regclass)"
+                               :character_octet_length nil
+                               :datetime_precision nil
+                               :nullable? "NO"
+                               :character_maximum_length nil
+                               :numeric_precision 64
+                               :numeric_precision_radix 2
+                               :data_type "bigint"
+                               :column_name "id"
+                               :table_name "fact_values"}
+                              :right-only nil
+                              :same nil}
+                             ;; new columns
+                             {:left-only nil
+                              :right-only
+                              {:numeric_scale nil
+                               :column_default nil
+                               :character_octet_length nil
+                               :datetime_precision nil
+                               :nullable? "YES"
+                               :character_maximum_length nil
+                               :numeric_precision nil
+                               :numeric_precision_radix nil
+                               :data_type "bytea"
+                               :column_name "large_value_hash"
+                               :table_name "facts"}
+                              :same nil}}
+          expected {:index-diff exp-idx-diffs
+                    :table-diff exp-table-diffs}]
+      ;; Handy when trying to see what's wrong.
+      (when-not (= expected diff)
+        (let [unex (-> diff
+                       (update :index-diff set/difference exp-idx-diffs)
+                       (update :table-diff set/difference exp-table-diffs))]
+          (binding [*out* *err*]
+            (println "Unexpected differences:")
+            (clojure.pprint/pprint unex))))
+      (is (= expected diff)))))
+
+(deftest trgm-indexes-as-expected
+  ;; Assume the current *db* supports trgm
+  (clear-db-for-testing!)
+  (migrate! *db*)
+  (indexes! (:database *db*))
+  (let [idxs (:indexes (schema-info-map *db*))]
+    (is (= {:schema "public"
+            :table "fact_paths"
+            :index "fact_paths_path_key"
+            :index_keys ["path"]
+            :type "btree"
+            :unique? true
+            :functional? false
+            :is_partial false
+            :primary? false
+            :user "pdb_test"}
+           (get idxs ["fact_paths" ["path"]])))
+    (is (= {:schema "public"
+            :table "facts"
+            :index "facts_value_string_trgm"
+            :index_keys ["value_string"]
+            :type "gin"
+            :unique? false
+            :functional? false
+            :is_partial false
+            :primary? false
+            :user "pdb_test"}
+           (get idxs ["facts" ["value_string"]])))))
