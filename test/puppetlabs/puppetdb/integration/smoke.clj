@@ -7,15 +7,15 @@
               pdb (int/run-puppetdb pg {})
               ps (int/run-puppet-server [pdb] {})]
     (testing "Agent run succeeds"
-      (let [{:keys [out]} (int/run-puppet ps "notify { 'hello, world!': }")]
+      (let [{:keys [out]} (int/run-puppet-as "my-agent" ps "notify { 'hello, world!': }")]
         (is (re-find #"hello, world" out))))
 
     (testing "Agent run data can be queried"
       (are [query result] (= result (int/pql-query pdb query))
-        "nodes[certname] {}" [{:certname "localhost"}]
-        "catalogs[certname, environment] {}" [{:certname "localhost", :environment "production"}]
-        "factsets[certname, environment] {}" [{:certname "localhost", :environment "production"}]
-        "reports[certname, environment] {}" [{:certname "localhost", :environment "production"}]))
+        "nodes[certname] {}" [{:certname "my-agent"}]
+        "catalogs[certname, environment] {}" [{:certname "my-agent", :environment "production"}]
+        "factsets[certname, environment] {}" [{:certname "my-agent", :environment "production"}]
+        "reports[certname, environment] {}" [{:certname "my-agent", :environment "production"}]))
 
     (testing "transaction-uuid"
       (let [catalog-uuid (first (int/pql-query pdb "catalogs [transaction_uuid] {}"))

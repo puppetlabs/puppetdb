@@ -166,13 +166,21 @@
                       result))
       result)))
 
-(defn run-puppet [puppet-server manifest-content]
+(defn run-puppet-as [certname puppet-server manifest-content]
   (let [{:keys [code-dir conf-dir hostname port]} (info-map puppet-server)
-        site-pp (str code-dir  "/environments/production/manifests/site.pp")]
+        site-pp (str code-dir  "/environments/production/manifests/site.pp")
+        agent-conf-dir (str "target/agent-conf/" certname)]
     (fs/mkdirs (fs/parent site-pp))
     (spit site-pp manifest-content)
+
+    (fs/copy+ "test-resources/puppetserver/ssl/certs/ca.pem" (str agent-conf-dir "/ssl/certs/ca.pem"))
+
     (bundle-exec "puppet" "agent" "-t"
-                 "--confdir" conf-dir
+                 "--confdir" agent-conf-dir
                  "--server" hostname
                  "--masterport" (str port)
-                 "--color" "false")))
+                 "--color" "false"
+                 "--certname" certname)))
+
+(defn run-puppet [puppet-server manifest-content]
+  (run-puppet-as "default-agent" puppet-server manifest-content))
