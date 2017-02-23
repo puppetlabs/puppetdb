@@ -17,30 +17,28 @@
             [clojure.walk :as walk]))
 
 (defn get-nodes []
-  (svc-utils/get-json (svc-utils/pdb-query-url) "/nodes"))
+  (-> (svc-utils/query-url-str "/nodes")
+      svc-utils/get-or-throw
+      :body))
 
 (defn get-catalogs [certname]
-  (-> (svc-utils/pdb-query-url)
-      (svc-utils/get-catalogs certname)
+  (-> (svc-utils/get-catalogs certname)
       catalogs/catalogs-query->wire-v9
       vec))
 
 (defn get-reports [certname]
-  (-> (svc-utils/pdb-query-url)
-      (svc-utils/get-reports certname)
+  (-> (svc-utils/get-reports certname)
       tur/munge-reports
       reports/reports-query->wire-v8
       vec))
 
 (defn get-factsets [certname]
-  (-> (svc-utils/pdb-query-url)
-      (svc-utils/get-factsets certname)
+  (-> (svc-utils/get-factsets certname)
       factsets/factsets-query->wire-v5
       vec))
 
 (defn get-summary-stats []
-  (-> (svc-utils/pdb-admin-url)
-      (svc-utils/get-summary-stats)))
+  (svc-utils/get-summary-stats))
 
 (def example-certname "foo.local")
 

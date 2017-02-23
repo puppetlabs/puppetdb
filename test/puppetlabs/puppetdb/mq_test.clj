@@ -49,5 +49,5 @@
   (without-jmx
    (svc-utils/with-puppetdb-instance
      (is (thrown-with-msg? clojure.lang.ExceptionInfo
-                           #"status 404"
+                           #"status '404'"
                            (svc-utils/current-queue-depth))))))

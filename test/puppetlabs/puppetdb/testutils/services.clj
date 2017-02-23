@@ -1,4 +1,5 @@
 (ns puppetlabs.puppetdb.testutils.services
+  (:refer-clojure :exclude [get])
   (:require [clj-time.core :as t]
             [clj-time.coerce :as time-coerce]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -24,8 +25,6 @@
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.utils :refer [base-url->str]]
-            [clj-http.util :refer [url-encode]]
-            [clj-http.client :as client]
             [clojure.string :as str]
             [me.raynes.fs :as fs]
             [slingshot.slingshot :refer [throw+]]
@@ -33,7 +32,9 @@
             [puppetlabs.puppetdb.dashboard :refer [dashboard-redirect-service]]
             [puppetlabs.puppetdb.pdb-routing :refer [pdb-routing-service
                                                      maint-mode-service]]
-            [puppetlabs.puppetdb.config :refer [config-service]]))
+            [puppetlabs.puppetdb.config :refer [config-service]]
+            [puppetlabs.http.client.sync :as http]
+            [puppetlabs.puppetdb.schema :as pls]))
 
 ;; See utils.clj for more information about base-urls.
 (def ^:dynamic *base-url* nil) ; Will not have a :version.
@@ -133,39 +134,146 @@
          (call-with-puppetdb-instance config services (dec bind-attempts)
                                       f))))))
 
+(defn create-url-str [base-url url-suffix]
+  (str (utils/base-url->str base-url)
+       (when url-suffix
+         url-suffix)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Functions that return URLs and strings for the top level services
+;; in PDB
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defn pdb-query-url []
   (assoc *base-url* :prefix "/pdb/query" :version :v4))
+
+(defn query-url-str [url-suffix]
+  (create-url-str (pdb-query-url) url-suffix))
 
 (defn pdb-cmd-url []
   (assoc *base-url* :prefix "/pdb/cmd" :version :v1))
 
+(defn cmd-url-str [url-suffix]
+  (create-url-str (pdb-cmd-url) url-suffix))
+
 (defn pdb-admin-url []
   (assoc *base-url* :prefix "/pdb/admin" :version :v1))
 
-(defn get-url [base-url suffix & [opts]]
-  (let [opts (or opts {:throw-exceptions true
-                       :throw-entire-message? true})]
-    (-> (str (base-url->str base-url) suffix)
-        (client/get opts)
+(defn admin-url-str [url-suffix]
+  (create-url-str (pdb-admin-url) url-suffix))
+
+(defn pdb-metrics-url []
+  (assoc *base-url* :prefix "/metrics" :version :v1))
+
+(defn metrics-url-str [url-suffix]
+  (create-url-str (pdb-metrics-url) url-suffix))
+
+(defn pdb-meta-url []
+  (assoc *base-url* :prefix "/pdb/meta" :version :v1))
+
+(defn meta-url-str [url-suffix]
+  (create-url-str (pdb-meta-url) url-suffix))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Basic HTTP functions for interacting with PuppetDB services, the
+;; url-str arguments below will likely come from the above functions
+;; relating to the various top level services
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(pls/defn-validated get-unparsed
+  "Executes a GET HTTP request against `url-str`. `opts` are merged
+  into the request map. The response is unparsed but returned as a
+  string."
+  [url-str :- String
+   & [opts]]
+  (http/get url-str
+            (merge
+             {:as :text
+              :headers {"Content-Type" "application/json"}}
+             opts)))
+
+(pls/defn-validated get
+  "Executes a GET HTTP request against `url-str`. `opts` are merged
+  into the request map. JSON responses are automatically parsed before
+  returning. Error responses are returned (i.e. 404) and not thrown."
+  [url-str :- String
+   & [opts]]
+  (let [resp (get-unparsed url-str opts)]
+    (if (testutils/json-content-type? resp)
+      (update resp :body #(json/parse-string % true))
+      resp)))
+
+(def default-ca-cert "test-resources/puppetserver/ssl/certs/ca.pem")
+(def default-cert "test-resources/puppetserver/ssl/certs/localhost.pem")
+(def default-ssl-key "test-resources/puppetserver/ssl/private_keys/localhost.pem")
+
+(pls/defn-validated get-ssl
+  "Executes a mutually authenticated GET HTTPS request against
+  `url-str` using the above `get` function."
+  [url-str & [opts]]
+  (get url-str
+       (merge {:ssl-ca-cert default-ca-cert
+               :ssl-cert default-cert
+               :ssl-key  default-ssl-key}
+              opts)))
+
+(pls/defn-validated get-or-throw
+  "Same as `get` except will throw if an error status is returned."
+  [url-str :- String
+   & [opts]]
+  (let [resp (get url-str opts)]
+    (if (>= (:status resp) 400)
+      (throw (ex-info
+              (format "Failed request to '%s' with status '%s'" url-str (:status resp))
+              {:url url-str
+               :response resp}))
+      resp)))
+
+(pls/defn-validated post
+  "Executes a POST HTTP request against `url-str`. `body` is a clojure
+  data structure that is converted to a JSON string before POSTing."
+  [url-str :- String
+   body
+   & [opts]]
+  (http/post url-str
+             (merge
+              {:body (json/generate-string body)
+               :headers {"Content-Type" "application/json"}}
+              opts)))
+
+(pls/defn-validated post-ssl
+  "Executes a mutually authenticated POST HTTP request against
+  `url-str`. Uses the above `post` function"
+  [url-str :- String
+   body
+   & [opts]]
+  (post url-str
+        body
+        {:ssl-ca-cert default-ca-cert
+         :ssl-cert default-cert
+         :ssl-key  default-ssl-key}))
+
+(defn certname-query
+  "Returns a function that will query the given endpoint (`suffix`)
+  for the provided `certname`"
+  [suffix]
+  (fn [certname]
+    (-> (query-url-str suffix)
+        (get-or-throw {:query-params {"query" (json/generate-string [:= :certname certname])}})
         :body)))
 
-(defn get-json [base-url suffix & [opts]]
- (json/parse-string (get-url base-url suffix opts) true))
+(def get-reports (certname-query "/reports"))
+(def get-factsets (certname-query "/factsets"))
+(def get-catalogs (certname-query "/catalogs"))
 
-(defn get-reports [base-url certname]
-  (get-json base-url "/reports"
-            {:query-params {:query (json/generate-string [:= :certname certname])}}))
-
-(defn get-factsets [base-url certname]
-  (get-json base-url "/factsets"
-            {:query-params {:query (json/generate-string [:= :certname certname])}}))
-
-(defn get-catalogs [base-url certname]
-  (get-json base-url "/catalogs"
-            {:query-params {:query (json/generate-string [:= :certname certname])}}))
-
-(defn get-summary-stats [base-url]
-  (get-json base-url "/summary-stats"))
+(defn get-summary-stats []
+  (-> (admin-url-str "/summary-stats")
+      get-or-throw
+      :body))
 
 (defmacro with-puppetdb-instance
   "Convenience macro to launch a puppetdb instance"
@@ -194,6 +302,9 @@
 
 (def max-attempts 50)
 
+(defn url-encode [s]
+  (java.net.URLEncoder/encode s "UTF-8"))
+
 (defn command-mbean-name
   "The full mbean name of the MQ destination used for commands"
   [host]
@@ -210,16 +321,6 @@
          (some #(.startsWith % "puppetlabs.puppetdb.command") mbean-names)
          (some #(.startsWith % (command-mbean-name (:host *base-url*))) mbean-names))))
 
-(defn mbeans-url-str
-  [base-url & [mbean]]
-  (let [base-mbeans-url-str
-        (-> base-url
-            (assoc :prefix "/metrics" :version :v1)
-            utils/base-url->str
-            (str "/mbeans"))]
-    (cond-> base-mbeans-url-str
-      (seq mbean) (str "/" mbean))))
-
 (defn metrics-up?
   "Returns true if the metrics endpoint (and associated jmx beans) are
   up, otherwise will continue to retry. Will fail after trying for
@@ -227,7 +328,7 @@
   []
   (loop [attempts 0]
     (let [{:keys [status body] :as response}
-          (client/get (mbeans-url-str *base-url*) {:as :json :throw-exceptions false})]
+          (get (pdb-metrics-url "/mbeans"))]
       (cond
         (and (= 200 status)
              (mq-mbeans-found? body))
@@ -257,8 +358,8 @@
   ;; the broker has been started, but the JMX beans have not been
   ;; initialized, so querying for queue metrics fails.  This check
   ;; ensures it has started.
-  (-> (mbeans-url-str *base-url* (command-mbean-name (:host *base-url*)))
-      (client/get {:as :json})
+  (-> (metrics-url-str (str "/mbeans/" (command-mbean-name (:host *base-url*))))
+      get-or-throw
       :body))
 
 (defn current-queue-depth
@@ -270,8 +371,8 @@
   "Returns the number of messages discarded from the command queue by
   the current PuppetDB instance."
   []
-  (-> (mbeans-url-str *base-url* "puppetlabs.puppetdb.command:type=global,name=discarded")
-      (client/get {:as :json})
+  (-> (pdb-metrics-url "/mbeans/puppetlabs.puppetdb.command:type=global,name=discarded")
+      get-or-throw
       (get-in [:body :Count])))
 
 (defn until-consumed
@@ -332,9 +433,9 @@
 (defn dispatch-count
   "Returns the dispatch count for the currently running PuppetDB instance."
   [dest-name]
-  (-> (mbeans-url-str *base-url* (command-mbean-name (:host *base-url*)))
-      (client/get {:as :json})
-      (get-in [:body :DispatchCount])))
+  (-> (pdb-metrics-url (str "/mbeans" (command-mbean-name (:host *base-url*))))
+      get-or-throw
+      (get-in [:body "DispatchCount"])))
 
 (defn sync-command-post
   "Syncronously post a command to PDB by blocking until the message is consumed

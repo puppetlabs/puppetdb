@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.admin-clean-test
-  (:require [clj-http.client :as http-client]
-            [clojure.math.combinatorics :refer [combinations]]
+  (:require [clojure.math.combinatorics :refer [combinations]]
             [clojure.test :refer :all]
             [metrics.counters :as counters]
             [metrics.gauges :as gauges]
@@ -29,14 +28,8 @@
         ~@body))))
 
 (defn- post-admin [path form]
-  (http-client/post (str (utils/base-url->str (svc-utils/pdb-admin-url))
-                         "/"
-                         path)
-                    {:body (json/generate-string form)
-                     :throw-exceptions false
-                     :content-type :json
-                     :character-encoding "UTF-8"
-                     :accept :json}))
+  (svc-utils/post (svc-utils/admin-url-str (str "/" path))
+                  form))
 
 (defn- checked-admin-post [path form]
   (let [result (post-admin path form)]

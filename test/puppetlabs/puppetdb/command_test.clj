@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.command-test
   (:require [me.raynes.fs :as fs]
-            [clj-http.client :as client]
             [clojure.java.jdbc :as sql]
             [metrics.meters :as meters]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -1502,19 +1501,16 @@
                :repeatable-read
                (from-sql-date (scf-store/node-deactivated-time "foo.local")))))
       (is (= expected-stamp
-             (-> (client/get (str (utils/base-url->str svc-utils/*base-url*)
-                                  "/nodes")
-                             {:accept :json
-                              :throw-exceptions true
-                              :throw-entire-message true
-                              :query-params {"query"
-                                             (json/generate-string
-                                              ["or" ["=" ["node" "active"] true]
-                                               ["=" ["node" "active"] false]])}})
+
+             (-> (svc-utils/get (svc-utils/query-url-str "/nodes")
+                                {:query-params
+                                 {"query"
+                                  (json/generate-string
+                                   ["or" ["=" ["node" "active"] true]
+                                    ["=" ["node" "active"] false]])}})
                  :body
-                 json/parse-string
                  first
-                 (get "deactivated")
+                 :deactivated
                  (pt/from-string)))))))
 
 (deftest command-response-channel

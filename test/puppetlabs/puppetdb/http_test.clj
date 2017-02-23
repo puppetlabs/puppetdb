@@ -1,12 +1,12 @@
 (ns puppetlabs.puppetdb.http-test
   (:import [java.io InputStream StringWriter])
-  (:require [clj-http.client :as client]
-            [cheshire.core :as json]
+  (:require [cheshire.core :as json]
             [puppetlabs.trapperkeeper.testutils.webserver :refer [with-test-webserver]]
             [ring.mock.request :as mock]
             [puppetlabs.puppetdb.http :refer :all]
             [clojure.test :refer :all]
-            [cheshire.core :refer :all]))
+            [cheshire.core :refer :all]
+            [puppetlabs.puppetdb.testutils.services :as svc-utils]))
 
 (deftest conneg
   (testing "content negotiation"
@@ -122,7 +122,7 @@
   (testing "JSON responses should be encoded as utf-8"
     (let [app  (fn [req] (json-response "N�rnberg"))]
       (with-test-webserver app port
-        (let [resp (client/get (format "http://localhost:%s" port))]
+        (let [resp (svc-utils/get-unparsed (format "http://localhost:%s" port))]
           (is (re-find #"charset=utf-8" (get-in resp [:headers "content-type"])))
           (is (= (-> resp
                      (:body)

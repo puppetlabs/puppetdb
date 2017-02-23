@@ -138,7 +138,8 @@
      (fixture-fn# (fn [] ~@body))))
 
 (defn json-content-type? [response]
-  (= http/json-response-content-type (get-in response [:headers "Content-Type"])))
+  (or (= http/json-response-content-type (get-in response [:headers "Content-Type"]))
+      (= http/json-response-content-type (get-in response [:headers "content-type"]))))
 
 (defmacro is-equal-after
   "Checks equality of `args` after

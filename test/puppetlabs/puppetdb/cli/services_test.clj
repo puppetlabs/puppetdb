@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.cli.services-test
   (:import [java.security KeyStore])
   (:require [me.raynes.fs :as fs]
-            [clj-http.client :as client]
             [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
@@ -140,10 +139,10 @@
 (deftest api-retirements
   (svc-utils/with-puppetdb-instance
     (letfn [(ping [v]
-              (client/get
-               (str (utils/base-url->str (assoc *base-url* :version v))
-                    "/facts")
-               {:throw-exceptions false}))
+              (-> (svc-utils/pdb-query-url)
+                  (assoc :version v)
+                  (svc-utils/create-url-str "/facts")
+                  svc-utils/get))
             (retirement-response? [v response]
               (and (= 404 (:status response))
                    (= (format "The %s API has been retired; please use v4"

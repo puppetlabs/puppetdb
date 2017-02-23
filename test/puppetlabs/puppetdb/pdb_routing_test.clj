@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.pdb-routing-test
   (:require [clojure.test :refer :all]
-            [clj-http.client :as client]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -13,22 +12,19 @@
             [puppetlabs.puppetdb.cli.services :as clisvc]
             [puppetlabs.puppetdb.pdb-routing :refer :all]
             [puppetlabs.trapperkeeper.app :as tk-app]
-            [puppetlabs.puppetdb.testutils.http :as tuhttp]))
+            [puppetlabs.http.client.sync :as http]))
 
 (defn submit-facts [base-url certname facts]
   (svc-utils/sync-command-post base-url certname "replace facts" 4 facts))
 
 (defn query-fact-names [{:keys [host port]}]
-  (tuhttp/pdb-get (utils/pdb-query-base-url host port :v4)
-           "/fact-names"))
+  (svc-utils/get (svc-utils/query-url-str "/fact-names")))
 
 (defn export [{:keys [host port]}]
-  (tuhttp/pdb-get (utils/pdb-admin-base-url host port :v1)
-           "/archive"))
+  (svc-utils/get (svc-utils/admin-url-str "/archive")))
 
 (defn query-server-time [{:keys [host port]}]
-  (tuhttp/pdb-get (utils/pdb-meta-base-url host port :v1)
-           "/server-time"))
+  (svc-utils/get (svc-utils/meta-url-str "/server-time")))
 
 (def test-facts {:certname "foo.com"
                  :environment "DEV"
@@ -42,7 +38,7 @@
     (let [pdb-resp (-> svc-utils/*base-url*
                        (assoc :prefix "/pdb")
                        utils/base-url->str-with-prefix
-                       client/get)]
+                       (http/get {:as :text}))]
       (tu/assert-success! pdb-resp)
       (is (dtu/dashboard-page? pdb-resp))
 
@@ -52,7 +48,7 @@
 
       (let [resp (export svc-utils/*base-url*)]
         (tu/assert-success! resp)
-        (is (.contains (get-in resp [:headers "Content-Disposition"]) "puppetdb-export"))
+        (is (.contains (get-in resp [:headers "content-disposition"]) "puppetdb-export"))
         (is (:body resp))))))
 
 (deftest maintenance-mode
