@@ -9,7 +9,6 @@
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command :as dispatch]
-            [puppetlabs.puppetdb.integration.protocols :refer [info-map]]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.db :as dbutils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
@@ -17,8 +16,10 @@
             [puppetlabs.trapperkeeper.bootstrap :as tk-bootstrap]
             [puppetlabs.trapperkeeper.config :as tk-config]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs])
-  (:import [com.typesafe.config ConfigValueFactory]
-           [puppetlabs.puppetdb.integration.protocols TestServer]))
+  (:import [com.typesafe.config ConfigValueFactory]))
+
+(defprotocol TestServer
+  (info-map [this]))
 
 ;;; Postgres fixture
 
