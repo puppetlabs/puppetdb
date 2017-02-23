@@ -1,28 +1,24 @@
-(ns puppetlabs.puppetdb.integration.simple
-  (:require [clojure.test :refer :all]
-            [clojure.java.io :as io]
+(ns puppetlabs.puppetdb.integration.fixtures
+  (:require [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
             [clojure.string :as string]
+            [clojure.tools.logging :as log]
             [clojure.walk :as walk]
             [me.raynes.fs :as fs]
-            [puppetlabs.http.client.sync :as http]
+            [puppetlabs.config.typesafe :as hocon]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.command :as dispatch]
             [puppetlabs.puppetdb.integration.protocols :refer [info-map]]
+            [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.db :as dbutils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.trapperkeeper.app :as tk-app]
             [puppetlabs.trapperkeeper.bootstrap :as tk-bootstrap]
             [puppetlabs.trapperkeeper.config :as tk-config]
-            [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
-            [puppetlabs.puppetdb.config :as conf]
-            [puppetlabs.config.typesafe :as hocon]
-            [puppetlabs.puppetdb.command :as dispatch]
-            [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.testutils :as tu])
-  (:import [puppetlabs.puppetdb.integration.protocols TestServer]
-           [com.typesafe.config ConfigValueFactory]))
+            [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs])
+  (:import [com.typesafe.config ConfigValueFactory]
+           [puppetlabs.puppetdb.integration.protocols TestServer]))
 
 ;;; Postgres fixture
 
@@ -179,72 +175,3 @@
                  "--server" hostname
                  "--masterport" (str port)
                  "--color" "false")))
-
-;;; tests
-
-(deftest ^:integration simple-agent-run
-  (with-open [pg (setup-postgres)
-              pdb (run-puppetdb pg {})
-              ps (run-puppet-server [pdb] {})]
-    (testing "Agent run succeeds"
-      (let [{:keys [out]} (run-puppet ps "notify { 'hello, world!': }")]
-        (is (re-find #"hello, world" out))))
-
-    (testing "Agent run data can be queried"
-      (are [query result] (= result (pql-query pdb query))
-        "nodes[certname] {}" [{:certname "localhost"}]
-        "catalogs[certname, environment] {}" [{:certname "localhost", :environment "production"}]
-        "factsets[certname, environment] {}" [{:certname "localhost", :environment "production"}]
-        "reports[certname, environment] {}" [{:certname "localhost", :environment "production"}]))
-
-    (testing "transaction-uuid"
-      (let [catalog-uuid (first (pql-query pdb "catalogs [transaction_uuid] {}"))
-            report-uuid (first (pql-query pdb "reports [transaction_uuid] {}"))]
-        (testing "is available from puppetdb"
-          (is (not (nil? catalog-uuid)))
-          (is (not (nil? report-uuid))))
-        (testing "is equal on the catalog and report"
-          (is (= catalog-uuid report-uuid)))))))
-
-(deftest ^:integration db-fallback
-  (with-open [pg1 (setup-postgres)
-              pg2 (setup-postgres)
-              pdb1 (run-puppetdb pg1 {})
-              pdb2 (run-puppetdb pg2 {})
-              ps (run-puppet-server [pdb1 pdb2] {})]
-
-    (testing "Agent run against pdb1"
-      (run-puppet ps "notify { 'hello, world!': }")
-      (is (= 1 (count (pql-query pdb1 "nodes {}")))))
-
-    (testing "Fallback to pdb2"
-      (tk-app/stop (:app pdb1))
-      (is (= 0 (count (pql-query pdb2 "nodes {}"))))
-
-      (run-puppet ps "notify { 'hello, world!': }")
-      (is (= 1 (count (pql-query pdb2 "nodes {}")))))))
-
-(deftest ^:integration puppetdb-query-function
-  (with-open [pg (setup-postgres)
-              pdb (run-puppetdb pg {})
-              ps (run-puppet-server [pdb] {})]
-    (testing "Initial agent run, to populate puppetdb with data to query"
-      (run-puppet ps "notify { 'hello, world!': }"))
-
-    (let [test-out-file "/tmp/test_puppetdb_query.txt"]
-      (testing "Agent run with puppedb_query in the manifest"
-        (when (fs/exists? test-out-file)
-          (fs/delete test-out-file))
-
-        (run-puppet ps (str "node default {"
-                            "  $counts = puppetdb_query(['from', 'catalogs',"
-                            "                            ['extract', [['function', 'count']]]])"
-                            "  $count = $counts[0]['count']"
-                            "  file { '" test-out-file "':"
-                            "        ensure  => present,"
-                            "        content => \"${count}\""
-                            "  }"
-                            "}"))
-
-        (testing "should write the correct catalog count to a temp file"
-          (is (= "1" (slurp "/tmp/test_puppetdb_query.txt"))))))))
