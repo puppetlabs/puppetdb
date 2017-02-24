@@ -106,9 +106,19 @@
                           :app app}
                          app)))
 
+(defn root-url-str [pdb-server]
+  (let [{:keys [hostname port]} (info-map pdb-server)]
+    (format "https://%s:%s" hostname port)))
+
 (defn pql-query [pdb-server query]
   (-> (svc-utils/create-url-str (-> pdb-server info-map :query-base-url) nil)
       (svc-utils/get-ssl {:query-params {"query" query}})
+      :body))
+
+(defn entity-query [pdb-server url-suffix query & [params]]
+  (-> (svc-utils/create-url-str (-> pdb-server info-map :query-base-url) url-suffix)
+      (svc-utils/get-ssl {:query-params (merge {"query" (json/generate-string query)}
+                                               params)})
       :body))
 
 (defn ast-query [pdb-server query]
@@ -178,20 +188,32 @@
       (fs/copy+ (str base-dir relative-path)
                 (str puppet-dir relative-path)))))
 
-(defn run-puppet-server [pdb-servers config-overrides]
-  (let [pdb-infos (map info-map pdb-servers)
-        puppetdb-conf (io/file "target/puppetserver/master-conf/puppetdb.conf")]
-    (fs/copy-dir "test-resources/puppetserver/ssl" "./target/puppetserver/master-conf/ssl")
-    (fs/copy+ "test-resources/puppetserver/puppet.conf" "target/puppetserver/master-conf/puppet.conf")
-    (fs/mkdirs "target/puppetserver/master-code/environments/production/modules")
+(defn puppet-server-config-with-name [node-name]
+  {:main {:certname "localhost"}
+   :agent {:server "localhost"}
+   :master {:storeconfigs true
+            :storeconfigs_backend "puppetdb"
+            :reports "puppetdb"
+            :autosign true
+            :node_name_value node-name}})
 
+(defn run-puppet-server-as [node-name pdb-servers config-overrides]
+  (let [pdb-infos (map info-map pdb-servers)
+        puppetdb-conf (io/file "target/puppetserver/master-conf/puppetdb.conf")
+        puppet-conf (io/file "target/puppetserver/master-conf/puppet.conf")]
+
+    (fs/copy-dir "test-resources/puppetserver/ssl" "./target/puppetserver/master-conf/ssl")
+    (-> puppet-conf .getParentFile .mkdirs)
+    (spit (.getAbsolutePath puppet-conf) "")
+    (ks/spit-ini puppet-conf (puppet-server-config-with-name node-name))
+    (fs/mkdirs "target/puppetserver/master-code/environments/production/modules")
 
     (install-terminus-into "vendor/puppetserver-gems/gems/puppet-4.9.2/lib/puppet/")
 
     (fs/create puppetdb-conf)
     (ks/spit-ini puppetdb-conf
                  {:main {:server_urls (->> (for [pdb-info pdb-infos]
-                                             (str "https://" (:hostname pdb-info) ":" (:port pdb-info)))
+                                             (str "https://localhost"  ":" (:port pdb-info)))
                                            (clojure.string/join ","))}})
 
     (let [services (tk-bootstrap/parse-bootstrap-config! dev-bootstrap-file)
@@ -206,18 +228,21 @@
                                [(.getPath tmp-conf) "target/puppetserver/master-conf" "target/puppetserver/master-code"]
                                (tkbs/bootstrap-services-with-config services config)))))
 
+(defn run-puppet-server [pdb-servers config-overrides]
+  (run-puppet-server-as "localhost" pdb-servers config-overrides))
+
 ;;; run puppet
 
 (defn bundle-exec [& args]
   (let [result (apply sh "bundle" "exec"
                       (concat args [:env (into {} (System/getenv))]))]
     (if (not (#{0 2} (:exit result)))
-      (let [message (str "Error running bundle exec " (string/join " " args))]
+            (let [message (str "Error running bundle exec " (string/join " " args))]
         (println message result)
         (throw (ex-info message result)))
       result)))
 
-(defn run-puppet-as [certname puppet-server pdb-server manifest-content]
+(defn run-puppet-as [certname puppet-server pdb-server manifest-content & [extra-puppet-args]]
   (let [{:keys [code-dir conf-dir hostname port]} (info-map puppet-server)
         site-pp (str code-dir  "/environments/production/manifests/site.pp")
         agent-conf-dir (str "target/agent-conf/" certname)]
@@ -227,19 +252,25 @@
     (fs/copy+ "test-resources/puppetserver/ssl/certs/ca.pem" (str agent-conf-dir "/ssl/certs/ca.pem"))
 
     (with-synchronized-command-processing pdb-server 3
-      (bundle-exec "puppet" "agent" "-t"
-                   "--confdir" agent-conf-dir
-                   "--server" hostname
-                   "--masterport" (str port)
-                   "--color" "false"
-                   "--certname" certname
-                   "--trace"))))
+      (apply bundle-exec "puppet" "agent" "-t"
+             "--confdir" agent-conf-dir
+             "--server" hostname
+             "--masterport" (str port)
+             "--color" "false"
+             "--certname" certname
+             "--trace"
+             extra-puppet-args))))
 
 (defn run-puppet [puppet-server pdb-server manifest-content]
   (run-puppet-as "default-agent" puppet-server pdb-server manifest-content))
 
 (defn run-puppet-node-deactivate [pdb-server certname-to-deactivate]
-  (install-terminus-into "vendor/bundle/ruby/2.3.0/gems/puppet-4.9.2/lib/puppet/")
+  (install-terminus-into
+   (str
+    (-> (sh "bundle" "show" "puppet")
+        :out
+        string/trim)
+    "/lib/puppet/"))
   (with-synchronized-command-processing pdb-server 1
     (bundle-exec "puppet" "node" "deactivate"
                  "--confdir" "target/puppetserver/master-conf"
