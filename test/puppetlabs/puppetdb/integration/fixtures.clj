@@ -146,7 +146,7 @@
                              :body-result result}))
 
             :default
-            (do (Thread/sleep 100)
+            (do (Thread/sleep 25)
                 (recur))))))))
 
 (defmacro with-synchronized-command-processing [pdb-server num-commands & body]
@@ -166,6 +166,18 @@
 (def dev-config-file "./test-resources/puppetserver/puppetserver.conf")
 (def dev-bootstrap-file "./test-resources/puppetserver/bootstrap.cfg")
 
+(defn install-terminus-into [puppet-dir]
+  ;; various pieces of the terminus have to actually be inside of puppet itself to work
+  (let [base-dir "puppet/lib/puppet/"
+        base-uri (.toURI (io/file base-dir))
+        terminus-files (->> (fs/find-files base-dir #".*")
+                            (filter #(.isFile %))
+                            (map #(-> (.relativize base-uri (.toURI %))
+                                      .getPath)))]
+    (doseq [relative-path terminus-files]
+      (fs/copy+ (str base-dir relative-path)
+                (str puppet-dir relative-path)))))
+
 (defn run-puppet-server [pdb-servers config-overrides]
   (let [pdb-infos (map info-map pdb-servers)
         puppetdb-conf (io/file "target/puppetserver/master-conf/puppetdb.conf")]
@@ -173,9 +185,8 @@
     (fs/copy+ "test-resources/puppetserver/puppet.conf" "target/puppetserver/master-conf/puppet.conf")
     (fs/mkdirs "target/puppetserver/master-code/environments/production/modules")
 
-    ;; the puppetdb_query function has to be inside puppet itself to work
-    (fs/copy "puppet/lib/puppet/functions/puppetdb_query.rb"
-             "vendor/puppetserver-gems/gems/puppet-4.9.2/lib/puppet/functions/puppetdb_query.rb")
+
+    (install-terminus-into "vendor/puppetserver-gems/gems/puppet-4.9.2/lib/puppet/")
 
     (fs/create puppetdb-conf)
     (ks/spit-ini puppetdb-conf
@@ -198,10 +209,12 @@
 ;;; run puppet
 
 (defn bundle-exec [& args]
-  (let [result (apply sh "bundle" "exec" args)]
+  (let [result (apply sh "bundle" "exec"
+                      (concat args [:env (into {} (System/getenv))]))]
     (if (not (#{0 2} (:exit result)))
-      (throw (ex-info (str "Error running bundle exec " (string/join " " args))
-                      result))
+      (let [message (str "Error running bundle exec " (string/join " " args))]
+        (println message result)
+        (throw (ex-info message result)))
       result)))
 
 (defn run-puppet-as [certname puppet-server pdb-server manifest-content]
@@ -219,7 +232,16 @@
                    "--server" hostname
                    "--masterport" (str port)
                    "--color" "false"
-                   "--certname" certname))))
+                   "--certname" certname
+                   "--trace"))))
 
 (defn run-puppet [puppet-server pdb-server manifest-content]
   (run-puppet-as "default-agent" puppet-server pdb-server manifest-content))
+
+(defn run-puppet-node-deactivate [pdb-server certname-to-deactivate]
+  (install-terminus-into "vendor/bundle/ruby/2.3.0/gems/puppet-4.9.2/lib/puppet/")
+  (with-synchronized-command-processing pdb-server 1
+    (bundle-exec "puppet" "node" "deactivate"
+                 "--confdir" "target/puppetserver/master-conf"
+                 "--color" "false"
+                 certname-to-deactivate)))
