@@ -12,6 +12,7 @@ describe Puppet::Resource::Puppetdb do
 
   describe "#search" do
     let(:host) { 'default.local' }
+    let(:options) { {:metric_id => [:puppetdb, :resource, :search, 'exec']} }
 
     def search(type)
       # The API for creating scope objects is different between Puppet 2.7 and
@@ -29,7 +30,7 @@ describe Puppet::Resource::Puppetdb do
       query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
       http = stub 'http'
       Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
-      http.stubs(:get).with("/pdb/query/v4/resources?query=#{query}",  subject.headers).returns response
+      http.stubs(:get).with("/pdb/query/v4/resources?query=#{query}", subject.headers, options).returns response
 
       search("exec").should == []
     end
@@ -43,7 +44,7 @@ describe Puppet::Resource::Puppetdb do
       query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
       http = stub 'http'
       Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
-      http.stubs(:get).with("/pdb/query/v4/resources?query=#{query}",  subject.headers).returns response
+      http.stubs(:get).with("/pdb/query/v4/resources?query=#{query}", subject.headers, options).returns response
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /Deprecated, yo\./
@@ -82,13 +83,14 @@ describe Puppet::Resource::Puppetdb do
 
       def stub_response(resource_hashes)
         body = resource_hashes.to_json
+        options = { :metric_id => [:puppetdb, :resource, :search, 'File'] }
 
         response = Net::HTTPOK.new('1.1', 200, 'OK')
         response.stubs(:body).returns body
 
         http = stub 'http'
         Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
-        http.stubs(:get).with("/pdb/query/v4/resources?query=#{CGI.escape(query.to_json)}",  subject.headers).returns response
+        http.stubs(:get).with("/pdb/query/v4/resources?query=#{CGI.escape(query.to_json)}", subject.headers, options).returns response
       end
 
       context "with resources from a single host" do

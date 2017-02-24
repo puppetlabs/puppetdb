@@ -124,6 +124,8 @@ describe Puppet::Node::Facts::Puppetdb do
       Puppet::Node::Facts.indirection.find('some_node')
     end
 
+    let(:options) { {:metric_id => [:puppetdb, :facts, :find, 'some_node']} }
+
     it "should return the facts if they're found" do
       body = [{"certname" => "some_node", "environment" => "production", "name" => "a", "value" => "1"},
               {"certname" => "some_node", "environment" => "production", "name" => "b", "value" => "2"}].to_json
@@ -131,7 +133,8 @@ describe Puppet::Node::Facts::Puppetdb do
       response = Net::HTTPOK.new('1.1', 200, 'OK')
       response.stubs(:body).returns body
 
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers).returns response
+      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers, options).returns response
+
 
       result = find_facts
       result.should be_a(Puppet::Node::Facts)
@@ -145,7 +148,7 @@ describe Puppet::Node::Facts::Puppetdb do
       response = Net::HTTPNotFound.new('1.1', 404, 'NotFound')
       response.stubs(:body).returns body
 
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers).returns response
+      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers, options).returns response
 
       find_facts.should be_nil
     end
@@ -154,7 +157,7 @@ describe Puppet::Node::Facts::Puppetdb do
       response = Net::HTTPForbidden.new('1.1', 403, "Forbidden")
       response.stubs(:body).returns ''
 
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers).returns response
+      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers, options).returns response
 
       expect {
         find_facts
@@ -162,7 +165,7 @@ describe Puppet::Node::Facts::Puppetdb do
     end
 
     it "should fail if an error occurs" do
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers).raises Puppet::Error, "Everything is terrible!"
+      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers, options).raises Puppet::Error, "Everything is terrible!"
 
       expect {
         find_facts
@@ -177,7 +180,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       response.stubs(:body).returns body
 
-      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers).returns(response)
+      http.stubs(:get).with("/pdb/query/v4/nodes/some_node/facts", subject.headers, options).returns(response)
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /This is deprecated!/
@@ -192,6 +195,7 @@ describe Puppet::Node::Facts::Puppetdb do
       Puppet::Node::Facts.indirection.search('facts', query)
     end
     let(:response) { Net::HTTPOK.new('1.1', 200, 'OK') }
+    let(:options) { {:metric_id => [:puppetdb, :facts, :search]} }
 
     it "should return the nodes from the response" do
       args = {
@@ -204,7 +208,7 @@ describe Puppet::Node::Facts::Puppetdb do
                                       {"name": "baz", "deactivated": null, "expired": null, "catalog_timestamp": null, "facts_timestamp": null, "report_timestamp": null}]'
 
       query = CGI.escape("[\"and\",[\"=\",[\"fact\",\"kernel\"],\"Linux\"]]")
-      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers).returns(response)
+      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
 
       search_facts(args).should == ['foo', 'bar', 'baz']
     end
@@ -231,7 +235,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       response.stubs(:body).returns '[]'
 
-      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers).returns(response)
+      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
 
       search_facts(args)
     end
@@ -245,7 +249,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       response.stubs(:body).returns '[]'
 
-      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers).returns(response)
+      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
 
       search_facts(args)
     end
@@ -259,7 +263,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
       response.stubs(:body).returns '[]'
 
-      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers).returns(response)
+      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
 
       search_facts(args)
     end
@@ -279,7 +283,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
         response.stubs(:body).returns '[]'
 
-        http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers).returns(response)
+        http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
 
         search_facts(args)
       end
@@ -290,7 +294,7 @@ describe Puppet::Node::Facts::Puppetdb do
       response.stubs(:body).returns 'Something bad happened!'
 
       query = CGI.escape(["and"].to_json)
-      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers).returns(response)
+      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
 
       expect do
         search_facts(nil)
@@ -303,7 +307,7 @@ describe Puppet::Node::Facts::Puppetdb do
       response.stubs(:body).returns '[]'
 
       query = CGI.escape(["and"].to_json)
-      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers).returns(response)
+      http.stubs(:get).with("/pdb/query/v4/nodes?query=#{query}",  subject.headers, options).returns(response)
 
       Puppet.expects(:deprecation_warning).with do |msg|
         msg =~ /This is deprecated!/
