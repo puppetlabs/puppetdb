@@ -239,9 +239,10 @@
 
 ;;; run puppet
 
-(defn bundle-exec [& args]
+(defn bundle-exec [env & args]
   (let [result (apply sh "bundle" "exec"
-                      (concat args [:env (into {} (System/getenv))]))]
+                      (concat args [:env (merge (into {} (System/getenv))
+                                                env)]))]
     (if (not (#{0 2} (:exit result)))
       (let [message (str "Error running bundle exec " (string/join " " args))]
         (println message result)
@@ -253,10 +254,11 @@
    (run-puppet puppet-server pdb-server manifest-content {}))
 
   ([puppet-server pdb-server manifest-content
-    {:keys [certname timeout extra-puppet-args]
+    {:keys [certname timeout extra-puppet-args env]
      :or {certname "default-agent"
           timeout tu/default-timeout-ms
-          extra-puppet-args []}
+          extra-puppet-args []
+          env {}}
      :as opts}]
    (let [{:keys [code-dir conf-dir hostname port]} (info-map puppet-server)
          site-pp (str code-dir  "/environments/production/manifests/site.pp")
@@ -267,7 +269,8 @@
      (fs/copy+ "test-resources/puppetserver/ssl/certs/ca.pem" (str agent-conf-dir "/ssl/certs/ca.pem"))
 
      (with-synchronized-command-processing pdb-server 3 timeout
-       (apply bundle-exec "puppet" "agent" "-t"
+       (apply bundle-exec env
+              "puppet" "agent" "-t"
               "--confdir" agent-conf-dir
               "--server" hostname
               "--masterport" (str port)
@@ -289,14 +292,17 @@
         string/trim)
     "/lib/puppet/"))
   (with-synchronized-command-processing pdb-server 1 tu/default-timeout-ms
-    (bundle-exec "puppet" "node" "deactivate"
+    (bundle-exec {}
+                 "puppet" "node" "deactivate"
                  "--confdir" "target/puppetserver/master-conf"
                  "--color" "false"
                  certname-to-deactivate)))
 
 (defn run-puppet-facts-find [puppet-server certname]
   (let [{:keys [conf-dir]} (info-map puppet-server)]
-   (bundle-exec "puppet" "facts" "find" certname
-                "--confdir" conf-dir
-                "--terminus" "puppetdb"))
-  )
+    (-> (bundle-exec {}
+                     "puppet" "facts" "find" certname
+                     "--confdir" conf-dir
+                     "--terminus" "puppetdb")
+        :out
+        json/parse-string)))
