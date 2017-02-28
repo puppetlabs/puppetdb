@@ -178,17 +178,31 @@
 (def dev-config-file "./test-resources/puppetserver/puppetserver.conf")
 (def dev-bootstrap-file "./test-resources/puppetserver/bootstrap.cfg")
 
+
+(defn mri-agent-dir []
+  (-> (sh "bundle" "show" "puppet") :out clojure.string/trim))
+
+(defn jruby-agent-dir []
+  (->> (fs/list-dir "vendor/puppetserver-gems/gems/")
+       sort
+       (filter #(re-matches #"puppet-\d+\.\d+\.\d+" (fs/base-name %)))
+       (map fs/absolute)
+       last))
+
 (defn install-terminus-into [puppet-dir]
   ;; various pieces of the terminus have to actually be inside of puppet itself to work
-  (let [base-dir "puppet/lib/puppet/"
+  (let [base-dir "puppet"
         base-uri (.toURI (io/file base-dir))
         terminus-files (->> (fs/find-files base-dir #".*")
                             (filter #(.isFile %))
                             (map #(-> (.relativize base-uri (.toURI %))
                                       .getPath)))]
     (doseq [relative-path terminus-files]
-      (fs/copy+ (str base-dir relative-path)
-                (str puppet-dir relative-path)))))
+      (let [in (str base-dir "/" relative-path)
+            out (str puppet-dir "/" relative-path)]
+        (when-not (fs/exists? out)
+          (println "Copying puppetdb terminus file" in "to" out)
+          (fs/copy+ in out))))))
 
 (defn puppet-server-config-with-name [node-name]
   {:main {:certname "localhost"}
@@ -211,7 +225,7 @@
     (ks/spit-ini puppet-conf (puppet-server-config-with-name node-name))
     (fs/mkdirs "target/puppetserver/master-code/environments/production/modules")
 
-    (install-terminus-into "vendor/puppetserver-gems/gems/puppet-4.9.2/lib/puppet/")
+    (install-terminus-into (jruby-agent-dir))
 
     (fs/create puppetdb-conf)
     (ks/spit-ini puppetdb-conf
@@ -285,12 +299,7 @@
                :extra-puppet-args extra-puppet-args}))
 
 (defn run-puppet-node-deactivate [pdb-server certname-to-deactivate]
-  (install-terminus-into
-   (str
-    (-> (sh "bundle" "show" "puppet")
-        :out
-        string/trim)
-    "/lib/puppet/"))
+  (install-terminus-into (mri-agent-dir))
   (with-synchronized-command-processing pdb-server 1 tu/default-timeout-ms
     (bundle-exec {}
                  "puppet" "node" "deactivate"
