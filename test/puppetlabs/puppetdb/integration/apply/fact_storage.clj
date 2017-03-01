@@ -1,4 +1,4 @@
-(ns puppetlabs.puppetdb.apply.fact-storage
+(ns puppetlabs.puppetdb.integration.apply.fact-storage
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.integration.fixtures :as int]
             [puppetlabs.puppetdb.cheshire :as json]
