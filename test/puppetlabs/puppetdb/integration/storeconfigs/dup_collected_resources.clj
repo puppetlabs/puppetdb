@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.integration.storeconfigs.dup-collected-resources
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.integration.fixtures :as int]
-            [puppetlabs.trapperkeeper.app :as tk-app]))
+            [puppetlabs.trapperkeeper.app :as tk-app]
+            [slingshot.test]))
 
 (deftest ^:integration dup-collected-resources
   (with-open [pg (int/setup-postgres)
@@ -13,10 +14,8 @@
         (int/run-puppet-as certname ps pdb "@@notify { 'DUPE NOTIFY': }")))
 
     (testing "Run puppet on collector and expect failure"
-      (try
-        (int/run-puppet-as "collector" ps pdb "Notify <<| title == 'DUPE NOTIFY' |>>")
-        (is false "The collector puppet run should have thrown an exception")
-        (catch clojure.lang.ExceptionInfo e
-          (is (re-find #"duplicate resource was found while collecting exported resources"
-                       (-> e .getData :err))))))))
+      (is (thrown+? (and (= (:kind %) ::int/bundle-exec-failure)
+                         (re-find #"duplicate resource was found while collecting exported resources"
+                                  (get-in % [:result :err])))
+            (int/run-puppet-as "collector" ps pdb "Notify <<| title == 'DUPE NOTIFY' |>>"))))))
 

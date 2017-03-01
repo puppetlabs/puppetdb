@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.integration.soft-fail.soft-write-fail
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.integration.fixtures :as int]
-            [puppetlabs.trapperkeeper.app :as tk-app]))
+            [puppetlabs.trapperkeeper.app :as tk-app]
+            [slingshot.test]))
 
 (deftest ^:integration soft-write-fail
   (with-open [pg (int/setup-postgres)
@@ -10,17 +11,12 @@
     (tk-app/stop (-> pdb int/info-map :app))
 
     (testing "Agent run should fail for manifest which collects resources"
-      (try
-        (int/run-puppet ps pdb "Notify <<| |>>")
-        (is false "The puppet run should have thrown an exception")
-        (catch clojure.lang.ExceptionInfo e
-          (is (re-find #"Could not retrieve resources from the PuppetDB"
-                       (-> e .getData :err))))))
+      (is (thrown+? (and (= (:kind %) ::int/bundle-exec-failure)
+                         (re-find #"Could not retrieve resources from the PuppetDB"
+                                  (get-in % [:result :err])))
+            (int/run-puppet ps pdb "Notify <<| |>>"))))
 
     (testing "Agent run should succeed for manifest which exports resources"
-      (try
-        (int/run-puppet ps pdb "@@notify { 'exported notify': }"
-                        {:timeout 500})
-        (catch clojure.lang.ExceptionInfo e
-          (is (:timeout-ms (.getData e))))))))
-
+      (is (thrown+? [:kind ::int/command-processing-timeout]
+            (int/run-puppet ps pdb "@@notify { 'exported notify': }"
+                            {:timeout 500}))))))

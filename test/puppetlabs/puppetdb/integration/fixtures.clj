@@ -17,7 +17,8 @@
             [puppetlabs.trapperkeeper.config :as tk-config]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.core :as tk]
-            [yaml.core :as yaml])
+            [yaml.core :as yaml]
+            [slingshot.slingshot :refer [throw+]])
   (:import [com.typesafe.config ConfigValueFactory]))
 
 (defprotocol TestServer
@@ -143,19 +144,19 @@
             result
 
             (> (:executed-commands current-stats) target-count)
-            (ex-info "PuppetDB executed more commands than expected"
-                     {:current-stats current-stats
-                      :initial-count initial-count
-                      :target-count target-count
-                      :body-result result})
+            (throw+ {:kind ::too-many-commands-processed
+                     :current-stats current-stats
+                     :initial-count initial-count
+                     :target-count target-count
+                     :body-result result})
 
             (> (- (System/currentTimeMillis) timeout-start) timeout-ms)
-            (throw (ex-info "Timeout while waiting for PuppetDB to finish executing commands"
-                            {:current-stats current-stats
-                             :initial-count initial-count
-                             :target-count target-count
-                             :timeout-ms timeout-ms
-                             :body-result result}))
+            (throw+ {:kind ::command-processing-timeout
+                     :current-stats current-stats
+                     :initial-count initial-count
+                     :target-count target-count
+                     :timeout-ms timeout-ms
+                     :body-result result})
 
             :default
             (do
@@ -264,7 +265,11 @@
     (if (not (#{0 2} (:exit result)))
       (let [message (str "Error running bundle exec " (string/join " " args))]
         (println message result)
-        (throw (ex-info message result)))
+        (throw+ {:kind ::bundle-exec-failure
+                 :args args
+                 :result result}
+                nil
+                message))
       result)))
 
 (defn run-puppet
