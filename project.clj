@@ -145,7 +145,8 @@
                                   [org.clojure/test.check "0.9.0"]
                                   [com.gfredericks/test.chuck "0.2.7" :exclusions [clj-time instaparse joda-time org.clojure/clojure]]
                                   [environ "1.0.2"]
-                                  [riddley "0.1.12"]]
+                                  [riddley "0.1.12"]
+                                  [io.forward/yaml "1.0.5"]]
                    :injections [(do
                                   (require 'schema.core)
                                   (schema.core/set-fn-validation! true))]}

@@ -16,7 +16,8 @@
             [puppetlabs.trapperkeeper.bootstrap :as tk-bootstrap]
             [puppetlabs.trapperkeeper.config :as tk-config]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
-            [puppetlabs.trapperkeeper.core :as tk])
+            [puppetlabs.trapperkeeper.core :as tk]
+            [yaml.core :as yaml])
   (:import [com.typesafe.config ConfigValueFactory]))
 
 (defprotocol TestServer
@@ -213,9 +214,19 @@
             :autosign true
             :node_name_value node-name}})
 
-(defn run-puppet-server-as [node-name pdb-servers config-overrides]
+(defn write-puppetdb-terminus-config [pdb-servers path overrides]
   (let [pdb-infos (map info-map pdb-servers)
-        puppetdb-conf (io/file "target/puppetserver/master-conf/puppetdb.conf")
+        f (io/file path)]
+    (fs/create f)
+    (ks/spit-ini f
+                 (ks/deep-merge
+                  {:main {:server_urls (->> (for [pdb-info pdb-infos]
+                                              (str "https://" (:hostname pdb-info) ":" (:port pdb-info)))
+                                            (clojure.string/join ","))}}
+                  (or overrides {})))))
+
+(defn run-puppet-server-as [node-name pdb-servers config-overrides]
+  (let [puppetdb-conf (io/file "target/puppetserver/master-conf/puppetdb.conf")
         puppet-conf (io/file "target/puppetserver/master-conf/puppet.conf")
         {puppetserver-config-overrides :puppetserver
          terminus-config-overrides :terminus} config-overrides]
@@ -226,14 +237,7 @@
     (fs/mkdirs "target/puppetserver/master-code/environments/production/modules")
 
     (install-terminus-into (jruby-agent-dir))
-
-    (fs/create puppetdb-conf)
-    (ks/spit-ini puppetdb-conf
-                 (ks/deep-merge
-                  {:main {:server_urls (->> (for [pdb-info pdb-infos]
-                                              (str "https://" (:hostname pdb-info) ":" (:port pdb-info)))
-                                            (clojure.string/join ","))}}
-                  (or terminus-config-overrides {}))))
+    (write-puppetdb-terminus-config pdb-servers puppetdb-conf terminus-config-overrides))
 
   (let [services (tk-bootstrap/parse-bootstrap-config! dev-bootstrap-file)
         tmp-conf (ks/temp-file "puppetserver" ".conf")
@@ -315,3 +319,52 @@
                      "--terminus" "puppetdb")
         :out
         json/parse-string)))
+
+(defn run-puppet-apply
+  "Run puppet apply configured for masterless mode, pointing at puppetdb"
+  [pdb-server manifest-content
+   {:keys [puppet-conf routes-yaml env extra-puppet-args terminus timeout]
+    :or {puppet-conf {}
+         routes-yaml {}
+         env {}
+         extra-puppet-args []
+         terminus {}
+         timeout tu/default-timeout-ms}
+    :as opts}]
+
+  (install-terminus-into (mri-agent-dir))
+
+  (let [agent-conf-dir (io/file "target/puppet-apply-conf")
+        manifest-file  (fs/temp-file "manifest" ".pp")
+        puppet-conf-file (io/file (str agent-conf-dir "/puppet.conf"))]
+
+    (spit manifest-file manifest-content)
+
+    (fs/mkdir agent-conf-dir)
+    (fs/create puppet-conf-file)
+    (ks/spit-ini puppet-conf-file
+                 (-> {:main {:ssldir "./test-resources/puppetserver/ssl"
+                             :certname "localhost"
+                             :storeconfigs true
+                             :storeconfigs_backend "puppetdb"
+                             :report true
+                             :reports "puppetdb"}}
+                     (ks/deep-merge puppet-conf)))
+
+    (spit (str agent-conf-dir "/routes.yaml")
+          (-> {:apply {:catalog {:terminus "compiler"
+                                 :cache "puppetdb"}
+                       :resource {:terminus "ral"
+                                  :cache "puppetdb"}
+                       :facts {:terminus "facter"
+                               :cache "puppetdb_apply"}}}
+              (ks/deep-merge routes-yaml)
+              yaml/generate-string))
+
+    (write-puppetdb-terminus-config [pdb-server] (str agent-conf-dir "/puppetdb.conf") terminus)
+
+    (with-synchronized-command-processing pdb-server 3 timeout
+      (apply bundle-exec env
+             "puppet" "apply" (.getCanonicalPath manifest-file)
+             "--confdir" (.getCanonicalPath agent-conf-dir)
+             extra-puppet-args))))
