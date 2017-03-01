@@ -17,6 +17,9 @@
             (int/run-puppet ps pdb "Notify <<| |>>"))))
 
     (testing "Agent run should succeed for manifest which exports resources"
+      ;; This puppet run will work, but since puppetdb isn't actually running we
+      ;; it's fruitless to wait for the commands to be processed. Instead specify a short
+      ;; timeout and see that it gets triggered.
       (is (thrown+? [:kind ::int/command-processing-timeout]
             (int/run-puppet ps pdb "@@notify { 'exported notify': }"
                             {:timeout 500}))))))
