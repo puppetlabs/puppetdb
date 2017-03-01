@@ -316,6 +316,13 @@
                  "--color" "false"
                  certname-to-deactivate)))
 
+(defn run-puppet-node-status [pdb-server certname]
+  (install-terminus-into (mri-agent-dir))
+  (bundle-exec {}
+               "puppet" "node" "status" certname
+               "--confdir" "target/puppetserver/master-conf"
+               "--color" "false"))
+
 (defn run-puppet-facts-find [puppet-server certname]
   (let [{:keys [conf-dir]} (info-map puppet-server)]
     (-> (bundle-exec {}

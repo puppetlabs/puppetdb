@@ -9,10 +9,16 @@
               ps (int/run-puppet-server [pdb] {})]
 
     (let [exporter-manifest  "@@notify { 'Hello from exporter': }"
-          test-collection (fn test-collection [is-positive]
-                            (let [{:keys [out]} (int/run-puppet-as "collector" ps pdb "Notify <<| |>>")
-                                  check-result (if is-positive identity not)]
-                              (is (check-result (re-find #"Hello from exporter" out)))))]
+          test-collection (fn test-collection [should-be-active]
+                            (let [{agent-stdout :out} (int/run-puppet-as "collector" ps pdb "Notify <<| |>>")
+                                  {status-stdout :out} (int/run-puppet-node-status pdb "exporter") ]
+                              (if should-be-active
+                                (do
+                                  (is (re-find #"Hello from exporter" agent-stdout))
+                                  (is (re-find #"Currently active" status-stdout)))
+                                (do
+                                  (is (not (re-find #"Hello from exporter" agent-stdout)))
+                                  (is (re-find #"Deactivated at" status-stdout))))))]
 
       (testing "Resources should be collected before deactivation"
         (int/run-puppet-as "exporter" ps pdb exporter-manifest)
