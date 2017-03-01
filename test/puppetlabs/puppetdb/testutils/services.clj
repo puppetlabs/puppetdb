@@ -146,35 +146,65 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn pdb-query-url []
-  (assoc *base-url* :prefix "/pdb/query" :version :v4))
+(defn pdb-query-url
+  ([]
+   (pdb-query-url *base-url*))
+  ([base-url]
+   (assoc base-url :prefix "/pdb/query" :version :v4)))
 
-(defn query-url-str [url-suffix]
-  (create-url-str (pdb-query-url) url-suffix))
+(defn query-url-str
+  ([url-suffix]
+   (query-url-str *base-url* url-suffix))
+  ([base-url url-suffix]
+   (create-url-str (pdb-query-url base-url) url-suffix)))
 
-(defn pdb-cmd-url []
-  (assoc *base-url* :prefix "/pdb/cmd" :version :v1))
+(defn pdb-cmd-url
+  ([]
+   (pdb-cmd-url *base-url*))
+  ([base-url]
+   (assoc base-url :prefix "/pdb/cmd" :version :v1)))
 
-(defn cmd-url-str [url-suffix]
-  (create-url-str (pdb-cmd-url) url-suffix))
+(defn cmd-url-str
+  ([url-suffix]
+   (cmd-url-str *base-url* url-suffix))
+  ([base-url url-suffix]
+   (create-url-str (pdb-cmd-url base-url) url-suffix)))
 
-(defn pdb-admin-url []
-  (assoc *base-url* :prefix "/pdb/admin" :version :v1))
+(defn pdb-admin-url
+  ([]
+   (pdb-admin-url *base-url*))
+  ([base-url]
+   (assoc base-url :prefix "/pdb/admin" :version :v1)))
 
-(defn admin-url-str [url-suffix]
-  (create-url-str (pdb-admin-url) url-suffix))
+(defn admin-url-str
+  ([url-suffix]
+   (admin-url-str *base-url* url-suffix))
+  ([base-url url-suffix]
+   (create-url-str (pdb-admin-url base-url) url-suffix)))
 
-(defn pdb-metrics-url []
-  (assoc *base-url* :prefix "/metrics" :version :v1))
+(defn pdb-metrics-url
+  ([]
+   (pdb-metrics-url *base-url*))
+  ([base-url]
+   (assoc base-url :prefix "/metrics" :version :v1)))
 
-(defn metrics-url-str [url-suffix]
-  (create-url-str (pdb-metrics-url) url-suffix))
+(defn metrics-url-str
+  ([url-suffix]
+   (metrics-url-str *base-url* url-suffix))
+  ([base-url url-suffix]
+   (create-url-str (pdb-metrics-url base-url) url-suffix)))
 
-(defn pdb-meta-url []
-  (assoc *base-url* :prefix "/pdb/meta" :version :v1))
+(defn pdb-meta-url
+  ([]
+   (pdb-meta-url *base-url*))
+  ([base-url]
+   (assoc base-url :prefix "/pdb/meta" :version :v1)))
 
-(defn meta-url-str [url-suffix]
-  (create-url-str (pdb-meta-url) url-suffix))
+(defn meta-url-str
+  ([url-suffix]
+   (meta-url-str *base-url* url-suffix))
+  ([base-url url-suffix]
+   (create-url-str (pdb-meta-url base-url) url-suffix)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -227,10 +257,10 @@
    & [opts]]
   (let [resp (get url-str opts)]
     (if (>= (:status resp) 400)
-      (throw (ex-info
-              (format "Failed request to '%s' with status '%s'" url-str (:status resp))
-              {:url url-str
-               :response resp}))
+      (throw+ {:url url-str
+               :response resp
+               :status (:status resp)}
+              (format "Failed request to '%s' with status '%s'" url-str (:status resp)))
       resp)))
 
 (pls/defn-validated post
@@ -260,15 +290,28 @@
 (defn certname-query
   "Returns a function that will query the given endpoint (`suffix`)
   for the provided `certname`"
-  [suffix]
-  (fn [certname]
-    (-> (query-url-str suffix)
-        (get-or-throw {:query-params {"query" (json/generate-string [:= :certname certname])}})
-        :body)))
+  [base-url suffix certname]
+  (-> (query-url-str base-url suffix)
+      (get-or-throw {:query-params {"query" (json/generate-string [:= :certname certname])}})
+      :body))
 
-(def get-reports (certname-query "/reports"))
-(def get-factsets (certname-query "/factsets"))
-(def get-catalogs (certname-query "/catalogs"))
+(defn get-reports
+  ([certname]
+   (get-reports *base-url* certname))
+  ([base-url certname]
+   (certname-query base-url "/reports" certname)))
+
+(defn get-factsets
+  ([certname]
+   (get-factsets *base-url* certname))
+  ([base-url certname]
+   (certname-query base-url "/factsets" certname)))
+
+(defn get-catalogs
+  ([certname]
+   (get-catalogs *base-url* certname))
+  ([base-url certname]
+   (certname-query base-url "/catalogs" certname)))
 
 (defn get-summary-stats []
   (-> (admin-url-str "/summary-stats")
