@@ -18,4 +18,4 @@
         (is (re-find #"second test" out))))
 
     (testing "Check that the fact was put in puppetdb"
-      (= [:value "second test"] (int/pql-query pdb "facts [value] { name='foo' }")))))
+      (is (= [{:value "second test"}] (int/pql-query pdb "facts [value] { name='foo' }"))))))
