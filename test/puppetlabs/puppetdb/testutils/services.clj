@@ -10,7 +10,7 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [metrics.counters :refer [clear!]]
             [clojure.walk :as walk]
-            [puppetlabs.trapperkeeper.app :refer [get-service]]
+            [puppetlabs.trapperkeeper.app :as tk-app :refer [get-service]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [jetty9-service]]
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
@@ -88,7 +88,6 @@
 (defn strip-retired-config [config]
   (update config :database dissoc :classname :subprotocol))
 
-;; TODO: rework call-with-puppetdb-instance to use this
 (defn run-test-puppetdb [config services bind-attempts]
   (when (zero? bind-attempts)
     (throw (RuntimeException. "Repeated attempts to bind port failed, giving up")))
@@ -132,33 +131,13 @@
   ([config services f]
    (call-with-puppetdb-instance config services 10 f))
   ([config services bind-attempts f]
-   (when (zero? bind-attempts)
-     (throw (RuntimeException. "Repeated attempts to bind port failed, giving up")))
-   (let [config (-> config
-                    strip-retired-config
-                    conf/adjust-and-validate-tk-config
-                    assoc-open-port)
-         port (or (get-in config [:jetty :port])
-                  (get-in config [:jetty :ssl-port]))
-         is-ssl (boolean (get-in config [:jetty :ssl-port]))
-         base-url {:protocol (if is-ssl "https" "http")
-                   :host "localhost"
-                   :port port
-                   :prefix "/pdb/query"
-                   :version :v4}]
+   (let [{:keys [app base-url]} (run-test-puppetdb config services bind-attempts)]
      (try
-       (swap! dispatch/metrics clear-counters!)
-       (tkbs/with-app-with-config server
-         (map var-get services)
-         config
-         (binding [*server* server
-                   *base-url* base-url]
-           (f)))
-       (catch java.net.BindException e
-         (log/errorf e "Error occured when Jetty tried to bind to port %s, attempt #%s"
-                     port bind-attempts)
-         (call-with-puppetdb-instance config services (dec bind-attempts)
-                                      f))))))
+      (binding [*server* app
+                *base-url* base-url]
+        (f))
+      (finally
+        (tk-app/stop app))))))
 
 (defn create-url-str [base-url url-suffix]
   (str (utils/base-url->str base-url)
