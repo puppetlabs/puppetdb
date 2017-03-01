@@ -11,12 +11,17 @@
               ps (int/run-puppet-server [pdb1 pdb2] {})]
 
     (testing "Agent run against pdb1"
-      (int/run-puppet ps pdb1 "notify { 'hello, world!': }")
-      (is (= 1 (count (int/pql-query pdb1 "nodes {}")))))
+      (int/run-puppet ps pdb1 "notify { 'initial': }")
+      (is (= 1 (count (int/pql-query pdb1 "resources { title='initial' }"))))
+      (is (= 0 (count (int/pql-query pdb2 "resources { title='initial' }")))))
 
     (testing "Fallback to pdb2"
       (tk-app/stop (:app pdb1))
-      (is (= 0 (count (int/pql-query pdb2 "nodes {}"))))
+      (int/run-puppet ps pdb2 "notify { 'fallback': }")
+      (is (= 1 (count (int/pql-query pdb2 "resources { title='fallback' }")))))
 
-      (int/run-puppet ps pdb2 "notify { 'hello, world!': }")
-      (is (= 1 (count (int/pql-query pdb2 "nodes {}")))))))
+    (testing "Restore pdb1"
+      (tk-app/start (:app pdb1))
+      (int/run-puppet ps pdb1 "notify { 'restored': }")
+      (is (= 1 (count (int/pql-query pdb1 "resources { title='restored' }"))))
+      (is (= 0 (count (int/pql-query pdb2 "resources { title='restored' }")))))))
