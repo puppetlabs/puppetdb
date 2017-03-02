@@ -24,7 +24,7 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.utils :refer [base-url->str]]
+            [puppetlabs.puppetdb.utils :refer [base-url->str base-url->str-with-prefix]]
             [clojure.string :as str]
             [me.raynes.fs :as fs]
             [slingshot.slingshot :refer [throw+]]
@@ -210,6 +210,14 @@
    (meta-url-str *base-url* url-suffix))
   ([base-url url-suffix]
    (create-url-str (pdb-meta-url base-url) url-suffix)))
+
+(defn root-url-str
+  ([]
+   (root-url-str *base-url*))
+  ([base-url]
+   (-> base-url
+       (assoc :prefix "/")
+       utils/base-url->str-with-prefix)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

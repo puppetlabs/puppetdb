@@ -35,10 +35,7 @@
 
 (deftest top-level-routes
   (svc-utils/with-puppetdb-instance
-    (let [pdb-resp (-> svc-utils/*base-url*
-                       (assoc :prefix "/pdb")
-                       utils/base-url->str-with-prefix
-                       (http/get {:as :text}))]
+    (let [pdb-resp (http/get (svc-utils/root-url-str) {:as :text})]
       (tu/assert-success! pdb-resp)
       (is (dtu/dashboard-page? pdb-resp))
 

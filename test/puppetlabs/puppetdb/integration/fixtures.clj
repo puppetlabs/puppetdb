@@ -102,27 +102,22 @@
                                                                    {:database (info-map postgres-server)})
                                                     10)
         {:keys [host port]} base-url]
-    (PuppetDBTestServer. {:hostname host
-                          :port port
-                          :query-base-url (assoc base-url :prefix "/pdb/query" :version :v4)
-                          :command-base-url (assoc base-url :prefix "/pdb/cmd" :version :v1)
-                          :admin-base-url (assoc base-url :prefix "/pdb/admin" :version :v1)
+    (PuppetDBTestServer. {:base-url base-url
                           :app app}
                          app)))
 
 (defn root-url-str [pdb-server]
-  (let [{:keys [hostname port]} (info-map pdb-server)]
-    (format "https://%s:%s" hostname port)))
+  (-> pdb-server
+      info-map
+      :base-url
+      svc-utils/root-url-str))
 
 (defn pql-query [pdb-server query]
-  (-> (svc-utils/create-url-str (-> pdb-server info-map :query-base-url) nil)
+  (-> pdb-server
+      info-map
+      :base-url
+      (svc-utils/query-url-str nil)
       (svc-utils/get-ssl {:query-params {"query" query}})
-      :body))
-
-(defn entity-query [pdb-server url-suffix query & [params]]
-  (-> (svc-utils/create-url-str (-> pdb-server info-map :query-base-url) url-suffix)
-      (svc-utils/get-ssl {:query-params (merge {"query" (json/generate-string query)}
-                                               params)})
       :body))
 
 (defn ast-query [pdb-server query]
@@ -217,13 +212,12 @@
             :node_name_value node-name}})
 
 (defn write-puppetdb-terminus-config [pdb-servers path overrides]
-  (let [pdb-infos (map info-map pdb-servers)
-        f (io/file path)]
+  (let [f (io/file path)]
     (fs/create f)
     (ks/spit-ini f
                  (ks/deep-merge
-                  {:main {:server_urls (->> (for [pdb-info pdb-infos]
-                                              (str "https://" (:hostname pdb-info) ":" (:port pdb-info)))
+                  {:main {:server_urls (->> pdb-servers
+                                            (map (comp svc-utils/root-url-str :base-url info-map))
                                             (clojure.string/join ","))}}
                   (or overrides {})))))
 
