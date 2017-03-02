@@ -56,23 +56,32 @@
     (testing "creates new row for non-existing producer"
       (is (= 2 (ensure-producer prod2))))))
 
-(defn-validated factset-map :- {s/Str s/Str}
-  "Return all facts and their values for a given certname as a map"
-  [certname :- String]
-  (let [result (jdbc/query
-                ["SELECT fp.path as name,
-                    COALESCE(f.value_string,
-                             cast(f.value_integer as text),
-                             cast(f.value_boolean as text),
-                             cast(f.value_float as text),
-                             '') as value
-                    FROM factsets fs
-                    INNER JOIN facts as f on fs.id = f.factset_id
-                    INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                    WHERE fp.depth = 0 AND fs.certname = ?"
-                 certname])]
-    (zipmap (map :name result)
-            (map :value result))))
+(defn factset-map
+  "Returns a map of fact names to values for certname."
+  [certname]
+  (jdbc/call-with-query-rows
+   [(str "select fp.path,"
+         "       f.value_type_id,"
+         "       f.value,"
+         "       f.value_string,"
+         "       f.value_integer,"
+         "       f.value_float,"
+         "       f.value_boolean"
+         "  from factsets fs"
+         "  inner join facts as f on fs.id = f.factset_id"
+         "  inner join fact_paths as fp on f.fact_path_id = fp.id"
+         "  where fp.depth = 0 and fs.certname = ?")
+    certname]
+   {:as-arrays? true}
+   (fn [[col-names & rows]]
+     (doall
+      (into {} (for [[path type-id v vstr vint vfloat vbool] rows]
+                 (case type-id
+                   0 [path vstr]
+                   1 [path vint]
+                   2 [path vfloat]
+                   3 [path vbool]
+                   (4 5) [path (sutils/parse-db-json v)])))))))
 
 (deftest-db large-fact-update
   (testing "updating lots of facts"
@@ -142,7 +151,11 @@
                  "fqdn" "myhost.mydomain.com"
                  "hostname" "myhost"
                  "kernel" "Linux"
-                 "operatingsystem" "Debian"}
+                 "operatingsystem" "Debian"
+                 "excitement?" true
+                 "version" 1
+                 "temperature" 273.16
+                 "binary" [0 1]}
           producer "bar.com"]
       (add-certname! certname)
 
@@ -157,26 +170,9 @@
                    :environment nil
                    :producer_timestamp previous-time
                    :producer producer})
-      (testing "should have entries for each fact"
-        (is (= (query-to-vec
-                "SELECT fp.path as name,
-                        COALESCE(f.value_string,
-                                 cast(f.value_integer as text),
-                                 cast(f.value_boolean as text),
-                                 cast(f.value_float as text),
-                                 '') as value,
-                        fs.certname
-                 FROM factsets fs
-                   INNER JOIN facts as f on fs.id = f.factset_id
-                   INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                 WHERE fp.depth = 0
-                 ORDER BY name")
-               [{:certname certname :name "domain" :value "mydomain.com"}
-                {:certname certname :name "fqdn" :value "myhost.mydomain.com"}
-                {:certname certname :name "hostname" :value "myhost"}
-                {:certname certname :name "kernel" :value "Linux"}
-                {:certname certname :name "operatingsystem" :value "Debian"}]))
 
+      (testing "should have entries for each fact"
+        (is (= facts (factset-map certname)))
         (is (jdbc/with-db-transaction []
               (timestamp-of-newest-record :factsets  "some_certname")))
         (is (= facts (factset-map "some_certname"))))
@@ -197,7 +193,7 @@
                            "fqdn" "myhost.mynewdomain.com"
                            "hostname" "myhost"
                            "kernel" "Linux"
-                           "uptime_seconds" "3600"}]
+                           "uptime_seconds" 3600}]
             (replace-facts! {:certname certname
                              :values new-facts
                              :environment "DEV"
@@ -205,30 +201,14 @@
                              :timestamp reference-time
                              :producer producer})
             (testing "should have only the new facts"
-              (is (= (query-to-vec
-                      "SELECT fp.path as name,
-                              COALESCE(f.value_string,
-                                       cast(f.value_integer as text),
-                                       cast(f.value_boolean as text),
-                                       cast(f.value_float as text),
-                                       '') as value
-                       FROM factsets fs
-                         INNER JOIN facts as f on fs.id = f.factset_id
-                         INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                       WHERE fp.depth = 0
-                       ORDER BY name")
-                     [{:name "domain" :value "mynewdomain.com"}
-                      {:name "fqdn" :value "myhost.mynewdomain.com"}
-                      {:name "hostname" :value "myhost"}
-                      {:name "kernel" :value "Linux"}
-                      {:name "uptime_seconds" :value "3600"}])))
+              (is (= new-facts (factset-map certname))))
             (testing "producer_timestamp should store current time"
               (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
                      [{:producer_timestamp (to-timestamp reference-time)}])))
             (testing "should update existing keys"
               (is (some #{{:timestamp (to-timestamp reference-time)
                            :environment_id 1
-                           :hash "cf56e1d01b3517d26f875855da4459ce19f8cd18"
+                           :hash "1a4b10a865b8c7b435ec0fe06968fdc62337f57f"
                            :producer_timestamp (to-timestamp reference-time)
                            :producer_id 1}}
                         ;; Again we grab the pertinent non-id bits
