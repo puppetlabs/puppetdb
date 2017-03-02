@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: e506a9caa31882bae60b71625350dc43ee7f70db\n"
+"X-Git-Ref: 5da03f18c7e7435b0f1b635cfce40ea6a2829ffa\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -666,6 +666,10 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
+msgid "content encoding {0} not supported"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/middleware.clj
 msgid "content type {0} not supported"
 msgstr ""
 
@@ -991,6 +995,10 @@ msgid "unknown command ''{0}''"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/queue.clj
+msgid "Unsupported compression file extension for command: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/queue.clj
 msgid "Cleaned up orphaned command temp file: {0}"
 msgstr ""
 
@@ -1055,7 +1063,7 @@ msgid "Creating additional index `fact_paths_path_trgm`"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Creating additional index `fact_values_string_trgm`"
+msgid "Creating additional index `facts_value_string_trgm`"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
