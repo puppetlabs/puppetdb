@@ -14,10 +14,8 @@
                          (str "notify { 'hi':"
                               "  message => 'Hi foo' "
                               "}")))
-    (let [[report] (int/entity-query pdb "/reports"
-                                     ["=" "certname" "my_agent"])
-          catalog (:body (svc-utils/get-ssl (svc-utils/create-url-str (-> pdb int/info-map :query-base-url)
-                                                                      (str "/catalogs/my_agent" ))))]
+    (let [[report] (int/pql-query pdb "reports { certname = 'my_agent' }")
+          [catalog] (int/pql-query pdb "catalogs { certname = 'my_agent' }")]
       (is (:transaction_uuid report))
       (is (:transaction_uuid catalog))
       (is (= (:transaction_uuid report)

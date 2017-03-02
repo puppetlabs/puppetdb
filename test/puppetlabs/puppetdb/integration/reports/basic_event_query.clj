@@ -17,15 +17,15 @@
                            (str "notify { 'hi':"
                                 "  message => 'Hi my_agent' "
                                 "}")))
-      (let [result (int/entity-query pdb "/events"
-                                     ["extract" ["old_value" "new_value"]
-                                      ["and"
-                                       [">" "timestamp" (int/query-timestamp-str start-time)]
-                                       ["=" "certname" "my_agent"]
-                                       ["=" "resource_type" "Notify"]
-                                       ["=" "status" "success"]
-                                       ["~" "property" "^[Mm]essage$"]
-                                       ["~" "message" "Hi my_agent"]]])]
+      (let [result (int/pql-query pdb (format (str "events [old_value, new_value] "
+                                                   "{ timestamp > '%s' "
+                                                   " and certname = 'my_agent'"
+                                                   " and resource_type = 'Notify'"
+                                                   " and status = 'success'"
+                                                   " and property ~ '^[Mm]essage$'"
+                                                   " and message ~ 'Hi my_agent' "
+                                                   "}")
+                                              (int/query-timestamp-str start-time)))]
         (is (= [{:old_value "absent"
                  :new_value "Hi my_agent"}]
                result))))))

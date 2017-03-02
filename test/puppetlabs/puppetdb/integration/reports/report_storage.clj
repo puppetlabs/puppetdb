@@ -22,11 +22,10 @@
                               "  message => 'Hi my_agent' "
                               "}")
                          ["--noop"])
-      (let [result (int/entity-query pdb "/reports"
-                                     ["=" "certname" "my_agent"])
+      (let [result (int/pql-query pdb "reports { certname = 'my_agent' }")
             [event :as events] (remove #(= (:resource_type %) "Schedule")
-                                       (int/entity-query pdb "/events"
-                                                         ["=" "report" (-> result first :hash)]))]
+                                       (int/pql-query pdb (format "events { report = '%s' }"
+                                                                  (-> result first :hash))))]
 
         ;; This is a bit weird as well; all "skipped" resources during a puppet
         ;; run will end up having events generated for them.  However, during a
@@ -48,8 +47,7 @@
                               "  message => 'Hi my_agent' "
                               "}"))
 
-      (let [[report] (int/entity-query pdb "/reports"
-                                       ["=" "certname" "my_agent"])
+      (let [[report] (int/pql-query pdb "reports { certname = 'my_agent' }")
             metrics (get-href pdb (get-in report [:metrics :href]))
             logs  (get-href pdb (get-in report [:logs :href]))]
 

@@ -13,8 +13,6 @@
                          (str "notify { 'hi':"
                               "  message => 'Hi my_agent' "
                               "}")))
-    (let [result (int/entity-query pdb "/reports"
-                                   ["extract" ["producer"]
-                                    ["=" "certname" "my_agent"]])]
+    (let [result (int/pql-query pdb "reports [producer] { certname = 'my_agent' }")]
       (is (= [{:producer "my_puppetserver"}]
              result)))))
