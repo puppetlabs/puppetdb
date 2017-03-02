@@ -93,7 +93,7 @@
                  [org.slf4j/jcl-over-slf4j "1.7.14" :exclusions [org.slf4j/slf4j-api]]
 
                  ;; WebAPI support libraries.
-                 [bidi "1.25.1" :exclusions [org.clojure/clojurescript]]
+                 [bidi "2.0.12" :exclusions [org.clojure/clojurescript]]
                  [clj-http "2.0.1" :exclusions [org.apache.httpcomponents/httpcore org.apache.httpcomponents/httpclient]]
                  [com.novemberain/pantomime "2.1.0"]
                  [compojure]
