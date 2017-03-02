@@ -15,20 +15,24 @@
 (deftest ^:integration metrics-and-logs-storage
   (with-open [pg (int/setup-postgres)
               pdb (int/run-puppetdb pg {})
-              ps (int/run-puppet-server-as "something_silly" [pdb] {})]
+              ps (int/run-puppet-server [pdb] {})]
     (testing "Initial agent run, to populate puppetdb with data to query"
       (int/run-puppet-as "my_agent" ps pdb
-                         (str "notify { \"hi\":"
-                              "  message => \"Hi my_agent\" "
+                         (str "notify { 'hi':"
+                              "  message => 'Hi my_agent' "
                               "}")
                          ["--noop"])
       (let [result (int/entity-query pdb "/reports"
-                                     ["=" "certname" "my_agent"]
-                                     {"order_by" (json/generate-string [{"field" "receive_time"
-                                                                         "order" "desc"}])})
+                                     ["=" "certname" "my_agent"])
             [event :as events] (remove #(= (:resource_type %) "Schedule")
                                        (int/entity-query pdb "/events"
                                                          ["=" "report" (-> result first :hash)]))]
+
+        ;; This is a bit weird as well; all "skipped" resources during a puppet
+        ;; run will end up having events generated for them.  However, during a
+        ;; typical puppet run there are a bunch of "Schedule" resources that will
+        ;; always show up as skipped.  Here we filter them out because they're
+        ;; not really interesting for this test.
 
         (are [x y] (= x y)
           1 (count events)
@@ -40,15 +44,12 @@
 
     (testing "agent run without noop"
       (int/run-puppet-as "my_agent" ps pdb
-                         (str "notify { \"hi\":"
-                              "  message => \"Hi my_agent\" "
+                         (str "notify { 'hi':"
+                              "  message => 'Hi my_agent' "
                               "}"))
 
       (let [[report] (int/entity-query pdb "/reports"
-                                       ["=" "certname" "my_agent"]
-                                       {"order_by" (json/generate-string
-                                                    [{"field" "receive_time"
-                                                      "order" "desc"}])})
+                                       ["=" "certname" "my_agent"])
             metrics (get-href pdb (get-in report [:metrics :href]))
             logs  (get-href pdb (get-in report [:logs :href]))]
 

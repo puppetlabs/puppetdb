@@ -10,8 +10,8 @@
               ps (int/run-puppet-server-as "my_puppetserver" [pdb] {})]
     (testing "Initial agent run, to populate puppetdb with data to query"
       (int/run-puppet-as "my_agent" ps pdb
-                         (str "notify { \"hi\":"
-                              "  message => \"Hi my_agent\" "
+                         (str "notify { 'hi':"
+                              "  message => 'Hi my_agent' "
                               "}")))
     (let [result (int/entity-query pdb "/reports"
                                    ["extract" ["producer"]

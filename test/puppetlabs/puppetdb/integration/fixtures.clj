@@ -18,7 +18,8 @@
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tkbs]
             [puppetlabs.trapperkeeper.core :as tk]
             [yaml.core :as yaml]
-            [slingshot.slingshot :refer [throw+]])
+            [slingshot.slingshot :refer [throw+]]
+            [clj-time.format :as tfmt])
   (:import [com.typesafe.config ConfigValueFactory]))
 
 (defprotocol TestServer
@@ -380,3 +381,8 @@
              "puppet" "apply" (.getCanonicalPath manifest-file)
              "--confdir" (.getCanonicalPath agent-conf-dir)
              extra-puppet-args))))
+
+(def date-formatter (tfmt/formatters :date-time))
+
+(defn query-timestamp-str [timestamp-obj]
+  (tfmt/unparse date-formatter timestamp-obj))

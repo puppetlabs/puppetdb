@@ -11,13 +11,11 @@
               ps (int/run-puppet-server-as "something_silly" [pdb] {})]
     (testing "Initial agent run, to populate puppetdb with data to query"
       (int/run-puppet-as "my_agent" ps pdb
-                         (str "notify { \"hi\":"
-                              "  message => \"Hi foo\" "
+                         (str "notify { 'hi':"
+                              "  message => 'Hi foo' "
                               "}")))
     (let [[report] (int/entity-query pdb "/reports"
-                                     ["=" "certname" "my_agent"]
-                                     {"order_by" (json/generate-string [{"field" "receive_time"
-                                                                         "order" "desc"}])})
+                                     ["=" "certname" "my_agent"])
           catalog (:body (svc-utils/get-ssl (svc-utils/create-url-str (-> pdb int/info-map :query-base-url)
                                                                       (str "/catalogs/my_agent" ))))]
       (is (:transaction_uuid report))
