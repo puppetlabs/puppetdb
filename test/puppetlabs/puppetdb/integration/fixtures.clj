@@ -183,9 +183,15 @@
 
 (defn jruby-agent-dir []
   (->> (fs/list-dir "vendor/puppetserver-gems/gems/")
-       sort
-       (filter #(re-matches #"puppet-\d+\.\d+\.\d+" (fs/base-name %)))
-       (map fs/absolute)
+       (map (fn [f] (let [[_ package version-str] (re-matches #"^(.*)-([\d\.]+)" (fs/base-name f))]
+                      {:file f
+                       :package-name package
+                       :version (->> (string/split version-str #"\.")
+                                     (map #(Integer/parseInt %))
+                                     (into []))})))
+       (filter #(= (:package-name %) "puppet"))
+       (sort-by :version) ;; newest comes last
+       (map :file)
        last))
 
 (defn install-terminus-into [puppet-dir]
