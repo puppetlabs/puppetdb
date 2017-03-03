@@ -22,17 +22,16 @@
                               "  message => 'Hi my_agent' "
                               "}")
                          ["--noop"])
+
+      ;; This is a bit weird as well; all "skipped" resources during a puppet
+      ;; run will end up having events generated for them.  However, during a
+      ;; typical puppet run there are a bunch of "Schedule" resources that will
+      ;; always show up as skipped.  Here we filter them out because they're
+      ;; not really interesting for this test.
       (let [result (int/pql-query pdb "reports { certname = 'my_agent' }")
             [event :as events] (remove #(= (:resource_type %) "Schedule")
                                        (int/pql-query pdb (format "events { report = '%s' }"
                                                                   (-> result first :hash))))]
-
-        ;; This is a bit weird as well; all "skipped" resources during a puppet
-        ;; run will end up having events generated for them.  However, during a
-        ;; typical puppet run there are a bunch of "Schedule" resources that will
-        ;; always show up as skipped.  Here we filter them out because they're
-        ;; not really interesting for this test.
-
         (are [x y] (= x y)
           1 (count events)
           true (:noop (first result))
