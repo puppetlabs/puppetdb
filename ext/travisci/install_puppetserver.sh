@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+set -e
+set -o pipefail
+
 lein=lein2
 
 # Update a single dependency in a leiningen project.clj file.
@@ -34,4 +37,4 @@ MAVEN_VER=$(lein-pprint :version)
 echo $MAVEN_VER
 cd ..
 
-update_dependency_var "project.clj" "puppetserver-version" $MAVEN_VER
+update_dependency_var project.clj puppetserver-version $MAVEN_VER
