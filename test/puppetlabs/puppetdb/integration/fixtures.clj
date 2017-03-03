@@ -159,8 +159,10 @@
               (Thread/sleep 25)
               (recur))))))))
 
-(defmacro with-synchronized-command-processing [pdb-server num-commands timeout-ms & body]
-  `(call-with-synchronized-command-processing ~pdb-server ~num-commands ~timeout-ms (fn [] (do ~@body))))
+(defmacro with-synchronized-command-processing
+  [pdb-server num-commands timeout-ms & body]
+  `(call-with-synchronized-command-processing ~pdb-server ~num-commands ~timeout-ms
+                                              (fn [] (do ~@body))))
 
 ;;; Puppet Server fixture
 
@@ -175,7 +177,6 @@
 
 (def dev-config-file "./test-resources/puppetserver/puppetserver.conf")
 (def dev-bootstrap-file "./test-resources/puppetserver/bootstrap.cfg")
-
 
 (defn mri-agent-dir []
   (-> (sh "bundle" "show" "puppet") :out clojure.string/trim))
