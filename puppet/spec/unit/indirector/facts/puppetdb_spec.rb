@@ -13,7 +13,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
   CommandReplaceFacts = Puppet::Util::Puppetdb::CommandNames::CommandReplaceFacts
 
-  let(:http) {stub 'http'}
+  let(:http) { HttpClientTest.new }
 
   before :each do
     Puppet::Util::Puppetdb.config.stubs(:server_urls).returns [URI("https://localhost:8282")]

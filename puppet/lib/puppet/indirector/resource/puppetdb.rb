@@ -30,7 +30,10 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
         response = Http.action("/pdb/query/v4/resources?query=#{query_param}", :query) do |http_instance, path|
           profile("Resources query: #{URI.unescape(path)}",
                   [:puppetdb, :resource, :search, :query, request.key]) do
-            http_instance.get(path, headers, { :metric_id => [:puppetdb, :resource, :search, request.key] })
+            Http.multi_arity_get(http_instance,
+                                 path,
+                                 headers,
+                                 { :metric_id => [:puppetdb, :resource, :search, request.key] })
           end
         end
 

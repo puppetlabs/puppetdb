@@ -28,7 +28,7 @@ describe Puppet::Resource::Puppetdb do
       response.stubs(:body).returns '[]'
 
       query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
-      http = stub 'http'
+      http = HttpClientTest.new
       Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
       http.stubs(:get).with("/pdb/query/v4/resources?query=#{query}", subject.headers, options).returns response
 
@@ -42,7 +42,7 @@ describe Puppet::Resource::Puppetdb do
       response.stubs(:body).returns '[]'
 
       query = CGI.escape(["and", ["=", "type", "exec"], ["=", "exported", true], ["not", ["=", "certname", "default.local"]]].to_json)
-      http = stub 'http'
+      http = HttpClientTest.new
       Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
       http.stubs(:get).with("/pdb/query/v4/resources?query=#{query}", subject.headers, options).returns response
 
@@ -89,6 +89,7 @@ describe Puppet::Resource::Puppetdb do
         response.stubs(:body).returns body
 
         http = stub 'http'
+        http = HttpClientTest.new
         Puppet::Network::HttpPool.stubs(:http_instance).returns(http)
         http.stubs(:get).with("/pdb/query/v4/resources?query=#{CGI.escape(query.to_json)}", subject.headers, options).returns response
       end

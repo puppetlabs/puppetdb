@@ -222,6 +222,29 @@ module Puppet::Util::Puppetdb
       @@last_good_query_server_url_index.reset(0)
     end
 
+    # This function is a bit of a hack to get around the fact that prior to
+    # Puppet Server 5, Puppet Server's http client's `get` method only took
+    # two arguments (both required), whereas the Ruby implementation takes
+    # three arguments (two are optional).
+    #
+    # Since we don't have any guarantees over what version of Puppet/Puppet
+    # Server this terminus code will run under, this method inspects the `get`
+    # method to check its arity, and then calls it with the correct number of
+    # arguments.
+    def self.multi_arity_get(http_instance, path, headers, options={})
+      # `parameters()` returns the parameters of a method as an array of
+      # tuples, with a tuple for each parameter, e.g. `[[:req :a], [:opt
+      # :b]]`. Counting this array gives the arity.
+      arity = http_instance.class.instance_method(:get).parameters.count
+      if arity == 2
+        http_instance.get(path, headers)
+      elsif arity == 3
+        http_instance.get(path, headers, options)
+      else
+        raise Puppet::Error,
+          "Http client `get` method expected to have arity 2 or 3 but was arity #{arity}"
+      end
+    end
   end
 
   class NotFoundError < Puppet::Error
