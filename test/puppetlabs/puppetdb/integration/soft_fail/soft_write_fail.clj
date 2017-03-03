@@ -8,7 +8,7 @@
   (with-open [pg (int/setup-postgres)
               pdb (int/run-puppetdb pg {})
               ps (int/run-puppet-server [pdb] {:terminus {:main {:soft_write_failure true}}})]
-    (tk-app/stop (-> pdb int/info-map :app))
+    (tk-app/stop (-> pdb int/server-info :app))
 
     (testing "Agent run should fail for manifest which collects resources"
       (is (thrown+? (and (= (:kind %) ::int/bundle-exec-failure)

@@ -23,13 +23,13 @@
   (:import [com.typesafe.config ConfigValueFactory]))
 
 (defprotocol TestServer
-  (info-map [this]))
+  (server-info [this]))
 
 ;;; Postgres fixture
 
 (defrecord PostgresTestServer [db-config]
   TestServer
-  (info-map [_] db-config)
+  (server-info [_] db-config)
 
   java.lang.AutoCloseable
   (close [_] (dbutils/drop-test-db db-config)))
@@ -40,9 +40,9 @@
 
 ;;; PuppetDB fixture
 
-(defrecord PuppetDBTestServer [-info-map app]
+(defrecord PuppetDBTestServer [info-map app]
   TestServer
-  (info-map [_] -info-map)
+  (server-info [_] info-map)
 
   java.lang.AutoCloseable
   (close [_] (tk-app/stop app)))
@@ -99,7 +99,7 @@
   (let [{:keys [app base-url]} (start-test-puppetdb "test-resources/integration-bootstrap.cfg"
                                                     "test-resources/integration-puppetdb.conf"
                                                     (ks/deep-merge config-overrides
-                                                                   {:database (info-map postgres-server)})
+                                                                   {:database (server-info postgres-server)})
                                                     10)
         {:keys [host port]} base-url]
     (PuppetDBTestServer. {:base-url base-url
@@ -108,13 +108,13 @@
 
 (defn root-url-str [pdb-server]
   (-> pdb-server
-      info-map
+      server-info
       :base-url
       svc-utils/root-url-str))
 
 (defn pql-query [pdb-server query]
   (-> pdb-server
-      info-map
+      server-info
       :base-url
       (svc-utils/query-url-str nil)
       (svc-utils/get-ssl {:query-params {"query" query}})
@@ -124,7 +124,7 @@
   (pql-query pdb-server (json/generate-string query)))
 
 (defn call-with-synchronized-command-processing [pdb-server num-commands timeout-ms f]
-  (let [dispatcher (-> pdb-server info-map :app (tk-app/get-service :PuppetDBCommandDispatcher))
+  (let [dispatcher (-> pdb-server server-info :app (tk-app/get-service :PuppetDBCommandDispatcher))
         initial-count (-> dispatcher dispatch/stats :executed-commands)
         target-count (+ initial-count num-commands)
         result (f)]
@@ -164,9 +164,9 @@
 
 ;;; Puppet Server fixture
 
-(defrecord PuppetServerTestServer [-info-map files-to-cleanup app]
+(defrecord PuppetServerTestServer [info-map files-to-cleanup app]
   TestServer
-  (info-map [_] -info-map)
+  (server-info [_] info-map)
 
   java.lang.AutoCloseable
   (close [_]
@@ -217,7 +217,7 @@
     (ks/spit-ini f
                  (ks/deep-merge
                   {:main {:server_urls (->> pdb-servers
-                                            (map (comp svc-utils/root-url-str :base-url info-map))
+                                            (map (comp svc-utils/root-url-str :base-url server-info))
                                             (clojure.string/join ","))}}
                   (or overrides {})))))
 
@@ -278,7 +278,7 @@
           extra-puppet-args []
           env {}}
      :as opts}]
-   (let [{:keys [code-dir conf-dir hostname port]} (info-map puppet-server)
+   (let [{:keys [code-dir conf-dir hostname port]} (server-info puppet-server)
          site-pp (str code-dir  "/environments/production/manifests/site.pp")
          agent-conf-dir (str "target/agent-conf/" certname)]
      (fs/mkdirs (fs/parent site-pp))
@@ -319,7 +319,7 @@
                "--color" "false"))
 
 (defn run-puppet-facts-find [puppet-server certname]
-  (let [{:keys [conf-dir]} (info-map puppet-server)]
+  (let [{:keys [conf-dir]} (server-info puppet-server)]
     (-> (bundle-exec {}
                      "puppet" "facts" "find" certname
                      "--confdir" conf-dir
