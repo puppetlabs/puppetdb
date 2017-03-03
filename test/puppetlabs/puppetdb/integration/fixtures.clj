@@ -19,7 +19,8 @@
             [puppetlabs.trapperkeeper.core :as tk]
             [yaml.core :as yaml]
             [slingshot.slingshot :refer [throw+]]
-            [clj-time.format :as tfmt])
+            [clj-time.format :as tfmt]
+            [puppetlabs.puppetdb.utils :as utils])
   (:import [com.typesafe.config ConfigValueFactory]))
 
 (defprotocol TestServer
@@ -266,7 +267,7 @@
                                                 env)]))]
     (if (not (#{0 2} (:exit result)))
       (let [message (str "Error running bundle exec " (string/join " " args))]
-        (println message result)
+        (utils/println-err message result)
         (throw+ {:kind ::bundle-exec-failure
                  :args args
                  :result result}
