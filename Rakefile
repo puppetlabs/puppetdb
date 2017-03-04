@@ -1,3 +1,8 @@
+# We need access to the ruby libraries installed via puppet-agent
+# More specifically, we need access to Facter to satisfy the
+# dependency on line 8
+$LOAD_PATH.push("/opt/puppetlabs/puppet/lib/ruby/vendor_ruby")
+
 require 'rake'
 require 'erb'
 require 'facter'
