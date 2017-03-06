@@ -16,7 +16,9 @@ allowed anywhere in the set of facts.
      "values": {
          <string>: <any>,
          ...
-         }
+         },
+     "package_inventory": [<package_tuple>, <package_tuple>, ...]
+
     }
 
 The `"certname"` key is the certname the facts are associated with.
@@ -34,7 +36,15 @@ to PuppetDB. This field may be `null`.
 
 Fact names and values **must** be strings.
 
+The `"package_inventory"` keys is optional, if present, must be an array of <package_tuple>.
+
 ## Encoding
 
 The entire fact set is expected to be valid JSON, which mandates UTF-8
 encoding.
+
+### Data type: `<package_tuple>`
+
+An array of three strings:
+
+    [ "<package_name>", "<version>", "<provider>" ]

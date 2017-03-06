@@ -300,18 +300,9 @@
                    certname))))
 
 (defn replace-facts [{:keys [payload version received] :as command} db]
-  (let [validated-payload (upon-error-throw-fatality
-                           (-> (case version
-                                 2 (fact/wire-v2->wire-v5 payload received)
-                                 3 (fact/wire-v3->wire-v5 payload)
-                                 4 (fact/wire-v4->wire-v5 payload)
-                                 payload)
-                               (update :values utils/stringify-keys)
-                               (update :producer_timestamp to-timestamp)
-                               (assoc :timestamp received)))]
-    (-> command
-        (assoc :payload validated-payload)
-        (replace-facts* db))))
+  (replace-facts* (upon-error-throw-fatality
+                   (assoc command :payload (fact/normalize-facts version received payload)))
+                  db))
 
 ;; Node deactivation
 

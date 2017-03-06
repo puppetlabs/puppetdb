@@ -1221,6 +1221,27 @@
      "  foreign key (value_type_id) references value_types (id) match simple"
      "    on update restrict on delete restrict"]))
 
+(defn add-package-inventory []
+  (jdbc/do-commands
+   ["CREATE TABLE package_inventory"
+    "  (id bigint PRIMARY KEY,"
+    "   certname_id bigint not null,"
+    "   name text not null,"
+    "   version text not null,"
+    "   provider text not null)"]
+
+   "CREATE SEQUENCE package_inventory_id_seq CYCLE"
+   "ALTER TABLE package_inventory ALTER COLUMN id SET DEFAULT nextval('package_inventory_id_seq')"
+   "ALTER TABLE certnames ADD COLUMN package_hash bytea"
+
+   ["alter table package_inventory add constraint package_certname_id_fk"
+    "  foreign key (certname_id) references certnames (id) match simple"
+    "  on update restrict on delete restrict"]
+
+   "create index package_name_version_idx on package_inventory using btree (name, version)"
+
+   "create index package_certname_idx on package_inventory using btree (certname_id)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1254,7 +1275,8 @@
    53 add-corrective-change-index
    54 drop-resource-events-resource-type-idx
    55 index-certnames-unique-latest-report-id
-   56 merge-fact-values-into-facts})
+   56 merge-fact-values-into-facts
+   57 add-package-inventory})
 
 (def desired-schema-version (apply max (keys migrations)))
 
