@@ -41,7 +41,7 @@ group :test do
   when "oldest"
     gem 'puppet', oldest_supported_puppet, :require => false
   else
-    gem 'puppet', :git => 'git://github.com/puppetlabs/puppet.git',
+    gem 'puppet', :git => 'https://github.com/puppetlabs/puppet.git',
       :branch => puppet_branch, :require => false
   end
 

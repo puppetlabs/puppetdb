@@ -163,7 +163,7 @@
     db
     user]))
 
-(defn- drop-test-db [db-config]
+(defn drop-test-db [db-config]
   (let [db-name (subname->validated-db-name (:subname db-config))]
     (jdbc/with-db-connection (db-admin-config)
       (jdbc/do-commands

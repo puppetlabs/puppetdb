@@ -29,9 +29,6 @@
 (deftest root-dashboard-routing
   (svc-utils/call-with-single-quiet-pdb-instance
    (fn []
-     (let [root-resp (-> svc-utils/*base-url*
-                         (assoc :prefix "/")
-                         base-url->str-with-prefix
-                         svc-utils/get-unparsed)]
+     (let [root-resp (svc-utils/get-unparsed (svc-utils/root-url-str))]
        (tu/assert-success! root-resp)
        (is (dtu/dashboard-page? root-resp))))))

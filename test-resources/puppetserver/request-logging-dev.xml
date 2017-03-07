@@ -1,0 +1,9 @@
+<configuration debug="false" scan="true">
+  <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+    <file>./target/logs/puppetserver-access.log</file>
+    <encoder>
+        <pattern>%h %l %u %user %date "%r" %s %b %h %a %localPort %D</pattern>
+    </encoder>
+  </appender>
+  <appender-ref ref="FILE" />
+</configuration>
