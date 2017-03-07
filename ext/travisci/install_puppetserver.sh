@@ -4,6 +4,7 @@ set -e
 set -o pipefail
 
 lein=lein2
+export PUPPETSERVER_HEAP_SIZE=1G
 
 # Update a single dependency in a leiningen project.clj file.
 update_dependency_var() {
@@ -23,7 +24,6 @@ update_dependency_var() {
 }
 
 lein-pprint() {
-    export PUPPETSERVER_HEAP_SIZE=1G
     "$lein" with-profile dev,ci pprint "$@" | sed -e 's/^"//' -e 's/"$//'
 }
 
@@ -31,7 +31,6 @@ git clone https://github.com/puppetlabs/puppetserver
 
 cd puppetserver
 git checkout "$PUPPETSERVER_VERSION"
-export PUPPETSERVER_HEAP_SIZE=1G
 "$lein" install
 MAVEN_VER=$(lein-pprint :version)
 echo $MAVEN_VER
