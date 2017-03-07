@@ -42,7 +42,7 @@ matrix:
         NAME=integration-stable
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=4.6.2
+        PUPPET_VERSION=4.8.0
         PUPPETSERVER_VERSION=2.7.2
       jdk: oraclejdk8
 
