@@ -8,19 +8,38 @@ sudo: required
 matrix:
   include:
     # terminus unit tests (spec tests)
-    - env: PDB_TEST_LANG=ruby PUPPET_VERSION=latest
-    - env: PDB_TEST_LANG=ruby PUPPET_VERSION=4.0.0
+    - env: >
+        NAME=rspec-puppet-4.0
+        PDB_TEST_LANG=ruby
+        PUPPET_VERSION=4.0.0
+
+    - env: >
+        NAME=rspec-puppet-latest
+        PDB_TEST_LANG=ruby
+        PUPPET_VERSION=latest
 
     # pdb unit tests
-    - env: PDB_TEST_LANG=clojure PDB_TEST_SELECTOR=:unit
+    - env: >
+        NAME=unit-openjdk7
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:unit
       jdk: openjdk7
-    - env: PDB_TEST_LANG=clojure PDB_TEST_SELECTOR=:unit
+
+    - env: >
+        NAME=unit-oracle7
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:unit
       jdk: oraclejdk7
-    - env: PDB_TEST_LANG=clojure PDB_TEST_SELECTOR=:unit
+
+    - env: >
+        NAME=unit-oracle8
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:unit
       jdk: oraclejdk8
 
     # pdb + terminus + puppetserver + puppet integration tests
     - env: >
+        NAME=integration-stable
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
         PUPPET_VERSION=4.6.2
@@ -28,6 +47,7 @@ matrix:
       jdk: oraclejdk8
 
     - env: >
+        NAME=integration-head
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
         PUPPET_VERSION=latest
