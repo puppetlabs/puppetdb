@@ -16,6 +16,31 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
+
+4.3.2
+-----
+
+PuppetDB 4.3.2 is a bugfix release to fix a report storage performance
+regression in versions 4.2.4, 4.2.5, 4.3.0, and 4.3.1. All affected users are
+encouraged to upgrade to this release.
+
+### Bug fixes and maintenance:
+
+* When storing reports, PuppetDB first queries the database to see if a report
+  with the same hashcode is already present. This database query was erroneously
+  not using the index on the hash column, resulting in increased report storage
+  time. It has been updated so that the index will take effect as intended. 
+  ([PDB-3323](https://tickets.puppetlabs.com/browse/PDB-3323))
+
+### Contributors
+
+Jessykah Bird, Russell Mull
+
+4.3.1
+-----
+
+PuppetDB 4.3.1 was a PE-only bugfix release. 
+
 4.3.0
 -----
 
