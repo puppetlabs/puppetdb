@@ -385,6 +385,10 @@ describe Puppet::Util::Puppetdb::Http do
   end
 
   describe "#multi_arity_get" do
+    before (:each) do
+      Puppet::Util::Puppetdb::Http.class_variable_set :@@arity, nil
+    end
+
     let(:path) { "/path" }
     let(:headers) { {"header" => "foo"} }
     let(:options) { {"options" => "abc"} }

@@ -235,14 +235,15 @@ module Puppet::Util::Puppetdb
       # `parameters()` returns the parameters of a method as an array of
       # tuples, with a tuple for each parameter, e.g. `[[:req :a], [:opt
       # :b]]`. Counting this array gives the arity.
-      arity = http_instance.class.instance_method(:get).parameters.count
-      if arity == 2
+      @@arity ||= http_instance.class.instance_method(:get).parameters.count
+      case @@arity
+      when 2
         http_instance.get(path, headers)
-      elsif arity == 3
+      when 3
         http_instance.get(path, headers, options)
       else
         raise Puppet::Error,
-          "Http client `get` method expected to have arity 2 or 3 but was arity #{arity}"
+          "Http client `get` method expected to have arity 2 or 3 but was arity #{@@arity}"
       end
     end
   end
