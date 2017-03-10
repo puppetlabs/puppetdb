@@ -128,7 +128,8 @@
              :version s/Str
              :certname s/Str
              :received s/Str
-             :id s/Str}
+             :id s/Str
+             s/Keyword s/Any}
    :body (s/cond-pre s/Str utils/byte-array-class)})
 
 (def queue-message-schema
