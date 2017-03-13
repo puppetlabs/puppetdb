@@ -13,6 +13,14 @@ require 'puppet'
 require 'puppet/util/puppetdb'
 require 'puppet/util/log'
 
+
+# A mock class for an http_instance so that the `multi_arity_get` function
+# will work in tests.
+class HttpClientTest
+  def get(path, headers, options)
+  end
+end
+
 def create_environmentdir(environment)
   envdir = File.join(Puppet[:environmentpath], environment)
   if not Dir.exists?(envdir)

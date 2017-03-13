@@ -383,4 +383,67 @@ describe Puppet::Util::Puppetdb::Http do
 
     end
   end
+
+  describe "#multi_arity_get" do
+    before (:each) do
+      Puppet::Util::Puppetdb::Http.class_variable_set :@@arity, nil
+    end
+
+    let(:path) { "/path" }
+    let(:headers) { {"header" => "foo"} }
+    let(:options) { {"options" => "abc"} }
+
+    describe "when http client class has .get with arity 2" do
+      let(:http_client_class) { Class.new do
+        def get(path, headers)
+        end
+      end }
+      let(:http_instance)  { http_client_class.new }
+
+      it "calls .get with path and headers" do
+        http_instance.expects(:get).with(path, headers)
+        described_class.multi_arity_get(http_instance, path, headers, options)
+      end
+    end
+
+    describe "when http client class has .get with arity 3" do
+      let(:http_client_class) { Class.new do
+        def get(path, headers, options)
+        end
+      end }
+      let(:http_instance) { http_client_class.new }
+
+      it "calls .get with path, headers, and options" do
+        http_instance.expects(:get).with(path, headers, options)
+        described_class.multi_arity_get(http_instance, path, headers, options)
+      end
+    end
+
+    describe "when http client class has .get with arity 3 with defaults" do
+      let(:http_client_class) { Class.new do
+        def get(path, headers, options = {})
+        end
+      end }
+      let(:http_instance) { http_client_class.new }
+
+      it "calls .get with path, headers, and options" do
+        http_instance.expects(:get).with(path, headers, options)
+        described_class.multi_arity_get(http_instance, path, headers, options)
+      end
+    end
+
+    describe "when http client class has .get with arity not 2 or 3" do
+      let(:http_client_class) { Class.new do
+        def get(wrong)
+        end
+      end }
+      let(:http_instance) { http_client_class.new }
+
+      it "raises an exception" do
+        expect {
+          described_class.multi_arity_get(http_instance, path, headers, options)
+        }.to raise_error Puppet::Error, /Http client `get`/
+      end
+    end
+  end
 end
