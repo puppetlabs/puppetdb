@@ -147,7 +147,11 @@
                                    [clj-time com.andrewmcveigh/cljs-time instaparse joda-time org.clojure/clojure]]
                                   [environ "1.0.2"]
                                   [riddley "0.1.12"]
-                                  [io.forward/yaml "1.0.5"]]
+                                  [io.forward/yaml "1.0.5"]
+
+                                  [org.clojure/tools.namespace "0.2.11"]
+                                  [org.clojure/java.classpath "0.2.3"]
+                                  [org.clojure/data.xml "0.2.0-alpha2"]]
                    :injections [(do
                                   (require 'schema.core)
                                   (schema.core/set-fn-validation! true))]}
@@ -201,4 +205,5 @@
   :aliases {"gem" ["trampoline" "run" "-m" "puppetlabs.puppetserver.cli.gem"
                    "--config" "./test-resources/puppetserver/puppetserver.conf"]
             "install-gems" ["trampoline" "run" "-m" "puppetlabs.puppetdb.integration.install-gems"
-                            "--config" "./test-resources/puppetserver/puppetserver.conf"]})
+                            "--config" "./test-resources/puppetserver/puppetserver.conf"]
+            "perf-test" ["run" "-m" "puppetlabs.puppetdb.performance.cli"]})
