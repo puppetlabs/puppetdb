@@ -19,9 +19,16 @@ PuppetDB requires a relatively small amount of maintenance and tuning. However, 
 
 ## Monitor the performance dashboard
 
-Once PuppetDB is running, visit `http://localhost:8080/pdb/dashboard/index.html`, substituting the name and port of your PuppetDB server.
+PuppetDB hosts a performance dashboard on port 8080, which listens only on
+localhost by default. The usual way to access it is via an ssh tunnel. For
+example,
 
-> **Note:** You may need to [edit PuppetDB's HTTP configuration][configure_jetty] first, changing the `host` setting to the server's externally-accessible hostname. If you installed with the PuppetDB module, [set the `listen_address` parameter](./install_via_module.html#step-2-assign-classes-to-nodes). When you do this, you should also configure your firewall to control access to PuppetDB's cleartext HTTP port.
+    ssh -L 8080:localhost:8080 root@<puppetdb server>
+
+and then visit `http://localhost:8080` in the browser. If PuppetDB is running
+locally, or on a remote host that is listening for external cleartext
+connections from your machine, you can skip the ssh tunnel and visit either
+`http://localhost:8080` or `http://<puppetdb server>:8080` directly.
 
 PuppetDB uses this page to display a web-based dashboard with performance information and metrics, including its memory use, queue depth, command processing metrics, duplication rate, and query stats. It displays min/max/median of each metric over a configurable duration, as well as an animated SVG "sparkline" (a simple line chart that shows general variation). It also displays the current version of PuppetDB and checks for updates, showing a link to the latest package if your deployment is out of date.
 
