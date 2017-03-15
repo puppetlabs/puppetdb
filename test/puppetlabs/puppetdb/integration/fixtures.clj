@@ -206,9 +206,8 @@
     (doseq [relative-path terminus-files]
       (let [in (str base-dir "/" relative-path)
             out (str puppet-dir "/" relative-path)]
-        (when-not (fs/exists? out)
-          (println "Copying puppetdb terminus file" in "to" out)
-          (fs/copy+ in out))))))
+        (println "Copying puppetdb terminus file" in "to" out)
+        (fs/copy+ in out)))))
 
 (defn puppet-server-config-with-name [node-name]
   {:main {:certname "localhost"}

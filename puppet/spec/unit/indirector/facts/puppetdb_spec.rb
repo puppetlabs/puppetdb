@@ -75,6 +75,36 @@ describe Puppet::Node::Facts::Puppetdb do
       facts.values['something'].should == 100
       message['values']['something'].should == 100
     end
+
+    it "should transform the package inventory fact when submitting" do
+      fact_tuple = ['openssl', '1.0.2g-1ubuntu4.6', 'apt']
+      inventory_fact_value = { 'packages' => [fact_tuple] }
+
+      facts.values['_puppet_inventory_1'] = inventory_fact_value
+
+      sent_payload = nil
+      http.expects(:post).with do |uri, body, headers|
+        sent_payload = body
+      end.returns response
+      save
+      message = JSON.parse(sent_payload)
+
+      # We shouldn't modify the original instance
+      facts.values['_puppet_inventory_1'].should == inventory_fact_value
+
+      message['values']['_puppet_inventory_1'].should be_nil
+      message['package_inventory'].should == [fact_tuple]
+    end
+
+    it "shouldn't crash with a malformed inventory fact" do
+      facts.values['_puppet_inventory_1'] = ['foo', 'bar']
+
+      sent_payload = nil
+      http.expects(:post).with do |uri, body, headers|
+        sent_payload = body
+      end.returns response
+      save
+    end
   end
 
   describe "#get_trusted_info" do
