@@ -262,8 +262,9 @@
 
 (defn bundle-exec [env & args]
   (let [result (apply sh "bundle" "exec"
-                      (concat args [:env (merge (into {} (System/getenv))
-                                                env)]))]
+                      (concat (map str args)
+                              [:env (merge (into {} (System/getenv))
+                                           env)]))]
     (if (not (#{0 2} (:exit result)))
       (let [message (str "Error running bundle exec " (string/join " " args))]
         (utils/println-err message result)
@@ -304,10 +305,9 @@
               "--trace"
               extra-puppet-args)))))
 
-(defn run-puppet-as [certname puppet-server pdb-server manifest-content & [extra-puppet-args]]
+(defn run-puppet-as [certname puppet-server pdb-server manifest-content & [opts]]
   (run-puppet puppet-server pdb-server manifest-content
-              {:certname certname
-               :extra-puppet-args extra-puppet-args}))
+              (assoc opts :certname certname)))
 
 (defn run-puppet-node-deactivate [pdb-server certname-to-deactivate]
   (install-terminus-into (mri-agent-dir))

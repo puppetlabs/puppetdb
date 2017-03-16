@@ -114,7 +114,7 @@
                          (str "notify { 'hi':"
                               "  message => 'Hi my_agent' "
                               "}")
-                         ["--noop"])
+                         {:extra-puppet-args ["--noop"]})
 
       ;; This is a bit weird as well; all "skipped" resources during a puppet
       ;; run will end up having events generated for them.  However, during a
