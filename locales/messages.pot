@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 5da03f18c7e7435b0f1b635cfce40ea6a2829ffa\n"
+"X-Git-Ref: cd65aca4c8cb63c7859bf68dc9caadc3b5c857c3\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1084,6 +1084,16 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Not replacing catalog for certname {0} because local data is newer."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Fact value {0} has unexpected type"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/storage.clj
+#: src/puppetlabs/puppetdb/scf/storage.clj
+#: src/puppetlabs/puppetdb/scf/storage.clj
+msgid "Unexpected type {0} for {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
