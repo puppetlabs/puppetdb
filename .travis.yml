@@ -47,11 +47,11 @@ matrix:
       jdk: oraclejdk8
 
     - env: >
-        NAME=integration-head
+        NAME=integration-latest-puppet
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
         PUPPET_VERSION=latest
-        PUPPETSERVER_VERSION=master
+        PUPPETSERVER_VERSION=2.7.2
       jdk: oraclejdk8
 
 before_install: ext/travisci/install_puppetserver.sh
