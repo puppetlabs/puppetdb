@@ -1,11 +1,12 @@
 (ns puppetlabs.puppetdb.scf.storage-test
   (:require [clojure.java.jdbc :as sql]
             [clojure.set :as set]
+            [puppetlabs.i18n.core :refer [trs]]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.facts :as facts
-             :refer [path->pathmap string-to-factpath value->valuemap]]
+             :refer [path->pathmap string-to-factpath]]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.scf.migrate :as migrate]
             [clojure.walk :as walk]
@@ -74,14 +75,16 @@
     certname]
    {:as-arrays? true}
    (fn [[col-names & rows]]
-     (doall
-      (into {} (for [[path type-id v vstr vint vfloat vbool] rows]
-                 (case type-id
-                   0 [path vstr]
-                   1 [path vint]
-                   2 [path vfloat]
-                   3 [path vbool]
-                   (4 5) [path (sutils/parse-db-json v)])))))))
+     (into {} (for [[path type-id v vstr vint vfloat vbool] rows]
+                (condp = type-id
+                  db-fv-string [path vstr]
+                  db-fv-int [path vint]
+                  db-fv-float [path vfloat]
+                  db-fv-bool [path vbool]
+                  db-fv-struct [path (sutils/parse-db-json v)]
+                  db-fv-nil [path (sutils/parse-db-json v)]
+                  (throw (Exception. (trs "Unexpected value type {0}"
+                                          type-id)))))))))
 
 (deftest-db large-fact-update
   (testing "updating lots of facts"
@@ -143,6 +146,59 @@
                               (map :name)
                               set)]
         (is (= stored-names (set (keys facts))))))))
+
+(deftest basic-compare-fv-to-row-behavior
+  (let [changes compare-fv-to-row
+        value-row (fn [x hash]
+                    (let [type-id (fact-value-type-id x)]
+                      [type-id
+                       hash
+                       (sutils/munge-jsonb-for-storage x)
+                       (when (= type-id db-fv-string) x)
+                       (when (= type-id db-fv-int) x)
+                       (when (= type-id db-fv-float) x)
+                       (when (= type-id db-fv-bool) x)]))]
+
+    (are [x y] (= {:changed? false} (apply changes x (value-row y nil)))
+         "x" "x"
+         0 0
+         1.1 1.1
+         true true
+         false false
+         [0] [0]
+         {:x "y"} {:x "y"})
+
+    (are [x y] (= {:changed? true} (apply changes x (value-row y nil)))
+         "x" 0
+         "x" "y"
+         0 "x"
+         0 1
+         1.1 "x"
+         1.1 2.2
+         true "x"
+         true false
+         [0] "x"
+         [0] []
+         [0] [1]
+         [0] [0 1]
+         {:x "y"} "x"
+         {:x "y"} {}
+         {:x "y"} {"a" "b"}
+         {:x "y"} {:a "b" :c "d"})
+
+    (let [old (apply str (repeat (inc facts/large-value-threshold) \x))
+          new (apply str (repeat (inc facts/large-value-threshold) \y))
+          old-hash (storage-hash old)
+          new-hash (storage-hash new)]
+      (is (= {:changed? true :hash new-hash}
+             (apply changes new (value-row old old-hash)))))
+
+    (let [old (into {} (for [i (range facts/large-value-threshold)] [i 0]))
+          new (into {} (for [i (range facts/large-value-threshold)] [i 1]))
+          old-hash (storage-hash old)
+          new-hash (storage-hash new)]
+      (is (= {:changed? true :hash new-hash}
+             (apply changes new (value-row old old-hash)))))))
 
 (deftest-db fact-persistence
   (testing "Persisted facts"
@@ -289,7 +345,34 @@
                            :timestamp (now)
                            :producer producer})
           (let [{new-hash :hash} (first (query-to-vec (format "SELECT %s AS hash FROM factsets where certname=?" (sutils/sql-hash-as-str "hash")) certname))]
-            (is (not= old-hash new-hash))))))))
+            (is (not= old-hash new-hash)))))
+
+      (testing "update facts with one of each type"
+        (let [old-facts {:certname certname
+                         :values {"string" "foo"
+                                  "integer" 1
+                                  "float" 11.1
+                                  "boolean" true
+                                  "structured" [0 1]}
+                         :environment "DEV"
+                         :producer_timestamp (now)
+                         :timestamp (now)
+                         :producer producer}
+              new-facts {:certname certname
+                         :values {"string" "bar"
+                                  "integer" 2
+                                  "float" 11.2
+                                  "boolean" false
+                                  "structured" {"x" "y"}}
+                         :environment "DEV"
+                         :producer_timestamp (now)
+                         :timestamp (now)
+                         :producer producer}]
+          (replace-facts! old-facts)
+          (replace-facts! new-facts)
+          (let [expected (assoc (:values new-facts) "structured" {:x "y"})
+                observed (factset-map certname)]
+            (is (= expected observed))))))))
 
 (deftest-db fact-persistance-with-environment
   (testing "Persisted facts"
