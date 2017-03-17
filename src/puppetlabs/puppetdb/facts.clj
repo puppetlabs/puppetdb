@@ -3,9 +3,7 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]))
@@ -33,15 +31,6 @@
    :environment (s/maybe s/Str)
    :producer_timestamp (s/cond-pre s/Str pls/Timestamp)
    :producer (s/maybe s/Str)})
-
-(def valuemap-schema
-  {:value_float (s/maybe Double)
-   :value_string (s/maybe s/Str)
-   :value_integer (s/maybe s/Int)
-   :value_boolean (s/maybe s/Bool)
-   :value (s/maybe s/Any)
-   :value_type_id s/Int
-   :large_value_hash (s/maybe s/Str)})
 
 ;; GLOBALS
 
@@ -118,45 +107,7 @@
   (let [encodedpath (map encode-factpath-element factpath)]
     (str/join factpath-delimiter encodedpath)))
 
-(pls/defn-validated value-type-id :- s/Int
-  "Given a piece of standard hierarchical data, returns the type as an id."
-  [data :- s/Any]
-  (cond
-   (keyword? data) 0
-   (string? data) 0
-   (integer? data) 1
-   (float? data) 2
-   (kitchensink/boolean? data) 3
-   (nil? data) 4
-   (coll? data) 5))
-
 (def ^:const large-value-threshold 50)
-
-(defn value->valuemap
-  [value]
-  (let [type-id (value-type-id value)
-        specific-value-key (case type-id
-                             0 :value_string
-                             1 :value_integer
-                             2 :value_float
-                             3 :value_boolean
-                             ;; 4 is nil, doesn't have a key, or a jsonb rep
-                             ;; 5 is value, handled universally below
-                             nil)
-        jsonb (when-not (nil? value)
-                (sutils/munge-jsonb-for-storage value))
-        hash (when (and jsonb
-                        (>= (count (.getValue jsonb)) large-value-threshold))
-               (hash/generic-identity-hash value))]
-    (merge {:value_type_id type-id
-            :large_value_hash hash
-            :value jsonb
-            :value_string nil
-            :value_integer nil
-            :value_float nil
-            :value_boolean nil}
-           (when specific-value-key
-             {specific-value-key value}))))
 
 (defn flatten-facts-with
   "Returns a collection of (leaf-fn path leaf) for all of the paths
@@ -199,12 +150,10 @@
    :name (first path)
    :depth (dec (count path))})
 
-(pls/defn-validated facts->paths-and-valuemaps
-  :- [(s/pair fact-path "path" valuemap-schema "valuemap")]
-  "Returns [path valuemap] pairs for all
-  facts. i.e. ([\"foo#~bar\" vm] ...)"
-  [facts :- fact-set-schema]
-  (flatten-facts-with (fn [fp leaf] [fp (value->valuemap leaf)]) facts))
+(defn facts->paths-and-values
+  "Returns [path value] pairs for all facts. i.e. ([\"foo#~bar\" vm] ...)"
+  [facts]
+  (flatten-facts-with (fn [fp leaf] [fp leaf]) facts))
 
 (pls/defn-validated unstringify-value
   "Converts a stringified value from the database into its real value and type.
