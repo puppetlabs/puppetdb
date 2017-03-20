@@ -12,7 +12,8 @@
             [clojure.test.check.clojure-test :as cct]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
-            [puppetlabs.puppetdb.generative.generators :refer [string+]]))
+            [puppetlabs.puppetdb.generative.generators :refer [string+]]
+            [puppetlabs.kitchensink.core :as kitchensink]))
 
 (deftest hash-computation
   (testing "generic-identity-*"
@@ -40,7 +41,13 @@
         (testing "generic-identity-hash"
           (let [output (generic-identity-hash ["Type" "title" {:foo input}])]
             (is (= output
-                   "c62dab030cfe8c25a4832c5c6302b7f0041264ba")))))))
+                   "c62dab030cfe8c25a4832c5c6302b7f0041264ba"))))))
+
+    (testing "Should hash the string directly (not round-trip through JSON)"
+      (is (= "foo"
+             (generic-identity-string "foo")))
+      (is (= (generic-identity-hash "foo")
+             (kitchensink/utf8-string->sha1 "foo")))))
 
   (testing "resource-identity-hash"
     (testing "should error on bad input"

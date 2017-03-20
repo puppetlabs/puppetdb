@@ -10,8 +10,11 @@
   instead."
   [data]
   {:post [(string? %)]}
-  (-> (kitchensink/sort-nested-maps data)
-      (json/generate-string)))
+  (if (string? data)
+    data
+    (-> data
+        kitchensink/sort-nested-maps
+        json/generate-string)))
 
 (defn generic-identity-hash
   "Convert a data structure into a serialized format then grab a sha1 hash for
