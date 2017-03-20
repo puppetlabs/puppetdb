@@ -182,7 +182,8 @@
                     "fact_contents" {:columns ["certname"]}
                     "events" {:columns ["certname"]}
                     "edges" {:columns ["certname"]}
-                    "resources" {:columns ["certname"]}}
+                    "resources" {:columns ["certname"]}
+                    "packages" {:columns ["certname"]}}
 
     :dotted-fields ["facts\\..*" "trusted\\..*"]
     :entity :inventory
@@ -242,6 +243,7 @@
                                "factsets" {:columns ["certname"]}
                                "reports" {:columns ["certname"]}
                                "catalogs" {:columns ["certname"]}
+                               "packages" {:columns ["certname"]}
 
                                ;; Children - transitive
                                "facts" {:columns ["certname"]}
@@ -390,6 +392,7 @@
                                "inventory" {:columns ["certname"]}
                                ;; Parents - transitive
                                "nodes" {:columns ["certname"]}
+                               "packages" {:columns ["certname"]}
                                "environments" {:local-columns ["environment"]
                                                :foreign-columns ["name"]}
 
@@ -456,6 +459,7 @@
 
                                ;; Parents - transitive
                                "nodes" {:columns ["certname"]}
+                               "packages" {:columns ["certname"]}
                                "environments" {:local-columns ["environment"]
                                                :foreign-columns ["name"]}}
 
@@ -972,6 +976,40 @@
               :subquery? false
               :source-table "producers"}))
 
+(def packages-query
+  "Basic packages query"
+  (map->Query {:projections {"certname" {:type :string
+                                         :queryable? true
+                                         :field :certnames.certname}
+                             "package_name" {:type :string
+                                             :queryable? true
+                                             :field :pi.name}
+                             "version" {:type :string
+                                        :queryable? true
+                                        :field :pi.version}
+                             "provider" {:type :string
+                                         :queryable? true
+                                         :field :pi.provider}}
+
+               :selection {:from [[:package_inventory :pi]]
+                           :left-join [:certnames
+                                       [:= :pi.certname_id :certnames.id]]}
+
+               :relationships {"factsets" {:columns ["certname"]}
+                               "reports" {:columns ["certname"]}
+                               "catalogs" {:columns ["certname"]}
+                               "nodes" {:columns ["certname"]}
+                               "facts" {:columns ["certname"]}
+                               "fact_contents" {:columns ["certname"]}
+                               "events" {:columns ["certname"]}
+                               "edges" {:columns ["certname"]}
+                               "resources" {:columns ["certname"]}
+                               "inventory" {:columns ["certname"]}}
+
+               :alias "packages"
+               :subquery? false
+               :source-table "package_inventory"}))
+
 (def factsets-query
   "Query for the top level facts query"
   (map->Query
@@ -1026,7 +1064,8 @@
 
                      ;; Children - direct
                      "facts" {:columns ["certname"]}
-                     "fact_contents" {:columns ["certname"]}}
+                     "fact_contents" {:columns ["certname"]}
+                     "packages" {:columns ["certname"]}}
 
      :alias "factsets"
      :entity :factsets
@@ -1247,6 +1286,7 @@
    "select_edges" edges-query
    "select_environments" environments-query
    "select_producers" producers-query
+   "select_packages" packages-query
    "select_events" report-events-query
    "select_facts" facts-query
    "select_factsets" factsets-query

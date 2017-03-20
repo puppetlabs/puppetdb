@@ -25,42 +25,44 @@
 
 (def entity-fn-idx
   (atom
-    {:aggregate-event-counts {:munge aggregate-event-counts/munge-result-rows
-                              :rec nil}
-     :event-counts {:munge event-counts/munge-result-rows
-                    :rec nil}
-     :inventory {:munge (constantly identity)
-                 :rec eng/inventory-query}
-     :facts {:munge facts/munge-result-rows
-             :rec eng/facts-query}
-     :fact-contents {:munge fact-contents/munge-result-rows
-                     :rec eng/fact-contents-query}
-     :fact-paths {:munge facts/munge-path-result-rows
-                  :rec eng/fact-paths-query}
-     :fact-names {:munge facts/munge-name-result-rows
-                  :rec eng/fact-names-query}
-     :factsets {:munge (constantly identity)
-                :rec eng/factsets-query}
-     :catalogs {:munge (constantly identity)
-                :rec eng/catalog-query}
-     :nodes {:munge (constantly identity)
-             :rec eng/nodes-query}
-     :environments {:munge (constantly identity)
-                    :rec eng/environments-query}
-     :producers {:munge (constantly identity)
-                 :rec eng/producers-query}
-     :events {:munge events/munge-result-rows
-              :rec eng/report-events-query}
-     :edges {:munge edges/munge-result-rows
-             :rec eng/edges-query}
-     :reports {:munge (constantly identity)
-               :rec eng/reports-query}
-     :report-metrics {:munge (constantly (comp :metrics first))
-                      :rec eng/report-metrics-query}
-     :report-logs {:munge (constantly (comp :logs first))
-                   :rec eng/report-logs-query}
-     :resources {:munge resources/munge-result-rows
-                 :rec eng/resources-query}}))
+   {:aggregate-event-counts {:munge aggregate-event-counts/munge-result-rows
+                             :rec nil}
+    :event-counts {:munge event-counts/munge-result-rows
+                   :rec nil}
+    :inventory {:munge (constantly identity)
+                :rec eng/inventory-query}
+    :facts {:munge facts/munge-result-rows
+            :rec eng/facts-query}
+    :fact-contents {:munge fact-contents/munge-result-rows
+                    :rec eng/fact-contents-query}
+    :fact-paths {:munge facts/munge-path-result-rows
+                 :rec eng/fact-paths-query}
+    :fact-names {:munge facts/munge-name-result-rows
+                 :rec eng/fact-names-query}
+    :factsets {:munge (constantly identity)
+               :rec eng/factsets-query}
+    :catalogs {:munge (constantly identity)
+               :rec eng/catalog-query}
+    :nodes {:munge (constantly identity)
+            :rec eng/nodes-query}
+    :environments {:munge (constantly identity)
+                   :rec eng/environments-query}
+    :producers {:munge (constantly identity)
+                :rec eng/producers-query}
+    :packages {:munge (constantly identity)
+               :rec eng/packages-query}
+    :events {:munge events/munge-result-rows
+             :rec eng/report-events-query}
+    :edges {:munge edges/munge-result-rows
+            :rec eng/edges-query}
+    :reports {:munge (constantly identity)
+              :rec eng/reports-query}
+    :report-metrics {:munge (constantly (comp :metrics first))
+                     :rec eng/report-metrics-query}
+    :report-logs {:munge (constantly (comp :logs first))
+                  :rec eng/report-logs-query}
+    :resources {:munge resources/munge-result-rows
+                :rec eng/resources-query}}))
 
 (defn get-munge
   [entity]
