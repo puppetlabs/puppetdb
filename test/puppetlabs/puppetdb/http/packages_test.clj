@@ -9,12 +9,13 @@
              [puppetlabs.puppetdb.testutils.db :refer [*db*]]
              [puppetlabs.puppetdb.scf.storage :as scf-store]))
 
-(defn is-query-result
-  [endpoint query expected-results]
-  (let [request (get-request endpoint (json/generate-string query))
+(defn is-query-result [endpoint query expected-results]
+  (let [encoded-query (if (string? query) query (json/generate-string query))
+        request (get-request endpoint encoded-query)
         {:keys [status body]} (*app* request)
         actual-result (parse-result body)]
     (is (= (count expected-results) (count actual-result)))
+    (is (coll? actual-result))
     (is (= expected-results (set actual-result)))
     (is (= http/status-ok status))))
 
@@ -52,6 +53,13 @@
     (testing "by certname"
       (is-query-result "/v4"
                        ["from" "packages" ["=" "certname" "node1"]]
+                       #{(package-map "node1" "foo" "1.2.3" "apt")
+                         (package-map "node1" "bar" "2.3.4" "apt")
+                         (package-map "node1" "baz" "3.4.5" "apt")}))
+
+    (testing "by certname, with pql"
+      (is-query-result "/v4"
+                       "packages { certname = 'node1' }"
                        #{(package-map "node1" "foo" "1.2.3" "apt")
                          (package-map "node1" "bar" "2.3.4" "apt")
                          (package-map "node1" "baz" "3.4.5" "apt")}))
