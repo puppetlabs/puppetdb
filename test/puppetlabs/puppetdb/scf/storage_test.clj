@@ -1141,10 +1141,10 @@
            (set (query-to-vec "SELECT title, file FROM catalog_resources WHERE certname_id = (select id from certnames where certname = ?)" certname))))))
 
 (defn tags->set
-  "Converts tags from a vector to a set"
+  "Converts tags from a pg-array to a set of strings"
   [result-set]
   (mapv (fn [result]
-          (update-in result [:tags] set))
+          (update-in result [:tags] #(jdbc/convert-any-sql-array % set)))
         result-set))
 
 (deftest-db change-tags-on-resource

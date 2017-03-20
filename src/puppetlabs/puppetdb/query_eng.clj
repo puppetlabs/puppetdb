@@ -138,7 +138,8 @@
      (jdbc/with-transacted-connection scf-read-db
        (let [{:keys [results-query]}
              (query->sql remaining-query entity version paging-options)]
-         (jdbc/call-with-query-rows results-query (comp row-fn munge-fn)))))))
+         (jdbc/call-with-array-converted-query-rows results-query
+                                                    (comp row-fn munge-fn)))))))
 
 ;; Do we still need this, i.e. do we need the pass-through, and the
 ;; strict selectivity in the caller below?
@@ -186,7 +187,7 @@
               resp (http/streamed-response
                     buffer
                     (try (jdbc/with-transacted-connection scf-read-db
-                           (jdbc/call-with-query-rows
+                           (jdbc/call-with-array-converted-query-rows
                             results-query
                             (comp #(http/stream-json % buffer pretty-print)
                                   #(do (when-not (instance? PGobject %)

@@ -442,7 +442,7 @@
      (let [rss (sql/result-set-seq rs)]
        (zipmap (map #(select-keys % [:type :title]) rss)
                (for [rowmap rss]
-                 (kitchensink/mapvals #(jdbc/coerce-to-array set %)
+                 (kitchensink/mapvals #(jdbc/convert-any-sql-array % set)
                                       rowmap)))))))
 
 (s/defn new-params-only

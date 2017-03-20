@@ -134,24 +134,26 @@
    #(and (map? %)
          (valid-jdbc-query? (:results-query %)))))
 
-(defn coerce-to-array
-  ([x] (coerce-to-array vec x))
-  ([convert x]
-   (cond
-     (kitchensink/array? x) (convert x)
-     (isa? (class x) java.sql.Array) (convert (.getArray ^java.sql.Array x))
-     :else x)))
+(defn sql-array? [x]
+  (isa? (class x) java.sql.Array))
+
+(defn convert-any-sql-array [x convert]
+  (if-not (sql-array? x)
+    x
+    (convert (.getArray ^java.sql.Array x))))
+
+(defn any-sql-array->vec [x]
+  (convert-any-sql-array x vec))
 
 (defn call-with-query-rows
   "Calls (f rows), where rows is a lazy sequence of rows generated
-  from within a transaction.  Converts any java.sql.Array
-  or (.isArray (class v)) values to a vector.  The sequence is backed
-  by an active database cursor which will be closed when f returns.
-  Cancels the query if f throws an exception.  The option names that
-  correspond to jdbc/result-set-seq options will affect the rows
-  produced as they do for that function.  So for example, when
-  as-arrays? is logically true, the result rows will be vectors, not
-  maps, and the first result row will be a vector of column names."
+  from within a transaction.  The sequence is backed by an active
+  database cursor which will be closed when f returns.  Cancels the
+  query if f throws an exception.  The option names that correspond to
+  jdbc/result-set-seq options will affect the rows produced as they do
+  for that function.  So for example, when as-arrays? is logically
+  true, the result rows will be vectors, not maps, and the first
+  result row will be a vector of column names."
   ([query f] (call-with-query-rows query {} f))
   ([[sql & params]
     {:keys [as-arrays? identifiers qualifier read-columns] :as opts}
@@ -161,9 +163,40 @@
        (doall (map-indexed (fn [i param] (.setObject stmt (inc i) param))
                            params))
        (.setFetchSize stmt 500)
+       (with-open [rset (.executeQuery stmt)]
+         (try
+           (f (sql/result-set-seq rset opts))
+           (catch Exception e
+             ;; Cancel the current query
+             (.cancel stmt)
+             (throw e))))))))
+
+
+(defn ^:deprecated call-with-array-converted-query-rows
+  "Calls (f rows), where rows is a lazy sequence of rows generated
+  from within a transaction.  Converts any java.sql.Array
+  or (.isArray (class v)) values to a vector.  The sequence is backed
+  by an active database cursor which will be closed when f returns.
+  Cancels the query if f throws an exception.  The option names that
+  correspond to jdbc/result-set-seq options will affect the rows
+  produced as they do for that function.  So for example, when
+  as-arrays? is logically true, the result rows will be vectors, not
+  maps, and the first result row will be a vector of column names.
+  Note that this function is deprecated.  Please prefer
+  call-with-query-rows, and apply any necessary conversions directly
+  to each row.  (Most columns cannot be arrays.)"
+  ([query f] (call-with-array-converted-query-rows query {} f))
+  ([[sql & params]
+    {:keys [as-arrays? identifiers qualifier read-columns] :as opts}
+    f]
+   (with-db-transaction []
+     (with-open [stmt (.prepareStatement ^Connection (:connection *db*) sql)]
+       (doall (map-indexed (fn [i param] (.setObject stmt (inc i) param))
+                           params))
+       (.setFetchSize stmt 500)
        (let [fix-vals (if as-arrays?
-                        (fn [row] (mapv coerce-to-array row))
-                        (fn [row] (kitchensink/mapvals coerce-to-array row)))]
+                        #(mapv any-sql-array->vec %)
+                        #(kitchensink/mapvals any-sql-array->vec %))]
          (with-open [rset (.executeQuery stmt)]
            (try
              (f (map fix-vals (sql/result-set-seq rset opts)))
@@ -194,7 +227,7 @@
     (call-with-query-rows
      sql-query-and-params
      (fn [rows]
-       (mapv #(kitchensink/mapvals coerce-to-array %)
+       (mapv #(kitchensink/mapvals any-sql-array->vec %)
              (limit-result-set! limit rows))))))
 
 (defn query-to-vec
