@@ -836,17 +836,6 @@
   (indexes! (:database *db*))
   (let [idxs (:indexes (schema-info-map *db*))]
     (is (= {:schema "public"
-            :table "fact_paths"
-            :index "fact_paths_path_key"
-            :index_keys ["path"]
-            :type "btree"
-            :unique? true
-            :functional? false
-            :is_partial false
-            :primary? false
-            :user "pdb_test"}
-           (get idxs ["fact_paths" ["path"]])))
-    (is (= {:schema "public"
             :table "facts"
             :index "facts_value_string_trgm"
             :index_keys ["value_string"]
