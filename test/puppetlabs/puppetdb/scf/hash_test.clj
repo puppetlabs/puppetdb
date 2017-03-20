@@ -8,7 +8,11 @@
             [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.puppetdb.examples.reports :refer [reports]]
             [puppetlabs.puppetdb.reports :as reports]
-            [clj-time.core :refer [now]]))
+            [clj-time.core :refer [now]]
+            [clojure.test.check.clojure-test :as cct]
+            [clojure.test.check.generators :as gen]
+            [clojure.test.check.properties :as prop]
+            [puppetlabs.puppetdb.generative.generators :refer [string+]]))
 
 (deftest hash-computation
   (testing "generic-identity-*"
@@ -309,3 +313,12 @@
     (is (= sorted-results
            (sort edge-comparator
                  (sort edge-comparator unsorted-results))))))
+
+(def package-tuple-generator
+  (gen/vector (gen/sized (string+)) 3))
+
+(cct/defspec comparing-packages
+  100
+  (prop/for-all [v (gen/vector package-tuple-generator)]
+                (= (package-similarity-hash v)
+                   (package-similarity-hash (shuffle v)))))

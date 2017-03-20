@@ -591,6 +591,103 @@
                  (sort by-path (map #(update % :value sutils/parse-db-json)
                                     (db-items :value))))))))))
 
+(defn package-seq
+  "Return all facts and their values for a given certname as a map"
+  [certname]
+  (let [result (jdbc/query
+                ["SELECT name as package_name, version, provider
+                  FROM package_inventory
+                       inner join certnames c on certname_id = c.id
+                  WHERE c.certname = ?
+                  ORDER BY package_name, version, provider"
+                 certname])]
+    (map (juxt :package_name :version :provider) result)))
+
+(deftest-db fact-persistance-with-packages
+  (testing "Existing facts with new packages added"
+    (let [certname "some_certname"
+          facts {"domain" "mydomain.com"
+                 "fqdn" "myhost.mydomain.com"
+                 "hostname" "myhost"
+                 "kernel" "Linux"
+                 "operatingsystem" "Debian"}
+          producer "bar.com"]
+      (add-certname! certname)
+
+      (testing "Existing facts with new packages added"
+        (add-facts! {:certname certname
+                     :values facts
+                     :timestamp previous-time
+                     :environment "PROD"
+                     :producer_timestamp previous-time
+                     :producer producer})
+
+        (is (empty? (package-seq certname)))
+
+        (update-facts!
+         {:certname certname
+          :values facts
+          :timestamp (-> 1 days ago)
+          :environment "DEV"
+          :producer_timestamp (-> 1 days ago)
+          :producer producer
+          :package_inventory [["foo" "1.2.3" "apt"]
+                              ["bar" "2.3.4" "apt"]
+                              ["baz" "3.4.5" "apt"]]})
+
+
+        (is (= [["bar" "2.3.4" "apt"]
+                ["baz" "3.4.5" "apt"]
+                ["foo" "1.2.3" "apt"]]
+               (package-seq certname))))
+
+      (testing "Updating existing packages"
+        (update-facts!
+         {:certname certname
+          :values facts
+          :timestamp (-> 1 days ago)
+          :environment "DEV"
+          :producer_timestamp (-> 1 days ago)
+          :producer producer
+          :package_inventory [["foo" "1.2.3" "apt"]
+                              ["bar" "2.3.4" "apt"]
+                              ["not-baz" "3.4.5" "apt"]]})
+        (is (= [["bar" "2.3.4" "apt"]
+                ["foo" "1.2.3" "apt"]
+                ["not-baz" "3.4.5" "apt"]]
+               (package-seq certname))))
+
+      (testing "Removing packages"
+        (update-facts!
+         {:certname certname
+          :values facts
+          :timestamp (-> 1 days ago)
+          :environment "DEV"
+          :producer_timestamp (-> 1 days ago)
+          :producer producer
+          :package_inventory [["foo" "1.2.3" "apt"]]})
+        (is (= [["foo" "1.2.3" "apt"]]
+               (package-seq certname))))
+
+      (testing "Removing packages"
+        (update-facts!
+         {:certname certname
+          :values facts
+          :timestamp (-> 1 days ago)
+          :environment "DEV"
+          :producer_timestamp (-> 1 days ago)
+          :producer producer
+          :package_inventory [["foo-1" "1.2.3" "apt"]
+                              ["foo-2" "1.2.3" "apt"]
+                              ["foo-3" "1.2.3" "apt"]
+                              ["foo-4" "1.2.3" "apt"]]})
+
+        (is (= [["foo-1" "1.2.3" "apt"]
+                ["foo-2" "1.2.3" "apt"]
+                ["foo-3" "1.2.3" "apt"]
+                ["foo-4" "1.2.3" "apt"]]
+               (package-seq certname)))))))
+
 (def catalog (:basic catalogs))
 (def certname (:certname catalog))
 (def current-time (str (now)))

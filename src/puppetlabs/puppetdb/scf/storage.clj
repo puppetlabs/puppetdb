@@ -977,11 +977,65 @@
                                pids
                                values)))))
 
+(defn find-certname-id-and-hash [certname]
+  (first (jdbc/query-to-vec [(format "SELECT id, %s as package_hash FROM certnames WHERE certname=?"
+                                     (sutils/sql-hash-as-str "package_hash"))
+                             certname])))
+
+(defn create-package-map [certname-id]
+  (jdbc/call-with-query-rows ["SELECT id, name, version, provider FROM package_inventory WHERE certname_id=?"
+                              certname-id]
+                             (fn [rows]
+                               (->> rows
+                                    (map (fn [{id :id package_name :name version :version provider :provider}]
+                                           [[package_name version provider] id]))
+                                    (into {})))))
+
+(s/defn update-packages
+  "Compares `inventory` to the stored package inventory for
+  `certname`. Differences will result in updates to the database"
+  [certname
+   inventory :- [facts/package-tuple]]
+  (let [{certname-id :id package_hash :package_hash} (find-certname-id-and-hash certname)
+        new-package-hash (shash/package-similarity-hash inventory)]
+
+    (when-not (= new-package-hash package_hash)
+      (let [old-packages (create-package-map certname-id)
+            [to-add to-remove _] (clojure.data/diff (set inventory) (set (keys old-packages)))
+            to-remove-ids (map old-packages to-remove)]
+        (jdbc/update! :certnames
+                      {:package_hash (sutils/munge-hash-for-storage new-package-hash)}
+                      ["id=?" certname-id])
+        (when (seq to-add)
+          (jdbc/insert-multi! :package_inventory
+                              ["certname_id" "name" "version" "provider"]
+                              (map #(cons certname-id %) to-add)))
+        (when (seq to-remove)
+          (jdbc/delete! :package_inventory
+                        ["id = ANY(?)"
+                         (sutils/array-to-param "bigint" Long to-remove-ids)]))))))
+
+
+(defn insert-packages [certname inventory]
+  (let [certname-id (:id (find-certname-id-and-hash certname))
+        new-package-hash (shash/package-similarity-hash inventory)]
+    (jdbc/update! :certnames
+                  {:package_hash (sutils/munge-hash-for-storage new-package-hash)}
+                  ["id=?" certname-id])
+    (jdbc/insert-multi! :package_inventory
+                        ["certname_id" "name" "version" "provider"]
+                        (map (fn [{:keys [package_name version provider]}]
+                               [certname-id
+                                package_name
+                                version
+                                provider])
+                             inventory))))
+
 (pls/defn-validated add-facts!
   "Given a certname and a map of fact names to values, store records for those
   facts associated with the certname."
   ([fact-data] (add-facts! fact-data true))
-  ([{:keys [certname values environment timestamp producer_timestamp producer]
+  ([{:keys [certname values environment timestamp producer_timestamp producer inventory]
      :as fact-data} :- facts-schema
     include-hash? :- s/Bool]
    (jdbc/with-db-transaction []
@@ -1000,6 +1054,10 @@
           pathstrs (map (comp facts/factpath-to-string first) paths-and-values)
           paths->ids (realize-paths! pathstrs)
           path-values (map second paths-and-values)]
+
+      (when (seq inventory)
+        (insert-packages certname inventory))
+
       (insert-facts! (certname-to-factset-id certname)
                      (map paths->ids pathstrs)
                      path-values)))))
@@ -1060,11 +1118,11 @@
       (throw (Exception. (trs "Unexpected type {0} for {1}"
                               (pr-str type-id) (pr-str new-val)))))))
 
-(defn-validated update-facts!
+(s/defn update-facts!
   "Given a certname, querys the DB for existing facts for that
    certname and will update, delete or insert the facts as necessary
    to match the facts argument. (cf. add-facts!)"
-  [{:keys [certname values environment timestamp producer_timestamp producer]
+  [{:keys [certname values environment timestamp producer_timestamp producer package_inventory]
     :as fact-data} :- facts-schema]
   (jdbc/with-db-transaction []
     (let [factset-id (certname-to-factset-id certname)
@@ -1132,6 +1190,9 @@
                                       existing-status))
 
       (delete-pending-path-id-orphans! factset-id rm-pids)
+
+      (when (seq package_inventory)
+        (update-packages certname package_inventory))
 
       (jdbc/update! :factsets
                     {:timestamp (to-timestamp timestamp)

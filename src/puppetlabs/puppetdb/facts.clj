@@ -6,7 +6,8 @@
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.utils :as utils]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]))
 
 ;; SCHEMA
 
@@ -24,13 +25,19 @@
 (def fact-set-schema
   {s/Str s/Any})
 
+(def package-tuple
+  [(s/one s/Str "package_name")
+   (s/one s/Str "version")
+   (s/one s/Str "provider")])
+
 (def facts-schema
   {:certname String
    :values fact-set-schema
    :timestamp pls/Timestamp
    :environment (s/maybe s/Str)
    :producer_timestamp (s/cond-pre s/Str pls/Timestamp)
-   :producer (s/maybe s/Str)})
+   :producer (s/maybe s/Str)
+   (s/optional-key :package_inventory) [package-tuple]})
 
 ;; GLOBALS
 
@@ -217,3 +224,20 @@
   (-> facts
       (assoc :producer-timestamp received-time)
       wire-v3->wire-v5))
+
+(defn convert-to-wire-v5 [facts-payload version received]
+  (case version
+    2 (wire-v2->wire-v5 facts-payload received)
+    3 (wire-v3->wire-v5 facts-payload)
+    4 (wire-v4->wire-v5 facts-payload)
+    facts-payload))
+
+(pls/defn-validated normalize-facts :- facts-schema
+  "Converts facts from the wire to the canonical form accepted by the
+  facts schema"
+  [version received facts-payload]
+  (-> facts-payload
+      (convert-to-wire-v5 version received)
+      (update :values utils/stringify-keys)
+      (update :producer_timestamp to-timestamp)
+      (assoc :timestamp received)))
