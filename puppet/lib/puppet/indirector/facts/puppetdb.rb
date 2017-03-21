@@ -26,7 +26,12 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
         facts = request.instance.dup
         facts.values = facts.values.dup
         facts.values[:trusted] = get_trusted_info(request.node)
-        {
+
+        inventory = facts.values['_puppet_inventory_1']
+        package_inventory = inventory['packages'] if inventory.respond_to?(:keys)
+        facts.values.delete('_puppet_inventory_1')
+
+        payload_value = {
           "certname" => facts.name,
           "values" => facts.values,
           # PDB-453: we call to_s to avoid a 'stack level too deep' error
@@ -36,6 +41,12 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
           "producer_timestamp" => Puppet::Util::Puppetdb.to_wire_time(current_time),
           "producer" => Puppet[:node_name_value]
         }
+
+        if inventory
+          payload_value['package_inventory'] = package_inventory
+        end
+
+        payload_value
       end
 
       submit_command(request.key, payload, CommandReplaceFacts, 5, current_time.clone.utc)
