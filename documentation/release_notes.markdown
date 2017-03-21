@@ -1380,10 +1380,10 @@ For PostgreSQL consumers this means the extra `data` key needs to be traversed t
 
     When configuring your connection to PuppetDB, you can now specify a fallback.
     Instead of the now deprecated `server` and `port` configuration, you can use a
-    `server\_urls` configuration that contains the full path to one or more PuppetDB
+    `server_urls` configuration that contains the full path to one or more PuppetDB
     URLs. The old server/port format is still supported.
 
-    This commit also supports a new `server\_url\_timeout` configuration. If the
+    This commit also supports a new `server_url_timeout` configuration. If the
     PuppetDB instance has not responded in the specified number of
     seconds (defaults to 30) it will fail and roll to the next PuppetDB
     URL (if one is provided).
@@ -1420,13 +1420,13 @@ For PostgreSQL consumers this means the extra `data` key needs to be traversed t
 
 * Made `/pdb/query/v4/catalogs` queryable. ([PDB-1028](https://tickets.puppetlabs.com/browse/PDB-1028))
 
-* Added `producer\_timestamp` field to factsets and catalogs. ([PDB-489](https://tickets.puppetlabs.com/browse/PDB-489))
+* Added `producer_timestamp` field to factsets and catalogs. ([PDB-489](https://tickets.puppetlabs.com/browse/PDB-489))
 
     On factsets the field is queryable and orderable.
 
-* Added `producer\_timestamp` field to reports. ([PDB-1487](https://tickets.puppetlabs.com/browse/PDB-1487))
+* Added `producer_timestamp` field to reports. ([PDB-1487](https://tickets.puppetlabs.com/browse/PDB-1487))
 
-* Added `resource\_events` key to the `store report` command. ([PDB-1072](https://tickets.puppetlabs.com/browse/PDB-1072))
+* Added `resource_events` key to the `store report` command. ([PDB-1072](https://tickets.puppetlabs.com/browse/PDB-1072))
 
     API responses can now be easily used for resubmission as a
     report. This will be helpful in the HA context, where it will reduce
@@ -1444,7 +1444,7 @@ For PostgreSQL consumers this means the extra `data` key needs to be traversed t
   foreign key indexes sizes for tables relating to
   `reports`. ([PDB-1218](https://tickets.puppetlabs.com/browse/PDB-1218))
 
-* We have dropped the `latest\_reports` table in favor of storing a reference to
+* We have dropped the `latest_reports` table in favor of storing a reference to
   the latest report of each certname in the certnames table.
   ([PDB-1254](https://tickets.puppetlabs.com/browse/PDB-1254))
 
@@ -1482,7 +1482,7 @@ For PostgreSQL consumers this means the extra `data` key needs to be traversed t
 
 * Remove `puts` statements from PuppetDB terminus. ([PDB-1020](https://tickets.puppetlabs.com/browse/PDB-1020))
 
-* Retire `facts.strip\_internal` (terminus). ([PDB-971](https://tickets.puppetlabs.com/browse/PDB-971))
+* Retire `facts.strip_internal` (terminus). ([PDB-971](https://tickets.puppetlabs.com/browse/PDB-971))
 
     This patch adds a `maybe_strip_internal` method to Puppet::Node::Facts::Puppetdb
     that will call `Facts#strip_internal` if the method exists, but Facts#values if
