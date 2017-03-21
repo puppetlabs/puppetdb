@@ -1024,7 +1024,7 @@
                   ["id=?" certname-id])
     (jdbc/insert-multi! :package_inventory
                         ["certname_id" "name" "version" "provider"]
-                        (map (fn [{:keys [package_name version provider]}]
+                        (map (fn [[package_name version provider]]
                                [certname-id
                                 package_name
                                 version
@@ -1035,7 +1035,7 @@
   "Given a certname and a map of fact names to values, store records for those
   facts associated with the certname."
   ([fact-data] (add-facts! fact-data true))
-  ([{:keys [certname values environment timestamp producer_timestamp producer inventory]
+  ([{:keys [certname values environment timestamp producer_timestamp producer package_inventory]
      :as fact-data} :- facts-schema
     include-hash? :- s/Bool]
    (jdbc/with-db-transaction []
@@ -1055,8 +1055,8 @@
           paths->ids (realize-paths! pathstrs)
           path-values (map second paths-and-values)]
 
-      (when (seq inventory)
-        (insert-packages certname inventory))
+      (when (seq package_inventory)
+        (insert-packages certname package_inventory))
 
       (insert-facts! (certname-to-factset-id certname)
                      (map paths->ids pathstrs)
