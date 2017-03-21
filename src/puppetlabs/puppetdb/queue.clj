@@ -279,7 +279,7 @@
                 (:command-stream command-req)
                 (serialize-metadata received command-req))
 
-   (catch [:kind ::unable-to-commit] {:keys [stream-data]}
+   (catch [:kind ::stock/unable-to-commit] {:keys [stream-data]}
      ;; stockpile has saved all of the data in command-stream to
      ;; stream-data, but was unable to finish (e.g. the rename
      ;; failed).  Try to delete the (possibly large) temp file and
