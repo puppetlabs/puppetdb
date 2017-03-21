@@ -1,150 +1,2604 @@
 {
-  "certname" : "pg1.vm",
-  "producer" : "puppetmaster1",
-  "values" : {
-    "mtu_eth0" : "1500",
-    "path" : "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-    "interfaces" : "eth0,lo",
-    "osfamily" : "Debian",
-    "puppet_vardir" : "/var/lib/puppet",
-    "operatingsystem" : "Debian",
-    "clientnoop" : false,
-    "swapsize" : "880.00 MB",
-    "blockdevices" : "fd0,sda,sr0",
-    "boardproductname" : "440BX Desktop Reference Platform",
-    "timezone" : "BST",
-    "facterversion" : "2.2.0",
-    "blockdevice_sda_size" : 21474836480,
-    "rubysitedir" : "/usr/local/lib/site_ruby/2.1.0",
-    "filesystems" : "btrfs,ext2,ext3,ext4,hfs,hfsplus,jfs,minix,msdos,ntfs,qnx4,ufs,vfat,xfs",
-    "processors" : {
-      "count" : 1,
-      "models" : [ "Intel(R) Core(TM) i7-3720QM CPU @ 2.60GHz" ],
-      "physicalcount" : 1
-    },
-    "is_virtual" : "true",
-    "uptime_seconds" : 1269675,
-    "architecture" : "amd64",
-    "augeasversion" : "1.2.0",
-    "serialnumber" : "VMware-56 4d 89 39 d2 e2 bf c4-8b 13 3d e4 70 92 90 4b",
-    "sshdsakey" : "AAAAB3NzaC1kc3MAAACBAO5DvSz1DIfg/Vs2PrdYqberMfoKEgp+UVqcDsPyjlRmEbo4vrJftHsAa+q5r8HxWaCrST9T/7NKUA5Jk/XqTl7dkJN8T5thc3tTf9R8Omn4t9AgPvH9qHeu5+ZL81FmSqLwFqWTmfu8E9T7iyCUZEF9lhaZgXeoclYxNv+EHqUlAAAAFQDzHMadzjId+1hSZ4GFvpCSjFQw1QAAAIBHeRElcS0R+cW4RdoWZoJ+KULS0avpgNnhvYIsGPtiSdj7ISjW0qROBfHlV9Vz6L24V5XZFXXb43SNX4X+AeJNsoyOM/IxXxatsieXJoSONux+8/uHh1mR3ngFJ6kawFnBl6STl+XY5RWBF3YpqxrQgC8zWGJuKyU3GTIX3osYygAAAIEAsFRH6baf1wEUN6EIMy7jCHnD8tmZ09xtPecpKRnVHdVVFzVz4gvJwwNr76B4u3n5jmIBZf7j641R4DIuG11WwTaQLSvhtfbdCf6elQPdSigsbFArfFBk5KchkdyBl0F1qtdrWo9ItjOVXQ/Vtf5aCk38s6Xt9zdXCMygo53/HY8=",
-    "memorysize_mb" : "487.80",
-    "kernelrelease" : "3.14-1-amd64",
-    "swapfree_mb" : "876.30",
-    "kernelversion" : "3.14",
-    "memoryfree" : "330.75 MB",
-    "productname" : "VMware Virtual Platform",
-    "kernelmajversion" : "3.14",
-    "processor0" : "Intel(R) Core(TM) i7-3720QM CPU @ 2.60GHz",
-    "sshfp_ecdsa" : "SSHFP 3 1 bbe7974ad1db74cd22e961e6826234453a4d1250\nSSHFP 3 2 2a140852b47c062b38d2f52cf7deb3db138ba0ea1833718f98b1c3e020e94740",
-    "bios_version" : "6.00",
-    "uptime" : "14 days",
-    "boardserialnumber" : "None",
-    "blockdevice_sda_model" : "VMware Virtual S",
-    "rubyversion" : "2.1.2",
-    "trusted" : {
-      "authenticated" : "remote",
-      "certname" : "pg1.vm",
-      "extensions" : { }
-    },
-    "uptime_days" : 14,
-    "is_pe" : false,
-    "macaddress" : "00:0c:29:92:90:4b",
-    "sshfp_dsa" : "SSHFP 2 1 442afb9cebd26da35c0b471198e2c1a06e32b3a1\nSSHFP 2 2 99564b767000a49b50190451b9e5216efd641f76a7d511d6dc03b907e79f3375",
-    "lsbdistrelease" : "testing",
-    "type" : "Other",
-    "sshfp_rsa" : "SSHFP 1 1 8cd861884279884b677e65affddbc4a9b87c9689\nSSHFP 1 2 625f9209b61831e6a3eae9305ab73eda10d1136275bc4c4ca246f5d80b24dffc",
-    "operatingsystemrelease" : "jessie/sid",
-    "hardwaremodel" : "x86_64",
-    "hostname" : "pg1",
-    "system_uptime" : {
-      "days" : 14,
-      "hours" : 352,
-      "seconds" : 1269675,
-      "uptime" : "14 days"
-    },
-    "physicalprocessorcount" : "1",
-    "gid" : "root",
-    "fqdn" : "pg1.vm",
-    "lsbdistcodename" : "jessie",
-    "mtu_lo" : "65536",
-    "blockdevice_sda_vendor" : "VMware,",
-    "memoryfree_mb" : "330.75",
-    "swapsize_mb" : "880.00",
-    "operatingsystemmajrelease" : "jessie/sid",
-    "ip6tables_version" : "1.4.21",
-    "concat_basedir" : "/var/lib/puppet/concat",
-    "clientversion" : "3.7.1",
-    "puppetversion" : "3.7.1",
-    "blockdevice_fd0_size" : 0,
-    "blockdevice_sr0_model" : "VMware IDE CDR10",
-    "blockdevice_sr0_size" : 63019008,
-    "root_home" : "/root",
-    "clientcert" : "pg1.vm",
-    "iptables_version" : "1.4.21",
-    "id" : "root",
-    "lsbdistid" : "Debian",
-    "netmask_lo" : "255.0.0.0",
-    "ipaddress" : "192.168.182.196",
-    "network_lo" : "127.0.0.0",
-    "bios_vendor" : "Phoenix Technologies LTD",
-    "uptime_hours" : 352,
-    "network_eth0" : "192.168.182.0",
-    "ipaddress_eth0" : "192.168.182.196",
-    "blockdevice_sr0_vendor" : "NECVMWar",
-    "ipaddress_lo" : "127.0.0.1",
-    "kernel" : "Linux",
-    "virtual" : "vmware",
-    "hardwareisa" : "unknown",
-    "manufacturer" : "VMware, Inc.",
-    "boardmanufacturer" : "Intel Corporation",
-    "sshrsakey" : "AAAAB3NzaC1yc2EAAAADAQABAAABAQC6czEbXuaqhoyiOFmhuVKXOXfYSlD3RPAPjFi2HXRSB3fLEYQYTIck3NHyXlBxwCNHNXCkdhN17KNxUPeggzPon9vTrFk57weu0BX8J2Nkwz0uImtDGR+OAHIPVaeIizcT2Nqt3EdGiH7pRTIReEPFqFzq7yIhRZcJnj+F0j4n+RwKCbwgMrRInk3/i8U4IdqvXuyUkqLmCUoo9foXrWRbZ4z4eESFQ0+Pla/QZIH2YQ6Wkm12fRU03CM22DQEm7p5aeiaC+7bRhtRjVn9xUz8nQ9i1EbG2H4L4QGuolScFIxZ7jMn1JOFthava9bjRsZca/ZlYFZrRWDwU/R2gAVT",
-    "uniqueid" : "007f0101",
-    "netmask" : "255.255.255.0",
-    "os" : {
-      "family" : "Debian",
-      "lsb" : {
-        "distcodename" : "jessie",
-        "distdescription" : "Debian GNU/Linux testing (jessie)",
-        "distid" : "Debian",
-        "distrelease" : "testing",
-        "majdistrelease" : "testing"
-      },
-      "name" : "Debian",
-      "release" : {
-        "full" : "jessie/sid",
-        "major" : "jessie/sid"
-      }
-    },
-    "selinux" : "false",
-    "domain" : "vm",
-    "uuid" : "564D8939-D2E2-BFC4-8B13-3DE47092904B",
-    "partitions" : {
-      "sda1" : {
-        "filesystem" : "ext4",
-        "size" : "40134656",
-        "uuid" : "ee925853-7937-49a0-bac7-6ddc14ac6ea0"
-      },
-      "sda2" : {
-        "size" : "2"
-      },
-      "sda5" : {
-        "filesystem" : "swap",
-        "size" : "1802240",
-        "uuid" : "6c9a5331-48bf-4a3a-9fd0-61e5f7747e54"
-      }
-    },
-    "sshecdsakey" : "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMkSHGGBUgG7WB1l4Vt4QyYQmYkgZ43g395ykvtBwT36A8g+eI/u0GhgjI0F0XNuTAEyg0co9Gy9pKQHb/Vb+Ro=",
-    "macaddress_eth0" : "00:0c:29:92:90:4b",
-    "lsbdistdescription" : "Debian GNU/Linux testing (jessie)",
-    "swapfree" : "876.30 MB",
-    "netmask_eth0" : "255.255.255.0",
-    "bios_release_date" : "07/31/2013",
-    "iptables_persistent_version" : "1.0.2",
-    "ps" : "ps -ef",
-    "lsbmajdistrelease" : "testing",
-    "memorysize" : "487.80 MB",
-    "processorcount" : "1"
-  },
-  "environment" : "production"
+    "certname": "pg1.vm",
+    "environment": "production",
+    "package_inventory": [
+        [
+            "GConf2",
+            "3.2.6-8.el7",
+            "yum"
+        ],
+        [
+            "PyYAML",
+            "3.10-11.el7",
+            "yum"
+        ],
+        [
+            "acl",
+            "2.2.51-12.el7",
+            "yum"
+        ],
+        [
+            "alsa-lib",
+            "1.1.1-1.el7",
+            "yum"
+        ],
+        [
+            "apr",
+            "1.4.8-3.el7",
+            "yum"
+        ],
+        [
+            "apr-util",
+            "1.5.2-6.el7",
+            "yum"
+        ],
+        [
+            "atk",
+            "2.14.0-1.el7",
+            "yum"
+        ],
+        [
+            "audit",
+            "2.4.1-5.el7",
+            "yum"
+        ],
+        [
+            "audit-libs",
+            "2.4.1-5.el7",
+            "yum"
+        ],
+        [
+            "audit-libs-python",
+            "2.4.1-5.el7",
+            "yum"
+        ],
+        [
+            "authconfig",
+            "6.2.8-10.el7",
+            "yum"
+        ],
+        [
+            "autogen-libopts",
+            "5.18-5.el7",
+            "yum"
+        ],
+        [
+            "avahi-libs",
+            "0.6.31-17.el7",
+            "yum"
+        ],
+        [
+            "basesystem",
+            "10.0-7.el7.centos",
+            "yum"
+        ],
+        [
+            "bash",
+            "4.2.46-19.el7",
+            "yum"
+        ],
+        [
+            "bigdecimal",
+            "1.2.4",
+            "puppet_gem"
+        ],
+        [
+            "bind-libs-lite",
+            "32:9.9.4-29.el7",
+            "yum"
+        ],
+        [
+            "bind-license",
+            "32:9.9.4-29.el7",
+            "yum"
+        ],
+        [
+            "binutils",
+            "2.23.52.0.1-55.el7",
+            "yum"
+        ],
+        [
+            "btrfs-progs",
+            "3.19.1-1.el7",
+            "yum"
+        ],
+        [
+            "bzip2",
+            "1.0.6-13.el7",
+            "yum"
+        ],
+        [
+            "bzip2-libs",
+            "1.0.6-13.el7",
+            "yum"
+        ],
+        [
+            "ca-certificates",
+            "2015.2.4-71.el7",
+            "yum"
+        ],
+        [
+            "cairo",
+            "1.14.2-1.el7",
+            "yum"
+        ],
+        [
+            "centos-logos",
+            "70.0.6-3.el7.centos",
+            "yum"
+        ],
+        [
+            "centos-release",
+            "7-2.1511.el7.centos.2.10",
+            "yum"
+        ],
+        [
+            "checkpolicy",
+            "2.1.12-6.el7",
+            "yum"
+        ],
+        [
+            "chkconfig",
+            "1.7.2-1.el7",
+            "yum"
+        ],
+        [
+            "chrony",
+            "2.1.1-1.el7.centos",
+            "yum"
+        ],
+        [
+            "cloud-init",
+            "0.7.5-10.el7.centos.1",
+            "yum"
+        ],
+        [
+            "cloud-utils-growpart",
+            "0.27-20.el7.centos",
+            "yum"
+        ],
+        [
+            "colored",
+            "1.2",
+            "puppet_gem"
+        ],
+        [
+            "copy-jdk-configs",
+            "1.2-1.el7",
+            "yum"
+        ],
+        [
+            "coreutils",
+            "8.22-15.el7",
+            "yum"
+        ],
+        [
+            "cpio",
+            "2.11-24.el7",
+            "yum"
+        ],
+        [
+            "cracklib",
+            "2.9.0-11.el7",
+            "yum"
+        ],
+        [
+            "cracklib-dicts",
+            "2.9.0-11.el7",
+            "yum"
+        ],
+        [
+            "createrepo",
+            "0.9.9-26.el7",
+            "yum"
+        ],
+        [
+            "cri",
+            "2.6.1",
+            "puppet_gem"
+        ],
+        [
+            "cronie",
+            "1.4.11-14.el7",
+            "yum"
+        ],
+        [
+            "cronie-anacron",
+            "1.4.11-14.el7",
+            "yum"
+        ],
+        [
+            "crontabs",
+            "1.11-6.20121102git.el7",
+            "yum"
+        ],
+        [
+            "cryptsetup-libs",
+            "1.6.7-1.el7",
+            "yum"
+        ],
+        [
+            "cups-libs",
+            "1:1.6.3-26.el7",
+            "yum"
+        ],
+        [
+            "curl",
+            "7.29.0-25.el7.centos",
+            "yum"
+        ],
+        [
+            "cyrus-sasl-lib",
+            "2.1.26-19.2.el7",
+            "yum"
+        ],
+        [
+            "dbus",
+            "1:1.6.12-13.el7",
+            "yum"
+        ],
+        [
+            "dbus-glib",
+            "0.100-7.el7",
+            "yum"
+        ],
+        [
+            "dbus-libs",
+            "1:1.6.12-13.el7",
+            "yum"
+        ],
+        [
+            "dbus-python",
+            "1.1.1-9.el7",
+            "yum"
+        ],
+        [
+            "deep_merge",
+            "1.0.1",
+            "puppet_gem"
+        ],
+        [
+            "deltarpm",
+            "3.6-3.el7",
+            "yum"
+        ],
+        [
+            "device-mapper",
+            "7:1.02.107-5.el7",
+            "yum"
+        ],
+        [
+            "device-mapper-libs",
+            "7:1.02.107-5.el7",
+            "yum"
+        ],
+        [
+            "dhclient",
+            "12:4.2.5-42.el7.centos",
+            "yum"
+        ],
+        [
+            "dhcp-common",
+            "12:4.2.5-42.el7.centos",
+            "yum"
+        ],
+        [
+            "dhcp-libs",
+            "12:4.2.5-42.el7.centos",
+            "yum"
+        ],
+        [
+            "diffutils",
+            "3.3-4.el7",
+            "yum"
+        ],
+        [
+            "dmidecode",
+            "1:2.12-9.el7",
+            "yum"
+        ],
+        [
+            "dnsmasq",
+            "2.66-14.el7_1",
+            "yum"
+        ],
+        [
+            "dracut",
+            "033-359.el7",
+            "yum"
+        ],
+        [
+            "dracut-config-generic",
+            "033-359.el7",
+            "yum"
+        ],
+        [
+            "dracut-config-rescue",
+            "033-359.el7",
+            "yum"
+        ],
+        [
+            "dracut-network",
+            "033-359.el7",
+            "yum"
+        ],
+        [
+            "e2fsprogs",
+            "1.42.9-7.el7",
+            "yum"
+        ],
+        [
+            "e2fsprogs-libs",
+            "1.42.9-7.el7",
+            "yum"
+        ],
+        [
+            "elfutils-libelf",
+            "0.163-3.el7",
+            "yum"
+        ],
+        [
+            "elfutils-libs",
+            "0.163-3.el7",
+            "yum"
+        ],
+        [
+            "ethon",
+            "0.9.0",
+            "puppet_gem"
+        ],
+        [
+            "ethtool",
+            "2:3.15-2.el7",
+            "yum"
+        ],
+        [
+            "expat",
+            "2.1.0-8.el7",
+            "yum"
+        ],
+        [
+            "facter",
+            "3.5.0",
+            "puppet_gem"
+        ],
+        [
+            "faraday",
+            "0.9.1",
+            "puppet_gem"
+        ],
+        [
+            "faraday_middleware",
+            "0.9.1",
+            "puppet_gem"
+        ],
+        [
+            "faraday_middleware-multi_json",
+            "0.0.6",
+            "puppet_gem"
+        ],
+        [
+            "fast_gettext",
+            "1.1.0",
+            "puppet_gem"
+        ],
+        [
+            "ffi",
+            "1.9.10",
+            "puppet_gem"
+        ],
+        [
+            "file",
+            "5.11-31.el7",
+            "yum"
+        ],
+        [
+            "file-libs",
+            "5.11-31.el7",
+            "yum"
+        ],
+        [
+            "filesystem",
+            "3.2-20.el7",
+            "yum"
+        ],
+        [
+            "findutils",
+            "1:4.5.11-5.el7",
+            "yum"
+        ],
+        [
+            "fipscheck",
+            "1.4.1-5.el7",
+            "yum"
+        ],
+        [
+            "fipscheck-lib",
+            "1.4.1-5.el7",
+            "yum"
+        ],
+        [
+            "flac-libs",
+            "1.3.0-5.el7_1",
+            "yum"
+        ],
+        [
+            "fontconfig",
+            "2.10.95-10.el7",
+            "yum"
+        ],
+        [
+            "fontpackages-filesystem",
+            "1.44-8.el7",
+            "yum"
+        ],
+        [
+            "freetype",
+            "2.4.11-11.el7",
+            "yum"
+        ],
+        [
+            "gawk",
+            "4.0.2-4.el7",
+            "yum"
+        ],
+        [
+            "gdbm",
+            "1.10-8.el7",
+            "yum"
+        ],
+        [
+            "gdk-pixbuf2",
+            "2.31.6-3.el7",
+            "yum"
+        ],
+        [
+            "gettext",
+            "0.18.2.1-4.el7",
+            "yum"
+        ],
+        [
+            "gettext-libs",
+            "0.18.2.1-4.el7",
+            "yum"
+        ],
+        [
+            "gettext-setup",
+            "0.6",
+            "puppet_gem"
+        ],
+        [
+            "giflib",
+            "4.1.6-9.el7",
+            "yum"
+        ],
+        [
+            "git",
+            "1.8.3.1-6.el7_2.1",
+            "yum"
+        ],
+        [
+            "glib-networking",
+            "2.42.0-1.el7",
+            "yum"
+        ],
+        [
+            "glib2",
+            "2.42.2-5.el7",
+            "yum"
+        ],
+        [
+            "glibc",
+            "2.17-105.el7",
+            "yum"
+        ],
+        [
+            "glibc-common",
+            "2.17-105.el7",
+            "yum"
+        ],
+        [
+            "gmp",
+            "1:6.0.0-11.el7",
+            "yum"
+        ],
+        [
+            "gnupg2",
+            "2.0.22-3.el7",
+            "yum"
+        ],
+        [
+            "gnutls",
+            "3.3.8-12.el7_1.1",
+            "yum"
+        ],
+        [
+            "gobject-introspection",
+            "1.42.0-1.el7",
+            "yum"
+        ],
+        [
+            "gpg-pubkey",
+            "f4a80eb5-53a7ff4b",
+            "yum"
+        ],
+        [
+            "gpgme",
+            "1.3.2-5.el7",
+            "yum"
+        ],
+        [
+            "gpm-libs",
+            "1.20.7-5.el7",
+            "yum"
+        ],
+        [
+            "graphite2",
+            "1.3.6-1.el7_2",
+            "yum"
+        ],
+        [
+            "grep",
+            "2.20-2.el7",
+            "yum"
+        ],
+        [
+            "groff-base",
+            "1.22.2-8.el7",
+            "yum"
+        ],
+        [
+            "grub2",
+            "1:2.02-0.29.el7.centos",
+            "yum"
+        ],
+        [
+            "grub2-tools",
+            "1:2.02-0.29.el7.centos",
+            "yum"
+        ],
+        [
+            "grubby",
+            "8.28-17.el7",
+            "yum"
+        ],
+        [
+            "gsettings-desktop-schemas",
+            "3.14.2-1.el7",
+            "yum"
+        ],
+        [
+            "gsm",
+            "1.0.13-11.el7",
+            "yum"
+        ],
+        [
+            "gssproxy",
+            "0.4.1-7.el7",
+            "yum"
+        ],
+        [
+            "gtk2",
+            "2.24.28-8.el7",
+            "yum"
+        ],
+        [
+            "gzip",
+            "1.5-8.el7",
+            "yum"
+        ],
+        [
+            "hardlink",
+            "1:1.0-19.el7",
+            "yum"
+        ],
+        [
+            "harfbuzz",
+            "0.9.36-1.el7",
+            "yum"
+        ],
+        [
+            "hicolor-icon-theme",
+            "0.12-7.el7",
+            "yum"
+        ],
+        [
+            "hiera",
+            "3.2.2",
+            "puppet_gem"
+        ],
+        [
+            "hiera-eyaml",
+            "2.1.0",
+            "puppet_gem"
+        ],
+        [
+            "highline",
+            "1.6.21",
+            "puppet_gem"
+        ],
+        [
+            "hocon",
+            "0.9.3",
+            "puppet_gem"
+        ],
+        [
+            "hostname",
+            "3.13-3.el7",
+            "yum"
+        ],
+        [
+            "httpd",
+            "2.4.6-45.el7.centos",
+            "yum"
+        ],
+        [
+            "httpd-tools",
+            "2.4.6-45.el7.centos",
+            "yum"
+        ],
+        [
+            "hwdata",
+            "0.252-8.4.el7",
+            "yum"
+        ],
+        [
+            "info",
+            "5.1-4.el7",
+            "yum"
+        ],
+        [
+            "initscripts",
+            "9.49.30-1.el7",
+            "yum"
+        ],
+        [
+            "io-console",
+            "0.4.3",
+            "puppet_gem"
+        ],
+        [
+            "iproute",
+            "3.10.0-54.el7",
+            "yum"
+        ],
+        [
+            "iptables",
+            "1.4.21-17.el7",
+            "yum"
+        ],
+        [
+            "iptables-services",
+            "1.4.21-17.el7",
+            "yum"
+        ],
+        [
+            "iputils",
+            "20121221-7.el7",
+            "yum"
+        ],
+        [
+            "irqbalance",
+            "3:1.0.7-5.el7",
+            "yum"
+        ],
+        [
+            "iwl7265-firmware",
+            "22.0.7.0-43.el7",
+            "yum"
+        ],
+        [
+            "jansson",
+            "2.4-6.el7",
+            "yum"
+        ],
+        [
+            "jasper-libs",
+            "1.900.1-29.el7",
+            "yum"
+        ],
+        [
+            "java-1.7.0-openjdk",
+            "1:1.7.0.121-2.6.8.0.el7_3",
+            "yum"
+        ],
+        [
+            "java-1.7.0-openjdk-devel",
+            "1:1.7.0.121-2.6.8.0.el7_3",
+            "yum"
+        ],
+        [
+            "java-1.7.0-openjdk-headless",
+            "1:1.7.0.121-2.6.8.0.el7_3",
+            "yum"
+        ],
+        [
+            "javapackages-tools",
+            "3.4.1-11.el7",
+            "yum"
+        ],
+        [
+            "jbigkit-libs",
+            "2.0-11.el7",
+            "yum"
+        ],
+        [
+            "json",
+            "1.8.1",
+            "puppet_gem"
+        ],
+        [
+            "json-c",
+            "0.11-4.el7_0",
+            "yum"
+        ],
+        [
+            "kbd",
+            "1.15.5-11.el7",
+            "yum"
+        ],
+        [
+            "kbd-legacy",
+            "1.15.5-11.el7",
+            "yum"
+        ],
+        [
+            "kbd-misc",
+            "1.15.5-11.el7",
+            "yum"
+        ],
+        [
+            "kernel",
+            "3.10.0-327.el7",
+            "yum"
+        ],
+        [
+            "kernel-tools",
+            "3.10.0-327.el7",
+            "yum"
+        ],
+        [
+            "kernel-tools-libs",
+            "3.10.0-327.el7",
+            "yum"
+        ],
+        [
+            "kexec-tools",
+            "2.0.7-38.el7",
+            "yum"
+        ],
+        [
+            "keyutils",
+            "1.5.8-3.el7",
+            "yum"
+        ],
+        [
+            "keyutils-libs",
+            "1.5.8-3.el7",
+            "yum"
+        ],
+        [
+            "kmod",
+            "20-5.el7",
+            "yum"
+        ],
+        [
+            "kmod-libs",
+            "20-5.el7",
+            "yum"
+        ],
+        [
+            "kpartx",
+            "0.4.9-85.el7",
+            "yum"
+        ],
+        [
+            "krb5-libs",
+            "1.13.2-10.el7",
+            "yum"
+        ],
+        [
+            "ldap-demo",
+            "0.1.3-1.el6",
+            "yum"
+        ],
+        [
+            "less",
+            "458-9.el7",
+            "yum"
+        ],
+        [
+            "libICE",
+            "1.0.9-2.el7",
+            "yum"
+        ],
+        [
+            "libSM",
+            "1.2.2-2.el7",
+            "yum"
+        ],
+        [
+            "libX11",
+            "1.6.3-3.el7",
+            "yum"
+        ],
+        [
+            "libX11-common",
+            "1.6.3-3.el7",
+            "yum"
+        ],
+        [
+            "libXau",
+            "1.0.8-2.1.el7",
+            "yum"
+        ],
+        [
+            "libXcomposite",
+            "0.4.4-4.1.el7",
+            "yum"
+        ],
+        [
+            "libXcursor",
+            "1.1.14-2.1.el7",
+            "yum"
+        ],
+        [
+            "libXdamage",
+            "1.1.4-4.1.el7",
+            "yum"
+        ],
+        [
+            "libXext",
+            "1.3.3-3.el7",
+            "yum"
+        ],
+        [
+            "libXfixes",
+            "5.0.1-2.1.el7",
+            "yum"
+        ],
+        [
+            "libXfont",
+            "1.5.1-2.el7",
+            "yum"
+        ],
+        [
+            "libXft",
+            "2.3.2-2.el7",
+            "yum"
+        ],
+        [
+            "libXi",
+            "1.7.4-2.el7",
+            "yum"
+        ],
+        [
+            "libXinerama",
+            "1.1.3-2.1.el7",
+            "yum"
+        ],
+        [
+            "libXrandr",
+            "1.4.2-2.el7",
+            "yum"
+        ],
+        [
+            "libXrender",
+            "0.9.8-2.1.el7",
+            "yum"
+        ],
+        [
+            "libXtst",
+            "1.2.2-2.1.el7",
+            "yum"
+        ],
+        [
+            "libXxf86vm",
+            "1.1.3-2.1.el7",
+            "yum"
+        ],
+        [
+            "libacl",
+            "2.2.51-12.el7",
+            "yum"
+        ],
+        [
+            "libassuan",
+            "2.1.0-3.el7",
+            "yum"
+        ],
+        [
+            "libasyncns",
+            "0.8-7.el7",
+            "yum"
+        ],
+        [
+            "libattr",
+            "2.4.46-12.el7",
+            "yum"
+        ],
+        [
+            "libbasicobjects",
+            "0.1.1-25.el7",
+            "yum"
+        ],
+        [
+            "libblkid",
+            "2.23.2-26.el7",
+            "yum"
+        ],
+        [
+            "libcap",
+            "2.22-8.el7",
+            "yum"
+        ],
+        [
+            "libcap-ng",
+            "0.7.5-4.el7",
+            "yum"
+        ],
+        [
+            "libcgroup",
+            "0.41-8.el7",
+            "yum"
+        ],
+        [
+            "libcollection",
+            "0.6.2-25.el7",
+            "yum"
+        ],
+        [
+            "libcom_err",
+            "1.42.9-7.el7",
+            "yum"
+        ],
+        [
+            "libcroco",
+            "0.6.8-5.el7",
+            "yum"
+        ],
+        [
+            "libcurl",
+            "7.29.0-25.el7.centos",
+            "yum"
+        ],
+        [
+            "libdaemon",
+            "0.14-7.el7",
+            "yum"
+        ],
+        [
+            "libdb",
+            "5.3.21-19.el7",
+            "yum"
+        ],
+        [
+            "libdb-utils",
+            "5.3.21-19.el7",
+            "yum"
+        ],
+        [
+            "libdrm",
+            "2.4.67-3.el7",
+            "yum"
+        ],
+        [
+            "libedit",
+            "3.0-12.20121213cvs.el7",
+            "yum"
+        ],
+        [
+            "libestr",
+            "0.1.9-2.el7",
+            "yum"
+        ],
+        [
+            "libevent",
+            "2.0.21-4.el7",
+            "yum"
+        ],
+        [
+            "libffi",
+            "3.0.13-16.el7",
+            "yum"
+        ],
+        [
+            "libfontenc",
+            "1.1.2-3.el7",
+            "yum"
+        ],
+        [
+            "libgcc",
+            "4.8.5-4.el7",
+            "yum"
+        ],
+        [
+            "libgcrypt",
+            "1.5.3-12.el7_1.1",
+            "yum"
+        ],
+        [
+            "libgnome-keyring",
+            "3.8.0-3.el7",
+            "yum"
+        ],
+        [
+            "libgomp",
+            "4.8.5-4.el7",
+            "yum"
+        ],
+        [
+            "libgpg-error",
+            "1.12-3.el7",
+            "yum"
+        ],
+        [
+            "libgudev1",
+            "219-19.el7",
+            "yum"
+        ],
+        [
+            "libidn",
+            "1.28-4.el7",
+            "yum"
+        ],
+        [
+            "libini_config",
+            "1.2.0-25.el7",
+            "yum"
+        ],
+        [
+            "libjpeg-turbo",
+            "1.2.90-5.el7",
+            "yum"
+        ],
+        [
+            "libmnl",
+            "1.0.3-7.el7",
+            "yum"
+        ],
+        [
+            "libmodman",
+            "2.0.1-8.el7",
+            "yum"
+        ],
+        [
+            "libmount",
+            "2.23.2-26.el7",
+            "yum"
+        ],
+        [
+            "libndp",
+            "1.2-4.el7",
+            "yum"
+        ],
+        [
+            "libnetfilter_conntrack",
+            "1.0.4-2.el7",
+            "yum"
+        ],
+        [
+            "libnfnetlink",
+            "1.0.1-4.el7",
+            "yum"
+        ],
+        [
+            "libnfsidmap",
+            "0.25-12.el7",
+            "yum"
+        ],
+        [
+            "libnl3",
+            "3.2.21-10.el7",
+            "yum"
+        ],
+        [
+            "libnl3-cli",
+            "3.2.21-10.el7",
+            "yum"
+        ],
+        [
+            "libogg",
+            "2:1.3.0-7.el7",
+            "yum"
+        ],
+        [
+            "libpath_utils",
+            "0.2.1-25.el7",
+            "yum"
+        ],
+        [
+            "libpcap",
+            "14:1.5.3-8.el7",
+            "yum"
+        ],
+        [
+            "libpciaccess",
+            "0.13.4-3.el7_3",
+            "yum"
+        ],
+        [
+            "libpipeline",
+            "1.2.3-3.el7",
+            "yum"
+        ],
+        [
+            "libpng",
+            "2:1.5.13-7.el7_2",
+            "yum"
+        ],
+        [
+            "libproxy",
+            "0.4.11-8.el7",
+            "yum"
+        ],
+        [
+            "libpwquality",
+            "1.2.3-4.el7",
+            "yum"
+        ],
+        [
+            "libref_array",
+            "0.1.5-25.el7",
+            "yum"
+        ],
+        [
+            "libselinux",
+            "2.2.2-6.el7",
+            "yum"
+        ],
+        [
+            "libselinux-python",
+            "2.2.2-6.el7",
+            "yum"
+        ],
+        [
+            "libselinux-utils",
+            "2.2.2-6.el7",
+            "yum"
+        ],
+        [
+            "libsemanage",
+            "2.1.10-18.el7",
+            "yum"
+        ],
+        [
+            "libsemanage-python",
+            "2.1.10-18.el7",
+            "yum"
+        ],
+        [
+            "libsepol",
+            "2.1.9-3.el7",
+            "yum"
+        ],
+        [
+            "libsndfile",
+            "1.0.25-10.el7",
+            "yum"
+        ],
+        [
+            "libsoup",
+            "2.48.1-3.el7",
+            "yum"
+        ],
+        [
+            "libss",
+            "1.42.9-7.el7",
+            "yum"
+        ],
+        [
+            "libssh2",
+            "1.4.3-10.el7",
+            "yum"
+        ],
+        [
+            "libstdc++",
+            "4.8.5-4.el7",
+            "yum"
+        ],
+        [
+            "libsysfs",
+            "2.1.0-16.el7",
+            "yum"
+        ],
+        [
+            "libtalloc",
+            "2.1.2-1.el7",
+            "yum"
+        ],
+        [
+            "libtasn1",
+            "3.8-2.el7",
+            "yum"
+        ],
+        [
+            "libteam",
+            "1.17-5.el7",
+            "yum"
+        ],
+        [
+            "libtevent",
+            "0.9.25-1.el7",
+            "yum"
+        ],
+        [
+            "libthai",
+            "0.1.14-9.el7",
+            "yum"
+        ],
+        [
+            "libtiff",
+            "4.0.3-14.el7",
+            "yum"
+        ],
+        [
+            "libtirpc",
+            "0.2.4-0.6.el7",
+            "yum"
+        ],
+        [
+            "libunistring",
+            "0.9.3-9.el7",
+            "yum"
+        ],
+        [
+            "libuser",
+            "0.60-7.el7_1",
+            "yum"
+        ],
+        [
+            "libutempter",
+            "1.1.6-4.el7",
+            "yum"
+        ],
+        [
+            "libuuid",
+            "2.23.2-26.el7",
+            "yum"
+        ],
+        [
+            "libverto",
+            "0.2.5-4.el7",
+            "yum"
+        ],
+        [
+            "libverto-tevent",
+            "0.2.5-4.el7",
+            "yum"
+        ],
+        [
+            "libvorbis",
+            "1:1.3.3-8.el7",
+            "yum"
+        ],
+        [
+            "libwebp",
+            "0.3.0-3.el7",
+            "yum"
+        ],
+        [
+            "libxcb",
+            "1.11-4.el7",
+            "yum"
+        ],
+        [
+            "libxml2",
+            "2.9.1-6.el7_2.3",
+            "yum"
+        ],
+        [
+            "libxml2-python",
+            "2.9.1-6.el7_2.3",
+            "yum"
+        ],
+        [
+            "libxshmfence",
+            "1.2-1.el7",
+            "yum"
+        ],
+        [
+            "libxslt",
+            "1.1.28-5.el7",
+            "yum"
+        ],
+        [
+            "libyaml",
+            "0.1.4-11.el7_0",
+            "yum"
+        ],
+        [
+            "lksctp-tools",
+            "1.0.17-2.el7",
+            "yum"
+        ],
+        [
+            "locale",
+            "2.1.2",
+            "puppet_gem"
+        ],
+        [
+            "log4r",
+            "1.1.10",
+            "puppet_gem"
+        ],
+        [
+            "logrotate",
+            "3.8.6-6.el7",
+            "yum"
+        ],
+        [
+            "lua",
+            "5.1.4-14.el7",
+            "yum"
+        ],
+        [
+            "lzo",
+            "2.06-8.el7",
+            "yum"
+        ],
+        [
+            "mailcap",
+            "2.1.41-2.el7",
+            "yum"
+        ],
+        [
+            "make",
+            "1:3.82-21.el7",
+            "yum"
+        ],
+        [
+            "man-db",
+            "2.6.3-9.el7",
+            "yum"
+        ],
+        [
+            "mariadb-libs",
+            "1:5.5.44-2.el7.centos",
+            "yum"
+        ],
+        [
+            "mesa-libEGL",
+            "11.2.2-2.20160614.el7",
+            "yum"
+        ],
+        [
+            "mesa-libGL",
+            "11.2.2-2.20160614.el7",
+            "yum"
+        ],
+        [
+            "mesa-libgbm",
+            "11.2.2-2.20160614.el7",
+            "yum"
+        ],
+        [
+            "mesa-libglapi",
+            "11.2.2-2.20160614.el7",
+            "yum"
+        ],
+        [
+            "microcode_ctl",
+            "2:2.1-12.el7",
+            "yum"
+        ],
+        [
+            "minitar",
+            "0.5.4",
+            "puppet_gem"
+        ],
+        [
+            "minitest",
+            "4.7.5",
+            "puppet_gem"
+        ],
+        [
+            "mozjs17",
+            "17.0.0-12.el7",
+            "yum"
+        ],
+        [
+            "multi_json",
+            "1.11.0",
+            "puppet_gem"
+        ],
+        [
+            "multipart-post",
+            "2.0.0",
+            "puppet_gem"
+        ],
+        [
+            "ncurses",
+            "5.9-13.20130511.el7",
+            "yum"
+        ],
+        [
+            "ncurses-base",
+            "5.9-13.20130511.el7",
+            "yum"
+        ],
+        [
+            "ncurses-libs",
+            "5.9-13.20130511.el7",
+            "yum"
+        ],
+        [
+            "net-ssh",
+            "2.9.2",
+            "puppet_gem"
+        ],
+        [
+            "net-tools",
+            "2.0-0.17.20131004git.el7",
+            "yum"
+        ],
+        [
+            "nettle",
+            "2.7.1-4.el7",
+            "yum"
+        ],
+        [
+            "newt",
+            "0.52.15-4.el7",
+            "yum"
+        ],
+        [
+            "newt-python",
+            "0.52.15-4.el7",
+            "yum"
+        ],
+        [
+            "nfs-utils",
+            "1:1.3.0-0.21.el7",
+            "yum"
+        ],
+        [
+            "nmap",
+            "2:6.40-7.el7",
+            "yum"
+        ],
+        [
+            "nmap-ncat",
+            "2:6.40-7.el7",
+            "yum"
+        ],
+        [
+            "nspr",
+            "4.11.0-1.el7_2",
+            "yum"
+        ],
+        [
+            "nss",
+            "3.21.3-2.el7_3",
+            "yum"
+        ],
+        [
+            "nss-softokn",
+            "3.16.2.3-14.4.el7",
+            "yum"
+        ],
+        [
+            "nss-softokn-freebl",
+            "3.16.2.3-14.4.el7",
+            "yum"
+        ],
+        [
+            "nss-sysinit",
+            "3.21.3-2.el7_3",
+            "yum"
+        ],
+        [
+            "nss-tools",
+            "3.21.3-2.el7_3",
+            "yum"
+        ],
+        [
+            "nss-util",
+            "3.21.3-1.1.el7_3",
+            "yum"
+        ],
+        [
+            "ntp",
+            "4.2.6p5-25.el7.centos",
+            "yum"
+        ],
+        [
+            "ntpdate",
+            "4.2.6p5-25.el7.centos",
+            "yum"
+        ],
+        [
+            "numactl-libs",
+            "2.0.9-5.el7_1",
+            "yum"
+        ],
+        [
+            "openldap",
+            "2.4.40-13.el7",
+            "yum"
+        ],
+        [
+            "openldap-clients",
+            "2.4.40-13.el7",
+            "yum"
+        ],
+        [
+            "openssh",
+            "6.6.1p1-22.el7",
+            "yum"
+        ],
+        [
+            "openssh-clients",
+            "6.6.1p1-22.el7",
+            "yum"
+        ],
+        [
+            "openssh-server",
+            "6.6.1p1-22.el7",
+            "yum"
+        ],
+        [
+            "openssl",
+            "1:1.0.1e-42.el7.9",
+            "yum"
+        ],
+        [
+            "openssl-libs",
+            "1:1.0.1e-42.el7.9",
+            "yum"
+        ],
+        [
+            "os-prober",
+            "1.58-5.el7",
+            "yum"
+        ],
+        [
+            "p11-kit",
+            "0.20.7-3.el7",
+            "yum"
+        ],
+        [
+            "p11-kit-trust",
+            "0.20.7-3.el7",
+            "yum"
+        ],
+        [
+            "pam",
+            "1.1.8-12.el7_1.1",
+            "yum"
+        ],
+        [
+            "pango",
+            "1.36.8-2.el7",
+            "yum"
+        ],
+        [
+            "parted",
+            "3.1-23.el7",
+            "yum"
+        ],
+        [
+            "passwd",
+            "0.79-4.el7",
+            "yum"
+        ],
+        [
+            "pciutils-libs",
+            "3.2.1-4.el7",
+            "yum"
+        ],
+        [
+            "pcre",
+            "8.32-15.el7",
+            "yum"
+        ],
+        [
+            "pcsc-lite-libs",
+            "1.8.8-6.el7",
+            "yum"
+        ],
+        [
+            "pe-activemq",
+            "2016.5.5.13.2-1.pe.el7",
+            "yum"
+        ],
+        [
+            "pe-bundler",
+            "2016.5.1.8.2-1.pe.el7",
+            "yum"
+        ],
+        [
+            "pe-client-tools",
+            "16.5.2-1.el7",
+            "yum"
+        ],
+        [
+            "pe-console-services",
+            "1.6.109-1.el7",
+            "yum"
+        ],
+        [
+            "pe-console-services-termini",
+            "1.6.109-1.el7",
+            "yum"
+        ],
+        [
+            "pe-installer",
+            "2016.5.0-0.1rc0.3.el7",
+            "yum"
+        ],
+        [
+            "pe-java",
+            "2016.5.1.8.0.111-1.b13.pe.el7",
+            "yum"
+        ],
+        [
+            "pe-license",
+            "0.1.5.15-1.pe.el7",
+            "yum"
+        ],
+        [
+            "pe-nginx",
+            "2016.5.1.8.1-1.pe.el7",
+            "yum"
+        ],
+        [
+            "pe-orchestration-services",
+            "0.8.5-1.el7",
+            "yum"
+        ],
+        [
+            "pe-postgresql",
+            "2016.5.9.4.9-1.pe.el7",
+            "yum"
+        ],
+        [
+            "pe-postgresql-contrib",
+            "2016.5.9.4.9-1.pe.el7",
+            "yum"
+        ],
+        [
+            "pe-postgresql-pglogical",
+            "2016.5.1.2.1-1.el7",
+            "yum"
+        ],
+        [
+            "pe-postgresql-server",
+            "2016.5.9.4.9-1.pe.el7",
+            "yum"
+        ],
+        [
+            "pe-puppet-enterprise-release",
+            "2016.5.1.0-1.pe.el7",
+            "yum"
+        ],
+        [
+            "pe-puppet-license-cli",
+            "0.1.7.26-1.pe.el7",
+            "yum"
+        ],
+        [
+            "pe-puppetdb",
+            "4.2.5-1.el7",
+            "yum"
+        ],
+        [
+            "pe-puppetdb-termini",
+            "4.2.5-1.el7",
+            "yum"
+        ],
+        [
+            "pe-puppetserver",
+            "2016.5.0.11-1.el7",
+            "yum"
+        ],
+        [
+            "pe-r10k",
+            "2.5.0.1-1.el7",
+            "yum"
+        ],
+        [
+            "perl",
+            "4:5.16.3-291.el7",
+            "yum"
+        ],
+        [
+            "perl-Carp",
+            "1.26-244.el7",
+            "yum"
+        ],
+        [
+            "perl-Encode",
+            "2.51-7.el7",
+            "yum"
+        ],
+        [
+            "perl-Error",
+            "1:0.17020-2.el7",
+            "yum"
+        ],
+        [
+            "perl-Exporter",
+            "5.68-3.el7",
+            "yum"
+        ],
+        [
+            "perl-File-Path",
+            "2.09-2.el7",
+            "yum"
+        ],
+        [
+            "perl-File-Temp",
+            "0.23.01-3.el7",
+            "yum"
+        ],
+        [
+            "perl-Filter",
+            "1.49-3.el7",
+            "yum"
+        ],
+        [
+            "perl-Getopt-Long",
+            "2.40-2.el7",
+            "yum"
+        ],
+        [
+            "perl-Git",
+            "1.8.3.1-6.el7_2.1",
+            "yum"
+        ],
+        [
+            "perl-HTTP-Tiny",
+            "0.033-3.el7",
+            "yum"
+        ],
+        [
+            "perl-PathTools",
+            "3.40-5.el7",
+            "yum"
+        ],
+        [
+            "perl-Pod-Escapes",
+            "1:1.04-291.el7",
+            "yum"
+        ],
+        [
+            "perl-Pod-Perldoc",
+            "3.20-4.el7",
+            "yum"
+        ],
+        [
+            "perl-Pod-Simple",
+            "1:3.28-4.el7",
+            "yum"
+        ],
+        [
+            "perl-Pod-Usage",
+            "1.63-3.el7",
+            "yum"
+        ],
+        [
+            "perl-Scalar-List-Utils",
+            "1.27-248.el7",
+            "yum"
+        ],
+        [
+            "perl-Socket",
+            "2.010-4.el7",
+            "yum"
+        ],
+        [
+            "perl-Storable",
+            "2.45-3.el7",
+            "yum"
+        ],
+        [
+            "perl-TermReadKey",
+            "2.30-20.el7",
+            "yum"
+        ],
+        [
+            "perl-Text-ParseWords",
+            "3.29-4.el7",
+            "yum"
+        ],
+        [
+            "perl-Time-HiRes",
+            "4:1.9725-3.el7",
+            "yum"
+        ],
+        [
+            "perl-Time-Local",
+            "1.2300-2.el7",
+            "yum"
+        ],
+        [
+            "perl-constant",
+            "1.27-2.el7",
+            "yum"
+        ],
+        [
+            "perl-libs",
+            "4:5.16.3-291.el7",
+            "yum"
+        ],
+        [
+            "perl-macros",
+            "4:5.16.3-291.el7",
+            "yum"
+        ],
+        [
+            "perl-parent",
+            "1:0.225-244.el7",
+            "yum"
+        ],
+        [
+            "perl-podlators",
+            "2.5.1-3.el7",
+            "yum"
+        ],
+        [
+            "perl-threads",
+            "1.87-4.el7",
+            "yum"
+        ],
+        [
+            "perl-threads-shared",
+            "1.43-6.el7",
+            "yum"
+        ],
+        [
+            "pinentry",
+            "0.8.1-14.el7",
+            "yum"
+        ],
+        [
+            "pixman",
+            "0.34.0-1.el7",
+            "yum"
+        ],
+        [
+            "pkgconfig",
+            "1:0.27.1-4.el7",
+            "yum"
+        ],
+        [
+            "policycoreutils",
+            "2.2.5-20.el7",
+            "yum"
+        ],
+        [
+            "policycoreutils-python",
+            "2.2.5-20.el7",
+            "yum"
+        ],
+        [
+            "polkit",
+            "0.112-5.el7",
+            "yum"
+        ],
+        [
+            "polkit-pkla-compat",
+            "0.1-4.el7",
+            "yum"
+        ],
+        [
+            "popt",
+            "1.13-16.el7",
+            "yum"
+        ],
+        [
+            "postfix",
+            "2:2.10.1-6.el7",
+            "yum"
+        ],
+        [
+            "ppp",
+            "2.4.5-33.el7",
+            "yum"
+        ],
+        [
+            "procps-ng",
+            "3.3.10-3.el7",
+            "yum"
+        ],
+        [
+            "psmisc",
+            "22.20-11.el7",
+            "yum"
+        ],
+        [
+            "psych",
+            "2.0.5",
+            "puppet_gem"
+        ],
+        [
+            "pth",
+            "2.0.7-23.el7",
+            "yum"
+        ],
+        [
+            "pulseaudio-libs",
+            "6.0-8.el7",
+            "yum"
+        ],
+        [
+            "puppet",
+            "4.8.1",
+            "puppet_gem"
+        ],
+        [
+            "puppet-agent",
+            "1.8.2-1.el7",
+            "yum"
+        ],
+        [
+            "puppet-lint",
+            "2.1.0",
+            "puppet_gem"
+        ],
+        [
+            "puppet_forge",
+            "2.2.2",
+            "puppet_gem"
+        ],
+        [
+            "puppetclassify",
+            "0.1.5",
+            "puppet_gem"
+        ],
+        [
+            "pygobject3-base",
+            "3.14.0-3.el7",
+            "yum"
+        ],
+        [
+            "pygpgme",
+            "0.3-9.el7",
+            "yum"
+        ],
+        [
+            "pyliblzma",
+            "0.5.3-11.el7",
+            "yum"
+        ],
+        [
+            "python",
+            "2.7.5-34.el7",
+            "yum"
+        ],
+        [
+            "python-IPy",
+            "0.75-6.el7",
+            "yum"
+        ],
+        [
+            "python-backports",
+            "1.0-8.el7",
+            "yum"
+        ],
+        [
+            "python-backports-ssl_match_hostname",
+            "3.4.0.2-4.el7",
+            "yum"
+        ],
+        [
+            "python-boto",
+            "2.25.0-2.el7.centos",
+            "yum"
+        ],
+        [
+            "python-chardet",
+            "2.2.1-1.el7_1",
+            "yum"
+        ],
+        [
+            "python-cheetah",
+            "2.4.4-5.el7.centos",
+            "yum"
+        ],
+        [
+            "python-configobj",
+            "4.7.2-7.el7",
+            "yum"
+        ],
+        [
+            "python-decorator",
+            "3.4.0-3.el7",
+            "yum"
+        ],
+        [
+            "python-deltarpm",
+            "3.6-3.el7",
+            "yum"
+        ],
+        [
+            "python-iniparse",
+            "0.4-9.el7",
+            "yum"
+        ],
+        [
+            "python-javapackages",
+            "3.4.1-11.el7",
+            "yum"
+        ],
+        [
+            "python-jsonpatch",
+            "1.2-3.el7.centos",
+            "yum"
+        ],
+        [
+            "python-jsonpointer",
+            "1.9-2.el7",
+            "yum"
+        ],
+        [
+            "python-kitchen",
+            "1.1.1-5.el7",
+            "yum"
+        ],
+        [
+            "python-libs",
+            "2.7.5-34.el7",
+            "yum"
+        ],
+        [
+            "python-lxml",
+            "3.2.1-4.el7",
+            "yum"
+        ],
+        [
+            "python-markdown",
+            "2.4.1-1.el7.centos",
+            "yum"
+        ],
+        [
+            "python-perf",
+            "3.10.0-327.el7",
+            "yum"
+        ],
+        [
+            "python-pillow",
+            "2.0.0-19.gitd1c6db8.el7",
+            "yum"
+        ],
+        [
+            "python-prettytable",
+            "0.7.2-2.el7.centos",
+            "yum"
+        ],
+        [
+            "python-pycurl",
+            "7.19.0-17.el7",
+            "yum"
+        ],
+        [
+            "python-pygments",
+            "1.4-9.el7",
+            "yum"
+        ],
+        [
+            "python-pyudev",
+            "0.15-7.el7",
+            "yum"
+        ],
+        [
+            "python-requests",
+            "2.6.0-1.el7_1",
+            "yum"
+        ],
+        [
+            "python-setuptools",
+            "0.9.8-4.el7",
+            "yum"
+        ],
+        [
+            "python-six",
+            "1.9.0-2.el7",
+            "yum"
+        ],
+        [
+            "python-urlgrabber",
+            "3.10-7.el7",
+            "yum"
+        ],
+        [
+            "python-urllib3",
+            "1.10.2-2.el7_1",
+            "yum"
+        ],
+        [
+            "pyxattr",
+            "0.5.1-5.el7",
+            "yum"
+        ],
+        [
+            "qrencode-libs",
+            "3.4.1-3.el7",
+            "yum"
+        ],
+        [
+            "quota",
+            "1:4.01-11.el7",
+            "yum"
+        ],
+        [
+            "quota-nls",
+            "1:4.01-11.el7",
+            "yum"
+        ],
+        [
+            "r10k",
+            "2.5.0",
+            "puppet_gem"
+        ],
+        [
+            "rake",
+            "10.1.0",
+            "puppet_gem"
+        ],
+        [
+            "rdma",
+            "7.2_4.1_rc6-1.el7",
+            "yum"
+        ],
+        [
+            "rdoc",
+            "4.1.0",
+            "puppet_gem"
+        ],
+        [
+            "readline",
+            "6.2-9.el7",
+            "yum"
+        ],
+        [
+            "rootfiles",
+            "8.1-11.el7",
+            "yum"
+        ],
+        [
+            "rpcbind",
+            "0.2.0-32.el7",
+            "yum"
+        ],
+        [
+            "rpm",
+            "4.11.3-17.el7",
+            "yum"
+        ],
+        [
+            "rpm-build-libs",
+            "4.11.3-17.el7",
+            "yum"
+        ],
+        [
+            "rpm-libs",
+            "4.11.3-17.el7",
+            "yum"
+        ],
+        [
+            "rpm-python",
+            "4.11.3-17.el7",
+            "yum"
+        ],
+        [
+            "rsync",
+            "3.0.9-17.el7",
+            "yum"
+        ],
+        [
+            "rsyslog",
+            "7.4.7-12.el7",
+            "yum"
+        ],
+        [
+            "rugged",
+            "0.24.0",
+            "puppet_gem"
+        ],
+        [
+            "sed",
+            "4.2.2-5.el7",
+            "yum"
+        ],
+        [
+            "selinux-policy",
+            "3.13.1-60.el7",
+            "yum"
+        ],
+        [
+            "selinux-policy-targeted",
+            "3.13.1-60.el7",
+            "yum"
+        ],
+        [
+            "semantic_puppet",
+            "0.1.2",
+            "puppet_gem"
+        ],
+        [
+            "semantic_puppet",
+            "0.1.0",
+            "puppet_gem"
+        ],
+        [
+            "setools-libs",
+            "3.3.7-46.el7",
+            "yum"
+        ],
+        [
+            "setup",
+            "2.8.71-6.el7",
+            "yum"
+        ],
+        [
+            "shadow-utils",
+            "2:4.1.5.1-18.el7",
+            "yum"
+        ],
+        [
+            "shared-mime-info",
+            "1.1-9.el7",
+            "yum"
+        ],
+        [
+            "slang",
+            "2.2.4-11.el7",
+            "yum"
+        ],
+        [
+            "snappy",
+            "1.1.0-3.el7",
+            "yum"
+        ],
+        [
+            "sqlite",
+            "3.7.17-8.el7",
+            "yum"
+        ],
+        [
+            "stomp",
+            "1.3.3",
+            "puppet_gem"
+        ],
+        [
+            "sudo",
+            "1.8.6p7-16.el7",
+            "yum"
+        ],
+        [
+            "systemd",
+            "219-19.el7",
+            "yum"
+        ],
+        [
+            "systemd-libs",
+            "219-19.el7",
+            "yum"
+        ],
+        [
+            "systemd-sysv",
+            "219-19.el7",
+            "yum"
+        ],
+        [
+            "sysvinit-tools",
+            "2.88-14.dsf.el7",
+            "yum"
+        ],
+        [
+            "tar",
+            "2:1.26-29.el7",
+            "yum"
+        ],
+        [
+            "tcp_wrappers",
+            "7.6-77.el7",
+            "yum"
+        ],
+        [
+            "tcp_wrappers-libs",
+            "7.6-77.el7",
+            "yum"
+        ],
+        [
+            "teamd",
+            "1.17-5.el7",
+            "yum"
+        ],
+        [
+            "test-unit",
+            "2.1.9.0",
+            "puppet_gem"
+        ],
+        [
+            "text",
+            "1.3.1",
+            "puppet_gem"
+        ],
+        [
+            "tmux",
+            "1.8-4.el7",
+            "yum"
+        ],
+        [
+            "trollop",
+            "2.1.2",
+            "puppet_gem"
+        ],
+        [
+            "trousers",
+            "0.3.13-1.el7",
+            "yum"
+        ],
+        [
+            "ttmkfdir",
+            "3.0.9-42.el7",
+            "yum"
+        ],
+        [
+            "tuned",
+            "2.5.1-4.el7",
+            "yum"
+        ],
+        [
+            "typhoeus",
+            "1.0.2",
+            "puppet_gem"
+        ],
+        [
+            "tzdata",
+            "2015g-1.el7",
+            "yum"
+        ],
+        [
+            "tzdata-java",
+            "2016j-1.el7",
+            "yum"
+        ],
+        [
+            "ustr",
+            "1.0.4-16.el7",
+            "yum"
+        ],
+        [
+            "util-linux",
+            "2.23.2-26.el7",
+            "yum"
+        ],
+        [
+            "vim-common",
+            "2:7.4.160-1.el7_3.1",
+            "yum"
+        ],
+        [
+            "vim-enhanced",
+            "2:7.4.160-1.el7_3.1",
+            "yum"
+        ],
+        [
+            "vim-filesystem",
+            "2:7.4.160-1.el7_3.1",
+            "yum"
+        ],
+        [
+            "vim-minimal",
+            "2:7.4.160-1.el7",
+            "yum"
+        ],
+        [
+            "virt-what",
+            "1.13-6.el7",
+            "yum"
+        ],
+        [
+            "which",
+            "2.20-7.el7",
+            "yum"
+        ],
+        [
+            "wpa_supplicant",
+            "1:2.0-17.el7_1",
+            "yum"
+        ],
+        [
+            "xfsprogs",
+            "3.2.2-2.el7",
+            "yum"
+        ],
+        [
+            "xorg-x11-font-utils",
+            "1:7.5-20.el7",
+            "yum"
+        ],
+        [
+            "xorg-x11-fonts-Type1",
+            "7.5-9.el7",
+            "yum"
+        ],
+        [
+            "xz",
+            "5.1.2-12alpha.el7",
+            "yum"
+        ],
+        [
+            "xz-libs",
+            "5.1.2-12alpha.el7",
+            "yum"
+        ],
+        [
+            "yum",
+            "3.4.3-132.el7.centos.0.1",
+            "yum"
+        ],
+        [
+            "yum-metadata-parser",
+            "1.1.4-10.el7",
+            "yum"
+        ],
+        [
+            "yum-plugin-fastestmirror",
+            "1.1.31-34.el7",
+            "yum"
+        ],
+        [
+            "yum-utils",
+            "1.1.31-34.el7",
+            "yum"
+        ],
+        [
+            "zlib",
+            "1.2.7-15.el7",
+            "yum"
+        ]
+    ],
+    "producer": "puppetmaster1",
+    "values": {
+        "architecture": "amd64",
+        "augeasversion": "1.2.0",
+        "bios_release_date": "07/31/2013",
+        "bios_vendor": "Phoenix Technologies LTD",
+        "bios_version": "6.00",
+        "blockdevice_fd0_size": 0,
+        "blockdevice_sda_model": "VMware Virtual S",
+        "blockdevice_sda_size": 21474836480,
+        "blockdevice_sda_vendor": "VMware,",
+        "blockdevice_sr0_model": "VMware IDE CDR10",
+        "blockdevice_sr0_size": 63019008,
+        "blockdevice_sr0_vendor": "NECVMWar",
+        "blockdevices": "fd0,sda,sr0",
+        "boardmanufacturer": "Intel Corporation",
+        "boardproductname": "440BX Desktop Reference Platform",
+        "boardserialnumber": "None",
+        "clientcert": "pg1.vm",
+        "clientnoop": false,
+        "clientversion": "3.7.1",
+        "concat_basedir": "/var/lib/puppet/concat",
+        "domain": "vm",
+        "facterversion": "2.2.0",
+        "filesystems": "btrfs,ext2,ext3,ext4,hfs,hfsplus,jfs,minix,msdos,ntfs,qnx4,ufs,vfat,xfs",
+        "fqdn": "pg1.vm",
+        "gid": "root",
+        "hardwareisa": "unknown",
+        "hardwaremodel": "x86_64",
+        "hostname": "pg1",
+        "id": "root",
+        "interfaces": "eth0,lo",
+        "ip6tables_version": "1.4.21",
+        "ipaddress": "192.168.182.196",
+        "ipaddress_eth0": "192.168.182.196",
+        "ipaddress_lo": "127.0.0.1",
+        "iptables_persistent_version": "1.0.2",
+        "iptables_version": "1.4.21",
+        "is_pe": false,
+        "is_virtual": "true",
+        "kernel": "Linux",
+        "kernelmajversion": "3.14",
+        "kernelrelease": "3.14-1-amd64",
+        "kernelversion": "3.14",
+        "lsbdistcodename": "jessie",
+        "lsbdistdescription": "Debian GNU/Linux testing (jessie)",
+        "lsbdistid": "Debian",
+        "lsbdistrelease": "testing",
+        "lsbmajdistrelease": "testing",
+        "macaddress": "00:0c:29:92:90:4b",
+        "macaddress_eth0": "00:0c:29:92:90:4b",
+        "manufacturer": "VMware, Inc.",
+        "memoryfree": "330.75 MB",
+        "memoryfree_mb": "330.75",
+        "memorysize": "487.80 MB",
+        "memorysize_mb": "487.80",
+        "mtu_eth0": "1500",
+        "mtu_lo": "65536",
+        "netmask": "255.255.255.0",
+        "netmask_eth0": "255.255.255.0",
+        "netmask_lo": "255.0.0.0",
+        "network_eth0": "192.168.182.0",
+        "network_lo": "127.0.0.0",
+        "operatingsystem": "Debian",
+        "operatingsystemmajrelease": "jessie/sid",
+        "operatingsystemrelease": "jessie/sid",
+        "os": {
+            "family": "Debian",
+            "lsb": {
+                "distcodename": "jessie",
+                "distdescription": "Debian GNU/Linux testing (jessie)",
+                "distid": "Debian",
+                "distrelease": "testing",
+                "majdistrelease": "testing"
+            },
+            "name": "Debian",
+            "release": {
+                "full": "jessie/sid",
+                "major": "jessie/sid"
+            }
+        },
+        "osfamily": "Debian",
+        "partitions": {
+            "sda1": {
+                "filesystem": "ext4",
+                "size": "40134656",
+                "uuid": "ee925853-7937-49a0-bac7-6ddc14ac6ea0"
+            },
+            "sda2": {
+                "size": "2"
+            },
+            "sda5": {
+                "filesystem": "swap",
+                "size": "1802240",
+                "uuid": "6c9a5331-48bf-4a3a-9fd0-61e5f7747e54"
+            }
+        },
+        "path": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "physicalprocessorcount": "1",
+        "processor0": "Intel(R) Core(TM) i7-3720QM CPU @ 2.60GHz",
+        "processorcount": "1",
+        "processors": {
+            "count": 1,
+            "models": [
+                "Intel(R) Core(TM) i7-3720QM CPU @ 2.60GHz"
+            ],
+            "physicalcount": 1
+        },
+        "productname": "VMware Virtual Platform",
+        "ps": "ps -ef",
+        "puppet_vardir": "/var/lib/puppet",
+        "puppetversion": "3.7.1",
+        "root_home": "/root",
+        "rubysitedir": "/usr/local/lib/site_ruby/2.1.0",
+        "rubyversion": "2.1.2",
+        "selinux": "false",
+        "serialnumber": "VMware-56 4d 89 39 d2 e2 bf c4-8b 13 3d e4 70 92 90 4b",
+        "sshdsakey": "AAAAB3NzaC1kc3MAAACBAO5DvSz1DIfg/Vs2PrdYqberMfoKEgp+UVqcDsPyjlRmEbo4vrJftHsAa+q5r8HxWaCrST9T/7NKUA5Jk/XqTl7dkJN8T5thc3tTf9R8Omn4t9AgPvH9qHeu5+ZL81FmSqLwFqWTmfu8E9T7iyCUZEF9lhaZgXeoclYxNv+EHqUlAAAAFQDzHMadzjId+1hSZ4GFvpCSjFQw1QAAAIBHeRElcS0R+cW4RdoWZoJ+KULS0avpgNnhvYIsGPtiSdj7ISjW0qROBfHlV9Vz6L24V5XZFXXb43SNX4X+AeJNsoyOM/IxXxatsieXJoSONux+8/uHh1mR3ngFJ6kawFnBl6STl+XY5RWBF3YpqxrQgC8zWGJuKyU3GTIX3osYygAAAIEAsFRH6baf1wEUN6EIMy7jCHnD8tmZ09xtPecpKRnVHdVVFzVz4gvJwwNr76B4u3n5jmIBZf7j641R4DIuG11WwTaQLSvhtfbdCf6elQPdSigsbFArfFBk5KchkdyBl0F1qtdrWo9ItjOVXQ/Vtf5aCk38s6Xt9zdXCMygo53/HY8=",
+        "sshecdsakey": "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMkSHGGBUgG7WB1l4Vt4QyYQmYkgZ43g395ykvtBwT36A8g+eI/u0GhgjI0F0XNuTAEyg0co9Gy9pKQHb/Vb+Ro=",
+        "sshfp_dsa": "SSHFP 2 1 442afb9cebd26da35c0b471198e2c1a06e32b3a1\nSSHFP 2 2 99564b767000a49b50190451b9e5216efd641f76a7d511d6dc03b907e79f3375",
+        "sshfp_ecdsa": "SSHFP 3 1 bbe7974ad1db74cd22e961e6826234453a4d1250\nSSHFP 3 2 2a140852b47c062b38d2f52cf7deb3db138ba0ea1833718f98b1c3e020e94740",
+        "sshfp_rsa": "SSHFP 1 1 8cd861884279884b677e65affddbc4a9b87c9689\nSSHFP 1 2 625f9209b61831e6a3eae9305ab73eda10d1136275bc4c4ca246f5d80b24dffc",
+        "sshrsakey": "AAAAB3NzaC1yc2EAAAADAQABAAABAQC6czEbXuaqhoyiOFmhuVKXOXfYSlD3RPAPjFi2HXRSB3fLEYQYTIck3NHyXlBxwCNHNXCkdhN17KNxUPeggzPon9vTrFk57weu0BX8J2Nkwz0uImtDGR+OAHIPVaeIizcT2Nqt3EdGiH7pRTIReEPFqFzq7yIhRZcJnj+F0j4n+RwKCbwgMrRInk3/i8U4IdqvXuyUkqLmCUoo9foXrWRbZ4z4eESFQ0+Pla/QZIH2YQ6Wkm12fRU03CM22DQEm7p5aeiaC+7bRhtRjVn9xUz8nQ9i1EbG2H4L4QGuolScFIxZ7jMn1JOFthava9bjRsZca/ZlYFZrRWDwU/R2gAVT",
+        "swapfree": "876.30 MB",
+        "swapfree_mb": "876.30",
+        "swapsize": "880.00 MB",
+        "swapsize_mb": "880.00",
+        "system_uptime": {
+            "days": 14,
+            "hours": 352,
+            "seconds": 1269675,
+            "uptime": "14 days"
+        },
+        "timezone": "BST",
+        "trusted": {
+            "authenticated": "remote",
+            "certname": "pg1.vm",
+            "extensions": {}
+        },
+        "type": "Other",
+        "uniqueid": "007f0101",
+        "uptime": "14 days",
+        "uptime_days": 14,
+        "uptime_hours": 352,
+        "uptime_seconds": 1269675,
+        "uuid": "564D8939-D2E2-BFC4-8B13-3DE47092904B",
+        "virtual": "vmware"
+    }
 }
