@@ -54,20 +54,6 @@ Note: This endpoint supports [dot notation][dotted] on the `facts` and
 
 * `trusted` (json): a JSON hash of trusted data for the node.
 
-### Subquery relationships
-
-The following list contains related entities that can be used to constrain the result set with implicit subqueries. For more information, consult the documentation for [subqueries][subqueries].
-
-* [`environments`][environments]: the environment where a node inventory exists.
-* [`factsets`][factsets]: the factset corresponding to a node inventory's certname.
-* [`catalogs`][catalogs]: the catalog corresponding to a node inventory's certname.
-* [`facts`][facts]: the facts corresponding to a node inventory's certname.
-* [`fact-contents`][fact-contents]: the fact contents corresponding to a node inventory's certname.
-* [`events`][events]: the events corresponding to a node inventory's certname.
-* [`edges`][edges]: the catalog edges corresponding to a node inventory's certname.
-* [`resources`][resources]: the resources corresponding to a node inventory's certname.
-* [`nodes`][nodes]: the node corresponding to an inventory.
-
 ### Response format
 Successful responses will be in `application/json`.
 

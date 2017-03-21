@@ -383,7 +383,9 @@ implicit relationships are supported.
 In PuppetDB, we keep a map of how different entities relate to each
 other, and therefore no data beyond the entity is needed in this case. This is
 different from explicit subqueries, where you must specify how
-two entities are related.
+two entities are related. Implicit subqueries can be used to join any two
+entities that have a `certname` field. Additional relationships are described
+in the endpoint-specific documentation as applicable.
 
 #### Implicit subquery examples
 

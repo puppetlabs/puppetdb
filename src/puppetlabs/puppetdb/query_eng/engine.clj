@@ -34,6 +34,19 @@
                               SqlCall SqlRaw
                               {:select s/Any s/Any s/Any}))
 
+(def certname-relations
+  {"factsets" {:columns ["certname"]}
+   "reports" {:columns ["certname"]}
+   "packages" {:columns ["certname"]}
+   "inventory" {:columns ["certname"]}
+   "catalogs" {:columns ["certname"]}
+   "nodes" {:columns ["certname"]}
+   "facts" {:columns ["certname"]}
+   "fact_contents" {:columns ["certname"]}
+   "events" {:columns ["certname"]}
+   "edges" {:columns ["certname"]}
+   "resources" {:columns ["certname"]}})
+
 (def column-schema
   "Column information: [\"value\" {:type :string :field f.value_string ...}]"
   {:type s/Keyword :field field-schema s/Any s/Any})
@@ -174,16 +187,7 @@
                             [:= :fs.certname :certnames.certname]]}
 
     :alias "inventory"
-    :relationships {"factsets" {:columns ["certname"]}
-                    "reports" {:columns ["certname"]}
-                    "catalogs" {:columns ["certname"]}
-                    "nodes" {:columns ["certname"]}
-                    "facts" {:columns ["certname"]}
-                    "fact_contents" {:columns ["certname"]}
-                    "events" {:columns ["certname"]}
-                    "edges" {:columns ["certname"]}
-                    "resources" {:columns ["certname"]}
-                    "packages" {:columns ["certname"]}}
+    :relationships certname-relations
 
     :dotted-fields ["facts\\..*" "trusted\\..*"]
     :entity :inventory
@@ -238,19 +242,7 @@
                                                    :queryable? true
                                                    :field :reports_environment.environment}}
 
-               :relationships {;; Children - direct
-                               "inventory" {:columns ["certname"]}
-                               "factsets" {:columns ["certname"]}
-                               "reports" {:columns ["certname"]}
-                               "catalogs" {:columns ["certname"]}
-                               "packages" {:columns ["certname"]}
-
-                               ;; Children - transitive
-                               "facts" {:columns ["certname"]}
-                               "fact_contents" {:columns ["certname"]}
-                               "events" {:columns ["certname"]}
-                               "edges" {:columns ["certname"]}
-                               "resources" {:columns ["certname"]}}
+               :relationships certname-relations
 
                :selection {:from [:certnames]
                            :left-join [:catalogs
@@ -387,17 +379,10 @@
                                        [:= :fs.environment_id :env.id]]
                            :where [:= :fp.depth 0]}
 
-               :relationships {;; Parents - direct
-                               "factsets" {:columns ["certname"]}
-                               "inventory" {:columns ["certname"]}
-                               ;; Parents - transitive
-                               "nodes" {:columns ["certname"]}
-                               "packages" {:columns ["certname"]}
-                               "environments" {:local-columns ["environment"]
-                                               :foreign-columns ["name"]}
-
-                               ;; Children - direct
-                               "fact_contents" {:columns ["certname" "name"]}}
+               :relationships (merge certname-relations
+                                     {"environments" {:local-columns ["environment"]
+                                                      :foreign-columns ["name"]}
+                                      "fact_contents" {:columns ["certname" "name"]}})
 
                :alias "facts"
                :source-table "facts"
@@ -453,15 +438,10 @@
                                        [:= :fs.environment_id :env.id]]
                            :where [:!= :vt.id 5]}
 
-               :relationships {;; Parents - direct
-                               "facts" {:columns ["certname" "name"]}
-                               "factsets" {:columns ["certname"]}
-
-                               ;; Parents - transitive
-                               "nodes" {:columns ["certname"]}
-                               "packages" {:columns ["certname"]}
-                               "environments" {:local-columns ["environment"]
-                                               :foreign-columns ["name"]}}
+               :relationships (merge certname-relations
+                                     {"facts" {:columns ["certname" "name"]}
+                                      "environments" {:local-columns ["environment"]
+                                                      :foreign-columns ["name"]}})
 
                :alias "fact_nodes"
                :source-table "facts"
@@ -614,16 +594,13 @@
                              :report_statuses
                              [:= :reports.status_id :report_statuses.id]]}
 
-     :relationships {;; Parents - direct
-                     "nodes" {:columns ["certname"]}
-                     "environments" {:local-columns ["environment"]
-                                     :foreign-columns ["name"]}
-                     "producers" {:local-columns ["producer"]
-                                  :foreign-columns ["name"]}
-
-                     ;; Children - direct
-                     "events" {:local-columns ["hash"]
-                               :foreign-columns ["report"]}}
+     :relationships (merge certname-relations
+                           {"environments" {:local-columns ["environment"]
+                                            :foreign-columns ["name"]}
+                            "producers" {:local-columns ["producer"]
+                                         :foreign-columns ["name"]}
+                            "events" {:local-columns ["hash"]
+                                      :foreign-columns ["report"]}})
 
      :alias "reports"
      :subquery? false
@@ -707,16 +684,11 @@
                              :producers
                              [:= :producers.id :c.producer_id]]}
 
-     :relationships {;; Parents - direct
-                     "node" {:columns ["certname"]}
-                     "environments" {:local-columns ["environment"]
-                                     :foreign-columns ["name"]}
-                     "producers" {:local-columns ["producer"]
-                                  :foreign-columns ["name"]}
-
-                     ;; Children - direct
-                     "edges" {:columns ["certname"]}
-                     "resources" {:columns ["certname"]}}
+     :relationships (merge certname-relations
+                           {"environments" {:local-columns ["environment"]
+                                            :foreign-columns ["name"]}
+                            "producers" {:local-columns ["producer"]
+                                         :foreign-columns ["name"]}})
 
      :alias "catalogs"
      :entity :catalogs
@@ -757,11 +729,7 @@
                                    [:= :edges.target :targets.resource]
                                    [:= :certnames.id :targets.certname_id]]]}
 
-               :relationships {;; Parents - direct
-                               "catalogs" {:columns ["certname"]}
-
-                               ;; Parents - transitive
-                               "nodes" {:columns ["certname"]}}
+               :relationships certname-relations
 
                :alias "edges"
                :subquery? false
@@ -899,14 +867,11 @@
                            :left-join [:environments
                                        [:= :reports.environment_id :environments.id]]}
 
-               :relationships {;; Parents - direct
-                               "reports" {:local-columns ["report"]
-                                          :foreign-columns ["hash"]}
-
-                               ;; Parents - transitive
-                               "nodes" {:columns ["certname"]}
-                               "environments" {:local-columns ["environment"]
-                                               :foreign-columns ["name"]}}
+               :relationships (merge certname-relations
+                                     {"reports" {:local-columns ["report"]
+                                                 :foreign-columns ["hash"]}
+                                      "environments" {:local-columns ["environment"]
+                                                      :foreign-columns ["name"]}})
 
                :alias "events"
                :subquery? false
@@ -1004,16 +969,7 @@
                            :left-join [:certnames
                                        [:= :pi.certname_id :certnames.id]]}
 
-               :relationships {"factsets" {:columns ["certname"]}
-                               "reports" {:columns ["certname"]}
-                               "catalogs" {:columns ["certname"]}
-                               "nodes" {:columns ["certname"]}
-                               "facts" {:columns ["certname"]}
-                               "fact_contents" {:columns ["certname"]}
-                               "events" {:columns ["certname"]}
-                               "edges" {:columns ["certname"]}
-                               "resources" {:columns ["certname"]}
-                               "inventory" {:columns ["certname"]}}
+               :relationships certname-relations
 
                :alias "packages"
                :subquery? false
@@ -1064,17 +1020,11 @@
                              :producers
                              [:= :producers.id :factsets.producer_id]]}
 
-     :relationships {;; Parents - direct
-                     "nodes" {:columns ["certname"]}
-                     "environments" {:local-columns ["environment"]
-                                     :foreign-columns ["name"]}
-                     "producers" {:local-columns ["producer"]
-                                  :foreign-columns ["name"]}
-
-                     ;; Children - direct
-                     "facts" {:columns ["certname"]}
-                     "fact_contents" {:columns ["certname"]}
-                     "packages" {:columns ["certname"]}}
+     :relationships (merge certname-relations
+                           {"environments" {:local-columns ["environment"]
+                                            :foreign-columns ["name"]}
+                            "producers" {:local-columns ["producer"]
+                                         :foreign-columns ["name"]}})
 
      :alias "factsets"
      :entity :factsets

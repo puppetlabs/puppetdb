@@ -51,9 +51,6 @@ See [the AST query language page][ast].
 The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information, consult the documentation for [subqueries][subqueries].
 
 * [`environments`][environments]: the environment a factset was received from.
-* [`facts`][facts]: fact names and values received from a factset.
-* [`fact_contents`][fact-contents]: factset paths and values received from a factset.
-* [`nodes`][nodes]: the node that a factset was received from.
 * [`producers`][producers]: the master that sent the factset to PuppetDB.
 
 ### Response format

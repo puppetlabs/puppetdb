@@ -56,11 +56,8 @@ The following list contains related entities that can be used to constrain the
 result set using implicit subqueries. For more information consult the
 documentation for [subqueries][subqueries].
 
-* [`nodes`][nodes]: node for a catalog.
 * [`producers`][producers]: the master that sent the catalog to PuppetDB.
 * [`environments`][environments]: environment for a catalog.
-* [`edges`][edges]: resource edges received for a catalog.
-* [`resources`][resources]: resources received for a catalog.
 
 ### Response format
 

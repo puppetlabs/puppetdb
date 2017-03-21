@@ -112,7 +112,6 @@ See [the AST query language page][ast] for the full list of available operators.
 The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information consult the documentation for [subqueries][subqueries].
 
 * [`reports`][reports]: the report associated with an event.
-* [`nodes`][nodes]: the node associated with an this event.
 * [`environments`][environments]: the environment associated with an event.
 
 ### Response format

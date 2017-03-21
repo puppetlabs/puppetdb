@@ -103,8 +103,6 @@ documentation for [subqueries][subqueries].
 
 * [`environment`][environments]: the environment for a fact-content.
 * [`facts`][facts]: the fact where this a fact-content occurs.
-* [`factsets`][factsets]: the factset where a fact-content occurs.
-* [`nodes`][nodes]: the node where a fact-content occurs.
 
 ## Response format
 

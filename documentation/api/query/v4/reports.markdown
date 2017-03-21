@@ -127,7 +127,6 @@ documentation for [subqueries][subqueries].
 
 * [`environments`][environments]: environment from where a report was received.
 * [`events`][events]: events received in a report.
-* [`nodes`][nodes]: node from where a report was received.
 * [`producers`][producers]: the master that sent the report to PuppetDB.
 
 ### Response format
