@@ -42,7 +42,7 @@
          [:is-not (:field col1) nil]
          (->NullExpression col1 false)
 
-         "SELECT table.foo AS foo FROM table WHERE (1 = 1)"
+         "WITH inactive_nodes AS (SELECT certname FROM certnames WHERE (deactivated IS NOT NULL OR expired IS NOT NULL)) SELECT table.foo AS foo FROM table WHERE (1 = 1)"
          (map->Query {:projections {"foo" {:type :string
                                            :queryable? true
                                            :field :table.foo}}
@@ -73,12 +73,9 @@
          (expand-user-query [["=" "prop" "foo"]])))
 
   (is (= [["=" "prop" "foo"]
-          ["in" "certname"
-           ["extract" "certname"
-            ["select_nodes"
-             ["and"
-              ["null?" "deactivated" true]
-              ["null?" "expired" true]]]]]]
+          ["not" ["in" "certname"
+                  ["extract" "certname"
+                   ["select_inactive_nodes"]]]]]
          (expand-user-query [["=" "prop" "foo"]
                              ["=" ["node" "active"] true]])))
   (is (= [["=" "prop" "foo"]

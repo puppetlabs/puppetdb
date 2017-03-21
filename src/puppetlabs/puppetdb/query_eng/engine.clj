@@ -909,6 +909,15 @@
                :entity :events
                :source-table "resource_events"}))
 
+(def inactive-nodes-query
+  (map->Query {:projections {"certname" {:type :string
+                                         :queryable? true
+                                         :field :inactive_nodes.certname}}
+               :selection {:from [:inactive_nodes]}
+               :subquery? false
+               :alias "inactive_nodes"
+               :source-table "inactive_nodes"}))
+
 (def latest-report-query
   "Usually used as a subquery of reports"
   (map->Query {:projections {"latest_report_hash" {:type :string
@@ -1065,6 +1074,15 @@
                      [honeysql-fncall (get pg-fns->pdb-fns function)]
                      honeysql-fncall)))))
 
+(defn wrap-with-inactive-nodes-cte
+  "Wrap a selection in a CTE representing expired or deactivated certnames"
+  [selection]
+  (assoc selection :with {:inactive_nodes {:select [:certname]
+                                           :from [:certnames]
+                                           :where [:or
+                                                   [:is-not :deactivated nil]
+                                                   [:is-not :expired nil]]}}))
+
 (defn honeysql-from-query
   "Convert a query to honeysql format"
   [{:keys [projected-fields group-by call selection projections entity]}]
@@ -1077,8 +1095,10 @@
                                    (mapv (fn [[name {:keys [field]}]]
                                            [field name])))
                               fs)))
-        new-selection (cond-> (assoc selection :select select)
-                        group-by (assoc :group-by group-by))]
+        new-selection (-> selection
+                          (assoc :select select)
+                          wrap-with-inactive-nodes-cte
+                          (cond-> group-by (assoc :group-by group-by)))]
     (log/spy new-selection)))
 
 (pls/defn-validated sql-from-query :- String
@@ -1253,6 +1273,7 @@
    "select_fact_contents" fact-contents-query
    "select_fact_paths" fact-paths-query
    "select_nodes" nodes-query
+   "select_inactive_nodes" inactive-nodes-query
    "select_latest_report" latest-report-query
    "select_params" resource-params-query
    "select_reports" reports-query
@@ -1315,14 +1336,13 @@
               ["and" ["=" "depth" 0] [op "value" value]])
 
             [["=" ["node" "active"] value]]
-            ["in" "certname"
-             ["extract" "certname"
-              ["select_nodes"
-               (if value
-                 ["and" ["null?" "deactivated" true]
-                        ["null?" "expired" true]]
-                 ["or" ["null?" "deactivated" false]
-                       ["null?" "expired" false]])]]]
+            (if value
+              ["not" ["in" "certname"
+                      ["extract" "certname"
+                       ["select_inactive_nodes"]]]]
+              ["in" "certname"
+               ["extract" "certname"
+                ["select_inactive_nodes"]]])
 
             [[(op :guard #{"=" "~"}) ["parameter" param-name] param-value]]
             ["in" "resource"
