@@ -5,6 +5,7 @@
              [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
              [puppetlabs.puppetdb.http :as http]
              [clj-time.core :refer [days ago]]
+             [flatland.ordered.map :as omap]
              [puppetlabs.puppetdb.jdbc :as jdbc]
              [puppetlabs.puppetdb.testutils.db :refer [*db*]]
              [puppetlabs.puppetdb.scf.storage :as scf-store]))
@@ -24,6 +25,48 @@
    :package_name package-name
    :version version
    :provider provider})
+
+(def queries->results
+  (omap/ordered-map
+    ["=" "certname" "node1"]
+    #{(package-map "node1" "foo" "1.2.3" "apt")
+      (package-map "node1" "bar" "2.3.4" "apt")
+      (package-map "node1" "baz" "3.4.5" "apt")}
+
+
+    "packages { certname = 'node1' }"
+    #{(package-map "node1" "foo" "1.2.3" "apt")
+      (package-map "node1" "bar" "2.3.4" "apt")
+      (package-map "node1" "baz" "3.4.5" "apt")}
+
+
+    ["and" ["=" "package_name" "bar"] ["=" "version" "2.3.4"]]
+    #{(package-map "node1" "bar" "2.3.4" "apt")
+      (package-map "node2" "bar" "2.3.4" "apt")}
+
+
+    ["extract" ["certname" "package_name" "version" "provider"]
+     ["and"
+      ["~" "package_name" "ba?"]]]
+    #{(package-map "node1" "bar" "2.3.4" "apt")
+      (package-map "node1" "baz" "3.4.5" "apt")
+      (package-map "node2" "bar" "2.3.4" "apt")}
+
+    ["extract" ["package_name" "version" ["function" "count" "certname"]]
+     ["~" "package_name" "ba?"]
+     ["group_by" "package_name" "version"]]
+    #{{:package_name "bar" :version "2.3.4" :count 2}
+      {:package_name "baz" :version "3.4.5" :count 1}}
+
+
+    ["extract" ["certname" "version"]
+     ["and"
+      ["=" "package_name" "foo"]
+      ["subquery" "fact_contents"
+       ["and"
+        ["~>" "path" ["os" "name"]]
+        ["=" "value" "Ubuntu"]]]]]
+    #{{:certname "node1" :version "1.2.3"}}))
 
 (deftest-http-app package-query-test
   [method [:get :post]]
@@ -50,55 +93,15 @@
       (scf-store/add-facts! fact-cmd-1)
       (scf-store/add-facts! fact-cmd-2))
 
-    (testing "by certname"
-      (is-query-result "/v4"
-                       ["from" "packages" ["=" "certname" "node1"]]
-                       #{(package-map "node1" "foo" "1.2.3" "apt")
-                         (package-map "node1" "bar" "2.3.4" "apt")
-                         (package-map "node1" "baz" "3.4.5" "apt")}))
+    (doseq [[query result] queries->results]
+      (if (vector? query)
+        (do (is-query-result "/v4" ["from" "packages" query]
+                             result)
+            (is-query-result "/v4/packages" query
+                             result))
+        (is-query-result "/v4" query result)))
 
-    (testing "by certname, with pql"
-      (is-query-result "/v4"
-                       "packages { certname = 'node1' }"
-                       #{(package-map "node1" "foo" "1.2.3" "apt")
-                         (package-map "node1" "bar" "2.3.4" "apt")
-                         (package-map "node1" "baz" "3.4.5" "apt")}))
-
-    (testing "by package name and version"
-      (is-query-result "/v4"
-                       ["from" "packages" ["and"
-                                           ["=" "package_name" "bar"]
-                                           ["=" "version" "2.3.4"]]]
-                       #{(package-map "node1" "bar" "2.3.4" "apt")
-                         (package-map "node2" "bar" "2.3.4" "apt")}))
-
-    (testing "by regex over package name"
-      (is-query-result "/v4"
-                       ["from" "packages"
-                        ["extract" ["certname" "package_name" "version" "provider"]
-                         ["and"
-                          ["~" "package_name" "ba?"]]]]
-                       #{(package-map "node1" "bar" "2.3.4" "apt")
-                         (package-map "node1" "baz" "3.4.5" "apt")
-                         (package-map "node2" "bar" "2.3.4" "apt")}))
-
-    (testing "by package named, grouped over package and version with counts"
-      (is-query-result "/v4"
-                       ["from" "packages"
-                        ["extract" ["package_name" "version" ["function" "count" "certname"]]
-                         ["~" "package_name" "ba?"]
-                         ["group_by" "package_name" "version"]]]
-                       #{{:package_name "bar" :version "2.3.4" :count 2}
-                         {:package_name "baz" :version "3.4.5" :count 1}}))
-
-    (testing "On all ubuntu machines, what version of 'foo' to I have?"
-      (is-query-result "/v4"
-                       ["from" "packages"
-                        ["extract" ["certname" "version"]
-                         ["and"
-                          ["=" "package_name" "foo"]
-                          ["subquery" "fact_contents"
-                           ["and"
-                            ["~>" "path" ["os" "name"]]
-                            ["=" "value" "Ubuntu"]]]]]]
-                       #{{:certname "node1" :version "1.2.3"}}))))
+    (testing "querying for a specific node"
+      (is-query-result "/v4/packages/node2" nil
+                       #{(package-map "node2" "bar" "2.3.4" "apt")
+                         (package-map "node2" "foo" "1.2.3" "apt")}))))
