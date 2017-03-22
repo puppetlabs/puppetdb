@@ -63,8 +63,9 @@
   [& args]
   (let [{:keys [outfile base-url anonymization]} (validate-cli! args)]
     (println (str "[deprecated] The PuppetDB export command is deprecated in "
-                  "favor of exports via the Puppet 'db' subcommand. See "
-                  "'man puppet-db' for usage instructions."))
+                  "favor of exports via the PuppetDB CLI tool. "
+                  "See https://docs.puppet.com/puppetdb/latest/pdb_client_tools.html#puppetdb-cli "
+                  "for installation and usage instructions."))
     (println (str "Triggering export to " outfile " at " (now) "..."))
     (trigger-export-via-http! base-url outfile anonymization)
     (println (str "Finished export to " outfile " at " (now) "."))))
