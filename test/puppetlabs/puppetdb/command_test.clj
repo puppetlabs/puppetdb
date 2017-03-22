@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.command-test
   (:require [me.raynes.fs :as fs]
             [clojure.java.jdbc :as sql]
+            [metrics.counters :as counters]
             [metrics.meters :as meters]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants
@@ -32,7 +33,8 @@
             [puppetlabs.puppetdb.jdbc :refer [query-to-vec] :as jdbc]
             [puppetlabs.puppetdb.jdbc-test :refer [full-sql-exception-msg]]
             [puppetlabs.puppetdb.examples :refer :all]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils]
+            [puppetlabs.puppetdb.testutils.services :as svc-utils
+             :refer [*server*]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [clj-time.coerce
              :refer [from-sql-date to-timestamp to-date-time to-string]]
@@ -48,6 +50,7 @@
             [puppetlabs.kitchensink.core :as ks]
             [clojure.string :as str]
             [puppetlabs.stockpile.queue :as stock]
+            [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.testutils.nio :as nio]
             [puppetlabs.puppetdb.testutils.queue :as tqueue
              :refer [catalog->command-req facts->command-req report->command-req deactivate->command-req]]
@@ -56,7 +59,8 @@
              :refer [service-context]]
             [overtone.at-at :refer [mk-pool scheduled-jobs]]
             [puppetlabs.puppetdb.testutils :as tu])
-  (:import [java.util.concurrent TimeUnit]
+  (:import [java.nio.file Files]
+           [java.util.concurrent TimeUnit]
            [org.joda.time DateTime DateTimeZone]))
 
 (defrecord CommandHandlerContext [message-handler command-chan dlo delay-pool response-chan q]
@@ -238,9 +242,7 @@
                           (queue/store-command q))]
           (is (:payload (queue/cmdref->cmd q cmdref)))
           (handle-message cmdref)
-          (is (thrown+-with-msg? [:kind :puppetlabs.stockpile.queue/no-such-entry]
-                                 #"No file found"
-                                 (queue/cmdref->cmd q cmdref)))
+          (is (not (queue/cmdref->cmd q cmdref)))
           (is (= 0 (task-count delay-pool)))
           (is (= 0 (count (fs/list-dir (:path dlo)))))))))
 
@@ -1471,3 +1473,62 @@
                "Waited up to 5 seconds for 3 acknowledgement results")
 
            (is (= [nil nil nil] @ack-results))))))))
+
+(deftest missing-queue-files-accounted-for-in-stats
+  ;; Use a lock to hold up command processing while we trash the
+  ;; queue.
+  (let [cmd-gate (Object.)
+        orig-handler message-handler]
+    (with-redefs [message-handler (fn [& wrap-args]
+                                    (let [h (apply orig-handler wrap-args)]
+                                      (fn [& handle-args]
+                                        (locking cmd-gate
+                                          (apply h handle-args)))))]
+      (svc-utils/with-puppetdb-instance
+        (let [dispatcher (get-service *server* :PuppetDBCommandDispatcher)
+              enqueue-command (partial enqueue-command dispatcher)
+              stats #(stats dispatcher)
+              deactivate (fn [name]
+                           (enqueue-command (command-names :deactivate-node)
+                                            3 name nil
+                                            (tqueue/coerce-to-stream
+                                             {:certname name
+                                              :producer_timestamp (now)})
+                                            ""))
+              depths #(vector (counters/value (global-metric :depth))
+                              (some-> (cmd-metric "deactivate node" 3 :depth)
+                                      counters/value))
+              seen-rates #(vector (meters/rates (global-metric :seen))
+                                  (some-> (cmd-metric "deactivate node" 3 :seen)
+                                          meters/rates))
+              qdir (get-path (conf/stockpile-dir (get-config)) "cmd" "q")
+              start-stats (stats)
+              start-depths (depths)
+              start-seen (seen-rates)]
+          ;; Enqueue a few commands
+          (locking cmd-gate
+            (deactivate "x.local")
+            (deactivate "y.local")
+            (deactivate "z.local")
+            (doseq [i (range (/ default-timeout-ms 20))
+                    :while (not= 3 (- (:received-commands (stats))
+                                      (:received-commands start-stats)))]
+              (Thread/sleep 20))
+            (is (= (map #(+ (or % 0) 3) start-depths)
+                   (depths)))
+            ;; Delete their files
+            (is (= 3 (count (for [p (-> (Files/newDirectoryStream qdir)
+                                        .iterator
+                                        iterator-seq)]
+                              (do (Files/delete p) p))))))
+          ;; Lock has been released, wait for queue to drain
+          (doseq [i (range (/ default-timeout-ms 20))
+                  :while (not= [0 0] (depths))]
+            (Thread/sleep 20))
+          (is (= [0 0] (depths)))
+          (let [[global cmd] (seen-rates)
+                [start-global start-cmd] start-seen]
+            ;; Can't check for a non-zero rate too because if you mark
+            ;; fast enough, initially (at least), the rates can be zero.
+            (is (= (+ 3 (:total start-global)) (:total global)))
+            (is (= (+ 3 (or (:total start-cmd) 0)) (:total cmd)))))))))

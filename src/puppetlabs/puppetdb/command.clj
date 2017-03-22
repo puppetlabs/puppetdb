@@ -486,22 +486,29 @@
   [cmdref q scf-write-db response-chan stats]
   (let [{:keys [command version] :as cmd} (queue/cmdref->cmd q cmdref)
         retries (count (:attempts cmdref))]
+    (if-not cmd
+      ;; Queue file is missing
+      (let [{:keys [command version]} cmdref]
+        (create-metrics-for-command! command version)
+        (mark-both-metrics! command version :seen)
+        (update-counter! :depth command version dec!)
+        (mark! (global-metric :fatal)))
+      (do
+        (create-metrics-for-command! command version)
 
-    (create-metrics-for-command! command version)
+        (mark-both-metrics! command version :seen)
+        (update! (global-metric :retry-counts) retries)
+        (update! (cmd-metric command version :retry-counts) retries)
 
-    (mark-both-metrics! command version :seen)
-    (update! (global-metric :retry-counts) retries)
-    (update! (cmd-metric command version :retry-counts) retries)
+        (mutils/multitime!
+         [(global-metric :processing-time)
+          (cmd-metric command version :processing-time)]
 
-    (mutils/multitime!
-     [(global-metric :processing-time)
-      (cmd-metric command version :processing-time)]
+         (process-command-and-respond! cmd scf-write-db response-chan stats)
+         (mark-both-metrics! command version :processed))
 
-     (process-command-and-respond! cmd scf-write-db response-chan stats)
-     (mark-both-metrics! command version :processed))
-
-    (queue/ack-command q cmd)
-    (update-counter! :depth command version dec!)))
+        (queue/ack-command q cmd)
+        (update-counter! :depth command version dec!)))))
 
 (def command-delay-ms (* 1000 60 60))
 

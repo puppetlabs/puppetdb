@@ -250,21 +250,31 @@
                  file-extension))))
 
 (defn cmdref->cmd [q cmdref]
+  "Returns the command associated with cmdref, or nil if the file is
+  missing (i.e. it's been deleted)."
   (let [compression (:compression cmdref)
-        entry (cmdref->entry cmdref)]
-    (with-open [command-stream (stock/stream q entry)]
-      (assoc cmdref
-        ;; For performance reasons, it's best to wrap any decompression stream
-        ;; around the original command stream before calling into stream->json.
-        ;; stream->json wraps it's own BufferedReader around the stream before
-        ;; parsing bytes from it as json.  From testing, we've seen that if we
-        ;; wrap an extra buffered input stream between the original command
-        ;; stream and the decompressing stream, Gzip in particular, that
-        ;; throughput would be much worse - could be up to 400x times slower.
-        :payload (stream->json (wrap-decompression-stream
-                                compression
-                                command-stream))
-        :entry entry))))
+        entry (cmdref->entry cmdref)
+        stream (try+
+                (stock/stream q entry)
+                (catch [:kind ::stock/no-such-entry] {:keys [entry source]}
+                  ;; Do we want the entry, path or both in the log?
+                  ;; The entry will contain the id and metadata
+                  ;; string; source is the actual path.
+                  (log/error (trs "Command has disappeared: {0}"
+                                  (pr-str entry)))
+                  nil))]
+    (when stream
+      (with-open [command-stream stream]
+        (assoc cmdref
+               ;; Don't explicitly buffer the compressed data stream.
+               ;; Testing has revealed that buffering the stream
+               ;; feeding the decompressor can reduce json throughput
+               ;; by up to 400x.  Note that stream->json will already
+               ;; be applying a BufferedReader to the incoming bytes.
+               :payload (stream->json (wrap-decompression-stream
+                                       compression
+                                       command-stream))
+               :entry entry)))))
 
 (defn cons-attempt [cmdref exception]
   (update cmdref :attempts conj {:exception exception
