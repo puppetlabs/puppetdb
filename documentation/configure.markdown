@@ -10,7 +10,6 @@ canonical: "/puppetdb/latest/configure.html"
 [pg_trgm]: http://www.postgresql.org/docs/current/static/pgtrgm.html
 [postgres_ssl]: ./postgres_ssl.html
 [module]: ./install_via_module.html
-[low_catalog_dupe]: ./trouble_low_catalog_duplication.html
 [puppetdb.conf]: ./connect_puppet_master.html#edit-puppetdbconf
 
 Summary

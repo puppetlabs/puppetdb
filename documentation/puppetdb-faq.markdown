@@ -7,7 +7,6 @@ subtitle: "Frequently asked questions"
 [trouble_kahadb]: ./trouble_kahadb_corruption.html
 [maintaining_tuning]: ./maintain_and_tune.html
 [connect_puppet_apply]: ./connect_puppet_apply.html
-[low_catalog_dupe]: ./trouble_low_catalog_duplication.html
 [puppetdb3]: /puppetdb/3.2/migrate.html
 
 ## Can I migrate my data from ActiveRecord storeconfigs?
@@ -106,15 +105,6 @@ cause of execessive load on the database server is a low catalog duplication
 rate. See the [PuppetDB dashboard][maintaining_tuning] to find this rate for
 your PuppetDB instance. If this rate is significantly lower than 90%, see
 [Why is my catalog duplication rate so low?](#why-is-my-catalog-duplication-rate-so-low).
-
-## Why is my catalog duplication rate so low?
-
-The catalog duplication rate can be found on the
-[dashboard][maintaining_tuning]. Typically, the duplication rate should be 90%
-or above. If the duplication rate is lower, it might cause a much heavier I/O
-load on the database. Refer to the
-[low catalog duplication troubleshooting guide][low_catalog_dupe] for help
-diagnosing the problem.
 
 ## My Puppet master is running slower since I enabled PuppetDB. How can I profile it?
 
