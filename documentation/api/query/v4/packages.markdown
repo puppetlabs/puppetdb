@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.4: Packages entity"
+title: "PuppetDB 4.4: Packages endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/packages.html"
 ---
@@ -9,8 +9,6 @@ canonical: "/puppetdb/latest/api/query/v4/packages.html"
 [query]: ./query.html
 [subqueries]: ./ast.html#subquery-operators
 [facts-format]: ../../wire_format/facts_format_v5.html
-[ast]: ./ast.html
-[pql]: ./pql.html
 [factsets]: ./factsets.html
 [reports]: ./reports.html
 [catalogs]: ./catalogs.html
@@ -22,15 +20,15 @@ canonical: "/puppetdb/latest/api/query/v4/packages.html"
 [resources]: ./resources.html
 [inventory]: ./inventory.html
 
-Package metadata collection, storage, and query is primarily a Puppet Enterprise
-feature. This data is queryable from PuppetDB if it is submitted via the
-`package_inventory` key in the payload of the `store facts` command, as
-described in the [facts format documentation.][facts-format]
+> **PE feature**: Package metadata collection, storage, and query is primarily
+> a Puppet Enterprise feature. This data is queryable from PuppetDB if it is
+> submitted via the `package_inventory` key in the payload of the `store facts`
+> command, as described in the [facts format documentation.][facts-format]
 
-## Packages entity (root query endpoint)
+## `/pdb/query/v4/packages`
 
-Package data is available via the root query endpoint, using the `packages`
-entity name in [PQL][pql] or with a `["from" "packages"]` [AST][ast] query.
+Returns all installed packages, across all nodes, that match the provided
+query.
 
 ### Query fields
 
@@ -78,7 +76,15 @@ The array is unsorted by default.
 
 [You can use `curl`][curl] to query information about nodes:
 
-    curl 'http://localhost:8080/pdb/query/v4' -d  'query=packages {certname="agent1"}'
+    curl 'http://localhost:8080/pdb/query/v4' -d  'query=packages{ certname = "agent1" }'
+
+    curl http://localhost:8080/pdb/query/v4/packages -d 'query=["=", "certname", "agent1"]'
+
+## `/pdb/query/v4/packages/<CERTNAME>
+
+This will return all packages installed on the provided certname. It behaves
+exactly like a call to `/pdb/query/v4/packages` with a query string of `["=",
+"certname", <CERTNAME>]`.
 
 
 ## Paging

@@ -249,6 +249,17 @@
                 (create-query-handler version "inventory"
                                       http-q/restrict-query-to-active-nodes)))))
 
+(pls/defn-validated packages-routes :- bidi-schema/RoutePair
+  [version :- s/Keyword]
+  (extract-query
+    (cmdi/routes
+      (cmdi/ANY "" []
+                (create-query-handler version "packages"
+                                      http-q/restrict-query-to-active-nodes))
+      (cmdi/context ["/" :node]
+                    (cmdi/ANY "" [] (create-query-handler version "packages"
+                                                          http-q/restrict-query-to-node))))))
+
 (pls/defn-validated factset-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
