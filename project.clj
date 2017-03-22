@@ -11,7 +11,7 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def i18n-version "0.6.0")
+(def i18n-version "0.7.1")
 
 (def pdb-jvm-opts
   (case (System/getProperty "java.specification.version")
