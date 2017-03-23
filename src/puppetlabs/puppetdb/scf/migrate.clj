@@ -1242,6 +1242,12 @@
 
    "create index package_certname_idx on package_inventory using btree (certname_id)"))
 
+(defn add-better-package-inventory-indexing []
+  (jdbc/do-commands
+   "create index package_name_provider_version_idx on package_inventory using btree (name, provider, version)"
+   ["create index certnames_inactive_idx on certnames using btree (certname)"
+    "  where deactivated is not null or expired is not null"]))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1276,7 +1282,8 @@
    54 drop-resource-events-resource-type-idx
    55 index-certnames-unique-latest-report-id
    56 merge-fact-values-into-facts
-   57 add-package-inventory})
+   57 add-package-inventory
+   58 add-better-package-inventory-indexing})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -1408,7 +1415,12 @@
     (log/info (trs "Creating additional index `facts_value_string_trgm`"))
     (jdbc/do-commands
      ["create index facts_value_string_trgm on facts"
-      "  using gin (value_string gin_trgm_ops)"])))
+      "  using gin (value_string gin_trgm_ops)"]))
+  (when-not (sutils/index-exists? "package_name_trgm")
+    (log/info (trs "Creating additional index `package_name_trgm`"))
+    (jdbc/do-commands
+     ["create index package_name_trgm on package_inventory"
+      "  using gin (name gin_trgm_ops)"])))
 
 (defn indexes!
   "Create missing indexes for applicable database platforms."
