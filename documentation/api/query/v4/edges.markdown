@@ -42,13 +42,6 @@ See [the AST query language page][ast].
 * `target_title` (string): the target resource title.
 * `target_type` (string, with first letter always capitalized): the target resource type.
 
-### Subquery relationships
-
-The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information consult the documentation for [subqueries][subqueries].
-
-* [`nodes`][nodes]: node entity for the catalog of an edge.
-* [`catalogs`][catalogs]: catalog entity for an edge.
-
 ### Response format
 
 The response is a JSON array of hashes, where each hash has the form:

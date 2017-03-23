@@ -95,7 +95,7 @@
 
       ;; Simplistic 1 column examples (catalogs example)
       (map->Query {:relationships
-                   {"resources" {:columns ["certname"]}}})
+                   certname-relations})
       ["subquery" "resources"
        ["=" "type" "Class"]]
       ["in" ["certname"]

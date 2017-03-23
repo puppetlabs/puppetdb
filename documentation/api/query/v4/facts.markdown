@@ -45,9 +45,7 @@ See [the AST query language page][ast].
 The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information, consult the documentation for [subqueries][subqueries].
 
 * [`environments`][environments]: the environment where a fact occurs.
-* [`factsets`][factsets]: the factset where a fact appears.
 * [`fact_contents`][fact-contents]: expanded fact paths and values for a fact.
-* [`nodes`][nodes]: the node where a fact occurs.
 
 ### Response format
 

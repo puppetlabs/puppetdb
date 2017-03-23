@@ -43,24 +43,6 @@ query.
 * `provider` (string): The name of the provider which the package data came from;
   typically the name of the packaging system. (e.g. `apt`)
 
-### Subquery relationships
-
-The following list contains related entities that can be used to constrain the
-result set by using implicit subqueries. For more information, consult the
-documentation for [subqueries][subqueries].
-
-* [`factsets`] [factsets]
-* [`reports`] [reports]
-* [`catalogs`] [catalogs]
-* [`nodes`] [nodes]
-* [`facts`] [facts]
-* [`fact_contents`] [fact_contents]
-* [`events`] [events]
-* [`edges`] [edges]
-* [`resources`] [resources]
-* [`inventory`] [inventory]
-* [`packages`] [packages]
-
 ### Response format
 
 The response is a JSON array of hashes, where each hash has the form:

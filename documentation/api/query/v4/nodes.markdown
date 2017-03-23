@@ -83,21 +83,6 @@ The below fields are allowed as filter criteria and are returned in all response
     Note that nodes which are missing a fact referenced by a `not` query will match
     the query.
 
-### Subquery relationships
-
-Here is a list of related entities that can be used to constrain the result set using
-implicit subqueries. For more information, consult the documentation for [subqueries][subqueries].
-
-* [`inventory`][inventory]: inventory for a node.
-* [`factsets`][factsets]: factsets received for a node.
-* [`reports`][reports]: reports received for a node.
-* [`catalogs`][catalogs]: catalogs received for a node.
-* [`facts`][facts]: fact names and values received for a node.
-* [`fact_contents`][fact-contents]: factset paths and values received for a node.
-* [`events`][events]: report events triggered for a node.
-* [`edges`][edges]: catalog edges received for a node.
-* [`resources`][resources]: catalog resources received for a node.
-
 ### Response format
 
 The response is a JSON array of hashes, where each hash has the form:
