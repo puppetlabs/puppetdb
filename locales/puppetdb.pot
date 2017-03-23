@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 4d66b053486036c25ffa757a7f887bdc7df95584\n"
+"X-Git-Ref: bf2a67f6e5d09e8b559544d3850f939efa124a7b\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1071,6 +1071,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Creating additional index `facts_value_string_trgm`"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Creating additional index `package_name_trgm`"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
