@@ -438,3 +438,8 @@
 
 (def supported-content-encodings
   (vec (keys content-encodings->file-extensions)))
+
+(defn strip-nil-values
+  "remove all nil-valued keys from a map"
+  [m]
+  (into {} (filter val m)))

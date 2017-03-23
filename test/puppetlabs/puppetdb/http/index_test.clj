@@ -112,6 +112,15 @@
           (is (= "host2" (:certname (first results))))
           (is (= 2 (count results)))))
 
+      (testing "with limit in the options and offset in the query"
+        (let [results (ordered-query-result
+                        method endpoint
+                        ["from" "nodes" ["order_by" [["certname" "desc"]]]
+                         ["offset" 1]]
+                        {:limit 1})]
+          (is (= "host2" (:certname (first results))))
+          (is (= 1 (count results)))))
+
       (testing "in a subquery"
         (doseq [query [["from" "catalogs"
                         ["in" "certname"

@@ -162,8 +162,12 @@
                                                           version query warn-experimental)
          paging-options (some-> paging-clauses
                                 (rename-keys {:order-by :order_by})
-                                (update :order_by paging/munge-query-ordering))
-         query-options (merge (dissoc query-map :query) paging-options)]
+                                (update :order_by paging/munge-query-ordering)
+                                utils/strip-nil-values)
+         query-options (->> (dissoc query-map :query)
+                            utils/strip-nil-values
+                            (merge {:limit nil :offset nil :order_by nil}
+                                   paging-options))]
      {:query query :remaining-query remaining-query :entity entity :query-options query-options})))
 
 (pls/defn-validated produce-streaming-body
