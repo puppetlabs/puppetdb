@@ -118,39 +118,6 @@
                           (rand-nth mutate-fns))]
     (mutation-fn catalog)))
 
-(declare random-fact-value-vector)
-
-(defn random-fact-value
-  "Given a type, generate a random fact value"
-  ([] (random-fact-value (rand-nth [:int :float :bool :string :vector])))
-  ([kind]
-   (case kind
-     :int (rand-int 300)
-     :float (rand)
-     :bool (random-bool)
-     :string (random-string 4)
-     :vector (random-fact-value-vector))))
-
-(defn random-fact-value-vector
-  []
-  (-> (rand-int 10)
-      (repeatedly #(random-fact-value (rand-nth [:string :int :float :bool])))
-      vec))
-
-(defn random-structured-fact
-  "Create a 'random' structured fact.
-  Parameters are fact depth and number of child facts.  Depth 0 implies one child."
-  ([]
-   (random-structured-fact (rand-nth [0 1 2 3])
-                           (rand-nth [1 2 3 4])))
-  ([depth children]
-   {(random-string 10)
-    (if (zero? depth)
-      (random-fact-value)
-      (zipmap (repeatedly children #(random-string 10))
-              (repeatedly children #(random-structured-fact (rand-nth (range depth))
-                                                            (rand-nth (range children))))))}))
-
 (defn update-catalog
   "Slightly tweak the given catalog, returning a new catalog, `rand-percentage`
    percent of the time."
