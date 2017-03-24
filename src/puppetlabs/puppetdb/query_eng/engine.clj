@@ -1074,7 +1074,7 @@
 
 (defn honeysql-from-query
   "Convert a query to honeysql format"
-  [{:keys [projected-fields group-by call selection projections entity]}]
+  [{:keys [projected-fields group-by call selection projections entity subquery?]}]
   (let [fs (seq (map (comp hcore/raw :statement) call))
         select (if (and fs
                         (empty? projected-fields))
@@ -1084,9 +1084,8 @@
                                    (mapv (fn [[name {:keys [field]}]]
                                            [field name])))
                               fs)))
-        new-selection (-> selection
+        new-selection (-> (cond-> selection (not subquery?) wrap-with-inactive-nodes-cte)
                           (assoc :select select)
-                          wrap-with-inactive-nodes-cte
                           (cond-> group-by (assoc :group-by group-by)))]
     (log/spy new-selection)))
 
