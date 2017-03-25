@@ -595,9 +595,10 @@
   "Return all facts and their values for a given certname as a map"
   [certname]
   (let [result (jdbc/query
-                ["SELECT name as package_name, version, provider
-                  FROM package_inventory
-                       inner join certnames c on certname_id = c.id
+                ["SELECT p.name as package_name, p.version, p.provider
+                  FROM certname_packages cp
+                       inner join packages p on cp.package_id = p.id
+                       inner join certnames c on cp.certname_id = c.id
                   WHERE c.certname = ?
                   ORDER BY package_name, version, provider"
                  certname])]
@@ -686,7 +687,28 @@
                 ["foo-2" "1.2.3" "apt"]
                 ["foo-3" "1.2.3" "apt"]
                 ["foo-4" "1.2.3" "apt"]]
-               (package-seq certname)))))))
+               (package-seq certname))))
+
+      (testing "Remove all packages, then GC"
+        (update-facts!
+         {:certname certname
+          :values facts
+          :timestamp (-> 1 days ago)
+          :environment "DEV"
+          :producer_timestamp (-> 1 days ago)
+          :producer producer
+          :package_inventory [["foo-1" "1.2.3" "apt"]]})
+
+        (is (= [["foo-1" "1.2.3" "apt"]]
+               (package-seq certname)))
+
+        (delete-unassociated-packages!)
+
+        (is (= 1
+               (-> ["SELECT count(*) as c FROM packages"]
+                   query-to-vec
+                   first
+                   :c)))))))
 
 (def catalog (:basic catalogs))
 (def certname (:certname catalog))

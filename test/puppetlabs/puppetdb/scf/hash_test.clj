@@ -327,5 +327,5 @@
 (cct/defspec comparing-packages
   100
   (prop/for-all [v (gen/vector package-tuple-generator)]
-                (= (package-similarity-hash v)
-                   (package-similarity-hash (shuffle v)))))
+                (= (package-similarity-hash (map package-identity-hash v))
+                   (package-similarity-hash (map package-identity-hash (shuffle v))))))

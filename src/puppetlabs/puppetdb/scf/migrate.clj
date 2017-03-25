@@ -1221,32 +1221,32 @@
      "  foreign key (value_type_id) references value_types (id) match simple"
      "    on update restrict on delete restrict"]))
 
-(defn add-package-inventory []
+(defn add-package-tables []
   (jdbc/do-commands
-   ["CREATE TABLE package_inventory"
-    "  (id bigint PRIMARY KEY,"
-    "   certname_id bigint not null,"
-    "   name text not null,"
-    "   version text not null,"
-    "   provider text not null)"]
+   ["create table packages "
+    "  (id bigint PRIMARY KEY, "
+    "   hash bytea, "
+    "   name text not null, "
+    "   provider text not null, "
+    "   version text not null)"]
 
-   "CREATE SEQUENCE package_inventory_id_seq CYCLE"
-   "ALTER TABLE package_inventory ALTER COLUMN id SET DEFAULT nextval('package_inventory_id_seq')"
    "ALTER TABLE certnames ADD COLUMN package_hash bytea"
 
-   ["alter table package_inventory add constraint package_certname_id_fk"
-    "  foreign key (certname_id) references certnames (id) match simple"
-    "  on update restrict on delete restrict"]
+   "CREATE SEQUENCE package_id_seq CYCLE"
+   "ALTER TABLE packages ALTER COLUMN id SET DEFAULT nextval('package_id_seq')"
 
-   "create index package_name_version_idx on package_inventory using btree (name, version)"
+   ["ALTER TABLE ONLY packages "
+    "ADD CONSTRAINT package_hash_key UNIQUE (hash)"]
 
-   "create index package_certname_idx on package_inventory using btree (certname_id)"))
+   ["create table certname_packages"
+    "  (certname_id bigint not null,"
+    "   package_id bigint not null,"
+    "   PRIMARY KEY (certname_id, package_id),"
+    "   FOREIGN KEY (certname_id) REFERENCES certnames(id),"
+    "   FOREIGN KEY (package_id) REFERENCES packages(id))"]
 
-(defn add-better-package-inventory-indexing []
-  (jdbc/do-commands
-   "create index package_name_provider_version_idx on package_inventory using btree (name, provider, version)"
-   ["create index certnames_inactive_idx on certnames using btree (certname)"
-    "  where deactivated is not null or expired is not null"]))
+   "create index certname_package_reverse_idx on certname_packages using btree (package_id, certname_id)"
+   "create index packages_name_idx on packages using btree (name)"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
@@ -1282,8 +1282,7 @@
    54 drop-resource-events-resource-type-idx
    55 index-certnames-unique-latest-report-id
    56 merge-fact-values-into-facts
-   57 add-package-inventory
-   58 add-better-package-inventory-indexing})
+   57 add-package-tables})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -1416,10 +1415,11 @@
     (jdbc/do-commands
      ["create index facts_value_string_trgm on facts"
       "  using gin (value_string gin_trgm_ops)"]))
-  (when-not (sutils/index-exists? "package_name_trgm")
-    (log/info (trs "Creating additional index `package_name_trgm`"))
+
+  (when-not (sutils/index-exists? "packages_name_trgm")
+    (log/info (trs "Creating additional index `packages_name_trgm`"))
     (jdbc/do-commands
-     ["create index package_name_trgm on package_inventory"
+     ["create index packages_name_trgm on packages"
       "  using gin (name gin_trgm_ops)"])))
 
 (defn indexes!
