@@ -212,6 +212,16 @@
   [field]
   (hcore/raw (format "%s @> ?" field)))
 
+(defn jsonb-regex
+  "Produce a predicate that matches a regex against a nested value and checks
+   the existence of a (presumably) top-level value. The existence check is
+   necessary because -> is not indexable but ?? is. Assumes a GIN index on the
+   column supplied."
+  [column qmarks]
+  (let [delimited-qmarks (str/join "->" qmarks)]
+    (hcore/raw (format "(%s->%s)::text ~ ?::text and %s ?? ?"
+                       column delimited-qmarks column))))
+
 (defn db-serialize
   "Serialize `value` into a form appropriate for querying against a
   serialized database column."

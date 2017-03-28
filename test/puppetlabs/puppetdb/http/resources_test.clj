@@ -75,7 +75,16 @@ to the result of the form supplied to this method."
     (testing "dot-style querying for parameters"
       (doseq [[query result] [[["=" "parameters.ensure" "file"] #{foo1 bar1}]
                               [["=" "parameters.owner" "root"] #{foo1 bar1}]
+                              [["=" "parameters.nested.foo" "bar"] #{foo1 bar1}]
+                              [["=" "parameters.boolean" true] #{foo1 bar1}]
+                              [["=" "parameters.numeric" 1337] #{foo1 bar1}]
+                              [["=" "parameters.double" 3.14] #{foo1 bar1}]
                               [["=" "parameters.acl" ["john:rwx" "fred:rwx"]] #{foo1 bar1}]]]
+        (is (= (query-result (query-response method endpoint query)) result))))
+
+    (testing "dot-style querying for regex resource parameters"
+      (doseq [[query result] [[["~" "parameters.owner" "oot"] #{foo1 bar1}]
+                              [["~" "parameters.nested.foo" "ar"] #{foo1 bar1}]]]
         (is (= (query-result (query-response method endpoint query)) result))))
 
     (testing "fact subqueries are supported"
