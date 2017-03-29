@@ -62,6 +62,17 @@
                  {:command "foo" :version 2 :payload "meh"}))
           (is (map? (:annotations parsed))))))
 
+    (testing "should allow extra headers"
+      (let [command {:headers {:command "deactivate node"
+                               :version "3"
+                               :certname "test1"
+                               :received "2015-01-01"
+                               :id "42"
+                               :XExtraHeader "foo"}
+                     :body (json/encode {:certname "test1"
+                                         :producer_timestamp "2015-01-01"})}]
+        (is (map? (parse-command command)))))
+
     (testing "should reject invalid input"
       (is (thrown-with-msg?
            RuntimeException
