@@ -22,6 +22,28 @@ export BEAKER_project=PuppetDB
 export BEAKER_department=sre-dept
 export BEAKER_PRESERVE_HOSTS=onfail
 export BEAKER_COLLECT_PERF_DATA=aggressive
+
+# Once the necessary PR (puppetlabs/ci-job-configs#2319) has been
+# merged, this logic can be removed.
+[ "$LAYOUT" = "ec2-west-el7-64mda-el7-64a" ] \
+    && LAYOUT=centos7-64mda-64a
+[ "$LAYOUT" = "ec2-west-el6-64mda-el6-64a" ] \
+    && LAYOUT=centos6-64mda-64a
+[ "$LAYOUT" = "ec2-west-ubuntu1204-64mda-64a" ] \
+    && LAYOUT=ubuntu1204-64mda-64a
+[ "$LAYOUT" = "ec2-west-ubuntu1404-64mda-64a" ] \
+    && LAYOUT=ubuntu1404-64mda-64a
+[ "$LAYOUT" = "ec2-west-ubuntu1604-64mda-64a" ] \
+    && LAYOUT=ubuntu1604-64mda-64a
+[ "$LAYOUT" = "ec2-west-debian7-64mda-64a" ] \
+    && LAYOUT=debian7-64mda-64a
+[ "$LAYOUT" = "ec2-west-el6-64mda-el5-64a-ubuntu1204-64a" ] \
+    && LAYOUT=centos6-64mda-centos5-64a-ubuntu1204-64a
+[ "$LAYOUT" = "ec2-west-debian7-64mda-fallback" ] \
+    && LAYOUT=debian7-64mda-64d
+[ "$LAYOUT" = "ec2-west-debian8-64mda-64a" ] \
+    && LAYOUT=debian8-64mda-64a
+
 export BEAKER_OPTIONS=acceptance/options/${PUPPETDB_DATABASE}.rb
 export BEAKER_CONFIG=acceptance/hosts.cfg
 bundle exec beaker-hostgenerator $LAYOUT > $BEAKER_CONFIG
