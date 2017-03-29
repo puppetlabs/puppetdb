@@ -71,7 +71,7 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
-            [clj-time.core :as time :refer [now]]
+            [clj-time.core :as time :refer [now interval in-millis]]
             [clj-time.format :as fmt-time]
             [clojure.set :as set]
             [clojure.core.async :as async]
@@ -263,45 +263,50 @@
       (when command-stream
         (.close command-stream)))))
 
+(defn log-command-processed-messsage [id received-time start-time command-kw certname & [opts]]
+  ;; manually stringify these to avoid locale-specific formatting
+  (let [id (str id)
+        received-time (str (tcoerce/to-long received-time))
+        duration (str (in-millis (interval start-time (now))))
+        command-name (command-names command-kw)]
+    (if-let [{:keys [puppet-version]} opts]
+      (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' puppet v{4} command processed for {5}"
+                     id received-time duration command-name puppet-version certname))
+      (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' command processed for {4}"
+                     id received-time duration command-name certname)))))
+
 ;; Catalog replacement
 
 (defn replace-catalog*
-  [{:keys [certname version id received payload]} db]
+  [{:keys [certname version id received payload]} start-time db]
   (let [{producer-timestamp :producer_timestamp :as catalog} payload]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-catalog! catalog received))
-    (log/info (trs "[{0}-{1}] ''{2}'' command processed for {3}"
-                   (str id)
-                   (str (tcoerce/to-long received))
-                   (command-names :replace-catalog)
-                   certname))))
+    (log-command-processed-messsage id received start-time :replace-catalog certname)))
 
-(defn replace-catalog [{:keys [payload received version] :as command} db]
+(defn replace-catalog [{:keys [payload received version] :as command} start-time db]
   (let [validated-payload (upon-error-throw-fatality
                            (cat/parse-catalog payload version received))]
     (-> command
         (assoc :payload validated-payload)
-        (replace-catalog* db))))
+        (replace-catalog* start-time db))))
 
 ;; Fact replacement
 
 (defn replace-facts*
-  [{:keys [payload id received] :as command} db]
+  [{:keys [payload id received] :as command} start-time db]
   (let [{:keys [certname values] :as fact-data} payload
         producer-timestamp (:producer_timestamp fact-data)]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-facts! fact-data))
-    (log/info (trs "[{0}-{1}] ''{2}'' command processed for {3}"
-                   (str id)
-                   (str (tcoerce/to-long received))
-                   (command-names :replace-facts)
-                   certname))))
+    (log-command-processed-messsage id received start-time :replace-facts certname)))
 
-(defn replace-facts [{:keys [payload version received] :as command} db]
+(defn replace-facts [{:keys [payload version received] :as command} start-time db]
   (replace-facts* (upon-error-throw-fatality
-                   (assoc command :payload (fact/normalize-facts version received payload)))
+                    (assoc command :payload (fact/normalize-facts version received payload)))
+                  start-time
                   db))
 
 ;; Node deactivation
@@ -316,44 +321,36 @@
       deactivate-node-wire-v2->wire-3))
 
 (defn deactivate-node*
-  [{:keys [id received payload]} db]
+  [{:keys [id received payload]} start-time db]
   (let [certname (:certname payload)
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
     (jdbc/with-transacted-connection db
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname producer-timestamp))
-    (log/info (trs "[{0}-{1}] ''{2}'' command processed for {3}"
-                   (str id)
-                   (str (tcoerce/to-long received))
-                   (command-names :deactivate-node)
-                   certname))))
+    (log-command-processed-messsage id received start-time :deactivate-node certname)))
 
-(defn deactivate-node [{:keys [payload version] :as command} db]
+(defn deactivate-node [{:keys [payload version] :as command} start-time db]
   (-> command
       (assoc :payload (case version
                         1 (deactivate-node-wire-v1->wire-3 payload)
                         2 (deactivate-node-wire-v2->wire-3 payload)
                         payload))
-      (deactivate-node* db)))
+      (deactivate-node* start-time db)))
 
 ;; Report submission
 
 (defn store-report*
-  [{:keys [payload id received]} db]
+  [{:keys [payload id received]} start-time db]
   (let [{:keys [certname puppet_version] :as report} payload
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
     (jdbc/with-transacted-connection db
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/add-report! report received))
-    (log/info (trs "[{0}-{1}] ''{2}'' puppet v{3} command processed for {4}"
-                   (str id)
-                   (str (tcoerce/to-long received))
-                   (command-names :store-report)
-                   puppet_version
-                   certname))))
+    (log-command-processed-messsage id received start-time :store-report certname
+                                    {:puppet-version puppet_version})))
 
-(defn store-report [{:keys [payload version received] :as command} db]
+(defn store-report [{:keys [payload version received] :as command} start-time db]
   (let [validated-payload (upon-error-throw-fatality
                            (s/validate report/report-wireformat-schema
                                        (case version
@@ -365,7 +362,7 @@
                                          payload)))]
     (-> command
         (assoc :payload validated-payload)
-        (store-report* db))))
+        (store-report* start-time db))))
 
 ;; ## Command processors
 
@@ -382,14 +379,15 @@
 
 (defn process-command!
   "Takes a command object and processes it to completion. Dispatch is
-  based on the command's name and version information"
+   based on the command's name and version information"
   [{command-name :command version :version delete? :delete? :as command} db]
   (when-not delete?
-    (condp supported-command-version? [command-name version]
-      "replace catalog" (replace-catalog command db)
-      "replace facts" (replace-facts command db)
-      "store report" (store-report command db)
-      "deactivate node" (deactivate-node command db))))
+    (let [start (now)]
+      (condp supported-command-version? [command-name version]
+        "replace catalog" (replace-catalog command start db)
+        "replace facts" (replace-facts command start db)
+        "store report" (store-report command start db)
+        "deactivate node" (deactivate-node command start db)))))
 
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"
