@@ -3,7 +3,7 @@ require 'rake'
 RAKE_ROOT = File.dirname(__FILE__)
 
 def run_beaker(test_files)
-  config = ENV["BEAKER_CONFIG"] || "acceptance/config/ec2-west-dev.cfg"
+  config = ENV["BEAKER_CONFIG"] || "acceptance/config/vmpooler.cfg"
   options = ENV["BEAKER_OPTIONS"] || "acceptance/options/postgres.rb"
   preserve_hosts = ENV["BEAKER_PRESERVE_HOSTS"] || "never"
   no_provision = ENV["BEAKER_NO_PROVISION"] == "true" ? true : false
