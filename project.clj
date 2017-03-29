@@ -1,6 +1,6 @@
 (def pdb-version "4.4.0-SNAPSHOT")
 (def puppetserver-version "2.7.2")
-(def clj-parent-version "0.4.1")
+(def clj-parent-version "0.6.0")
 
 (defn deploy-info
   "Generate deployment information from the URL supplied and the username and
@@ -11,7 +11,7 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def i18n-version "0.7.1")
+(def i18n-version "0.8.0")
 
 (def pdb-jvm-opts
   (case (System/getProperty "java.specification.version")
@@ -186,6 +186,13 @@
   :test-selectors {:default (complement :integration)
                    :unit (complement :integration)
                    :integration :integration}
+
+  ;; This is used to merge the locales.clj of all the dependencies into a single
+  ;; file inside the uberjar
+  :uberjar-merge-with {"locales.clj"  [(comp read-string slurp)
+                                       (fn [new prev]
+                                         (if (map? prev) [new prev] (conj prev new)))
+                                       #(spit %1 (pr-str %2))]}
 
   :aliases {"gem" ["trampoline" "run" "-m" "puppetlabs.puppetserver.cli.gem"
                    "--config" "./test-resources/puppetserver/puppetserver.conf"]
