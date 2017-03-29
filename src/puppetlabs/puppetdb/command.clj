@@ -263,6 +263,18 @@
       (when command-stream
         (.close command-stream)))))
 
+(defn log-command-processed-messsage [id received-time start-time command-kw certname & [opts]]
+  ;; manually stringify these to avoid locale-specific formatting
+  (let [id (str id)
+        received-time (str (tcoerce/to-long received-time))
+        duration (str (in-millis (interval start-time (now))))
+        command-name (command-names command-kw)]
+    (if-let [{:keys [puppet-version]} opts]
+      (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' puppet v{4} command processed for {5}"
+                     id received-time duration command-name puppet-version certname))
+      (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' command processed for {4}"
+                     id received-time duration command-name certname)))))
+
 ;; Catalog replacement
 
 (defn replace-catalog*
@@ -271,12 +283,7 @@
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-catalog! catalog received))
-    (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' command processed for {4}"
-                   (str id)
-                   (str (tcoerce/to-long received))
-                   (in-millis (interval start-time (now)))
-                   (command-names :replace-catalog)
-                   certname))))
+    (log-command-processed-messsage id received start-time :replace-catalog certname)))
 
 (defn replace-catalog [{:keys [payload received version] :as command} start-time db]
   (let [validated-payload (upon-error-throw-fatality
@@ -294,12 +301,7 @@
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-facts! fact-data))
-    (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' command processed for {4}"
-                   (str id)
-                   (str (tcoerce/to-long received))
-                   (in-millis (interval start-time (now)))
-                   (command-names :replace-facts)
-                   certname))))
+    (log-command-processed-messsage id received start-time :replace-facts certname)))
 
 (defn replace-facts [{:keys [payload version received] :as command} start-time db]
   (replace-facts* (upon-error-throw-fatality
@@ -326,12 +328,7 @@
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname producer-timestamp))
-    (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' command processed for {4}"
-                   (str id)
-                   (str (tcoerce/to-long received))
-                   (in-millis (interval start-time (now)))
-                   (command-names :deactivate-node)
-                   certname))))
+    (log-command-processed-messsage id received start-time :deactivate-node certname)))
 
 (defn deactivate-node [{:keys [payload version] :as command} start-time db]
   (-> command
@@ -350,13 +347,8 @@
     (jdbc/with-transacted-connection db
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/add-report! report received))
-    (log/info (trs "[{0}-{1}] [{2} ms] ''{3}'' puppet v{4} command processed for {5}"
-                   (str id)
-                   (str (tcoerce/to-long received))
-                   (in-millis (interval start-time (now)))
-                   (command-names :store-report)
-                   puppet_version
-                   certname))))
+    (log-command-processed-messsage id received start-time :store-report certname
+                                    {:puppet-version puppet_version})))
 
 (defn store-report [{:keys [payload version received] :as command} start-time db]
   (let [validated-payload (upon-error-throw-fatality
