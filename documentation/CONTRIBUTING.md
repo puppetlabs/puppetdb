@@ -53,11 +53,11 @@ top of things.
 * Make sure you have added the necessary tests for your changes.
 * Run _all_ the tests to assure nothing else was accidentally broken.
 
-### Running the tests
+### Testing
 
-In order to run the local test suite, you will first need to have a PostgreSQL
-instance [configured][configure_postgres], and will need to create the test
-users:
+To run the local unit or integration tests, you will need a
+[configured PostgreSQL server][configure_postgres], and you will need
+to create the test users:
 
     $ createuser -DRSP pdb_test
     $ createuser -dRsP pdb_test_admin
@@ -72,16 +72,44 @@ default values aren't appropriate:
   * `PDB_TEST_DB_ADMIN` (defaults to `pdb_test_admin`)
   * `PDB_TEST_DB_ADMIN_PASSWORD` (defaults to `pdb_test_admin`)
 
-Then you can run the test suite:
+Then you can run the unit tests:
 
     $ lein test
 
 And if you'd like to preserve the temporary test databases on failure, you can
 set `PDB_TEST_PRESERVE_DB_ON_FAIL` to true:
 
-```
-$ PDB_TEST_KEEP_DB_ON_FAIL=true lein test
-```
+    $ PDB_TEST_KEEP_DB_ON_FAIL=true lein test
+
+To run the integration tests, you'll need to ensure you have a
+suitable version of Ruby available, and then install the relevant gems
+by running something like this from the top level of the source tree:
+
+    $ bundle install --path "$(pwd)/vendor"
+
+`bundle` will store the gems in `vendor/` and will remember that
+location for future invocations.  You're welcome to choose a different
+`--path`, but note that the current integration tests will adulterate
+the content, so you may not want to share it.
+
+To finish setting up the integration tests, invoke:
+
+    $ lein install-gems
+
+at which point you should be able to run the tests by specifying the
+`:integration` selector:
+
+    $ lein test :integration
+
+To run the local rspec tests (e.g. for the PuppetDB terminus code),
+first run `bundle install`, as described above, from the top of the
+source tree:
+
+    $ bundle install --path "$(pwd)/vendor"
+
+and then from within the `puppet/` directory:
+
+    $ bundle exec rspec
 
 ## Making Trivial Changes
 
