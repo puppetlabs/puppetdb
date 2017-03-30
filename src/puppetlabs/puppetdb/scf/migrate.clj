@@ -1248,6 +1248,10 @@
    ["create index certnames_inactive_idx on certnames using btree (certname)"
     "  where deactivated is not null or expired is not null"]))
 
+(defn add-gin-index-on-resource-params-cache []
+  (jdbc/do-commands
+    "create index resource_params_cache_parameters_idx on resource_params_cache using gin (parameters)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1283,7 +1287,8 @@
    55 index-certnames-unique-latest-report-id
    56 merge-fact-values-into-facts
    57 add-package-inventory
-   58 add-better-package-inventory-indexing})
+   58 add-better-package-inventory-indexing
+   59 add-gin-index-on-resource-params-cache})
 
 (def desired-schema-version (apply max (keys migrations)))
 

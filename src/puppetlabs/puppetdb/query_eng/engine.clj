@@ -92,6 +92,11 @@
    column-data :- column-schema
    value])
 
+(s/defrecord JsonbRegexExpression
+  [field :- s/Str
+   column-data :- column-schema
+   value])
+
 (s/defrecord InExpression
     [column :- [column-schema]
      ;; May not want this if it's recursive and not just "instance?"
@@ -1135,6 +1140,10 @@
   (-plan->sql [{:keys [field]}]
     (su/json-contains field))
 
+  JsonbRegexExpression
+  (-plan->sql [{:keys [field value]}]
+    (su/jsonb-regex field value))
+
  BinaryExpression
   (-plan->sql [{:keys [column operator value]}]
     (apply vector
@@ -1220,6 +1229,15 @@
      :state (conj state (su/munge-jsonb-for-storage
                           (path->nested-map path value)))}))
 
+(defn parse-json-regex-query
+  [{:keys [field value] :as node} state]
+  (let [[column & path] (map utils/maybe-strip-escaped-quotes
+                             (su/dotted-query->path field))
+        qmarks (repeat (count path) "?" )
+        parameters (concat path [value (first path)])]
+    {:node (assoc node :value qmarks :field column)
+     :state (reduce conj state parameters)}))
+
 (defn extract-params
   "Extracts the node's expression value, puts it in state
    replacing it with `?`, used in a prepared statement"
@@ -1231,6 +1249,9 @@
 
     (instance? JsonContainsExpression node)
     (parse-dot-query node state)
+
+    (instance? JsonbRegexExpression node)
+    (parse-json-regex-query node state)
 
     (instance? FnExpression node)
     {:state (apply conj (:params node) state)}))
@@ -1769,7 +1790,8 @@
               (map->NullExpression {:column cinfo :null? value}))
 
             [["~" column-name value]]
-            (let [cinfo (get-in query-rec [:projections column-name])]
+            (let [colname (first (str/split column-name #"\."))
+                  cinfo (get-in query-rec [:projections colname])]
               (case (:type cinfo)
                 :array
                 (map->ArrayRegexExpression {:column cinfo :value value})
@@ -1778,6 +1800,11 @@
                 (map->RegexExpression {:column (merge cinfo
                                                       (fv-variant :string))
                                        :value value})
+
+                :queryable-json
+                (map->JsonbRegexExpression {:field column-name
+                                            :column-data cinfo
+                                            :value value})
 
                 (map->RegexExpression {:column cinfo :value value})))
 
