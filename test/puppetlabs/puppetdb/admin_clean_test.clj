@@ -51,6 +51,7 @@
       (is (= http/status-ok (:status (post-clean ["expire_nodes"]))))
       (is (= http/status-ok (:status (post-clean ["purge_nodes"]))))
       (is (= http/status-ok (:status (post-clean ["purge_reports"]))))
+      (is (= http/status-ok (:status (post-clean ["package_gc"]))))
       (is (= http/status-ok (:status (post-clean ["other"]))))
       (is (= http/status-bad-request (:status (post-clean ["?"])))))))
 
@@ -96,9 +97,7 @@
                                                   (.await after-test)
                                                   (apply orig-clear args)
                                                   (.await after-clear))]
-        (doseq [what (combinations ["expire_nodes" "purge_nodes"
-                                    "purge_reports"
-                                    "other"]
+        (doseq [what (combinations ["expire_nodes" "purge_nodes" "purge_reports" "package_gc" "other"]
                                    3)]
           (let [expected (cli-svc/clean-options->status what)]
             (utils/noisy-future (checked-admin-post "cmd" (clean-cmd what)))
@@ -121,24 +120,25 @@
   {"expire_nodes" (counters/value (:node-expirations cli-svc/admin-metrics))
    "purge_nodes" (counters/value (:node-purges cli-svc/admin-metrics))
    "purge_reports" (counters/value (:report-purges cli-svc/admin-metrics))
+   "gc_packages" (counters/value (:package-gcs cli-svc/admin-metrics))
    "other" (counters/value (:other-cleans cli-svc/admin-metrics))})
 
 (defn- clean-timer-counts []
   {"expire_nodes" (timers/number-recorded
-                  (:node-expiration-time cli-svc/admin-metrics))
+                   (:node-expiration-time cli-svc/admin-metrics))
    "purge_nodes" (timers/number-recorded
-                 (:node-purge-time cli-svc/admin-metrics))
+                  (:node-purge-time cli-svc/admin-metrics))
    "purge_reports" (timers/number-recorded
-                   (:report-purge-time cli-svc/admin-metrics))
+                    (:report-purge-time cli-svc/admin-metrics))
+   "gc_packages" (timers/number-recorded
+                  (:package-gc-time cli-svc/admin-metrics))
    "other" (timers/number-recorded
-           (:other-clean-time cli-svc/admin-metrics))})
+            (:other-clean-time cli-svc/admin-metrics))})
 
 (defn- check-counts [get-counts]
   (with-pdb-with-no-gc
     (let [pdb (get-service *server* :PuppetDBServer)]
-      (doseq [requested (combinations ["expire_nodes" "purge_nodes"
-                                       "purge_reports"
-                                       "other"]
+      (doseq [requested (combinations ["expire_nodes" "purge_nodes" "purge_reports" "package_gc" "other"]
                                       3)]
         (let [requested (set requested)
               before (get-counts)
