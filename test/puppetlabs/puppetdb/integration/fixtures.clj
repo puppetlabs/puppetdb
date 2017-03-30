@@ -195,20 +195,6 @@
        (map :file)
        last))
 
-(defn install-terminus-into [puppet-dir]
-  ;; various pieces of the terminus have to actually be inside of puppet itself to work
-  (let [base-dir "puppet"
-        base-uri (.toURI (io/file base-dir))
-        terminus-files (->> (fs/find-files base-dir #".*")
-                            (filter #(.isFile %))
-                            (map #(-> (.relativize base-uri (.toURI %))
-                                      .getPath)))]
-    (doseq [relative-path terminus-files]
-      (let [in (str base-dir "/" relative-path)
-            out (str puppet-dir "/" relative-path)]
-        (println "Copying puppetdb terminus file" in "to" out)
-        (fs/copy+ in out)))))
-
 (defn puppet-server-config-with-name [node-name]
   {:main {:certname "localhost"}
    :agent {:server "localhost"}
@@ -232,14 +218,20 @@
   (let [puppetdb-conf (io/file "target/puppetserver/master-conf/puppetdb.conf")
         puppet-conf (io/file "target/puppetserver/master-conf/puppet.conf")
         {puppetserver-config-overrides :puppetserver
-         terminus-config-overrides :terminus} config-overrides]
+         terminus-config-overrides :terminus} config-overrides
+        env-dir "target/puppetserver/master-code/environments/production"]
     (fs/copy-dir "test-resources/puppetserver/ssl" "./target/puppetserver/master-conf/ssl")
     (-> puppet-conf .getParentFile .mkdirs)
     (spit (.getAbsolutePath puppet-conf) "")
     (ks/spit-ini puppet-conf (puppet-server-config-with-name node-name))
-    (fs/mkdirs "target/puppetserver/master-code/environments/production/modules")
+    (fs/mkdirs (str env-dir "/modules"))
 
-    (install-terminus-into (jruby-agent-dir))
+    ;; copy our custom puppet functions into the code-dir, since puppet can't
+    ;; find them in the ruby load path
+    (let [functions-dir (str env-dir "/lib/puppet/functions")]
+      (fs/mkdirs functions-dir)
+      (fs/copy-dir-into "puppet/lib/puppet/functions/" functions-dir))
+
     (write-puppetdb-terminus-config pdb-servers puppetdb-conf terminus-config-overrides))
 
   (let [services (tk-bootstrap/parse-bootstrap-config! dev-bootstrap-file)
@@ -310,27 +302,28 @@
               (assoc opts :certname certname)))
 
 (defn run-puppet-node-deactivate [pdb-server certname-to-deactivate]
-  (install-terminus-into (mri-agent-dir))
   (with-synchronized-command-processing pdb-server 1 tu/default-timeout-ms
     (bundle-exec {}
                  "puppet" "node" "deactivate"
                  "--confdir" "target/puppetserver/master-conf"
                  "--color" "false"
+                 "--vardir" "puppet"
                  certname-to-deactivate)))
 
 (defn run-puppet-node-status [pdb-server certname]
-  (install-terminus-into (mri-agent-dir))
   (bundle-exec {}
                "puppet" "node" "status" certname
                "--confdir" "target/puppetserver/master-conf"
-               "--color" "false"))
+               "--color" "false"
+               "--vardir" "puppet"))
 
 (defn run-puppet-facts-find [puppet-server certname]
   (let [{:keys [conf-dir]} (server-info puppet-server)]
     (-> (bundle-exec {}
                      "puppet" "facts" "find" certname
                      "--confdir" conf-dir
-                     "--terminus" "puppetdb")
+                     "--terminus" "puppetdb"
+                     "--vardir" "puppet")
         :out
         json/parse-string)))
 
@@ -345,8 +338,6 @@
          terminus {}
          timeout tu/default-timeout-ms}
     :as opts}]
-
-  (install-terminus-into (mri-agent-dir))
 
   (let [agent-conf-dir (io/file "target/puppet-apply-conf")
         manifest-file  (fs/temp-file "manifest" ".pp")
@@ -381,6 +372,7 @@
       (apply bundle-exec env
              "puppet" "apply" (.getCanonicalPath manifest-file)
              "--confdir" (.getCanonicalPath agent-conf-dir)
+             "--vardir" "puppet"
              extra-puppet-args))))
 
 (def date-formatter (tfmt/formatters :date-time))
