@@ -35,7 +35,7 @@
           (is (= [:done :a] (async/<!! out-chan)))
           (is (= 1 @counter))
           (async/close! in-chan)
-          (is (not= ::timed-out (deref fut 1000 ::timed-out)))
+          (is (not= ::timed-out (deref fut tu/default-timeout-ms ::timed-out)))
           (is (true? (future-done? fut)))))))
 
   (testing "message in-flight shutdown"
@@ -63,7 +63,7 @@
 
           (is (= [:done 1] (async/<!! out-chan)))
 
-          (is (not= ::timed-out (deref fut 1000 ::timed-out)))
+          (is (not= ::timed-out (deref fut tu/default-timeout-ms ::timed-out)))
           (is (true? (future-done? fut)))))))
 
   (testing "blocking put on gated threadpool"
@@ -91,10 +91,10 @@
                     (dochan gtp worker-fn in-chan))]
 
           (async/>!! in-chan {:id :a})
-          (is (= true (deref (:a in-flight-promises) 100 ::not-found)))
+          (is (= true (deref (:a in-flight-promises) tu/default-timeout-ms ::not-found)))
 
           (async/>!! in-chan {:id :b})
-          (is (= true (deref (:b in-flight-promises) 100 ::not-found)))
+          (is (= true (deref (:b in-flight-promises) tu/default-timeout-ms ::not-found)))
 
           (async/>!! in-chan {:id :c})
           (async/close! in-chan)
@@ -105,7 +105,7 @@
           (deliver (get stop-here :a) true)
 
           (is (= [:done :a] (async/<!! out-chan)))
-          (is (= true (deref (:c in-flight-promises) 100 ::not-found)))
+          (is (= true (deref (:c in-flight-promises) tu/default-timeout-ms ::not-found)))
           (is (= [:a :b :c] @seen))
 
           (deliver (get stop-here :b) true)
@@ -114,7 +114,7 @@
           (deliver (get stop-here :c) true)
           (is (= [:done :c] (async/<!! out-chan)))
 
-          (is (not= ::timed-out (deref fut 1000 ::timed-out)))
+          (is (not= ::timed-out (deref fut tu/default-timeout-ms ::timed-out)))
           (is (true? (future-done? fut))))))))
 
 

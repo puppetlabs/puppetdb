@@ -560,47 +560,63 @@ describe Puppet::Resource::Catalog::Puppetdb do
       end
 
       it "should produce a reasonable error message for a missing 'before' relationship" do
-        resource[:before] = 'Notify[non-existent]'
 
-        hash = subject.add_parameters_if_missing(catalog_data_hash)
+        error = Gem::Version.new(Puppet.version) < Gem::Version.new("5.0.0") ?
+          "Invalid relationship: Notify[anyone] { before => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog" :
+          "Could not find resource 'Notify[non-existent]' in parameter 'before' at line 2 on node node"
+
         expect {
+          resource[:before] = 'Notify[non-existent]'
+          hash = subject.add_parameters_if_missing(catalog_data_hash)
           subject.synthesize_edges(hash, catalog)
-        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { before => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
+        }.to raise_error(Puppet::Error, error)
       end
 
       it "should produce a reasonable error message for a missing 'required-by' relationship" do
-        resource[:require] = 'Notify[non-existent]'
-        hash = subject.add_parameters_if_missing(catalog_data_hash)
+        error = Gem::Version.new(Puppet.version) < Gem::Version.new("5.0.0") ?
+          "Invalid relationship: Notify[anyone] { require => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog" :
+          "Could not find resource 'Notify[non-existent]' in parameter 'require' at line 2 on node node"
+
         expect {
+          resource[:require] = 'Notify[non-existent]'
+          hash = subject.add_parameters_if_missing(catalog_data_hash)
           subject.synthesize_edges(hash, catalog)
-        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { require => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
+        }.to raise_error(Puppet::Error, error)
       end
 
       it "should produce a reasonable error message for a missing 'notifies' relationship" do
-        resource[:notify] = 'Notify[non-existent]'
-
-        hash = subject.add_parameters_if_missing(catalog_data_hash)
+        error = Gem::Version.new(Puppet.version) < Gem::Version.new("5.0.0") ?
+          "Invalid relationship: Notify[anyone] { notify => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog" :
+          "Could not find resource 'Notify[non-existent]' in parameter 'notify' at line 2 on node node"
         expect {
+          resource[:notify] = 'Notify[non-existent]'
+          hash = subject.add_parameters_if_missing(catalog_data_hash)
           subject.synthesize_edges(hash, catalog)
-        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { notify => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
+        }.to raise_error(Puppet::Error, error)
       end
 
       it "should produce a reasonable error message for a missing 'subscription-of' relationship" do
-        resource[:subscribe] = 'Notify[non-existent]'
+        error = Gem::Version.new(Puppet.version) < Gem::Version.new("5.0.0") ?
+          "Invalid relationship: Notify[anyone] { subscribe => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog" :
+          "Could not find resource 'Notify[non-existent]' in parameter 'subscribe' at line 2 on node node"
 
-        hash = subject.add_parameters_if_missing(catalog_data_hash)
         expect {
+          resource[:subscribe] = 'Notify[non-existent]'
+          hash = subject.add_parameters_if_missing(catalog_data_hash)
           subject.synthesize_edges(hash, catalog)
-        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { subscribe => Notify[non-existent] }, because Notify[non-existent] doesn't seem to be in the catalog")
+        }.to raise_error(Puppet::Error, error)
       end
 
       it "should produce a reasonable error message for an invalid resourceref" do
-        resource[:subscribe] = 'Foobar::baz[name]'
+        error = Gem::Version.new(Puppet.version) < Gem::Version.new("5.0.0") ?
+          "Invalid relationship: Notify[anyone] { subscribe => Foobar::baz[name] }, because Foobar::baz[name] doesn't seem to be in the correct format. Resource references should be formatted as: Classname['title'] or Modulename::Classname['title'] (take careful note of the capitalization)." :
+          "Could not find resource 'Foobar::baz[name]' in parameter 'subscribe' at line 2 on node node"
 
-        hash = subject.add_parameters_if_missing(catalog_data_hash)
         expect {
+          resource[:subscribe] = 'Foobar::baz[name]'
+          hash = subject.add_parameters_if_missing(catalog_data_hash)
           subject.synthesize_edges(hash, catalog)
-        }.to raise_error(Puppet::Error, "Invalid relationship: Notify[anyone] { subscribe => Foobar::baz[name] }, because Foobar::baz[name] doesn't seem to be in the correct format. Resource references should be formatted as: Classname['title'] or Modulename::Classname['title'] (take careful note of the capitalization).")
+        }.to raise_error(Puppet::Error, error)
       end
     end #synthesize_edges
 
