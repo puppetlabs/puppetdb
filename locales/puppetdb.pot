@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: bf2a67f6e5d09e8b559544d3850f939efa124a7b\n"
+"X-Git-Ref: bd1d368fbdb4caa167a7614ebbb472caaab7c1f4\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -266,13 +266,11 @@ msgid "[{0}-{1}] ''{2}'' command enqueued for {3}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
-#: src/puppetlabs/puppetdb/command.clj
-#: src/puppetlabs/puppetdb/command.clj
-msgid "[{0}-{1}] ''{2}'' command processed for {3}"
+msgid "[{0}-{1}] [{2} ms] ''{3}'' puppet v{4} command processed for {5}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
-msgid "[{0}-{1}] ''{2}'' puppet v{3} command processed for {4}"
+msgid "[{0}-{1}] [{2} ms] ''{3}'' command processed for {4}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
