@@ -1,7 +1,8 @@
 (ns puppetlabs.puppetdb.scf.hash
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.facts :refer [package-tuple]]
+            [puppetlabs.puppetdb.facts :refer [package-tuple hashed-package-tuple
+                                               package-tuple-hash]]
             [schema.core :as s]))
 
 (defn generic-identity-string
@@ -95,11 +96,19 @@
 (s/defn package-similarity-hash :- s/Str
   "Creates a stable ordering of `packages` and computes a hash over
   that structure"
-  [packages :- [package-tuple]]
-  (-> packages
-      sort
-      json/generate-string
-      kitchensink/utf8-string->sha1))
+  [packages :- [hashed-package-tuple]]
+  (->> packages
+       (map package-tuple-hash)
+       sort
+       json/generate-string
+       kitchensink/utf8-string->sha1))
+
+(s/defn package-identity-hash :- hashed-package-tuple
+  [package :- package-tuple]
+  (conj package
+        (-> package
+            json/generate-string
+            kitchensink/utf8-string->sha1)))
 
 (defn catalog-similarity-format
   "Creates catalog map for the given `certname`, `resources` and `edges` with a

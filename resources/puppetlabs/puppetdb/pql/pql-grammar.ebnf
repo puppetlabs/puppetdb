@@ -35,6 +35,7 @@ extract = <lbracket>, [<whitespace>], [extractfields], [<whitespace>], <rbracket
            'reports' |
            'catalogs' |
            'packages' |
+           'package_inventory' |
            'resources' |
            'nodes' |
            'environments' |

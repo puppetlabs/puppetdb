@@ -252,12 +252,19 @@
 (pls/defn-validated packages-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (extract-query
+   (cmdi/routes
+    (cmdi/ANY "" []
+              (create-query-handler version "packages")))))
+
+(pls/defn-validated package-inventory-routes :- bidi-schema/RoutePair
+  [version :- s/Keyword]
+  (extract-query
     (cmdi/routes
       (cmdi/ANY "" []
-                (create-query-handler version "packages"
+                (create-query-handler version "package_inventory"
                                       http-q/restrict-query-to-active-nodes))
       (cmdi/context ["/" :node]
-                    (cmdi/ANY "" [] (create-query-handler version "packages"
+                    (cmdi/ANY "" [] (create-query-handler version "package_inventory"
                                                           http-q/restrict-query-to-node))))))
 
 (pls/defn-validated factset-routes :- bidi-schema/RoutePair

@@ -37,7 +37,7 @@
 (def certname-relations
   {"factsets" {:columns ["certname"]}
    "reports" {:columns ["certname"]}
-   "packages" {:columns ["certname"]}
+   "package-inventory" {:columns ["certname"]}
    "inventory" {:columns ["certname"]}
    "catalogs" {:columns ["certname"]}
    "nodes" {:columns ["certname"]}
@@ -952,28 +952,47 @@
 
 (def packages-query
   "Basic packages query"
+  (map->Query {:projections {"package_name" {:type :string
+                                             :queryable? true
+                                             :field :p.name}
+                             "version" {:type :string
+                                        :queryable? true
+                                        :field :p.version}
+                             "provider" {:type :string
+                                         :queryable? true
+                                         :field :p.provider}}
+
+               :selection {:from [[:packages :p]]}
+               :alias "packages"
+               :subquery? false
+               :source-table "packages"}))
+
+(def package-inventory-query
+  "Packages and the machines they are installed on"
   (map->Query {:projections {"certname" {:type :string
                                          :queryable? true
                                          :field :certnames.certname}
                              "package_name" {:type :string
                                              :queryable? true
-                                             :field :pi.name}
+                                             :field :p.name}
                              "version" {:type :string
                                         :queryable? true
-                                        :field :pi.version}
+                                        :field :p.version}
                              "provider" {:type :string
                                          :queryable? true
-                                         :field :pi.provider}}
+                                         :field :p.provider}}
 
-               :selection {:from [[:package_inventory :pi]]
-                           :left-join [:certnames
-                                       [:= :pi.certname_id :certnames.id]]}
+               :selection {:from [[:packages :p]]
+                           :join [[:certname_packages :cp]
+                                  [:= :cp.package_id :p.id]
+                                  :certnames
+                                  [:= :cp.certname_id :certnames.id]]}
 
                :relationships certname-relations
 
-               :alias "packages"
+               :alias "package_inventory"
                :subquery? false
-               :source-table "package_inventory"}))
+               :source-table "packages"}))
 
 (def factsets-query
   "Query for the top level facts query"
@@ -1256,6 +1275,7 @@
    "select_environments" environments-query
    "select_producers" producers-query
    "select_packages" packages-query
+   "select_package_inventory" package-inventory-query
    "select_events" report-events-query
    "select_facts" facts-query
    "select_factsets" factsets-query
