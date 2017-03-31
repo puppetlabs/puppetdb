@@ -135,6 +135,15 @@
     (catch Exception e
       (log/error e (trs "Error while sweeping reports")))))
 
+(defn gc-packages! [ttl db]
+  {:pre [(map? db)]}
+  (try
+    (kitchensink/demarcate (trs "package gc")
+      (jdbc/with-transacted-connection db
+        (scf-store/delete-unassociated-packages!)))
+    (catch Exception e
+      (log/error e (trs "Error while running package gc")))))
+
 (defn garbage-collect!
   "Perform garbage collection on `db`, which means deleting any orphaned data.
   This basically just wraps the corresponding scf.storage function with some
@@ -143,17 +152,18 @@
   {:pre [(map? db)]}
   (try
     (kitchensink/demarcate
-      "database garbage collection"
+      (trs "database garbage collection")
       (scf-store/garbage-collect! db))
     (catch Exception e
       (log/error e (trs "Error during garbage collection")))))
 
-(def clean-options #{"expire_nodes" "purge_nodes" "purge_reports" "other"})
+(def clean-options #{"expire_nodes" "purge_nodes" "purge_reports" "package_gc" "other"})
 
 (defn clean-options->status [options]
   (str/join " " (map {"expire_nodes" "expiring-nodes"
                       "purge_nodes" "purging-nodes"
                       "purge_reports" "purging-reports"
+                      "gc_packages" "package-gc"
                       "other" "other"}
                      (sort options))))
 
@@ -170,11 +180,13 @@
    :node-expirations (counter admin-metrics-registry "node-expirations")
    :node-purges (counter admin-metrics-registry "node-purges")
    :report-purges (counter admin-metrics-registry "report-purges")
+   :package-gcs (counter admin-metrics-registry "package-gcs")
    :other-cleans (counter admin-metrics-registry "other-cleans")
 
    :node-expiration-time (timer admin-metrics-registry ["node-expiration-time"])
    :node-purge-time (timer admin-metrics-registry ["node-purge-time"])
    :report-purge-time (timer admin-metrics-registry ["report-purge-time"])
+   :package-gc-time (timer admin-metrics-registry "package-gc-time")
    :other-clean-time (timer admin-metrics-registry ["other-clean-time"])})
 
 (def clean-request-schema
@@ -214,6 +226,10 @@
         (time! (:report-purge-time admin-metrics)
                (sweep-reports! report-ttl db))
         (counters/inc! (:report-purges admin-metrics)))
+      (when (request "gc_packages")
+        (time! (:package-gc-time admin-metrics)
+               (gc-packages! db))
+        (counters/inc! (:package-gcs admin-metrics)))
       ;; It's important that this go last to ensure anything referencing
       ;; an env or resource param is purged first.
       (when (request "other")

@@ -25,7 +25,7 @@ the request body should look like this:
   ```
 
 where valid `REQUESTED_OPERATION`s are `expire_nodes`, `purge_nodes`,
-`purge_reports"`, and `other`.  An empty payload vector requests
+`purge_reports`, `gc_packages`, and `other`.  An empty payload vector requests
 all maintenance operations.
 
 ### URL parameters

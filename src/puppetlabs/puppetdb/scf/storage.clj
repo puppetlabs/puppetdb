@@ -1543,8 +1543,7 @@
    (:gc performance-metrics)
    (jdbc/with-transacted-connection db
      (delete-unassociated-params!)
-     (delete-unassociated-environments!)
-     (delete-unassociated-packages!))
+     (delete-unassociated-environments!))
    ;; These require serializable because they make the decision to
    ;; delete based on row counts in another table.
    (jdbc/with-transacted-connection' db :serializable
