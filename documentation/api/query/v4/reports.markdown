@@ -73,7 +73,7 @@ responses.
 
 * `noop_pending` (Boolean): a flag indicating whether the report contains noop
   events (these can arise from use of `--noop` or from resources with the
-  `noop` parameter set to true).
+  `noop` parameter set to true). This field will only be present when the agent originating the report is version 4.6.0 or higher.
 
 * `puppet_version` (string): the version of Puppet that generated the report.
 

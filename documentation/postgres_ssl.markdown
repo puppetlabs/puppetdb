@@ -1,7 +1,7 @@
 ---
 title: "PuppetDB 4.3: Setting up SSL for PostgreSQL"
 layout: default
-canonical: "/puppetdb/latest/postgres\_ssl.html"
+canonical: "/puppetdb/latest/postgres_ssl.html"
 ---
 
 ## Talking to PostgreSQL using SSL/TLS

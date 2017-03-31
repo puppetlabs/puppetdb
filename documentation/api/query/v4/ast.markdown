@@ -233,6 +233,7 @@ end of a key.
 
 For example, given the inventory response
 
+
     {
         "certname" : "mbp.local",
         "timestamp" : "2016-07-11T20:02:33.190Z",

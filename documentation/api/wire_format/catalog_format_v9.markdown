@@ -89,7 +89,7 @@ in the catalog.
 
 String. A string used to match the catalog with the corresponding report that
 was issued during the same Puppet run. When running a Puppet agent off a cached
-catalog use `catalog\_uuid` instead to match reports with a catalog.
+catalog use `catalog_uuid` instead to match reports with a catalog.
 
 #### `catalog_uuid`
 

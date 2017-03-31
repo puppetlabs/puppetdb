@@ -1349,8 +1349,8 @@
                 report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
              (let [shash (sutils/munge-hash-for-storage report-hash)]
-               (when-not (-> "select 1 from reports where hash = ? limit 1"
-                             (query-to-vec shash)
+               (when-not (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
+                             (query-to-vec report-hash)
                              seq)
                  (let [certname-id (certname-id certname)
                        row-map {:hash shash
