@@ -138,7 +138,7 @@
 (defn gc-packages! [ttl db]
   {:pre [(map? db)]}
   (try
-    (kitchensink/demarcate "package gc"
+    (kitchensink/demarcate (trs "package gc")
       (jdbc/with-transacted-connection db
         (scf-store/delete-unassociated-packages!)))
     (catch Exception e
@@ -152,7 +152,7 @@
   {:pre [(map? db)]}
   (try
     (kitchensink/demarcate
-      "database garbage collection"
+      (trs "database garbage collection")
       (scf-store/garbage-collect! db))
     (catch Exception e
       (log/error e (trs "Error during garbage collection")))))
