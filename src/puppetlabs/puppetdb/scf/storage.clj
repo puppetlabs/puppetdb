@@ -215,6 +215,7 @@
   "Delete the given host from the db"
   [certname]
   {:pre [certname]}
+  (jdbc/delete! :certname_packages ["certname_id in (select id from certnames where certname=?)" certname])
   (jdbc/delete! :certnames ["certname=?" certname]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -243,6 +244,7 @@
   [time]
   {:pre [(kitchensink/datetime? time)]}
   (let [ts (to-timestamp time)]
+    (jdbc/delete! :certname_packages ["certname_id in (select id from certnames where deactivated < ? OR expired < ?)" ts ts])
     (jdbc/delete! :certnames ["deactivated < ? OR expired < ?" ts ts])))
 
 (defn activate-node!
