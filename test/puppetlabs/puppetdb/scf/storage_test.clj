@@ -1514,6 +1514,31 @@
                  "select certname from certnames order by certname asc"))
            ["node1" "node3"]))))
 
+(deftest-db node-purge-cleans-packages
+  (testing "should purge nodes which were deactivated before the specified date"
+    (add-certname! "node1")
+    (add-certname! "node2")
+    (insert-packages "node1" [["foo" "1.2.3" "apt"] ["bar" "2.3.4" "apt"]])
+    (insert-packages "node2" [["foo" "1.2.3" "apt"] ["bar" "2.3.4" "apt"]])
+    (deactivate-node! "node1")
+    (deactivate-node! "node2" (-> 10 days ago))
+    (purge-deactivated-and-expired-nodes! (-> 5 days ago))
+
+    (is (= 1
+           (count (query-to-vec
+                   "select certname_id from certname_packages group by certname_id"))))))
+
+(deftest-db delete-certname-cleans-packages
+  (add-certname! "node1")
+  (add-certname! "node2")
+  (insert-packages "node1" [["foo" "1.2.3" "apt"] ["bar" "2.3.4" "apt"]])
+  (insert-packages "node2" [["foo" "1.2.3" "apt"] ["bar" "2.3.4" "apt"]])
+  (delete-certname! "node1")
+
+  (is (= 1
+         (count (query-to-vec
+                 "select certname_id from certname_packages group by certname_id")))))
+
 (deftest-db purge-expired-nodes
   (testing "should purge nodes which were expired before the specified date"
     (add-certname! "node1")
