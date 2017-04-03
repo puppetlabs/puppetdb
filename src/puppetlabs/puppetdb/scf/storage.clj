@@ -831,6 +831,19 @@
    ["SELECT id from factsets WHERE certname = ?" certname]
    (comp :id first sql/result-set-seq)))
 
+(defn-validated certname-factset-metadata :- {:package_hash (s/maybe s/Str)
+                                              :factset_id s/Int
+                                              :certname_id s/Int}
+  "Given a certname, return the factset id, hash and certname id."
+  [certname :- s/Str]
+  (jdbc/query-with-resultset
+   [(format "SELECT fs.id as factset_id, c.id as certname_id, %s as package_hash
+             FROM factsets fs, certnames c
+             WHERE fs.certname = ? AND c.certname = ?"
+            (sutils/sql-hash-as-str "c.package_hash"))
+    certname certname]
+   (comp first sql/result-set-seq)))
+
 (defn-validated delete-pending-path-id-orphans!
   "Delete paths in dropped-pids that are no longer mentioned
    in other factsets."
@@ -1035,34 +1048,36 @@
 (s/defn update-packages
   "Compares `inventory` to the stored package inventory for
   `certname`. Differences will result in updates to the database"
-  [certname
+  [certname_id :- s/Int
+   package_hash :- (s/maybe s/Str)
    inventory :- [facts/package-tuple]]
-  (let [{certname-id :id package-hash :package_hash} (find-certname-id-and-hash certname)
-        hashed-package-tuples (map shash/package-identity-hash inventory)
+  (let [hashed-package-tuples (map shash/package-identity-hash inventory)
         new-package-hash (shash/package-similarity-hash hashed-package-tuples)]
 
-    (when-not (= new-package-hash package-hash)
+    (when-not (= new-package-hash package_hash)
       (let [just-hashes (map facts/package-tuple-hash hashed-package-tuples)
             existing-package-hashes (find-package-hashes just-hashes)
             full-hashes-map (insert-missing-packages existing-package-hashes hashed-package-tuples)
             new-package-id-set (set (vals full-hashes-map))
             [new-package-ids old-package-ids _] (clojure.data/diff new-package-id-set
-                                                                   (package-id-set-for-certname certname-id))]
+                                                                   (package-id-set-for-certname certname_id))]
         (jdbc/update! :certnames
-                      {:package_hash (sutils/munge-hash-for-storage new-package-hash)}
-                      ["id=?" certname-id])
+                      {:package_hash (when (seq inventory)
+                                       (sutils/munge-hash-for-storage new-package-hash))}
+                      ["id=?" certname_id])
 
         (when (seq new-package-ids)
           (jdbc/insert-multi! :certname_packages
                               ["certname_id" "package_id"]
-                              (map #(vector certname-id %) new-package-ids)))
+                              (map #(vector certname_id %) new-package-ids)))
 
         (when (seq old-package-ids)
+
           (let [old-package-id-sql-param (sutils/array-to-param "bigint" Long
                                                                 (map long old-package-ids))]
             (jdbc/delete! :certname_packages
                           ["certname_id = ? and package_id = ANY(?)"
-                           certname-id
+                           certname_id
                            old-package-id-sql-param])
 
             (jdbc/delete! :packages
@@ -1184,7 +1199,7 @@
   [{:keys [certname values environment timestamp producer_timestamp producer package_inventory]
     :as fact-data} :- facts-schema]
   (jdbc/with-db-transaction []
-    (let [factset-id (certname-to-factset-id certname)
+    (let [{:keys [package_hash certname_id factset_id]} (certname-factset-metadata certname)
           paths-and-values (facts/facts->paths-and-values values)
           pathstrs (map (comp facts/factpath-to-string first) paths-and-values)
           pathstr->value (into {} (map (fn [pathstr [_ v]] [pathstr v])
@@ -1204,7 +1219,7 @@
                  "  from facts as f"
                  "  inner join fact_paths fp on f.fact_path_id = fp.id"
                  "  where f.factset_id = ?")
-            factset-id]
+            factset_id]
            {:as-arrays? true}
            (fn [[col-names & rows]]
              (doall
@@ -1238,20 +1253,20 @@
         (jdbc/do-prepared
          (format "delete from facts where factset_id = ? and fact_path_id %s"
                  (jdbc/in-clause rm-pids))
-         (cons factset-id rm-pids)))
+         (cons factset_id rm-pids)))
 
-      (insert-facts! factset-id
+      (insert-facts! factset_id
                      (map paths->ids new-pathstrs)
                      new-values)
 
-      (update-existing-values factset-id
+      (update-existing-values factset_id
                               (filter #(= :changed (first %))
                                       existing-status))
 
-      (delete-pending-path-id-orphans! factset-id rm-pids)
+      (delete-pending-path-id-orphans! factset_id rm-pids)
 
-      (when (seq package_inventory)
-        (update-packages certname package_inventory))
+      (when (or package_hash (seq package_inventory))
+        (update-packages certname_id package_hash package_inventory))
 
       (jdbc/update! :factsets
                     {:timestamp (to-timestamp timestamp)
@@ -1261,7 +1276,7 @@
                                shash/fact-identity-hash
                                sutils/munge-hash-for-storage)
                      :producer_id (ensure-producer producer)}
-                    ["id=?" factset-id]))))
+                    ["id=?" factset_id]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Reports
