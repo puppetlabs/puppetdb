@@ -1058,10 +1058,18 @@
                               (map #(vector certname-id %) new-package-ids)))
 
         (when (seq old-package-ids)
-          (jdbc/delete! :certname_packages
-                        ["certname_id = ? and package_id = ANY(?)"
-                         certname-id
-                         (sutils/array-to-param "bigint" Long (map long old-package-ids))]))))))
+          (let [old-package-id-sql-param (sutils/array-to-param "bigint" Long
+                                                                (map long old-package-ids))]
+            (jdbc/delete! :certname_packages
+                          ["certname_id = ? and package_id = ANY(?)"
+                           certname-id
+                           old-package-id-sql-param])
+
+            (jdbc/delete! :packages
+                          [(str "id = any(?) "
+                                "and not exists "
+                                "(select 1 from certname_packages where package_id=id)")
+                           old-package-id-sql-param])))))))
 
 (defn insert-packages [certname inventory]
   (let [certname-id (:id (find-certname-id-and-hash certname))

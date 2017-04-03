@@ -689,7 +689,7 @@
                 ["foo-4" "1.2.3" "apt"]]
                (package-seq certname))))
 
-      (testing "Remove all packages, then GC"
+      (testing "Pinpoint GC cleans up packages"
         (update-facts!
          {:certname certname
           :values facts
@@ -702,13 +702,23 @@
         (is (= [["foo-1" "1.2.3" "apt"]]
                (package-seq certname)))
 
-        (delete-unassociated-packages!)
 
         (is (= 1
                (-> ["SELECT count(*) as c FROM packages"]
                    query-to-vec
                    first
-                   :c)))))))
+                   :c))))
+
+      (testing "Orphaned packages are deleted"
+        (let [package-count (fn [] (-> ["SELECT count(*) as c FROM packages"]
+                                       query-to-vec
+                                       first
+                                       :c))]
+          (is (pos? (package-count)))
+          (jdbc/do-commands "DELETE FROM certname_packages")
+          (is (pos? (package-count)))
+          (delete-unassociated-packages!)
+          (is (zero? (package-count))))))))
 
 (def catalog (:basic catalogs))
 (def certname (:certname catalog))
