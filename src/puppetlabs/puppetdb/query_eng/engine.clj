@@ -34,6 +34,23 @@
                               SqlCall SqlRaw
                               {:select s/Any s/Any s/Any}))
 
+(defn paging-clause?
+  [v]
+  (contains? #{"limit" "order_by" "offset"} (first v)))
+
+(defn function-call?
+  [field]
+  (= "function" (first field)))
+
+(defn strip-function-calls
+  [column-or-columns]
+  (let [{functions true
+         nonfunctions false} (->> column-or-columns
+                                  utils/vector-maybe
+                                  (group-by (comp #(= "function" %) first)))]
+    [(mapv rest functions)
+     (vec nonfunctions)]))
+
 (def certname-relations
   {"factsets" {:columns ["certname"]}
    "reports" {:columns ["certname"]}
@@ -59,7 +76,7 @@
     [projections :- {s/Str column-schema}
      selection
      source-table :- s/Str
-     alias where subquery? entity call
+     alias where entity call
      group-by limit offset order-by])
 
 (s/defrecord BinaryExpression
@@ -195,8 +212,7 @@
     :relationships certname-relations
 
     :dotted-fields ["facts\\..*" "trusted\\..*"]
-    :entity :inventory
-    :subquery? false}))
+    :entity :inventory}))
 
 (def nodes-query
   "Query for nodes entities, mostly used currently for subqueries"
@@ -272,8 +288,7 @@
                                        [:= :reports_environment.id :reports.environment_id]]}
 
                :source-table "certnames"
-               :alias "nodes"
-               :subquery? false}))
+               :alias "nodes"}))
 
 (def resource-params-query
   "Query for the resource-params query, mostly used as a subquery"
@@ -289,8 +304,7 @@
                :selection {:from [:resource_params]}
 
                :source-table "resource_params"
-               :alias "resource_params"
-               :subquery? false}))
+               :alias "resource_params"}))
 
 (def fact-paths-query
   "Query for the resource-params query, mostly used as a subquery"
@@ -317,8 +331,7 @@
                                "fact_contents" {:columns ["path"]}}
 
                :source-table "fact_paths"
-               :alias "fact_paths"
-               :subquery? false}))
+               :alias "fact_paths"}))
 
 (def fact-names-query
   (map->Query {:projections {"name" {:type :string
@@ -327,8 +340,7 @@
                :selection {:from [[:fact_paths :fp]]
                            :modifiers [:distinct]}
                :source-table "fact_paths"
-               :alias "fact_names"
-               :subquery? false}))
+               :alias "fact_names"}))
 
 (def facts-query
   "Query structured facts."
@@ -391,8 +403,7 @@
 
                :alias "facts"
                :source-table "facts"
-               :entity :facts
-               :subquery? false}))
+               :entity :facts }))
 
 (def fact-contents-query
   "Query for fact nodes"
@@ -449,8 +460,7 @@
                                                       :foreign-columns ["name"]}})
 
                :alias "fact_nodes"
-               :source-table "facts"
-               :subquery? false}))
+               :source-table "facts"}))
 
 (def report-logs-query
   "Query intended to be used by the `/reports/<hash>/logs` endpoint
@@ -466,7 +476,6 @@
                :selection {:from [:reports]}
 
                :alias "logs"
-               :subquery? false
                :entity :reports
                :source-table "reports"}))
 
@@ -484,7 +493,6 @@
                :selection {:from [:reports]}
 
                :alias "metrics"
-               :subquery? false
                :entity :reports
                :source-table "reports"}))
 
@@ -608,7 +616,6 @@
                                       :foreign-columns ["report"]}})
 
      :alias "reports"
-     :subquery? false
      :entity :reports
      :source-table "reports"}))
 
@@ -697,7 +704,6 @@
 
      :alias "catalogs"
      :entity :catalogs
-     :subquery? false
      :source-table "catalogs"}))
 
 (def edges-query
@@ -737,7 +743,6 @@
                :relationships certname-relations
 
                :alias "edges"
-               :subquery? false
                :source-table "edges"}))
 
 (def resources-query
@@ -797,7 +802,6 @@
                                                :foreign-columns ["name"]}}
 
                :alias "resources"
-               :subquery? false
                :dotted-fields ["parameters\\..*"]
                :source-table "catalog_resources"}))
 
@@ -879,7 +883,6 @@
                                                       :foreign-columns ["name"]}})
 
                :alias "events"
-               :subquery? false
                :entity :events
                :source-table "resource_events"}))
 
@@ -888,7 +891,6 @@
                                          :queryable? true
                                          :field :inactive_nodes.certname}}
                :selection {:from [:inactive_nodes]}
-               :subquery? false
                :alias "inactive_nodes"
                :source-table "inactive_nodes"}))
 
@@ -902,7 +904,6 @@
                                   [:= :reports.id :certnames.latest_report_id]]}
 
                :alias "latest_report"
-               :subquery? false
                :source-table "latest_report"}))
 
 (def environments-query
@@ -933,7 +934,6 @@
                                             :foreign-columns ["environment"]}}
 
                :alias "environments"
-               :subquery? false
                :source-table "environments"}))
 
 (def producers-query
@@ -952,7 +952,6 @@
                                          :foreign-columns ["producer"]}}
 
               :alias "producers"
-              :subquery? false
               :source-table "producers"}))
 
 (def packages-query
@@ -969,7 +968,6 @@
 
                :selection {:from [[:packages :p]]}
                :alias "packages"
-               :subquery? false
                :source-table "packages"}))
 
 (def package-inventory-query
@@ -996,7 +994,6 @@
                :relationships certname-relations
 
                :alias "package_inventory"
-               :subquery? false
                :source-table "packages"}))
 
 (def factsets-query
@@ -1052,8 +1049,7 @@
 
      :alias "factsets"
      :entity :factsets
-     :source-table "factsets"
-     :subquery? false}))
+     :source-table "factsets"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion from plan to SQL
@@ -1098,7 +1094,7 @@
 
 (defn honeysql-from-query
   "Convert a query to honeysql format"
-  [{:keys [projected-fields group-by call selection projections entity subquery?]}]
+  [{:keys [projected-fields group-by call selection projections entity wrap?]}]
   (let [fs (seq (map (comp hcore/raw :statement) call))
         select (if (and fs
                         (empty? projected-fields))
@@ -1108,7 +1104,8 @@
                                    (mapv (fn [[name {:keys [field]}]]
                                            [field name])))
                               fs)))
-        new-selection (-> (cond-> selection (not subquery?) wrap-with-inactive-nodes-cte)
+        new-selection (-> (cond-> selection
+                            wrap? wrap-with-inactive-nodes-cte)
                           (assoc :select select)
                           (cond-> group-by (assoc :group-by group-by)))]
     (log/spy new-selection)))
@@ -1144,10 +1141,7 @@
                                      [:projections]
                                      (constantly projected-fields))
                   sql-from-query)]
-
-      (if (:subquery? query)
-        (htypes/raw (str " ( " sql " ) "))
-        sql)))
+        (htypes/raw (str " ( " sql " ) "))))
 
   InExpression
   (-plan->sql [{:keys [column subquery]}]
@@ -1290,7 +1284,7 @@
 ;;; User Query - functions/transformations of the user defined query
 ;;;              language
 
-(def user-name->query-rec-name
+(def subquery->query-rec
   {"select_catalogs" catalog-query
    "select_edges" edges-query
    "select_environments" environments-query
@@ -1307,18 +1301,26 @@
    "select_latest_report" latest-report-query
    "select_params" resource-params-query
    "select_reports" reports-query
+   "select_report_metrics" report-metrics-query
+   "select_report_logs" report-logs-query
    "select_inventory" inventory-query
    "select_resources" resources-query})
 
-(defn user-query->logical-obj
-  "Keypairs of the stringified subquery keyword (found in user defined queries) to the
-   appropriate plan node"
-  [subquery]
-  (-> (get user-name->query-rec-name subquery)
-      (assoc :subquery? true)))
-
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
+
+(def package-inventory-groups
+  #{"package_name" "version" "provider"})
+
+(defn pi-optimized-extract?
+  "Is the set of extracted columns eligible for bypassing a join with certnames."
+  [columns]
+  (every? (set columns) (vec package-inventory-groups)))
+
+(defn pi-optimized-grouping?
+  "Is the set of grouped columns equal to package-inventory-groups (a key on packages)."
+  [columns]
+  (= (set columns) package-inventory-groups))
 
 (defn expand-query-node
   "Expands/normalizes the user provided query to a minimal subset of the
@@ -1463,6 +1465,31 @@
             [["=" field nil]]
             ["null?" (utils/dashes->underscores field) true]
 
+
+            ;; package_inventory aggregate with an expression
+            [["from" "package_inventory"
+              ["extract" (fields :guard pi-optimized-extract?)
+               expr
+               ["group_by" & (clauses :guard pi-optimized-grouping?)]] & paging-clauses]]
+
+            ["from" "package_inventory"
+             ["extract" fields ["in" clauses
+                                (cond-> ["from" "packages" ["extract" clauses expr]]
+                                  (seq paging-clauses) (concat paging-clauses)
+                                  true vec)]
+              (vec (cons "group_by" clauses))]]
+
+            ;; package_inventory aggregate without an expression
+            [["from" "package_inventory"
+              ["extract" (fields :guard pi-optimized-extract?)
+               ["group_by" & (clauses :guard pi-optimized-grouping?)]] & paging-clauses]]
+            ["from" "package_inventory"
+             ["extract" fields ["in" clauses
+                                (cond-> ["from" "packages" ["extract" clauses]]
+                                  (seq paging-clauses) (concat paging-clauses)
+                                  true vec)]
+              (vec (cons "group_by" clauses))]]
+
             [[op "tag" array-value]]
             [op "tags" (str/lower-case array-value)]
 
@@ -1554,7 +1581,7 @@
 (defn subquery-expression?
   "Returns true if expr is a subquery expression"
   [expr]
-  (contains? (ks/keyset user-name->query-rec-name)
+  (contains? (ks/keyset subquery->query-rec)
              (first expr)))
 
 (defn create-extract-node*
@@ -1571,13 +1598,13 @@
              :where (user-node->plan-node query-rec expr)
              :projected-fields (names->fields column-list projections))
       (let [[subname & subexpr] expr
-            logobj (user-query->logical-obj subname)
-            projections (:projections logobj)]
-        (assoc logobj
+            subquery-rec (subquery->query-rec subname)
+            projections (:projections subquery-rec)]
+        (assoc subquery-rec
                :projected-fields (names->fields column-list projections)
                :where (some->> (seq subexpr)
                                first
-                               (user-node->plan-node logobj)))))))
+                               (user-node->plan-node subquery-rec)))))))
 
 (defn extract-expression?
   "Returns true if expr is an extract expression"
@@ -1620,26 +1647,12 @@
     limit (assoc-in [:selection :limit] limit)
     order-by (assoc-in [:selection :order-by] order-by)))
 
-(pls/defn-validated create-from-node
-  :- {(s/optional-key :projected-fields) [projection-schema]
-      s/Any s/Any}
-  "Create an explicit subquery declaration to mimic the select_<entity>
-   syntax."
-  [entity expr clauses]
-  (let [query-rec (user-query->logical-obj (str "select_" (utils/dashes->underscores entity)))
-        {:keys [limit offset order-by]} (create-paging-map clauses)]
-    (if (extract-expression? expr)
-      (let [[extract columns remaining-expr] expr
-            column-list (utils/vector-maybe columns)
-            projections (:projections query-rec)]
-        (-> query-rec
-            (assoc :projected-fields (mapv (fn [name] [name (projections name)])
-                                           column-list)
-                   :where (user-node->plan-node query-rec remaining-expr))
-            (update-selection offset limit order-by)))
-      (-> query-rec
-          (assoc :where (user-node->plan-node query-rec expr))
-          (update-selection offset limit order-by)))))
+(defn coalesce-fact-values [query-rec col]
+  (if (and (= "facts" (:source-table query-rec))
+           (= "value" col))
+    (h/coalesce :f.value_integer :f.value_float)
+    (or (get-in query-rec [:projections col :field])
+        col)))
 
 (defn create-fnexpression
   [[f & args]]
@@ -1666,38 +1679,55 @@
   [query-rec
    columns]
   (->> columns
-       (map #(if (= "function" (first %)) (second %) %))
+       (map #(if (function-call? %) (second %) %))
        (sort-by #(if (string? %) % (:column %)))
        (mapv (partial alias-columns query-rec))))
 
-(defn strip-function-calls
-  [column-or-columns]
-  (let [{functions true
-         nonfunctions false} (->> column-or-columns
-                                  utils/vector-maybe
-                                  (group-by (comp #(= "function" %) first)))]
-    [(vec (map rest functions))
-     (vec nonfunctions)]))
+(defn normalize-function-calls
+  [query-rec function-fields]
+  (seq (map (fn [[name & args]]
+              (apply vector
+                     name
+                     (if (empty? args)
+                       [:*]
+                       (map (partial coalesce-fact-values query-rec) args))))
+            function-fields)))
+
+(defn groupby-clause?
+  [clause]
+  (= "group_by" (first clause)))
+
+(pls/defn-validated create-from-node
+  :- {(s/optional-key :projected-fields) [projection-schema]
+      s/Any s/Any}
+  "Create an explicit subquery declaration to mimic the select_<entity>
+   syntax."
+  [entity expr clauses]
+  (let [query-rec (subquery->query-rec (str "select_" (utils/dashes->underscores entity)))
+        {:keys [limit offset order-by]} (create-paging-map clauses)]
+    (if (extract-expression? expr)
+      (let [[_ columns & clauses] expr
+            [[query-expr & _] [groupby & _]] (split-with (complement groupby-clause?) clauses)
+            column-list (utils/vector-maybe columns)
+            projections (:projections query-rec)
+            [fcols cols] (strip-function-calls column-list)
+            calls (normalize-function-calls query-rec fcols)]
+        (cond-> (-> query-rec
+                    (assoc :projected-fields (mapv (fn [name] [name (projections name)]) cols)
+                           :where (user-node->plan-node query-rec query-expr))
+                    (update-selection offset limit order-by))
+          calls (assoc :call (map create-fnexpression calls))
+          groupby (assoc :group-by (columns->fields query-rec (rest groupby)))))
+      (-> query-rec
+          (assoc :where (user-node->plan-node query-rec expr))
+          (update-selection offset limit order-by)))))
 
 (pls/defn-validated create-extract-node
   :- {(s/optional-key :projected-fields) [projection-schema]
       s/Any s/Any}
   [query-rec column expr]
-  (let [[fcols cols] (strip-function-calls column)
-        coalesce-fact-values (fn [col]
-                               (if (and (= "facts" (:source-table query-rec))
-                                        (= "value" col))
-                                 (h/coalesce :f.value_integer :f.value_float)
-                                 (or (get-in query-rec [:projections col :field])
-                                     col)))]
-    (if-let [calls (seq
-                     (map (fn [[name & args]]
-                            (apply vector
-                                   name
-                                   (if (empty? args)
-                                     [:*]
-                                     (map coalesce-fact-values args))))
-                          fcols))]
+  (let [[fcols cols] (strip-function-calls column)]
+    (if-let [calls (normalize-function-calls query-rec fcols)]
           (-> query-rec
               (assoc :call (map create-fnexpression calls))
               (create-extract-node* cols expr))
@@ -1853,6 +1883,9 @@
                              (utils/vector-maybe columns))
                 :subquery (user-node->plan-node query-rec subquery-expr)}))
 
+            [["from" entity & (clauses :guard #(and (seq %) (every? paging-clause? %)))]]
+            (create-from-node entity [] clauses)
+
             ;; This provides the from capability to replace the select_<entity> syntax from an
             ;; explicit subquery.
             [["from" entity expr & clauses]]
@@ -1874,13 +1907,18 @@
                 (assoc :group-by (columns->fields query-rec clauses))
                 (create-extract-node column expr))
 
+            [["group_by" & columns]]
+            (-> query-rec
+                (assoc-in [:selection :group-by] (columns->fields query-rec columns)))
+
             :else nil))
 
 (defn convert-to-plan
   "Converts the given `user-query` to a query plan that can later be converted into
   a SQL statement"
-  [query-rec paging-options user-query]
-  (let [plan-node (user-node->plan-node query-rec user-query)
+  [paging-options user-query]
+  (let [query-rec (:query-context (meta user-query))
+        plan-node (user-node->plan-node query-rec user-query)
         projections (projectable-fields query-rec)]
     (if (instance? Query plan-node)
       plan-node
@@ -1921,7 +1959,7 @@
     (when (vec? node)
       (cm/match [node]
                 [["from" entity query]]
-                (let [query (push-down-context (user-query->logical-obj (str "select_" entity)) query)
+                (let [query (push-down-context (subquery->query-rec (str "select_" entity)) query)
                       nested-qc (:query-context (meta query))]
                   {:node (vary-meta ["from" entity query]
                                     assoc :query-context nested-qc)
@@ -1929,8 +1967,8 @@
                    :cut true})
 
                 [["extract" column
-                  [(subquery-name :guard (set (keys user-name->query-rec-name))) subquery-expression]]]
-                (let [subquery-expr (push-down-context (user-query->logical-obj subquery-name) subquery-expression)
+                  [(subquery-name :guard (set (keys subquery->query-rec))) subquery-expression]]]
+                (let [subquery-expr (push-down-context (subquery->query-rec subquery-name) subquery-expression)
                       nested-qc (:query-context (meta subquery-expr))
                       column-validation-message (validate-query-operation-fields
                                                  column
@@ -1953,7 +1991,7 @@
 
                 [["extract" column [subquery-name :guard (complement #{"not" "group_by" "or" "and"}) _]]]
                 (let [underscored-subquery-name (utils/dashes->underscores subquery-name)
-                      error (if (contains? (set (keys user-name->query-rec-name)) underscored-subquery-name)
+                      error (if (contains? (set (keys subquery->query-rec)) underscored-subquery-name)
                               (tru "Unsupported subquery `{0}` - did you mean `{1}`?" subquery-name underscored-subquery-name)
                               (tru "Unsupported subquery `{0}`" subquery-name))]
                   {:node node
@@ -1962,7 +2000,7 @@
 
                 [["subquery" relationship expr]]
                 (let [subquery-expr (push-down-context
-                                     (user-query->logical-obj (str "select_" relationship))
+                                     (subquery->query-rec (str "select_" relationship))
                                      expr)]
 
                   {:node (vary-meta ["subquery" relationship subquery-expr]
@@ -2051,7 +2089,7 @@
   (or (contains? #{"from" "in" "extract" "subquery" "and"
                    "or" "not" "function" "group_by" "null?"} operator)
       (contains? binary-operators operator)
-      (contains? (ks/keyset user-name->query-rec-name) operator)))
+      (contains? (ks/keyset subquery->query-rec) operator)))
 
 (defn ops-to-lower
   "Lower cases operators (such as and/or)."
@@ -2090,10 +2128,6 @@
     (log/warn (trs "The {0} entity is experimental and may be altered or removed in the future."
                    (name entity)))))
 
-(defn paging-clause?
-  [v]
-  (contains? #{"limit" "order_by" "offset"} (first v)))
-
 (defn parse-query-context
   "Parses a top-level query with a 'from', validates it and returns the entity and remaining-query in
    a map."
@@ -2101,47 +2135,18 @@
   (cm/match
     query
     ["from" (entity-str :guard #(string? %)) & remaining-query]
-    (let [remaining-query (cm/match
-                            remaining-query
-
-                            [(c :guard paging-clause?) & clauses]
-                            (let [paging-clauses (create-paging-map (cons c clauses))]
-                              {:paging-clauses paging-clauses :query []})
-
-                            [(q :guard vector?)]
-                            {:query q}
-
-                            [(q :guard vector?) & clauses]
-                            (let [paging-clauses (create-paging-map clauses)]
-                              {:query q :paging-clauses paging-clauses})
-
-                            []
-                            {:query []}
-                            :else (throw
-                                   (IllegalArgumentException.
-                                    (str
-                                     (tru "Your `from` query accepts an optional query only as a second argument.")
-                                     " "
-                                     (tru "Check your query and try again.")))))
-          entity (keyword (utils/underscores->dashes entity-str))]
+    (let [entity (keyword (utils/underscores->dashes entity-str))]
       (when warn
         (warn-experimental entity))
-      {:remaining-query (:query remaining-query)
-       :paging-clauses (:paging-clauses remaining-query)
-       :entity entity})
-
-    :else (throw (IllegalArgumentException.
-                  (str
-                   (trs "Your initial query must be of the form: [\"from\",<entity>,(<optional-query>)].")
-                   " "
-                   (trs "Check your query and try again."))))))
+      {:query query
+       :entity entity})))
 
 (pls/defn-validated ^:private fix-in-expr-multi-comparison
   "Returns [column projection] after adjusting the type of one of them
   to match the other if that one is of type :multi and the other
   isn't."
-  [column :- column-schema
-   projection :- projection-schema]
+  [column
+   projection]
   ;; For now we have to assume it's f.*, etc.
   (let [[proj-name proj-info] projection
         multi-col? (= :multi (:type column))
@@ -2206,20 +2211,20 @@
 (defn compile-user-query->sql
   "Given a user provided query and a Query instance, convert the
    user provided query to SQL and extract the parameters, to be used
-   in a prepared statement"
+   in a prepared statement. Every query coming into this is a 'from' clause."
   [query-rec user-query & [{:keys [include_total] :as paging-options}]]
   ;; Call the query-rec so we can evaluate query-rec functions
   ;; which depend on the db connection type
-  (let [allowed-fields (map keyword (queryable-fields query-rec))
+  (let [entity (keyword (second user-query))
         paging-options (some->> paging-options
-                                (paging/validate-order-by! allowed-fields)
                                 (paging/dealias-order-by query-rec))
         {:keys [plan params]} (->> user-query
                                    (push-down-context query-rec)
                                    expand-user-query
-                                   (convert-to-plan query-rec paging-options)
+                                   (convert-to-plan paging-options)
                                    extract-all-params)
-        sql (-> plan fix-plan-in-expr-multi-comparisons plan->sql)
+        plan (assoc plan :wrap? true)
+        sql (-> plan fix-plan-in-expr-multi-comparisons plan->sql hcore/format first)
         paged-sql (jdbc/paged-sql sql paging-options)]
     (cond-> {:results-query (apply vector paged-sql params)}
       include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))
