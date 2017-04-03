@@ -1240,7 +1240,7 @@
                  (jdbc/in-clause rm-pids))
          (cons factset-id rm-pids)))
 
-      (insert-facts! (certname-to-factset-id certname)
+      (insert-facts! factset-id
                      (map paths->ids new-pathstrs)
                      new-values)
 
