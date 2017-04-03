@@ -147,7 +147,8 @@
                                    [clj-time com.andrewmcveigh/cljs-time instaparse joda-time org.clojure/clojure]]
                                   [environ "1.0.2"]
                                   [riddley "0.1.12"]
-                                  [io.forward/yaml "1.0.5"]]
+                                  [io.forward/yaml "1.0.5"]
+                                  [com.climate/claypoole "1.1.4"]]
                    :injections [(do
                                   (require 'schema.core)
                                   (schema.core/set-fn-validation! true))]}
