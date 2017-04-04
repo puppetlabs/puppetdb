@@ -1248,6 +1248,10 @@
    "create index certname_package_reverse_idx on certname_packages using btree (package_id, certname_id)"
    "create index packages_name_idx on packages using btree (name)"))
 
+(defn add-gin-index-on-resource-params-cache []
+  (jdbc/do-commands
+    "create index resource_params_cache_parameters_idx on resource_params_cache using gin (parameters)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1282,7 +1286,8 @@
    54 drop-resource-events-resource-type-idx
    55 index-certnames-unique-latest-report-id
    56 merge-fact-values-into-facts
-   57 add-package-tables})
+   57 add-package-tables
+   58 add-gin-index-on-resource-params-cache})
 
 (def desired-schema-version (apply max (keys migrations)))
 

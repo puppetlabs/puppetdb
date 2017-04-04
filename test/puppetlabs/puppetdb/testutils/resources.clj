@@ -19,6 +19,10 @@
          :parameters (sutils/munge-jsonb-for-storage
                        {"ensure" "file"
                         "owner"  "root"
+                        "nested" {"foo" "bar"}
+                        "boolean" true
+                        "numeric" 1337
+                        "double" 3.14
                         "group"  "root"
                         "acl"    ["john:rwx" "fred:rwx"]})}
         {:resource (sutils/munge-hash-for-storage "02")
@@ -32,7 +36,15 @@
         {:resource (sutils/munge-hash-for-storage "01") :name "group"
          :value (sutils/db-serialize "root")}
         {:resource (sutils/munge-hash-for-storage "01") :name "acl"
-         :value (sutils/db-serialize ["john:rwx" "fred:rwx"])}])
+         :value (sutils/db-serialize ["john:rwx" "fred:rwx"])}
+        {:resource (sutils/munge-hash-for-storage "01") :name "nested"
+         :value (sutils/db-serialize {"foo" "bar"})}
+        {:resource (sutils/munge-hash-for-storage "01") :name "boolean"
+         :value (sutils/db-serialize true)}
+        {:resource (sutils/munge-hash-for-storage "01") :name "numeric"
+         :value (sutils/db-serialize 1337)}
+        {:resource (sutils/munge-hash-for-storage "01") :name "double"
+         :value (sutils/db-serialize 3.14)}])
        (jdbc/insert-multi!
         :certnames
          [{:id 1 :certname "one.local"}
@@ -98,6 +110,10 @@
              :environment (when environment? "DEV")
              :parameters {:ensure "file"
                           :owner  "root"
+                          :nested {:foo "bar"}
+                          :boolean true
+                          :numeric 1337
+                          :double 3.14
                           :group  "root"
                           :acl    ["john:rwx" "fred:rwx"]}}
       :foo2 {:certname   "one.local"
@@ -121,6 +137,10 @@
              :environment (when environment? "PROD")
              :parameters {:ensure "file"
                           :owner  "root"
+                          :nested {:foo "bar"}
+                          :boolean true
+                          :numeric 1337
+                          :double 3.14
                           :group  "root"
                           :acl    ["john:rwx" "fred:rwx"]}}
       :bar2 {:certname   "two.local"
