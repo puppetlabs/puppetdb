@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.3 overview"
+title: "PuppetDB 4.4 overview"
 layout: default
 ---
 

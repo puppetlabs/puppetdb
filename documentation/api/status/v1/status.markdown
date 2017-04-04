@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.3: Status endpoint"
+title: "PuppetDB 4.4: Status endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/status/v1/status.html"
 ---

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.3: Contributing to PuppetDB"
+title: "PuppetDB 4.4: Contributing to PuppetDB"
 layout: default
 ---
 

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.3: Export, import and anonymization"
+title: "PuppetDB 4.4: Export, import and anonymization"
 layout: default
 ---
 

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.3 » Puppet query language (PQL) » Examples"
+title: "PuppetDB 4.4 » Puppet query language (PQL) » Examples"
 layout: default
 ---
 

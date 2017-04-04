@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.3: AST query language"
+title: "PuppetDB 4.4: AST query language"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/ast.html"
 ---
