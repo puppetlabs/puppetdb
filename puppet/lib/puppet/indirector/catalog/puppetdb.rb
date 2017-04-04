@@ -32,6 +32,21 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     hash
   end
 
+  def redact_sensitive_params(hash)
+    resources = hash['resources']
+    resources.each do |resource|
+      sensitive_params = resource['sensitive_parameters']
+      unless sensitive_params.nil?
+        parameters = resource['parameters']
+        sensitive_params.each do |sensitive_param|
+          parameters.delete sensitive_param
+        end
+        resource.delete 'sensitive_parameters'
+      end
+    end
+    nil
+  end
+
   def munge_catalog(catalog, producer_timestamp, extra_request_data = {})
     profile("Munge catalog", [:puppetdb, :catalog, :munge]) do
       data = profile("Convert catalog to JSON data hash", [:puppetdb, :catalog, :convert_to_hash]) do
@@ -54,6 +69,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       add_environment(data, extra_request_data[:environment])
       add_producer_timestamp(data, producer_timestamp)
       add_producer(data, Puppet[:node_name_value])
+      redact_sensitive_params(data)
 
       data
     end
