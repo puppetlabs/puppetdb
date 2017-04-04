@@ -1,5 +1,6 @@
 language: clojure
 lein: 2.7.1
+dist: trusty
 
 # Always explicitly set sudo.  Otherwise travis' defaults may vary
 # based on when the repository testing was enabled.
@@ -20,16 +21,16 @@ matrix:
 
     # pdb unit tests
     - env: >
+        NAME=unit-openjdk8
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:unit
+      jdk: openjdk8
+
+    - env: >
         NAME=unit-openjdk7
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:unit
       jdk: openjdk7
-
-    - env: >
-        NAME=unit-oracle7
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:unit
-      jdk: oraclejdk7
 
     - env: >
         NAME=unit-oracle8
@@ -37,9 +38,31 @@ matrix:
         PDB_TEST_SELECTOR=:unit
       jdk: oraclejdk8
 
+    - env: >
+        NAME=unit-oracle7
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:unit
+      jdk: oraclejdk7
+
     # pdb + terminus + puppetserver + puppet integration tests
     - env: >
-        NAME=integration-stable
+        NAME=integration-stable-openjdk8
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:integration
+        PUPPET_VERSION=4.8.0
+        PUPPETSERVER_VERSION=2.7.2
+      jdk: openjdk8
+
+    - env: >
+        NAME=integration-latest-puppet-openjdk8
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:integration
+        PUPPET_VERSION=latest
+        PUPPETSERVER_VERSION=2.7.2
+      jdk: openjdk8
+
+    - env: >
+        NAME=integration-stable-oraclejdk8
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
         PUPPET_VERSION=4.8.0
@@ -47,7 +70,7 @@ matrix:
       jdk: oraclejdk8
 
     - env: >
-        NAME=integration-latest-puppet
+        NAME=integration-latest-puppet-oraclejdk8
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
         PUPPET_VERSION=latest
