@@ -1,10 +1,12 @@
 (ns puppetlabs.puppetdb.performance.package-storage-perf
   (:require [puppetlabs.kitchensink.core :as ks]
-            [clojure.test.check.generators :as gen]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.command :as cmd]
             [clj-time.core :as t]
-            [com.climate.claypoole :as cp]))
+            [com.climate.claypoole :as cp]
+            [metrics.timers :as mt]
+            [puppetlabs.puppetdb.scf.storage :as scf]
+            [clojure.pprint :as pprint]))
 
 (defn store-facts [db certname values packages-map]
   (let [package-tuples (map (fn [[name version]]
@@ -67,6 +69,11 @@
     (f)
     (- (System/currentTimeMillis) start)))
 
+(defn readable-timer-metric [m]
+  (ks/mapvals
+   (fn [ns] (/ ns (* 1000 1000)))
+   (mt/percentiles m)))
+
 (defn run-fact-storage-bench [{:keys [certname-count
                                       fact-count
                                       changing-fact-count
@@ -75,6 +82,8 @@
                                       node-specific-package-count
                                       package-upgrade-count
                                       threads]}]
+  (scf/reset-performance-metrics)
+
   (with-test-db
     (let [all-fact-names (->> (range)
                               (map (comp ks/utf8-string->sha1 str hash))
@@ -123,14 +132,19 @@
                                                                  update-iterations)))))
                    dorun)))]
       {:initial (float (/ initial-storage-ms certname-count))
-       :update (float (/ update-fact-ms (* update-iterations certname-count)))})))
+       :update (float (/ update-fact-ms (* update-iterations certname-count)))
+       :insert-packages (readable-timer-metric (:insert-packages scf/performance-metrics))
+       :update-packages (readable-timer-metric (:update-packages scf/performance-metrics))
+       :update-packages-gc (readable-timer-metric (:update-packages-gc scf/performance-metrics))
+       :replace-facts (readable-timer-metric (:replace-facts scf/performance-metrics))
+       :replace-facts-gc (readable-timer-metric (:replace-facts-gc scf/performance-metrics))})))
 
 (defn single-threaded-fact-storage []
   (run-fact-storage-bench
-   {:certname-count 100
+   {:certname-count 80000
     :fact-count 250
     :changing-fact-count 25
-    :update-iterations 3
+    :update-iterations 6
     :package-count 0
     :node-specific-package-count 0
     :package-upgrade-count 0
@@ -138,34 +152,41 @@
 
 (defn concurrent-fact-storage []
   (run-fact-storage-bench
-   {:certname-count 300
+   {:certname-count 80000
     :fact-count 250
     :changing-fact-count 25
-    :update-iterations 3
+    :update-iterations 6
     :package-count 0
     :node-specific-package-count 0
     :package-upgrade-count 0
-    :threads 8}))
+    :threads 4}))
+
 
 (defn single-threaded-package-storage []
   (run-fact-storage-bench
-   {:certname-count 100
+   {:certname-count 80000
     :fact-count 250
     :changing-fact-count 25
-    :update-iterations 3
-    :package-count 200
+    :update-iterations 6
+    :package-count 2000
     :node-specific-package-count 15
-    :package-upgrade-count 20
+    :package-upgrade-count 10
     :threads 1}))
-
 
 (defn concurrent-package-storage []
   (run-fact-storage-bench
-   {:certname-count 300
+   {:certname-count 80000
     :fact-count 250
     :changing-fact-count 25
-    :update-iterations 3
-    :package-count 200
+    :update-iterations 6
+    :package-count 2000
     :node-specific-package-count 15
-    :package-upgrade-count 20
-    :threads 8}))
+    :package-upgrade-count 10
+    :threads 4}))
+
+(defn -main []
+  (pprint
+   {:single-threaded-fact-storage (single-threaded-fact-storage)
+    :concurrent-fact-storage (concurrent-fact-storage)
+    :single-threaded-package-storage (single-threaded-package-storage)
+    :concurrent-package-storage (concurrent-fact-storage)}))
