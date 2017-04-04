@@ -594,15 +594,16 @@
 (defn package-seq
   "Return all facts and their values for a given certname as a map"
   [certname]
-  (let [result (jdbc/query
-                ["SELECT p.name as package_name, p.version, p.provider
+  (rest
+   (jdbc/query
+    ["SELECT p.name as package_name, p.version, p.provider
                   FROM certname_packages cp
                        inner join packages p on cp.package_id = p.id
                        inner join certnames c on cp.certname_id = c.id
                   WHERE c.certname = ?
                   ORDER BY package_name, version, provider"
-                 certname])]
-    (map (juxt :package_name :version :provider) result)))
+     certname]
+    {:as-arrays? true})))
 
 (deftest-db fact-persistance-with-packages
   (testing "Existing facts with new packages added"
@@ -719,6 +720,92 @@
           (is (pos? (package-count)))
           (delete-unassociated-packages!)
           (is (zero? (package-count))))))))
+
+(deftest-db purge-packages-from-node
+  (testing "Existing facts with new packages added"
+    (let [certname "some_certname"
+          facts {"domain" "mydomain.com"
+                 "fqdn" "myhost.mydomain.com"
+                 "hostname" "myhost"
+                 "kernel" "Linux"
+                 "operatingsystem" "Debian"}
+          producer "bar.com"
+          reload-packages (fn []
+                            (update-facts!
+                             {:certname certname
+                              :values facts
+                              :timestamp (-> 1 days ago)
+                              :environment "DEV"
+                              :producer_timestamp (-> 1 days ago)
+                              :producer producer
+                              :package_inventory [["foo" "1.2.3" "apt"]
+                                                  ["bar" "2.3.4" "apt"]
+                                                  ["baz" "3.4.5" "apt"]]}))
+          find-package-hash (fn []
+                              (:package_hash (certname-factset-metadata "some_certname")))]
+      (add-certname! certname)
+      (add-facts! {:certname certname
+                   :values facts
+                   :timestamp previous-time
+                   :environment "PROD"
+                   :producer_timestamp previous-time
+                   :producer producer})
+
+      (is (empty? (package-seq certname)))
+
+      (reload-packages)
+
+      (testing "data was loaded for test"
+        (is (= 3 (count (package-seq certname)))))
+
+      (is (find-package-hash))
+
+      (testing "package_inventory key is missing from command"
+        (update-facts!
+         {:certname certname
+          :values facts
+          :timestamp (-> 1 days ago)
+          :environment "DEV"
+          :producer_timestamp (-> 1 days ago)
+          :producer producer})
+
+        (is (= []
+               (package-seq certname)))
+
+        (is (nil? (find-package-hash))))
+
+      (reload-packages)
+      (is (= 3 (count (package-seq certname))))
+
+      (testing "package_inventory is nil"
+        (update-facts!
+         {:certname certname
+          :values facts
+          :timestamp (-> 1 days ago)
+          :environment "DEV"
+          :producer_timestamp (-> 1 days ago)
+          :producer producer
+          :package_inventory nil})
+
+        (is (= 0 (count (package-seq certname))))
+        (is (nil? (find-package-hash))))
+
+      (reload-packages)
+      (is (= 3 (count (package-seq certname))))
+      (is (find-package-hash))
+
+      (testing "package_inventory is empty"
+        (update-facts!
+         {:certname certname
+          :values facts
+          :timestamp (-> 1 days ago)
+          :environment "DEV"
+          :producer_timestamp (-> 1 days ago)
+          :producer producer
+          :package_inventory []})
+
+        (is (= 0 (count (package-seq certname))))
+        (is (nil? (find-package-hash)))))))
 
 (def catalog (:basic catalogs))
 (def certname (:certname catalog))
