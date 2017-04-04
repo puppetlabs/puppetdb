@@ -40,6 +40,7 @@
             [metrics.gauges :refer [gauge-fn]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
+            [metrics.core :refer [remove-all-metrics]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [honeysql.core :as hcore]
@@ -163,43 +164,60 @@
 ;;
 ;; * `:gc-params`: the time it takes to remove all unused resource params
 ;;
+;; * `:gc-packages`: the time it takes to remove unused package records
+;;
 ;; ### Timers for fact storage
 ;;
 ;; * `:replace-facts`: the time it takes to replace the facts for a
 ;;   host
 ;;
-(def performance-metrics
-  {
-   :add-resources      (timer storage-metrics-registry ["add-resources"])
-   :add-edges          (timer storage-metrics-registry ["add-edges"])
+;; ### Timers for package storage
+;;
+;; * `:store-packages`: The overall time it takes to insert or update package data.
+;;
+;; * `:store-packages-gc`: the time it takes to clean up old packages during update.
+;;   (included in :store-packages)
+;;
+(defn reset-performance-metrics []
+  (remove-all-metrics storage-metrics-registry)
+  (def performance-metrics
+    {:add-resources      (timer storage-metrics-registry ["add-resources"])
+     :add-edges          (timer storage-metrics-registry ["add-edges"])
 
-   :resource-hashes    (timer storage-metrics-registry ["resource-hashes"])
-   :catalog-hash       (timer storage-metrics-registry ["catalog-hash"])
-   :add-new-catalog    (timer storage-metrics-registry ["new-catalog-time"])
-   :catalog-hash-match (timer storage-metrics-registry ["catalog-hash-match-time"])
-   :catalog-hash-miss  (timer storage-metrics-registry ["catalog-hash-miss-time"])
-   :replace-catalog    (timer storage-metrics-registry ["replace-catalog-time"])
+     :resource-hashes    (timer storage-metrics-registry ["resource-hashes"])
+     :catalog-hash       (timer storage-metrics-registry ["catalog-hash"])
+     :add-new-catalog    (timer storage-metrics-registry ["new-catalog-time"])
+     :catalog-hash-match (timer storage-metrics-registry ["catalog-hash-match-time"])
+     :catalog-hash-miss  (timer storage-metrics-registry ["catalog-hash-miss-time"])
+     :replace-catalog    (timer storage-metrics-registry ["replace-catalog-time"])
 
-   :gc                 (timer storage-metrics-registry ["gc-time"])
-   :gc-catalogs        (timer storage-metrics-registry ["gc-catalogs-time"])
-   :gc-params          (timer storage-metrics-registry ["gc-params-time"])
-   :gc-environments    (timer storage-metrics-registry ["gc-environments-time"])
-   :gc-packages    (timer storage-metrics-registry ["gc-packages-time"])
-   :gc-report-statuses (timer storage-metrics-registry ["gc-report-statuses"])
-   :gc-fact-paths  (timer storage-metrics-registry ["gc-fact-paths"])
+     :gc                 (timer storage-metrics-registry ["gc-time"])
+     :gc-catalogs        (timer storage-metrics-registry ["gc-catalogs-time"])
+     :gc-params          (timer storage-metrics-registry ["gc-params-time"])
+     :gc-environments    (timer storage-metrics-registry ["gc-environments-time"])
+     :gc-packages    (timer storage-metrics-registry ["gc-packages-time"])
+     :gc-report-statuses (timer storage-metrics-registry ["gc-report-statuses"])
+     :gc-fact-paths  (timer storage-metrics-registry ["gc-fact-paths"])
 
-   :updated-catalog    (counter storage-metrics-registry ["new-catalogs"])
-   :duplicate-catalog  (counter storage-metrics-registry ["duplicate-catalogs"])
-   :duplicate-pct      (gauge-fn storage-metrics-registry ["duplicate-pct"]
-                                 (fn []
-                                   (let [dupes (value (:duplicate-catalog performance-metrics))
-                                         new   (value (:updated-catalog performance-metrics))]
-                                     (float (kitchensink/quotient dupes (+ dupes new))))))
-   :catalog-volatility (histogram storage-metrics-registry ["catalog-volitilty"])
+     :updated-catalog    (counter storage-metrics-registry ["new-catalogs"])
+     :duplicate-catalog  (counter storage-metrics-registry ["duplicate-catalogs"])
+     :duplicate-pct      (gauge-fn storage-metrics-registry ["duplicate-pct"]
+                                   (fn []
+                                     (let [dupes (value (:duplicate-catalog performance-metrics))
+                                           new   (value (:updated-catalog performance-metrics))]
+                                       (float (kitchensink/quotient dupes (+ dupes new))))))
+     :catalog-volatility (histogram storage-metrics-registry ["catalog-volitilty"])
 
-   :replace-facts     (timer storage-metrics-registry ["replace-facts-time"])
+     :replace-facts     (timer storage-metrics-registry ["replace-facts-time"])
+     :replace-facts-gc  (timer storage-metrics-registry ["replace-facts-gc-time"])
 
-   :store-report      (timer storage-metrics-registry ["store-report-time"])})
+     :store-report      (timer storage-metrics-registry ["store-report-time"])
+     :insert-packages     (timer storage-metrics-registry ["insert-packages-time"])
+     :update-packages     (timer storage-metrics-registry ["update-packages-time"])
+     :update-packages-gc  (timer storage-metrics-registry ["update-packages-gc-time"])}))
+
+(reset-performance-metrics)
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Certname querying/deleting
@@ -1064,12 +1082,12 @@
                           ["certname_id = ? and package_id = ANY(?)"
                            certname-id
                            old-package-id-sql-param])
-
-            (jdbc/delete! :packages
-                          [(str "id = any(?) "
-                                "and not exists "
-                                "(select 1 from certname_packages where package_id=id)")
-                           old-package-id-sql-param])))))))
+            (time! (:update-packages-gc performance-metrics)
+                   (jdbc/delete! :packages
+                                 [(str "id = any(?) "
+                                       "and not exists "
+                                       "(select 1 from certname_packages where package_id=id)")
+                                  old-package-id-sql-param]))))))))
 
 (defn insert-packages [certname inventory]
   (let [certname-id (:id (find-certname-id-and-hash certname))
@@ -1115,7 +1133,8 @@
           path-values (map second paths-and-values)]
 
       (when (seq package_inventory)
-        (insert-packages certname package_inventory))
+        (time! (:insert-packages performance-metrics)
+         (insert-packages certname package_inventory)))
 
       (insert-facts! (certname-to-factset-id certname)
                      (map paths->ids pathstrs)
@@ -1248,10 +1267,12 @@
                               (filter #(= :changed (first %))
                                       existing-status))
 
-      (delete-pending-path-id-orphans! factset-id rm-pids)
+      (time! (:replace-facts-gc performance-metrics)
+             (delete-pending-path-id-orphans! factset-id rm-pids))
 
       (when (seq package_inventory)
-        (update-packages certname package_inventory))
+        (time! (:update-packages performance-metrics)
+               (update-packages certname package_inventory)))
 
       (jdbc/update! :factsets
                     {:timestamp (to-timestamp timestamp)
