@@ -17,6 +17,83 @@ canonical: "/puppetdb/latest/release_notes.html"
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
 
+4.4.0
+-----
+
+PuppetDB 4.4.0 is a backward-compatible feature release that is primarily
+focused on improving command processing performance.
+
+### New features / Enhancements
+
+* When a new command is received which completely supersedes one that is sitting
+  in the queue, the old one is dropped. This should considerably improve
+  processing time for 'replace facts' and 'replace catalog' commands when the
+  queue is backed up. ([PDB-3108](https://tickets.puppetlabs.com/browse/PDB-3108))
+
+* Fact storage is now optimized for storage speed, at the cost of additional
+  disk usage. We found that our previous design, which focused on reducing the
+  on-disk size of fact data, caused performance problems in large installations
+  and with certain forms of structured facts. With this modest denormalization,
+  fact storage performance is more consistent at large scale and in these corner
+  cases. In exchange for the improved performance, the storage space required
+  for facts will increase during the upgrade. The exact increase will depend on
+  the duplication rate of the existing fact values.
+  ([PDB-3249](https://tickets.puppetlabs.com/browse/PDB-3249))
+
+* Commands sent from Puppet Server to PuppetDB will be gzip-compressed on the
+  wire and on disk when running with the upcoming Puppet Server 5.0.
+  ([PDB-2640](https://tickets.puppetlabs.com/browse/PDB-2640))
+
+* Command logging now includes the elapsed time for processing each command.
+  This should make it easier to diagnose performance problems which are related
+  to data coming from a subset of nodes.
+  ([PDB-3096](https://tickets.puppetlabs.com/browse/PDB-3096))
+
+* Parameters which are marked with the 'Sensitive' datatype in your puppet
+  manifests are now redacted before being sent to PuppetDB.
+  ([PDB-3322](https://tickets.puppetlabs.com/browse/PDB-3322))
+
+* PQL and the root query endpoint are no longer considered experimental.
+  ([PDB-3256](https://tickets.puppetlabs.com/browse/PDB-3256))
+
+* Added an implicit query relationship between the 'inventory' and 'facts'
+  entities. This allows PQL queries like this:
+
+      facts[value]{name = "ipaddress" and inventory{trusted.extensions.foo = "bar"}}
+
+  ([PDB-3099](https://tickets.puppetlabs.com/browse/3309))
+
+* Unify implicit relationships for all entities with a 'certname' field.
+  ([PDB-3367](https://tickets.puppetlabs.com/browse/PDB-3367))
+
+### Bug fixes and maintenance:
+
+* The factset entity's 'producer' field was not being updated for pre-existing
+  factsets. ([PDB-3276](https://tickets.puppetlabs.com/browse/PDB-3276))
+
+* Determine the latest report using the `producer_timestamp` field from the
+  compile master, not `end_time` from the agent.
+  ([PDB-3277](https://tickets.puppetlabs.com/browse/PDB-3277))
+
+* Fix regular expression queries on nested resource parameters.
+  ([PDB-3285](https://tickets.puppetlabs.com/browse/PDB-3285))
+
+* Ensure that the queue-depth metric accurately reflects the data on disk when
+  the files are directly removed. ([PDB-3307](https://tickets.puppetlabs.com/browse/PDB-3307))
+
+* Allow paging options to be specified both in the request parameters and in an
+  outer `["from"]` clause.
+  ([PDB-3379](https://tickets.puppetlabs.com/browse/PDB-3379))
+
+* Drop the unneeded `resource_events_resource_type_idx` index.
+  ([PDB-3220](https://tickets.puppetlabs.com/browse/PDB-3220))
+
+### Contributors
+
+Andreas Paul, Andrew Roetker, Brian Cain, Dan Lidral-Porter, Jeremy Barlow, Ken
+Barber, Morgan Rhodes, Nick Walker, Rob Browning, Russell Mull, Ruth Linehan,
+Ryan Senior, Wyatt Alt
+
 4.3.2
 -----
 
