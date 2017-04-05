@@ -701,5 +701,55 @@ describe Puppet::Resource::Catalog::Puppetdb do
           "catalog_uuid", "producer"]
       end
     end
+
+    describe "#redact_sensitive_params" do
+      let(:secret) {'xyzzy XKPGMKIB253ZVJHKOKZZXPQSSE'}
+      let(:has_secret?) {
+        lambda { |r| r['parameters'] && r['parameters'][:message] == secret}
+      }
+      let(:input) {{'tags' => Puppet::Util::TagSet.new(['settings']),
+                    'name' => 'my_agent',
+                    'version' => 1490991352,
+                    'code_id' => nil,
+                    'catalog_uuid' => 'aa4759d3-f1f1-47a0-925c-a4acd0c1b4ed',
+                    'catalog_format' => 1,
+                    'environment' => 'production',
+                    'resources' =>
+                    [{'type' => 'Stage',
+                      'title' => :main,
+                      'tags' => Puppet::Util::TagSet.new(['stage']),
+                      'exported' => false,
+                      'parameters' => {:name => 'main'}},
+                     {'type' => 'Class',
+                      'title' => 'Settings',
+                      'tags' => Puppet::Util::TagSet.new(['class', 'settings']),
+                      'exported' => false},
+                     {'type' => 'Class',
+                      'title' => :main,
+                      'tags' => Puppet::Util::TagSet.new(['class']),
+                      'exported' => false,
+                      'parameters' => {:name => 'main'}},
+                     {'type' => 'Notify',
+                      'title' => 'hi',
+                      'tags' => Puppet::Util::TagSet.new(['notify', 'hi', 'class']),
+                      'file' =>  'site.pp',
+                      'line' => 1,
+                      'exported' => false,
+                      'parameters' => {:message => secret},
+                      'sensitive_parameters' => [:message]}],
+                    'edges' =>
+                    [{'source' => 'Stage[main]', 'target' => 'Class[Settings]'},
+                     {'source' => 'Stage[main]', 'target' => 'Class[main]'},
+                     {'source' => 'Class[main]', 'target' => 'Notify[hi]'}],
+                    'classes' => ['settings']}}
+      it 'should remove any sensitive resource parameters' do
+        resources = input['resources']
+        resources.any? {|r| r['sensitive_parameters']}.should be true
+        resources.any? {|r| has_secret?.call(r) }.should be true
+        subject.redact_sensitive_params(input)
+        resources.any? {|r| r['sensitive_parameters']}.should_not be true
+        resources.any? {|r| has_secret?.call(r) }.should_not be true
+      end
+    end
   end
 end
