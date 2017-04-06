@@ -76,7 +76,8 @@
               (-> row
                   (update :logs #(json/parse (str %) true))
                   (update :metrics #(json/parse (str %) true))
-                  (update :resource_events #(json/parse (str %) true)))))))
+                  (update :resource_events #(json/parse (str %) true))
+                  (update-in [:resource_events :data] #(into #{} %)))))))
 
 (defn all-nodes [db]
   (qeng/stream-query-result :v4
