@@ -1,4 +1,4 @@
-(ns puppetlabs.puppetdb.integration.storeconfigs.puppetdb-query
+(ns puppetlabs.puppetdb.integration.puppetdb-query
   (:require [clojure.test :refer :all]
             [me.raynes.fs :as fs]
             [puppetlabs.puppetdb.integration.fixtures :as int]))
