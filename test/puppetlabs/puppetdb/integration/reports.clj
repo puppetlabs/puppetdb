@@ -186,8 +186,7 @@
       (Thread/sleep 1000))
 
     (let [initial-gc-count (counters/value (:report-purges pdb-services/admin-metrics))]
-      (with-open [pdb (int/run-puppetdb pg {:database {:report-ttl "1s"}})
-                  ps (int/run-puppet-server [pdb] {})]
+      (with-open [pdb (int/run-puppetdb pg {:database {:report-ttl "1s"}})]
         (let [start-time (System/currentTimeMillis)]
           (loop []
             (cond
