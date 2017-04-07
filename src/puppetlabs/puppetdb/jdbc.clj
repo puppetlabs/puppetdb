@@ -32,14 +32,15 @@
 
 (defn do-commands
   "Runs the given commands in a transaction on the database given
-  by (jdbc/db).  If a command is a vector, it will be converted to a
-  string via (apply str v)."
+  by (jdbc/db).  If a command is a seq, converts it to a string
+  via (clojure.string/join command)."
   [& commands]
   (sql/db-do-commands *db* true
-                      (for [c commands]
-                        (if (vector? c)
-                          (apply str c)
-                          c))))
+                      (mapv #(cond
+                               (string? %) %
+                               (seq %) (string/join %)
+                               :else %)
+                            commands)))
 
 (defn do-prepared
   "Executes an optionally parametrized sql expression in a transaction on the
