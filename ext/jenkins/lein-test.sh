@@ -29,4 +29,4 @@ declare -rx PDB_TEST_ID
 
 lein --version
 lein clean
-exec lein test
+exec lein test :all
