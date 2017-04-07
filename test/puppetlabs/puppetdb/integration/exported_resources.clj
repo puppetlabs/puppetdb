@@ -124,5 +124,12 @@
 
       (testing "tag queries should be case-insensitive"
         (test-collection "Notify <<| tag == 'HERE'|>> "
-                         [#"message-a" #"message-c"])))))
+                         [#"message-a" #"message-c"]))
 
+      (testing "puppetdb query function"
+        (test-collection (str "$titles = puppetdb_query(['from', 'resources',"
+                              "                          ['extract', ['title'],"
+                              "                           ['and', ['=', 'type', 'Notify'],"
+                              "                                   ['=', ['parameter', 'name'], 'a']]]])"
+                              "notify { \"titles is ${titles}\": }")
+                         [#"message-a"])))))
