@@ -29,4 +29,9 @@ declare -rx PDB_TEST_ID
 
 lein --version
 lein clean
+
+# We're going to run the integration tests, so we need both flavors of gems installed
+bundle install --path vendor/bundle --without acceptance
+lein install-gems
+
 exec lein test :all
