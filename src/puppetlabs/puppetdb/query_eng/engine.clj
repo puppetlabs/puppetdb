@@ -1905,13 +1905,13 @@
   [field allowed-fields query-name error-action error-context]
   (let [invalid-fields (unsupported-fields field allowed-fields)]
     (when (> (count invalid-fields) 0)
-      (format "%s unknown '%s' %s '%s'%s. Acceptable fields are: %s"
+      (format "%s unknown '%s' %s %s%s. Acceptable fields are %s"
               error-action
               query-name
-              (if (> (count invalid-fields) 1) "fields:" "field")
-              (str/join "', '" invalid-fields)
+              (if (> (count invalid-fields) 1) "fields" "field")
+              (utils/comma-separated-keywords invalid-fields)
               (if (empty? error-context) "" (str " " error-context))
-              (json/generate-string allowed-fields)))))
+              (utils/comma-separated-keywords allowed-fields)))))
 
 (defn annotate-with-context
   "Add `context` as meta on each `node` that is a vector. This associates the
@@ -1987,11 +1987,13 @@
                             (contains? (set qfields) field)
                             (some #(re-matches % field) (map re-pattern dotted-fields)))
                 {:node node
-                 :state (conj state
-                              (format "'%s' is not a queryable object for %s, %s" field alias
-                                      (if (empty? qfields)
-                                        (format "%s has no queryable objects" alias)
-                                        (format "known queryable objects are %s" (json/generate-string qfields)))))}))
+                 :state (conj
+                          state
+                          (if (empty? qfields)
+                            (tru "''{0}'' is not a queryable object for {1}. Entity {2} has no queryable objects"
+                                 field alias alias)
+                            (tru "''{0}'' is not a queryable object for {1}. Known queryable objects are {2}"
+                                 field alias (utils/comma-separated-keywords qfields))))}))
 
             ; This validation is only for top-level extract operator
             ; For in-extract operator validation, please see annotate-with-context function
@@ -2015,10 +2017,11 @@
                             (some #(re-matches % field) (map re-pattern dotted-fields)))
                 {:node node
                  :state (conj state
-                              (format "'%s' is not a queryable object for %s, %s" field alias
-                                      (if (empty? qfields)
-                                        (format "%s has no queryable objects" alias)
-                                        (format "known queryable objects are %s" (json/generate-string qfields)))))}))
+                              (if (empty? qfields)
+                                (tru "''{0}'' is not a queryable object for {1}. Entity {1} has no queryable objects"
+                                     field alias)
+                                (tru "''{0}'' is not a queryable object for {1}. Known queryable objects are {2}"
+                                     field alias (utils/comma-separated-keywords qfields))))}))
 
             [["in" field & _]]
             (let [query-context (:query-context (meta node))

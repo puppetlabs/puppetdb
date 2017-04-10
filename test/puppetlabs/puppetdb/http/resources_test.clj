@@ -194,17 +194,17 @@ to the result of the form supplied to this method."
             response (query-response method endpoint query)]
         (is (= http/status-bad-request (:status response)))
         (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
-        (is (re-find #"'sourceline' is not a queryable object for resources, known queryable objects are" (:body response))))
+        (is (re-find #"'sourceline' is not a queryable object for resources. Known queryable objects are" (:body response))))
       (let [query ["~" "sourcefile" "foo"]
             response (query-response method endpoint query)]
         (is (= http/status-bad-request (:status response)))
         (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
-        (is (re-find #"'sourcefile' is not a queryable object for resources, known queryable objects are" (:body response))))
+        (is (re-find #"'sourcefile' is not a queryable object for resources. Known queryable objects are" (:body response))))
       (let [query ["=" "sourcefile" "/foo/bar"]
             response (query-response method endpoint query)]
         (is (= http/status-bad-request (:status response)))
         (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
-        (is (re-find #"'sourcefile' is not a queryable object for resources, known queryable objects are" (:body response)))))
+        (is (re-find #"'sourcefile' is not a queryable object for resources. Known queryable objects are" (:body response)))))
 
     (testing "query by file and line is supported"
       (let [query ["=" "file" "/foo/bar"]
@@ -350,7 +350,7 @@ to the result of the form supplied to this method."
                       #"Can't extract unknown 'resources' field 'nothing'.*Acceptable fields are.*"
 
                       ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
-                      #"Can't extract unknown 'resources' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
+                      #"Can't extract unknown 'resources' fields 'nothing' and 'nothing2'.*Acceptable fields are.*")))
 
 (deftest-http-app invalid-queries
   [[version endpoint] endpoints
