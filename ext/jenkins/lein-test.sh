@@ -34,4 +34,4 @@ lein clean
 NO_ACCEPTANCE=true bundle install --path vendor/bundle --without acceptance
 lein install-gems
 
-exec lein test :all
+NO_ACCEPTANCE=true exec lein test :all

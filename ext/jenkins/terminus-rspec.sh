@@ -22,4 +22,4 @@ mkdir vendor
 NO_ACCEPTANCE=true bundle install --path vendor/bundle --without acceptance
 
 cd puppet
-bundle exec rspec spec -fd
+NO_ACCEPTANCE=true bundle exec rspec spec -fd
