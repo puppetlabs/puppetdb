@@ -16,6 +16,7 @@ canonical: "/puppetdb/latest/api/query/v4/inventory.html"
 [edges]: ./edges.html
 [resources]: ./resources.html
 [nodes]: ./nodes.html
+[ast]: ./ast.html
 
 The `/inventory` endpoint enables an alternative query syntax for digging into
 structured facts, and can be used instead of the `facts`, `fact-contents`, and
