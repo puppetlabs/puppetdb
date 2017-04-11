@@ -42,12 +42,17 @@ group :test do
   gem 'mocha', '~> 1.0'
 end
 
-group :acceptance do
-  if beaker_version
-    #use the specified version
-    gem 'beaker', *location_for(beaker_version)
-  else
-    # use the pinned version
-    gem 'beaker', '~> 3.4'
+# This is a workaround for a bug in bundler, where it likes to look at ruby
+# version deps regardless of what groups you want or not. This lets us
+# conditionally shortcut evaluation entirely.
+if ENV['NO_ACCEPTANCE'] != 'true'
+  group :acceptance do
+    if beaker_version
+      #use the specified version
+      gem 'beaker', *location_for(beaker_version)
+    else
+      # use the pinned version
+      gem 'beaker', '~> 3.4'
+    end
   end
 end
