@@ -19,7 +19,7 @@ then
 fi
 mkdir vendor
 
-bundle install --path vendor/bundle --without acceptance
+NO_ACCEPTANCE=true bundle install --path vendor/bundle --without acceptance
 
 cd puppet
 bundle exec rspec spec -fd
