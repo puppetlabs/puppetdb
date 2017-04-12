@@ -1193,45 +1193,49 @@
                 :as report} (normalize-report orig-report)
                 report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
-             (let [certname-id (certname-id certname)
-                   row-map {:hash (sutils/munge-hash-for-storage report-hash)
-                            :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
-                            :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
-                            :code_id code_id
-                            :cached_catalog_status cached_catalog_status
-                            :metrics (sutils/munge-jsonb-for-storage metrics)
-                            :logs (sutils/munge-jsonb-for-storage logs)
-                            :resources (sutils/munge-jsonb-for-storage resources)
-                            :corrective_change corrective_change
-                            :noop noop
-                            :noop_pending noop_pending
-                            :puppet_version puppet_version
-                            :certname certname
-                            :report_format report_format
-                            :configuration_version configuration_version
-                            :producer_id (ensure-producer producer)
-                            :producer_timestamp producer_timestamp
-                            :start_time start_time
-                            :end_time end_time
-                            :receive_time (to-timestamp received-timestamp)
-                            :environment_id (ensure-environment environment)
-                            :status_id (ensure-status status)}
-                   [{report-id :id}] (->> row-map
-                                          maybe-environment
-                                          maybe-resources
-                                          maybe-corrective-change
-                                          (jdbc/insert! :reports))
-                   adjust-event-metadata #(-> %
-                                              (assoc :report_id report-id
-                                                     :certname_id certname-id)
-                                              maybe-corrective-change)]
-               (when-not (empty? resource_events)
-                 (->> resource_events
-                      (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
-                      (map adjust-event-metadata)
-                      (apply jdbc/insert! :resource_events)))
-               (when update-latest-report?
-                 (update-latest-report! certname)))))))
+             (let [shash (sutils/munge-hash-for-storage report-hash)]
+               (when-not (-> "select 1 from reports where encode(hash, 'hex'::text) = ? limit 1"
+                             (query-to-vec report-hash)
+                             seq)
+                 (let [certname-id (certname-id certname)
+                       row-map {:hash shash
+                                :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
+                                :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
+                                :code_id code_id
+                                :cached_catalog_status cached_catalog_status
+                                :metrics (sutils/munge-jsonb-for-storage metrics)
+                                :logs (sutils/munge-jsonb-for-storage logs)
+                                :resources (sutils/munge-jsonb-for-storage resources)
+                                :corrective_change corrective_change
+                                :noop noop
+                                :noop_pending noop_pending
+                                :puppet_version puppet_version
+                                :certname certname
+                                :report_format report_format
+                                :configuration_version configuration_version
+                                :producer_id (ensure-producer producer)
+                                :producer_timestamp producer_timestamp
+                                :start_time start_time
+                                :end_time end_time
+                                :receive_time (to-timestamp received-timestamp)
+                                :environment_id (ensure-environment environment)
+                                :status_id (ensure-status status)}
+                       [{report-id :id}] (->> row-map
+                                              maybe-environment
+                                              maybe-resources
+                                              maybe-corrective-change
+                                              (jdbc/insert! :reports))
+                       adjust-event-metadata #(-> %
+                                                  (assoc :report_id report-id
+                                                         :certname_id certname-id)
+                                                  maybe-corrective-change)]
+                   (when-not (empty? resource_events)
+                     (->> resource_events
+                          (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
+                          (map adjust-event-metadata)
+                          (apply jdbc/insert! :resource_events)))
+                   (when update-latest-report?
+                     (update-latest-report! certname)))))))))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `producer-timestamp` that is prior to
