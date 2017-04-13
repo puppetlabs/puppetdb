@@ -43,9 +43,10 @@ export BEAKER_COLLECT_PERF_DATA=aggressive
     && LAYOUT=debian7-64mda-64d
 [ "$LAYOUT" = "ec2-west-debian8-64mda-64a" ] \
     && LAYOUT=debian8-64mda-64a
+HYPERVISOR="${HYPERVISOR:-vmpooler}"
 
 export BEAKER_OPTIONS=acceptance/options/${PUPPETDB_DATABASE}.rb
 export BEAKER_CONFIG=acceptance/hosts.cfg
-bundle exec beaker-hostgenerator $LAYOUT --hypervisor abs > $BEAKER_CONFIG
+bundle exec beaker-hostgenerator $LAYOUT --hypervisor $HYPERVISOR > $BEAKER_CONFIG
 
 bundle exec rake beaker:acceptance
