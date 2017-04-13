@@ -32,6 +32,7 @@ module CharEncoding
   Utf8ReplacementChar = [ 0xEF, 0xBF, 0xBD ].pack("c*")
 
   DEFAULT_INVALID_CHAR = "\ufffd"
+  DEFAULT_INVALID_CHAR_ESCAPED = "\\ufffd"
   NOT_INVALID_REGEX = Regexp.new( "[^" + DEFAULT_INVALID_CHAR + "]" )
 
   # @api private
@@ -124,7 +125,7 @@ module CharEncoding
     str_copy.force_encoding("UTF-8")
     if str_copy.valid_encoding?
       str_copy.encode!("UTF-8")
-      str_copy.gsub!("\\u0000", DEFAULT_INVALID_CHAR)
+      str_copy.gsub!("\\u0000", DEFAULT_INVALID_CHAR_ESCAPED)
       str_copy
     else
 
