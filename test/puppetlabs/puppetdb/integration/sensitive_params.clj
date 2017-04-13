@@ -1,32 +1,50 @@
 (ns puppetlabs.puppetdb.integration.sensitive-params
   (:require
    [clojure.java.shell :refer [sh]]
+   [clojure.java.io :refer [writer]]
+   [clojure.pprint :refer [pprint]]
    [clojure.string :as str]
    [clojure.test :refer :all]
    [puppetlabs.puppetdb.integration.fixtures :as int])
   (:import
-   [java.net URI]))
+   [java.net URI]
+   [java.nio.file Files]
+   [java.nio.file.attribute PosixFilePermission PosixFilePermissions]))
 
 (defn pg-dump
-  "Returns the content of pg as a string via pg_dump."
+  "Returns the content of pg as a string via pg_dump or nil on failure."
   [pg]
-  (let [db-config (:db-config pg)
-        db-uri (URI. (:subname db-config))
-        result (sh "pg_dump"
-                   "--username" (:user db-config)
-                   "--host" (.getHost db-uri)
-                   "--port" (str (.getPort db-uri))
-                   "--dbname" (subs (.getPath db-uri) 1)
-                   "--data-only"
-                   "--no-owner"
-                   "--encoding" "utf-8"
-                   "--format" "plain"
-                   :out-enc "utf-8")]
-    (when-not (zero? (:exit result))
-      (is (= 0 (:exit result)))
-      (binding [*out* *err*]
-        (print (:err result))))
-    (:out result)))
+  (let [{:keys [user password subname]} (:db-config pg)
+        attrs (into-array [(-> "rw-------"
+                               PosixFilePermissions/fromString
+                               PosixFilePermissions/asFileAttribute)])
+        pgpass (Files/createTempFile "tmp-pg-dump-passfile" "" attrs)]
+    (try
+      (spit (.toFile pgpass)
+            (str
+             "# hostname:port:database:username:password\n"
+             "*:*:*:" user ":" password "\n"))
+      (let [db-uri (URI. subname)
+            cmd ["pg_dump"
+                 "--username" user
+                 "--host" (.getHost db-uri)
+                 "--port" (str (.getPort db-uri))
+                 "--dbname" (subs (.getPath db-uri) 1)
+                 "--data-only"
+                 "--no-owner"
+                 "--encoding" "utf-8"
+                 "--format" "plain"
+                 :out-enc "utf-8"
+                 :env (merge {} (System/getenv) {"PGPASSFILE" (str pgpass)})]
+            result (apply sh cmd)]
+        (when-not (zero? (:exit result))
+          (is (= 0 (:exit result)))
+          (binding [*out* *err*]
+            (pprint cmd)
+            (pprint result)))
+        (:out result))
+      (finally
+        (Files/deleteIfExists pgpass)))))
 
 (deftest ^:integration sensitive-parameter-redaction
   (with-open [pg (int/setup-postgres)
