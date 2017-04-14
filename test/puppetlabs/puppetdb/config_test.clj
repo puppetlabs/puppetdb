@@ -100,7 +100,16 @@
                        configure-read-db)]
         (is (= (get-in config [:read-database :classname]) "something"))
         (is (= "more stuff" (get-in config [:read-database :subprotocol])))
-        (is (= "stuff" (get-in config [:read-database :subname])))))))
+        (is (= "stuff" (get-in config [:read-database :subname])))))
+
+    (testing "max-pool-size defaults to 25"
+      (let [config (-> {:database {:classname "something"
+                                   :subname "stuff"
+                                   :subprotocol "more stuff"}}
+                       (configure-section :database write-database-config-in write-database-config-out)
+                       configure-read-db)]
+        (is (= (get-in config [:read-database :maximum-pool-size]) 25))
+        (is (= (get-in config [:database :maximum-pool-size]) 25))))))
 
 (deftest garbage-collection
   (let [config-with (fn [base-config]
