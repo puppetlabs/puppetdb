@@ -13,10 +13,8 @@
 
 (def i18n-version "0.8.0")
 
-(def pdb-jvm-opts
-  (case (System/getProperty "java.specification.version")
-    "1.7" ["-XX:MaxPermSize=200M"]
-    []))
+(def need-permgen?
+  (= "1.7" (System/getProperty "java.specification.version")))
 
 (defproject puppetlabs/puppetdb pdb-version
   :description "Puppet-integrated catalog and fact storage"
@@ -102,7 +100,9 @@
                  [org.apache.commons/commons-compress "1.10"]
                  [ring/ring-core :exclusions [javax.servlet/servlet-api org.clojure/tools.reader]]]
 
-  :jvm-opts ~pdb-jvm-opts
+  :jvm-opts ~(if need-permgen?
+              ["-XX:MaxPermSize=200M"]
+              [])
 
   :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
                  ["snapshots" "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
@@ -175,7 +175,11 @@
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "1.1.6"]]}
              :testutils {:source-paths ^:replace ["test"]}
-             :ci {:plugins [[lein-pprint "1.1.1"]]}}
+             :ci {:plugins [[lein-pprint "1.1.1"]]}
+             :test {:jvm-opts ~(if need-permgen?
+                                 ;; integration tests cycle jruby a lot, which chews through permgen
+                                 ^:replace ["-XX:MaxPermSize=500M"]
+                                 [])}}
 
   :jar-exclusions [#"leiningen/"]
 

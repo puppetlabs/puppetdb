@@ -46,6 +46,14 @@ matrix:
 
     # pdb + terminus + puppetserver + puppet integration tests
     - env: >
+        NAME=integration-stable-openjdk7
+        PDB_TEST_LANG=clojure
+        PDB_TEST_SELECTOR=:integration
+        PUPPET_VERSION=4.8.0
+        PUPPETSERVER_VERSION=2.7.2
+      jdk: openjdk7
+
+    - env: >
         NAME=integration-stable-openjdk8
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
