@@ -32,6 +32,7 @@ module CharEncoding
   Utf8ReplacementChar = [ 0xEF, 0xBF, 0xBD ].pack("c*")
 
   DEFAULT_INVALID_CHAR = "\ufffd"
+  DEFAULT_INVALID_CHAR_ESCAPED = "\\ufffd"
   NOT_INVALID_REGEX = Regexp.new( "[^" + DEFAULT_INVALID_CHAR + "]" )
 
   # @api private
@@ -110,6 +111,7 @@ module CharEncoding
   # use in error messages. Defaults to nil, in which case no error is reported.
   # @return Str
   def self.coerce_to_utf8(str, error_context_str=nil)
+
     str_copy = str.dup
     # This code is passed in a string that was created by
     # to_pson. to_pson calls force_encoding('ASCII-8BIT') on the
@@ -123,20 +125,24 @@ module CharEncoding
     str_copy.force_encoding("UTF-8")
     if str_copy.valid_encoding?
       str_copy.encode!("UTF-8")
+      str_copy.gsub!("\\u0000", DEFAULT_INVALID_CHAR_ESCAPED)
+      str_copy
     else
+
       # This is force_encoded as US-ASCII to avoid any overlapping
       # byte related issues that could arise from mis-interpreting a
       # random extra byte as part of a multi-byte UTF-8 character
       str_copy.force_encoding("US-ASCII")
 
-      str_lossy = str_copy.encode!("UTF-8",
-                                   :invalid => :replace,
-                                   :undef => :replace,
-                                   :replace => DEFAULT_INVALID_CHAR)
-      if !error_context_str.nil?
-        warn_if_invalid_chars(str_lossy, error_context_str)
-      else
+      str_lossy = str_copy.encode("UTF-8",
+                                  :invalid => :replace,
+                                  :undef => :replace,
+                                  :replace => DEFAULT_INVALID_CHAR)
+
+      if error_context_str.nil?
         str_lossy
+      else
+        warn_if_invalid_chars(str_lossy, error_context_str)
       end
     end
   end
@@ -155,7 +161,7 @@ module CharEncoding
   # @api private
   def self.warn_if_changed(str, converted_str)
     if converted_str != str
-      Puppet.warning "Ignoring invalid UTF-8 byte sequences in data to be sent to PuppetDB"
+      Puppet.warning "Ignoring invalid UTF-8 or null byte sequences in data to be sent to PuppetDB"
     end
     converted_str
   end

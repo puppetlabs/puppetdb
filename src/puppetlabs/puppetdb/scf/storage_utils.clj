@@ -292,9 +292,8 @@
 (defn munge-jsonb-for-storage
   "Prepare a clojure object for storage depending on db type."
   [value]
-  (let [json-str (-> (json/generate-string value)
-                     (.replaceAll "\\\\u0000" "\\\ufffd"))]
-    (str->pgobject "jsonb" json-str)))
+  (->> (json/generate-string value)
+       (str->pgobject "jsonb")))
 
 (defn db-up?
   [db-spec]

@@ -14,7 +14,7 @@
 (deftest ^:integration basic-fact-retrieval
   (with-open [pg (int/setup-postgres)
               pdb (int/run-puppetdb pg {})
-              ps (int/run-puppet-server [pdb] {})] 
+              ps (int/run-puppet-server [pdb] {})]
     (let [agents ["fact-agent-1" "fact-agent-2"]]
       (testing "Run agent once to populate database"
         (doseq [a agents]
@@ -39,5 +39,15 @@
                (-> (int/pql-query pdb "facts { name = 'my_structured_fact' }")
                    first
                    (get :value)
-                   json/parse-string)))))))
+                   json/parse-string))))
 
+      (testing "Create an custom fact with a null byte"
+        (int/run-puppet ps pdb "notify { 'irrelevant manifest': }"
+                        {:certname "null-fact-agent"
+                         :env {"FACTER_nullfact"
+                               "{\"nullfact\": \"foo\\u0000bar\"}" }}))
+
+      (testing "Ensure that the null fact is passed through properly"
+        (is (= 1
+               (-> (int/pql-query pdb "facts { name = 'nullfact' }")
+                   count)))))))
