@@ -69,10 +69,12 @@
   (with-open [pg (int/setup-postgres)
               pdb (int/run-puppetdb pg {})
               ps (int/run-puppet-server [pdb] {})]
-    (let [test-collection (fn test-collection [manifest regexes-to-check]
+    (let [test-collection (fn test-collection [manifest positive-regexes negative-regexes]
                             (let [{:keys [out]} (int/run-puppet-as "collector" ps pdb manifest)]
-                              (doseq [r regexes-to-check]
-                                (is (re-find r out)))))]
+                              (doseq [r positive-regexes]
+                                (is (re-find r out)))
+                              (doseq [r negative-regexes]
+                                (is (not (re-find r out))))))]
 
       (testing "Run puppet to create resources for collection"
         (int/run-puppet-as "exporter" ps pdb
@@ -83,48 +85,59 @@
 
       (testing "= query"
         (test-collection "Notify <<| name == 'a' |>>"
-                         [#"message-a"]))
+                         [#"message-a"]
+                         [#"message-b" #"message-c" #"message-d"]))
 
       (testing "!= query"
         (test-collection "Notify <<| name != 'a' |>>"
-                         [#"message-b" #"message-c" #"message-d"]))
+                         [#"message-b" #"message-c" #"message-d"]
+                         [#"message-a"]))
 
       (testing "'or' query"
         (test-collection "Notify <<| name == 'a' or name == 'b' |>>"
-                         [#"message-a" #"message-b"]))
+                         [#"message-a" #"message-b"]
+                         [#"message-c" #"message-d"]))
 
       (testing "'and' query"
         (test-collection "Notify <<| title == 'message-a' and name == 'a' |>> "
-                         [#"message-a"]))
+                         [#"message-a"]
+                         [#"message-b" #"message-c" #"message-d"]))
 
       (testing "nested query"
         (test-collection (str "Notify <<| (title == 'message-a' or title == 'message-b') and "
                               "           (name == 'a' or name == 'b') |>>")
-                         [#"message-a" #"message-b"]))
+                         [#"message-a" #"message-b"]
+                         [#"message-c" #"message-d"]))
 
       (testing "title query"
         (test-collection "Notify <<| title == 'message-a' |>>"
-                         [#"message-a"]))
+                         [#"message-a"]
+                         [#"message-b" #"message-c" #"message-d"]))
 
       (testing "title query when nothing matches"
         (test-collection "Notify <<| title == 'message-q' |>>"
-                         []))
+                         []
+                         [#"message-a" #"message-b" #"message-c" #"message-d"]))
 
       (testing "title query with uri-invalid characters"
         (test-collection "Notify <<| title != 'a string with spaces and & and ? in it' |>>"
-                         [#"message-a" #"message-b" #"message-c" #"message-d"]))
+                         [#"message-a" #"message-b" #"message-c" #"message-d"]
+                         []))
 
       (testing "tag query"
         (test-collection "Notify <<| tag == 'here'|>> "
-                         [#"message-a" #"message-c"]))
+                         [#"message-a" #"message-c"]
+                         [#"message-b" #"message-d"]))
 
       (testing "inverse tag query"
         (test-collection "Notify <<| tag != 'here'|>> "
-                         [#"message-b" #"message-d"]))
+                         [#"message-b" #"message-d"]
+                         [#"message-a" #"message-c"]))
 
       (testing "tag queries should be case-insensitive"
         (test-collection "Notify <<| tag == 'HERE'|>> "
-                         [#"message-a" #"message-c"]))
+                         [#"message-a" #"message-c"]
+                         [#"message-b" #"message-d"]))
 
       (testing "puppetdb query function"
         (test-collection (str "$titles = puppetdb_query(['from', 'resources',"
@@ -132,4 +145,5 @@
                               "                           ['and', ['=', 'type', 'Notify'],"
                               "                                   ['=', ['parameter', 'name'], 'a']]]])"
                               "notify { \"titles is ${titles}\": }")
-                         [#"message-a"])))))
+                         [#"message-a"]
+                         [#"message-b" #"message-c" #"message-d"])))))
