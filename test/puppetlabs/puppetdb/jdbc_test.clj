@@ -51,15 +51,6 @@
                            (full-sql-exception-msg ex)))]
                (is (re-find #"read-only.*transaction" msg)))))))))
 
-  (testing "max connections setting defaults to 25"
-    (call-with-antonym-test-database
-      (fn []
-        (with-open [data-source (-> *db*
-                                    defaulted-read-db-config
-                                    subject/pooled-datasource
-                                    :datasource)]
-          (is (= 25 (.getMaximumPoolSize data-source)))))))
-
   (testing "max connections setting takes effect"
     (call-with-antonym-test-database
       (fn []

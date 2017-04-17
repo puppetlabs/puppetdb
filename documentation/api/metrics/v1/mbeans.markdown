@@ -42,6 +42,25 @@ To get the attributes of a particular metric:
 
 Responses return a JSON object mapping strings to (strings/numbers/Booleans).
 
+## Bulk retrieving metrics
+
+### Request format
+
+Multiple metrics can be retrieved in a single call by POSTing a JSON
+array to the mbeans endpoint. An example is below:
+
+    curl -X POST \
+       -H "Content-Type: application/json" \
+       -d '["puppetlabs.puppetdb.storage:name=replace-facts-time", "puppetlabs.puppetdb.storage:name=replace-catalog-time"]' \
+       http://localhost:8080/metrics/v1/mbeans
+
+### Response format
+
+An array of JSON objects are returned. The results are in the order
+they were provided in the POSTed array. The JSON objects are the
+same as if they were individually retrieved via the `mbean/<name>`
+endpoint.
+
 ## Useful metrics
 
 ### Population metrics

@@ -53,7 +53,8 @@
    :subprotocol "postgresql"
    :subname (format "//%s:%s/%s" (:host test-env) (:port test-env) database)
    :user (get-in test-env [:user :name])
-   :password (get-in test-env [:user :password])})
+   :password (get-in test-env [:user :password])
+   :maximum-pool-size 5})
 
 (defn subname->validated-db-name [subname]
   (let [sep (.lastIndexOf subname "/")]

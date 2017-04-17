@@ -124,45 +124,17 @@
 (defn ast-query [pdb-server query]
   (pql-query pdb-server (json/generate-string query)))
 
-(defn call-with-synchronized-command-processing [pdb-server num-commands timeout-ms f]
-  (let [dispatcher (-> pdb-server server-info :app (tk-app/get-service :PuppetDBCommandDispatcher))
-        initial-count (-> dispatcher dispatch/stats :executed-commands)
-        target-count (+ initial-count num-commands)
-        result (f)]
-    (let [timeout-start (System/currentTimeMillis)]
-      (loop []
-        (let [current-stats (dispatch/stats dispatcher)]
-          (cond
-            (= (:executed-commands current-stats) target-count)
-            result
-
-            ;; on the first run for an agent, puppetserver likes to send an extra factset
-            (= (:executed-commands current-stats) (inc target-count))
-            result
-
-            (> (:executed-commands current-stats) target-count)
-            (throw+ {:kind ::too-many-commands-processed
-                     :current-stats current-stats
-                     :initial-count initial-count
-                     :target-count target-count
-                     :body-result result})
-
-            (> (- (System/currentTimeMillis) timeout-start) timeout-ms)
-            (throw+ {:kind ::command-processing-timeout
-                     :current-stats current-stats
-                     :initial-count initial-count
-                     :target-count target-count
-                     :timeout-ms timeout-ms
-                     :body-result result})
-
-            :default
-            (do
-              (Thread/sleep 25)
-              (recur))))))))
+(defn call-with-synchronized-command-processing [pdb-server timeout-ms f]
+  (let [result (f)]
+    (if (svc-utils/wait-for-server-processing (-> pdb-server server-info :app)
+                                              timeout-ms)
+      result
+      (throw+ {:kind ::command-processing-timeout
+               :timeout-ms timeout-ms}))))
 
 (defmacro with-synchronized-command-processing
-  [pdb-server num-commands timeout-ms & body]
-  `(call-with-synchronized-command-processing ~pdb-server ~num-commands ~timeout-ms
+  [pdb-server timeout-ms & body]
+  `(call-with-synchronized-command-processing ~pdb-server ~timeout-ms
                                               (fn [] (do ~@body))))
 
 ;;; Puppet Server fixture
@@ -286,7 +258,7 @@
 
      (fs/copy+ "test-resources/puppetserver/ssl/certs/ca.pem" (str agent-conf-dir "/ssl/certs/ca.pem"))
 
-     (with-synchronized-command-processing pdb-server 3 timeout
+     (with-synchronized-command-processing pdb-server timeout
        (apply bundle-exec env
               "puppet" "agent" "-t"
               "--confdir" agent-conf-dir
@@ -302,7 +274,7 @@
               (assoc opts :certname certname)))
 
 (defn run-puppet-node-deactivate [pdb-server certname-to-deactivate]
-  (with-synchronized-command-processing pdb-server 1 tu/default-timeout-ms
+  (with-synchronized-command-processing pdb-server tu/default-timeout-ms
     (bundle-exec {}
                  "puppet" "node" "deactivate"
                  "--confdir" "target/puppetserver/master-conf"
@@ -368,7 +340,7 @@
 
     (write-puppetdb-terminus-config [pdb-server] (str agent-conf-dir "/puppetdb.conf") terminus)
 
-    (with-synchronized-command-processing pdb-server 3 timeout
+    (with-synchronized-command-processing pdb-server timeout
       (apply bundle-exec env
              "puppet" "apply" (.getCanonicalPath manifest-file)
              "--confdir" (.getCanonicalPath agent-conf-dir)

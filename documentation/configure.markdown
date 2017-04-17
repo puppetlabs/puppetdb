@@ -260,20 +260,33 @@ PuppetDB stores its data in PostgreSQL.
 ### Using PostgreSQL
 
 Before using the PostgreSQL backend, you must set up a PostgreSQL
-server, ensure that it will accept incoming connections, create a user
-for PuppetDB to use when connecting, and create a database for
-PuppetDB. Completely configuring PostgreSQL is beyond the scope of
-this guide, but if you are logged in as root on a running PostgreSQL
-server, you can create a user and database as follows:
+server. Note that users installing PuppetDB via (the module)[module]
+will already have PostgreSQL configured properly and these steps
+should not be necessary.
+
+At a minimum, you will need to ensure that you have PostgreSQL 9.4 or
+later running that will accept incoming connections, a user and
+an empty database for PuppetDB. Information on
+connection/authentication configuration in PostgreSQL and be found
+(here)[https://www.postgresql.org/docs/9.4/static/auth-pg-hba-conf.html]. Docs
+on setting up users and databases can be found in the (Getting
+Started)[https://www.postgresql.org/docs/9.4/static/tutorial-start.html]
+section of the (PostgreSQL
+manual)[https://www.postgresql.org/docs/9.4/static/index.html].
+
+Completely configuring PostgreSQL is beyond the scope of this guide,
+but a example setup is described below. First, you can create a user
+and database as follows:
 
     $ sudo -u postgres sh
     $ createuser -DRSP puppetdb
     $ createdb -E UTF8 -O puppetdb puppetdb
     $ exit
 
-If you are running PostgreSQL, you should install the RegExp-optimized index
-extension [`pg_trgm`][pg_trgm]. This may require installing the
-`postgresql-contrib` (or equivalent) package, depending on your distribution:
+You should install the RegExp-optimized index extension
+[`pg_trgm`][pg_trgm]. This may require installing the
+`postgresql-contrib` (or equivalent) package, depending on your
+distribution:
 
     $ sudo -u postgres sh
     $ psql puppetdb -c 'create extension pg_trgm'

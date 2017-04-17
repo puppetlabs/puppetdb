@@ -10,20 +10,18 @@ layout: default
 [configure_heap]: ./configure.html#configuring-the-java-heap-size
 [configure_jetty]: ./configure.html#jetty-http-settings
 [requirements]: ./index.html#standard-install-rhel-centos-debian-and-ubuntu
-[module]: ./install_via_module.html
+[install_module]: ./install_via_module.html
+[module]: http://forge.puppet.com/puppetlabs/puppetdb
 
 > **Note:** If you are running Puppet Enterprise version 3.0 or later, you do
 > not need to install PuppetDB, as it is already installed as part of PE.
 
-This page describes how to manually install and configure PuppetDB from the
-official packages.
-
-* If you are **just getting started with Puppet** and don't yet know how to
-  assign Puppet classes to nodes, this is the guide for you.
-* If you are **already familiar with Puppet** and have a working Puppet
-  deployment, we recommend that you [use the puppetlabs-puppetdb module][module]
-  instead. See [the "Installing PuppetDB via Puppet module" guide][module] for
-  further details.
+This page describes how to manually install and configure PuppetDB
+from the official packages. Users are encouraged to install PuppetDB
+via the [PuppetDB module][module] instead of installing the packages
+directly. Using the module for setting up PuppetDB is much easier and
+less error prone. See [Installing PuppetDB via Puppet
+module][install_module] for more info.
 
 Additionally, these instructions may be useful for understanding PuppetDB's
 various moving parts, and can be helpful if you need to create your own PuppetDB
