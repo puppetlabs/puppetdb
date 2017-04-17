@@ -46,7 +46,12 @@
       (finally
         (Files/deleteIfExists pgpass)))))
 
-(deftest ^:integration sensitive-parameter-redaction
+;;
+;; Disabling this due to issues with the Jenkins test
+;; instances. PDB-3461 covers the infrastructure related change needed
+;; to fix this test. This should be uncommented once that is complete.
+;;
+#_(deftest ^:integration sensitive-parameter-redaction
   (with-open [pg (int/setup-postgres)
               pdb (int/run-puppetdb pg {})
               ps (int/run-puppet-server-as "my_puppetserver" [pdb] {})]
