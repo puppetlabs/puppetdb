@@ -1,4 +1,4 @@
-(ns puppetlabs.puppetdb.integration.storeconfigs.file-with-binary-template
+(ns puppetlabs.puppetdb.integration.file-with-binary-template
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.integration.fixtures :as int]
             [puppetlabs.trapperkeeper.app :as tk-app]
