@@ -1,20 +1,23 @@
 (ns puppetlabs.puppetdb.cli.benchmark-test
-  (:require [puppetlabs.puppetdb.cli.benchmark :as benchmark]
+  (:require [clojure.java.shell :refer [sh]]
+            [clojure.string :as str]
             [clojure.test :refer :all]
+            [puppetlabs.puppetdb.cli.benchmark :as benchmark]
+            [puppetlabs.puppetdb.nio :refer [copts copt-replace get-path]]
             [puppetlabs.puppetdb.archive :as archive]
             [puppetlabs.puppetdb.client :as client]
             [puppetlabs.trapperkeeper.config :as config]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
             [puppetlabs.puppetdb.testutils :as tu]
-            [puppetlabs.puppetdb.cli.export :as cli-export]
             [puppetlabs.puppetdb.testutils.cli :refer [get-nodes example-catalog
                                                        example-report example-facts
                                                        example-certname]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as ks]
             [slingshot.test]
-            [clojure.core.async :refer [<!! timeout close!]]))
-
+            [clojure.core.async :refer [<!! timeout close!]])
+  (:import
+   [java.nio.file Files]))
 
 (defn mock-submit-record-fn [submitted-records entity]
   (fn [base-url certname version payload-string]
@@ -105,17 +108,26 @@
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace catalog" 8 example-catalog)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "store report" 7 example-report)
        (svc-utils/sync-command-post (svc-utils/pdb-cmd-url) example-certname "replace facts" 4 example-facts)
-       (#'cli-export/-main "--outfile" export-out-file
-                           "--host" (:host svc-utils/*base-url*)
-                           "--port" (str (:port svc-utils/*base-url*)))))
-    (let [numhosts 2
-          nummsgs 3
-          submitted (benchmark-nummsgs {}
-                                       "--config" "anything.ini"
-                                       "--numhosts" (str numhosts)
-                                       "--nummsgs" (str nummsgs)
-                                       "--archive" export-out-file)]
-      (is (= (* numhosts nummsgs 3) (count submitted))))))
+
+       (let [r (svc-utils/get (svc-utils/admin-url-str "/archive")
+                              {:as :stream :decompress-body false})]
+         (if-not (= 200 (:status r))
+           (do
+             (binding [*out* *err*]
+               (println "Unable to retrieve pdb archive:")
+               (clojure.pprint/pprint r))
+             (is (= 200 (:status r))))
+           (do
+             (Files/copy (:body r) (get-path export-out-file)
+                         (copts [copt-replace]))
+             (let [numhosts 2
+                   nummsgs 3
+                   submitted (benchmark-nummsgs {}
+                                                "--config" "anything.ini"
+                                                "--numhosts" (str numhosts)
+                                                "--nummsgs" (str nummsgs)
+                                                "--archive" export-out-file)]
+               (is (= (* numhosts nummsgs 3) (count submitted)))))))))))
 
 (deftest consecutive-reports-are-distinct
   (let [submitted (benchmark-nummsgs {}
