@@ -47,7 +47,7 @@ matrix:
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
         PUPPET_VERSION=latest
-        PUPPETSERVER_VERSION=2.7.2
+        PUPPETSERVER_VERSION=master
       jdk: openjdk8
 
     - env: >
@@ -63,7 +63,7 @@ matrix:
         PDB_TEST_LANG=clojure
         PDB_TEST_SELECTOR=:integration
         PUPPET_VERSION=latest
-        PUPPETSERVER_VERSION=2.7.2
+        PUPPETSERVER_VERSION=master
       jdk: oraclejdk8
 
 before_install: ext/travisci/install_puppetserver.sh
