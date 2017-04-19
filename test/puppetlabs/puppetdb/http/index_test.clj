@@ -16,6 +16,7 @@
                      vector-param
                      with-http-app]]))
 
+;; Queries issued at the root query endpoint
 (def endpoints [[:v4 "/v4"]])
 
 (deftest-http-app index-queries
@@ -27,15 +28,19 @@
         facts1  (assoc facts "fqdn" "host1")
         facts2  (assoc facts "fqdn" "host2")
         facts3  (assoc facts "fqdn" "host3")
+        facts4  (assoc facts "fqdn" "host4")
         cat1    (assoc catalog :certname "host1")
         cat2    (assoc catalog :certname "host2")
-        cat3    (assoc catalog :certname "host3")]
+        cat3    (assoc catalog :certname "host3")
+        cat4    (assoc catalog :certname "host4")]
     (scf-store/add-certname! "host1")
     (scf-store/add-certname! "host2")
     (scf-store/add-certname! "host3")
+    (scf-store/add-certname! "host4")
     (scf-store/replace-catalog! cat1 (now))
     (scf-store/replace-catalog! cat2 (now))
     (scf-store/replace-catalog! cat3 (now))
+    (scf-store/replace-catalog! cat4 (now))
     (scf-store/add-facts! {:certname "host1"
                            :values facts1
                            :timestamp (now)
@@ -54,7 +59,13 @@
                            :environment "DEV"
                            :producer_timestamp (now)
                            :producer "foo3"})
-    (scf-store/deactivate-node! "host3")
+    (scf-store/add-facts! {:certname "host4"
+                           :values facts4
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer_timestamp (now)
+                           :producer "foo4"})
+    (scf-store/deactivate-node! "host4")
 
     (testing "invalid from query"
       (let [{:keys [status body headers]} (query-response method endpoint ["from" "foobar"])]
@@ -180,13 +191,13 @@
           (is (= results #{{:certname "host2"}})))))
 
     (testing "nodes"
-      (testing "query should return all nodes (including deactivated ones)"
+      (testing "query should return only active nodes"
         (doseq [query [["from" "nodes"]
                        "nodes {}"]]
           (is (= (set (mapv :certname (query-result method endpoint query {})))
                  #{"host1" "host2" "host3"}))))
 
-      (testing "broad regexp query should return all nodes"
+      (testing "broad regexp query should return all active nodes"
         (doseq [query [["from" "nodes" ["~" "certname" "^host"]]
                        "nodes { certname ~ '^host' }"]]
           (is (= (set (mapv :certname (query-result method endpoint query {})))
@@ -199,13 +210,11 @@
           (let [results (query-result method endpoint query)
                 result (first results)]
             (is (= host (:certname result)))
-            (if (= host "host3")
-              (is (:deactivated result))
-              (is (nil? (:deactivated result))))))))
+            (is (nil? (:deactivated result)))))))
 
     (testing "resources"
       (testing "query should return the resources just for that node"
-        (doseq [host ["host1" "host2"]
+        (doseq [host ["host1" "host2" "host3"]
                 query [["from" "resources" ["=" "certname" host]]
                        (format "resources { certname = '%s' }" host)]]
           (let [results (query-result method endpoint query)]

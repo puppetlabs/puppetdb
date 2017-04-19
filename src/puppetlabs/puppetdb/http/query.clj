@@ -76,6 +76,11 @@
     (some is-active-node-criteria?
           (tree-seq vector? rest criteria))))
 
+(defn paging-clauses? [query-fragments]
+  (every? #(and (vector? %)
+                (#{"order_by" "limit" "offset"} (first %)))
+          query-fragments))
+
 (defn add-criteria
   "Add a criteria to the given query, taking top-level 'extract' and 'from'
   forms into account."
@@ -100,8 +105,11 @@
       [["from" entity]]
       ["from" entity crit]
 
-      [["from" entity subquery]]
-      ["from" entity (add-criteria crit subquery)]
+      [["from" entity & (paging-clauses :guard paging-clauses?)]]
+      (apply vector "from" entity crit paging-clauses)
+
+      [["from" entity subquery & (paging-clauses :guard paging-clauses?)]]
+      (apply vector "from" entity (add-criteria crit subquery) paging-clauses)
 
       :else (if query
               ["and" query crit]

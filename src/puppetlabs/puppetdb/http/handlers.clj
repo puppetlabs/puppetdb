@@ -56,7 +56,11 @@
 (pls/defn-validated root-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (cmdi/ANY "" []
-            (-> (http-q/query-handler version)
+            (-> (comp (http-q/query-handler version)
+                      (fn [req]
+                        (if (some-> req :puppetdb-query :ast_only http-q/coerce-to-boolean)
+                          req
+                          (http-q/restrict-query-to-active-nodes req))))
                 (http-q/extract-query-pql {:optional (conj paging/query-params "ast_only")
                                            :required ["query"]}))))
 

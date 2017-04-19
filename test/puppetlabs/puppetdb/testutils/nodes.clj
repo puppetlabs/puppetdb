@@ -88,3 +88,6 @@
      :web2    web2
      :db      db
      :puppet  puppet}))
+
+(defn deactivate-node [certname]
+  (scf-store/deactivate-node! certname))
