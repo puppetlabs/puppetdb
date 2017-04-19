@@ -80,8 +80,8 @@
            {:gc-interval (pls/defaulted-maybe s/Int 60)
             :dlo-compression-interval s/Int
             :report-ttl (pls/defaulted-maybe String "14d")
-            :node-purge-ttl (pls/defaulted-maybe String "0s")
-            :node-ttl (pls/defaulted-maybe String "0s")})))
+            :node-purge-ttl (pls/defaulted-maybe String "14d")
+            :node-ttl (pls/defaulted-maybe String "7d")})))
 
 (def database-config-out
   "Schema for parsed/processed database config"

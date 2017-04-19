@@ -47,7 +47,7 @@ For example, `http://localhost:8080/pdb/dashboard/index.html?height=240&pollingI
 
 When you remove a node from your Puppet deployment, it should be marked as **deactivated** in PuppetDB. This will ensure that any resources exported by that node will stop appearing in the catalogs served to the remaining agent nodes.
 
-* PuppetDB can automatically mark nodes that haven't checked in recently as **expired**. Expiration is simply the automatic version of deactivation; the distinction is important only for record keeping. Expired nodes behave the same as deactivated nodes. To enable this, use the [`node-ttl` setting][node_ttl].
+* PuppetDB can automatically mark nodes that haven't checked in recently as **expired**. Expiration is simply the automatic version of deactivation; the distinction is important only for record keeping. Expired nodes behave the same as deactivated nodes. By default, nodes are expired after 7 days of inactivity; to configure this, use the [`node-ttl` setting][node_ttl].
 * If you prefer to manually deactivate nodes, use the following command on your puppet master:
 
         $ sudo puppet node deactivate <node> [<node> ...]
