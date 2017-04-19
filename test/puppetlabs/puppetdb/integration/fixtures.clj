@@ -204,20 +204,23 @@
       (fs/mkdirs functions-dir)
       (fs/copy-dir-into "puppet/lib/puppet/functions/" functions-dir))
 
-    (write-puppetdb-terminus-config pdb-servers puppetdb-conf terminus-config-overrides))
+    (write-puppetdb-terminus-config pdb-servers puppetdb-conf terminus-config-overrides)
 
-  (let [services (tk-bootstrap/parse-bootstrap-config! dev-bootstrap-file)
-        tmp-conf (ks/temp-file "puppetserver" ".conf")
-        _ (fs/copy dev-config-file tmp-conf)
-        config (tk-config/load-config (.getPath tmp-conf))]
-    (PuppetServerTestServer. {:hostname "localhost"
-                              :port 8140
-                              :code-dir "target/puppetserver/master-code"
-                              :conf-dir "target/puppetserver/master-conf"}
-                             [(.getPath tmp-conf)
-                              "target/puppetserver/master-conf"
-                              "target/puppetserver/master-code"]
-                             (tkbs/bootstrap-services-with-config services config))))
+    (let [services (tk-bootstrap/parse-bootstrap-config! dev-bootstrap-file)
+          tmp-conf (ks/temp-file "puppetserver" ".conf")
+          _ (fs/copy dev-config-file tmp-conf)
+          port (svc-utils/open-port-num)
+          config (-> (tk-config/load-config (.getPath tmp-conf))
+                     (merge puppetserver-config-overrides)
+                     (assoc-in [:webserver :ssl-port] port))]
+      (PuppetServerTestServer. {:hostname "localhost"
+                                :port port
+                                :code-dir "target/puppetserver/master-code"
+                                :conf-dir "target/puppetserver/master-conf"}
+                               [(.getPath tmp-conf)
+                                "target/puppetserver/master-conf"
+                                "target/puppetserver/master-code"]
+                               (tkbs/bootstrap-services-with-config services config)))))
 
 (defn run-puppet-server [pdb-servers config-overrides]
   (run-puppet-server-as "localhost" pdb-servers config-overrides))

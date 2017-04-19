@@ -1,10 +1,10 @@
-(ns puppetlabs.puppetdb.integration.apply.fact-storage
+(ns puppetlabs.puppetdb.integration.masterless
   (:require [clojure.test :refer :all]
             [puppetlabs.puppetdb.integration.fixtures :as int]
             [puppetlabs.puppetdb.cheshire :as json]
             [me.raynes.fs :as fs]))
 
-(deftest ^:integration fact-storage
+(deftest ^:integration masterless-fact-storage
   (with-open [pg (int/setup-postgres)
               pdb (int/run-puppetdb pg {})]
     (testing "Run puppet apply to populate the db"
