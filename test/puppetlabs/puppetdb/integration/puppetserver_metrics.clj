@@ -20,14 +20,15 @@
 
     (testing "Puppet Server status endpoint contains expected puppetdb metrics"
 
-      (let [all-svcs-status (svc-utils/get-ssl "https://localhost:8140/status/v1/services")]
+      (let [status-endpoint (str "https://localhost:" (-> ps int/server-info :port) "/status/v1")
+            all-svcs-status (svc-utils/get-ssl (str status-endpoint "/services"))]
         (is (= 200 (:status all-svcs-status)))
         ;; in older versions of Puppet Server (pre-5.0), the `master` status
         ;; didn't exist. Since these tests are run against multiple versions
         ;; of Puppet Server, this ensures that we're only testing that the
         ;; `master` status has appropriate content on the right versions.
         (when (some? (get-in all-svcs-status [:body :master]))
-          (let [resp (svc-utils/get-ssl "https://localhost:8140/status/v1/services/master?level=debug")]
+          (let [resp (svc-utils/get-ssl (str status-endpoint "/services/master?level=debug"))]
             (is (= 200 (:status resp)))
 
             (let [metrics (get-in resp [:body :status :experimental :http-client-metrics])]
