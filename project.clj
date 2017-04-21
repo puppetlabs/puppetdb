@@ -1,6 +1,6 @@
 (def pdb-version "5.0.0-SNAPSHOT")
 (def puppetserver-version "5.0.0-master-SNAPSHOT")
-(def clj-parent-version "0.7.0")
+(def clj-parent-version "0.7.1")
 
 (defn deploy-info
   "Generate deployment information from the URL supplied and the username and
