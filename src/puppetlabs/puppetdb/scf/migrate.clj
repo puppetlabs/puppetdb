@@ -1424,6 +1424,18 @@
 
   {::vacuum-analyze #{"facts" "fact_values" "fact_paths"}})
 
+(defn varchar-columns-to-text []
+  (jdbc/do-commands
+    "alter table reports
+     alter column puppet_version type text,
+     alter column configuration_version type text"
+
+    "alter table resource_events
+     alter column status type text,
+     alter column property type text,
+     alter column containing_class type text,
+     alter column file type text"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1465,7 +1477,8 @@
    61 add-latest-report-timestamp-to-certnames
    62 reports-partial-indices
    63 add-job-id
-   64 rededuplicate-facts})
+   64 rededuplicate-facts
+   65 varchar-columns-to-text})
 
 (def desired-schema-version (apply max (keys migrations)))
 
