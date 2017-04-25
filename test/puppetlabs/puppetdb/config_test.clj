@@ -136,10 +136,22 @@
                                [:database :node-ttl])]
           (is (pl-time/period? node-ttl))
           (is (= (time/days 10) (time/days (pl-time/to-days node-ttl))))))
-      (testing "should default to zero (no expiration)"
+      (testing "should default to 7 days"
         (let [node-ttl (get-in (config-with {}) [:database :node-ttl])]
           (is (pl-time/period? node-ttl))
-          (is (= 0 (pl-time/to-seconds node-ttl))))))
+          (is (= 7 (pl-time/to-days node-ttl))))))
+
+    (testing "node-purge-ttl"
+      (testing "should parse node-purge-ttl and return a Pl-Time/Period object"
+        (let [node-purge-ttl (get-in (config-with {:database {:node-purge-ttl "10d"}})
+                               [:database :node-purge-ttl])]
+          (is (pl-time/period? node-purge-ttl))
+          (is (= (time/days 10) (time/days (pl-time/to-days node-purge-ttl))))))
+      (testing "should default to 14 days"
+        (let [node-purge-ttl (get-in (config-with {}) [:database :node-purge-ttl])]
+          (is (pl-time/period? node-purge-ttl))
+          (is (= 14 (pl-time/to-days node-purge-ttl))))))
+
     (testing "report-ttl"
       (testing "should parse report-ttl and produce report-ttl"
         (let [report-ttl (get-in (config-with {:database {:report-ttl "10d"}})
