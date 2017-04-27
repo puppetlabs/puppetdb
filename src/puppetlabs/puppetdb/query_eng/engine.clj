@@ -2208,23 +2208,66 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
+(defn query->plan-and-params
+  [query-rec query paging-options]
+  (->> query
+       (push-down-context query-rec)
+       expand-user-query
+       (convert-to-plan paging-options)
+       extract-all-params))
+
+(defn plan->formatted-sql
+  [plan]
+  (-> plan plan->sql hcore/format first))
+
+(defn nonfunction-query->sql
+  "Modify a plan to remove projected fields and select a result count instead.
+   Applicable to queries that do not already involve functions."
+  [plan params]
+  (let [paging-options (filter (comp some? val) (select-keys (:paging-options plan) [:limit :offset]))
+        select-paging (filter (comp some? val) (select-keys (:selection plan) [:limit :offset]))]
+    {:sql (-> plan
+              (dissoc :paging-options)
+              (assoc :projected-fields [])
+              (assoc :call [{:function "count" :column :* :params []
+                             :args [] :statement "count(*) count"}])
+              (update :selection dissoc :limit :offset :order-by)
+              fix-plan-in-expr-multi-comparisons
+              plan->formatted-sql)
+     :params (drop (count (concat paging-options select-paging)) params)}))
+
+(defn query->parameterized-sql
+  [query-rec query paging-options]
+  (let [entity (keyword (second query))
+        {:keys [plan params]} (query->plan-and-params query-rec query paging-options)
+        plan (assoc plan :wrap? true)]
+    {:plan (-> plan fix-plan-in-expr-multi-comparisons)
+     :params params}))
+
+(defn query->count-sql
+  [query sql plan params]
+  (cm/match [query]
+            ;; if it's a function query, just wrap the SQL
+            [["from" entity ["extract" (columns :guard #(and (vector? %) (some function-call? %))) & exprs]]]
+            {:sql (str "SELECT count(*) FROM (" sql ") results") :params params}
+
+            :else
+            (nonfunction-query->sql plan params)))
+
 (defn compile-user-query->sql
   "Given a user provided query and a Query instance, convert the
    user provided query to SQL and extract the parameters, to be used
    in a prepared statement. Every query coming into this is a 'from' clause."
   [query-rec user-query & [{:keys [include_total] :as paging-options}]]
+
   ;; Call the query-rec so we can evaluate query-rec functions
   ;; which depend on the db connection type
-  (let [entity (keyword (second user-query))
-        paging-options (some->> paging-options
+
+  (let [paging-options (some->> paging-options
                                 (paging/dealias-order-by query-rec))
-        {:keys [plan params]} (->> user-query
-                                   (push-down-context query-rec)
-                                   expand-user-query
-                                   (convert-to-plan paging-options)
-                                   extract-all-params)
-        plan (assoc plan :wrap? true)
-        sql (-> plan fix-plan-in-expr-multi-comparisons plan->sql hcore/format first)
+        {:keys [plan params]} (query->parameterized-sql query-rec user-query paging-options)
+        sql (plan->formatted-sql plan)
         paged-sql (jdbc/paged-sql sql paging-options)]
     (cond-> {:results-query (apply vector paged-sql params)}
-      include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))
+      include_total (assoc :count-query (let [{:keys [sql params]} (query->count-sql user-query sql plan params)]
+                                          (apply vector sql params))))))
