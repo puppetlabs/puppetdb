@@ -288,6 +288,17 @@
     (subs s 1 (dec (count s)))
     s))
 
+(defn quoted
+  [s]
+  (str "'" s "'"))
+
+(defn comma-separated-keywords
+  [words]
+  (let [quoted-words (map quoted words)]
+    (if (> (count quoted-words) 2)
+      (str (string/join ", " (butlast quoted-words)) ", " "and " (last quoted-words))
+      (string/join " and " quoted-words))))
+
 (defn parse-matchfields
   [s]
   (string/replace s #"match\((\".*\")\)" "$1"))

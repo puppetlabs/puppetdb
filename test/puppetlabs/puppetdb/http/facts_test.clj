@@ -242,20 +242,20 @@
                 ;; Extract using invalid fields should throw an error
                 ["in" "certname" ["extract" "nothing" ["select_resources"
                                                         ["=" "type" "Class"]]]]
-                "Can't extract unknown 'resources' field 'nothing'. Acceptable fields are: [\"certname\",\"environment\",\"exported\",\"file\",\"line\",\"parameters\",\"resource\",\"tag\",\"tags\",\"title\",\"type\"]"
+                "Can't extract unknown 'resources' field 'nothing'. Acceptable fields are 'certname', 'environment', 'exported', 'file', 'line', 'parameters', 'resource', 'tag', 'tags', 'title', and 'type'"
 
                 ["in" "certname" ["extract" ["nothing" "nothing2" "certname"] ["select_resources"
                                                                                ["=" "type" "Class"]]]]
-                "Can't extract unknown 'resources' fields: 'nothing', 'nothing2'. Acceptable fields are: [\"certname\",\"environment\",\"exported\",\"file\",\"line\",\"parameters\",\"resource\",\"tag\",\"tags\",\"title\",\"type\"]"
+                "Can't extract unknown 'resources' fields 'nothing' and 'nothing2'. Acceptable fields are 'certname', 'environment', 'exported', 'file', 'line', 'parameters', 'resource', 'tag', 'tags', 'title', and 'type'"
 
                 ;; In-query for invalid fields should throw an error
                 ["in" "nothing" ["extract" "certname" ["select_resources"
                                                         ["=" "type" "Class"]]]]
-                "Can't match on unknown 'facts' field 'nothing' for 'in'. Acceptable fields are: [\"certname\",\"environment\",\"name\",\"value\"]"
+                "Can't match on unknown 'facts' field 'nothing' for 'in'. Acceptable fields are 'certname', 'environment', 'name', and 'value'"
 
                 ["in" ["name" "nothing" "nothing2"] ["extract" "certname" ["select_resources"
                                                                             ["=" "type" "Class"]]]]
-                "Can't match on unknown 'facts' fields: 'nothing', 'nothing2' for 'in'. Acceptable fields are: [\"certname\",\"environment\",\"name\",\"value\"]")))
+                "Can't match on unknown 'facts' fields 'nothing' and 'nothing2' for 'in'. Acceptable fields are 'certname', 'environment', 'name', and 'value'")))
 
 (def versioned-invalid-queries
   (omap/ordered-map
@@ -268,7 +268,7 @@
                 #"Can't extract unknown 'facts' field 'nothing'.*Acceptable fields are.*"
 
                 ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
-                #"Can't extract unknown 'facts' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
+                #"Can't extract unknown 'facts' fields 'nothing' and 'nothing2'.*Acceptable fields are.*")))
 
 (deftest-http-app invalid-projections
   [[version endpoint] facts-endpoints

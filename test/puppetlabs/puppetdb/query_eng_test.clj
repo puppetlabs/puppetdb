@@ -148,7 +148,7 @@
 
 (deftest test-valid-query-fields
   (is (thrown-with-msg? IllegalArgumentException
-                        #"'foo' is not a queryable object for resources, known queryable objects are.*"
+                        #"'foo' is not a queryable object for resources. Known queryable objects are.*"
                         (compile-user-query->sql resources-query ["=" "foo" "bar"]))))
 
 (deftest test-valid-subqueries

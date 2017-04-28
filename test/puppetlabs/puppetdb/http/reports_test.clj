@@ -726,7 +726,7 @@
     #"Can't extract unknown 'reports' field 'nothing'.*Acceptable fields are.*"
 
     ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
-    #"Can't extract unknown 'reports' fields: 'nothing', 'nothing2'.*Acceptable fields are.*"))
+    #"Can't extract unknown 'reports' fields 'nothing' and 'nothing2'.*Acceptable fields are.*"))
 
 (deftest-http-app invalid-projections
   [[version endpoint] endpoints

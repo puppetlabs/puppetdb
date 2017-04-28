@@ -167,8 +167,7 @@
 
   This hash is useful for situations where you'd like to determine
   whether or not two reports contain the same things (certname,
-  configuration version, timestamps, events).
-  "
+  configuration version, timestamps, events)."
   [{:keys [certname puppet_version report_format configuration_version
            start_time end_time producer_timestamp resource_events transaction_uuid] :as report}]
   (generic-identity-hash

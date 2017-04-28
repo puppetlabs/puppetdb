@@ -482,7 +482,7 @@
 
                  ["in" "certname" ["extract" ["nothing" "nothing2" "certname"] ["select_resources"
                                                                                 ["=" "type" "Class"]]]]
-                 #"Can't extract unknown 'resources' fields: 'nothing', 'nothing2'.*Acceptable fields are.*"
+                 #"Can't extract unknown 'resources' fields 'nothing' and 'nothing2'.*Acceptable fields are.*"
 
                  ;; In-query for invalid fields should throw an error
                  ["in" "nothing" ["extract" "certname" ["select_resources"
@@ -491,7 +491,7 @@
 
                  ["in" ["certname" "nothing" "nothing2"] ["extract" "certname" ["select_resources"
                                                                                 ["=" "type" "Class"]]]]
-                 #"Can't match on unknown 'events' fields: 'nothing', 'nothing2' for 'in'.*Acceptable fields are.*")))
+                 #"Can't match on unknown 'events' fields 'nothing' and 'nothing2' for 'in'.*Acceptable fields are.*")))
 
 (deftest-http-app invalid-subqueries
   [[version endpoint] endpoints
@@ -518,7 +518,7 @@
                    #"Can't extract unknown 'events' field 'nothing'.*Acceptable fields are.*"
 
                    ["extract" ["certname" "nothing" "nothing2"] ["~" "certname" ".*"]]
-                   #"Can't extract unknown 'events' fields: 'nothing', 'nothing2'.*Acceptable fields are.*")))
+                   #"Can't extract unknown 'events' fields 'nothing' and 'nothing2'.*Acceptable fields are.*")))
 
 (deftest-http-app invalid-queries
   [[version endpoint] endpoints
