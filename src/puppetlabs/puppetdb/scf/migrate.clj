@@ -1252,6 +1252,12 @@
   (jdbc/do-commands
     "create index resource_params_cache_parameters_idx on resource_params_cache using gin (parameters)"))
 
+(defn reports-partial-indices
+  []
+  (jdbc/do-commands
+    "create index reports_noop_idx on reports(noop) where noop = true"
+    "create index reports_cached_catalog_status_on_fail on reports(cached_catalog_status) where cached_catalog_status = 'on_failure'"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1287,7 +1293,8 @@
    55 index-certnames-unique-latest-report-id
    56 merge-fact-values-into-facts
    57 add-package-tables
-   58 add-gin-index-on-resource-params-cache})
+   58 add-gin-index-on-resource-params-cache
+   59 reports-partial-indices})
 
 (def desired-schema-version (apply max (keys migrations)))
 
