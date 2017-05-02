@@ -562,6 +562,9 @@
       "code_id" {:type :string
                  :queryable? true
                  :field :reports.code_id}
+      "job_id" {:type :string
+                :queryable? true
+                :field :reports.job_id}
       "cached_catalog_status" {:type :string
                                :queryable? true
                                :field :reports.cached_catalog_status}
@@ -641,6 +644,9 @@
       "code_id" {:type :string
                  :queryable? true
                  :field :c.code_id}
+      "job_id" {:type :string
+                :queryable? true
+                :field :c.job_id}
       "environment" {:type :string
                      :queryable? true
                      :field :e.environment}

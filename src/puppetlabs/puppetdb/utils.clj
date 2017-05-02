@@ -339,7 +339,9 @@
    schema won't work."
   [kwd-schema]
   (reduce-kv (fn [acc k v]
-               (assoc acc (schema.core/required-key (puppetlabs.puppetdb.utils/kwd->str k)) v))
+               (if (instance? schema.core.OptionalKey k)
+                 (assoc acc (schema.core/optional-key (puppetlabs.puppetdb.utils/kwd->str (:k k))) v)
+                 (assoc acc (schema.core/required-key (puppetlabs.puppetdb.utils/kwd->str k)) v)))
              {} kwd-schema))
 
 (defn dashes->underscores
@@ -355,14 +357,20 @@
 
 (defn underscores->dashes
   "Accepts a string or a keyword as an argument, replaces all occurrences of the
-  underscore character with a dash, and returns the same type (string
-  or keyword) that was passed in.  This is useful for translating data structures
-  from their JDBC-compatible representation to their wire format representation."
-  [str]
-  (let [result (string/replace (name str) \_ \-)]
-    (if (keyword? str)
-      (keyword result)
-      result)))
+   underscore character with a dash, and returns the same type (string
+   or keyword) that was passed in.  This is useful for translating data structures
+   from their JDBC-compatible representation to their wire format representation."
+  [s]
+  (let [optional-key? (instance? schema.core.OptionalKey s)
+        result (if optional-key?
+                 (string/replace (name (:k s)) \_ \-)
+                 (string/replace (name s) \_ \-))]
+    (cond
+      optional-key? (if (keyword? (:k s))
+                      (s/optional-key (keyword result))
+                      (s/optional-key result))
+      (keyword? s) (keyword result)
+      :else result)))
 
 (defn dash->underscore-keys
   "Converts all top-level keys (including nested maps) in `m` to use dashes

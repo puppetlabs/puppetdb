@@ -16,6 +16,7 @@
     :producer               "bar.com"
     :catalog_uuid "5ea3a70b-84c8-426c-813c-dd6492fb829b"
     :code_id nil
+    :job_id nil
     :cached_catalog_status "not_used"
     :environment            "DEV"
     :status                 "unchanged"
@@ -107,6 +108,7 @@
     :transaction_uuid "5ea3a70b-84c8-426c-813c-dd6492fb829b"
     :catalog_uuid "5ea3a70b-84c8-426c-813c-dd6492fb829b"
     :code_id nil
+    :job_id nil
     :cached_catalog_status "not_used"
     :configuration_version "bja3985a23"
     :start_time "2013-08-28T19:00:00-03:00"
@@ -206,6 +208,7 @@
     :producer "bar.com"
     :catalog_uuid "5ea3a70b-84c8-426c-813c-dd6492fb829b"
     :code_id nil
+    :job_id nil
     :cached_catalog_status "not_used"
     :environment "DEV"
     :status "unchanged"
@@ -293,6 +296,7 @@
     :transaction_uuid "e1e561ba-212f-11e3-9d58-60a44c233a9d"
     :catalog_uuid "5ea3a70b-84c8-426c-813c-dd6492fb829b"
     :code_id nil
+    :job_id nil
     :cached_catalog_status "not_used"
     :configuration_version "a81jasj123"
     :start_time "2011-01-03T12:00:00-03:00"
@@ -390,7 +394,7 @@
     (s/validate
       reports/report-v7-wireformat-schema
       (-> v8-report
-          (dissoc :producer :noop_pending :corrective_change)
+          (dissoc :producer :noop_pending :corrective_change :job_id)
           (update :resources #(mapv (reports/update-resource-events update-fn) %))))))
 
 (def v6-report

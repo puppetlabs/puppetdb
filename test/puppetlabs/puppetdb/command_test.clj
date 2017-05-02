@@ -361,14 +361,18 @@
             (is (= 0 (task-count delay-pool)))
             (is (empty? (fs/list-dir (:path dlo))))))
 
-        (testing "with code-id should store the catalog"
-          (with-message-handler {:keys [handle-message dlo delay-pool q]}
-            (handle-message
-             (queue/store-command q (catalog->command-req version-num (assoc catalog :code_id "my_git_sha1"))))
-            (is (= [(with-env {:certname certname :code_id "my_git_sha1"})]
-                   (query-to-vec "SELECT certname, code_id, environment_id FROM catalogs")))
-            (is (= 0 (task-count delay-pool)))
-            (is (empty? (fs/list-dir (:path dlo))))))
+        (testing "with optional ids should store the catalog"
+          (let [job-id (when (> version-num 8) "1337")]
+            (with-message-handler {:keys [handle-message dlo delay-pool q]}
+              (handle-message
+                (queue/store-command q (catalog->command-req
+                                         version-num
+                                         (cond-> (assoc catalog :code_id "my_git_sha1")
+                                           job-id (assoc :job_id job-id)))))
+              (is (= [(with-env {:certname certname :code_id "my_git_sha1" :job_id job-id})]
+                     (query-to-vec "SELECT certname, code_id, job_id, environment_id FROM catalogs")))
+              (is (= 0 (task-count delay-pool)))
+              (is (empty? (fs/list-dir (:path dlo)))))))
 
         (testing "with an existing catalog should replace the catalog"
           (with-message-handler {:keys [handle-message dlo delay-pool q]}

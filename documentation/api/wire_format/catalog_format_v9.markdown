@@ -45,6 +45,7 @@ Unless otherwise noted, `null` is not allowed anywhere in the catalog.
       "transaction_uuid": <string>,
       "catalog_uuid": <string>,
       "code_id": <string>,
+      "job_id": <string>,
       "producer_timestamp": <datetime>,
       "producer": <string>,
       "edges":
@@ -100,6 +101,12 @@ used during the same Puppet run. This field may be `null`.
 
 String. A string used to match the catalog with the Puppet code which generated
 the catalog. This field may be `null`.
+
+#### `job_id`
+
+String. A string used to match the catalog with a Puppet job, intended for
+usage by the Puppet Enterprise Orchestration service. This field may be
+`null`.
 
 #### `producer_timestamp`
 

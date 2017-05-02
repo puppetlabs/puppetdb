@@ -88,7 +88,7 @@
 
     (testing "key validation"
       (let [catalog (dissoc (:basic catalogs) :api_version)
-            v8-catalog (dissoc catalog :producer)
+            v8-catalog (dissoc catalog :producer :job_id)
             v7-catalog (dissoc v8-catalog :catalog_uuid)
             v6-catalog (dissoc v7-catalog :code_id)]
         (testing "should accept catalogs with the correct set of keys"
@@ -153,11 +153,13 @@
   (testing "v8->v9"
     (let [v8-catalog (get-in wire-catalogs [8 :empty])]
       (are [pred key] (pred (contains? v8-catalog key))
-        false? :producer)
+        false? :producer
+        false? :job_id)
 
       (let [v9-catalog (parse-catalog v8-catalog 8 (now))]
         (are [pred key] (pred (contains? v9-catalog key))
-          true? :producer))))
+          true? :producer
+          true? :job_id))))
 
   (testing "v7->v9"
     (let [v7-catalog (get-in wire-catalogs [7 :empty])]
@@ -171,11 +173,13 @@
   (testing "v6->v9"
     (let [v6-catalog (get-in wire-catalogs [6 :empty])]
       (are [pred key] (pred (contains? v6-catalog key))
-        false? :code_id)
+        false? :code_id
+        false? :job_id)
 
       (let [v9-catalog (parse-catalog v6-catalog 6 (now))]
         (are [pred key] (pred (contains? v9-catalog key))
-          true? :code_id))))
+          true? :code_id
+          true? :job_id))))
 
   (testing "v5->v9"
     (let [v5-catalog (get-in wire-catalogs [5 :empty])]
@@ -183,12 +187,14 @@
            true? :name
            false? :certname
            false? :code_id
+           false? :job_id
            true? :transaction-uuid)
 
       (let [v9-catalog (parse-catalog v5-catalog 5 (now))]
         (are [pred key] (pred (contains? v9-catalog key))
              false? :name
              true? :code_id
+             true? :job_id
              true? :certname
              false? :transaction-uuid
              true? :transaction_uuid))))
@@ -199,6 +205,7 @@
            true? :name
            false? :certname
            false? :code_id
+           false? :job_id
            true? :transaction-uuid
            false? :producer_timestamp
            false? :producer-timestamp)
@@ -209,6 +216,7 @@
              true? :certname
              false? :transaction-uuid
              true? :code_id
+             true? :job_id
              true? :transaction_uuid
              true? :producer_timestamp
              false? :producer-timestamp))))

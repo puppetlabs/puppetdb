@@ -25,6 +25,7 @@ noted, `null` is not allowed anywhere in the report.
         "transaction_uuid": <string>,
         "catalog_uuid": <string>,
         "code_id": <string>,
+        "job_id": <string>,
         "cached_catalog_status": <string>,
         "status": <string>,
         "noop": <boolean>,
@@ -69,6 +70,9 @@ that was used for the run. This field may be `null`.
 
 `"code_id"` is a string used to match the catalog with the Puppet code which
 generated the report. This field may be `null`.
+
+`"job_id"` is a string used to match a report to a Puppet run initiated by the
+Puppet Enterprise Orchestrator.
 
 `"cached_catalog_status"` is a string used to identify whether the Puppet run
 used a cached catalogs and whether or not the cached catalog was used due to an

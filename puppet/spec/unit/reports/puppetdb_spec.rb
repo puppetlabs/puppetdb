@@ -98,6 +98,18 @@ describe processor do
       end
     end
 
+    it "should include the job_id or nil" do
+      if defined?(subject.job_id) then
+        subject.job_id = '1337'
+      end
+      result = subject.report_to_hash(Time.now.utc)
+      if defined?(subject.job_id) then
+        result["job_id"].should == '1337'
+      else
+        result["job_id"].should == nil
+      end
+    end
+
     it "should include the producer or nil" do
       Puppet[:node_name_value] = "foo"
       result = subject.report_to_hash(Time.now.utc)

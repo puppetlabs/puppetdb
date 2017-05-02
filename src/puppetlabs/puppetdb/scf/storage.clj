@@ -374,6 +374,7 @@
            resources
            version
            code_id
+           job_id
            transaction_uuid
            catalog_uuid
            environment
@@ -386,6 +387,7 @@
    :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
    :timestamp (to-timestamp received-timestamp)
    :code_id code_id
+   :job_id job_id
    :environment_id (ensure-environment environment)
    :producer_timestamp (to-timestamp producer_timestamp)
    :producer_id (ensure-producer producer)
@@ -1369,7 +1371,7 @@
          (let [{:keys [puppet_version certname report_format configuration_version producer
                        producer_timestamp start_time end_time transaction_uuid environment
                        status noop metrics logs resources resource_events catalog_uuid
-                       code_id cached_catalog_status noop_pending corrective_change]
+                       code_id job_id cached_catalog_status noop_pending corrective_change]
                 :as report} (normalize-report orig-report)
                 report-hash (shash/report-identity-hash report)]
            (jdbc/with-db-transaction []
@@ -1382,6 +1384,7 @@
                                 :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
                                 :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
                                 :code_id code_id
+                                :job_id job_id
                                 :cached_catalog_status cached_catalog_status
                                 :metrics (sutils/munge-jsonb-for-storage metrics)
                                 :logs (sutils/munge-jsonb-for-storage logs)

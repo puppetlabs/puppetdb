@@ -1252,11 +1252,19 @@
   (jdbc/do-commands
     "create index resource_params_cache_parameters_idx on resource_params_cache using gin (parameters)"))
 
+
 (defn reports-partial-indices
   []
   (jdbc/do-commands
     "create index reports_noop_idx on reports(noop) where noop = true"
     "create index reports_cached_catalog_status_on_fail on reports(cached_catalog_status) where cached_catalog_status = 'on_failure'"))
+
+(defn add-job-id []
+  (jdbc/do-commands
+    "alter table reports add column job_id text default null"
+    "alter table catalogs add column job_id text default null"
+    "create index reports_job_id_idx on reports(job_id) where job_id is not null"
+    "create index catalogs_job_id_idx on catalogs(job_id) where job_id is not null"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
@@ -1294,7 +1302,8 @@
    56 merge-fact-values-into-facts
    57 add-package-tables
    58 add-gin-index-on-resource-params-cache
-   59 reports-partial-indices})
+   59 reports-partial-indices
+   60 add-job-id})
 
 (def desired-schema-version (apply max (keys migrations)))
 

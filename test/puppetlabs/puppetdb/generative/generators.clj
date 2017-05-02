@@ -38,6 +38,7 @@
 (defgen :puppet/producer (string+))
 
 (defgen :catalog/code_id (gen/nilable (string+)))
+(defgen :catalog/job_id (gen/nilable (string+)))
 (defgen :catalog/version (gen/fmap str gen/nat))
 
 (defgen :edge/resource-spec (gen/keys :resource/type :resource/title))
@@ -122,6 +123,7 @@
                       :puppet/producer
                       :catalog/version
                       :catalog/code_id
+                      :catalog/job_id
                       :catalog/resource-tree)))
 
 ;;; factset generator
@@ -246,6 +248,7 @@
             :report/metrics
             :report/logs
             :catalog/code_id
+            :catalog/job_id
             :report/cached_catalog_status
             :report/corrective_change
             :report/report_format))
