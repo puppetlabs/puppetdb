@@ -9,6 +9,8 @@ echo "SHIP_NIGHTLY: ${SHIP_NIGHTLY}"
 echo "REPO_URL: ${REPO_URL}"
 echo "**********************************************"
 
+set -x
+
 [[ -s "/usr/local/rvm/scripts/rvm" ]] && source "/usr/local/rvm/scripts/rvm"
 rvm use $ruby
 
