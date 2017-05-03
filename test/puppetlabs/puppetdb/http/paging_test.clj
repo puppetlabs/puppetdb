@@ -3,7 +3,10 @@
             [cheshire.core :as json]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils :refer [get-request]]
-            [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]))
+            [puppetlabs.puppetdb.testutils.http
+             :refer [*app*
+                     are-error-response-headers
+                     deftest-http-app]]))
 
 (def versions [:v4])
 
@@ -25,7 +28,7 @@
                                               {:order_by malformed-JSON}))
           body            (get response :body "null")]
       (is (= (:status response) http/status-bad-request))
-      (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+      (are-error-response-headers (:headers response))
       (is (re-find #"Illegal value '.*' for :order_by; expected a JSON array of maps" body))))
 
   (testing "'limit' should only accept positive non-zero integers"
@@ -39,7 +42,7 @@
                                           {:limit invalid-limit}))
             body      (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
-        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers (:headers response))
         (is (re-find #"Illegal value '.*' for :limit; expected a positive non-zero integer" body)))))
 
   (testing "'offset' should only accept positive integers"
@@ -52,7 +55,7 @@
                                           {:offset invalid-offset}))
             body      (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
-        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers (:headers response))
         (is (re-find #"Illegal value '.*' for :offset; expected a non-negative integer" body)))))
 
   (testing "'order_by' :order should only accept nil, 'asc', or 'desc' (case-insensitive)"
@@ -65,5 +68,5 @@
                                           {:order_by (json/generate-string invalid-order-by)}))
             body      (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
-        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers (:headers response))
         (is (re-find #"Illegal value '.*' in :order_by; 'order' must be either 'asc' or 'desc'" body))))))

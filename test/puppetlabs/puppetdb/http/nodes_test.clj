@@ -6,6 +6,7 @@
             [puppetlabs.puppetdb.testutils :refer [paged-results] :as tu]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
+                     are-error-response-headers
                      deftest-http-app
                      convert-response
                      ordered-query-result
@@ -412,7 +413,7 @@
       (testing (str endpoint " query: " query " should fail with msg: " msg)
         (let [{:keys [status body headers]} (query-response method endpoint query)]
           (is (= status http/status-bad-request))
-          (is (= headers {"Content-Type" http/error-response-content-type}))
+          (are-error-response-headers headers)
           (is (re-find msg body)))))))
 
 (deftest-http-app query-with-pretty-printing
@@ -576,7 +577,7 @@
     (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
       (is (re-find msg body))
       (is (= status http/status-bad-request))
-      (is (= headers {"Content-Type" http/error-response-content-type})))))
+      (are-error-response-headers headers))))
 
 (def pg-versioned-invalid-regexps
   (omap/ordered-map

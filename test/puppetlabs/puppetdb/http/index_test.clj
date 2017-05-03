@@ -8,7 +8,8 @@
             [puppetlabs.puppetdb.testutils :refer [dotestseq]]
             [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
             [puppetlabs.puppetdb.testutils.http
-             :refer [deftest-http-app
+             :refer [are-error-response-headers
+                     deftest-http-app
                      ordered-query-result
                      query-response
                      query-result
@@ -58,18 +59,18 @@
     (testing "invalid from query"
       (let [{:keys [status body headers]} (query-response method endpoint ["from" "foobar"])]
         (is (re-find #"Invalid entity" body))
-        (is (= headers {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers headers)
         (is (= status http/status-bad-request)))
 
       ;; Ensure we parse anything that looks like AST/JSON as JSON not PQL
       (let [{:keys [status body headers]} (query-response method endpoint "[\"from\",\"foobar\"")]
         (is (= "Malformed JSON for query: [\"from\",\"foobar\"" body))
-        (is (= headers {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers headers)
         (is (= http/status-bad-request status)))
 
       (let [{:keys [status body headers]} (query-response method endpoint "foobar {}")]
         (is (re-find #"PQL parse error at line 1, column 1" body))
-        (is (= headers {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers headers)
         (is (= status http/status-bad-request))))
 
     (testing "pagination"

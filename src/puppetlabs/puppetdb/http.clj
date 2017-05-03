@@ -83,9 +83,22 @@
           (types wildcard)
           (types candidate)))))
 
-(def json-response-content-type "application/json; charset=utf-8")
-
 (def error-response-content-type "text/plain; charset=utf-8")
+
+(defn simple-utf8-ctype? [type header-value]
+  ;; https://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.7
+  ;; This is not a strict validation, and it allows all whitespace,
+  ;; not just linear whitespace and is completely case insensitive,
+  ;; which for utf-8 is probably just fine.
+  (= [type "charset=utf-8"]
+     (map s/trim
+          (-> header-value s/lower-case (s/split #";")))))
+
+(defn json-utf8-ctype? [header-value]
+  (simple-utf8-ctype? "application/json" header-value))
+
+(defn error-ctype? [header-value]
+  (simple-utf8-ctype? "text/plain" header-value))
 
 (defn json-response*
   "Returns a Ring response object with the supplied `body`, response
@@ -97,7 +110,7 @@
   ([body code]
      (-> body
          rr/response
-         (rr/content-type json-response-content-type)
+         (rr/content-type "application/json; charset=utf-8")
          (rr/status code))))
 
 (defn upload-file!

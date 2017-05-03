@@ -20,6 +20,7 @@
             [puppetlabs.puppetdb.testutils.db :refer [with-test-db]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
+                     are-error-response-headers
                      deftest-http-app
                      query-response
                      query-result
@@ -737,7 +738,7 @@
       (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/error-response-content-type}))))))
+        (are-error-response-headers headers)))))
 
 (def pg-versioned-invalid-regexps
   (omap/ordered-map
@@ -757,7 +758,7 @@
       (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/error-response-content-type}))))))
+        (are-error-response-headers headers)))))
 
 (def no-parent-endpoints [[:v4 "/v4/reports/foo/events"]
                           [:v4 "/v4/reports/foo/metrics"]
@@ -768,7 +769,8 @@
    method [:get :post]]
   (let [{:keys [status body headers]} (query-response method endpoint)]
     (is (= status http/status-not-found))
-    (is (= headers {"Content-Type" http/json-response-content-type}))
+    (is (= ["Content-Type"] (keys headers)))
+    (is (http/json-utf8-ctype? (headers "Content-Type")))
     (is (= {:error "No information is known about report foo"} (json/parse-string body true)))))
 
 (deftest reports-retrieval

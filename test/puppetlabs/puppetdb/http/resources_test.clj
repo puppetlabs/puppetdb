@@ -8,6 +8,7 @@
             [puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
+                     are-error-response-headers
                      deftest-http-app
                      query-response
                      ordered-query-result
@@ -24,7 +25,7 @@
 to the result of the form supplied to this method."
   [response body]
   (is (= http/status-ok (:status response)))
-  (is (= http/json-response-content-type (tu/content-type response)))
+  (is (http/json-utf8-ctype? (tu/content-type response)))
   (is (= body (if (:body response)
                 (set (json/parse-string (slurp (:body response)) true))
                 nil))))
@@ -124,7 +125,7 @@ to the result of the form supplied to this method."
       (let [response (query-response method endpoint ["="])
             body     (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
-        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers (:headers response))
         (is (re-find #"= requires exactly two arguments" body))))
 
     (testing "query with filter should exclude deactivated nodes"
@@ -193,17 +194,17 @@ to the result of the form supplied to this method."
       (let [query ["=" "sourceline" 22]
             response (query-response method endpoint query)]
         (is (= http/status-bad-request (:status response)))
-        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers (:headers response))
         (is (re-find #"'sourceline' is not a queryable object for resources. Known queryable objects are" (:body response))))
       (let [query ["~" "sourcefile" "foo"]
             response (query-response method endpoint query)]
         (is (= http/status-bad-request (:status response)))
-        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers (:headers response))
         (is (re-find #"'sourcefile' is not a queryable object for resources. Known queryable objects are" (:body response))))
       (let [query ["=" "sourcefile" "/foo/bar"]
             response (query-response method endpoint query)]
         (is (= http/status-bad-request (:status response)))
-        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers (:headers response))
         (is (re-find #"'sourcefile' is not a queryable object for resources. Known queryable objects are" (:body response)))))
 
     (testing "query by file and line is supported"
@@ -361,4 +362,4 @@ to the result of the form supplied to this method."
       (let [{:keys [status body headers] :as result} (query-response method endpoint query)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/error-response-content-type}))))))
+        (are-error-response-headers headers)))))

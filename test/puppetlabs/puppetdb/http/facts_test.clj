@@ -29,6 +29,7 @@
                      with-test-db]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
+                     are-error-response-headers
                      deftest-http-app
                      query-response
                      query-result
@@ -49,7 +50,6 @@
 
 (def fact-contents-endpoints [[:v4 "/v4/fact-contents"]])
 
-(def c-t http/json-response-content-type)
 (def reference-time "2014-10-28T20:26:21.727Z")
 
 (defn is-query-result
@@ -278,7 +278,7 @@
       (let [{:keys [status body headers]} (query-response method endpoint query)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/error-response-content-type}))))))
+        (are-error-response-headers headers)))))
 
 (def pg-versioned-invalid-regexps
   (omap/ordered-map
@@ -298,7 +298,7 @@
       (let [{:keys [status body headers]} (query-response method endpoint query)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/error-response-content-type}))))))
+        (are-error-response-headers headers)))))
 
 (def common-well-formed-tests
   (omap/ordered-map
@@ -579,7 +579,7 @@
                             (get-request endpoint))
                   {:keys [status body headers]} (*app* request)]
               (is (= status http/status-ok))
-              (is (= (headers "Content-Type") c-t))
+              (is (http/json-utf8-ctype? (headers "Content-Type")))
               (is (= (set result)
                      (set (json/parse-string (slurp body) true))))))))
 
@@ -587,14 +587,14 @@
         (let [request (get-request endpoint (json/generate-string []))
               {:keys [status body headers]} (*app* request)]
           (is (= status http/status-bad-request))
-          (is (= headers {"Content-Type" http/error-response-content-type}))
+          (are-error-response-headers headers)
           (is (= body "[] is not well-formed: queries must contain at least one operator"))))
 
       (testing "'not' with too many arguments"
         (let [request (get-request endpoint (json/generate-string ["not" ["=" "name" "ipaddress"] ["=" "name" "operatingsystem"]]))
               {:keys [status body headers]} (*app* request)]
           (is (= status http/status-bad-request))
-          (is (= headers {"Content-Type" http/error-response-content-type}))
+          (are-error-response-headers headers)
           (is (= body "'not' takes exactly one argument, but 2 were supplied")))))))
 
 (deftest-http-app fact-subqueries
@@ -641,7 +641,7 @@
               {:keys [status body headers] :as result} (*app* request)]
           (is (= body msg))
           (is (= status http/status-bad-request))
-          (is (= headers {"Content-Type" http/error-response-content-type})))))))
+          (are-error-response-headers headers))))))
 
 (deftest-http-app two-database-fact-query-config
   [[version endpoint] facts-endpoints
@@ -687,7 +687,7 @@
             (testing "queries only use the read database"
               (let [request (get-request endpoint)
                     {:keys [status body headers]} (two-db-app request)]
-                (is (= (headers "Content-Type") c-t))
+                (is (http/json-utf8-ctype? (headers "Content-Type")))
                 ;; Environments endpoint will return a proper JSON
                 ;; error with a 404, as opposed to an empty array.
                 (if (= endpoint "/v4/environments/DEV/facts")
@@ -703,7 +703,7 @@
               (let [request (get-request endpoint)
                     {:keys [status body headers]} (one-db-app request)]
                 (is (= status http/status-ok))
-                (is (= (headers "Content-Type") c-t))
+                (is (http/json-utf8-ctype? (headers "Content-Type")))
                 (is (= [{:certname "foo1" :name "domain" :value "testing.com" :environment "DEV"}
                         {:certname "foo1" :name "hostname" :value "foo1" :environment "DEV"}
                         {:certname "foo1" :name "kernel" :value "Linux" :environment "DEV"}
@@ -1075,7 +1075,7 @@
         (let [{:keys [status headers body]} (*app* (get-request endpoint query))
               results (json/parse-string (slurp body) true)]
           (is (= status http/status-ok))
-          (is (= (headers "Content-Type") c-t))
+          (is (http/json-utf8-ctype? (headers "Content-Type")))
           (is (= 9 (count results)))
           (is (every? #(= (:environment %) "PROD") results))
           (is (= #{"foo3" "foo4"} (set (map :certname results)))))))))

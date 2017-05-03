@@ -54,7 +54,7 @@
                  [puppetlabs/stockpile "0.0.4"]
                  [puppetlabs/tools.namespace "0.2.4.1"]
                  [puppetlabs/trapperkeeper]
-                 [puppetlabs/trapperkeeper-webserver-jetty9]
+                 [puppetlabs/trapperkeeper-webserver-jetty9 "2.0.0"]
                  [puppetlabs/trapperkeeper-metrics :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]
                  [puppetlabs/trapperkeeper-status]
 
@@ -138,7 +138,7 @@
                    :dependencies [[ring-mock]
                                   [puppetlabs/trapperkeeper :classifier "test"]
                                   [puppetlabs/kitchensink :classifier "test"]
-                                  [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
+                                  [puppetlabs/trapperkeeper-webserver-jetty9 "2.0.0" :classifier "test"]
                                   [puppetlabs/puppetserver ~puppetserver-version]
                                   [puppetlabs/puppetserver ~puppetserver-version :classifier "test"]
                                   [org.flatland/ordered "1.5.3"]
@@ -170,7 +170,7 @@
                                                ;; lein depend on clojure 1.6.
                                                [org.clojure/clojure nil]
                                                [puppetlabs/puppetdb ~pdb-version]
-                                               [puppetlabs/trapperkeeper-webserver-jetty9 nil]
+                                               [puppetlabs/trapperkeeper-webserver-jetty9 "2.0.0"]
                                                [org.clojure/tools.nrepl nil]]
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "1.1.6"]]}

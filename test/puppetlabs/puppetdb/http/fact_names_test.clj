@@ -6,10 +6,12 @@
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils :refer [parse-result]]
             [puppetlabs.puppetdb.testutils.db :refer [*db*]]
-            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
-                                                        query-response
-                                                        query-result
-                                                        vector-param]]
+            [puppetlabs.puppetdb.testutils.http
+             :refer [are-error-response-headers
+                     deftest-http-app
+                     query-response
+                     query-result
+                     vector-param]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]))
 
 (def fact-name-endpoints [[:v4 "/v4/fact-names"]])
@@ -227,7 +229,7 @@
              method endpoint ["=" "myfield" "myval"])
             result (parse-result body)]
         (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers headers)
         (is (re-find #"is not a queryable object" result))))
 
     (testing "subqueries"

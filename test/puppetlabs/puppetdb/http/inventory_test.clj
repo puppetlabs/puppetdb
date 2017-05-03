@@ -16,7 +16,6 @@
                                                    assert-success!]]))
 
 (def inventory-endpoints [[:v4 "/v4/inventory"]])
-(def c-t http/json-response-content-type)
 
 (def inventory1
   {:certname "bar.com"
@@ -128,6 +127,6 @@
                             (get-request endpoint))
                   {:keys [status body headers]} (*app* request)]
               (is (= status http/status-ok))
-              (is (= (headers "Content-Type") c-t))
+              (is (http/json-utf8-ctype? (headers "Content-Type")))
               (is (= (set result)
                      (set (json/parse-string (slurp body) true)))))))))))

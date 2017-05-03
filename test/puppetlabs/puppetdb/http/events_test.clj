@@ -15,6 +15,7 @@
                                                            enumerated-resource-events-map]]
             [puppetlabs.puppetdb.testutils.http
              :refer [*app*
+                     are-error-response-headers
                      deftest-http-app
                      query-response
                      vector-param
@@ -25,8 +26,6 @@
 
 (def endpoints [[:v4 "/v4/events"]
                 [:v4 "/v4/environments/DEV/events"]])
-
-(def content-type-json http/json-response-content-type)
 
 (defn parse-result
   "Stringify (if needed) then parse the response"
@@ -198,7 +197,7 @@
                                                                 [{:field "resource-title"}])})
               body (get response :body "null")]
           (is (= (:status response) http/status-bad-request))
-          (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+          (are-error-response-headers (:headers response))
           (is (re-find #"Unrecognized column 'resource-title' specified in :order_by" body)))))))
 
 (deftest-http-app query-distinct-resources
@@ -216,7 +215,7 @@
                                       {:distinct_resources true})
             body (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
-        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
              body)))
@@ -224,7 +223,7 @@
                                      {:distinct_resources true :distinct_start_time 0})
             body (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
-        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
              body)))
@@ -232,7 +231,7 @@
                                      {:distinct_resources true :distinct_end_time 0})
             body (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
-        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
              body)))
@@ -241,7 +240,7 @@
                                       {:distinct_start_time 0 :distinct_end_time 0})
             body      (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
-        (is (= (:headers response) {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers (:headers response))
         (is (re-find
              #"'distinct_resources' query parameter must accompany parameters 'distinct_start_time' and 'distinct_end_time'"
              body))))
@@ -504,7 +503,7 @@
              method endpoint query)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/error-response-content-type}))))))
+        (are-error-response-headers headers)))))
 
 (def versioned-invalid-queries
   (omap/ordered-map
@@ -530,7 +529,7 @@
             (query-response method endpoint query)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/error-response-content-type}))))))
+        (are-error-response-headers headers)))))
 
 (def pg-versioned-invalid-regexps
   (omap/ordered-map
@@ -551,4 +550,4 @@
             (query-response method endpoint query)]
         (is (re-find msg body))
         (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/error-response-content-type}))))))
+        (are-error-response-headers headers)))))
