@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: aa0e7b94c6097eb2076bdc0680a6edcdab09c292\n"
+"X-Git-Ref: 5ef9934e76ff0137249833a13613a573c43f177e\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -978,6 +978,24 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "Unsupported subquery `{0}`"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid ""
+"''{0}'' is not a queryable object for {1}. Entity {2} has no queryable "
+"objects"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid ""
+"''{0}'' is not a queryable object for {1}. Known queryable objects are {2}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj
+msgid ""
+"''{0}'' is not a queryable object for {1}. Entity {1} has no queryable "
+"objects"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
