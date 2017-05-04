@@ -33,7 +33,7 @@
            :operatingsystem "Debian"
            :some_version "1.3.7+build.11.e0f985a"
            :uptime_seconds 4000
-           :my_weird_fact {:blah {:dotted.thing {(keyword "quoted\"thing") "foo"}}}}})
+           :my_weird_fact {:blah {:dotted.thing {:dashed-thing {(keyword "quoted\"thing") "foo"}}}}}})
 
 (def inventory2
   {:certname "foo.com"
@@ -88,7 +88,7 @@
       ["~" "trusted.foo.baz" "ba.*"]
       #{response1}
 
-      ["=" "facts.my_weird_fact.blah.\"dotted.thing\".\"quoted\"thing\"" "foo"]
+      ["=" "facts.my_weird_fact.blah.\"dotted.thing\".\"dashed-thing\".\"quoted\"thing\"" "foo"]
       #{response1})))
 
 (deftest-http-app inventory-queries
