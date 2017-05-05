@@ -12,6 +12,13 @@
   (:import
    [java.io ByteArrayInputStream]))
 
+(defmacro are-error-response-headers [headers]
+  ;; A macro so the "is" line numbers will be right
+  `(let [headers# ~headers]
+     (is (= ["Content-Type"] (keys headers#)))
+     (is (and (headers# "Content-Type")
+              (http/error-ctype? (headers# "Content-Type"))))))
+
 (defn vector-param
   [method order-by]
   (if (= :get method)

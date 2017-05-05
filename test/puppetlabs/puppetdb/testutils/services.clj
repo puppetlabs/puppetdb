@@ -21,6 +21,7 @@
             [puppetlabs.puppetdb.cli.services :as svcs]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.command :refer [command-service] :as dispatch]
+            [puppetlabs.puppetdb.http :refer [json-utf8-ctype?]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -34,7 +35,8 @@
                                                      maint-mode-service]]
             [puppetlabs.puppetdb.config :refer [config-service]]
             [puppetlabs.http.client.sync :as http]
-            [puppetlabs.puppetdb.schema :as pls]))
+            [puppetlabs.puppetdb.schema :as pls]
+            [ring.util.response :as rr]))
 
 ;; See utils.clj for more information about base-urls.
 (def ^:dynamic *base-url* nil) ; Will not have a :version.
@@ -245,8 +247,9 @@
   returning. Error responses are returned (i.e. 404) and not thrown."
   [url-str :- String
    & [opts]]
-  (let [resp (get-unparsed url-str opts)]
-    (if (testutils/json-content-type? resp)
+  (let [resp (get-unparsed url-str opts)
+        ctype (rr/get-header resp "content-type")]
+    (if (some-> ctype json-utf8-ctype?)
       (update resp :body #(json/parse-string % true))
       resp)))
 

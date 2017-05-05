@@ -92,8 +92,7 @@
                          :bar 2}
                         (:payload (queue/cmdref->cmd q cmdref)))))
 
-               (is (= (content-type response)
-                      http/json-response-content-type))
+               (is (http/json-utf8-ctype? (content-type response)))
                (is (uuid-in-response? response))))
 
            (testing "for gzipped json requests"
@@ -119,8 +118,7 @@
                          :bar 2}
                         (:payload (queue/cmdref->cmd q cmdref)))))
 
-               (is (= (content-type response)
-                      http/json-response-content-type))
+               (is (http/json-utf8-ctype? (content-type response)))
                (is (uuid-in-response? response)))))))
 
      (testing "should return status-bad-request when missing payload"
@@ -128,7 +126,8 @@
          (let [[command-chan app] (create-handler q)
                {:keys [status body headers]} (app (post-request* endpoint nil nil))]
            (is (= status http/status-bad-request))
-           (is (= headers {"Content-Type" http/json-response-content-type}))
+           (is (= ["Content-Type"] (keys headers)))
+           (is (http/json-utf8-ctype? (headers "Content-Type")))
            (is (= (:error (json/parse-string body true))
                   "Supported commands are deactivate node, replace catalog, replace facts, store report. Received 'null'.")))))
 
@@ -158,7 +157,8 @@
                                     "checksum" invalid-checksum}
                                    invalid-command))]
            (is (= status http/status-bad-request))
-           (is (= headers {"Content-Type" http/json-response-content-type}))
+           (is (= ["Content-Type"] (keys headers)))
+           (is (http/json-utf8-ctype? (headers "Content-Type")))
            (is (= (:error (json/parse-string body true))
                   (format "Supported commands are %s. Received 'foo'."
                           valid-commands-str))))))
@@ -180,7 +180,8 @@
                                    misversioned-command))]
 
            (is (= status http/status-bad-request))
-           (is (= headers {"Content-Type" http/json-response-content-type}))
+           (is (= ["Content-Type"] (keys headers)))
+           (is (http/json-utf8-ctype? (headers "Content-Type")))
            (is (= (:error (json/parse-string body true))
                   (format (str "replace facts version %s is retired. "
                                "The minimum supported version is %s.")
@@ -280,8 +281,7 @@
                                       "checksum" checksum}
                                      payload))]
         (assert-success! response)
-        (is (= (content-type response)
-               http/json-response-content-type))
+        (is (http/json-utf8-ctype? (content-type response)))
         (is (uuid-in-response? response))))))
 
 (defn handler-with-max [q command-chan max-command-size]

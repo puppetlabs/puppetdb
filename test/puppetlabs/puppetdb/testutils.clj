@@ -137,10 +137,6 @@
   `(let [fixture-fn# (join-fixtures (:clojure.test/each-fixtures (meta ~*ns*)))]
      (fixture-fn# (fn [] ~@body))))
 
-(defn json-content-type? [response]
-  (or (= http/json-response-content-type (get-in response [:headers "Content-Type"]))
-      (= http/json-response-content-type (get-in response [:headers "content-type"]))))
-
 (defmacro is-equal-after
   "Checks equality of `args` after
    the `func` has been applied to them"

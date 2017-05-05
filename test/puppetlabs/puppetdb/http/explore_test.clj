@@ -10,13 +10,12 @@
             [puppetlabs.puppetdb.testutils.http :refer [*app* deftest-http-app]]
             [puppetlabs.puppetdb.examples :refer :all]))
 
-(def c-t http/json-response-content-type)
-
 (defn get-versioned-response
   [version route]
   (let [endpoint (str "/" (name version) "/" route)
         resp (*app*
-              (get-request endpoint nil {} {"Accept" c-t}))]
+              (get-request endpoint nil {}
+                           {"Accept" "application/json; charset=utf-8"}))]
     (if (string? (:body resp))
       resp
       (update-in resp [:body] slurp))))
@@ -33,7 +32,7 @@
                          (catch JsonParseException e#
                            body#)))]
        (assert-success! response#)
-       (is (= c-t (get-in response# [:headers "Content-Type"])))
+       (is (http/json-utf8-ctype? (get-in response# [:headers "Content-Type"])))
        (do ~@the-body))))
 
 (deftest-http-app test-exploration

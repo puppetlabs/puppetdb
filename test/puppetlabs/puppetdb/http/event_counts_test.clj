@@ -7,10 +7,12 @@
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
-            [puppetlabs.puppetdb.testutils.http :refer [deftest-http-app
-                                                        query-response query-result
-                                                        vector-param
-                                                        ordered-query-result]]
+            [puppetlabs.puppetdb.testutils.http
+             :refer [are-error-response-headers
+                     deftest-http-app
+                     query-response query-result
+                     vector-param
+                     ordered-query-result]]
             [puppetlabs.puppetdb.testutils.reports :refer [with-corrective-change
                                                            without-corrective-change
                                                            store-example-report!]]
@@ -43,7 +45,7 @@
                             ["=" "certname" "foo.local"]
                             {:summarize_by "illegal-summarize-by"})]
         (is (= status http/status-bad-request))
-        (is (= headers {"Content-Type" http/error-response-content-type}))
+        (are-error-response-headers headers)
         (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'"
                      body))))
 
@@ -67,7 +69,7 @@
                {:summarize_by "certname"
                 :order_by "invalid"})]
           (is (= status http/status-bad-request))
-          (is (= headers {"Content-Type" http/error-response-content-type}))
+          (are-error-response-headers headers)
           (is (re-find #"Illegal value 'invalid' for :order_by" body))))
 
       (testing "numerical fields"
@@ -92,7 +94,7 @@
                {:summarize_by "certname"
                 :count_by "illegal-count-by"})]
           (is (= status http/status-bad-request))
-          (is (= headers {"Content-Type" http/error-response-content-type}))
+          (are-error-response-headers headers)
           (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'"
                        body))))
 
