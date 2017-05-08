@@ -4,6 +4,8 @@ require 'spec_helper'
 require 'puppet/indirector/resource/puppetdb'
 require 'json'
 
+require 'puppetlabs_spec_helper/puppetlabs_spec_helper'
+
 describe Puppet::Resource::Puppetdb do
   before :each do
     Puppet::Util::Puppetdb.stubs(:server_urls).returns 'https://localhost:0'
@@ -18,7 +20,8 @@ describe Puppet::Resource::Puppetdb do
       # The API for creating scope objects is different between Puppet 2.7 and
       # 3.0. The scope here isn't really used for anything relevant, so it's
       # easiest to make it a stub to run against both versions of Puppet.
-      scope = stub('scope', :source => nil, :environment => 'production')
+      scope = Puppet::Parser::Scope.new(PuppetlabsSpec::PuppetInternals.compiler)
+      scope.stubs(:environment).returns('production')
       args = { :host => host, :filter => nil, :scope => scope }
       Puppet::Resource.indirection.search(type, args)
     end
