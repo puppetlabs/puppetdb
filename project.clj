@@ -136,8 +136,6 @@
 
   :profiles {:dev {:resource-paths ["test-resources"],
                    :dependencies [[ring-mock]
-                                  ;; puppetserver now expects jruby-deps
-                                  [puppetlabs/jruby-deps "1.7.26-1"]
                                   [puppetlabs/trapperkeeper :classifier "test"]
                                   [puppetlabs/kitchensink :classifier "test"]
                                   [puppetlabs/trapperkeeper-webserver-jetty9 "2.0.0" :classifier "test"]
