@@ -1,6 +1,14 @@
 def initialize_repo_on_host(host, os, nightly)
   case os
   when :debian
+
+    # For openjdk8
+    if host['platform'].version == '8'
+      create_remote_file(host,
+                         "/etc/apt/sources.list.d/jessie-backports.list",
+                         "deb http://httpredir.debian.org/debian jessie-backports main")
+    end
+
     if options[:type] == 'aio' then
       if nightly
         ## PC1 repos
@@ -18,8 +26,8 @@ def initialize_repo_on_host(host, os, nightly)
       on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-$(lsb_release -sc).deb"
       on host, "dpkg -i puppetlabs-release-$(lsb_release -sc).deb"
     end
-      on host, "apt-get update"
-      on host, "apt-get install debian-archive-keyring"
+    on host, "apt-get update"
+    on host, "apt-get install debian-archive-keyring"
   when :redhat
     if options[:type] == 'aio' then
       /^(el|centos)-(\d+)-(.+)$/.match(host.platform)
