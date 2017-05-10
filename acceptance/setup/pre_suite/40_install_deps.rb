@@ -47,7 +47,13 @@ unless (test_config[:skip_presuite_provisioning])
       if test_config[:install_type] == :git then
         case os
         when :debian
-          on database, "apt-get install -y --force-yes openjdk-7-jre-headless rake unzip"
+          if database['platform'].variant == 'debian' &&
+             database['platform'].version == '8'
+            on database, "apt-get install -y rake unzip"
+            on database, "apt-get install -y -t jessie-backports openjdk-8-jre-headless"
+          else
+            on database, "apt-get install -y rake unzip openjdk-8-jre-headless"
+          end
         when :redhat
           on database, "yum install -y java-1.7.0-openjdk rubygem-rake unzip"
         when :fedora
