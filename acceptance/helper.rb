@@ -837,6 +837,12 @@ EOS
   end
 
   def install_puppet
+    hosts.each do |host|
+      if database['platform'].variant == 'debian' &&
+         database['platform'].version == '8'
+        on database, "apt-get install -y -t jessie-backports openjdk-8-jre-headless"
+      end
+    end
     # If our :install_type is :pe then the harness has already installed puppet.
     case test_config[:install_type]
     when :package
