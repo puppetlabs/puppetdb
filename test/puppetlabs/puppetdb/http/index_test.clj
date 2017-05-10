@@ -193,9 +193,29 @@
     (testing "nodes"
       (testing "query should return only active nodes"
         (doseq [query [["from" "nodes"]
-                       "nodes {}"]]
+                       ["from" "nodes" ["=" ["node" "active"] true]]
+                       ["from" "nodes" ["=" "node_state" "active"]]
+                       "nodes {}"
+                       "nodes { node_state = 'active' }"]]
           (is (= (set (mapv :certname (query-result method endpoint query {})))
                  #{"host1" "host2" "host3"}))))
+
+      (testing "query should return only inactive nodes when specified"
+        (doseq [query [["from" "nodes" ["or"
+                                        ["=" ["node" "active"] false]]]
+                       ["from" "nodes" ["=" "node_state" "inactive"]]
+                       "nodes { node_state = 'inactive' }"]]
+          (is (= (set (mapv :certname (query-result method endpoint query {})))
+                 #{"host4"}))))
+
+      (testing "query should return all nodes when specified"
+        (doseq [query [["from" "nodes" ["or"
+                                        ["=" ["node" "active"] true]
+                                        ["=" ["node" "active"] false]]]
+                       ["from" "nodes" ["=" "node_state" "any"]]
+                       "nodes { node_state = 'any' }"]]
+          (is (= (set (mapv :certname (query-result method endpoint query {})))
+                 #{"host1" "host2" "host3" "host4"}))))
 
       (testing "broad regexp query should return all active nodes"
         (doseq [query [["from" "nodes" ["~" "certname" "^host"]]

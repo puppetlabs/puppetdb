@@ -41,11 +41,15 @@
 
 (defn convert-response
   [response]
-  (-> response
-      :body
-      slurp-unless-string
-      (json/parse-string true)
-      vec))
+  (let [body-string
+        (-> response
+            :body
+            slurp-unless-string)]
+    (try
+      (vec (json/parse-string body-string true))
+      (catch Exception e
+        (println "Error parsing repsonse string as json. Response string is:\n    " body-string)
+        (throw e)))))
 
 (defn ordered-query-result
   ([method endpoint] (ordered-query-result method endpoint nil))

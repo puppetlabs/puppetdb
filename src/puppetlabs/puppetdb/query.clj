@@ -480,6 +480,7 @@
          {:where  "catalog_resources.environment = ?"
           :params [value]}
 
+         ;; TODO handle node_state here?
          ;; {in,}active nodes.
          [["node" "active"]]
          {:where (format "catalogs.certname IN (%s)" (certname-names-query value))}
@@ -555,6 +556,7 @@
            {:where "facts.environment = ?"
             :params [value]}
 
+           ;; TODO handle node_state here?
            [["node" "active"]]
            {:where (format "facts.certname IN (%s)" (certname-names-query value))}
 

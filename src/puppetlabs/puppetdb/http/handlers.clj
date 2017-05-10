@@ -58,9 +58,10 @@
   (cmdi/ANY "" []
             (-> (comp (http-q/query-handler version)
                       (fn [req]
-                        (if (some-> req :puppetdb-query :ast_only http-q/coerce-to-boolean)
-                          req
-                          (http-q/restrict-query-to-active-nodes req))))
+                        (cond
+                          (some-> req :puppetdb-query :ast_only http-q/coerce-to-boolean) req
+                          (= ["from" "packages"] (some->> req :puppetdb-query :query (take 2))) req
+                          :else (http-q/restrict-query-to-active-nodes req))))
                 (http-q/extract-query-pql {:optional (conj paging/query-params "ast_only")
                                            :required ["query"]}))))
 

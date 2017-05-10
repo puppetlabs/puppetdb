@@ -66,6 +66,7 @@
 (defn is-active-node-criteria? [criteria]
   (cm/match [criteria]
     [["=" ["node" "active"] _]] criteria
+    [["=" "node_state" _]] criteria
     :else false))
 
 (defn find-active-node-restriction-criteria
@@ -134,7 +135,7 @@
               :query
               find-active-node-restriction-criteria)
     req
-    (restrict-query ["=" ["node" "active"] true] req)))
+    (restrict-query ["=" "node_state" "active"] req)))
 
 
 (defn restrict-query-to-node
