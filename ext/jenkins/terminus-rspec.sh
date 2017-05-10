@@ -21,6 +21,8 @@ then
 fi
 mkdir vendor
 
+export GEM_SOURCE="http://rubygems.delivery.puppetlabs.net"
+
 NO_ACCEPTANCE=true bundle install --path vendor/bundle --without acceptance
 
 cd puppet

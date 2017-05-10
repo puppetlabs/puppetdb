@@ -5,11 +5,11 @@ layout: default
 
 [commands]: ./api/command/v1/commands.html#list-of-commands
 [threads]: ./configure.html#threads
-[erd]: ./images/pdb_erd.png
 [pgstattuple]: http://www.postgresql.org/docs/9.4/static/pgstattuple.html
 [pgtune]: https://github.com/gregs1104/pgtune
 [postgres-config]: http://www.postgresql.org/docs/current/static/runtime-config-resource.html
 [fact-precedence]: {{facter}}/custom_facts.html#fact-precedence
+[dbvis]: https://www.dbvis.com/
 [stockpile]: https://github.com/puppetlabs/stockpile
 
 ## Support and Troubleshooting for PuppetDB
@@ -151,11 +151,11 @@ type:
 
 ### Database
 
-PDB uses PostgreSQL. The only good way to get familiar with the schema is
-to examine an [erd diagram][erd] and investigate for yourself on a running
-instance via the psql interactive console. The PDB team is available for
-questions on the mailing list and in #puppet and #puppet-dev on freenode to
-answer any questions.
+PDB uses PostgreSQL. The best way to get familiar with the schema is
+to generate an ERD diagram from your database and investigate for yourself on a running
+instance via the psql interactive console. [DB Visualizer][dbvis] is an excellent tool for this.
+In addition, the PDB team is available for questions on the mailing list and in #puppet and
+#puppet-dev on freenode to answer any questions.
 
 ## PDB Diagnostics
 
