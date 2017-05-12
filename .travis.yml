@@ -72,17 +72,7 @@ script: ext/travisci/test.sh
 notifications:
   email: false
 
-# Host addons handle buffer overflow in jdk 7 with travis' long
-# hostnames:
-#   https://github.com/travis-ci/travis-ci/issues/5227#issuecomment-165131913
-#   http://mail.openjdk.java.net/pipermail/net-dev/2012-July/004603.html
-#   http://bugs.java.com/bugdatabase/view_bug.do?bug_id=7089443
-#   http://bugs.java.com/bugdatabase/view_bug.do?bug_id=7112670
-
 addons:
-  hosts:
-    - pdbtest
-  hostname: pdbtest
-  postgresql: "9.4"
+  postgresql: "9.6"
 
 services: postgresql
