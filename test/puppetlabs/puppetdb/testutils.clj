@@ -47,7 +47,11 @@
     `(do ~@body)
     (let [case-versions (remove keyword? (take-nth 2 bindings))]
       `(doseq ~bindings
-         (testing (str "Testing case " '~case-versions)
+         (testing (str "Testing case: " (clojure.string/join
+                                          ", "
+                                          (map #(str %1 ": " %2)
+                                               '~case-versions
+                                               (list ~@case-versions))))
            ~@body)))))
 
 (defmacro without-jmx
