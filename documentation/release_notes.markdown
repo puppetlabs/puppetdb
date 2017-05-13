@@ -380,6 +380,41 @@ queries, fixes a bug that slowed garbage collection, and improves error logging.
 Andrew Roetker, Chris Cowell, Garrett Guillotte, Molly Waggett, Rob Browning,
 Ryan Senior, and Wyatt Alt
 
+4.1.2
+-----
+
+PuppetDB 4.1.2 is a backward-compatible bugfix release that speeds up node
+queries, fixes a bug that slowed garbage collection, and improves error logging.
+
+### Bug Fixes and Maintenance
+
+* Queries to the /nodes endpoint should be faster, due to the removal of the
+  index on certnames(latest_report_id).
+  ([PDB-2789](https://tickets.puppetlabs.com/browse/PDB-2789))
+
+* Reverted the drop of constraints while sweeping reports and nodes
+  ([PDB-2477](https://tickets.puppetlabs.com/browse/PDB-2477)), which had slowed
+  down garbage collection.
+
+* Command failure messages now log the certname of the node from which the
+  command originated in order to track problematic commands to individual nodes.
+  ([PDB-2580](https://tickets.puppetlabs.com/browse/PDB-2580))
+
+* At-at exceptions are now logged as errors.
+  ([PDB-2704](https://tickets.puppetlabs.com/browse/PDB-2704))
+
+### Documentation
+
+* Documentation for how to use RBAC tokens (PE only) with PuppetDB has been added.
+  ([PDB-2762](https://tickets.puppetlabs.com/browse/PDB-2762))
+
+* Various other documentation issues have been fixed.
+
+### Contributors
+
+Andrew Roetker, Chris Cowell, Garrett Guillotte, Molly Waggett, Rob Browning,
+Ryan Senior, and Wyatt Alt
+
 4.1.0
 -----
 
