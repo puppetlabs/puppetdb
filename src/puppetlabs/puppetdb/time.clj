@@ -236,5 +236,6 @@
   [ts]
   (tc/to-timestamp
    (if (string? ts)
-     (from-string ts)
+     (when-let [dt (from-string ts)]
+       (java.sql.Timestamp. (.getMillis dt)))
      ts)))
