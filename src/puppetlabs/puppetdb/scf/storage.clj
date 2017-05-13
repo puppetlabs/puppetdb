@@ -211,6 +211,12 @@
   (not (empty? (jdbc/query ["SELECT 1 FROM certnames WHERE certname=? LIMIT 1"
                             certname]))))
 
+(defn certname-metadata
+  [certname]
+  (first (jdbc/query ["select certname, expired, deactivated
+                       from certnames where certname=?"
+                      certname])))
+
 (defn delete-certname!
   "Delete the given host from the db"
   [certname]
@@ -1473,19 +1479,21 @@
 
 (pls/defn-validated maybe-activate-node!
   "Reactivate the given host, only if it was deactivated or expired before
-  `time`.  Returns true if the node is activated, or if it was already active.
+   `time`.  Returns true if the node is activated, or if it was already active.
 
   Adds the host to the database if it was not already present."
   [certname :- String
    time :- pls/Timestamp]
-  (when-not (certname-exists? certname)
-    (add-certname! certname))
-  (let [timestamp (to-timestamp time)
-        replaced  (jdbc/update! :certnames
-                                {:deactivated nil, :expired nil}
-                                ["certname=? AND (deactivated<? OR expired<?)"
-                                 certname timestamp timestamp])]
-    (pos? (first replaced))))
+  (let [{:keys [deactivated expired] :as metadata} (certname-metadata certname)]
+    (when-not metadata
+      (add-certname! certname))
+    (let [timestamp (to-timestamp time)
+          replaced  (when (or deactivated expired)
+                      (jdbc/update! :certnames
+                                    {:deactivated nil, :expired nil}
+                                    ["certname=? AND (deactivated<? OR expired<?)"
+                                     certname timestamp timestamp]))]
+      (boolean (and replaced (pos? (first replaced)))))))
 
 (pls/defn-validated deactivate-node!
   "Deactivate the given host, recording the current time. If the node is
