@@ -28,6 +28,7 @@
   (get wire-catalog :edges))
 
 (deftest test-wire-catalog-conversion-fn
+  (is (= false true))
   (let [{:keys [edges resources]} wire-catalog
         result ((convert-internal-catalog-fn identity) wire-catalog)]
 
