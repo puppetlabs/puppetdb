@@ -1,4 +1,4 @@
-s---
+---
 title: "PuppetDB 4.4: Factsets endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/factsets.html"
