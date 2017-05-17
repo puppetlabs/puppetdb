@@ -1,25 +1,22 @@
 language: clojure
-lein: lein2
+dist: trusty
 
 # Always explicitly set sudo.  Otherwise travis' defaults may vary
 # based on when the repository testing was enabled.
 sudo: required
 
 jdk:
-  - openjdk7
+  - openjdk8
   - oraclejdk8
-  - oraclejdk7
 
 env:
-  - PDB_TEST_LANG=clojure
   - PDB_TEST_LANG=ruby
+  - PDB_TEST_LANG=clojure
 
 # Only run one ruby test
 matrix:
   exclude:
     - jdk: oraclejdk8
-      env: PDB_TEST_LANG=ruby
-    - jdk: oraclejdk7
       env: PDB_TEST_LANG=ruby
 
 script: ext/travisci/test.sh
