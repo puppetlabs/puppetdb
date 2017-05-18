@@ -167,7 +167,8 @@
                                             (if (:distinct_resources query-options)
                                               ;;The query engine does not support distinct-resources!
                                               (events/query->sql will-union? version query distinct-opts)
-                                              (qe/compile-user-query->sql qe/report-events-query query)))
+                                              (qe/compile-user-query->sql qe/report-events-query
+                                                                          ["from" "events" query])))
            count-by-sql                    (get-count-by-sql event-sql count_by group-by)
            event-count-sql                 (get-event-count-sql count-by-sql group-by)
            sql                             (get-filtered-sql event-count-sql counts-filter-where)
