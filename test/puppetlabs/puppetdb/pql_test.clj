@@ -220,25 +220,6 @@
       ["name" ["function" "count"]]
       ["group_by" "name"]]]
 
-    "facts[name, count()] { group by name limit 100 offset 100 }"
-    ["from" "facts"
-     ["extract"
-      ["name" ["function" "count"]]
-      ["group_by" "name"]]
-     ["limit" 100]
-     ["offset" 100]]
-
-    "package_inventory[package_name, version, provider, count()]{
-     [package_name, version, provider] in packages[package_name, version, provider]
-     { limit 100 offset 100 } group by package_name, version, provider}"
-    ["from" "package_inventory"
-     ["extract" ["package_name" "version" "provider" ["function" "count"]]
-      ["in" ["package_name" "version" "provider"]
-       ["from" "packages"
-        ["extract" ["package_name" "version" "provider"]]
-        ["limit"100] ["offset" 100]]]
-      ["group_by" "package_name" "version" "provider"]]]
-
     "facts[name, count(value)] { certname ~ 'web.*' group by name }"
     ["from" "facts"
      ["extract" ["name" ["function" "count" "value"]]
