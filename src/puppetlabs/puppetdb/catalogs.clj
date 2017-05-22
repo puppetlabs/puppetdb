@@ -120,6 +120,7 @@
    :producer_timestamp pls/Timestamp
    :producer (s/maybe s/Str)
    :code_id (s/maybe s/Str)
+   (s/optional-key :job_id) (s/maybe s/Str)
 
 
    ;; This is a crutch. We use sets for easier searching and avoid
@@ -137,7 +138,7 @@
                           {s/Any {s/Any s/Any}})})
 
 (def catalog-v8-wireformat-schema
-  (dissoc catalog-wireformat-schema :producer))
+  (dissoc catalog-wireformat-schema :producer :job_id))
 
 (def catalog-v7-wireformat-schema
   (dissoc catalog-v8-wireformat-schema :catalog_uuid))
@@ -189,6 +190,7 @@
    (s/optional-key :transaction_uuid) (s/maybe s/Str)
    (s/optional-key :catalog_uuid) (s/maybe s/Str)
    (s/optional-key :code_id) (s/maybe s/Str)
+   (s/optional-key :job_id) (s/maybe s/Str)
    (s/optional-key :version) s/Str})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -203,7 +205,7 @@
                     :environment nil))
 
 (defn wire-v8->wire-v9 [catalog]
-  (assoc catalog :producer nil))
+  (assoc catalog :producer nil :job_id nil))
 
 (defn wire-v7->wire-v9 [{:keys [transaction_uuid] :as catalog}]
   (-> catalog

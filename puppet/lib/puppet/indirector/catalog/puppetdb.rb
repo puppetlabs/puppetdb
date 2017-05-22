@@ -54,6 +54,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       end
 
       add_code_id_if_missing(data)
+      add_job_id_if_missing(data, extra_request_data[:job_id])
       add_catalog_uuid_if_missing(data, extra_request_data[:transaction_uuid])
       add_parameters_if_missing(data)
       add_namevar_aliases(data, catalog)
@@ -143,6 +144,17 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     # it already had a `code_id` key we use that as the value. If `hash` didn't
     # have a `code_id` key the lookup will return nil and hash['code_id'] == nil
     hash['code_id'] = hash['code_id']
+
+    hash
+  end
+
+  # Include job_id in hash, returning the complete hash.
+  #
+  # @param hash [Hash] original data hash
+  # @return [Hash] returns original hash with a gaurunteed job_id key
+  # @api private
+  def add_job_id_if_missing(hash, default)
+    hash["job_id"] = hash["job_id"] || default
 
     hash
   end
@@ -428,6 +440,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
            'edges',
            'resources',
            'code_id',
+           'job_id',
            'catalog_uuid'].include?(k)
       end
     end

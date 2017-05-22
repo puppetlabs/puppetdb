@@ -9,6 +9,7 @@
     :catalog_uuid "aaaaaaaa-1111-aaaa-1111-aaaaaaaaaaaa"
     :environment      nil
     :code_id nil
+    :job_id nil
     :producer_timestamp "2014-07-10T22:33:54.781Z"
     :producer "mom.com"
     :edges            #{{:source       {:type "Stage" :title "main"}
@@ -36,6 +37,7 @@
    :basic
    {:certname         "basic.catalogs.com"
     :code_id nil
+    :job_id nil
     :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :catalog_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :environment      "DEV"
@@ -79,6 +81,7 @@
    :invalid
    {:certname         "invalid.catalogs.com"
     :code_id nil
+    :job_id nil
     :transaction_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :catalog_uuid "68b08e2a-eeb1-4322-b241-bfdf151d294b"
     :version          123456789
@@ -98,6 +101,7 @@
   "Basic wire catalog with a minimum number of resources/edges used/modified
    for examples of a catalog"
   {:code_id nil
+   :job_id nil
    :edges
    [{:relationship "contains"
      :target       {:title "Settings" :type "Class"}
@@ -141,17 +145,17 @@
   "Catalogs keyed by version."
   {4 {:empty (-> v9-empty-wire-catalog
                  (dissoc :producer_timestamp :certname :code_id
-                         :catalog_uuid :producer)
+                         :job_id :catalog_uuid :producer)
                  (assoc :name (:certname v9-empty-wire-catalog)
                         :api_version 1)
                  utils/underscore->dash-keys)}
    5 {:empty (-> v9-empty-wire-catalog
                  (assoc :name (:certname v9-empty-wire-catalog)
                         :api_version 1)
-                 (dissoc :certname :code_id :catalog_uuid :producer)
+                 (dissoc :certname :job_id :code_id :catalog_uuid :producer)
                  utils/underscore->dash-keys)}
    6 {:empty (-> v9-empty-wire-catalog
-                 (dissoc :code_id :catalog_uuid :producer))}
+                 (dissoc :job_id :code_id :catalog_uuid :producer))}
    7 {:empty (-> v9-empty-wire-catalog
                  (dissoc :catalog_uuid :producer))
       :basic
@@ -168,11 +172,11 @@
                                                 :group  "root"
                                                 :user   "root"}}))}
    8 {:empty (-> v9-empty-wire-catalog
-                 (dissoc :producer))
+                 (dissoc :producer :job_id))
       :basic
       (-> v9-empty-wire-catalog
           (assoc :certname "basic.wire-catalogs.com")
-          (dissoc :producer)
+          (dissoc :producer :job_id)
           (update :resources conj {:type "File"
                                    :title "/etc/foobar"
                                    :exported false

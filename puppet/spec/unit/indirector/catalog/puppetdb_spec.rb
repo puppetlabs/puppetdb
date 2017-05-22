@@ -110,6 +110,14 @@ describe Puppet::Resource::Catalog::Puppetdb do
       end
     end
 
+    describe "#add_job_id_if_missing" do
+      it "should add the job_id key" do
+        result = subject.add_job_id_if_missing(catalog_data_hash, nil)
+        result.has_key?('job_id').should be_truthy
+        result['job_id'].should be_nil
+      end
+    end
+
     describe "#add_producer" do
       it "should add the producer key" do
         result = subject.add_producer(catalog_data_hash, "foo")
@@ -699,7 +707,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
         result.keys.should =~ ['certname', 'version', 'edges', 'resources',
           'transaction_uuid', 'environment', 'producer_timestamp', "code_id",
-          "catalog_uuid", "producer"]
+          "job_id", "catalog_uuid", "producer"]
       end
     end
 
@@ -712,6 +720,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
                     'name' => 'my_agent',
                     'version' => 1490991352,
                     'code_id' => nil,
+                    'job_id' => nil,
                     'catalog_uuid' => 'aa4759d3-f1f1-47a0-925c-a4acd0c1b4ed',
                     'catalog_format' => 1,
                     'environment' => 'production',
