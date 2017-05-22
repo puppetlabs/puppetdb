@@ -186,8 +186,8 @@
        (on-fatal msg cause)
        (mark! (global-metric :fatal)))
 
-     (catch Throwable exception
-       (on-retry msg exception)
+     (catch Object _
+       (on-retry msg (:throwable &throw-context))
        (mark! (global-metric :retried))))))
 
 (defn wrap-with-command-parser

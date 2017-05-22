@@ -4,10 +4,12 @@
   (:require [me.raynes.fs :as fs]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.mq :refer :all :as mq]
+            [puppetlabs.puppetdb.mq-listener :as mq-listener]
             [puppetlabs.puppetdb.testutils :refer :all]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
-            [slingshot.test]))
+            [slingshot.test]
+            [slingshot.slingshot :refer [throw+]]))
 
 (use-fixtures :each call-with-test-logging-silenced)
 
@@ -168,3 +170,32 @@
               {:headers {} :body "2"}
               {:headers {} :body "3"}]
              (bounded-drain-into-vec! conn "bar" 3))))))
+
+(deftest message-exception-handling
+  (testing "on-retry is called for java exceptions"
+    (let [called (atom false)]
+      ((mq-listener/wrap-with-exception-handling
+        (fn [msg] (throw (Exception.)))
+        (fn [msg ex] (reset! called true))
+        (fn [msg cause] nil))
+       "msg")
+      (is @called)))
+
+  (testing "on-retry is called for ex-infos"
+    (let [called (atom false)]
+      ((mq-listener/wrap-with-exception-handling
+        (fn [msg] (throw (ex-info "foo" {})))
+        (fn [msg ex] (reset! called true))
+        (fn [msg cause] nil))
+       "msg")
+      (is @called)))
+
+  (testing "on-fatal is called for ex-infos with :fatal key"
+    (let [called (atom false)]
+      ((mq-listener/wrap-with-exception-handling
+        (fn [msg]
+          (throw+ {:fatal true :cause "something"}))
+        (fn [msg ex] nil)
+        (fn [msg cause] (reset! called true)))
+       "msg")
+      (is @called))))

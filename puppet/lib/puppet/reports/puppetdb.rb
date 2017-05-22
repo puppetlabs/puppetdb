@@ -159,8 +159,13 @@ Puppet::Reports.register_report(:puppetdb) do
   # @api private
   def event_to_hash(event)
     corrective_change = defined?(event.corrective_change) ? event.corrective_change : nil
+
+    # PUP-1542 sometimes causes status to be nil; fix it up here so we
+    # can store the rest of the report
+    status = event.status || 'failure'
+
     {
-      "status"            => event.status,
+      "status"            => status,
       "timestamp"         => Puppet::Util::Puppetdb.to_wire_time(event.time),
       "property"          => event.property,
       "new_value"         => event.desired_value,

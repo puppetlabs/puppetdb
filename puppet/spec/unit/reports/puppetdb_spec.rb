@@ -248,6 +248,20 @@ describe processor do
             res_event["corrective_change"].should == nil
           end
         end
+        it "should correct nil status" do
+          event = Puppet::Transaction::Event.from_data_hash({'status' => nil,
+                                                             'time' => '2017-01-01'})
+
+          status.add_event(event)
+          result = subject.send(:report_to_hash)
+
+          result["resources"].length.should == 1
+          res = result["resources"][0]
+          res["events"].length.should == 1
+          res_event = res["events"][0]
+          res_event["status"].should == 'failure'
+        end
+
       end
 
       context "skipped resource status" do

@@ -4,7 +4,12 @@
            [org.apache.activemq.usage SystemUsage MemoryUsage]
            [javax.jms Connection Message TextMessage BytesMessage Session]
            [org.apache.activemq ActiveMQConnectionFactory]
-           [org.apache.activemq.pool PooledConnectionFactory])
+           [org.apache.activemq.pool PooledConnectionFactory]
+           [org.apache.activemq.broker.region.policy
+            PolicyMap
+            PolicyEntry
+            DeadLetterStrategy
+            DiscardingDeadLetterStrategy])
   (:require [clojure.java.jmx :as jmx]
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.utils :as utils]
@@ -83,6 +88,16 @@
   [broker should-enable?]
   (.setUseJmx broker should-enable?))
 
+(defn build-destination-policy
+  "Set up ActiveMQ to always discard messages that are sent to its internal DLQ.
+  This *should* never happen, but if it does (due to a bug in our error
+  handling, perhaps), KahaDB's GC deals with it very poorly. This ensures we
+  don't get into that situation."
+  []
+  (doto (PolicyMap.)
+    (.setDefaultEntry (doto (PolicyEntry.)
+                        (.setDeadLetterStrategy (DiscardingDeadLetterStrategy.))))))
+
 (defn build-embedded-broker
   "Configures an embedded, persistent ActiveMQ broker.
 
@@ -120,6 +135,7 @@
               (.setDataDirectory dir)
               (.setSchedulerSupport true)
               (.setPersistent true)
+              (.setDestinationPolicy (build-destination-policy))
               (enable-jmx true)
               (set-memory-usage! (:memory-usage config))
               (set-store-usage! (:store-usage config))
