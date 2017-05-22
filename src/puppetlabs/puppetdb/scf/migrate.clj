@@ -1322,6 +1322,30 @@
     (jdbc/do-commands
      "CREATE INDEX fact_values_string_trgm ON fact_values USING gin (value_string gin_trgm_ops)")))
 
+(defn fix-missing-edges-fk-constraint []
+  (when-not (sutils/constraint-exists? "certnames" "edges_certname_fkey")
+    (log/info "Cleaning up orphaned edges")
+
+    (jdbc/do-commands
+     (str "SELECT e.*"
+          "  INTO edges_transform"
+          "  FROM edges e"
+          "  INNER JOIN certnames c ON e.certname = c.certname")
+     (str "ALTER TABLE edges_transform"
+          "  ALTER COLUMN certname SET NOT NULL,"
+          "  ALTER COLUMN source SET NOT NULL,"
+          "  ALTER COLUMN target SET NOT NULL,"
+          "  ALTER COLUMN type SET NOT NULL")
+     (str "DROP TABLE edges")
+     (str "ALTER TABLE edges_transform RENAME TO edges")
+     (str "ALTER TABLE ONLY edges ADD CONSTRAINT edges_certname_fkey"
+          "  FOREIGN KEY (certname)"
+          "  REFERENCES certnames(certname)"
+          "  ON DELETE CASCADE")
+     (str "ALTER TABLE ONLY edges"
+          "  ADD CONSTRAINT edges_certname_source_target_type_unique_key"
+          "  UNIQUE (certname, source, target, type)"))))
+
 (defn indexes!
   "Create missing indexes for applicable database platforms."
   [config]
@@ -1335,4 +1359,5 @@
         "the extension not being installed correctly. Run the command:\n\n"
         "    CREATE EXTENSION pg_trgm;\n\n"
         "as the database super user on the PuppetDB database to correct\n"
-        "this, then restart PuppetDB.\n")))))
+        "this, then restart PuppetDB.\n")))
+    (fix-missing-edges-fk-constraint)))
