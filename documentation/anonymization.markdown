@@ -19,11 +19,6 @@ from any node with puppet-client-tools installed:
 
     $ puppet db export my-puppetdb-export.tar.gz --anonymization moderate
 
-PuppetDB also supports the deprecated CLI export command, which may be run on
-the PuppetDB node:
-
-    $ puppetdb export --outfile ./my-puppetdb-export.tar.gz --profile moderate
-
 Using the `import` command
 -----
 
@@ -31,11 +26,6 @@ To import an anonymized PuppetDB tarball, use the Puppet `db` subcommand from
 any node with puppet-client-tools installed:
 
     $ puppet db import my-puppetdb-export.tar.gz
-
-PuppetDB also supports the deprecated CLI import command, which may be run on
-the PuppetDB node:
-
-    $ puppetdb import --infile my-puppetdb-export.tar.gz
 
 How does it work?
 -----
