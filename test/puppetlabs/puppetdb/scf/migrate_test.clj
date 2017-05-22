@@ -846,3 +846,30 @@
             :primary? false
             :user "pdb_test"}
            (get idxs ["facts" ["value_string"]])))))
+
+(deftest migration-59-fix-missing-edges-fk-constraint
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 58)
+
+    (jdbc/insert! :environments {:id 1 :environment "testing"})
+
+    (jdbc/insert! :certnames {:certname "a.com"})
+
+    (jdbc/insert! :edges {:certname "a.com"
+                          :source (sutils/str->pgobject "bytea" "source-1")
+                          :target (sutils/str->pgobject "bytea" "target-1")
+                          :type "foo"})
+    (jdbc/insert! :edges {:certname "orphaned-node.com"
+                          :source (sutils/str->pgobject "bytea" "source-2")
+                          :target (sutils/str->pgobject "bytea" "target-2")
+                          :type "foo"})
+
+    (apply-migration-for-testing! 59)
+
+    (is (= 0
+           (-> (str "select count(*) from edges"
+                    "  where certname not in (select certname from certnames)")
+               jdbc/query-to-vec
+               first
+               :count)))))

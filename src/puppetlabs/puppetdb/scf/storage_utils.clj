@@ -148,6 +148,23 @@
        (= (:relname (first results))
           index))))
 
+(pls/defn-validated constraint-exists? :- s/Bool
+  ([table :- s/Str
+    constraint :- s/Str]
+   (let [schema (current-schema)]
+     (constraint-exists? schema table constraint)))
+
+  ([schema :- s/Str
+    table :- s/Str
+    constraint :- s/Str]
+   (let [query (str "select count(*)"
+                    "  from information_schema.constraint_column_usage"
+                    "  where table_schema = ?"
+                    "  and table_name = ?"
+                    "  and constraint_name = ?")
+         results (jdbc/query-to-vec [query schema table constraint])]
+     (pos? (:count (first results))))))
+
 (defn to-jdbc-varchar-array
   "Takes the supplied collection and transforms it into a
   JDBC-appropriate VARCHAR array."
