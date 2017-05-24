@@ -733,7 +733,9 @@ describe Puppet::Resource::Catalog::Puppetdb do
         end
 
         it "should convert TagSet for resource['tags']" do
-          subject.hashify_tags(resource_hashes)['resources'].each { |resource| resource['tags'].should be_an Array }
+          subject.hashify_tags(resource_hashes)['resources'].each do |resource|
+            resource['tags'].should be_an Array
+          end
         end
       end
     end
