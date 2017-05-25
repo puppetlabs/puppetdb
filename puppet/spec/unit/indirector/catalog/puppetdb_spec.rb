@@ -709,6 +709,35 @@ describe Puppet::Resource::Catalog::Puppetdb do
           'transaction_uuid', 'environment', 'producer_timestamp', "code_id",
           "job_id", "catalog_uuid", "producer"]
       end
+
+      context 'when dealing with TagSets' do
+        let(:resource_hashes) do
+          {
+            'resources' => [
+              {'type' => 'Stage',
+              'title' => :main,
+              'tags' => Puppet::Util::TagSet.new(['stage']),
+              'exported' => false,
+              'parameters' => {:name => 'main'}},
+             {'type' => 'Class',
+              'title' => 'Settings',
+              'tags' => Puppet::Util::TagSet.new(['class', 'settings']),
+              'exported' => false},
+             {'type' => 'Class',
+              'title' => :main,
+              'tags' => Puppet::Util::TagSet.new(['class']),
+              'exported' => false,
+              'parameters' => {:name => 'main'}}
+            ]
+          }
+        end
+
+        it "should convert TagSet for resource['tags']" do
+          subject.hashify_tags(resource_hashes)['resources'].each do |resource|
+            resource['tags'].should be_an Array
+          end
+        end
+      end
     end
 
     describe "#redact_sensitive_params" do
@@ -716,7 +745,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
       let(:has_secret?) {
         lambda { |r| r['parameters'] && r['parameters'][:message] == secret}
       }
-      let(:input) {{'tags' => Puppet::Util::TagSet.new(['settings']),
+      let(:input) {{'tags' => ['settings'],
                     'name' => 'my_agent',
                     'version' => 1490991352,
                     'code_id' => nil,
@@ -727,21 +756,21 @@ describe Puppet::Resource::Catalog::Puppetdb do
                     'resources' =>
                     [{'type' => 'Stage',
                       'title' => :main,
-                      'tags' => Puppet::Util::TagSet.new(['stage']),
+                      'tags' => ['stage'],
                       'exported' => false,
                       'parameters' => {:name => 'main'}},
                      {'type' => 'Class',
                       'title' => 'Settings',
-                      'tags' => Puppet::Util::TagSet.new(['class', 'settings']),
+                      'tags' => ['class', 'settings'],
                       'exported' => false},
                      {'type' => 'Class',
                       'title' => :main,
-                      'tags' => Puppet::Util::TagSet.new(['class']),
+                      'tags' => ['class'],
                       'exported' => false,
                       'parameters' => {:name => 'main'}},
                      {'type' => 'Notify',
                       'title' => 'hi',
-                      'tags' => Puppet::Util::TagSet.new(['notify', 'hi', 'class']),
+                      'tags' => ['notify', 'hi', 'class'],
                       'file' =>  'site.pp',
                       'line' => 1,
                       'exported' => false,

@@ -28,7 +28,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   end
 
   def hashify_tags(hash)
-    hash["resources"] = hash["resources"].map { |resource| resource["tags"] = resource["tags"].to_data_hash; resource }
+    hash["resources"] = hash["resources"].map { |resource| resource["tags"] = resource["tags"].to_a; resource }
     hash
   end
 
