@@ -19,6 +19,11 @@ matrix:
         PDB_TEST_LANG=ruby
         PUPPET_VERSION=latest
 
+    - env: >
+        NAME=rspec-puppet-master
+        PDB_TEST_LANG=ruby
+        PUPPET_VERSION=master
+
     # pdb unit tests
     - env: >
         NAME=unit-openjdk8
