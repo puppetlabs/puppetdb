@@ -77,15 +77,15 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   end
 
   Relationships = {
-    :before    => {:direction => :forward, :relationship => 'before'},
-    :require   => {:direction => :reverse, :relationship => 'required-by'},
-    :notify    => {:direction => :forward, :relationship => 'notifies'},
-    :subscribe => {:direction => :reverse, :relationship => 'subscription-of'},
+    'before'    => {:direction => :forward, :relationship => 'before'},
+    'require'   => {:direction => :reverse, :relationship => 'required-by'},
+    'notify'    => {:direction => :forward, :relationship => 'notifies'},
+    'subscribe' => {:direction => :reverse, :relationship => 'subscription-of'},
   }
 
   # Metaparams that may contain arrays, but whose semantics are
   # fundamentally unordered
-  UnorderedMetaparams = [:alias, :audit, :before, :check, :notify, :require, :subscribe, :tag]
+  UnorderedMetaparams = ['alias', 'audit', 'before', 'check', 'notify', 'require', 'subscribe', 'tag']
 
   # Change the name field to certname
   #
