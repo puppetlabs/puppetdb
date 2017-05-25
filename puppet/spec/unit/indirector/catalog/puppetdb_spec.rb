@@ -137,7 +137,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
 
       it "should leave an existing parameters hash alone" do
         msg = "with up so floating many bells down"
-        resource[:message] = msg
+        resource['message'] = msg
 
         result = subject.add_parameters_if_missing(catalog_data_hash)
         resource = result['resources'].find do |res|
@@ -145,7 +145,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         end
 
         resource.should_not be_nil
-        resource['parameters'].should == {:message => msg}
+        resource['parameters'].should == {'message' => msg}
       end
     end
 
@@ -277,9 +277,9 @@ describe Puppet::Resource::Catalog::Puppetdb do
         end
 
         resource.should_not be_nil
-        resource['parameters'][:command].should == '/bin/true'
-        resource['parameters'][:path].should == ['/foo/goo', '/foo/bar']
-        resource['parameters'][:audit].should == 'path'
+        resource['parameters']['command'].should == '/bin/true'
+        resource['parameters']['path'].should == ['/foo/goo', '/foo/bar']
+        resource['parameters']['audit'].should == 'path'
       end
 
       it "should sort unordered metaparams with array values" do
@@ -291,8 +291,8 @@ describe Puppet::Resource::Catalog::Puppetdb do
         end
 
         resource.should_not be_nil
-        resource['parameters'][:audit].should == 'path'
-        resource['parameters'][:tag].should == ['a', 'b', 'c']
+        resource['parameters']['audit'].should == 'path'
+        resource['parameters']['tag'].should == ['a', 'b', 'c']
       end
     end
 
