@@ -7,6 +7,7 @@
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.testutils :refer [default-timeout-ms]]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*server*
@@ -16,7 +17,10 @@
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.services :refer [service-context]])
   (:import
-   [java.util.concurrent CyclicBarrier]))
+   [java.util.concurrent CyclicBarrier TimeUnit]))
+
+(defn await-a-while [x]
+  (.await x default-timeout-ms TimeUnit/MILLISECONDS))
 
 (defmacro with-pdb-with-no-gc [& body]
   `(with-test-db
@@ -63,17 +67,17 @@
           test-finished (CyclicBarrier. 2)
           cleanup-result (promise)]
       (with-redefs [cli-svc/clean-up (fn [& args]
-                                       (.await in-clean)
-                                       (.await test-finished)
+                                       (await-a-while in-clean)
+                                       (await-a-while test-finished)
                                        (let [result (apply orig-clean args)]
                                             (deliver cleanup-result result)
                                             result))]
         (utils/noisy-future (checked-admin-post "cmd" (clean-cmd [])))
         (try
-          (.await in-clean)
+          (await-a-while in-clean)
           (is (= http/status-conflict (:status (post-clean []))))
           (finally
-            (.await test-finished)
+            (await-a-while test-finished)
             (is (not= ::timed-out
                       (deref cleanup-result 120000 ::timed-out)))))))))
 
@@ -91,23 +95,23 @@
           after-clear (CyclicBarrier. 2)]
       (with-redefs [cli-svc/clean-puppetdb (fn [& args]
                                              (apply orig-clean args)
-                                             (.await after-clean))
+                                             (await-a-while after-clean))
                     cli-svc/clear-clean-status! (fn [& args]
-                                                  (.await before-clear)
-                                                  (.await after-test)
+                                                  (await-a-while before-clear)
+                                                  (await-a-while after-test)
                                                   (apply orig-clear args)
-                                                  (.await after-clear))]
+                                                  (await-a-while after-clear))]
         (doseq [what (combinations ["expire_nodes" "purge_nodes" "purge_reports" "package_gc" "other"]
                                    3)]
           (let [expected (cli-svc/clean-options->status what)]
             (utils/noisy-future (checked-admin-post "cmd" (clean-cmd what)))
             (try
-              (.await before-clear)
+              (await-a-while before-clear)
               (is (= expected (clean-status)))
               (finally
-                (.await after-test)
-                (.await after-clear)
-                (.await after-clean)))))))))
+                (await-a-while after-test)
+                (await-a-while after-clear)
+                (await-a-while after-clean)))))))))
 
 (defn- inc-requested [counts requested]
   (into {}
