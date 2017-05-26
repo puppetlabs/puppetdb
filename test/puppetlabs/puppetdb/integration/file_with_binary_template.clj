@@ -4,6 +4,9 @@
             [puppetlabs.trapperkeeper.app :as tk-app]
             [me.raynes.fs :as fs]))
 
+;; Commenting this whole test until puppet can at least support the workaround
+;; below
+(comment
 (deftest ^:integration file-with-binary-template
   (with-open [pg (int/setup-postgres)
               pdb (int/run-puppetdb pg {})
@@ -29,4 +32,4 @@
         (is (= {:certname "binary-file-agent"
                 :type "File"
                 :title file-resource-path}
-               (first (int/pql-query pdb "resources [certname, type, title] { tag = 'binary_file' }"))))))))
+               (first (int/pql-query pdb "resources [certname, type, title] { tag = 'binary_file' }")))))))))
