@@ -12,12 +12,8 @@
     (jruby-core/cli-run! jruby-config "gem" args)))
 
 (defn install-gems [config _]
-  ;; the puppet gem brings hiera and facter with it
-  ;; TODO: it would be better to just install the puppet-agent package in CI
-  (let [puppet-version  (get env :puppet-version "latest")]
-    (if (not= puppet-version "latest")
-      (gem-run! config "install" "puppet" "--version" puppet-version)
-      (gem-run! config "install" "puppet")))
+  (gem-run! config "install" "facter")
+  (gem-run! config "install" "hiera")
 
   ;; Install the puppetserver vendored gems listed inside its jar; this is where
   ;; ezbake gets them

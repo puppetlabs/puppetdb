@@ -5,6 +5,8 @@ set -o pipefail
 
 export PUPPETSERVER_HEAP_SIZE=1G
 
+PUPPET_VERSION="${PUPPET_VERSION:-master}"
+
 # Update a single dependency in a leiningen project.clj file.
 update_dependency_var() {
     local file="$1"
@@ -34,3 +36,10 @@ echo "$MAVEN_VER"
 cd ..
 
 update_dependency_var project.clj puppetserver-version "$MAVEN_VER"
+
+gem install bundler
+bundle install --without acceptance
+lein install-gems
+
+echo "Getting puppet source, using branch ${PUPPET_VERSION}"
+git clone https://github.com/puppetlabs/puppet vendor/puppet -b "$PUPPET_VERSION"
