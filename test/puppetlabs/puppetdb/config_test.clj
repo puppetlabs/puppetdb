@@ -152,6 +152,18 @@
           (is (pl-time/period? node-purge-ttl))
           (is (= 14 (pl-time/to-days node-purge-ttl))))))
 
+    (testing "node-purge-gc-batch-limit"
+      (testing "should use the value specified"
+        (let [x (get-in (config-with {:database {:node-purge-gc-batch-limit 3}})
+                        [:database :node-purge-gc-batch-limit])]
+          (is (integer? x))
+          (is (= 3 x))))
+      (testing "should default to 25"
+        (let [x (get-in (config-with {})
+                        [:database :node-purge-gc-batch-limit])]
+          (is (integer? x))
+          (is (= 25 x)))))
+
     (testing "report-ttl"
       (testing "should parse report-ttl and produce report-ttl"
         (let [report-ttl (get-in (config-with {:database {:report-ttl "10d"}})

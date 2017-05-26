@@ -359,6 +359,15 @@
   `(call-with-single-quiet-pdb-instance
     (fn [] ~@body)))
 
+(defmacro with-pdb-with-no-gc [& body]
+  `(with-test-db
+     (call-with-single-quiet-pdb-instance
+      (-> (svc-utils/create-temp-config)
+          (assoc :database *db*)
+          (assoc-in [:database :gc-interval] 0))
+      (fn []
+        ~@body))))
+
 (def max-attempts 50)
 
 (defn url-encode [s]

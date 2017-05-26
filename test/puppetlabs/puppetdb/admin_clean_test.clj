@@ -19,9 +19,7 @@
                      clear-db-for-testing!
                      with-test-db]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
-             :refer [*server*
-                     call-with-single-quiet-pdb-instance
-                     with-single-quiet-pdb-instance]]
+             :refer [*server* with-pdb-with-no-gc]]
             [puppetlabs.puppetdb.time :as pdbtime]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
@@ -37,15 +35,6 @@
        ["purge_nodes"]
        [["purge_nodes" {:batch_limit 100}]]
        ["expire_nodes" ["purge_nodes" {:batch_limit 100}] "purge_reports"]))
-
-(defmacro with-pdb-with-no-gc [& body]
-  `(with-test-db
-     (call-with-single-quiet-pdb-instance
-      (-> (svc-utils/create-temp-config)
-          (assoc :database *db*)
-          (assoc-in [:database :gc-interval] 0))
-      (fn []
-        ~@body))))
 
 (defn- post-admin [path form]
   (svc-utils/post (svc-utils/admin-url-str (str "/" path))

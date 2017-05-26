@@ -1,25 +1,34 @@
 (ns puppetlabs.puppetdb.cli.services-test
-  (:import [java.security KeyStore])
-  (:require [me.raynes.fs :as fs]
+  (:require [clj-time.core :as time]
+            [me.raynes.fs :as fs]
             [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.puppetdb.cli.services :refer :all]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.testutils.db
+             :refer [*db* clear-db-for-testing! with-test-db]]
             [puppetlabs.puppetdb.testutils.cli :refer [get-factsets]]
             [puppetlabs.puppetdb.command :refer [enqueue-command]]
-            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.config :as conf]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
+            [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.time :as pdbtime]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.meta.version :as version]
             [clojure.test :refer :all]
-            [puppetlabs.puppetdb.testutils.services :as svc-utils :refer [*base-url*]]
+            [puppetlabs.puppetdb.testutils.services :as svc-utils
+             :refer [*base-url* *server* with-pdb-with-no-gc]]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.puppetdb.testutils :refer [block-until-results temp-file]]
             [clj-time.coerce :refer [to-string]]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.cheshire :as json]
             [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]
-            [puppetlabs.puppetdb.testutils.queue :as tqueue]))
+            [puppetlabs.puppetdb.testutils.queue :as tqueue])
+  (:import [java.security KeyStore]
+           [java.util.concurrent.locks ReentrantLock]))
 
 (deftest update-checking
   (let [config-map {:global {:product-name "puppetdb"
@@ -185,3 +194,35 @@
     (let [response (make-https-request-with-whitelisted-host "localhost")]
       (is (= 200 (:status response)))
       (is (not (re-find #"Permission denied" (:body response)))))))
+
+
+(defn purgeable-nodes [node-purge-ttl]
+  (let [horizon (pdbtime/to-timestamp (time/ago node-purge-ttl))]
+    (jdbc/query-to-vec
+     "select * from certnames where deactivated < ? or expired < ?"
+     horizon horizon)))
+
+(deftest node-purge-gc-batch-limit
+  ;; At least with the current code, it should be fine to run all the
+  ;; tests with the same server, i.e. collect-garbage is only affected
+  ;; by its arguments.
+  (with-pdb-with-no-gc
+    (let [config (-> *server* (get-service :DefaultedConfig) conf/get-config)
+          node-purge-ttl (get-in config [:database :node-purge-ttl])
+          deactivation-time (pdbtime/to-timestamp (time/ago node-purge-ttl))
+          lock (ReentrantLock.)]
+      (doseq [[limit expected-remaining] [[0 0]
+                                          [7 3]
+                                          [100 0]]]
+        (clear-db-for-testing!)
+        (migrate! *db*)
+        (dotimes [i 10]
+          (let [name (str "foo-" i)]
+            (scf-store/add-certname! name)
+            (scf-store/deactivate-node! name deactivation-time)))
+        (let [cfg (-> *server* (get-service :DefaultedConfig) conf/get-config)
+              db-cfg (assoc (:database cfg) :node-purge-gc-batch-limit limit)]
+          (collect-garbage db-cfg lock db-cfg
+                           (db-config->clean-request db-cfg)))
+        (is (= expected-remaining
+               (count (purgeable-nodes node-purge-ttl))))))))

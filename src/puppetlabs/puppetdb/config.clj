@@ -81,6 +81,7 @@
             :dlo-compression-interval s/Int
             :report-ttl (pls/defaulted-maybe String "14d")
             :node-purge-ttl (pls/defaulted-maybe String "14d")
+            :node-purge-gc-batch-limit (pls/defaulted-maybe s/Int 25)
             :node-ttl (pls/defaulted-maybe String "7d")})))
 
 (def database-config-out
@@ -113,6 +114,7 @@
           (s/optional-key :dlo-compression-interval) Minutes
           :report-ttl Period
           :node-purge-ttl Period
+          :node-purge-gc-batch-limit (s/constrained s/Int (complement neg?))
           :node-ttl Period}))
 
 (defn half-the-cores*

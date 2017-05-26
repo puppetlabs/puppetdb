@@ -343,6 +343,32 @@
       result
       (recur db-spec))))
 
+(defn db-config->clean-request
+  [config]
+  (let [seconds-pos? (comp pos? to-seconds)]
+    (filter identity
+            [(when (some-> (:node-ttl config) seconds-pos?)
+               "expire_nodes")
+             (when (some-> (:node-purge-ttl config) seconds-pos?)
+               (let [limit (:node-purge-gc-batch-limit config)]
+                 (if (zero? limit)
+                            "purge_nodes"
+                            ["purge_nodes" {:batch_limit limit}])))
+             (when (some-> (:report-ttl config) seconds-pos?)
+               "purge_reports")
+             "other"])))
+
+(defn collect-garbage
+  [db clean-lock config clean-request]
+  (.lock clean-lock)
+  (try
+    (try
+      (clean-up db clean-lock config clean-request)
+      (catch Exception ex
+        (log/error ex)))
+    (finally
+      (.unlock clean-lock))))
+
 (defn start-puppetdb
   [context config service get-registered-endpoints]
   {:pre [(map? context)
@@ -394,28 +420,9 @@
         (when-not disable-update-checking
           (maybe-check-for-updates config read-db job-pool))
         (when (pos? gc-interval-millis)
-          (let [seconds-pos? (comp pos? to-seconds)
-                what (filter identity
-                             [(when-let [node-ttl (:node-ttl database)]
-                                (when (seconds-pos? node-ttl)
-                                  "expire_nodes"))
-                              (when-let [node-purge-ttl (:node-purge-ttl database)]
-                                (when (seconds-pos? node-purge-ttl)
-                                  "purge_nodes"))
-                              (when-let [report-ttl (:report-ttl database)]
-                                (when (seconds-pos? report-ttl)
-                                  "purge_reports"))
-                              "other"])]
+          (let [request (db-config->clean-request database)]
             (interspaced gc-interval-millis
-                         (fn []
-                           (.lock clean-lock)
-                           (try
-                             (try
-                               (clean-up write-db clean-lock database what)
-                               (catch Exception ex
-                                 (log/error ex)))
-                             (finally
-                               (.unlock clean-lock))))
+                         #(collect-garbage write-db clean-lock database request)
                          job-pool)))
         (assoc context
                :job-pool job-pool
