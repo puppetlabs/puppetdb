@@ -14,11 +14,16 @@
           binary-template-path (fs/absolute "test-resources/binary-template.erb")]
 
       (testing "Run puppet with a binary template"
-        (int/run-puppet-as "binary-file-agent" ps pdb
-                           (str "file { '" file-resource-path "':"
-                                "  content => template('" binary-template-path "'),"
-                                "  tag => 'binary_file',"
-                                "}")))
+        (int/run-puppet ps pdb
+                        (str "file { '" file-resource-path "':"
+                             "  content => template('" binary-template-path "'),"
+                             "  tag => 'binary_file',"
+                             "}")
+                        {:certname "binary-file-agent"
+                         ;; this is a workaround for puppet's present inability to automatically
+                         ;; downgrade from json to pson; it will be removed once
+                         ;; that feature is added.
+                         :extra-puppet-args ["--preferred_serialization_format" "pson"]}))
 
       (testing "PDB should have stored the resource"
         (is (= {:certname "binary-file-agent"
