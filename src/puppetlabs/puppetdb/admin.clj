@@ -20,7 +20,7 @@
 (def clean-command-schema
   {:command (s/eq "clean")
    :version (s/eq 1)
-   :payload [(apply s/enum cli-svc/clean-options)]})
+   :payload cli-svc/clean-request-schema})
 
 (def ^:private validate-clean-command (s/validator clean-command-schema))
 

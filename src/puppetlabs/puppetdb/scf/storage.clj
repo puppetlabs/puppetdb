@@ -239,13 +239,30 @@
    ["SELECT expired FROM certnames WHERE certname=?" certname]
    (comp :expired first sql/result-set-seq)))
 
-(defn purge-deactivated-and-expired-nodes!
-  "Delete nodes from the database which were deactivated before `time`."
-  [time]
-  {:pre [(kitchensink/datetime? time)]}
-  (let [ts (to-timestamp time)]
-    (jdbc/delete! :certname_packages ["certname_id in (select id from certnames where deactivated < ? OR expired < ?)" ts ts])
-    (jdbc/delete! :certnames ["deactivated < ? OR expired < ?" ts ts])))
+(defn-validated purge-deactivated-and-expired-nodes!
+  "Delete nodes from the database which were deactivated before horizon."
+  ([horizon :- (s/pred kitchensink/datetime?)]
+   (let [ts (to-timestamp horizon)]
+     (jdbc/do-prepared
+      (str "with ids as (delete from certnames"
+           "               where deactivated < ? or expired < ?"
+           "               returning id)"
+           "  delete from certname_packages"
+           "    where certname_id in (select * from ids)")
+      [ts ts])))
+  ([horizon batch-limit]
+   {:pre [(kitchensink/datetime? horizon)]}
+   (let [ts (to-timestamp horizon)]
+     (jdbc/do-prepared
+      (str "with ids as (delete from certnames"
+           "               where id in (select id from certnames"
+           "                              where deactivated < ?"
+           "                                    or expired < ?"
+           "                                limit ?)"
+           "               returning id)"
+           "  delete from certname_packages"
+           "    where certname_id in (select * from ids)")
+      [ts ts batch-limit]))))
 
 (defn activate-node!
   "Reactivate the given host. Adds the host to the database if it was not

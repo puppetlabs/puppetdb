@@ -85,10 +85,39 @@
 (def cli-description "Main PuppetDB daemon")
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
-;; ## Wiring
-;;
-;; The following functions setup interaction between the main
-;; PuppetDB components.
+(def clean-options
+  #{"expire_nodes" "purge_nodes" "purge_reports" "package_gc" "other"})
+
+(def purge-nodes-opts-schema {:batch_limit s/Int})
+
+(def clean-request-schema
+  ;; i.e. a possibly empty collection of elements, each of which must
+  ;; either be a string from clean-options or a purge_nodes command
+  ;; with an options map.
+  [(s/if string?
+     (apply s/enum clean-options)
+     [(s/one (s/eq "purge_nodes") "command")
+      (s/one purge-nodes-opts-schema "options")])])
+
+(defn reduce-clean-request [request]
+  "Converts the incoming vector of requests to a map of requests to
+  their options, where the last one of each kind wins.
+  e.g. [\"purge_nodes\" \"purge_reports\" {\"purge_nodes\" {...}}]
+  becomes #{{\"purge_reports\" true} {\"purge_nodes\" {...}}}."
+  (into {} (map (fn [x]
+                  (if (string? x)
+                    [x true]
+                    x))
+            request)))
+
+(defn reduced-clean-request->status [request]
+  (->> request keys sort
+       (map {"expire_nodes" "expiring-nodes"
+             "purge_nodes" "purging-nodes"
+             "purge_reports" "purging-reports"
+             "gc_packages" "package-gc"
+             "other" "other"})
+       (str/join " ")))
 
 (defn auto-expire-nodes!
   "Expire nodes which haven't had any activity (catalog/fact submission)
@@ -106,18 +135,22 @@
     (catch Exception e
       (log/error e (trs "Error while deactivating stale nodes")))))
 
-(defn purge-nodes!
-  "Delete nodes which have been *deactivated or expired* longer than
-  `node-purge-ttl`."
-  [node-purge-ttl db]
-  {:pre [(map? db)
-         (period? node-purge-ttl)]}
+(defn-validated purge-nodes!
+  "Deletes nodes which have been *deactivated or expired* longer than
+  node-purge-ttl.  Deletes at most batch_limit nodes if opts is a map,
+  all relevant nodes otherwise."
+  [node-purge-ttl :- (s/pred period?)
+   opts :- (s/if map? purge-nodes-opts-schema (s/eq true))
+   db :- (s/pred map?)]
   (try
     (kitchensink/demarcate
      (format "purge deactivated and expired nodes (threshold: %s)"
              (format-period node-purge-ttl))
-     (jdbc/with-transacted-connection db
-       (scf-store/purge-deactivated-and-expired-nodes! (ago node-purge-ttl))))
+     (let [horizon (ago node-purge-ttl)]
+       (jdbc/with-transacted-connection db
+         (if-let [limit (and (map? opts) (:batch_limit opts))]
+           (scf-store/purge-deactivated-and-expired-nodes! horizon limit)
+           (scf-store/purge-deactivated-and-expired-nodes! horizon)))))
     (catch Exception e
       (log/error e (trs "Error while purging deactivated and expired nodes")))))
 
@@ -157,16 +190,6 @@
     (catch Exception e
       (log/error e (trs "Error during garbage collection")))))
 
-(def clean-options #{"expire_nodes" "purge_nodes" "purge_reports" "package_gc" "other"})
-
-(defn clean-options->status [options]
-  (str/join " " (map {"expire_nodes" "expiring-nodes"
-                      "purge_nodes" "purging-nodes"
-                      "purge_reports" "purging-reports"
-                      "gc_packages" "package-gc"
-                      "other" "other"}
-                     (sort options))))
-
 (def admin-metrics-registry
   (get-in metrics/metrics-registries [:admin :registry]))
 
@@ -189,9 +212,6 @@
    :package-gc-time (timer admin-metrics-registry "package-gc-time")
    :other-clean-time (timer admin-metrics-registry ["other-clean-time"])})
 
-(def clean-request-schema
-  [(apply s/enum clean-options)])
-
 (defn- clear-clean-status!
   "Clears the clean status (as a separate function to support tests)."
   []
@@ -210,17 +230,19 @@
    request :- clean-request-schema]
   (when-not (.isHeldByCurrentThread lock)
     (throw (IllegalStateException. (tru "cleanup lock is not already held"))))
-  (let [request (if (empty? request) clean-options (set request))
-        status (clean-options->status request)]
+  (let [request (reduce-clean-request (if (empty? request)
+                                        clean-options  ; clean everything
+                                        request))
+        status (reduced-clean-request->status request)]
     (try
       (reset! clean-status status)
       (when (request "expire_nodes")
         (time! (:node-expiration-time admin-metrics)
                (auto-expire-nodes! node-ttl db))
         (counters/inc! (:node-expirations admin-metrics)))
-      (when (request "purge_nodes")
+      (when-let [opts (request "purge_nodes")]
         (time! (:node-purge-time admin-metrics)
-               (purge-nodes! node-purge-ttl db))
+               (purge-nodes! node-purge-ttl opts db))
         (counters/inc! (:node-purges admin-metrics)))
       (when (request "purge_reports")
         (time! (:report-purge-time admin-metrics)

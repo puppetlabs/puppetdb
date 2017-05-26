@@ -1,22 +1,42 @@
 (ns puppetlabs.puppetdb.admin-clean-test
-  (:require [clojure.math.combinatorics :refer [combinations]]
+  (:require [clj-time.core :as time]
+            [clojure.math.combinatorics :refer [combinations]]
             [clojure.test :refer :all]
             [metrics.counters :as counters]
             [metrics.gauges :as gauges]
             [metrics.timers :as timers]
+            [puppetlabs.puppetdb.admin :as admin]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.scf.migrate :refer [migrate!]]
+            [puppetlabs.puppetdb.scf.storage :as scf-store]
+            [puppetlabs.puppetdb.testutils :refer [default-timeout-ms]]
+            [puppetlabs.puppetdb.testutils.db
+             :refer [*db*
+                     clear-db-for-testing!
+                     with-test-db]]
             [puppetlabs.puppetdb.testutils.services :as svc-utils
              :refer [*server*
                      call-with-single-quiet-pdb-instance
                      with-single-quiet-pdb-instance]]
+            [puppetlabs.puppetdb.time :as pdbtime]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
             [puppetlabs.trapperkeeper.services :refer [service-context]])
   (:import
-   [java.util.concurrent CyclicBarrier]))
+   [java.util.concurrent CyclicBarrier TimeUnit]))
+
+(deftest clean-command-validation
+  (are [x] (#'admin/validate-clean-command {:command "clean"
+                                            :version 1
+                                            :payload x})
+       []
+       ["purge_nodes"]
+       [["purge_nodes" {:batch_limit 100}]]
+       ["expire_nodes" ["purge_nodes" {:batch_limit 100}] "purge_reports"]))
 
 (defmacro with-pdb-with-no-gc [& body]
   `(with-test-db
@@ -36,7 +56,9 @@
     (is (= http/status-ok (:status result)))
     (when-not (= http/status-ok (:status result))
       (binding [*out* *err*]
-        (clojure.pprint/pprint result)))))
+        (clojure.pprint/pprint result)
+        (println "Response body:")
+        (println (slurp (:body result)))))))
 
 (defn- clean-cmd [what]
   {:command "clean" :version 1 :payload what})
@@ -94,9 +116,16 @@
                                                   (.await after-test)
                                                   (apply orig-clear args)
                                                   (.await after-clear))]
-        (doseq [what (combinations ["expire_nodes" "purge_nodes" "purge_reports" "package_gc" "other"]
+        (doseq [what (combinations ["expire_nodes"
+                                    "purge_nodes"
+                                    ["purge_nodes" {"batch_limit" 10}]
+                                    "purge_reports"
+                                    "package_gc"
+                                    "other"]
                                    3)]
-          (let [expected (cli-svc/clean-options->status what)]
+          (let [expected (-> what
+                             cli-svc/reduce-clean-request
+                             cli-svc/reduced-clean-request->status)]
             (utils/noisy-future (checked-admin-post "cmd" (clean-cmd what)))
             (try
               (.await before-clear)
@@ -105,6 +134,44 @@
                 (.await after-test)
                 (.await after-clear)
                 (.await after-clean)))))))))
+
+(defn purgeable-nodes [node-purge-ttl]
+  (let [horizon (pdbtime/to-timestamp (time/ago node-purge-ttl))]
+    (jdbc/query-to-vec
+     "select * from certnames where deactivated < ? or expired < ?"
+     horizon horizon)))
+
+(deftest node-purge-batch-limits
+  (with-pdb-with-no-gc
+    (let [config (-> *server* (get-service :DefaultedConfig) conf/get-config)
+          orig-clean @#'cli-svc/clean-puppetdb
+          after-clean (CyclicBarrier. 2)
+          node-purge-ttl (get-in config [:database :node-purge-ttl])
+          deactivation-time (pdbtime/to-timestamp (time/ago node-purge-ttl))
+          clean (fn [req]
+                  (utils/noisy-future
+                   (checked-admin-post "cmd" (clean-cmd req)))
+                  (.await after-clean
+                          default-timeout-ms TimeUnit/MILLISECONDS))]
+      (with-redefs [cli-svc/clean-puppetdb (fn [& args]
+                                             (apply orig-clean args)
+                                             (.await after-clean))]
+        (doseq [[batches expected-remaining] [[nil 0]  ; i.e. purge everything
+                                              [[7] 3]
+                                              [[3 4] 3]
+                                              [[100] 0]]]
+          (clear-db-for-testing!)
+          (migrate! *db*)
+          (dotimes [i 10]
+            (let [name (str "foo-" i)]
+              (scf-store/add-certname! name)
+              (scf-store/deactivate-node! name deactivation-time)))
+          (if-not batches
+            (clean ["purge_nodes"])
+            (doseq [limit batches]
+              (clean [["purge_nodes" {"batch_limit" limit}]])))
+          (is (= expected-remaining
+                 (count (purgeable-nodes node-purge-ttl)))))))))
 
 (defn- inc-requested [counts requested]
   (into {}
