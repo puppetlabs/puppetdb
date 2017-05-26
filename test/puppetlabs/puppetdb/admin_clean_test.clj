@@ -46,19 +46,17 @@
 
 (deftest admin-clean-basic
   (with-pdb-with-no-gc
-    (let [pdb (get-service *server* :PuppetDBServer)]
-      (is (= http/status-ok (:status (post-clean []))))
-      (is (= http/status-ok (:status (post-clean ["expire_nodes"]))))
-      (is (= http/status-ok (:status (post-clean ["purge_nodes"]))))
-      (is (= http/status-ok (:status (post-clean ["purge_reports"]))))
-      (is (= http/status-ok (:status (post-clean ["package_gc"]))))
-      (is (= http/status-ok (:status (post-clean ["other"]))))
-      (is (= http/status-bad-request (:status (post-clean ["?"])))))))
+    (is (= http/status-ok (:status (post-clean []))))
+    (is (= http/status-ok (:status (post-clean ["expire_nodes"]))))
+    (is (= http/status-ok (:status (post-clean ["purge_nodes"]))))
+    (is (= http/status-ok (:status (post-clean ["purge_reports"]))))
+    (is (= http/status-ok (:status (post-clean ["package_gc"]))))
+    (is (= http/status-ok (:status (post-clean ["other"]))))
+    (is (= http/status-bad-request (:status (post-clean ["?"]))))))
 
 (deftest admin-clean-competition
   (with-pdb-with-no-gc
-    (let [pdb (get-service *server* :PuppetDBServer)
-          orig-clean cli-svc/clean-up
+    (let [orig-clean cli-svc/clean-up
           in-clean (CyclicBarrier. 2)
           test-finished (CyclicBarrier. 2)
           cleanup-result (promise)]
@@ -82,8 +80,7 @@
 
 (deftest admin-clean-status
   (with-pdb-with-no-gc
-    (let [pdb (get-service *server* :PuppetDBServer)
-          orig-clean @#'cli-svc/clean-puppetdb
+    (let [orig-clean @#'cli-svc/clean-puppetdb
           after-clean (CyclicBarrier. 2)
           orig-clear @#'cli-svc/clear-clean-status!
           before-clear (CyclicBarrier. 2)
@@ -137,14 +134,14 @@
 
 (defn- check-counts [get-counts]
   (with-pdb-with-no-gc
-    (let [pdb (get-service *server* :PuppetDBServer)]
-      (doseq [requested (combinations ["expire_nodes" "purge_nodes" "purge_reports" "package_gc" "other"]
-                                      3)]
-        (let [requested (set requested)
-              before (get-counts)
-              expected (inc-requested before requested)]
-          (checked-admin-post "cmd" (clean-cmd requested))
-          (is (= expected (get-counts))))))))
+    (doseq [requested (combinations ["expire_nodes" "purge_nodes"
+                                     "purge_reports" "package_gc" "other"]
+                                    3)]
+      (let [requested (set requested)
+            before (get-counts)
+            expected (inc-requested before requested)]
+        (checked-admin-post "cmd" (clean-cmd requested))
+        (is (= expected (get-counts)))))))
 
 (deftest admin-clean-counts (check-counts clean-counts))
 (deftest admin-clean-timers (check-counts clean-timer-counts))
