@@ -22,10 +22,6 @@ run-unit-tests()
 case "$PDB_TEST_LANG" in
   clojure)
     java -version
-    ruby -v
-    gem install bundler
-    bundle install --without acceptance
-    lein install-gems
     run-unit-tests
     ;;
   ruby)
