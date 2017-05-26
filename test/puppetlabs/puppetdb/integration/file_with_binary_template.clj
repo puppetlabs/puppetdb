@@ -4,6 +4,9 @@
             [puppetlabs.trapperkeeper.app :as tk-app]
             [me.raynes.fs :as fs]))
 
+;; Commenting this whole test until puppet can at least support the workaround
+;; below
+(comment
 (deftest ^:integration file-with-binary-template
   (with-open [pg (int/setup-postgres)
               pdb (int/run-puppetdb pg {})
@@ -14,14 +17,19 @@
           binary-template-path (fs/absolute "test-resources/binary-template.erb")]
 
       (testing "Run puppet with a binary template"
-        (int/run-puppet-as "binary-file-agent" ps pdb
-                           (str "file { '" file-resource-path "':"
-                                "  content => template('" binary-template-path "'),"
-                                "  tag => 'binary_file',"
-                                "}")))
+        (int/run-puppet ps pdb
+                        (str "file { '" file-resource-path "':"
+                             "  content => template('" binary-template-path "'),"
+                             "  tag => 'binary_file',"
+                             "}")
+                        {:certname "binary-file-agent"
+                         ;; this is a workaround for puppet's present inability to automatically
+                         ;; downgrade from json to pson; it will be removed once
+                         ;; that feature is added.
+                         :extra-puppet-args ["--preferred_serialization_format" "pson"]}))
 
       (testing "PDB should have stored the resource"
         (is (= {:certname "binary-file-agent"
                 :type "File"
                 :title file-resource-path}
-               (first (int/pql-query pdb "resources [certname, type, title] { tag = 'binary_file' }"))))))))
+               (first (int/pql-query pdb "resources [certname, type, title] { tag = 'binary_file' }")))))))))
