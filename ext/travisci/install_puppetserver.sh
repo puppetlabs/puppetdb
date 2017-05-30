@@ -37,7 +37,10 @@ cd ..
 
 update_dependency_var project.clj puppetserver-version "$MAVEN_VER"
 
-gem install bundler
+if test -z "$(type -t bundler)"; then
+    gem install bundler
+fi
+
 bundle install --without acceptance
 lein install-gems
 
