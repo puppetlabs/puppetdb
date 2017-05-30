@@ -225,6 +225,11 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
       resources.each do |resource|
         real_resource = catalog.resource(resource['type'], resource['title'])
 
+        # Workaround for PUP-7605
+        if real_resource.nil? && resource['title'] == 'main'
+          real_resource = catalog.resource(resource['type'], :main)
+        end
+
         # Resources with composite namevars can't be referred to by
         # anything other than their title when declaring
         # relationships. Trying to snag the :alias for these resources
