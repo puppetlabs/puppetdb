@@ -388,7 +388,7 @@ module PuppetDBExtensions
       # get the pg server up and running
       class { 'postgresql::globals':
           manage_package_repo => true,
-          version             => '9.4',
+          version             => '9.6',
       }->
       class { '::postgresql::server':
         ip_mask_allow_all_users => '0.0.0.0/0',
