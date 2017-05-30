@@ -22,6 +22,3 @@ lein with-profile ezbake ezbake build
 cat > "${WORKSPACE}/puppetdb.packaging.props" <<PROPS
 PUPPETDB_PACKAGE_BUILD_VERSION=$(rake pl:print_build_param[ref] | tail -n 1)
 PROPS
-popd
-
-set -x
