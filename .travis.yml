@@ -50,6 +50,12 @@ script: ext/travisci/test.sh
 
 notifications:
   email: false
+  hipchat:
+    rooms:
+      secure: VGChGfUfEHrESgJ98tGcmmN3Lf63R9tnIi5LiOfmCuV8KNtAntG6HoBuod2mJREM3Fw8/KgQ888KZi1D8r3SDvmO0YUjC5K2OX7vQenjhw7TiHqNvGsTFSh8hdAwc/+punzZ/5j9vbiDqkI4MDtkSdlsPORBD7Rjxnh53X9VYrE=
+    template:
+      - '%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message}'
+    notify: true
 
 addons:
   postgresql: "9.6"
