@@ -16,7 +16,6 @@ set -e
 export COW="base-jessie-amd64.cow base-precise-amd64.cow base-trusty-amd64.cow base-wheezy-amd64.cow base-wily-amd64.cow base-xenial-amd64.cow"
 export MOCK="pl-el-6-x86_64 pl-el-7-x86_64"
 
-lein deploy
 lein with-profile ezbake ezbake build
 
 pushd "target/staging"
