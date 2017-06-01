@@ -1284,16 +1284,21 @@
 (defn update-latest-report!
   "Given a node name, updates the `certnames` table to ensure that it indicates the
    most recent report for the node."
-  [node]
-  {:pre [(string? node)]}
-  (let [latest-report (:id (first (query-to-vec
-                                    ["SELECT id FROM reports
+  [node report-id report-timestamp]
+  {:pre [(string? node) (integer? report-id)]}
+
+  (let [latest-report-timestamp (:latest_report_timestamp (first (query-to-vec
+                                    ["SELECT latest_report_timestamp
+                                      FROM certnames
                                       WHERE certname = ?
-                                      ORDER BY producer_timestamp DESC
-                                      LIMIT 1" node])))]
-    (jdbc/update! :certnames
-                  {:latest_report_id latest-report}
-                  ["certname = ?" node])))
+                                      " node])))]
+    (if (sql-ts-after? (to-timestamp report-timestamp)
+                     (to-timestamp latest-report-timestamp))
+
+      (jdbc/update! :certnames
+                    {:latest_report_id report-id
+                     :latest_report_timestamp report-timestamp}
+                    ["certname = ?" node]))))
 
 (defn find-containing-class
   "Given a containment path from Puppet, find the outermost 'class'."
@@ -1416,7 +1421,7 @@
                           (jdbc/insert-multi! :resource_events)
                           dorun))
                    (when update-latest-report?
-                     (update-latest-report! certname)))))))))
+                     (update-latest-report! certname report-id producer_timestamp)))))))))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `producer-timestamp` that is prior to
