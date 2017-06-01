@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 
-PE_VER=${1:-2015.2}
-
 echo "**********************************************"
 echo "PARAMS FROM UPSTREAM:"
 echo ""
+echo "WORKSPACE: ${WORKSPACE}"
 echo "PUPPETDB_BRANCH: ${PUPPETDB_BRANCH}"
 echo "LEIN_PROJECT_VERSION: ${LEIN_PROJECT_VERSION}"
 echo "GEM_SOURCE: ${GEM_SOURCE}"
@@ -16,19 +15,31 @@ echo "**********************************************"
 set -x
 set -e
 
-tmp_m2=$(pwd)/$(mktemp -d m2-local.XXXX)
+PE_VER="$1"
+test "$PE_VER"
 
-lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- install
-lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- deps
-# the ci-voom profile gives us nexus credentials
-lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- with-profile user,ci-voom deploy
-lein update-in : assoc :local-repo "\"${tmp_m2}\"" -- with-profile ezbake ezbake stage
+# Upload release versions to nexus
+version="$(grep 'def pdb-version' project.clj | cut -d\" -f 2)"
+test "$version"
 
-pushd "target/staging"
-rake package:bootstrap
-rake pl:jenkins:uber_build[5] PE_VER=${PE_VER}
+if ! [[ "$version" =~ SNAPSHOT ]]; then
+    echo "${version} appears to be a release version"
+    nexus_base="http://nexus.delivery.puppetlabs.net/service/local/repositories"
+    probe_url="${nexus_base}/releases/content/puppetlabs/pe-puppetdb-extensions/${version}/pe-puppetdb-extensions-${version}.jar"
+    status="$(curl --head --silent -o /dev/null -w "%{http_code}" "${probe_url}")"
+    if [ "$status" -eq 200 ]; then
+        echo "pe-puppetdb-extensions-${version} already exists on Nexus; skipping deploy"
+    else
+        echo "Deploying pe-puppetdb-extensions ${version} to releases"
+        lein deploy releases
+    fi
+else
+    echo "${version} appears to be a snapshot version"
+fi
+
+# Build packages using a locally created jar
+PE_VER="$PE_VER" lein with-profile ezbake ezbake build
 
 cat > "${WORKSPACE}/pe-puppetdb-extensions.packaging.props" <<PROPS
 PUPPETDB_PACKAGE_BUILD_VERSION=$(rake pl:print_build_param[ref] | tail -n 1)
 PROPS
-popd
