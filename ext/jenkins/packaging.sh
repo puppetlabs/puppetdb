@@ -39,6 +39,8 @@ export MOCK="pl-el-6-x86_64 pl-el-7-x86_64"
 
 lein with-profile ezbake ezbake build
 
+pushd "target/staging"
 cat > "${WORKSPACE}/puppetdb.packaging.props" <<PROPS
 PUPPETDB_PACKAGE_BUILD_VERSION=$(rake pl:print_build_param[ref] | tail -n 1)
 PROPS
+popd
