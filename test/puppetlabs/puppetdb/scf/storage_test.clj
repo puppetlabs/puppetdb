@@ -1799,25 +1799,28 @@
 (defn with-db-version [db version f]
   (with-redefs [sutils/db-metadata (delay {:database db
                                            :version version})]
-    f))
+    (f)))
 
 (deftest-db test-db-unsupported-msg
   (testing "should return a string if db is unsupported"
-    (are [db version result]
-      (with-db-version db version
-        (fn []
-          (is (= result (db-unsupported-msg)))))
-      "PostgreSQL" [8 1] "PostgreSQL DB versions older than 9.4 are no longer supported. Please upgrade Postgres and restart PuppetDB."
-      "PostgreSQL" [8 2] "PostgreSQL DB versions older than 9.4 are no longer supported. Please upgrade Postgres and restart PuppetDB."
-      "PostgreSQL" [8 3] "PostgreSQL DB versions older than 9.4 are no longer supported. Please upgrade Postgres and restart PuppetDB."
-      "PostgreSQL" [8 4] "PostgreSQL DB versions older than 9.4 are no longer supported. Please upgrade Postgres and restart PuppetDB."
-      "PostgreSQL" [9 0] "PostgreSQL DB versions older than 9.4 are no longer supported. Please upgrade Postgres and restart PuppetDB."
-      "PostgreSQL" [9 1] "PostgreSQL DB versions older than 9.4 are no longer supported. Please upgrade Postgres and restart PuppetDB."
-      "PostgreSQL" [9 2] "PostgreSQL DB versions older than 9.4 are no longer supported. Please upgrade Postgres and restart PuppetDB."
-      "PostgreSQL" [9 3] "PostgreSQL DB versions older than 9.4 are no longer supported. Please upgrade Postgres and restart PuppetDB."
-      "PostgreSQL" [9 4] nil)))
+    (let [msg "PostgreSQL DB versions older than 9.6 are no longer supported. Please upgrade Postgres and restart PuppetDB."]
+      (are [version result]
+          (with-db-version "PostgreSQL" version
+            (fn []
+              (is (= result (db-unsupported-msg [9 6])))))
+        [8 1] msg
+        [8 2] msg
+        [8 3] msg
+        [8 4] msg
+        [9 0] msg
+        [9 1] msg
+        [9 2] msg
+        [9 3] msg
+        [9 4] msg
+        [9 5] msg
+        [9 6] nil))))
 
-(def not-supported-regex #"PostgreSQL DB versions older than 9.4 are no longer supported. Please upgrade Postgres and restart PuppetDB.")
+(def not-supported-regex #"PostgreSQL DB versions older than 9.6 are no longer supported. Please upgrade Postgres and restart PuppetDB.")
 
 (deftest-db test-unsupported-fail
   (testing "unsupported postgres version"
@@ -1827,17 +1830,17 @@
           (pllog/with-log-output log
             (is (re-find not-supported-regex
                          (tu/with-err-str
-                           (validate-database-version #(reset! fail? true)))))
+                           (validate-database-version [9 6] #(reset! fail? true)))))
             (is (true? @fail?))
             (is (re-find not-supported-regex (last (first @log)))))))))
   (testing "supported postgres version"
     (let [fail? (atom false)]
-      (with-db-version "PostgreSQL" [9 4]
+      (with-db-version "PostgreSQL" [9 6]
         (fn []
           (pllog/with-log-output log
             (is (str/blank?
                  (tu/with-err-str
-                   (validate-database-version #(reset! fail? true)))))
+                   (validate-database-version [9 6] #(reset! fail? true)))))
             (is (false? @fail?))
             (is (empty? @log))))))))
 

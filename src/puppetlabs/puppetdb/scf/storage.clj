@@ -1433,11 +1433,11 @@
 
 (defn db-unsupported-msg
   "Returns a string with an unsupported message if the DB is not supported,
-  nil otherwise."
-  []
-  (when (sutils/db-version-older-than? [9 4])
-    (str "PostgreSQL DB versions older than 9.4 are no longer supported."
-         "  Please upgrade Postgres and restart PuppetDB.")))
+  nil otherwise. min-version is a vector like [9 6]"
+  [min-version]
+  (when (sutils/db-version-older-than? min-version)
+    (trs "PostgreSQL DB versions older than {0}.{1} are no longer supported. Please upgrade Postgres and restart PuppetDB."
+         (first min-version) (second min-version))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
@@ -1555,8 +1555,8 @@
   "Check the currently configured database and if it isn't supported,
   notify the user and call fail-fn.  Then (if fail-fn returns) notify
   the user if the database is deprecated."
-  [fail-fn]
-  (when-let [msg (db-unsupported-msg)]
+  [min-pg-version fail-fn]
+  (when-let [msg (db-unsupported-msg min-pg-version)]
     (let [msg (utils/attention-msg msg)]
       (utils/println-err msg)
       (log/error msg)
