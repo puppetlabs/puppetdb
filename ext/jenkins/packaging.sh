@@ -40,6 +40,8 @@ fi
 # Build packages using a locally created jar
 PE_VER="$PE_VER" lein with-profile ezbake ezbake build
 
+pushd "target/staging"
 cat > "${WORKSPACE}/pe-puppetdb-extensions.packaging.props" <<PROPS
 PUPPETDB_PACKAGE_BUILD_VERSION=$(rake pl:print_build_param[ref] | tail -n 1)
 PROPS
+popd
