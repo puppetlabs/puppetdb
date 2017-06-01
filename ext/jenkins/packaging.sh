@@ -19,7 +19,7 @@ PE_VER="$1"
 test "$PE_VER"
 
 # Upload release versions to nexus
-version="$(grep 'def pdb-version' project.clj | cut -d\" -f 2)"
+version="$(grep 'def pe-pdb-version' project.clj | cut -d\" -f 2)"
 test "$version"
 
 if ! [[ "$version" =~ SNAPSHOT ]]; then
