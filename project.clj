@@ -138,6 +138,9 @@
                    :injections [(do
                                   (require 'schema.core)
                                   (schema.core/set-fn-validation! true))]}
+             ;; This circular dependency is required because of a bug in
+             ;; ezbake (EZ-35); without it, bootstrap.cfg will not be included
+             ;; in the final package.
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"
