@@ -1252,6 +1252,12 @@
   (jdbc/do-commands
     "create index resource_params_cache_parameters_idx on resource_params_cache using gin (parameters)"))
 
+(defn improve-facts-factset-id-index []
+  (jdbc/do-commands
+    "DROP INDEX IF EXISTS facts_factset_id_idx"
+    "DROP INDEX IF EXISTS facts_factset_id_fact_path_id_idx"
+    "CREATE INDEX facts_factset_id_fact_path_id_idx ON facts(factset_id, fact_path_id)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1287,7 +1293,8 @@
    55 index-certnames-unique-latest-report-id
    56 merge-fact-values-into-facts
    57 add-package-tables
-   58 add-gin-index-on-resource-params-cache})
+   58 add-gin-index-on-resource-params-cache
+   60 improve-facts-factset-id-index})
 
 (def desired-schema-version (apply max (keys migrations)))
 
