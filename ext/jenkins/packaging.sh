@@ -31,6 +31,12 @@ if ! [[ "$version" =~ SNAPSHOT ]]; then
     fi
 else
     echo "${version} appears to be a snapshot version"
+
+    # There is a bug in ezbake (EZ-35) that requires a circular dependency (in
+    # the ezbake profile) for bootstrap.cfg to be properly included. When we run
+    # ezbake, lein tries to resolve this dependency; so if we're doing a
+    # snapshot build, we need to put something in nexus for it to find.
+    lein deploy snapshots
 fi
 
 # Build packages using a locally created jar
