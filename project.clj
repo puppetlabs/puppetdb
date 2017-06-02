@@ -98,9 +98,7 @@
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [environ "1.0.0"]]}
-             :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
-                                               [org.clojure/tools.nrepl "0.2.3"]
-                                               [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]]
+             :ezbake {:dependencies [[org.clojure/tools.nrepl "0.2.3"]]
                       :plugins [[puppetlabs/lein-ezbake "1.1.3"
                                 :exclusions [org.clojure/clojure]]]
                       :version ~pe-pdb-version
