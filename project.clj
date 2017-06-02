@@ -98,6 +98,10 @@
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [environ "1.0.0"]]}
+
+             ;; These circular dependencies are required because of a bug in
+             ;; ezbake (EZ-35); without them, bootstrap.cfg will not be included
+             ;; in the final package.
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]
                                                [puppetlabs/pe-puppetdb-extensions ~pe-pdb-version]]
