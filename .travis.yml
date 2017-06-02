@@ -47,6 +47,7 @@ matrix:
 
 before_install: ext/travisci/install_puppetserver.sh
 script: ext/travisci/test.sh
+on_success: ext/travisci/on-success
 
 notifications:
   email: false
