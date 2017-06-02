@@ -59,7 +59,7 @@
                  [puppetlabs/trapperkeeper-status]
 
                  ;; Various
-                 [cheshire]
+                 [cheshire "5.7.1"]
                  [clj-stacktrace]
                  [clj-time]
                  [com.rpl/specter "0.5.7"]
