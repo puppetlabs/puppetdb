@@ -138,7 +138,8 @@
                    :injections [(do
                                   (require 'schema.core)
                                   (schema.core/set-fn-validation! true))]}
-             :ezbake {:dependencies [[org.clojure/tools.nrepl "0.2.3"]]
+             :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
+                                               [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "1.1.3"
                                  :exclusions [org.clojure/clojure]]]}
