@@ -151,8 +151,7 @@
                    :injections [(do
                                   (require 'schema.core)
                                   (schema.core/set-fn-validation! true))]}
-             :ezbake {:dependencies ^:replace [;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                                               ;; NOTE: we need to explicitly pass in `nil` values
+             :ezbake {:dependencies ^:replace [;; NOTE: we need to explicitly pass in `nil` values
                                                ;; for the version numbers here in order to correctly
                                                ;; inherit the versions from our parent project.
                                                ;; This is because of a bug in lein 2.7.1 that
@@ -162,13 +161,16 @@
                                                ;; https://github.com/technomancy/leiningen/issues/2216
                                                ;; Hopefully we can remove those `nil`s (if we care)
                                                ;; and this comment when lein 2.7.2 is available.
-                                               ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
                                                ;; we need to explicitly pull in our parent project's
                                                ;; clojure version here, because without it, lein
                                                ;; brings in its own version, and older versions of
                                                ;; lein depend on clojure 1.6.
                                                [org.clojure/clojure nil]
+
+                                               ;; This circular dependency is required because of a bug in
+                                               ;; ezbake (EZ-35); without it, bootstrap.cfg will not be included
+                                               ;; in the final package.
                                                [puppetlabs/puppetdb ~pdb-version]
                                                [puppetlabs/trapperkeeper-webserver-jetty9 nil]
                                                [org.clojure/tools.nrepl nil]]
