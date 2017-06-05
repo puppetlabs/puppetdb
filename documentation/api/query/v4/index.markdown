@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.4: Root endpoint"
+title: "PuppetDB 5.0: Root endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/index.html"
 ---
@@ -13,15 +13,18 @@ canonical: "/puppetdb/latest/api/query/v4/index.html"
 [ast]: ./ast.html
 
 The root query endpoint can be used to retrieve any known entities from a
-single endpoint. Unlike the various entity-specific endpoints, the root
-endpoint will always return data for deactivated and expired nodes, so users
-must explicitly include them if required.
+single endpoint.
 
 ## `/pdb/query/v4`
 
 This will return any known entity based on the required `query` field. Unlike
 other endpoints, the [entity][entities] must be supplied using a query with the [`from`][from]
 operator or a [PQL][pql] query string.
+
+Like all other PDB query endpoints, query results from the root query endpoint
+will be restricted to active nodes by default. To target only inactive nodes,
+you can specify `node_state = 'inactive'`; for all both active and inactive, use
+`node_state = 'any'`.
 
 ### URL parameters
 

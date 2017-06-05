@@ -210,7 +210,7 @@ status counts for active certname by status, you can query the events endpoint
 with:
 
     ["extract", [["function", "count"], "status", "certname"],
-      ["=", ["node", "active"], true], ["group_by", "status", "certname"]]
+      ["group_by", "status", "certname"]]
 
 To get the average uptime for your nodes:
 
@@ -612,20 +612,15 @@ starting with "up" and value less than 100:
             ["~>", "path", ["up.*"]],
             ["<", "value", 100]]]]]
 
-To use a subquery to restrict a query to active nodes only, you can use this
-query:
+Queries are restricted to active nodes by default; to make this explicit, the
+special "node_state" field may be queried using the values "active", "inactive",
+or "any". For example, to list all catalogs from inactive nodes, use this on the
+/catalogs endpoint:
 
-    ["in", "certname",
-      ["extract", "certname",
-        ["select_nodes",
-          ["and", ["null?", "deactivated", true],
-                  ["null?", "expired", true]]]]]
+    ["=", "node_state", "inactive"] 
 
-For the previous query, we also allow the shorthand
-
-    ["=", ["node", "active"], true]
-
-and its counterpart with `false`.
+This expands internally into comparisons against each node's deactivation and
+expiration time; a node is consider inactive if either field is set.
 
 #### Explicit subquery examples (with the `from` operator)
 

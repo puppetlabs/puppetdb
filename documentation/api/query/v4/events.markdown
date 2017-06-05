@@ -189,11 +189,10 @@ To retrieve latest events that are tied to the class found in your update.pp fil
     ["and", ["=", "latest_report?", true],
       ["~", "file", "update.pp"]]
 
-To retrieve event status counts for each active node:
+To retrieve event status counts for each node:
 
     curl -X GET http://localhost:8080/pdb/query/v4/events --data-urlencode \
     'query=["extract", [["function", "count"], "status","certname"],
-                       ["=", ["node","active"], true],
                        ["group_by","status","certname"]]'
 
 ## Paging

@@ -1372,13 +1372,25 @@
               ["and" ["=" "depth" 0] [op "value" value]])
 
             [["=" ["node" "active"] value]]
-            (if value
-              ["not" ["in" "certname"
-                      ["extract" "certname"
-                       ["select_inactive_nodes"]]]]
-              ["in" "certname"
-               ["extract" "certname"
-                ["select_inactive_nodes"]]])
+            (expand-query-node ["=" "node_state" (if value "active" "inactive")])
+
+            [["or" ["=" ["node" "active"] true]
+              ["=" ["node" "active"] false]]]
+            (expand-query-node ["=" "node_state" "any"])
+
+            [["or" ["=" ["node" "active"] false]
+                   ["=" ["node" "active"] true]]]
+            (expand-query-node ["=" "node_state" "any"])
+
+            [["=" "node_state" value]]
+            (case (str/lower-case (str value))
+              "active" ["not" ["in" "certname"
+                               ["extract" "certname"
+                                ["select_inactive_nodes"]]]]
+              "inactive" ["in" "certname"
+                          ["extract" "certname"
+                           ["select_inactive_nodes"]]]
+              "any" [])
 
             [[(op :guard #{"=" "~"}) ["parameter" param-name] param-value]]
             ["in" "resource"
@@ -1990,6 +2002,7 @@
             (let [{:keys [alias dotted-fields] :as query-context} (:query-context (meta node))
                   qfields (queryable-fields query-context)]
               (when-not (or (vec? field)
+                            (= "node_state" field)
                             (contains? (set qfields) field)
                             (some #(re-matches % field) (map re-pattern dotted-fields)))
                 {:node node
