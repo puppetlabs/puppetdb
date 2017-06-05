@@ -344,8 +344,15 @@
                                  :numeric_precision_radix nil
                                  :data_type "bytea"
                                  :column_name "hash"
-                                 :table_name "factsets"}}]}
-
+                                 :table_name "factsets"}}]
+            :constraint-diff [{:left-only nil
+                               :right-only
+                               {:constraint_name "hash IS NOT NULL"
+                                :table_name "factsets"
+                                :constraint_type "CHECK"
+                                :initially_deferred "NO"
+                                :deferrable? "NO"}
+                               :same nil}]}
            (diff-schema-maps before-migration (schema-info-map *db*))))))
 
 (deftest test-add-producer-to-reports-catalogs-and-factsets-migration
@@ -602,7 +609,15 @@
                                  :nullable? "YES",
                                  :datetime_precision nil,
                                  :column_default nil,
-                                 :numeric_scale nil}}]}
+                                 :numeric_scale nil}}]
+            :constraint-diff [{:left-only
+                               {:constraint_name "fact_values_value_type_id_fk",
+                                :table_name "fact_values",
+                                :constraint_type "FOREIGN KEY",
+                                :initially_deferred "NO",
+                                :deferrable? "NO"},
+                               :right-only nil,
+                               :same nil}]}
            (diff-schema-maps before-migration (schema-info-map *db*))))))
 
 (deftest test-resource-params-cache-parameters-to-jsonb
@@ -691,7 +706,8 @@
                        (move-col ["fact_values" "value_string"] "facts"))
           diff (-> (diff-schema-maps exp-smap migrated)
                    (update :index-diff set)
-                   (update :table-diff set))
+                   (update :table-diff set)
+                   (dissoc :constraint-diff))
           exp-idx-diffs #{ ;; removed indexes
                           {:left-only
                            {:schema "public"
@@ -847,29 +863,45 @@
             :user "pdb_test"}
            (get idxs ["facts" ["value_string"]])))))
 
-(deftest migration-59-fix-missing-edges-fk-constraint
+(deftest migration-60-fix-missing-edges-fk-constraint
   (jdbc/with-db-connection *db*
     (clear-db-for-testing!)
-    (fast-forward-to-migration! 58)
+    (fast-forward-to-migration! 59)
+    (let [schema-before-migration (schema-info-map *db*)]
 
-    (jdbc/insert! :environments {:id 1 :environment "testing"})
+      (jdbc/insert! :environments {:id 1 :environment "testing"})
 
-    (jdbc/insert! :certnames {:certname "a.com"})
+      (jdbc/insert! :certnames {:certname "a.com"})
 
-    (jdbc/insert! :edges {:certname "a.com"
-                          :source (sutils/str->pgobject "bytea" "source-1")
-                          :target (sutils/str->pgobject "bytea" "target-1")
-                          :type "foo"})
-    (jdbc/insert! :edges {:certname "orphaned-node.com"
-                          :source (sutils/str->pgobject "bytea" "source-2")
-                          :target (sutils/str->pgobject "bytea" "target-2")
-                          :type "foo"})
+      (jdbc/insert! :edges {:certname "a.com"
+                            :source (sutils/str->pgobject "bytea" "source-1")
+                            :target (sutils/str->pgobject "bytea" "target-1")
+                            :type "foo"})
+      (jdbc/insert! :edges {:certname "orphaned-node.com"
+                            :source (sutils/str->pgobject "bytea" "source-2")
+                            :target (sutils/str->pgobject "bytea" "target-2")
+                            :type "foo"})
 
-    (apply-migration-for-testing! 59)
+      (apply-migration-for-testing! 60)
+      (is (= 0
+             (-> (str "select count(*) from edges"
+                      "  where certname not in (select certname from certnames)")
+                 jdbc/query-to-vec
+                 first
+                 :count)))
 
-    (is (= 0
-           (-> (str "select count(*) from edges"
-                    "  where certname not in (select certname from certnames)")
-               jdbc/query-to-vec
-               first
-               :count)))))
+      (let [schema-after-migration (schema-info-map *db*)
+            schema-diff (diff-schema-maps schema-before-migration schema-after-migration)]
+        (is (= {:index-diff nil
+                :table-diff nil
+                :constraint-diff [{:left-only nil
+                                   :right-only
+                                   {:constraint_name "edges_certname_fkey"
+                                    :table_name "edges"
+                                    :constraint_type "FOREIGN KEY"
+                                    :initially_deferred "NO"
+                                    :deferrable? "NO"}
+                                   :same nil}]}
+               schema-diff))))))
+
+
