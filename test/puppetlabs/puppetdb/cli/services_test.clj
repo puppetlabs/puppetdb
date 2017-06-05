@@ -4,11 +4,13 @@
             [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
-            [puppetlabs.puppetdb.cli.services :refer :all]
+            [puppetlabs.puppetdb.cli.services :as svcs :refer :all]
+            [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.testutils.cli :refer [get-factsets]]
             [puppetlabs.puppetdb.command :refer [enqueue-command]]
             [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.meta.version :as version]
             [clojure.test :refer :all]
@@ -19,7 +21,8 @@
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.cheshire :as json]
             [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]
-            [puppetlabs.puppetdb.testutils.queue :as tqueue]))
+            [puppetlabs.puppetdb.testutils.queue :as tqueue]
+            [slingshot.slingshot :refer [throw+ try+]]))
 
 (deftest update-checking
   (let [config-map {:global {:product-name "puppetdb"
@@ -185,3 +188,28 @@
     (let [response (make-https-request-with-whitelisted-host "localhost")]
       (is (= 200 (:status response)))
       (is (not (re-find #"Permission denied" (:body response)))))))
+
+(deftest unsupported-database-triggers-shutdown
+  (svc-utils/with-single-quiet-pdb-instance
+    (let [config (-> (get-service svc-utils/*server* :DefaultedConfig)
+                     conf/get-config)
+          expected-oldest scf-store/oldest-supported-db]
+      (doseq [v [[8 1]
+                 [8 2]
+                 [8 3]
+                 [8 4]
+                 [9 0]
+                 [9 1]
+                 [9 2]
+                 [9 3]]]
+        (with-redefs [sutils/db-metadata (delay {:database nil :version v})]
+          (try+
+           (initialize-schema *db* config)
+           (catch [:type ::svcs/unsupported-database] {:keys [current oldest]}
+             (is (= v current))
+             (is (= expected-oldest oldest))))))
+      (with-redefs [sutils/db-metadata (delay {:database nil :version [9 4]})]
+        (is (do
+              ;; Assumes initialize-schema is idempotent, which it is
+              (initialize-schema *db* config)
+              true))))))
