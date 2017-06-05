@@ -21,6 +21,8 @@
                                                      (metrics/keyword->metric-name
                                                        [:global] :message-persistence-time))}))
 
+;; And a change here
+
 (defn extract-headers
   "Creates a map of custom headers included in `message`, currently only
   supports String headers."

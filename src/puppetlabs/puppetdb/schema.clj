@@ -18,6 +18,8 @@
           {:schema schema}]))
   (s/explain [this] (list 'defaulted-maybe (s/explain schema))))
 
+
+;; Here's a change
 (defmacro defn-validated
   [fn-name & forms]
   (let [fn-name (vary-meta fn-name assoc :always-validate true)]
@@ -46,6 +48,7 @@
        x
        (Integer/valueOf x)))))
 
+;; and one further down
 (defn period?
   "True if `x` is a JodaTime Period"
   [x]
