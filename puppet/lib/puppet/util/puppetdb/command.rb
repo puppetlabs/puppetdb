@@ -63,7 +63,7 @@ class Puppet::Util::Puppetdb::Command
       response = profile("Submit command HTTP post", [:puppetdb, :command, :submit]) do
         Http.action("#{CommandsUrl}?#{params}", :command) do |http_instance, path|
           http_instance.post(path, payload, headers, {:compress => :gzip,
-                                                      :metric_id => [:puppetdb, :command, command, certname]})
+                                                      :metric_id => [:puppetdb, :command, command]})
         end
       end
 
