@@ -1037,6 +1037,12 @@
   (jdbc/do-commands
     "CREATE INDEX idx_certnames_latest_report_id on certnames(latest_report_id)"))
 
+(defn index-certnames-unique-latest-report-id
+  []
+  (jdbc/do-commands
+    "DROP INDEX IF EXISTS idx_certnames_latest_report_id"
+    "CREATE UNIQUE INDEX idx_certnames_latest_report_id on certnames(latest_report_id)"))
+
 (defn add-producer-to-reports-catalogs-and-factsets
   []
   (jdbc/do-commands
@@ -1163,6 +1169,16 @@
     "create index fact_values_value_float_idx on fact_values(value_float)"
     "create index fact_values_value_integer_idx on fact_values(value_integer)"))
 
+(defn add-corrective-change-index
+  []
+  (jdbc/do-commands
+    "CREATE INDEX resource_events_status_for_corrective_change_idx ON resource_events (status) WHERE corrective_change"))
+
+(defn drop-resource-events-resource-type-idx
+  []
+  (jdbc/do-commands
+    "DROP INDEX IF EXISTS resource_events_resource_type_idx"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1192,8 +1208,10 @@
    49 add-corrective-change-columns
    50 remove-historical-catalogs
    51 fact-values-value-to-jsonb
-   52 resource-params-cache-parameters-to-jsonb})
-
+   52 resource-params-cache-parameters-to-jsonb
+   53 add-corrective-change-index
+   54 drop-resource-events-resource-type-idx
+   55 index-certnames-unique-latest-report-id})
 
 (def desired-schema-version (apply max (keys migrations)))
 
