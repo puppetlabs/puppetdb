@@ -1,3 +1,5 @@
+;; This is only a test...
+
 (def pdb-version "5.0.0-SNAPSHOT")
 (def puppetserver-version "5.0.0-master-SNAPSHOT")
 (def clj-parent-version "0.8.0")
