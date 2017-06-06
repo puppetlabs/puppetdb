@@ -51,24 +51,6 @@
 (def db-metadata
   (delay (db-metadata-fn)))
 
-(pls/defn-validated db-version? :- s/Bool
-  "Returns true if the version list you pass matches the version of the current
-   database."
-  [version :- db-version]
-  (= (:version @db-metadata) version))
-
-(pls/defn-validated db-version-older-than? :- s/Bool
-  "Returns true if the current database version is older than the version list
-   you pass it."
-  [version :- db-version]
-  (neg? (compare (:version @db-metadata) version)))
-
-(pls/defn-validated db-version-newer-than? :- s/Bool
-  "Returns true if the current database version is newer than the version list
-   you pass it."
-  [version :- db-version]
-  (pos? (compare (:version @db-metadata) version)))
-
 (defn sql-current-connection-table-names
   "Returns the names of all of the tables in the public schema of the
   current connection's database.  This is most useful for debugging /
