@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: aa0e7b94c6097eb2076bdc0680a6edcdab09c292\n"
+"X-Git-Ref: ebd677eb5669e4d6c27d12b93a5da7c38090e722\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -30,8 +30,7 @@ msgstr ""
 msgid "receiver queue connection error"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/amq_migration.clj
-#: src/puppetlabs/puppetdb/mq.clj
+#: src/puppetlabs/puppetdb/amq_migration.clj src/puppetlabs/puppetdb/mq.clj
 msgid "Only read {0}/{1} bytes from incoming message"
 msgstr ""
 
@@ -39,7 +38,6 @@ msgstr ""
 msgid "[{0}] [{1}] [{2}] Unable to process message"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/amq_migration.clj
 #: src/puppetlabs/puppetdb/amq_migration.clj
 msgid "Unable to process message: {0}"
 msgstr ""
@@ -326,9 +324,6 @@ msgid ""
 msgstr ""
 
 #: src/puppetlabs/puppetdb/config.clj
-#: src/puppetlabs/puppetdb/config.clj
-#: src/puppetlabs/puppetdb/config.clj
-#: src/puppetlabs/puppetdb/config.clj
 msgid "Consult the documentation for more details."
 msgstr ""
 
@@ -403,7 +398,6 @@ msgid "JVM Heap"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/dashboard.clj
-#: src/puppetlabs/puppetdb/dashboard.clj
 msgid "bytes"
 msgstr ""
 
@@ -411,8 +405,6 @@ msgstr ""
 msgid "Active Nodes"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/dashboard.clj
-#: src/puppetlabs/puppetdb/dashboard.clj
 #: src/puppetlabs/puppetdb/dashboard.clj
 msgid "in the population"
 msgstr ""
@@ -450,7 +442,6 @@ msgid "depth"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/dashboard.clj
-#: src/puppetlabs/puppetdb/dashboard.clj
 msgid "Command Processing"
 msgstr ""
 
@@ -466,9 +457,6 @@ msgstr ""
 msgid "Processed"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/dashboard.clj
-#: src/puppetlabs/puppetdb/dashboard.clj
-#: src/puppetlabs/puppetdb/dashboard.clj
 #: src/puppetlabs/puppetdb/dashboard.clj
 msgid "since startup"
 msgstr ""
@@ -489,7 +477,6 @@ msgstr ""
 msgid "Enqueueing"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/dashboard.clj
 #: src/puppetlabs/puppetdb/dashboard.clj
 msgid "service time seconds"
 msgstr ""
@@ -546,19 +533,17 @@ msgstr ""
 msgid "Permission denied: {0}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/http.clj
-#: src/puppetlabs/puppetdb/middleware.clj
+#: src/puppetlabs/puppetdb/http.clj src/puppetlabs/puppetdb/middleware.clj
 msgid "must accept {0}"
 msgstr ""
 
 #. IOException includes things like broken pipes due to
 #. client disconnect, so no need to spam the log normally.
-#: src/puppetlabs/puppetdb/http.clj src/puppetlabs/puppetdb/http.clj
+#: src/puppetlabs/puppetdb/http.clj
 msgid "Error streaming response"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/http.clj
-#: src/puppetlabs/puppetdb/middleware.clj
+#: src/puppetlabs/puppetdb/http.clj src/puppetlabs/puppetdb/middleware.clj
 msgid "No information is known about {0} {1}"
 msgstr ""
 
@@ -567,11 +552,9 @@ msgid "Unable to stream command posted without parameters (loading into RAM)"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http/command.clj
-#: src/puppetlabs/puppetdb/http/command.clj
 msgid "Empty application/json POST body"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/http/command.clj
 #: src/puppetlabs/puppetdb/http/command.clj
 msgid "Unexpected body type: {0}"
 msgstr ""
@@ -644,7 +627,7 @@ msgstr ""
 msgid "Query returns more than the maximum number of results (max: {0})"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/meta.clj src/puppetlabs/puppetdb/meta.clj
+#: src/puppetlabs/puppetdb/meta.clj
 msgid "Could not find version"
 msgstr ""
 
@@ -788,7 +771,6 @@ msgstr ""
 msgid "The subquery argument of ''in'' must be an ''extract'', not ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj src/puppetlabs/puppetdb/query.clj
 #: src/puppetlabs/puppetdb/query.clj
 msgid "= requires exactly two arguments, but {0} were supplied"
 msgstr ""
@@ -819,7 +801,7 @@ msgstr ""
 msgid "Value {0} must be a number for {1} comparison."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj src/puppetlabs/puppetdb/query.clj
+#: src/puppetlabs/puppetdb/query.clj
 msgid "{0} requires exactly two arguments, but {1} were supplied"
 msgstr ""
 
@@ -831,7 +813,7 @@ msgstr ""
 msgid "{0} operator does not support object ''{1}'' for resource events"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query.clj src/puppetlabs/puppetdb/query.clj
+#: src/puppetlabs/puppetdb/query.clj
 msgid ""
 "''{0}'' is not a queryable object for version {1} of the resource events API"
 msgstr ""
@@ -897,7 +879,6 @@ msgid "Invalid entity ''{0}'' in query"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng.clj
-#: src/puppetlabs/puppetdb/query_eng.clj
 msgid ""
 "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 "
 "error code."
@@ -911,7 +892,6 @@ msgstr ""
 msgid "Value {0} of type {1} unsupported."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng/engine.clj
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "Operator ''{0}'' not allowed on value ''{1}''"
 msgstr ""
@@ -990,7 +970,6 @@ msgid "Your `from` query accepts an optional query only as a second argument."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/query_eng/engine.clj
-#: src/puppetlabs/puppetdb/query_eng/engine.clj
 msgid "Check your query and try again."
 msgstr ""
 
@@ -1035,6 +1014,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/queue.clj
 msgid "Cannot enqueue item of type {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Cleaning up orphaned edges"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
@@ -1111,8 +1094,6 @@ msgstr ""
 msgid "Fact value {0} has unexpected type"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/scf/storage.clj
-#: src/puppetlabs/puppetdb/scf/storage.clj
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Unexpected type {0} for {1}"
 msgstr ""
