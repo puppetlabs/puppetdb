@@ -1281,6 +1281,12 @@
      (str "ALTER TABLE ONLY edges"
           "  ADD CONSTRAINT edges_certname_source_target_type_unique_key"
           "  UNIQUE (certname, source, target, type)"))))
+(defn add-latest-report-timestamp-to-certnames []
+  (jdbc/do-commands
+    "DROP INDEX IF EXISTS idx_certnames_latest_report_timestamp"
+    "ALTER TABLE certnames DROP COLUMN IF EXISTS latest_report_timestamp"
+    "ALTER TABLE certnames ADD COLUMN latest_report_timestamp timestamp with time zone"
+    "CREATE INDEX idx_certnames_latest_report_timestamp ON certnames(latest_report_timestamp)"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
@@ -1319,7 +1325,8 @@
    57 add-package-tables
    58 add-gin-index-on-resource-params-cache
    59 improve-facts-factset-id-index
-   60 fix-missing-edges-fk-constraint})
+   60 fix-missing-edges-fk-constraint
+   61 add-latest-report-timestamp-to-certnames})
 
 (def desired-schema-version (apply max (keys migrations)))
 
