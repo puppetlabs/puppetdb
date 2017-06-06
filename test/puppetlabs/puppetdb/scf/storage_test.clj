@@ -1754,17 +1754,26 @@
                  :environment_id env-id}])))))
 
   (deftest-db latest-report
-    (testing "should flag report as 'latest'"
-      (let [node        (:certname report)
-            report-hash (:hash (store-example-report! report timestamp))]
+    (let [node (:certname report)
+          report-hash (:hash (store-example-report! report timestamp))]
+      (testing "should flag report as 'latest'"
         (is (is-latest-report? node report-hash))
         (let [new-report-hash (:hash (store-example-report!
                                       (-> report
                                           (assoc :configuration_version "bar")
-                                          (assoc :end_time (now)))
+                                          (assoc :end_time (now))
+                                          (assoc :producer_timestamp (now)))
                                       timestamp))]
           (is (is-latest-report? node new-report-hash))
-          (is (not (is-latest-report? node report-hash)))))))
+          (is (not (is-latest-report? node report-hash)))))
+      (testing "should not update latest report with older report timestamp"
+        (let [old-report-hash (:hash (store-example-report!
+                                      (-> report
+                                          (assoc :configuration_version "bar")
+                                          (assoc :end_time (now))
+                                          (assoc :producer_timestamp (-> -1 days from-now)))
+                                      timestamp))]
+          (is (not (is-latest-report? node old-report-hash)))))))
 
 
   (deftest-db report-cleanup

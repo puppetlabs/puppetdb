@@ -27,6 +27,9 @@
   (:import
    [java.util.concurrent CyclicBarrier TimeUnit]))
 
+(defn await-a-while [x]
+  (.await x default-timeout-ms TimeUnit/MILLISECONDS))
+
 (deftest clean-command-validation
   (are [x] (#'admin/validate-clean-command {:command "clean"
                                             :version 1
@@ -72,17 +75,17 @@
           test-finished (CyclicBarrier. 2)
           cleanup-result (promise)]
       (with-redefs [cli-svc/clean-up (fn [& args]
-                                       (.await in-clean)
-                                       (.await test-finished)
+                                       (await-a-while in-clean)
+                                       (await-a-while test-finished)
                                        (let [result (apply orig-clean args)]
                                             (deliver cleanup-result result)
                                             result))]
         (utils/noisy-future (checked-admin-post "cmd" (clean-cmd [])))
         (try
-          (.await in-clean)
+          (await-a-while in-clean)
           (is (= http/status-conflict (:status (post-clean []))))
           (finally
-            (.await test-finished)
+            (await-a-while test-finished)
             (is (not= ::timed-out
                       (deref cleanup-result 120000 ::timed-out)))))))))
 
@@ -99,12 +102,12 @@
           after-clear (CyclicBarrier. 2)]
       (with-redefs [cli-svc/clean-puppetdb (fn [& args]
                                              (apply orig-clean args)
-                                             (.await after-clean))
+                                             (await-a-while after-clean))
                     cli-svc/clear-clean-status! (fn [& args]
-                                                  (.await before-clear)
-                                                  (.await after-test)
+                                                  (await-a-while before-clear)
+                                                  (await-a-while after-test)
                                                   (apply orig-clear args)
-                                                  (.await after-clear))]
+                                                  (await-a-while after-clear))]
         (doseq [what (combinations ["expire_nodes"
                                     "purge_nodes"
                                     ["purge_nodes" {"batch_limit" 10}]
@@ -117,12 +120,12 @@
                              cli-svc/reduced-clean-request->status)]
             (utils/noisy-future (checked-admin-post "cmd" (clean-cmd what)))
             (try
-              (.await before-clear)
+              (await-a-while before-clear)
               (is (= expected (clean-status)))
               (finally
-                (.await after-test)
-                (.await after-clear)
-                (.await after-clean)))))))))
+                (await-a-while after-test)
+                (await-a-while after-clear)
+                (await-a-while after-clean)))))))))
 
 (defn purgeable-nodes [node-purge-ttl]
   (let [horizon (pdbtime/to-timestamp (time/ago node-purge-ttl))]
@@ -140,12 +143,12 @@
           clean (fn [req]
                   (utils/noisy-future
                    (checked-admin-post "cmd" (clean-cmd req)))
-                  (.await after-clean
-                          default-timeout-ms TimeUnit/MILLISECONDS))]
+                  (await-a-while after-clean
+                                 default-timeout-ms TimeUnit/MILLISECONDS))]
       (with-redefs [cli-svc/clean-puppetdb (fn [& args]
                                              (apply orig-clean args)
-                                             (.await after-clean))]
-        (doseq [[batches expected-remaining] [[nil 0]  ; i.e. purge everything
+                                             (await-a-while after-clean))]
+        (doseq [[batches expected-remaining] [[nil 0] ; i.e. purge everything
                                               [[7] 3]
                                               [[3 4] 3]
                                               [[100] 0]]]

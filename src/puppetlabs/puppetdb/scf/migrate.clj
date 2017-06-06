@@ -1252,19 +1252,54 @@
   (jdbc/do-commands
     "create index resource_params_cache_parameters_idx on resource_params_cache using gin (parameters)"))
 
+(defn improve-facts-factset-id-index []
+  (jdbc/do-commands
+    "DROP INDEX IF EXISTS facts_factset_id_idx"
+    "DROP INDEX IF EXISTS facts_factset_id_fact_path_id_idx"
+    "CREATE INDEX facts_factset_id_fact_path_id_idx ON facts(factset_id, fact_path_id)"))
+
+(defn fix-missing-edges-fk-constraint []
+  (when-not (sutils/constraint-exists? "certnames" "edges_certname_fkey")
+    (log/info (trs "Cleaning up orphaned edges"))
+
+    (jdbc/do-commands
+     (str "SELECT e.*"
+          "  INTO edges_transform"
+          "  FROM edges e"
+          "  INNER JOIN certnames c ON e.certname = c.certname")
+     (str "ALTER TABLE edges_transform"
+          "  ALTER COLUMN certname SET NOT NULL,"
+          "  ALTER COLUMN source SET NOT NULL,"
+          "  ALTER COLUMN target SET NOT NULL,"
+          "  ALTER COLUMN type SET NOT NULL")
+     (str "DROP TABLE edges")
+     (str "ALTER TABLE edges_transform RENAME TO edges")
+     (str "ALTER TABLE ONLY edges ADD CONSTRAINT edges_certname_fkey"
+          "  FOREIGN KEY (certname)"
+          "  REFERENCES certnames(certname)"
+          "  ON DELETE CASCADE")
+     (str "ALTER TABLE ONLY edges"
+          "  ADD CONSTRAINT edges_certname_source_target_type_unique_key"
+          "  UNIQUE (certname, source, target, type)"))))
+(defn add-latest-report-timestamp-to-certnames []
+  (jdbc/do-commands
+    "DROP INDEX IF EXISTS idx_certnames_latest_report_timestamp"
+    "ALTER TABLE certnames DROP COLUMN IF EXISTS latest_report_timestamp"
+    "ALTER TABLE certnames ADD COLUMN latest_report_timestamp timestamp with time zone"
+    "CREATE INDEX idx_certnames_latest_report_timestamp ON certnames(latest_report_timestamp)"))
 
 (defn reports-partial-indices
   []
   (jdbc/do-commands
-    "create index reports_noop_idx on reports(noop) where noop = true"
-    "create index reports_cached_catalog_status_on_fail on reports(cached_catalog_status) where cached_catalog_status = 'on_failure'"))
+   "create index reports_noop_idx on reports(noop) where noop = true"
+   "create index reports_cached_catalog_status_on_fail on reports(cached_catalog_status) where cached_catalog_status = 'on_failure'"))
 
 (defn add-job-id []
   (jdbc/do-commands
-    "alter table reports add column job_id text default null"
-    "alter table catalogs add column job_id text default null"
-    "create index reports_job_id_idx on reports(job_id) where job_id is not null"
-    "create index catalogs_job_id_idx on catalogs(job_id) where job_id is not null"))
+   "alter table reports add column job_id text default null"
+   "alter table catalogs add column job_id text default null"
+   "create index reports_job_id_idx on reports(job_id) where job_id is not null"
+   "create index catalogs_job_id_idx on catalogs(job_id) where job_id is not null"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
@@ -1302,8 +1337,11 @@
    56 merge-fact-values-into-facts
    57 add-package-tables
    58 add-gin-index-on-resource-params-cache
-   59 reports-partial-indices
-   60 add-job-id})
+   59 improve-facts-factset-id-index
+   60 fix-missing-edges-fk-constraint
+   61 add-latest-report-timestamp-to-certnames
+   62 reports-partial-indices
+   63 add-job-id})
 
 (def desired-schema-version (apply max (keys migrations)))
 

@@ -7,7 +7,6 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 46a738afa24b0cabb80789d1243e3a2b6368e517\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1031,6 +1030,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/queue.clj
 msgid "Cannot enqueue item of type {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Cleaning up orphaned edges"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
