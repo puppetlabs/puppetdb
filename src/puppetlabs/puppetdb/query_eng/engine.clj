@@ -257,7 +257,9 @@
                                        [:= :certnames.certname :fs.certname]
 
                                        :reports
-                                       [:= :certnames.latest_report_id :reports.id]
+                                       [:and
+                                        [:= :certnames.certname :reports.certname]
+                                        [:= :certnames.latest_report_id :reports.id]]
 
                                        [:environments :catalog_environment]
                                        [:= :catalog_environment.id :catalogs.environment_id]
@@ -899,7 +901,9 @@
                                                    :field (hsql-hash-as-str :reports.hash)}}
                :selection {:from [:certnames]
                            :join [:reports
-                                  [:= :reports.id :certnames.latest_report_id]]}
+                                  [:and
+                                   [:= :certnames.certname :reports.certname]
+                                   [:= :certnames.latest_report_id :reports.id]]]}
 
                :alias "latest_report"
                :subquery? false
