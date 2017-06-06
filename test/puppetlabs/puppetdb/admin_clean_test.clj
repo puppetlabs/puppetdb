@@ -143,8 +143,7 @@
           clean (fn [req]
                   (utils/noisy-future
                    (checked-admin-post "cmd" (clean-cmd req)))
-                  (await-a-while after-clean
-                                 default-timeout-ms TimeUnit/MILLISECONDS))]
+                  (await-a-while after-clean))]
       (with-redefs [cli-svc/clean-puppetdb (fn [& args]
                                              (apply orig-clean args)
                                              (await-a-while after-clean))]
