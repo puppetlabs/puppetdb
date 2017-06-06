@@ -62,7 +62,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
             Http.multi_arity_get(http_instance,
                                  path,
                                  headers,
-                                 { :metric_id => [:puppetdb, :facts, :find, request.key] })
+                                 { :metric_id => [:puppetdb, :facts, :find] })
           end
         end
         log_x_deprecation_header(response)
