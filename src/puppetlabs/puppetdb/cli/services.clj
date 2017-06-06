@@ -304,18 +304,21 @@
   context)
 
 (defn initialize-schema
-  "Ensure the database is migrated to the latest version, and warn if
-  it's deprecated, log and exit if it's unsupported.
-
-  This function will return true iff any migrations were run."
+  "Ensures the database is migrated to the latest version, and returns
+  true iff any migrations were run.  Throws
+  {:type ::unsupported-database :current version :oldest version} if
+  the current database is not supported."
   [db-conn-pool config]
   (jdbc/with-db-connection db-conn-pool
-    (scf-store/validate-database-version (get-in config [:database :min-required-version] [9 6])
-                                         #(utils/flush-and-exit 1))
-    @sutils/db-metadata
-    (let [migrated? (migrate! db-conn-pool)]
-      (indexes! config)
-      migrated?)))
+    (let [current (:version @sutils/db-metadata)]
+      (when (neg? (compare current scf-store/oldest-supported-db))
+        (throw+ {:type ::unsupported-database
+                 :current current
+                 :oldest scf-store/oldest-supported-db}))
+      @sutils/db-metadata
+      (let [migrated? (migrate! db-conn-pool)]
+        (indexes! config)
+        migrated?))))
 
 (defn init-with-db
   "All initialization operations needing a database connection should
@@ -323,9 +326,10 @@
   `write-db-config` that will hang until it is able to make a
   connection to the database. This covers the case of the database not
   being fully started when PuppetDB starts. This connection pool will
-  be opened and closed within the body of this function.
-
-  This function will return true iff any migrations were run."
+  be opened and closed within the body of this function.  Returns true
+  iff any migrations were run.  Throws
+  {:type ::unsupported-database :current version :oldest version} if the
+  current database is not supported."
   [write-db-config config]
   (loop [db-spec (assoc write-db-config
                         ;; Block waiting to grab a connection
@@ -370,6 +374,8 @@
       (.unlock clean-lock))))
 
 (defn start-puppetdb
+  "Throws {:type ::unsupported-database :current version :oldest version} if
+  the current database is not supported."
   [context config service get-registered-endpoints]
   {:pre [(map? context)
          (map? config)]
@@ -430,6 +436,15 @@
                :clean-lock clean-lock
                :command-loader command-loader)))))
 
+(defn db-unsupported-msg
+  "Returns a message describing which databases are supported."
+  [current oldest]
+  (trs "PostgreSQL {0}.{1} is no longer supported.  Please upgrade to {2}.{3}."
+       (first current)
+       (second current)
+       (first oldest)
+       (second oldest)))
+
 (defprotocol PuppetDBServer
   (shared-globals [this])
   (set-url-prefix [this url-prefix])
@@ -452,14 +467,25 @@
   that trapperkeeper will call on exit."
   PuppetDBServer
   [[:DefaultedConfig get-config]
-   [:WebroutingService add-ring-handler get-registered-endpoints]]
+   [:WebroutingService add-ring-handler get-registered-endpoints]
+   [:ShutdownService shutdown-on-error]]
   (init [this context]
 
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]
           (jmx-reporter/start reporter))
         (assoc context :url-prefix (atom nil)))
   (start [this context]
-         (start-puppetdb context (get-config) this get-registered-endpoints))
+         (try+
+          (start-puppetdb context (get-config) this get-registered-endpoints)
+          (catch [:type ::unsupported-database] {:keys [current oldest]}
+            (let [msg (db-unsupported-msg current oldest)
+                  attn (utils/attention-msg msg)]
+              (utils/println-err attn)
+              (log/error attn)
+              ;; Until TK-445 is resolved, we won't be able to avoid the
+              ;; backtrace on exit this causes.
+              (shutdown-on-error (service-id this)
+                                 #(throw (Exception. msg)))))))
 
   (stop [this context]
         (doseq [{:keys [reporter]} (vals metrics/metrics-registries)]

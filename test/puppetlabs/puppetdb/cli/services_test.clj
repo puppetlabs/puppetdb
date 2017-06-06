@@ -4,7 +4,7 @@
             [puppetlabs.http.client.sync :as pl-http]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
-            [puppetlabs.puppetdb.cli.services :refer :all]
+            [puppetlabs.puppetdb.cli.services :as svcs :refer :all]
             [puppetlabs.puppetdb.testutils.db
              :refer [*db* clear-db-for-testing! with-test-db]]
             [puppetlabs.puppetdb.testutils.cli :refer [get-factsets]]
@@ -26,9 +26,10 @@
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.cheshire :as json]
             [overtone.at-at :refer [mk-pool stop-and-reset-pool!]]
-            [puppetlabs.puppetdb.testutils.queue :as tqueue])
-  (:import [java.security KeyStore]
-           [java.util.concurrent.locks ReentrantLock]))
+            [puppetlabs.puppetdb.testutils.queue :as tqueue]
+            [slingshot.slingshot :refer [throw+ try+]])
+  (:import
+   [java.util.concurrent.locks ReentrantLock]))
 
 (deftest update-checking
   (let [config-map {:global {:product-name "puppetdb"
@@ -195,6 +196,32 @@
       (is (= 200 (:status response)))
       (is (not (re-find #"Permission denied" (:body response)))))))
 
+(deftest unsupported-database-triggers-shutdown
+  (svc-utils/with-single-quiet-pdb-instance
+    (let [config (-> (get-service svc-utils/*server* :DefaultedConfig)
+                     conf/get-config)
+          expected-oldest scf-store/oldest-supported-db]
+      (doseq [v [[8 1]
+                 [8 2]
+                 [8 3]
+                 [8 4]
+                 [9 0]
+                 [9 1]
+                 [9 2]
+                 [9 3]
+                 [9 4]
+                 [9 5]]]
+        (with-redefs [sutils/db-metadata (delay {:database nil :version v})]
+          (try+
+           (initialize-schema *db* config)
+           (catch [:type ::svcs/unsupported-database] {:keys [current oldest]}
+             (is (= v current))
+             (is (= expected-oldest oldest))))))
+      (with-redefs [sutils/db-metadata (delay {:database nil :version [9 6]})]
+        (is (do
+              ;; Assumes initialize-schema is idempotent, which it is
+              (initialize-schema *db* config)
+              true))))))
 
 (defn purgeable-nodes [node-purge-ttl]
   (let [horizon (pdbtime/to-timestamp (time/ago node-purge-ttl))]

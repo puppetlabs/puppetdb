@@ -1445,19 +1445,11 @@
   {:pre [(kitchensink/datetime? time)]}
   (jdbc/delete! :reports ["producer_timestamp < ?" (to-timestamp time)]))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Database support/deprecation
-
-(defn db-unsupported-msg
-  "Returns a string with an unsupported message if the DB is not supported,
-  nil otherwise. min-version is a vector like [9 6]"
-  [min-version]
-  (when (sutils/db-version-older-than? min-version)
-    (trs "PostgreSQL DB versions older than {0}.{1} are no longer supported. Please upgrade Postgres and restart PuppetDB."
-         (first min-version) (second min-version))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
+
+(def oldest-supported-db [9 6])
 
 (pls/defn-validated add-certname!
   "Add the given host to the db"
@@ -1567,17 +1559,6 @@
   [report :- reports/report-wireformat-schema
    received-timestamp :- pls/Timestamp]
   (add-report!* report received-timestamp true))
-
-(defn validate-database-version
-  "Check the currently configured database and if it isn't supported,
-  notify the user and call fail-fn.  Then (if fail-fn returns) notify
-  the user if the database is deprecated."
-  [min-pg-version fail-fn]
-  (when-let [msg (db-unsupported-msg min-pg-version)]
-    (let [msg (utils/attention-msg msg)]
-      (utils/println-err msg)
-      (log/error msg)
-      (fail-fn))))
 
 (def ^:dynamic *orphaned-path-gc-limit* 200)
 
