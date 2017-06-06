@@ -33,7 +33,7 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
             Http.multi_arity_get(http_instance,
                                  path,
                                  headers,
-                                 { :metric_id => [:puppetdb, :resource, :search, request.key] })
+                                 { :metric_id => [:puppetdb, :resource, :search] })
           end
         end
 

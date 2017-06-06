@@ -14,7 +14,7 @@ describe Puppet::Resource::Puppetdb do
 
   describe "#search" do
     let(:host) { 'default.local' }
-    let(:options) { {:metric_id => [:puppetdb, :resource, :search, 'exec']} }
+    let(:options) { {:metric_id => [:puppetdb, :resource, :search]} }
 
     def search(type)
       # The API for creating scope objects is different between Puppet 2.7 and
@@ -86,7 +86,7 @@ describe Puppet::Resource::Puppetdb do
 
       def stub_response(resource_hashes)
         body = resource_hashes.to_json
-        options = { :metric_id => [:puppetdb, :resource, :search, 'File'] }
+        options = { :metric_id => [:puppetdb, :resource, :search] }
 
         response = Net::HTTPOK.new('1.1', 200, 'OK')
         response.stubs(:body).returns body
