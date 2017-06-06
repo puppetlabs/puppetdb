@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: ebd677eb5669e4d6c27d12b93a5da7c38090e722\n"
+"X-Git-Ref: 3d3a568d33c0db601398cec7eb91afc75dba6a53\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -269,6 +269,10 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
 msgid "PuppetDB version {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/cli/services.clj
+msgid "PostgreSQL {0}.{1} is no longer supported.  Please upgrade to {2}.{3}."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/command.clj
