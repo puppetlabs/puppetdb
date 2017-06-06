@@ -1258,6 +1258,30 @@
     "DROP INDEX IF EXISTS facts_factset_id_fact_path_id_idx"
     "CREATE INDEX facts_factset_id_fact_path_id_idx ON facts(factset_id, fact_path_id)"))
 
+(defn fix-missing-edges-fk-constraint []
+  (when-not (sutils/constraint-exists? "certnames" "edges_certname_fkey")
+    (log/info (trs "Cleaning up orphaned edges"))
+
+    (jdbc/do-commands
+     (str "SELECT e.*"
+          "  INTO edges_transform"
+          "  FROM edges e"
+          "  INNER JOIN certnames c ON e.certname = c.certname")
+     (str "ALTER TABLE edges_transform"
+          "  ALTER COLUMN certname SET NOT NULL,"
+          "  ALTER COLUMN source SET NOT NULL,"
+          "  ALTER COLUMN target SET NOT NULL,"
+          "  ALTER COLUMN type SET NOT NULL")
+     (str "DROP TABLE edges")
+     (str "ALTER TABLE edges_transform RENAME TO edges")
+     (str "ALTER TABLE ONLY edges ADD CONSTRAINT edges_certname_fkey"
+          "  FOREIGN KEY (certname)"
+          "  REFERENCES certnames(certname)"
+          "  ON DELETE CASCADE")
+     (str "ALTER TABLE ONLY edges"
+          "  ADD CONSTRAINT edges_certname_source_target_type_unique_key"
+          "  UNIQUE (certname, source, target, type)"))))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1294,7 +1318,8 @@
    56 merge-fact-values-into-facts
    57 add-package-tables
    58 add-gin-index-on-resource-params-cache
-   59 improve-facts-factset-id-index})
+   59 improve-facts-factset-id-index
+   60 fix-missing-edges-fk-constraint})
 
 (def desired-schema-version (apply max (keys migrations)))
 
