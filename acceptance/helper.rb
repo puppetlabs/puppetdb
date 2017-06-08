@@ -265,11 +265,14 @@ module PuppetDBExtensions
   end
 
   def get_package_version(host, version = nil)
-
     if version == 'latest'
       return 'latest'
     elsif version.nil?
       version = PuppetDBExtensions.config[:package_build_version].to_s
+      # If no version was defined, default to latest.
+      if version == ''
+        return 'latest'
+      end
     end
 
     # version can look like:
@@ -335,7 +338,7 @@ module PuppetDBExtensions
       expected_version = get_package_version(host)
 
       Beaker::Log.notify "Expecting package version: '#{expected_version}', actual version: '#{installed_version}'"
-      if installed_version != expected_version
+      if installed_version != expected_version and expected_version != 'latest'
         raise RuntimeError, "Installed version '#{installed_version}' did not match expected version '#{expected_version}'"
       end
     end
