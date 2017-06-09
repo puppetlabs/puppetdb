@@ -310,11 +310,13 @@
   the current database is not supported."
   [db-conn-pool config]
   (jdbc/with-db-connection db-conn-pool
-    (let [current (:version @sutils/db-metadata)]
-      (when (neg? (compare current scf-store/oldest-supported-db))
+    (let [current (:version @sutils/db-metadata)
+          oldest (get-in config [:database :min-required-version]
+                           scf-store/oldest-supported-db)]
+      (when (neg? (compare current oldest))
         (throw+ {:type ::unsupported-database
                  :current current
-                 :oldest scf-store/oldest-supported-db}))
+                 :oldest oldest}))
       @sutils/db-metadata
       (let [migrated? (migrate! db-conn-pool)]
         (indexes! config)
