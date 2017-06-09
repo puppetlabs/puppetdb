@@ -59,10 +59,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
         response = Http.action("/pdb/query/v4/nodes/#{CGI.escape(request.key)}/facts", :query) do |http_instance, path|
           profile("Query for nodes facts: #{URI.unescape(path)}",
                   [:puppetdb, :facts, :find, :query_nodes, request.key]) do
-            Http.multi_arity_get(http_instance,
-                                 path,
-                                 headers,
-                                 { :metric_id => [:puppetdb, :facts, :find] })
+            http_instance.get(path, headers, { :metric_id => [:puppetdb, :facts, :find] })
           end
         end
         log_x_deprecation_header(response)
@@ -130,10 +127,7 @@ class Puppet::Node::Facts::Puppetdb < Puppet::Indirector::REST
         response = Http.action("/pdb/query/v4/nodes?query=#{query_param}", :query) do |http_instance, path|
           profile("Fact query request: #{URI.unescape(path)}",
                   [:puppetdb, :facts, :search, :query_request, request.key]) do
-            Http.multi_arity_get(http_instance,
-                                 path,
-                                 headers,
-                                 { :metric_id => [:puppetdb, :facts, :search] })
+            http_instance.get(path, headers, { :metric_id => [:puppetdb, :facts, :search] })
           end
         end
         log_x_deprecation_header(response)
