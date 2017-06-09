@@ -30,7 +30,7 @@ describe Puppet::Util::Puppetdb::Command do
             param_map['version'].first.should == '1' &&
             param_map['command'].first.should == 'OPEN_SESAME'
           options[:compress].should == :gzip
-          options[:metric_id].should == [:puppetdb, :command, 'OPEN_SESAME', 'foo.localdomain']
+          options[:metric_id].should == [:puppetdb, :command, 'OPEN_SESAME']
         end.returns(httpok)
 
         subject.submit

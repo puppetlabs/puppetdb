@@ -13,7 +13,7 @@ describe Puppet::Node::Facts::Puppetdb do
 
   CommandReplaceFacts = Puppet::Util::Puppetdb::CommandNames::CommandReplaceFacts
 
-  let(:http) { HttpClientTest.new }
+  let(:http) { stub 'http' }
 
   before :each do
     Puppet::Util::Puppetdb.config.stubs(:server_urls).returns [URI("https://localhost:8282")]
@@ -154,7 +154,7 @@ describe Puppet::Node::Facts::Puppetdb do
       Puppet::Node::Facts.indirection.find('some_node')
     end
 
-    let(:options) { {:metric_id => [:puppetdb, :facts, :find, 'some_node']} }
+    let(:options) { {:metric_id => [:puppetdb, :facts, :find]} }
 
     it "should return the facts if they're found" do
       body = [{"certname" => "some_node", "environment" => "production", "name" => "a", "value" => "1"},
