@@ -826,21 +826,19 @@ authentication. Authorized clients must be signed by the CA that corresponds to 
 ### `cipher-suites`
 
 Optional. A comma-separated list of cryptographic ciphers to allow for
-incoming SSL connections. Valid names are listed in the [official JDK
-cryptographic providers
-documentation](http://docs.oracle.com/javase/7/docs/technotes/guides/security/SunProviders.html#SupportedCipherSuites). Note that you must use the all-caps cipher suite name.
+incoming SSL connections. Valid names are listed in the
+[official JVM cryptographic providers documentation](http://docs.oracle.com/javase/8/docs/technotes/guides/security/SunProviders.html#SupportedCipherSuites). Note
+that you must use the all-caps cipher suite name.
 
-If not supplied, PuppetDB uses the default cipher suites for your
-local system on JDK versions older than 1.7.0u6. On newer JDK
-versions, PuppetDB will use only non-DHE cipher suites.
+If not supplied, PuppetDB will use only non-DHE cipher suites.
 
 ### `ssl-protocols`
 
 Optional. A comma-separated list of protocols to allow for incoming
-SSL connections. Valid names are listed in the [official JDK
-cryptographic protocol
-documentation](http://docs.oracle.com/javase/7/docs/technotes/guides/security/SunProviders.html#SunJSSEProvider). Note that you must use the names with verbatim capitalization. For
-example: `TLSv1, TLSv1.1, TLSv1.2`.
+SSL connections. Valid names are listed in the
+[official JVM cryptographic protocol documentation](http://docs.oracle.com/javase/8/docs/technotes/guides/security/SunProviders.html#SunJSSEProvider). Note
+that you must use the names with verbatim capitalization. For example:
+`TLSv1, TLSv1.1, TLSv1.2`.
 
 If not supplied, PuppetDB uses a default of `TLSv1, TLSv1.1, TLSv1.2`. By default, SSLv3 is not included in that list due to known vulnerabilities. Users wanting to use SSLv3 need to explicitly specify it in their list.
 

@@ -66,7 +66,7 @@ through PuppetDB's query APIs (see the navigation sidebar for details).
 System requirements
 -----
 
-### \*nix server with JDK 1.7+ (Debian) or JDK 1.8+ (RHEL-derived)
+### \*nix server with JVM 1.8+
 
 #### Standard install: RHEL, CentOS, Debian, and Ubuntu
 
@@ -85,12 +85,12 @@ following operating systems:
 
 #### Custom install: Any Unix-like OS
 
-If you're willing to do some manual configuration, PuppetDB can run on any
-Unix-like OS with JDK 1.7 or higher, including:
+If you're willing to do some manual configuration, PuppetDB can run on
+any Unix-like OS with JVM 8 or newer, including:
 
-* Recent MacOS X versions (using built-in Java 1.8 support)
-* Nearly any Linux distribution (using Java 1.8)
-* Nearly any \*nix system running a recent Oracle-provided 1.8 JDK
+* Recent MacOS X versions (using built-in support)
+* Nearly any Linux distribution using OpenJDK 8 or Oracle JDK 8
+* Nearly any \*nix distribution using OpenJDK 8 or Oracle JDK 8
 
 [See here for advanced installation instructions.][install_advanced]
 
