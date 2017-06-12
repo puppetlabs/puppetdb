@@ -175,7 +175,7 @@
                                                [puppetlabs/trapperkeeper-webserver-jetty9 "2.0.0"]
                                                [org.clojure/tools.nrepl nil]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "1.1.6"]]}
+                      :plugins [[puppetlabs/lein-ezbake "1.4.0"]]}
              :testutils {:source-paths ^:replace ["test"]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}
              :test {:jvm-opts ~(if need-permgen?
