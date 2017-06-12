@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+set -ueo pipefail
+set -x
+
+ulimit -u 4096
+
+cat /etc/hosts
+hostname --fqdn
+
+run-tests()
+(
+  selector="$1"
+  pgdir="$(pwd)/test-resources/var/pg"
+  export PGHOST=127.0.0.1
+  export PGPORT=5432
+  ext/bin/setup-pdb-pg "$pgdir"
+  ext/bin/pdb-test-env "$pgdir" lein test "$selector"
+)
+
+java -version
+
+test $# -eq 1
+test_type="$1"
+
+case "$test_type" in
+  --unit)
+    run-tests :unit
+    ;;
+  --integration)
+    java -version
+    ruby -v
+    bundle install --without acceptance
+    lein install-gems
+    run-tests :integration
+    ;;
+  *)
+    echo "Invalid test type requested: $test_type" 1>&2
+    exit 1
+    ;;
+esac
