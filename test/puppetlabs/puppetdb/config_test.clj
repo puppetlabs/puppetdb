@@ -51,13 +51,6 @@
         (is (.contains out-str
                        (format "The configuration item `%s`" (name cmd-proc-key)))))))
 
-  (testing "retired dlo config"
-    (let [cmd-proc-config {:command-processing {:dlo-compression-threshold "1d"}}
-          out-str (with-out-str
-                    (binding [*err* *out*]
-                      (configure-command-processing cmd-proc-config)))]
-      (is (.contains out-str "The configuration item `dlo-compression-threshold`"))))
-
   (let [with-ncores (fn [cores]
                       (with-redefs [kitchensink/num-cpus (constantly cores)]
                         (half-the-cores*)))]

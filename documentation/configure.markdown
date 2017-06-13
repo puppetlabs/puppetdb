@@ -335,13 +335,10 @@ The main difference in the config file is that you must be sure to add
 
 ### `gc-interval`
 
-This controls how often, in minutes, to compact the database. The compaction
-process reclaims space and deletes unnecessary rows. If not supplied, the
-default is every 60 minutes.
-
-If `gc-interval` is set to zero, all database GC processes will be disabled. When
-using this value, you should explicitly set a `dlo-compression-interval` if your
-system will receive any commands.
+This controls how often, in minutes, to compact the database. The
+compaction process reclaims space and deletes unnecessary rows. If not
+supplied, the default is every 60 minutes.  If set to zero, all
+database GC processes will be disabled.
 
 ### `node-ttl`
 
@@ -660,29 +657,6 @@ If your load is low, your disk is fast (i.e. an SSD), and commands
 aren't being processed quickly enough, then you could increasing this
 value in order to alleviate that, but this is unlikely to be the
 bottleneck for command processing.
-
-### `dlo-compression-interval`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-Any PuppetDB instance which receives commands must perform periodic maintenance
-on the message queue. This setting controls the interval at which that process
-is performed. By default, it is equal to `gc-interval` (60 minutes by default).
-You may wish to set this explicitly if you are using a zero `gc-interval`.
-
-### `dlo-compression-threshold`
-
-**Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
-from PuppetDB in a future release.
-
-This setting specifies the maximum duration to keep messages in the
-dead-letter office before archiving them. This process will check for
-compressible messages on startup and after every `gc-interval`, but
-will only perform the archive once per
-`dlo-compression-threshold`. The same format can be used as for the
-`node-ttl` setting above. If set to zero seconds, this behavior will be
-disabled. The default value is one day.
 
 ### `store-usage`
 
