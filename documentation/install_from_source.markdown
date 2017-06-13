@@ -27,13 +27,13 @@ Step 1: Installation prerequisites
 
 Use your system's package tools to ensure that the following prerequisites are installed:
 
-* (Optional) Puppet Server 2.x or higher
+* (Optional) Puppet Server 2.x or newer
 * A working Puppet agent or server setup (for ssl-setup to succeed)
-* Facter, version 3 or higher
-* JDK 1.7 or higher
+* Facter, version 3 or newer
+* JDK 8 or newer
 * [Leiningen][]
 * Git (for checking out the source code)
-* Rake (version 0.9.6 or higher)
+* Rake (version 0.9.6 or newer)
 
 Step 2, option A: Install from source
 -----
