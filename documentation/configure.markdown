@@ -13,6 +13,7 @@ canonical: "/puppetdb/latest/configure.html"
 [puppetdb.conf]: ./connect_puppet_master.html#edit-puppetdbconf
 [ha]: ./ha.html
 [node-ttl]: #node-ttl
+[admin-cmd]: api/admin/v1/cmd.html
 
 Summary
 -----
@@ -373,6 +374,16 @@ for the relevant nodes. This TTL may be specified the same way as `node-ttl` abo
 
 If unset, nodes are purged after 14 days. If set to 0s, auto-deletion of nodes
 is disabled.
+
+### `node-purge-gc-batch-limit`
+
+Nodes will be purged in batches of this size, one batch per
+`gc-interval`.  If unset, the batch limit will be 25, and if you
+expect to generate eligible nodes faster than that (on average), you
+should either increase this limit so that PuppetDB will be able to
+keep up, or complement the automatic GC process with manual
+`purge_node` requests to the [cmd endpoint][admin-cmd] to cover the
+excess.
 
 ### `report-ttl`
 

@@ -5,6 +5,8 @@ canonical: "/puppetdb/latest/api/admin/v1/cmd.html"
 ---
 
 [curl]: ../../query/curl.html#using-curl-from-localhost-non-sslhttp
+[config-purge-limit]: ../../../configure.markdown#node-purge-gc-batch-limit
+
 
 The `/cmd` endpoint can be used to trigger PuppetDB maintenance
 operations.  Only one maintenance operation can be running at a time.
@@ -21,12 +23,23 @@ The POST request should specify `Content-Type: application/json` and
 the request body should look like this:
 
   ```json
-  {"version" : 1, "payload" : ["REQUESTED_OPERATION", "..."]}
+  {"version" : 1, "payload" : [REQUESTED_OPERATION, ...]}
   ```
 
-where valid `REQUESTED_OPERATION`s are `expire_nodes`, `purge_nodes`,
-`purge_reports`, `gc_packages`, and `other`.  An empty payload vector requests
-all maintenance operations.
+where valid `REQUESTED_OPERATION`s are `"expire_nodes"`,
+`"purge_nodes"`, `"purge_reports"`, `"gc_packages"`, and `"other"`.
+In addition, a purge_nodes operation can be structured like this to
+specify a batch_limit:
+
+  ```json
+  ["purge_nodes" {"batch_limit" : 50}]
+  ```
+
+When specified, the `batch_limit` restricts the maximum number of
+nodes purged to the value specified, and if not specified, the limit
+will be the [`node-purge-gc-batch-limit`][config-purge-batch-limit].
+
+An empty payload vector requests all maintenance operations.
 
 ### URL parameters
 
