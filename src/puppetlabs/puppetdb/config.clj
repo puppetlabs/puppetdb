@@ -78,7 +78,6 @@
   (merge database-config-in
          (all-optional
            {:gc-interval (pls/defaulted-maybe s/Int 60)
-            :dlo-compression-interval s/Int
             :report-ttl (pls/defaulted-maybe String "14d")
             :node-purge-ttl (pls/defaulted-maybe String "14d")
             :node-purge-gc-batch-limit (pls/defaulted-maybe s/Int 25)
@@ -111,7 +110,6 @@
   "Schema for parsed/processed database config that includes write database params"
   (merge database-config-out
          {:gc-interval Minutes
-          (s/optional-key :dlo-compression-interval) Minutes
           :report-ttl Period
           :node-purge-ttl Period
           :node-purge-gc-batch-limit (s/constrained s/Int (complement neg?))
@@ -151,7 +149,6 @@
      :concurrent-writes (pls/defaulted-maybe s/Int (min half-the-cores 4))
 
      ;; Deprecated
-     :dlo-compression-threshold (pls/defaulted-maybe String "1d")
      :max-frame-size (pls/defaulted-maybe s/Int 209715200)
      :store-usage s/Int
      :temp-usage s/Int
@@ -165,7 +162,6 @@
    :concurrent-writes s/Int
 
    ;; Deprecated
-   :dlo-compression-threshold Period
    :max-frame-size s/Int
    (s/optional-key :memory-usage) s/Int
    (s/optional-key :store-usage) s/Int
@@ -248,7 +244,7 @@
   (configure-section config :developer developer-config-in developer-config-out))
 
 (def retired-cmd-proc-keys
-  [:dlo-compression-threshold :store-usage :max-frame-size :temp-usage :memory-usage])
+  [:store-usage :max-frame-size :temp-usage :memory-usage])
 
 (defn warn-command-processing-retirements
   [config]
@@ -271,7 +267,6 @@
   [config]
   (-> config
       (configure-section :database write-database-config-in write-database-config-out)
-      (update :database #(utils/assoc-when % :dlo-compression-interval (:gc-interval %)))
       configure-read-db
       configure-command-processing
       configure-puppetdb))
