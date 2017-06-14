@@ -11,6 +11,9 @@ install: true
 aliases:
   - &pg-ver 9.4
 
+cache:
+  directories:
+    - $HOME/.m2
 
 jobs:
   include:
