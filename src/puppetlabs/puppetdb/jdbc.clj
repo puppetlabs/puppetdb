@@ -371,28 +371,33 @@
   `(retry-sql* ~n (fn [] ~@body)))
 
 (defn with-transacted-connection-fn
-  "Calls f within a transaction with the specified clojure.jdbc
-  isolation level.  If isolation is nil :read-committed will be used.
+  "Calls f within a transaction with the specified clojure.jdbc isolation level.
+  If isolation is nil, the connection pool default (read committed) is used.
   Retries the transaction up to 5 times."
   [db-spec isolation f]
-  (retry-sql 5
-             (with-db-connection db-spec
-               (with-db-transaction [:isolation (or isolation :read-committed)]
-                 (f)))))
+  ;; We've set up the connection pool to have read-committed isolation by
+  ;; default; don't explicitly specify it, as that can lead to redundant
+  ;; round-trips
+  (let [isolation (if (= :read-committed isolation)
+                    nil
+                    isolation)]
+    (retry-sql 5
+               (with-db-connection db-spec
+                 (with-db-transaction [:isolation isolation]
+                   (f))))))
 
 (defmacro with-transacted-connection'
   "Executes the body within a transaction with the specified clojure.jdbc
-  isolation level.  If isolation is nil :read-committed will be used.
-  Retries the transaction up to 5 times."
+  isolation level. If isolation is nil, the connection pool default (read
+  committed) is used. Retries the transaction up to 5 times."
   [db-spec tx-isolation-level & body]
   `(with-transacted-connection-fn ~db-spec ~tx-isolation-level
      (fn []
        ~@body)))
 
 (defmacro with-transacted-connection
-  "Executes the body within a transaction with a clojure.jdbc
-  isolation level of :read-committed.  Retries the transaction up to 5
-  times."
+  "Executes the body within a transaction with isolation level read-committed.
+  Retries the transaction up to 5 times."
   [db-spec & body]
   `(with-transacted-connection-fn ~db-spec nil
      (fn []
@@ -431,7 +436,8 @@
      (doto config
        (.setJdbcUrl (str "jdbc:" subprotocol ":" subname))
        (.setAutoCommit false)
-       (.setInitializationFailFast false))
+       (.setInitializationFailFast false)
+       (.setTransactionIsolation "TRANSACTION_READ_COMMITTED"))
      (some->> pool-name (.setPoolName config))
      (some->> connection-timeout (.setConnectionTimeout config))
      (some->> maximum-pool-size (.setMaximumPoolSize config))
