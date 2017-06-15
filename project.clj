@@ -1,6 +1,6 @@
 (def pdb-version "5.0.0-SNAPSHOT")
 (def puppetserver-version "5.0.0-master-SNAPSHOT")
-(def clj-parent-version "0.8.0")
+(def clj-parent-version "1.2.1")
 
 (defn deploy-info
   "Generate deployment information from the URL supplied and the username and
@@ -54,7 +54,7 @@
                  [puppetlabs/stockpile "0.0.4"]
                  [puppetlabs/tools.namespace "0.2.4.1"]
                  [puppetlabs/trapperkeeper]
-                 [puppetlabs/trapperkeeper-webserver-jetty9 "2.0.0"]
+                 [puppetlabs/trapperkeeper-webserver-jetty9]
                  [puppetlabs/trapperkeeper-metrics :exclusions [ring/ring-defaults org.slf4j/slf4j-api]]
                  [puppetlabs/trapperkeeper-status]
 
@@ -138,7 +138,7 @@
                    :dependencies [[ring-mock]
                                   [puppetlabs/trapperkeeper :classifier "test"]
                                   [puppetlabs/kitchensink :classifier "test"]
-                                  [puppetlabs/trapperkeeper-webserver-jetty9 "2.0.0" :classifier "test"]
+                                  [puppetlabs/trapperkeeper-webserver-jetty9 :classifier "test"]
                                   [puppetlabs/puppetserver ~puppetserver-version]
                                   [puppetlabs/puppetserver ~puppetserver-version :classifier "test"]
                                   [org.flatland/ordered "1.5.3"]
@@ -172,7 +172,6 @@
                                                ;; ezbake (EZ-35); without it, bootstrap.cfg will not be included
                                                ;; in the final package.
                                                [puppetlabs/puppetdb ~pdb-version]
-                                               [puppetlabs/trapperkeeper-webserver-jetty9 "2.0.0"]
                                                [org.clojure/tools.nrepl nil]]
                       :name "puppetdb"
                       :plugins [[puppetlabs/lein-ezbake "1.4.0"]]}
