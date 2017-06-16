@@ -53,15 +53,18 @@
    route-param-key :- s/Keyword]
   (cmdi/wrap-routes route #(parent-check % version entity route-param-key)))
 
+(defn wrap-apply-active-node-restriction [handler]
+  (fn [req]
+    (cond
+      (some-> req :puppetdb-query :ast_only http-q/coerce-to-boolean) (handler req)
+      (= ["from" "packages"] (some->> req :puppetdb-query :query (take 2))) (handler req)
+      :else (handler (http-q/restrict-query-to-active-nodes req)))))
+
 (pls/defn-validated root-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (cmdi/ANY "" []
-            (-> (comp (http-q/query-handler version)
-                      (fn [req]
-                        (cond
-                          (some-> req :puppetdb-query :ast_only http-q/coerce-to-boolean) req
-                          (= ["from" "packages"] (some->> req :puppetdb-query :query (take 2))) req
-                          :else (http-q/restrict-query-to-active-nodes req))))
+            (-> (http-q/query-handler version)
+                wrap-apply-active-node-restriction
                 (http-q/extract-query-pql {:optional (conj paging/query-params "ast_only")
                                            :required ["query"]}))))
 
