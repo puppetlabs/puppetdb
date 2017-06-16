@@ -11,13 +11,10 @@ def initialize_repo_on_host(host, os, nightly)
 
     if options[:type] == 'aio' then
       if nightly
-        ## PC1 repos
-        on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-pc1-$(lsb_release -sc).deb"
-        on host, "dpkg -i puppetlabs-release-pc1-$(lsb_release -sc).deb"
+        ## puppet5 repos
+        on host, "curl -O http://apt.puppetlabs.com/puppet5-nightly-release-$(lsb_release -sc).deb"
+        on host, "dpkg -i puppet5-nightly-release-$(lsb_release -sc).deb"
 
-        ## Nightly repos
-        on host, "curl -o /etc/apt/sources.list.d/pl-puppetserver-latest-$(lsb_release -sc).list http://nightlies.puppetlabs.com/puppetserver-latest/repo_configs/deb/pl-puppetserver-latest-$(lsb_release -sc).list"
-        on host, "curl -o /etc/apt/sources.list.d/pl-puppet-agent-latest-$(lsb_release -sc).list http://nightlies.puppetlabs.com/puppet-agent-latest/repo_configs/deb/pl-puppet-agent-latest-$(lsb_release -sc).list"
       else
         on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-pc1-$(lsb_release -sc).deb"
         on host, "dpkg -i puppetlabs-release-pc1-$(lsb_release -sc).deb"
@@ -36,13 +33,10 @@ def initialize_repo_on_host(host, os, nightly)
       arch = $3
 
       if nightly
-        ## PC1 repos
-        on host, "curl -O http://yum.puppetlabs.com/puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
-        on host, "rpm -i puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
+        ## puppet5 repos
+        on host, "curl -O http://yum.puppetlabs.com/puppet5-nightly/puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
+        on host, "rpm -i puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
 
-        ## Nightly repos
-        on host, "curl -o /etc/yum.repos.d/pl-puppetserver-latest-#{variant}-#{version}-#{arch}.repo http://nightlies.puppetlabs.com/puppetserver-latest/repo_configs/rpm/pl-puppetserver-latest-#{variant}-#{version}-#{arch}.repo"
-        on host, "curl -o /etc/yum.repos.d/pl-puppet-agent-latest-#{variant}-#{version}-#{arch}.repo http://nightlies.puppetlabs.com/puppet-agent-latest/repo_configs/rpm/pl-puppet-agent-latest-#{variant}-#{version}-#{arch}.repo"
       else
         on host, "curl -O http://yum.puppetlabs.com/puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
         on host, "rpm -i puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
