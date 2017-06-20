@@ -24,13 +24,22 @@ lein-pprint() {
     lein with-profile dev,ci pprint "$@" | sed -e 's/^"//' -e 's/"$//'
 }
 
+case "$#" in
+  0) version=master ;;
+  1) version="$1" ;;
+  *)
+    echo 'Usage: install-puppetserver [VERSION]' >&2
+    exit 1
+    ;;
+esac
+
 git clone https://github.com/puppetlabs/puppetserver
 
 cd puppetserver
-git checkout "$PUPPETSERVER_VERSION"
+git checkout "$version"
 lein install
-MAVEN_VER="$(lein-pprint :version)"
-echo "$MAVEN_VER"
+maven_ver="$(lein-pprint :version)"
+echo "$maven_ver"
 cd ..
 
-update_dependency_var project.clj puppetserver-version "$MAVEN_VER"
+update_dependency_var project.clj puppetserver-version "$maven_ver"

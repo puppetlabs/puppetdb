@@ -1,0 +1,82 @@
+#!/usr/bin/env python2
+
+from __future__ import print_function
+from os import environ
+from pipes import quote
+from pprint import pprint
+from subprocess import check_call, check_output
+from sys import exit, stderr
+from urllib2 import Request, urlopen
+import json, urllib2
+
+cmdurl = 'https://api.travis-ci.com/repo/puppetlabs%2Fpe-puppetdb-extensions'
+
+# https://docs.travis-ci.com/user/environment-variables/#Default-Environment-Variables
+repo_owner, repo_name = environ['TRAVIS_REPO_SLUG'].split('/', 2)
+if (repo_owner, repo_name) != ('puppetlabs', 'puppetdb'):
+    exit(0)
+
+token = environ['PDB_EXT_TRAVIS_TOKEN']
+
+def msg(msg, end=None):
+    print(msg, file=stderr, end=end)
+
+def exo(cmd):
+    msg(' '.join(quote(arg) for arg in cmd))
+    return check_output(cmd)
+
+def travis_get(url):
+    global token
+    req = Request(url, None,
+                  {'Accept' : 'application/json',
+                   'Travis-API-Version' : '3',
+                   'Authorization' : 'token ' + token})
+    resp = urlopen(req)
+    status = resp.getcode()
+    msg('response status: %r' % status)
+    assert status == 200
+    return resp.read()
+
+def travis_post(url, body):
+    global token
+    msg('POST %r' % url)
+    data = json.dumps(body)
+    req = Request(url, data,
+                  {'Content-Type' : 'application/json',
+                   'Accept' : 'application/json',
+                   'Travis-API-Version' : '3',
+                   'Authorization' : 'token ' + token})
+    resp = urlopen(req)
+    status = resp.getcode()
+    msg('response status: %r' % status)
+    assert status == 202
+    resp_data = resp.read()
+    return resp_data
+
+def extensions_branch_exists(branch):
+    global cmdurl
+    url = cmdurl + '/branch/' + urllib2.quote(branch)
+    msg('GET %r' % url)
+    info = json.loads(travis_get(url))
+    if info.get('@type') == 'error':
+        if info['error_type'] == 'not_found':
+            return False
+        msg(info)
+        raise Exception('unexpected error response')
+    assert info['@type'] == 'branch'
+    return True
+
+# See if travis knows about a branch with the same name in extensions,
+# and if so, kick off a build of the tip.
+
+current_branch = exo(('git', 'rev-parse', '--abbrev-ref', 'HEAD'))[:-1]
+current_branch = 'master'
+msg('checking for extensions branch: %r' % current_branch)
+if extensions_branch_exists(current_branch):
+    msg('found %r (triggering extensions test)' % current_branch)
+    response = travis_post(cmdurl + '/requests',
+                           {"request" : {"branch" : current_branch}})
+    response = json.loads(response)
+    msg('requests remaining: %r' % response['remaining_requests'])
+else:
+    msg('no %r branch in extensions, not requesting tests' % current_branch)
