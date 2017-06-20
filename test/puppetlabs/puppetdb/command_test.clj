@@ -132,6 +132,14 @@
   (queue/create-command-req "replace catalog" version certname nil "" identity
                             (tqueue/coerce-to-stream payload)))
 
+(s/defn function-that-needs-int-via-schema [x :- s/Int]
+  x)
+
+(defn function-that-needs-int-via-precondition [x]
+  {:pre [(integer? x)]}
+  x)
+
+
 (deftest command-processor-integration
   (let [v5-catalog (get-in wire-catalogs [5 :empty])]
     (testing "correctly formed messages"
@@ -146,6 +154,26 @@
 
         (testing "when a fatal error occurs should be discarded to the dead letter queue"
           (with-redefs [process-command-and-respond! (fn [& _] (throw+ (fatality (Exception. "fatal error"))))]
+            (with-message-handler {:keys [handle-message dlo delay-pool q]}
+              (let [discards (discard-count)]
+                (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
+                (is (= (inc discards) (discard-count))))
+              (is (= 0 (count (scheduled-jobs delay-pool))))
+              (is (= 2 (count (fs/list-dir (:path dlo))))))))
+
+        (testing "when a schema error occurs should be discarded to the dead letter queue"
+          (with-redefs [process-command-and-respond! (fn [& _] (upon-error-throw-fatality
+                                                                (function-that-needs-int-via-schema "string")))]
+            (with-message-handler {:keys [handle-message dlo delay-pool q]}
+              (let [discards (discard-count)]
+                (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
+                (is (= (inc discards) (discard-count))))
+              (is (= 0 (count (scheduled-jobs delay-pool))))
+              (is (= 2 (count (fs/list-dir (:path dlo))))))))
+
+        (testing "when a precondition error occurs should be discarded to the dead letter queue"
+          (with-redefs [process-command-and-respond! (fn [& _] (upon-error-throw-fatality
+                                                                (function-that-needs-int-via-precondition "string")))]
             (with-message-handler {:keys [handle-message dlo delay-pool q]}
               (let [discards (discard-count)]
                 (handle-message (queue/store-command q (catalog->command-req 5 v5-catalog)))
