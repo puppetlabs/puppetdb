@@ -1,100 +1,136 @@
-language: clojure
-lein: 2.7.1
-dist: trusty
 
+dist: trusty
 # Always explicitly set sudo.  Otherwise travis' defaults may vary
 # based on when the repository testing was enabled.
 sudo: required
 
-matrix:
+# Disable automagic
+language: c
+install: true
+
+aliases:
+  - &pg-ver 9.4
+
+cache:
+  directories:
+    - $HOME/.m2
+
+jobs:
   include:
-    # terminus unit tests (spec tests)
-    - env: >
-        NAME=rspec-puppet-4.0
-        PDB_TEST_LANG=ruby
-        PUPPET_VERSION=4.0.0
 
-    - env: >
-        NAME=rspec-puppet-latest
-        PDB_TEST_LANG=ruby
-        PUPPET_VERSION=latest
+    # === unit tests
+    - stage: run pdb tests
+      env: PDB_TEST=unit/openjdk8
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use openjdk8
+        && ext/bin/install-puppetserver
+        && ext/travisci/run-clj-tests --unit
 
-    # pdb unit tests
-    - env: >
-        NAME=unit-openjdk8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:unit
-      jdk: openjdk8
+    - stage: run pdb tests
+      env: PDB_TEST=unit/openjdk7
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use openjdk7
+        && ext/bin/install-puppetserver
+        && ext/travisci/run-clj-tests --unit
 
-    - env: >
-        NAME=unit-openjdk7
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:unit
-      jdk: openjdk7
+    - stage: run pdb tests
+      env: PDB_TEST=unit/oraclejdk8
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use oraclejdk8
+        && ext/bin/install-puppetserver
+        && ext/travisci/run-clj-tests --unit
 
-    - env: >
-        NAME=unit-oracle8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:unit
-      jdk: oraclejdk8
+    - stage: run pdb tests
+      env: PDB_TEST=unit/oraclejdk7
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use oraclejdk7
+        && ext/bin/install-puppetserver
+        && ext/travisci/run-clj-tests --unit
 
-    - env: >
-        NAME=unit-oracle7
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:unit
-      jdk: oraclejdk7
 
-    # pdb + terminus + puppetserver + puppet integration tests
-    - env: >
-        NAME=integration-stable-openjdk7
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=4.8.0
-        PUPPETSERVER_VERSION=2.7.2
-      jdk: openjdk7
+    # === integration tests
+    - stage: run pdb tests
+      env: PDB_TEST=int/openjdk7/pup-4.8.0/srv-2.7.2
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use openjdk7
+        && ext/bin/install-puppetserver 2.7.2
+        && PUPPET_VERSION=4.8.0 ext/travisci/run-clj-tests --integration
 
-    - env: >
-        NAME=integration-stable-openjdk8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=4.8.0
-        PUPPETSERVER_VERSION=2.7.2
-      jdk: openjdk8
+    - stage: run pdb tests
+      env: PDB_TEST=int/openjdk8/pup-4.8.0/srv-2.7.2
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use openjdk8
+        && ext/bin/install-puppetserver 2.7.2
+        && PUPPET_VERSION=4.8.0 ext/travisci/run-clj-tests --integration
 
-    - env: >
-        NAME=integration-latest-puppet-openjdk8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=latest
-        PUPPETSERVER_VERSION=2.7.2
-      jdk: openjdk8
+    - stage: run pdb tests
+      env: PDB_TEST=int/openjdk8/pup-latest/srv-2.7.2
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use openjdk8
+        && ext/bin/install-puppetserver 2.7.2
+        && PUPPET_VERSION=latest ext/travisci/run-clj-tests --integration
 
-    - env: >
-        NAME=integration-stable-oraclejdk8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=4.8.0
-        PUPPETSERVER_VERSION=2.7.2
-      jdk: oraclejdk8
+    - stage: run pdb tests
+      env: PDB_TEST=int/oraclejdk8/pup-4.8.0/srv-2.7.2
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use oraclejdk8
+        && ext/bin/install-puppetserver 2.7.2
+        && PUPPET_VERSION=4.8.0 ext/travisci/run-clj-tests --integration
 
-    - env: >
-        NAME=integration-latest-puppet-oraclejdk8
-        PDB_TEST_LANG=clojure
-        PDB_TEST_SELECTOR=:integration
-        PUPPET_VERSION=latest
-        PUPPETSERVER_VERSION=2.7.2
-      jdk: oraclejdk8
+    - stage: run pdb tests
+      env: PDB_TEST=int/oraclejdk8/pup-latest/srv-2.7.2
+      addons:
+        postgresql: *pg-ver
+      services: postgresql
+      script: >-
+        jdk_switcher use oraclejdk8
+        && ext/bin/install-puppetserver 2.7.2
+        && PUPPET_VERSION=latest ext/travisci/run-clj-tests --integration
 
-before_install: ext/travisci/install_puppetserver.sh
-script: ext/travisci/test.sh
+
+    # === spec tests
+    - stage: run pdb tests
+      env: PDB_TEST=spec/pup-4.0.0
+      script: PUPPET_VERSION=4.0.0 ext/travisci/run-spec-tests
+
+    - stage: run pdb tests
+      env: PDB_TEST=spec/pup-latest
+      script: PUPPET_VERSION=latest ext/travisci/run-spec-tests
+
 
 notifications:
   email: false
   hipchat:
     rooms:
       secure: gZpfMrGsUEHKzHfDaq8S00Xd35gzwEzcAy5/VV7JOGcmXLyWlx7ojh/Ke4rJ1vOa59OlazyCt5o8uDhB0CcQnZ2Aa6ncoOyLpLLjO8/Ak8qsxPLgC4Ov/zuRA4oTvxqZtaR7Juwbeobp5lB1OSFb7o4G747tC2Ihd1Nhx717tdQ=
-    template:
-      - '%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message} (<a href="%{build_url}">Details</a>/<a href="%{compare_url}">Change view</a>)'
+    template: >-
+      %{commit_subject}
+      / %{repository} %{branch} <a href="%{compare_url}">%{commit}</a> %{author}
+      / <a href="%{build_url}">#%{build_number}</a> %{result} in %{elapsed_time}
     format: html
 
 # Host addons handle buffer overflow in jdk 7 with travis' long
@@ -108,6 +144,3 @@ addons:
   hosts:
     - pdbtest
   hostname: pdbtest
-  postgresql: "9.4"
-
-services: postgresql
