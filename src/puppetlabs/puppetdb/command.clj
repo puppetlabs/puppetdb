@@ -233,10 +233,12 @@
 
 (defmacro upon-error-throw-fatality
   [& body]
-  `(try+
+  `(try
     ~@body
-    (catch Throwable e#
-      (throw+ (fatality e#)))))
+    (catch Exception e1#
+      (throw+ (fatality e1#)))
+    (catch AssertionError e2#
+      (throw+ (fatality e2#)))))
 
 ;; ## Command submission
 
