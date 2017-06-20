@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: a98d9fc09ebf50c622df88ccb2f7e9e958a9ed7e\n"
+"X-Git-Ref: 2cba12b796933d47f4886aaf1feab999a54a5f48\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -672,14 +672,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
 msgid "Processing command with a content-length of {0} bytes"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/middleware.clj
-msgid "No content length found for POST."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/middleware.clj
-msgid "POST bodies that are too large could cause memory-related failures."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/middleware.clj
