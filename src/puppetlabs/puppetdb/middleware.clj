@@ -274,11 +274,6 @@
             (when (and command version)
               (cmd/create-metrics-for-command! command version)
               (update! (cmd/cmd-metric command version :size) length-in-bytes))))
-        (when-not length-in-bytes
-          (log/warn (str
-                     (trs "No content length found for POST.")
-                     " "
-                     (trs "POST bodies that are too large could cause memory-related failures."))))
 
         (if (and length-in-bytes
                  reject-large-commands?
