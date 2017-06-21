@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.http.handlers
   (:require [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.pql :as pql]
             [bidi.schema :as bidi-schema]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.query.paging :as paging]
@@ -16,7 +17,9 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
             [clojure.walk :refer [keywordize-keys]]
-            [puppetlabs.i18n.core :refer [trs]]))
+            [puppetlabs.i18n.core :refer [trs]]
+            [puppetlabs.puppetdb.cheshire :as json]
+            [clojure.java.io :as io]))
 
 (def params-schema {(s/optional-key :optional) [s/Str]
                     (s/optional-key :required) [s/Str]})
@@ -60,13 +63,30 @@
       (= ["from" "packages"] (some->> req :puppetdb-query :query (take 2))) (handler req)
       :else (handler (http-q/restrict-query-to-active-nodes req)))))
 
+(defn req-body->stream [req req-body-map]
+  ;; Convert POST req map back into stream for other handlers
+  (let [body-stream (java.io.ByteArrayInputStream. (.getBytes (json/generate-string req-body-map) "UTF8"))]
+    (assoc req :body body-stream)))
+
+(defn wrap-handle-graphql-query [handler]
+  (fn [{:keys [params] :as req}]
+    (let [post-query (when (:body req) (json/parse-stream (io/reader (:body req))))]
+      (cond
+        (and post-query (= \{ (first (post-query "query")))) (http/json-response
+                                                              {:message "This is experimental, check back later"})
+        post-query (handler (req-body->stream req post-query))
+        (= \{ (first (get params "query"))) (http/json-response
+                                             {:message "This is experimental, check back later"})
+        :else (handler req)))))
+
 (pls/defn-validated root-routes :- bidi-schema/RoutePair
   [version :- s/Keyword]
   (cmdi/ANY "" []
             (-> (http-q/query-handler version)
                 wrap-apply-active-node-restriction
                 (http-q/extract-query-pql {:optional (conj paging/query-params "ast_only")
-                                           :required ["query"]}))))
+                                           :required ["query"]})
+                wrap-handle-graphql-query)))
 
 (defn report-data-responder
   "Respond with either metrics or logs for a given report hash.

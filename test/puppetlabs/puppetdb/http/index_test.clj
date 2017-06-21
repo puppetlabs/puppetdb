@@ -84,6 +84,12 @@
         (are-error-response-headers headers)
         (is (= status http/status-bad-request))))
 
+    (testing "test graphql query"
+      (doseq [query ["{nodes { certname }}"]]
+        (let [results (ordered-query-result method endpoint query)]
+          (is (= 1 (count results)))
+          (is (true? (some #(= :message %) (nth results 0)))))))
+
     (testing "pagination"
       (testing "with order_by parameter"
         (doseq [query [["from" "nodes"]
