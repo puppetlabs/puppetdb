@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.http.handlers
   (:require [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.pql :as pql]
             [bidi.schema :as bidi-schema]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.query.paging :as paging]
