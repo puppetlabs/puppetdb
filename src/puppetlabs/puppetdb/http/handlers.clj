@@ -66,7 +66,7 @@
   ;; Convert POST body back into stream for other handlers
   (-> (json/generate-string req-body-map)
       (.getBytes "UTF8")
-      (io/ByteArrayInputStream.)
+      (java.io.ByteArrayInputStream.)
       (->> (assoc req :body))))
 
 (defn wrap-handle-graphql-query [handler]
