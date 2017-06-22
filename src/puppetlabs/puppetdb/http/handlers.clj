@@ -63,19 +63,26 @@
       :else (handler (http-q/restrict-query-to-active-nodes req)))))
 
 (defn req-body->stream [req req-body-map]
-  ;; Convert POST req map back into stream for other handlers
-  (let [body-stream (java.io.ByteArrayInputStream. (.getBytes (json/generate-string req-body-map) "UTF8"))]
-    (assoc req :body body-stream)))
+  ;; Convert POST body back into stream for other handlers
+  (-> (json/generate-string req-body-map)
+      (.getBytes "UTF8")
+      (io/ByteArrayInputStream.)
+      (->> (assoc req :body))))
 
 (defn wrap-handle-graphql-query [handler]
+  ;; Check req, if graphql redirect to new endpoint, else pass on
   (fn [{:keys [params] :as req}]
-    (let [post-query (when (:body req) (json/parse-stream (io/reader (:body req))))]
+    (let [post-query (when (:body req)
+                       (json/parse-stream (io/reader (:body req))))]
       (cond
-        (and post-query (= \{ (first (post-query "query")))) (http/json-response
-                                                              {:message "This is experimental, check back later"})
+        (and post-query (= \{ (first (post-query "query"))))
+        (http/json-response {:message "This is experimental, check back later"})
+
         post-query (handler (req-body->stream req post-query))
-        (= \{ (first (get params "query"))) (http/json-response
-                                             {:message "This is experimental, check back later"})
+
+        (= \{ (first (get params "query")))
+        (http/json-response {:message "This is experimental, check back later"})
+
         :else (handler req)))))
 
 (pls/defn-validated root-routes :- bidi-schema/RoutePair
