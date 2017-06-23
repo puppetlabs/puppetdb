@@ -15,7 +15,7 @@ return an HTTP conflict status (409).
 
 ## `POST /pdb/admin/v1/cmd`
 
-The maintanance operations must be triggered by a POST.
+The maintenance operations must be triggered by a POST.
 
 ### Request format
 
