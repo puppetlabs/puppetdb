@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.2: PuppetDB HA"
+title: "PuppetDB 5.0: PuppetDB HA"
 layout: default
 ---
 

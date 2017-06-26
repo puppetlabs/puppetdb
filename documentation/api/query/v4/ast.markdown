@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.4: AST query language"
+title: "PuppetDB 5.0: AST query language"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/ast.html"
 ---
@@ -20,7 +20,7 @@ canonical: "/puppetdb/latest/api/query/v4/ast.html"
 [entities]: ./entities.html
 [pql]: ./pql.html
 [urlencode]: http://en.wikipedia.org/wiki/Percent-encoding
-[to-char]: http://www.postgresql.org/docs/9.4/static/functions-formatting.html
+[to-char]: http://www.postgresql.org/docs/9.6/static/functions-formatting.html
 
 ## Summary
 
@@ -104,7 +104,7 @@ The following example would match if the `certname` field's actual value resembl
 
 > **Note:** Regular expression matching is performed by the database
 > backend, so the available
-> [regexp features](http://www.postgresql.org/docs/9.4/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
+> [regexp features](http://www.postgresql.org/docs/9.6/static/functions-matching.html#POSIX-SYNTAX-DETAILS)
 > are determined by PostgreSQL. For best results, use the simplest
 > and most common features that can accomplish your task.
 

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.2 » Logging Configuration"
+title: "PuppetDB 5.0 » Logging Configuration"
 layout: default
 ---
 

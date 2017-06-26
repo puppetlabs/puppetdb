@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.4 overview"
+title: "PuppetDB 5.0 overview"
 layout: default
 ---
 
@@ -37,8 +37,8 @@ To start using PuppetDB today:
 Version note
 -----
 
-This manual covers the 4.0.x series of PuppetDB releases, which adds several new
-features and contains some breaking changes since the 3.x series.
+This manual covers PuppetDB 5, which adds several new features and
+contains some breaking changes since PuppetDB 4.
 
 [See the release notes][releasenotes] for information on all
 changes.
@@ -70,14 +70,14 @@ System requirements
 
 #### Standard install: RHEL, CentOS, Debian, and Ubuntu
 
-Puppet provides packages and a Puppet module for PuppetDB which simplify setup
-of its SSL certificates and init scripts. These packages are available for the
-following operating systems:
+Puppet provides PuppetDB packages and a module which simplify the
+setup of its SSL certificates and init scripts. The packages are
+available for the following operating systems:
 
-* Red Hat Enterprise Linux 6.6+ and 7 (and any derived distro that includes Java
-  1.8)
+* Red Hat Enterprise Linux 6.6+ and 7
 * Debian 7 (Wheezy) and 8 (Jessie)
-* Ubuntu 12.04 LTS, 14.04 LTS
+* Ubuntu 12.04 (Precise) LTS, 14.04 (Trusty) LTS, 15.10 (Wily), and
+  16.04 (Xenial) LTS
 
 [See here for instructions for installing via the PuppetDB module.][install_via_module]
 
@@ -94,17 +94,17 @@ any Unix-like OS with JVM 8 or newer, including:
 
 [See here for advanced installation instructions.][install_advanced]
 
-### Puppet 4.0.0
+### Puppet 5.0.0
 
-Your site's Puppet masters must be running Puppet 4.0.0 or later.
+Your site's Puppet masters must be running Puppet Server 5.0.0 or later.
 [You will need to connect your Puppet masters to PuppetDB after installing it][connect].
 If you wish to use PuppetDB with
-[standalone nodes that are running puppet apply][apply], every node must be
-running 3.8.1 or later.
+[standalone nodes that are running puppet apply][apply], every node
+must be running 5.0.0 or later.
 
-### PostgreSQL 9.4
+### PostgreSQL 9.6
 
-PuppetDB requires PostgreSQL 9.4 or later. If not provided by your distribution,
+PuppetDB requires PostgreSQL 9.6 or later. If not provided by your distribution,
 compatible versions of Postgres can be installed from the PGDG (PostgreSQL Global
 Development Group) repositories. See apt.postgresql.org or yum.postgresql.org for
 more information.

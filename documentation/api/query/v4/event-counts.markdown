@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.4: Event counts endpoint"
+title: "PuppetDB 5.0: Event counts endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/event-counts.html"
 ---
