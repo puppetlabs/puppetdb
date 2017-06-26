@@ -54,7 +54,8 @@
                 "/events" handlers/events-routes
                 "/event-counts" handlers/event-counts-routes
                 "/aggregate-event-counts" handlers/agg-event-counts-routes
-                "/reports" handlers/reports-routes}))))
+                "/reports" handlers/reports-routes
+                "/graphql" handlers/graphql}))))
 
 (defn build-app
   "Generates a Ring application that handles PuppetDB requests.

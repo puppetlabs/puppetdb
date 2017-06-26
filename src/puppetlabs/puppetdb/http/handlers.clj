@@ -422,3 +422,9 @@
    (cmdi/ANY "" []
              (create-query-handler version
                                    "aggregate_event_counts"))))
+
+(pls/defn-validated graphql :- bidi-schema/RoutePair
+  [version :- s/Keyword]
+  (extract-query
+   (cmdi/ANY "" []
+             (http/json-response {:message "This is experimental, check back later"}))))
