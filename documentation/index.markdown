@@ -76,8 +76,7 @@ available for the following operating systems:
 
 * Red Hat Enterprise Linux 6.6+ and 7
 * Debian 7 (Wheezy) and 8 (Jessie)
-* Ubuntu 12.04 (Precise) LTS, 14.04 (Trusty) LTS, 15.10 (Wily), and
-  16.04 (Xenial) LTS
+* 14.04 (Trusty) LTS and 16.04 (Xenial) LTS
 
 [See here for instructions for installing via the PuppetDB module.][install_via_module]
 
