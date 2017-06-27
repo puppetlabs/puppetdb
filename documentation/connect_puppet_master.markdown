@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.4: Connecting Puppet masters to PuppetDB"
+title: "PuppetDB 5.0: Connecting Puppet masters to PuppetDB"
 layout: default
 canonical: "/puppetdb/latest/connect_puppet_master.html"
 ---
@@ -16,7 +16,8 @@ canonical: "/puppetdb/latest/connect_puppet_master.html"
 [report_format]: ./api/wire_format/report_format_v5.html
 [puppetdb_server_urls]: ./puppetdb_connection.html#serverurls
 
-> Note: To use PuppetDB, your site's Puppet master(s) must be running Puppet version 4.0.0 or later.
+> Note: To use PuppetDB, your site's Puppet master(s) must be running
+> Puppet version 5.0.0 or later.
 
 Once PuppetDB is installed and running, configure your Puppet master(s) to use it. When properly connected to PuppetDB, Puppet masters will do the following:
 
@@ -42,7 +43,8 @@ Currently, Puppet masters need additional Ruby plug-ins in order to use PuppetDB
 If your Puppet master isn't running Puppet from a supported package, you will need to install the plugins manually:
 
 * [Download the PuppetDB source code][puppetdb_download], unzip it, and navigate into the resulting directory in your terminal.
-* Run `sudo cp -R puppet/lib/puppet/ /usr/lib/ruby/site_ruby/1.8/puppet`. Replace the second path with the path to your Puppet installation if you have installed it somewhere other than `/usr/lib/ruby/site_ruby`. If you are using Puppet version 4.0.0 or later, replace the second path with the path to the Ruby supplied by Puppet at `/opt/puppetlabs/puppet/lib/ruby/vendor_ruby/puppet`.
+
+* Run `sudo cp -R puppet/lib/puppet/ /opt/puppetlabs/puppet/lib/ruby/vendor_ruby/puppet`
 
 ## Step 2: Edit configuration files
 

@@ -1,10 +1,10 @@
 ---
-title: "PuppetDB 4.4 » Metrics API » v1 » Upgrading to PuppetDB 4"
+title: "PuppetDB 5.0 » Metrics API » v1 » Upgrading to PuppetDB 4 or newer"
 layout: default
 canonical: "/puppetdb/latest/api/metrics/v1/changes-from-puppetdb-v3.html"
 ---
 
-Most of the metrics' names have changed in PuppetDB 4 to standardize with other
+Most of the metrics' names changed in PuppetDB 4 to standardize with other
 Puppet components and provide a more intuitive naming scheme. This document
 details the correspondence between the metric names before and after PuppetDB
 4.

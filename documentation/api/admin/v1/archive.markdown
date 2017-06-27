@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.4: Archive endpoint"
+title: "PuppetDB 5.0: Archive endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/admin/v1/archive.html"
 ---

@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 4.4: Package endpoints"
+title: "PuppetDB 5.0: Package endpoints"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/packages.html"
 ---

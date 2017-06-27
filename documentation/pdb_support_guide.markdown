@@ -1,11 +1,11 @@
 ---
-title: "PuppetDB 4.4: Support and Troubleshooting Guide"
+title: "PuppetDB 5.0: Support and Troubleshooting Guide"
 layout: default
 ---
 
 [commands]: ./api/command/v1/commands.html#list-of-commands
 [threads]: ./configure.html#threads
-[pgstattuple]: http://www.postgresql.org/docs/9.4/static/pgstattuple.html
+[pgstattuple]: http://www.postgresql.org/docs/9.6/static/pgstattuple.html
 [pgtune]: https://github.com/gregs1104/pgtune
 [postgres-config]: http://www.postgresql.org/docs/current/static/runtime-config-resource.html
 [fact-precedence]: {{facter}}/custom_facts.html#fact-precedence
