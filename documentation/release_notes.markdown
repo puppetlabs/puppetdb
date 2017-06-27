@@ -27,6 +27,12 @@ Puppet Agent 5 or newer, JVM 8 or newer, PostgreSQL 9.6 or newer, and
 the fact that the root query endpoint now filters inactive nodes by
 default.
 
+For anyone tracking PuppetDB development at
+https://github.com/puppetlabs/puppetdb, note that as of this release,
+there will no longer be a stable branch.  All development for older
+"Y" releases (X.Y.Z) will happen on the relevant version branch, for
+example (4.4.x).
+
 ### Upgrading
 
 * PuppetDB requires PostgreSQL 9.6 or newer.  Support for versions
