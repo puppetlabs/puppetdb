@@ -7,6 +7,7 @@
             [honeysql.core :as hcore]
             [honeysql.helpers :as hsql]
             [honeysql.types :as htypes]
+            [honeysql.format :as hformat]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.facts :as facts]
@@ -1207,12 +1208,34 @@
         [:is-not lhs nil])))
 
   AndExpression
-  (-plan->sql [expr]
-    (concat [:and] (map -plan->sql (:clauses expr))))
+  (-plan->sql [{:keys [clauses]}]
+    ;; Transform queries of the form
+    ;;    (and (in [col1 col2] A) (in [col1 col2] B) ...)
+    ;; to
+    ;;    (in [col1 col2] (intersect A B ...))
+    ;; as postgres can deal with them better
+    (if (and (every? (partial instance? InExpression) clauses)
+             (apply = (map :column clauses)))
+      [:in
+       (mapv :field (-> clauses first :column))
+       {:intersect (mapv (comp -plan->sql :subquery)
+                         clauses)}]
+      (concat [:and] (map -plan->sql clauses))))
 
   OrExpression
-  (-plan->sql [expr]
-    (concat [:or] (map -plan->sql (:clauses expr))))
+  (-plan->sql [{:keys [clauses]}]
+    ;; Transform queries of the form
+    ;;    (or (in [col1 col2] A) (in [col1 col2] B) ...)
+    ;; to
+    ;;    (in [col1 col2] (union A B ...))
+    ;; as postgres can deal with them better
+    (if (and (every? (partial instance? InExpression) clauses)
+             (apply = (map :column clauses)))
+      [:in
+       (mapv :field (-> clauses first :column))
+       {:union (mapv (comp -plan->sql :subquery)
+                     clauses)}]
+      (concat [:or] (map -plan->sql clauses))))
 
   NotExpression
   (-plan->sql [expr]
