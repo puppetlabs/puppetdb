@@ -1263,6 +1263,13 @@
     {:node (assoc node :value qmarks :field column)
      :state (reduce conj state parameters)}))
 
+
+;; This was removed in HoneySQL 0.7.0, changing its parameter requirements for
+;; queries including numbers. Restore the old behavior here.
+(extend-protocol hformat/ToSql
+  java.lang.Number
+  (to-sql [x] (str x)))
+
 (defn extract-params
   "Extracts the node's expression value, puts it in state
    replacing it with `?`, used in a prepared statement"
