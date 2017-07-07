@@ -16,8 +16,8 @@ def initialize_repo_on_host(host, os, nightly)
         on host, "dpkg -i puppet5-nightly-release-$(lsb_release -sc).deb"
 
       else
-        on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-pc1-$(lsb_release -sc).deb"
-        on host, "dpkg -i puppetlabs-release-pc1-$(lsb_release -sc).deb"
+        on host, "curl -O http://apt.puppetlabs.com/puppet-release-$(lsb_release -sc).deb"
+        on host, "dpkg -i puppet-release-$(lsb_release -sc).deb"
       end
     else
       on host, "curl -O http://apt.puppetlabs.com/puppetlabs-release-$(lsb_release -sc).deb"
@@ -38,8 +38,8 @@ def initialize_repo_on_host(host, os, nightly)
         on host, "rpm -i puppet5-nightly-release-#{variant}-#{version}.noarch.rpm"
 
       else
-        on host, "curl -O http://yum.puppetlabs.com/puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
-        on host, "rpm -i puppetlabs-release-pc1-#{variant}-#{version}.noarch.rpm"
+        on host, "curl -O http://yum.puppetlabs.com/puppet/puppet-release-#{variant}-#{version}.noarch.rpm"
+        on host, "rpm -i puppet-release-#{variant}-#{version}.noarch.rpm"
       end
     else
       on host, "yum clean all -y"

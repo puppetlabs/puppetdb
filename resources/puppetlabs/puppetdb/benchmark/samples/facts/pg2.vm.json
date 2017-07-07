@@ -9253,8 +9253,8 @@
             "gem"
         ],
         [
-            "puppetlabs-release-pc1",
-            "1.1.0-4jessie",
+            "puppet-release",
+            "1.0.0-1jessie",
             "apt"
         ],
         [
