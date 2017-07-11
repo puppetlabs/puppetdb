@@ -362,7 +362,8 @@
                              "value_string" {:type :string
                                             :query-only? true
                                             :queryable? false
-                                            :field :f.value_string}
+                                            :field :f.value_string
+                                            :compare-via-hash? true}
                              "value_boolean" {:type :boolean
                                               :query-only? true
                                               :queryable? false
@@ -424,7 +425,8 @@
                              "value_string" {:type :string
                                             :query-only? true
                                             :queryable? false
-                                            :field :f.value_string}
+                                            :field :f.value_string
+                                            :compare-via-hash? true}
                              "value_boolean" {:type :boolean
                                               :query-only? true
                                               :queryable? false
@@ -1169,14 +1171,21 @@
 
  BinaryExpression
   (-plan->sql [{:keys [column operator value]}]
-    (apply vector
-           :or
-           (map #(vector operator (-plan->sql %1) (-plan->sql %2))
-                (cond
-                  (map? column) [(:field column)]
-                  (vector? column) (mapv :field column)
-                  :else [column])
-                (utils/vector-maybe value))))
+    (let [normalized-cols (cond
+                            (map? column) [column]
+                            (vector? column) column
+                            :else [{:field column}])
+          vals (utils/vector-maybe value)]
+      (apply vector
+             :or
+             (map (fn [col val]
+                    (if (and (= operator :=) (:compare-via-hash? col))
+                      (vector operator
+                              (-plan->sql (hcore/call :md5 (:field col)))
+                              (-plan->sql (hcore/call :md5 val)))
+                      (vector operator (-plan->sql (:field col)) (-plan->sql val))))
+                  normalized-cols
+                  vals))))
 
   InArrayExpression
   (-plan->sql [{:keys [column]}]
