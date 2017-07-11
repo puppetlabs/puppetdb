@@ -1131,6 +1131,15 @@
 (defprotocol SQLGen
   (-plan->sql [query] "Given the `query` plan node, convert it to a SQL string"))
 
+(defn binary-md5
+  "Wrap inner (either a string value or a column name) to convert it first to a
+  hex string and then decode the string to a bytea. Doing this for md5
+  expression indexes takes about half the space."
+  [inner]
+  (hcore/call :decode
+              (hcore/call :md5 inner)
+              (hcore/raw "'hex'")))
+
 (extend-protocol SQLGen
   Query
   (-plan->sql [{:keys [projections projected-fields where] :as query}]
@@ -1181,8 +1190,8 @@
              (map (fn [col val]
                     (if (and (= operator :=) (:compare-via-hash? col))
                       (vector operator
-                              (-plan->sql (hcore/call :md5 (:field col)))
-                              (-plan->sql (hcore/call :md5 val)))
+                              (-plan->sql (binary-md5 (:field col)))
+                              (-plan->sql (binary-md5 val)))
                       (vector operator (-plan->sql (:field col)) (-plan->sql val))))
                   normalized-cols
                   vals))))
