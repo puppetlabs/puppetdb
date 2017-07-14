@@ -160,10 +160,8 @@
                                              :facts]]
                                    :from [[{:select [:fp.name  :f.value]
                                             :from [[:facts :f]]
-                                            :join [[:fact_paths :fp]
-                                                   [:= :fp.id :f.fact_path_id]
-                                                   [:value_types :vt]
-                                                   [:= :vt.id :f.value_type_id]]
+                                            :join [[:fact_paths :fp] [:= :fp.id :f.fact_path_id]]
+                                            :left-join [[:value_types :vt] [:= :vt.id :f.value_type_id]]
                                             :where [:and
                                                     [:= :fp.depth 0]
                                                     [:= :f.factset_id :fs.id]]}
@@ -1019,10 +1017,8 @@
                                          [(hsql-hash-as-href "factsets.certname" :factsets :facts) :href]]
                                 :from [[{:select [:fp.name (h/scast :f.value :jsonb)]
                                          :from [[:facts :f]]
-                                         :join [[:fact_paths :fp]
-                                                [:= :fp.id :f.fact_path_id]
-                                                [:value_types :vt]
-                                                [:= :vt.id :f.value_type_id]]
+                                         :join [[:fact_paths :fp] [:= :fp.id :f.fact_path_id]]
+                                         :left-join [[:value_types :vt] [:= :vt.id :f.value_type_id]]
                                          :where [:and
                                                  [:= :depth 0]
                                                  [:= :f.factset_id :factsets.id]]}
