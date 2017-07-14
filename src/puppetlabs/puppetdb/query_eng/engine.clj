@@ -170,10 +170,8 @@
                              :queryable? true
                              :field  {:select [[:f.value :trusted]]
                                       :from [[:facts :f]]
-                                      :join [[:fact_paths :fp]
-                                             [:= :fp.id :f.fact_path_id]
-                                             [:value_types :vt]
-                                             [:= :vt.id :f.value_type_id]]
+                                      :join [[:fact_paths :fp] [:= :fp.id :f.fact_path_id]]
+                                      :left-join [[:value_types :vt] [:= :vt.id :f.value_type_id]]
                                       :where [:and
                                               [:= :fp.depth 0]
                                               [:= :f.factset_id :fs.id]
@@ -305,10 +303,8 @@
                                       :query-only? true
                                       :field :fp.depth}}
                :selection {:from [[:fact_paths :fp]]
-                           :join [[:facts :f]
-                                  [:= :f.fact_path_id :fp.id]
-                                  [:value_types :vt]
-                                  [:= :f.value_type_id :vt.id]]
+                           :join [[:facts :f] [:= :f.fact_path_id :fp.id]]
+                           :left-join [[:value_types :vt] [:= :f.value_type_id :vt.id]]
                            :modifiers [:distinct]
                            :where [:!= :f.value_type_id 5]}
 
@@ -375,14 +371,10 @@
                                      :field :vt.type}}
 
                :selection {:from [[:factsets :fs]]
-                           :join [[:facts :f]
-                                  [:= :fs.id :f.factset_id]
-                                  [:fact_paths :fp]
-                                  [:= :f.fact_path_id :fp.id]
-                                  [:value_types :vt]
-                                  [:= :vt.id :f.value_type_id]]
-                           :left-join [[:environments :env]
-                                       [:= :fs.environment_id :env.id]]
+                           :join [[:facts :f] [:= :fs.id :f.factset_id]
+                                  [:fact_paths :fp] [:= :f.fact_path_id :fp.id]]
+                           :left-join [[:environments :env] [:= :fs.environment_id :env.id]
+                                       [:value_types :vt] [:= :vt.id :f.value_type_id]]
                            :where [:= :fp.depth 0]}
 
                :relationships (merge certname-relations
@@ -435,14 +427,10 @@
                                      :query-only? true}}
 
                :selection {:from [[:factsets :fs]]
-                           :join [[:facts :f]
-                                  [:= :fs.id :f.factset_id]
-                                  [:fact_paths :fp]
-                                  [:= :f.fact_path_id :fp.id]
-                                  [:value_types :vt]
-                                  [:= :f.value_type_id :vt.id]]
-                           :left-join [[:environments :env]
-                                       [:= :fs.environment_id :env.id]]
+                           :join [[:facts :f] [:= :fs.id :f.factset_id]
+                                  [:fact_paths :fp] [:= :f.fact_path_id :fp.id]]
+                           :left-join [[:environments :env] [:= :fs.environment_id :env.id]
+                                       [:value_types :vt] [:= :f.value_type_id :vt.id]]
                            :where [:!= :vt.id 5]}
 
                :relationships (merge certname-relations
