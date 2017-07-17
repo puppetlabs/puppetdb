@@ -1263,19 +1263,6 @@
     {:node (assoc node :value qmarks :field column)
      :state (reduce conj state parameters)}))
 
-(defn simplify-regex-comparison [node]
-  (if-let [s (and (instance? RegexExpression node)
-                  (su/convert-regex-to-string-match (:value node)))]
-    (map->BinaryExpression {:operator :=
-                            :column (:column node)
-                            :value s})
-    node))
-
-(defn simplify-all-regex-comparisons
-  [plan]
-  (:node (zip/post-order-transform (zip/tree-zipper plan)
-                                   [simplify-regex-comparison])))
-
 (defn extract-params
   "Extracts the node's expression value, puts it in state
    replacing it with `?`, used in a prepared statement"
@@ -2234,7 +2221,6 @@
                                    (push-down-context query-rec)
                                    expand-user-query
                                    (convert-to-plan query-rec paging-options)
-                                   simplify-all-regex-comparisons
                                    extract-all-params)
         sql (-> plan fix-plan-in-expr-multi-comparisons plan->sql)
         paged-sql (jdbc/paged-sql sql paging-options)]

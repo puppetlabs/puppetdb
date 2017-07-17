@@ -66,17 +66,3 @@
   (testing "dotted path with quote"
     (is (= (dotted-query->path "facts.\"foo.bar\"baz\".biz")
            ["facts" "\"foo.bar\"baz\"" "biz"]))))
-
-(deftest convert-regex-to-string-match-test
-  (are [before after] (= after
-                         (convert-regex-to-string-match before))
-    "^asdf$" "asdf"
-    "^$" ""
-    "^.*$" nil
-    "^foo\\\\bar$" "foo\\bar"
-    "^foo\\dbar$" nil
-    "^foo\\\\dbar$" "foo\\dbar"
-    "^foo[:digit:]bar$" nil
-    "^\\(\\)\\[\\]\\.\\+\\*\\\\\\|\\$\\{\\}$" "()[].+*\\|${}"
-    )
-  )

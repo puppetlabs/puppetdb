@@ -187,32 +187,6 @@
   (hcore/raw
    (format "ARRAY[?::text] <@ %s" (name column))))
 
-(def regex-control-chars #{\( \) \[ \] \. \+ \* \\ \| \$ \{ \}})
-
-(defn convert-regex-to-string-match
-  "Some regular expressions can be implemented with plain string matching. Given
-  a regex string re, return a string that can be used for equivalent direct
-  matching, or nil if there is not such string."
-  [re]
-  (when (and
-         (= \^ (first re))
-         (= \$ (last re)))
-    (loop [[c & cs] (subs re 1 (dec (count re)))
-           escaping false
-           out []]
-      (cond
-        (nil? c) (apply str out)
-        escaping (if (regex-control-chars c)
-                   (recur cs false (conj out c))
-                   ;; anything other than a control char being escaped must be
-                   ;; something like \d, which means it's a real regex, so bail.
-                   nil)
-        (= c \\) (recur cs true out)
-        ;; non-escaped regex control chars means we can't fall back to string
-        ;; matching
-        (regex-control-chars c) nil
-        :else (recur cs false (conj out c))))))
-
 (defn sql-regexp-match
   "Returns db code for performing a regexp match."
   [column]
