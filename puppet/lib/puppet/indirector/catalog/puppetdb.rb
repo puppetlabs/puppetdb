@@ -238,6 +238,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
         # is both an optimization and a safeguard.
         next if real_resource.key_attributes.count > 1
 
+        # Symbol is correct in this context
         aliases = [real_resource[:alias]].flatten.compact
 
         # Non-isomorphic resources aren't unique based on namevar, so we can't
@@ -259,7 +260,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
           end
         end
 
-        resource['parameters'][:alias] = aliases unless aliases.empty?
+        resource['parameters']['alias'] = aliases unless aliases.empty?
       end
     end
 
@@ -306,7 +307,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
     profile("Map aliases to title (resource count: #{resources.count})",
             [:puppetdb, :aliases, :map_to_title]) do
       resources.each do |resource|
-        names = Array(resource['parameters'][:alias]) || []
+        names = Array(resource['parameters']['alias']) || []
         resource_hash = {'type' => resource['type'], 'title' => resource['title']}
         names.each do |name|
           alias_array = [resource['type'], name]
