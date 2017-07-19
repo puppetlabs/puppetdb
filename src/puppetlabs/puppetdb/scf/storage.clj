@@ -22,7 +22,7 @@
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.kitchensink.core :as ks]
+            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [com.rpl.specter :as sp]
             [clojure.java.jdbc :as sql]
             [clojure.set :as set]
@@ -822,6 +822,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Facts
 
+(defn-validated select-pid-vid-pairs-for-factset
+  :- [(s/pair s/Int "path-id" s/Int "value-id")]
+  "Return a collection of pairs of [path-id value-id] for the indicated factset."
+  [factset-id :- s/Int]
+  (for [{:keys [fact_path_id fact_value_id]}
+        (query-to-vec "SELECT fact_path_id, fact_value_id FROM facts
+                         WHERE factset_id = ?" factset-id)]
+    [fact_path_id fact_value_id]))
+
 (defn-validated certname-to-factset-id :- s/Int
   "Given a certname, returns the factset id."
   [certname :- String]
@@ -864,6 +873,38 @@
                        [factset-id])))
             candidate-chunks)))))
 
+(defn-validated delete-pending-value-id-orphans!
+  "Delete values in removed-pid-vid-pairs that are no longer mentioned
+   in facts."
+  [factset-id removed-pid-vid-pairs]
+  (when-let [removed-pid-vid-pairs (seq removed-pid-vid-pairs)]
+    (let [vid-chunks (partition-all gc-chunksize
+                                    (map second removed-pid-vid-pairs))
+          removed-fact-chunks (->> removed-pid-vid-pairs
+                                   (map cons (repeat factset-id))
+                                   (partition-all gc-chunksize))
+          vid-in-chunks (map jdbc/in-clause vid-chunks)
+          removed-facts-in-chunks (map jdbc/in-clause-multi
+                                       removed-fact-chunks (repeat 3))]
+      (dorun
+        (map (fn [in-vids in-rm-facts vids rm-facts]
+               (jdbc/do-prepared
+                 (format
+                   "DELETE FROM fact_values fv
+                    WHERE fv.id %s
+                    AND NOT EXISTS (SELECT 1 FROM facts f
+                    WHERE f.fact_value_id %s
+                    AND f.fact_value_id = fv.id
+                    AND (f.factset_id,
+                    f.fact_path_id,
+                    f.fact_value_id) NOT %s)"
+                   in-vids in-vids in-rm-facts)
+                 (flatten [vids vids rm-facts])))
+             vid-in-chunks
+             removed-facts-in-chunks
+             vid-chunks
+             removed-fact-chunks)))))
+
 (defn-validated delete-orphaned-paths! :- s/Int
   "Deletes up to n paths that are no longer mentioned by any factsets,
   and returns the number actually deleted.  These orphans can be
@@ -886,22 +927,77 @@
                           LIMIT ?)"
         [n])))))
 
+(defn-validated delete-orphaned-values! :- s/Int
+  "Deletes up to n values that are no longer mentioned by any
+  factsets, and returns the number actually deleted.  These orphans
+  can be created by races between parallel updates since (for
+  performance) we don't serialize those transactions.  Via repeatable
+  read, an update transaction may decide not to delete values that are
+  only referred to by other facts that are being changed in parallel
+  transactions to also not refer to the values."
+  [n :- (s/constrained s/Int (complement neg?))]
+  (if (zero? n)
+    0
+    (first
+     (jdbc/with-db-transaction []
+       (jdbc/do-prepared
+        "DELETE FROM fact_values
+           WHERE id in (SELECT fv.id
+                          FROM fact_values fv
+                          WHERE NOT EXISTS (SELECT 1
+                                              FROM facts f
+                                              WHERE fv.id = f.fact_value_id)
+                          LIMIT ?)"
+        [n])))))
+
 ;; NOTE: now only used in tests.
 (defn-validated delete-certname-facts!
   "Delete all the facts for certname."
   [certname :- String]
   (jdbc/with-db-transaction []
     (let [factset-id (certname-to-factset-id certname)
-          dead-pids
-          (jdbc/call-with-query-rows
-           ["select fact_path_id from facts where factset_id = ?"
-            factset-id]
-           {:as-arrays? true}
-           #(mapv first (rest %)))]
-      (jdbc/do-commands
-       (format "delete from facts where factset_id = %s" factset-id))
-      (delete-pending-path-id-orphans! factset-id dead-pids)
+          dead-pairs (select-pid-vid-pairs-for-factset factset-id)]
+      (jdbc/do-commands (format "DELETE FROM facts WHERE factset_id = %s"
+                                factset-id))
+      (delete-pending-path-id-orphans! factset-id (set (map first dead-pairs)))
+      (delete-pending-value-id-orphans! factset-id dead-pairs)
       (jdbc/delete! :factsets ["id=?" factset-id]))))
+
+(defn-validated insert-facts-pv-pairs!
+  [factset-id :- s/Int
+   pairs :- (s/cond-pre [(s/pair s/Int "path-id" s/Int "value-id")]
+                        #{(s/pair s/Int "path-id" s/Int "value-id")})]
+  (jdbc/insert-multi! :facts (for [[pid vid] pairs]
+                               {:factset_id factset-id
+                                :fact_path_id pid
+                                :fact_value_id vid})))
+
+(defn existing-row-ids
+  "Returns a map from value to id for each value that's already in the
+   named database column."
+  [table column values]
+  (into {}
+        (for [{:keys [value id]}
+              (query-to-vec
+               (format
+                "WITH values AS (SELECT unnest(?) as vals)
+                   SELECT %s AS value, id FROM %s
+                   INNER JOIN values ON values.vals = %s"
+                column table column)
+               (sutils/array-to-param "text" String values))]
+          [value id])))
+
+(defn realize-records!
+  "Inserts the records (maps) into the named table and returns them
+  with their new :id values."
+  [table munge-fn records]
+  (when (seq records)
+    (map #(assoc %1 :id %2)
+         records
+         (->> records
+              (map munge-fn)
+              (jdbc/insert-multi! table)
+              (map :id)))))
 
 (defn realize-paths!
   "Ensures that all paths exist in the database and returns a map of
@@ -931,22 +1027,23 @@
        (fn [[col-names & rows]]
          (into existing-path-ids rows))))))
 
-(defn insert-facts! [factset-id pids valuemaps]
-  (when (seq valuemaps)
-    (let [vm-keys (remove #{:large_value_hash} (keys (first valuemaps)))
-          cols (concat [:factset_id :fact_path_id :large_value_hash]
-                       vm-keys)]
-      (jdbc/insert-multi! :facts
-                          cols
-                          (map (fn [pid vm]
-                                 (apply vector
-                                        factset-id pid
-                                        (when-let [h (:large_value_hash vm)]
-                                          (sutils/munge-hash-for-storage h))
-                                        (for [key vm-keys]
-                                          (key vm))))
-                               pids
-                               valuemaps)))))
+(defn realize-values!
+  "Ensures that all valuemaps exist in the database and returns a
+  map of value hashes to ids."
+  [valuemaps]
+  (if-let [valuemaps (seq valuemaps)]
+    (let [vhashes (map :value_hash valuemaps)
+          existing-vhash-ids (existing-row-ids "fact_values"
+                                               (sutils/sql-hash-as-str "value_hash") vhashes)
+          missing-vhashes (set/difference (set vhashes)
+                                          (set (keys existing-vhash-ids)))]
+      (into existing-vhash-ids
+            (->> valuemaps
+                 (filter (comp missing-vhashes :value_hash))
+                 distinct
+                 (realize-records! :fact_values #(update % :value_hash sutils/munge-hash-for-storage))
+                 (map #(vector (:value_hash %) (:id %))))))
+    {}))
 
 (defn find-certname-id-and-hash [certname]
   (first (jdbc/query-to-vec [(format "SELECT id, %s as package_hash FROM certnames WHERE certname=?"
@@ -1072,122 +1169,84 @@
        (when include-hash?
          {:hash (sutils/munge-hash-for-storage
                  (shash/fact-identity-hash fact-data))})))
-    (let [paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
-          pathstrs (map (comp facts/factpath-to-string first) paths-and-valuemaps)
-          paths->ids (realize-paths! pathstrs)
-          valuemaps (map second paths-and-valuemaps)]
-      (when (seq package_inventory)
-        (insert-packages certname package_inventory))
+     ;; Ensure that all the required paths and values exist, and then
+     ;; insert the new facts.
+     (let [paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
+           pathstrs (map (comp facts/factpath-to-string first) paths-and-valuemaps)
+           valuemaps (map second paths-and-valuemaps)
+           vhashes (map :value_hash valuemaps)
+           paths-to-ids (realize-paths! pathstrs)
+           vhashes-to-ids (realize-values! valuemaps)
+           pairs (map #(vector (get paths-to-ids %1)
+                               (get vhashes-to-ids %2))
+                      pathstrs vhashes)]
+       (insert-facts-pv-pairs! (certname-to-factset-id certname)
+                               pairs))
 
-      (insert-facts! (certname-to-factset-id certname)
-                     (map paths->ids pathstrs)
-                     valuemaps)))))
-
-(defn- update-existing-values [factset-id change-info]
-  (when (seq change-info)
-    (sql/db-do-prepared
-     jdbc/*db* true
-     (cons
-      (str "update facts set"
-           "    value_type_id = ?,"
-           "    value_boolean = ?,"
-           "    value_integer = ?,"
-           "    value_float = ?,"
-           "    value_string = ?,"
-           "    value = ?,"
-           "    large_value_hash = ?"
-           "  where factset_id = ? and fact_path_id = ?")
-      (for [[_ path path-id new-vm] change-info]
-        [(:value_type_id new-vm)
-         (:value_boolean new-vm)
-         (:value_integer new-vm)
-         (:value_float new-vm)
-         (:value_string new-vm)
-         (:value new-vm)
-         (some-> (:large_value_hash new-vm) sutils/munge-hash-for-storage)
-         factset-id
-         path-id]))
-     {:multi? true})))
-
-(defn fact-value-changed?
-  [row new-valuemap]
-  (or (not= (:value_type_id row) (:value_type_id new-valuemap))
-      (when-let [row-hash (:large_value_hash row)]
-        (not= row-hash (:large_value_hash new-valuemap)))
-      (not= (:value row) (:value new-valuemap))))
+     (when (seq package_inventory)
+       (insert-packages certname package_inventory)))))
 
 (s/defn update-facts!
   "Given a certname, querys the DB for existing facts for that
    certname and will update, delete or insert the facts as necessary
    to match the facts argument. (cf. add-facts!)"
-  [{:keys [certname values environment timestamp producer_timestamp producer package_inventory]
-    :as fact-data} :- facts-schema]
+  [{:keys [certname values environment timestamp producer_timestamp producer package_inventory] :as fact-data}
+   :- facts-schema]
+
   (jdbc/with-db-transaction []
     (let [{:keys [package_hash certname_id factset_id]} (certname-factset-metadata certname)
           factset-id factset_id
-          paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
-          pathstrs (map #(facts/factpath-to-string (first %))
-                        paths-and-valuemaps)
-          pathstr->valuemap (into {} (map (fn [pathstr [_ vm]] [pathstr vm])
-                                          pathstrs
-                                          paths-and-valuemaps))
-          existing-status ;; :changed :unchanged :gone
-          (jdbc/call-with-query-rows
-           [(str "select"
-                 "    path, id, value_type_id, large_value_hash,"
-                 "    case when large_value_hash is null then value end as value"
-                 "  from facts as f"
-                 "  inner join fact_paths fp on f.fact_path_id = fp.id"
-                 "  where f.factset_id = ?")
-            factset-id]
-           (fn [rows]
-             (doall
-              (for [{:keys [path id] :as row} rows]
-                (if-let [new-vm (pathstr->valuemap path)]
-                  (if (fact-value-changed? row new-vm)
-                    [:changed path id new-vm]
-                    [:unchanged path id])
-                  [:gone path id])))))
+          initial-factset-paths-vhashes
+          (query-to-vec
+           (format "SELECT fp.path, %s AS value_hash FROM facts f
+                      INNER JOIN fact_paths fp ON f.fact_path_id = fp.id
+                      INNER JOIN fact_values fv ON f.fact_value_id = fv.id
+                      WHERE factset_id = ?"
+                   (sutils/sql-hash-as-str "fv.value_hash"))
+           factset-id)
+         ;; Ensure that all the required paths and values exist.
+         paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
+         pathstrs (map (comp facts/factpath-to-string first) paths-and-valuemaps)
+         valuemaps (map second paths-and-valuemaps)
+         vhashes (map :value_hash valuemaps)
+         paths-to-ids (realize-paths! pathstrs)
+         vhashes-to-ids (realize-values! valuemaps)
+         ;; Add new facts and remove obsolete facts.
+         replacement-pv-pairs (set (map #(vector (paths-to-ids %1)
+                                                 (vhashes-to-ids %2))
+                                        pathstrs vhashes))
+         current-pairs (set (select-pid-vid-pairs-for-factset factset-id))
+         [new-pairs rm-pairs] (data/diff replacement-pv-pairs current-pairs)]
 
-          rm-pids (seq (for [[st _ pid] existing-status
-                             :when (= :gone st)]
-                         pid))
-          new-pathstrs (let [have? (set (for [[st path] existing-status
-                                              :when #(#{:changed :unchanged} st)]
-                                          path))]
-                         (remove have? pathstrs))
-          new-valuemaps (map pathstr->valuemap new-pathstrs)
-          paths->ids (realize-paths! new-pathstrs)]
+     ;; Paths are unique per factset so we can delete solely based on pid.
+     (when rm-pairs
+       (let [rm-pids (set (map first rm-pairs))]
+         (jdbc/do-prepared
+          (format "DELETE FROM facts WHERE factset_id = ? AND fact_path_id %s"
+                  (jdbc/in-clause rm-pids))
+          (cons factset-id rm-pids))))
 
-      ;; Paths are unique per factset so we can delete solely based on pid.
-      (when rm-pids
-        (jdbc/do-prepared
-         (format "delete from facts where factset_id = ? and fact_path_id %s"
-                 (jdbc/in-clause rm-pids))
-         (cons factset_id rm-pids)))
+     (insert-facts-pv-pairs! factset-id new-pairs)
 
-      (insert-facts! factset_id
-                     (map paths->ids new-pathstrs)
-                     new-valuemaps)
-
-      (update-existing-values factset_id
-                              (filter #(= :changed (first %))
-                                      existing-status))
-
-      (delete-pending-path-id-orphans! factset_id rm-pids)
+     (when rm-pairs
+       (delete-pending-path-id-orphans! factset-id
+                                        (set/difference
+                                         (set (map first rm-pairs))
+                                         (set (map first new-pairs))))
+       (delete-pending-value-id-orphans! factset-id rm-pairs))
 
       (when (or package_hash (seq package_inventory))
         (update-packages certname_id package_hash package_inventory))
 
-      (jdbc/update! :factsets
-                    {:timestamp (to-timestamp timestamp)
-                     :environment_id (ensure-environment environment)
-                     :producer_timestamp (to-timestamp producer_timestamp)
-                     :hash (-> fact-data
-                               shash/fact-identity-hash
-                               sutils/munge-hash-for-storage)
-                     :producer_id (ensure-producer producer)}
-                    ["id=?" factset_id]))))
+     (jdbc/update! :factsets
+                   {:timestamp (to-timestamp timestamp)
+                    :environment_id (ensure-environment environment)
+                    :producer_timestamp (to-timestamp producer_timestamp)
+                    :hash (-> fact-data
+                              shash/fact-identity-hash
+                              sutils/munge-hash-for-storage)
+                    :producer_id (ensure-producer producer)}
+                   ["id=?" factset-id]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Reports
@@ -1451,6 +1510,7 @@
   (add-report!* report received-timestamp true))
 
 (def ^:dynamic *orphaned-path-gc-limit* 200)
+(def ^:dynamic *orphaned-value-gc-limit* 200)
 
 (defn garbage-collect!
   "Delete any lingering, unassociated data in the database"
@@ -1463,4 +1523,6 @@
    ;; These require serializable because they make the decision to
    ;; delete based on row counts in another table.
    (jdbc/with-transacted-connection' db :serializable
-     (delete-orphaned-paths! *orphaned-path-gc-limit*))))
+     (delete-orphaned-paths! *orphaned-path-gc-limit*))
+   (jdbc/with-transacted-connection' db :serializable
+     (delete-orphaned-values! *orphaned-value-gc-limit*))))

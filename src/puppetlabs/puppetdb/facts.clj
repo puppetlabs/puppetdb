@@ -39,13 +39,13 @@
    (s/optional-key :package_inventory) [package-tuple]})
 
 (def valuemap-schema
-  {:value_float (s/maybe Double)
+  {:value_hash s/Str
+   :value_float (s/maybe Double)
    :value_string (s/maybe s/Str)
    :value_integer (s/maybe s/Int)
    :value_boolean (s/maybe s/Bool)
    :value (s/maybe s/Any)
-   :value_type_id s/Int
-   :large_value_hash (s/maybe s/Str)})
+   :value_type_id s/Int})
 
 ;; GLOBALS
 
@@ -134,33 +134,26 @@
    (nil? data) 4
    (coll? data) 5))
 
-(def ^:const large-value-threshold 50)
-
 (defn value->valuemap
   [value]
   (let [type-id (value-type-id value)
-        specific-value-key (case type-id
-                             0 :value_string
-                             1 :value_integer
-                             2 :value_float
-                             3 :value_boolean
-                             ;; 4 is nil, doesn't have a key, or a jsonb rep
-                             ;; 5 is value, handled universally below
-                             nil)
-        jsonb (when-not (nil? value)
-                (sutils/munge-jsonb-for-storage value))
-        hash (when (and jsonb
-                        (>= (count (.getValue jsonb)) large-value-threshold))
-               (hash/generic-identity-hash value))]
-    (merge {:value_type_id type-id
-            :large_value_hash hash
-            :value jsonb
-            :value_string nil
-            :value_integer nil
-            :value_float nil
-            :value_boolean nil}
-           (when specific-value-key
-             {specific-value-key value}))))
+        initial-map {:value_type_id type-id
+                     :value_hash (hash/generic-identity-hash value)
+                     :value_string nil
+                     :value_integer nil
+                     :value_float nil
+                     :value_boolean nil
+                     :value nil}]
+    (if (nil? value)
+      initial-map
+      (let [value-keyword (case type-id
+                            0 :value_string
+                            1 :value_integer
+                            2 :value_float
+                            3 :value_boolean
+                            5 :value)]
+        (assoc initial-map value-keyword value
+          :value (sutils/munge-jsonb-for-storage value))))))
 
 (defn flatten-facts-with
   "Returns a collection of (leaf-fn path leaf) for all of the paths
