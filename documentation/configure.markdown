@@ -609,7 +609,7 @@ This sets the time (in minutes) for a connection to remain idle before sending a
 
 If not supplied, the default setting is 45 minutes.
 
-###`statements-cache-size`
+### `statements-cache-size`
 
 **Note**: This setting is deprecated and ignored by PuppetDB. It will be removed
 from PuppetDB in a future release.
