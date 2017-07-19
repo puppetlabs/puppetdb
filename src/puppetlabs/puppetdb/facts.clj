@@ -7,7 +7,9 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]))
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]
+            [puppetlabs.puppetdb.package-util :refer [package-tuple hashed-package-tuple
+                                                      package-tuple-hash]]))
 
 ;; SCHEMA
 
@@ -24,18 +26,6 @@
 
 (def fact-set-schema
   {s/Str s/Any})
-
-(def package-tuple
-  [(s/one s/Str "package_name")
-   (s/one s/Str "version")
-   (s/one s/Str "provider")])
-
-(def hashed-package-tuple
-  (conj package-tuple
-        (s/one s/Str "package_hash")))
-
-(defn package-tuple-hash [hashed-package-tuple]
-  (nth hashed-package-tuple 3))
 
 (def facts-schema
   {:certname String
