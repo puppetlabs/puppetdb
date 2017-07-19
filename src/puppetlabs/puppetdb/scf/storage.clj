@@ -48,9 +48,6 @@
   (:import [org.postgresql.util PGobject]
            [org.joda.time Period]))
 
-(defn sql-ts-after? [^java.sql.Timestamp x ^java.sql.Timestamp y]
-  (.after x y))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Schemas
 
@@ -420,7 +417,7 @@
   (if (seq resource-hashes)
     (let [resource-array (->> (vec resource-hashes)
                               (map sutils/munge-hash-for-storage)
-                              (sutils/array-to-param "bytea" PGobject))
+                              (sutils/array-to-param "bytea" org.postgresql.util.PGobject))
           query (format "SELECT DISTINCT %s as resource FROM resource_params_cache WHERE resource=ANY(?)"
                         (sutils/sql-hash-as-str "resource"))
           sql-params [query resource-array]]
@@ -766,7 +763,7 @@
                    latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
               (cond
                 (some-> latest-producer-timestamp
-                        (sql-ts-after? (to-timestamp producer_timestamp)))
+                        (.after (to-timestamp producer_timestamp)))
                 (log/warn (trs "Not replacing catalog for certname {0} because local data is newer." certname))
 
                 (= stored-hash hash)
@@ -934,72 +931,22 @@
        (fn [[col-names & rows]]
          (into existing-path-ids rows))))))
 
-(def ^:const db-fv-string 0)
-(def ^:const db-fv-int 1)
-(def ^:const db-fv-float 2)
-(def ^:const db-fv-bool 3)
-(def ^:const db-fv-nil 4)
-(def ^:const db-fv-struct 5)
-
-(defn fact-value-type-id [x]
-  (cond
-    (keyword? x) db-fv-string
-    (string? x) db-fv-string
-    (integer? x) db-fv-int
-    (float? x) db-fv-float
-    (kitchensink/boolean? x) db-fv-bool
-    (nil? x) db-fv-nil
-    (coll? x) db-fv-struct
-    :else (throw (Exception. (trs "Fact value {0} has unexpected type"
-                                  (pr-str x))))))
-
-(def value-row-cols
-  ;; Must match order in value->value-row immediately below
-  [:value_type_id
-   :large_value_hash
-   :value
-   :value_string
-   :value_integer
-   :value_float
-   :value_boolean])
-
-(defn storage-hash [x]
-  ;; If the return type changes here, update the PGobject check in update-facts.
-  (-> x shash/generic-identity-hash sutils/munge-hash-for-storage))
-
-(defn value->value-row
-  ([value] (value->value-row value nil))
-  ([value hash]
-   (let [jsonb (when-not (nil? value)
-                 (sutils/munge-jsonb-for-storage value))
-         large? (and jsonb (>= (count (.getValue ^PGobject jsonb))
-                               facts/large-value-threshold))
-         hash (when large?
-                (or hash (storage-hash value)))]
-     (value->value-row value hash jsonb)))
-  ([value hash jsonb]
-   (let [id (fact-value-type-id value)]
-     (condp = id
-       db-fv-string [id hash jsonb value nil nil nil]
-       db-fv-int    [id hash jsonb nil value nil nil]
-       db-fv-float  [id hash jsonb nil nil value nil]
-       db-fv-bool   [id hash jsonb nil nil nil value]
-       db-fv-struct [id hash jsonb nil nil nil nil]
-       db-fv-nil    [id hash jsonb nil nil nil nil]
-       (throw (Exception. (trs "Unexpected type {0} for {1}"
-                               (pr-str id) (pr-str value))))))))
-
-(defn insert-facts! [factset-id pids values]
-  (when (seq values)
-    (let [cols (concat [:factset_id :fact_path_id] value-row-cols)]
+(defn insert-facts! [factset-id pids valuemaps]
+  (when (seq valuemaps)
+    (let [vm-keys (remove #{:large_value_hash} (keys (first valuemaps)))
+          cols (concat [:factset_id :fact_path_id :large_value_hash]
+                       vm-keys)]
       (jdbc/insert-multi! :facts
                           cols
-                          (map (fn [pid value]
+                          (map (fn [pid vm]
                                  (apply vector
                                         factset-id pid
-                                        (value->value-row value)))
+                                        (when-let [h (:large_value_hash vm)]
+                                          (sutils/munge-hash-for-storage h))
+                                        (for [key vm-keys]
+                                          (key vm))))
                                pids
-                               values)))))
+                               valuemaps)))))
 
 (defn find-certname-id-and-hash [certname]
   (first (jdbc/query-to-vec [(format "SELECT id, %s as package_hash FROM certnames WHERE certname=?"
@@ -1125,73 +1072,49 @@
        (when include-hash?
          {:hash (sutils/munge-hash-for-storage
                  (shash/fact-identity-hash fact-data))})))
-    (let [paths-and-values (facts/facts->paths-and-values values)
-          pathstrs (map (comp facts/factpath-to-string first) paths-and-values)
+    (let [paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
+          pathstrs (map (comp facts/factpath-to-string first) paths-and-valuemaps)
           paths->ids (realize-paths! pathstrs)
-          path-values (map second paths-and-values)]
-
+          valuemaps (map second paths-and-valuemaps)]
       (when (seq package_inventory)
         (insert-packages certname package_inventory))
 
       (insert-facts! (certname-to-factset-id certname)
                      (map paths->ids pathstrs)
-                     path-values)))))
+                     valuemaps)))))
 
 (defn- update-existing-values [factset-id change-info]
   (when (seq change-info)
     (sql/db-do-prepared
      jdbc/*db* true
      (cons
-      (str "update facts set "
-           (str/join ", " (map (fn [col] (str (name col) " = ?"))
-                              value-row-cols))
+      (str "update facts set"
+           "    value_type_id = ?,"
+           "    value_boolean = ?,"
+           "    value_integer = ?,"
+           "    value_float = ?,"
+           "    value_string = ?,"
+           "    value = ?,"
+           "    large_value_hash = ?"
            "  where factset_id = ? and fact_path_id = ?")
-      (map (fn [[_ path path-id new-val new-hash]]
-             (conj (if new-hash
-                     (value->value-row new-val new-hash)
-                     (value->value-row new-val))
-                   factset-id
-                   path-id))
-           change-info))
+      (for [[_ path path-id new-vm] change-info]
+        [(:value_type_id new-vm)
+         (:value_boolean new-vm)
+         (:value_integer new-vm)
+         (:value_float new-vm)
+         (:value_string new-vm)
+         (:value new-vm)
+         (some-> (:large_value_hash new-vm) sutils/munge-hash-for-storage)
+         factset-id
+         path-id]))
      {:multi? true})))
 
-(defn compare-fv-to-row
-  "Returns a map with a logically false :changed? value if new-val
-  does not differ from the row data, and a logically true value
-  otherwise.  If a hash of new-val was computed during the
-  process and changed? is true, it will be returned in :hash."
-  [new-val type-id hash v vstr vint vfloat vbool]
-  (if (not= type-id (fact-value-type-id new-val))
-    {:changed? true}
-    (cond
-      ;; faster direct compare
-      (or (= type-id db-fv-int)
-          (= type-id db-fv-float)
-          (= type-id db-fv-bool))
-      {:changed? (not= new-val (or vint vfloat vbool))}
-
-      ;; nil is a singleton
-      (= type-id db-fv-nil) {:changed? false}
-
-      ;; things that may have a hash
-      (or (= type-id db-fv-string)
-          (= type-id db-fv-struct))
-      (if hash
-        (let [new-hash (storage-hash new-val)]
-          (if (= hash new-hash)
-            {:changed? false}
-            {:changed? true :hash new-hash}))
-        (cond
-          (= type-id db-fv-string)
-          {:changed? (not= new-val vstr)}
-          (= type-id db-fv-struct)
-          {:changed? (not= new-val (sutils/parse-db-json v))}
-          :else
-          (throw (Exception. (trs "Unexpected type {0} for {1}"
-                                  (pr-str type-id) (pr-str new-val))))))
-      :else
-      (throw (Exception. (trs "Unexpected type {0} for {1}"
-                              (pr-str type-id) (pr-str new-val)))))))
+(defn fact-value-changed?
+  [row new-valuemap]
+  (or (not= (:value_type_id row) (:value_type_id new-valuemap))
+      (when-let [row-hash (:large_value_hash row)]
+        (not= row-hash (:large_value_hash new-valuemap)))
+      (not= (:value row) (:value new-valuemap))))
 
 (s/defn update-facts!
   "Given a certname, querys the DB for existing facts for that
@@ -1201,44 +1124,31 @@
     :as fact-data} :- facts-schema]
   (jdbc/with-db-transaction []
     (let [{:keys [package_hash certname_id factset_id]} (certname-factset-metadata certname)
-          paths-and-values (facts/facts->paths-and-values values)
-          pathstrs (map (comp facts/factpath-to-string first) paths-and-values)
-          pathstr->value (into {} (map (fn [pathstr [_ v]] [pathstr v])
-                                       pathstrs
-                                       paths-and-values))
+          factset-id factset_id
+          paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
+          pathstrs (map #(facts/factpath-to-string (first %))
+                        paths-and-valuemaps)
+          pathstr->valuemap (into {} (map (fn [pathstr [_ vm]] [pathstr vm])
+                                          pathstrs
+                                          paths-and-valuemaps))
           existing-status ;; :changed :unchanged :gone
           (jdbc/call-with-query-rows
            [(str "select"
                  "    path, id, value_type_id, large_value_hash,"
-                 "    case when large_value_hash is null "
-                 "              and value_type_id = " db-fv-struct
-                 "           then value"
-                 "    end as value,"
-                 "    case when large_value_hash is null then value_string"
-                 "    end as value_string,"
-                 "    value_integer, value_float, value_boolean"
+                 "    case when large_value_hash is null then value end as value"
                  "  from facts as f"
                  "  inner join fact_paths fp on f.fact_path_id = fp.id"
                  "  where f.factset_id = ?")
-            factset_id]
-           {:as-arrays? true}
-           (fn [[col-names & rows]]
+            factset-id]
+           (fn [rows]
              (doall
-              (map (fn [[path id type-id hash v vstr vint vfloat vbool]]
-                     ;; Classify row as :changed :unchanged: :gone
-                     (let [new-val (pathstr->value path ::not-found)]
-                       (if (= new-val ::not-found)
-                         [:gone path id]
-                         (let [{:keys [changed? hash]}
-                               (compare-fv-to-row new-val
-                                                  type-id hash
-                                                  v vstr vint vfloat vbool)]
-                           (if-not changed?
-                             [:unchanged path id]
-                             (if hash
-                               [:changed path id new-val hash]
-                               [:changed path id new-val]))))))
-                   rows))))
+              (for [{:keys [path id] :as row} rows]
+                (if-let [new-vm (pathstr->valuemap path)]
+                  (if (fact-value-changed? row new-vm)
+                    [:changed path id new-vm]
+                    [:unchanged path id])
+                  [:gone path id])))))
+
           rm-pids (seq (for [[st _ pid] existing-status
                              :when (= :gone st)]
                          pid))
@@ -1246,7 +1156,7 @@
                                               :when #(#{:changed :unchanged} st)]
                                           path))]
                          (remove have? pathstrs))
-          new-values (map pathstr->value new-pathstrs)
+          new-valuemaps (map pathstr->valuemap new-pathstrs)
           paths->ids (realize-paths! new-pathstrs)]
 
       ;; Paths are unique per factset so we can delete solely based on pid.
@@ -1258,7 +1168,7 @@
 
       (insert-facts! factset_id
                      (map paths->ids new-pathstrs)
-                     new-values)
+                     new-valuemaps)
 
       (update-existing-values factset_id
                               (filter #(= :changed (first %))
@@ -1453,7 +1363,7 @@
     (boolean
      (some-> entity
              (timestamp-of-newest-record certname)
-             (sql-ts-after? time)))))
+             (.after time)))))
 
 (pls/defn-validated have-newer-record-for-certname?
   [certname :- String
@@ -1529,8 +1439,7 @@
   [{:keys [certname producer_timestamp] :as fact-data} :- facts-schema]
   (time! (:replace-facts performance-metrics)
          (if-let [local-factset-producer-ts (timestamp-of-newest-record :factsets certname)]
-           (if-not (sql-ts-after? local-factset-producer-ts
-                                  (to-timestamp producer_timestamp))
+           (if-not (.after local-factset-producer-ts (to-timestamp producer_timestamp))
              (update-facts! fact-data)
              (log/warn (trs "Not updating facts for certname {0} because local data is newer." certname)))
            (add-facts! fact-data))))
