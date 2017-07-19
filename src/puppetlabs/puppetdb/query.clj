@@ -439,10 +439,11 @@
         sql (format "SELECT %s FROM (
                       SELECT fs.certname,
                              fp.name as name,
-                             f.value,
+                             fv.value,
                              env.environment
                       FROM factsets fs
                         INNER JOIN facts as f on fs.id = f.factset_id
+                        INNER JOIN fact_values as fv on f.fact_value_id = fv.id
                         INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                         LEFT OUTER JOIN environments as env on fs.environment_id = env.id
                       WHERE depth = 0) AS facts
