@@ -43,7 +43,8 @@
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [honeysql.core :as hcore]
-            [puppetlabs.i18n.core :refer [trs]])
+            [puppetlabs.i18n.core :refer [trs]]
+            [puppetlabs.puppetdb.package-util :as pkg-util])
   (:import [org.postgresql.util PGobject]
            [org.joda.time Period]))
 
@@ -1032,7 +1033,7 @@
 
 (defn insert-missing-packages [existing-hashes-map new-hashed-package-tuples]
   (let [packages-to-create (remove (fn [hashed-package-tuple]
-                                     (get existing-hashes-map (facts/package-tuple-hash hashed-package-tuple)))
+                                     (get existing-hashes-map (pkg-util/package-tuple-hash hashed-package-tuple)))
                                    new-hashed-package-tuples)
         results (jdbc/insert-multi! :packages
                                     (map (fn [[package_name version provider package-hash]]
@@ -1042,7 +1043,7 @@
                                             :hash (sutils/munge-hash-for-storage package-hash)})
                                          packages-to-create))]
     (merge existing-hashes-map
-           (zipmap (map facts/package-tuple-hash packages-to-create)
+           (zipmap (map pkg-util/package-tuple-hash packages-to-create)
                    (map :id results)))))
 
 (s/defn update-packages
@@ -1050,12 +1051,12 @@
   `certname`. Differences will result in updates to the database"
   [certname_id :- s/Int
    package_hash :- (s/maybe s/Str)
-   inventory :- [facts/package-tuple]]
+   inventory :- [pkg-util/package-tuple]]
   (let [hashed-package-tuples (map shash/package-identity-hash inventory)
         new-package-hash (shash/package-similarity-hash hashed-package-tuples)]
 
     (when-not (= new-package-hash package_hash)
-      (let [just-hashes (map facts/package-tuple-hash hashed-package-tuples)
+      (let [just-hashes (map pkg-util/package-tuple-hash hashed-package-tuples)
             existing-package-hashes (find-package-hashes just-hashes)
             full-hashes-map (insert-missing-packages existing-package-hashes hashed-package-tuples)
             new-package-id-set (set (vals full-hashes-map))
@@ -1090,7 +1091,7 @@
   (let [certname-id (:id (find-certname-id-and-hash certname))
         hashed-package-tuples (map shash/package-identity-hash inventory)
         new-packageset-hash (shash/package-similarity-hash hashed-package-tuples)
-        just-hashes (map facts/package-tuple-hash hashed-package-tuples)
+        just-hashes (map pkg-util/package-tuple-hash hashed-package-tuples)
         existing-package-hashes (find-package-hashes just-hashes)
         ;; a map of package hash to id in the packages table
         full-hashes-map (insert-missing-packages existing-package-hashes hashed-package-tuples)
