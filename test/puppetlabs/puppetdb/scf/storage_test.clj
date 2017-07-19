@@ -140,11 +140,7 @@
                  "fqdn" "myhost.mydomain.com"
                  "hostname" "myhost"
                  "kernel" "Linux"
-                 "operatingsystem" "Debian"
-                 "excitement?" true
-                 "version" 1
-                 "temperature" 273.16
-                 "binary" [0 1]}
+                 "operatingsystem" "Debian"}
           producer "bar.com"]
       (add-certname! certname)
 
