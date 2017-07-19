@@ -59,7 +59,8 @@
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.config :as conf]
-            [puppetlabs.i18n.core :refer [trs]]))
+            [puppetlabs.i18n.core :refer [trs]]
+            [puppetlabs.puppetdb.scf.hash :as hash]))
 
 (defn init-through-2-3-8
   []
@@ -1301,6 +1302,85 @@
    "create index reports_job_id_idx on reports(job_id) where job_id is not null"
    "create index catalogs_job_id_idx on catalogs(job_id) where job_id is not null"))
 
+(defn rededuplicate-facts []
+  (jdbc/do-commands
+   "CREATE SEQUENCE fact_values_id_seq;"
+
+   ;; will add not-null constraint on value_hash below; we don't have all the
+   ;; values for this yet
+   "CREATE TABLE fact_values (
+      id bigint DEFAULT nextval('fact_values_id_seq'::regclass) NOT NULL,
+      value_hash bytea,
+      value_type_id bigint NOT NULL,
+      value_integer bigint,
+      value_float double precision,
+      value_string text,
+      value_boolean boolean,
+      value jsonb
+    );"
+
+   "CREATE TABLE facts_transform (
+       factset_id bigint NOT NULL,
+       fact_path_id bigint NOT NULL,
+       fact_value_id bigint NOT NULL
+    );"
+
+   "INSERT INTO fact_values (value_type_id, value_integer, value_float, value_string, value_boolean, value)
+       SELECT distinct value_type_id, value_integer, value_float, value_string, value_boolean, value FROM facts"
+
+   "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
+       SELECT f.factset_id, f.fact_path_id, fv.id
+         FROM facts f
+        INNER JOIN fact_values fv
+                ON fv.value_type_id = f.value_type_id
+               AND fv.value_integer IS NOT DISTINCT FROM f.value_integer
+               AND fv.value_float   IS NOT DISTINCT FROM f.value_float
+               AND fv.value_string  IS NOT DISTINCT FROM f.value_string
+               AND fv.value_boolean IS NOT DISTINCT FROM f.value_boolean
+               AND fv.value         IS NOT DISTINCT FROM f.value")
+
+  ;; populate fact_values.value_hash
+  (jdbc/call-with-query-rows
+   ["select id, value::text from fact_values"]
+   (fn [rows]
+     (doseq [{:keys [id value] :as row} rows]
+       (jdbc/update! "fact_values"
+                     {:value_hash (-> value
+                                      json/parse
+                                      hash/generic-identity-hash
+                                      sutils/munge-hash-for-storage)}
+                     ["id=?" id]))))
+
+  (jdbc/do-commands
+   "DROP TABLE facts"
+   "ALTER TABLE facts_transform rename to facts"
+
+   "ALTER TABLE fact_values alter column value_hash set not null"
+   "ALTER TABLE fact_values ADD CONSTRAINT fact_values_pkey PRIMARY KEY (id);"
+   "ALTER TABLE fact_values ADD CONSTRAINT fact_values_value_hash_key UNIQUE (value_hash);"
+   "CREATE INDEX fact_values_value_float_idx ON fact_values USING btree (value_float);"
+   "CREATE INDEX fact_values_value_integer_idx ON fact_values USING btree (value_integer);"
+
+   "ALTER TABLE facts ADD CONSTRAINT facts_factset_id_fact_path_id_fact_key UNIQUE (factset_id, fact_path_id);"
+   "CREATE INDEX facts_fact_path_id_idx ON facts USING btree (fact_path_id);"
+   "CREATE INDEX facts_fact_value_id_idx ON facts USING btree (fact_value_id);"
+
+   "ALTER TABLE facts ADD CONSTRAINT fact_path_id_fk
+      FOREIGN KEY (fact_path_id)
+      REFERENCES fact_paths(id);"
+
+   "ALTER TABLE facts ADD CONSTRAINT fact_value_id_fk
+      FOREIGN KEY (fact_value_id)
+      REFERENCES fact_values(id)
+      ON UPDATE RESTRICT
+      ON DELETE RESTRICT;"
+
+   "ALTER TABLE facts ADD CONSTRAINT factset_id_fk
+     FOREIGN KEY (factset_id)
+     REFERENCES factsets(id)
+     ON UPDATE CASCADE
+     ON DELETE CASCADE;"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1341,7 +1421,8 @@
    60 fix-missing-edges-fk-constraint
    61 add-latest-report-timestamp-to-certnames
    62 reports-partial-indices
-   63 add-job-id})
+   63 add-job-id
+   64 rededuplicate-facts})
 
 (def desired-schema-version (apply max (keys migrations)))
 
