@@ -34,18 +34,23 @@ The response is a JSON map containing the following keys:
 * `node_activity` (json): Counts of active and inactive nodes.
 * `fact_path_counts_by_depth` (json): Number of fact paths for each fact path
   depth represented in the database.
-* `num_shared_fact_paths` (json): The number of fact paths that are
-  shared across multiple nodes i.e. if one path is shared across three
-  nodes, and another across five, then this will report 2 shared
-  paths.
-* `num_unshared_fact_paths` (json): The number of fact paths that are
-  not shared across multiple nodes.
-* `fact_path_sharing` (json): The 0th through 20th 20-quantiles of the
-  number of nodes sharing each given fact_path.
-* `string_fact_value_bytes` (json): 0th through 20th 20-quantiles of the
-  byte length of string-valued facts.
-* `structured_fact_value_bytes` (json): 0th through 20th 20-quantiles of the
-  byte length of structured facts.
+* `num_shared_value_path_combos` (json): The number of fact value/fact path
+  combinations that are shared across multiple nodes.
+* `num_shared_name_value_combos` (json): The number of fact name/fact value
+  combinations that are shared across multiple nodes.
+* `num_unshared_value_path_combos` (json): The number of fact value/fact path
+  combinations that are only present on one node.
+* `num_unshared_name_value_combos` (json): The number of fact name/fact value
+  combinations that are only present on one node.
+* `num_times_paths_values_shared_given_sharing` (json): Across fact path/fact
+  value combinations shared across multiple nodes, the 0th through 20th
+  20-quantiles of the number of nodes sharing.
+* `num_unique_fact_values_over_nodes` (json): Across all nodes, the 0th through
+  20th 20-quantiles of the number of unique fact values.
+* `string_fact_value_character_lengths` (json): 0th through 20th 20-quantiles of the
+  character length of string-valued facts.
+* `structured_fact_value_character_lengths` (json): 0th through 20th 20-quantiles of the
+  character length of structured facts.
 * `report_metric_size_dist` (json): 0th through 20th 20-quantiles of the
   character lengths of report metrics.
 * `report_log_size_dist` (json): 0th through 20th 20-quantiles of the character
