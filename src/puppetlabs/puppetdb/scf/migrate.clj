@@ -60,7 +60,8 @@
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.i18n.core :refer [trs]]
-            [puppetlabs.puppetdb.scf.hash :as hash]))
+            [puppetlabs.puppetdb.scf.hash :as hash])
+  (:import [org.postgresql.util PGobject]))
 
 (defn init-through-2-3-8
   []
@@ -1282,6 +1283,7 @@
      (str "ALTER TABLE ONLY edges"
           "  ADD CONSTRAINT edges_certname_source_target_type_unique_key"
           "  UNIQUE (certname, source, target, type)"))))
+
 (defn add-latest-report-timestamp-to-certnames []
   (jdbc/do-commands
     "DROP INDEX IF EXISTS idx_certnames_latest_report_timestamp"
@@ -1303,7 +1305,7 @@
       value_float double precision,
       value_string text,
       value_boolean boolean,
-      value jsonb
+      value jsonb not null
     );"
 
    "CREATE TABLE facts_transform (
@@ -1312,8 +1314,9 @@
        fact_value_id bigint NOT NULL
     );"
 
-   "INSERT INTO fact_values (value_type_id, value_integer, value_float, value_string, value_boolean, value)
-       SELECT distinct value_type_id, value_integer, value_float, value_string, value_boolean, value FROM facts"
+   "INSERT INTO fact_values (value, value_integer, value_float, value_string, value_boolean, value_type_id)
+       SELECT distinct value, value_integer, value_float, value_string, value_boolean, value_type_id FROM facts"
+
 
    "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
        SELECT f.factset_id, f.fact_path_id, fv.id
@@ -1324,19 +1327,25 @@
                AND fv.value_float   IS NOT DISTINCT FROM f.value_float
                AND fv.value_string  IS NOT DISTINCT FROM f.value_string
                AND fv.value_boolean IS NOT DISTINCT FROM f.value_boolean
-               AND fv.value         IS NOT DISTINCT FROM f.value")
+               AND fv.value         = f.value")
 
   ;; populate fact_values.value_hash
   (jdbc/call-with-query-rows
    ["select id, value::text from fact_values"]
    (fn [rows]
-     (doseq [{:keys [id value] :as row} rows]
-       (jdbc/update! "fact_values"
-                     {:value_hash (-> value
-                                      json/parse
-                                      hash/generic-identity-hash
-                                      sutils/munge-hash-for-storage)}
-                     ["id=?" id]))))
+     (doseq [batch (partition-all 5000 rows)]
+       (let [ids (map :id rows)
+             hashes (map #(-> (:value %)
+                              json/parse
+                              hash/generic-identity-hash
+                              sutils/munge-hash-for-storage)
+                         rows)]
+         (jdbc/do-prepared
+          "update fact_values set value_hash = in_data.hash
+            from (select unnest(?) as id, unnest(?) as hash) in_data
+            where fact_values.id = in_data.id"
+          [(sutils/array-to-param "bigint" Long ids)
+           (sutils/array-to-param "bytea" PGobject hashes)])))))
 
   (jdbc/do-commands
    "DROP TABLE facts"
