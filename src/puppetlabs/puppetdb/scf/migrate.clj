@@ -1318,7 +1318,7 @@
       value_float double precision,
       value_string text,
       value_boolean boolean,
-      value jsonb not null
+      value jsonb
     );"
 
    "CREATE TABLE facts_transform (
@@ -1330,17 +1330,27 @@
    "INSERT INTO fact_values (value, value_integer, value_float, value_string, value_boolean, value_type_id)
        SELECT distinct value, value_integer, value_float, value_string, value_boolean, value_type_id FROM facts"
 
+   ;; Handle null fv.value separately; allowing them here
+   ;; to an intractable query plan
+   "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
+       SELECT f.factset_id, f.fact_path_id, fv.id
+         FROM facts f
+        INNER JOIN fact_values fv
+                ON fv.value_type_id = f.value_type_id
+               AND fv.value = f.value
+               AND fv.value_integer IS NOT DISTINCT FROM f.value_integer
+               AND fv.value_float   IS NOT DISTINCT FROM f.value_float
+               AND fv.value_string  IS NOT DISTINCT FROM f.value_string
+               AND fv.value_boolean IS NOT DISTINCT FROM f.value_boolean
+        WHERE f.value IS NOT NULL AND fv.value IS NOT NULL"
 
    "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
        SELECT f.factset_id, f.fact_path_id, fv.id
          FROM facts f
         INNER JOIN fact_values fv
                 ON fv.value_type_id = f.value_type_id
-               AND fv.value_integer IS NOT DISTINCT FROM f.value_integer
-               AND fv.value_float   IS NOT DISTINCT FROM f.value_float
-               AND fv.value_string  IS NOT DISTINCT FROM f.value_string
-               AND fv.value_boolean IS NOT DISTINCT FROM f.value_boolean
-               AND fv.value         = f.value")
+               AND fv.value IS NOT DISTINCT FROM f.value
+        WHERE f.value IS NULL AND fv.value IS NULL")
 
   ;; populate fact_values.value_hash
   (jdbc/call-with-query-rows
