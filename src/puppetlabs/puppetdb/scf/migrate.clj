@@ -1356,7 +1356,7 @@
   (jdbc/call-with-query-rows
    ["select id, value::text from fact_values"]
    (fn [rows]
-     (doseq [batch (partition-all 5000 rows)]
+     (doseq [batch (partition-all 500 rows)]
        (let [ids (map :id rows)
              hashes (map #(-> (:value %)
                               json/parse
