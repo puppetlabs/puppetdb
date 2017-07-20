@@ -1309,6 +1309,9 @@
       value jsonb
     );"
 
+   ;; Do this early to help with the value_hash update queries below
+   "ALTER TABLE fact_values ADD CONSTRAINT fact_values_pkey PRIMARY KEY (id);"
+
    "CREATE TABLE facts_transform (
        factset_id bigint NOT NULL,
        fact_path_id bigint NOT NULL,
@@ -1321,8 +1324,8 @@
        SELECT distinct value, value_integer, value_float, value_string, value_boolean, value_type_id FROM facts")
 
 
-  ;; Handle null fv.value separately; allowing them here
-  ;; to an intractable query plan
+  ;; Handle null fv.value separately; allowing them here leads to an intractable
+  ;; query plan
   (log/info (trs "[3/6] Reconstructing facts to refer to fact_value..."))
   (jdbc/do-commands
    "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
@@ -1371,7 +1374,6 @@
    "ALTER TABLE facts_transform rename to facts"
 
    "ALTER TABLE fact_values alter column value_hash set not null"
-   "ALTER TABLE fact_values ADD CONSTRAINT fact_values_pkey PRIMARY KEY (id);"
    "ALTER TABLE fact_values ADD CONSTRAINT fact_values_value_hash_key UNIQUE (value_hash);"
    "CREATE INDEX fact_values_value_float_idx ON fact_values USING btree (value_float);"
    "CREATE INDEX fact_values_value_integer_idx ON fact_values USING btree (value_integer);")
