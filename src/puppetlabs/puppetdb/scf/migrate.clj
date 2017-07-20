@@ -1364,12 +1364,12 @@
    ["select id, value::text from fact_values"]
    (fn [rows]
      (doseq [batch (partition-all 500 rows)]
-       (let [ids (map :id rows)
+       (let [ids (map :id batch)
              hashes (map #(-> (:value %)
                               json/parse
                               hash/generic-identity-hash
                               sutils/munge-hash-for-storage)
-                         rows)]
+                         batch)]
          (jdbc/do-prepared
           "update fact_values set value_hash = in_data.hash
             from (select unnest(?) as id, unnest(?) as hash) in_data
