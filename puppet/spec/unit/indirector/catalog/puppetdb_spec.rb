@@ -162,7 +162,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         end
 
         resource.should_not be_nil
-        resource['parameters'][:alias].should include(name)
+        resource['parameters']['alias'].should include(name)
       end
 
       context "with resource types that provide #title_patterns" do
@@ -203,8 +203,8 @@ describe Puppet::Resource::Catalog::Puppetdb do
             #  this test should cover other resource types that fall into
             #  this category as well.
             resource.should_not be_nil
-            resource['parameters'][:alias].should_not be_nil
-            resource['parameters'][:alias].should include('/tmp/foo')
+            resource['parameters']['alias'].should_not be_nil
+            resource['parameters']['alias'].should include('/tmp/foo')
           end
         end
       end
@@ -218,7 +218,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
         end
 
         resource.should_not be_nil
-        resource['parameters'][:alias].should be_nil
+        resource['parameters']['alias'].should be_nil
       end
 
       describe "for resources with composite namevars" do
@@ -237,7 +237,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           end
 
           resource.should_not be_nil
-          resource['parameters'][:alias].should be_nil
+          resource['parameters']['alias'].should be_nil
         end
       end
 
@@ -255,7 +255,7 @@ describe Puppet::Resource::Catalog::Puppetdb do
           end
 
           resource.should_not be_nil
-          resource['parameters'][:alias].should == ['something awesome']
+          resource['parameters']['alias'].should == ['something awesome']
         end
       end
     end
@@ -551,18 +551,40 @@ describe Puppet::Resource::Catalog::Puppetdb do
         end
       end
 
-      it "should add edges even if the other end is an alias" do
-        other_resource = Puppet::Resource.new(:notify, 'noone', :parameters => {:alias => 'another_thing'})
-        resource[:require] = 'Notify[another_thing]'
-        Puppet[:code] = [resource, other_resource].map(&:to_manifest).join
+      it "should produce an edge when referencing an aliased resource that only has a single namevar" do
+        Puppet[:code] = <<-MANIFEST
+        notify { 'noone':
+          alias => 'another_thing'
+        }
+        notify { 'anyone':
+          require => Notify['another_thing']
+        }
+        MANIFEST
 
-        hash = catalog.to_data_hash
-        subject.add_parameters_if_missing(hash)
-        subject.add_namevar_aliases(hash, catalog)
-        result = subject.synthesize_edges(hash, catalog)
+        result = subject.munge_catalog(catalog, Time.now.utc)
 
         edge = {'source' => {'type' => 'Notify', 'title' => 'noone'},
                 'target' => {'type' => 'Notify', 'title' => 'anyone'},
+                'relationship' => 'required-by'}
+
+        result['edges'].should include(edge)
+      end
+
+      it "should produce an edge when referencing an aliased resource that supports composite namevars" do
+        Puppet[:code] = <<-MANIFEST
+        package { 'foo':
+          ensure => present,
+          alias => 'bar'
+        }
+        notify { 'hello':
+          require => Package['bar']
+        }
+        MANIFEST
+
+        result = subject.munge_catalog(catalog, Time.now.utc)
+
+        edge = {'source' => {'type' => 'Package', 'title' => 'foo'},
+                'target' => {'type' => 'Notify', 'title' => 'hello'},
                 'relationship' => 'required-by'}
 
         result['edges'].should include(edge)

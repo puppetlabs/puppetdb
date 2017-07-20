@@ -1,6 +1,6 @@
 source ENV['GEM_SOURCE'] || "https://rubygems.org"
 puppet_branch = ENV['PUPPET_VERSION'] || "master"
-#oldest_supported_puppet = "5.0.0"
+oldest_supported_puppet = "5.0.0"
 beaker_version = ENV['BEAKER_VERSION']
 
 def location_for(place, fake_version = nil)
@@ -35,19 +35,15 @@ group :test do
   # docker-api 1.32.0 requires ruby 2.0.0
   gem 'docker-api', '1.31.0'
 
-  # case puppet_branch
-  # when "latest"
-  #   gem 'puppet', ">= #{oldest_supported_puppet}", :require => false
-  # when "oldest"
-  #   gem 'puppet', oldest_supported_puppet, :require => false
-  # else
-  #   gem 'puppet', :git => 'https://github.com/puppetlabs/puppet.git',
-  #     :branch => puppet_branch, :require => false
-  # end
-
-  # PDB 5 requires Puppet 5, which is not yet released, so always get it from git for now
-  gem 'puppet', :git => 'https://github.com/puppetlabs/puppet.git',
+  case puppet_branch
+  when "latest"
+    gem 'puppet', ">= #{oldest_supported_puppet}", :require => false
+  when "oldest"
+    gem 'puppet', oldest_supported_puppet, :require => false
+  else
+    gem 'puppet', :git => 'https://github.com/puppetlabs/puppet.git',
       :branch => puppet_branch, :require => false
+  end
 
   gem 'mocha', '~> 1.0'
 end
