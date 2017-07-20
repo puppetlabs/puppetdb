@@ -852,8 +852,8 @@
   (indexes! (:database *db*))
   (let [idxs (:indexes (schema-info-map *db*))]
     (is (= {:schema "public"
-            :table "facts"
-            :index "facts_value_string_trgm"
+            :table "fact_values"
+            :index "fact_values_string_trgm"
             :index_keys ["value_string"]
             :type "gin"
             :unique? false
@@ -861,7 +861,7 @@
             :is_partial false
             :primary? false
             :user "pdb_test"}
-           (get idxs ["facts" ["value_string"]])))))
+           (get idxs ["fact_values" ["value_string"]])))))
 
 (deftest migration-60-fix-missing-edges-fk-constraint
   (jdbc/with-db-connection *db*
