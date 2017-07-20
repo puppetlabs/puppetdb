@@ -7,6 +7,7 @@
             [honeysql.core :as hcore]
             [honeysql.helpers :as hsql]
             [honeysql.types :as htypes]
+            [honeysql.format :as hformat]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.facts :as facts]
@@ -160,10 +161,8 @@
                                              :facts]]
                                    :from [[{:select [:fp.name  :f.value]
                                             :from [[:facts :f]]
-                                            :join [[:fact_paths :fp]
-                                                   [:= :fp.id :f.fact_path_id]
-                                                   [:value_types :vt]
-                                                   [:= :vt.id :f.value_type_id]]
+                                            :join [[:fact_paths :fp] [:= :fp.id :f.fact_path_id]]
+                                            :left-join [[:value_types :vt] [:= :vt.id :f.value_type_id]]
                                             :where [:and
                                                     [:= :fp.depth 0]
                                                     [:= :f.factset_id :fs.id]]}
@@ -172,10 +171,8 @@
                              :queryable? true
                              :field  {:select [[:f.value :trusted]]
                                       :from [[:facts :f]]
-                                      :join [[:fact_paths :fp]
-                                             [:= :fp.id :f.fact_path_id]
-                                             [:value_types :vt]
-                                             [:= :vt.id :f.value_type_id]]
+                                      :join [[:fact_paths :fp] [:= :fp.id :f.fact_path_id]]
+                                      :left-join [[:value_types :vt] [:= :vt.id :f.value_type_id]]
                                       :where [:and
                                               [:= :fp.depth 0]
                                               [:= :f.factset_id :fs.id]
@@ -307,10 +304,8 @@
                                       :query-only? true
                                       :field :fp.depth}}
                :selection {:from [[:fact_paths :fp]]
-                           :join [[:facts :f]
-                                  [:= :f.fact_path_id :fp.id]
-                                  [:value_types :vt]
-                                  [:= :f.value_type_id :vt.id]]
+                           :join [[:facts :f] [:= :f.fact_path_id :fp.id]]
+                           :left-join [[:value_types :vt] [:= :f.value_type_id :vt.id]]
                            :modifiers [:distinct]
                            :where [:!= :f.value_type_id 5]}
 
@@ -362,7 +357,8 @@
                              "value_string" {:type :string
                                             :query-only? true
                                             :queryable? false
-                                            :field :f.value_string}
+                                            :field :f.value_string
+                                            :compare-via-hash? true}
                              "value_boolean" {:type :boolean
                                               :query-only? true
                                               :queryable? false
@@ -376,14 +372,10 @@
                                      :field :vt.type}}
 
                :selection {:from [[:factsets :fs]]
-                           :join [[:facts :f]
-                                  [:= :fs.id :f.factset_id]
-                                  [:fact_paths :fp]
-                                  [:= :f.fact_path_id :fp.id]
-                                  [:value_types :vt]
-                                  [:= :vt.id :f.value_type_id]]
-                           :left-join [[:environments :env]
-                                       [:= :fs.environment_id :env.id]]
+                           :join [[:facts :f] [:= :fs.id :f.factset_id]
+                                  [:fact_paths :fp] [:= :f.fact_path_id :fp.id]]
+                           :left-join [[:environments :env] [:= :fs.environment_id :env.id]
+                                       [:value_types :vt] [:= :vt.id :f.value_type_id]]
                            :where [:= :fp.depth 0]}
 
                :relationships (merge certname-relations
@@ -424,7 +416,8 @@
                              "value_string" {:type :string
                                             :query-only? true
                                             :queryable? false
-                                            :field :f.value_string}
+                                            :field :f.value_string
+                                            :compare-via-hash? true}
                              "value_boolean" {:type :boolean
                                               :query-only? true
                                               :queryable? false
@@ -435,14 +428,10 @@
                                      :query-only? true}}
 
                :selection {:from [[:factsets :fs]]
-                           :join [[:facts :f]
-                                  [:= :fs.id :f.factset_id]
-                                  [:fact_paths :fp]
-                                  [:= :f.fact_path_id :fp.id]
-                                  [:value_types :vt]
-                                  [:= :f.value_type_id :vt.id]]
-                           :left-join [[:environments :env]
-                                       [:= :fs.environment_id :env.id]]
+                           :join [[:facts :f] [:= :fs.id :f.factset_id]
+                                  [:fact_paths :fp] [:= :f.fact_path_id :fp.id]]
+                           :left-join [[:environments :env] [:= :fs.environment_id :env.id]
+                                       [:value_types :vt] [:= :f.value_type_id :vt.id]]
                            :where [:!= :vt.id 5]}
 
                :relationships (merge certname-relations
@@ -1017,10 +1006,8 @@
                                          [(hsql-hash-as-href "factsets.certname" :factsets :facts) :href]]
                                 :from [[{:select [:fp.name (h/scast :f.value :jsonb)]
                                          :from [[:facts :f]]
-                                         :join [[:fact_paths :fp]
-                                                [:= :fp.id :f.fact_path_id]
-                                                [:value_types :vt]
-                                                [:= :vt.id :f.value_type_id]]
+                                         :join [[:fact_paths :fp] [:= :fp.id :f.fact_path_id]]
+                                         :left-join [[:value_types :vt] [:= :vt.id :f.value_type_id]]
                                          :where [:and
                                                  [:= :depth 0]
                                                  [:= :f.factset_id :factsets.id]]}
@@ -1129,6 +1116,15 @@
 (defprotocol SQLGen
   (-plan->sql [query] "Given the `query` plan node, convert it to a SQL string"))
 
+(defn binary-md5
+  "Wrap inner (either a string value or a column name) to convert it first to a
+  hex string and then decode the string to a bytea. Doing this for md5
+  expression indexes takes about half the space."
+  [inner]
+  (hcore/call :decode
+              (hcore/call :md5 inner)
+              (hcore/raw "'hex'")))
+
 (extend-protocol SQLGen
   Query
   (-plan->sql [{:keys [projections projected-fields where] :as query}]
@@ -1169,14 +1165,21 @@
 
  BinaryExpression
   (-plan->sql [{:keys [column operator value]}]
-    (apply vector
-           :or
-           (map #(vector operator (-plan->sql %1) (-plan->sql %2))
-                (cond
-                  (map? column) [(:field column)]
-                  (vector? column) (mapv :field column)
-                  :else [column])
-                (utils/vector-maybe value))))
+    (let [normalized-cols (cond
+                            (map? column) [column]
+                            (vector? column) column
+                            :else [{:field column}])
+          vals (utils/vector-maybe value)]
+      (apply vector
+             :or
+             (map (fn [col val]
+                    (if (and (= operator :=) (:compare-via-hash? col))
+                      (vector operator
+                              (-plan->sql (binary-md5 (:field col)))
+                              (-plan->sql (binary-md5 val)))
+                      (vector operator (-plan->sql (:field col)) (-plan->sql val))))
+                  normalized-cols
+                  vals))))
 
   InArrayExpression
   (-plan->sql [{:keys [column]}]
@@ -1207,12 +1210,34 @@
         [:is-not lhs nil])))
 
   AndExpression
-  (-plan->sql [expr]
-    (concat [:and] (map -plan->sql (:clauses expr))))
+  (-plan->sql [{:keys [clauses]}]
+    ;; Transform queries of the form
+    ;;    (and (in [col1 col2] A) (in [col1 col2] B) ...)
+    ;; to
+    ;;    (in [col1 col2] (intersect A B ...))
+    ;; as postgres can deal with them better
+    (if (and (every? (partial instance? InExpression) clauses)
+             (apply = (map :column clauses)))
+      [:in
+       (mapv :field (-> clauses first :column))
+       {:intersect (mapv (comp -plan->sql :subquery)
+                         clauses)}]
+      (concat [:and] (map -plan->sql clauses))))
 
   OrExpression
-  (-plan->sql [expr]
-    (concat [:or] (map -plan->sql (:clauses expr))))
+  (-plan->sql [{:keys [clauses]}]
+    ;; Transform queries of the form
+    ;;    (or (in [col1 col2] A) (in [col1 col2] B) ...)
+    ;; to
+    ;;    (in [col1 col2] (union A B ...))
+    ;; as postgres can deal with them better
+    (if (and (every? (partial instance? InExpression) clauses)
+             (apply = (map :column clauses)))
+      [:in
+       (mapv :field (-> clauses first :column))
+       {:union (mapv (comp -plan->sql :subquery)
+                     clauses)}]
+      (concat [:or] (map -plan->sql clauses))))
 
   NotExpression
   (-plan->sql [expr]
@@ -1260,6 +1285,13 @@
         parameters (concat path [value (first path)])]
     {:node (assoc node :value qmarks :field column)
      :state (reduce conj state parameters)}))
+
+
+;; This was removed in HoneySQL 0.7.0, changing its parameter requirements for
+;; queries including numbers. Restore the old behavior here.
+(extend-protocol hformat/ToSql
+  java.lang.Number
+  (to-sql [x] (str x)))
 
 (defn extract-params
   "Extracts the node's expression value, puts it in state

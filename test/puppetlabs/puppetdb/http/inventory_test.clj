@@ -89,7 +89,33 @@
       #{response1}
 
       ["=" "facts.my_weird_fact.blah.\"dotted.thing\".\"quoted\"thing\"" "foo"]
-      #{response1})))
+      #{response1}
+
+      ["and"
+       ["=" "facts.domain" "testing.com"]
+       ["=" "facts.hostname" "bar.com"]]
+      #{response1}
+
+      ["or"
+       ["=" "facts.hostname" "foo.com"]
+       ["=" "facts.hostname" "bar.com"]]
+      #{response1 response2}
+
+      ["and"
+       ["=" "facts.domain" "testing.com"]
+       ["or"
+        ["=" "facts.hostname" "foo.com"]
+        ["=" "facts.hostname" "bar.com"]]]
+      #{response1 response2}
+
+
+      ["and"
+       ["=" "facts.domain" "testing.com"]
+       ["=" "facts.my_structured_fact.foo.baz" 3]
+       ["or"
+        ["=" "facts.hostname" "foo.com"]
+        ["=" "facts.hostname" "bar.com"]]]
+      #{response2})))
 
 (deftest-http-app inventory-queries
   [[version endpoint] inventory-endpoints

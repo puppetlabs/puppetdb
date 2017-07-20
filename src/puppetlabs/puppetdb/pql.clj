@@ -72,7 +72,7 @@
   "Parse a query string as PQL. Parse errors will result in an
   IllegalArgumentException"
   [query]
-  (let [pql-result (pql->ast query)]
+  (let [pql-result (log/spy (pql->ast query))]
     (if (map? pql-result)
       (throw (IllegalArgumentException.
               (pprint-failure pql-result)))

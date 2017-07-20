@@ -146,6 +146,27 @@
                     :results-query
                     first))))
 
+(deftest test-union-and-intersect-query-optimization
+  (are [sql-regex query-rec ast-query]
+      (re-find sql-regex
+               (->> ast-query
+                    (compile-user-query->sql query-rec)
+                    :results-query
+                    first))
+      #"INTERSECT" inventory-query
+      ["extract"
+       ["certname"]
+       ["and"
+        ["=" "facts.fact_1" "value-1"]
+        ["=" "facts.fact_2" "value-2"]]]
+
+      #"UNION" inventory-query
+      ["extract"
+       ["certname"]
+       ["or"
+        ["=" "facts.fact_1" "value-1"]
+        ["=" "facts.fact_2" "value-2"]]]))
+
 (deftest test-valid-query-fields
   (is (thrown-with-msg? IllegalArgumentException
                         #"'foo' is not a queryable object for resources, known queryable objects are.*"

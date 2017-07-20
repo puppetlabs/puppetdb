@@ -1448,10 +1448,10 @@
 (defn trgm-indexes!
   "Create trgm indexes if they do not currently exist."
   []
-  (when-not (sutils/index-exists? "fact_paths_path_trgm")
-    (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
-    (jdbc/do-commands
-     "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
+  ;; (when-not (sutils/index-exists? "fact_paths_path_trgm")
+  ;;   (log/info (trs "Creating additional index `fact_paths_path_trgm`"))
+  ;;   (jdbc/do-commands
+  ;;    "CREATE INDEX fact_paths_path_trgm ON fact_paths USING gist (path gist_trgm_ops)"))
   (jdbc/do-commands
    "drop index if exists fact_values_string_trgm")
   (when-not (sutils/index-exists? "facts_value_string_trgm")
