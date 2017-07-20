@@ -1305,6 +1305,7 @@
    "create index catalogs_job_id_idx on catalogs(job_id) where job_id is not null"))
 
 (defn rededuplicate-facts []
+  (log/info (trs "[1/6] Creating new fact storage tables..."))
   (jdbc/do-commands
    "CREATE SEQUENCE fact_values_id_seq;"
 
@@ -1325,13 +1326,18 @@
        factset_id bigint NOT NULL,
        fact_path_id bigint NOT NULL,
        fact_value_id bigint NOT NULL
-    );"
+    );")
 
+  (log/info (trs "[2/6] Copying unique fact values into fact_values"))
+  (jdbc/do-commands
    "INSERT INTO fact_values (value, value_integer, value_float, value_string, value_boolean, value_type_id)
-       SELECT distinct value, value_integer, value_float, value_string, value_boolean, value_type_id FROM facts"
+       SELECT distinct value, value_integer, value_float, value_string, value_boolean, value_type_id FROM facts")
 
-   ;; Handle null fv.value separately; allowing them here
-   ;; to an intractable query plan
+
+  ;; Handle null fv.value separately; allowing them here
+  ;; to an intractable query plan
+  (log/info (trs "[3/6] Reconstructing facts to refer to fact_value..."))
+  (jdbc/do-commands
    "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
        SELECT f.factset_id, f.fact_path_id, fv.id
          FROM facts f
@@ -1353,6 +1359,7 @@
         WHERE f.value IS NULL AND fv.value IS NULL")
 
   ;; populate fact_values.value_hash
+  (log/info (trs "[4/6] Computing fact value hashes..."))
   (jdbc/call-with-query-rows
    ["select id, value::text from fact_values"]
    (fn [rows]
@@ -1370,6 +1377,8 @@
           [(sutils/array-to-param "bigint" Long ids)
            (sutils/array-to-param "bytea" PGobject hashes)])))))
 
+
+  (log/info (trs "[5/6] Indexing fact_values table..."))
   (jdbc/do-commands
    "DROP TABLE facts"
    "ALTER TABLE facts_transform rename to facts"
@@ -1378,8 +1387,10 @@
    "ALTER TABLE fact_values ADD CONSTRAINT fact_values_pkey PRIMARY KEY (id);"
    "ALTER TABLE fact_values ADD CONSTRAINT fact_values_value_hash_key UNIQUE (value_hash);"
    "CREATE INDEX fact_values_value_float_idx ON fact_values USING btree (value_float);"
-   "CREATE INDEX fact_values_value_integer_idx ON fact_values USING btree (value_integer);"
+   "CREATE INDEX fact_values_value_integer_idx ON fact_values USING btree (value_integer);")
 
+  (log/info (trs "[6/6] Indexing facts table..."))
+  (jdbc/do-commands
    "ALTER TABLE facts ADD CONSTRAINT facts_factset_id_fact_path_id_fact_key UNIQUE (factset_id, fact_path_id);"
    "CREATE INDEX facts_fact_path_id_idx ON facts USING btree (fact_path_id);"
    "CREATE INDEX facts_fact_value_id_idx ON facts USING btree (fact_value_id);"
