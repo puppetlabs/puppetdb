@@ -852,8 +852,8 @@
   (indexes! (:database *db*))
   (let [idxs (:indexes (schema-info-map *db*))]
     (is (= {:schema "public"
-            :table "facts"
-            :index "facts_value_string_trgm"
+            :table "fact_values"
+            :index "fact_values_string_trgm"
             :index_keys ["value_string"]
             :type "gin"
             :unique? false
@@ -861,7 +861,7 @@
             :is_partial false
             :primary? false
             :user "pdb_test"}
-           (get idxs ["facts" ["value_string"]])))))
+           (get idxs ["fact_values" ["value_string"]])))))
 
 (deftest migration-60-fix-missing-edges-fk-constraint
   (jdbc/with-db-connection *db*
@@ -904,4 +904,55 @@
                                    :same nil}]}
                schema-diff))))))
 
+(deftest migration-62-rededuplicate-facts
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 61)
 
+    (jdbc/insert! :environments {:id 0 :environment "testing"})
+
+    (jdbc/insert! :certnames {:certname "a.com"})
+    (jdbc/insert! :certnames {:certname "b.com"})
+
+    (jdbc/insert! :factsets {:id 0
+                             :certname "a.com"
+                             :timestamp (to-timestamp (now))
+                             :producer_timestamp (to-timestamp (now))
+                             :environment_id 0
+                             :hash (sutils/munge-hash-for-storage "abcd1234")})
+
+    (jdbc/insert! :factsets {:id 1
+                             :certname "b.com"
+                             :timestamp (to-timestamp (now))
+                             :producer_timestamp (to-timestamp (now))
+                             :environment_id 0
+                             :hash (sutils/munge-hash-for-storage "1234abcd")})
+
+    (doseq [[id name] [[0 "string_fact"]
+                       [1 "int_fact"]
+                       [2 "float_fact"]
+                       [3 "bool_fact"]
+                       [4 "null_fact"]
+                       [5 "json_fact"]]]
+      (jdbc/insert! :fact_paths {:id id :depth 0 :name name :path name}))
+
+    (doseq [[fact-path-id value-type-id value_key value]
+            [[0 0 :value_string "string_value"]
+             [1 1 :value_integer 42]
+             [2 2 :value_float 4.2]
+             [3 3 :value_boolean false]
+             [4 4 :value_null nil]
+             [5 5 :value_json {:foo "bar"}]]
+            factset-id [0 1]]
+      (let [row {:factset_id factset-id
+                 :fact_path_id fact-path-id
+                 :value_type_id value-type-id
+                 :value (sutils/munge-jsonb-for-storage value)}]
+        (jdbc/insert! :facts (case value_key
+                               (:value_null :value_json) row
+                               (assoc row value_key value)))))
+
+    (apply-migration-for-testing! 62)
+
+    (is (= 6 (:count (first (jdbc/query-to-vec "select count(*) from fact_values")))))
+    (is (= 12 (:count (first (jdbc/query-to-vec "select count(*) from facts")))))))
