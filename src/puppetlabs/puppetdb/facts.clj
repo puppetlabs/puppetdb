@@ -3,11 +3,15 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]
-            [puppetlabs.puppetdb.time :refer [to-timestamp]]))
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]
+            [puppetlabs.puppetdb.package-util :refer [package-tuple hashed-package-tuple
+                                                      package-tuple-hash]]))
 
 ;; SCHEMA
 
@@ -25,18 +29,6 @@
 (def fact-set-schema
   {s/Str s/Any})
 
-(def package-tuple
-  [(s/one s/Str "package_name")
-   (s/one s/Str "version")
-   (s/one s/Str "provider")])
-
-(def hashed-package-tuple
-  (conj package-tuple
-        (s/one s/Str "package_hash")))
-
-(defn package-tuple-hash [hashed-package-tuple]
-  (nth hashed-package-tuple 3))
-
 (def facts-schema
   {:certname String
    :values fact-set-schema
@@ -45,6 +37,15 @@
    :producer_timestamp (s/cond-pre s/Str pls/Timestamp)
    :producer (s/maybe s/Str)
    (s/optional-key :package_inventory) [package-tuple]})
+
+(def valuemap-schema
+  {:value_hash s/Str
+   :value_float (s/maybe Double)
+   :value_string (s/maybe s/Str)
+   :value_integer (s/maybe s/Int)
+   :value_boolean (s/maybe s/Bool)
+   :value (s/maybe s/Any)
+   :value_type_id s/Int})
 
 ;; GLOBALS
 
@@ -121,7 +122,38 @@
   (let [encodedpath (map encode-factpath-element factpath)]
     (str/join factpath-delimiter encodedpath)))
 
-(def ^:const large-value-threshold 50)
+(pls/defn-validated value-type-id :- s/Int
+  "Given a piece of standard hierarchical data, returns the type as an id."
+  [data :- s/Any]
+  (cond
+   (keyword? data) 0
+   (string? data) 0
+   (integer? data) 1
+   (float? data) 2
+   (kitchensink/boolean? data) 3
+   (nil? data) 4
+   (coll? data) 5))
+
+(defn value->valuemap
+  [value]
+  (let [type-id (value-type-id value)
+        initial-map {:value_type_id type-id
+                     :value_hash (hash/generic-identity-hash value)
+                     :value_string nil
+                     :value_integer nil
+                     :value_float nil
+                     :value_boolean nil
+                     :value nil}]
+    (if (nil? value)
+      initial-map
+      (let [value-keyword (case type-id
+                            0 :value_string
+                            1 :value_integer
+                            2 :value_float
+                            3 :value_boolean
+                            5 :value)]
+        (assoc initial-map value-keyword value
+          :value (sutils/munge-jsonb-for-storage value))))))
 
 (defn flatten-facts-with
   "Returns a collection of (leaf-fn path leaf) for all of the paths
@@ -164,10 +196,12 @@
    :name (first path)
    :depth (dec (count path))})
 
-(defn facts->paths-and-values
-  "Returns [path value] pairs for all facts. i.e. ([\"foo#~bar\" vm] ...)"
-  [facts]
-  (flatten-facts-with (fn [fp leaf] [fp leaf]) facts))
+(pls/defn-validated facts->paths-and-valuemaps
+  :- [(s/pair fact-path "path" valuemap-schema "valuemap")]
+  "Returns [path valuemap] pairs for all
+  facts. i.e. ([\"foo#~bar\" vm] ...)"
+  [facts :- fact-set-schema]
+  (flatten-facts-with (fn [fp leaf] [fp (value->valuemap leaf)]) facts))
 
 (pls/defn-validated unstringify-value
   "Converts a stringified value from the database into its real value and type.

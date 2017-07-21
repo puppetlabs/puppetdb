@@ -1,8 +1,8 @@
 (ns puppetlabs.puppetdb.scf.hash
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.facts :refer [package-tuple hashed-package-tuple
-                                               package-tuple-hash]]
+            [puppetlabs.puppetdb.package-util :refer [package-tuple hashed-package-tuple
+                                                      package-tuple-hash]]
             [schema.core :as s]))
 
 (defn generic-identity-string
@@ -11,11 +11,8 @@
   instead."
   [data]
   {:post [(string? %)]}
-  (if (string? data)
-    data
-    (-> data
-        kitchensink/sort-nested-maps
-        json/generate-string)))
+  (-> (kitchensink/sort-nested-maps data)
+      (json/generate-string)))
 
 (defn generic-identity-hash
   "Convert a data structure into a serialized format then grab a sha1 hash for
