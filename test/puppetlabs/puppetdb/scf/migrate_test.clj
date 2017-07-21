@@ -904,10 +904,10 @@
                                    :same nil}]}
                schema-diff))))))
 
-(deftest migration-62-rededuplicate-facts
+(deftest migration-64-rededuplicate-facts
   (jdbc/with-db-connection *db*
     (clear-db-for-testing!)
-    (fast-forward-to-migration! 61)
+    (fast-forward-to-migration! 63)
 
     (jdbc/insert! :environments {:id 0 :environment "testing"})
 
@@ -952,7 +952,7 @@
                                (:value_null :value_json) row
                                (assoc row value_key value)))))
 
-    (apply-migration-for-testing! 62)
+    (apply-migration-for-testing! 64)
 
     (is (= 6 (:count (first (jdbc/query-to-vec "select count(*) from fact_values")))))
     (is (= 12 (:count (first (jdbc/query-to-vec "select count(*) from facts")))))))
