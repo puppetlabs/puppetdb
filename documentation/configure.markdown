@@ -201,7 +201,7 @@ and it will automatically react to changes after a few seconds.
 ### `update-server`
 
 The URL to query when checking for newer versions; defaults to
-`http://updates.puppetlabs.com/check-for-updates`. Overriding this
+`https://updates.puppetlabs.com/check-for-updates`. Overriding this
 setting may be useful if your PuppetDB server is firewalled and can't
 make external HTTP requests. In this case you can configure a proxy
 server to send requests to the `updates.puppetlabs.com` URL and

@@ -329,7 +329,7 @@
           #(-> %
                (utils/assoc-when :product-name "puppetdb")
                (update :product-name normalize-product-name)
-               (utils/assoc-when :update-server "http://updates.puppetlabs.com/check-for-updates"))))
+               (utils/assoc-when :update-server "https://updates.puppetlabs.com/check-for-updates"))))
 
 (defn warn-retirements
   "Warns about configuration retirements.  Abruptly exits the entire
