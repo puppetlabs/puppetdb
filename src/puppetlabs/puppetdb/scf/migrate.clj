@@ -1562,9 +1562,10 @@
       (if (sutils/table-exists? "fact_values")
         (log/info "This database already has the fact deduplication hotfix")
         (do
-          ;; apply the hotfix migration
           (log/info "!!! Applying fact deduplication hotfix !!!")
-          (rededuplicate-facts))))))
+          ;; apply the hotfix migration
+          (jdbc/with-db-transaction []
+            (rededuplicate-facts)))))))
 
 ;; SPECIAL INDEX HANDLING
 
