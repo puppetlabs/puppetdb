@@ -1323,10 +1323,9 @@
    "INSERT INTO fact_values (value, value_integer, value_float, value_string, value_boolean, value_type_id)
        SELECT distinct value, value_integer, value_float, value_string, value_boolean, value_type_id FROM facts")
 
-
   ;; Handle null fv.value separately; allowing them here leads to an intractable
   ;; query plan
-  (log/info (trs "[3/6] Reconstructing facts to refer to fact_value..."))
+  (log/info (trs "[3/6] Reconstructing facts to refer to fact_values..."))
   (jdbc/do-commands
    "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
        SELECT f.factset_id, f.fact_path_id, fv.id
@@ -1438,8 +1437,7 @@
    58 add-gin-index-on-resource-params-cache
    59 improve-facts-factset-id-index
    60 fix-missing-edges-fk-constraint
-   61 add-latest-report-timestamp-to-certnames
-   62 rededuplicate-facts})
+   61 add-latest-report-timestamp-to-certnames})
 
 (def desired-schema-version (apply max (keys migrations)))
 
@@ -1554,7 +1552,15 @@
         true)
       (do
         (log/info (trs "There are no pending migrations"))
-        false))))
+        false))
+
+    (when (= 61 (last (applied-migrations)))
+      (if (sutils/table-exists? "fact_values")
+        (log/info "This database already has the fact deduplication hotfix")
+        (do
+          ;; apply the hotfix migration
+          (log/info "!!! Applying fact deduplication hotfix !!!")
+          (rededuplicate-facts))))))
 
 ;; SPECIAL INDEX HANDLING
 

@@ -113,6 +113,24 @@
        first
        :current_schema))
 
+(pls/defn-validated table-exists? :- s/Bool
+  "Returns true if the table exists."
+  ([table :- s/Str]
+   (let [schema (current-schema)]
+     (table-exists? table schema)))
+  ([table :- s/Str
+    namespace :- s/Str]
+   (let [query "SELECT EXISTS (
+                  SELECT 1
+                  FROM   pg_catalog.pg_class c
+                  JOIN   pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                  WHERE  n.nspname = ?
+                  AND    c.relname = ?
+                  AND    c.relkind = 'r'
+               );"
+         results (jdbc/query-to-vec [query namespace table])]
+     (:exists (first results)))))
+
 (pls/defn-validated index-exists? :- s/Bool
   "Returns true if the index exists. Only supported on PostgreSQL currently."
   ([index :- s/Str]
