@@ -26,9 +26,10 @@
 
 (defn apply-migration-for-testing!
   [i]
-  (let [migration (migrations i)]
-    (migration)
-    (record-migration! i)))
+  (let [migration (migrations i)
+        result (migration)]
+    (record-migration! i)
+    result))
 
 (defn fast-forward-to-migration!
   [migration-number]
@@ -952,7 +953,8 @@
                                (:value_null :value_json) row
                                (assoc row value_key value)))))
 
-    (apply-migration-for-testing! 64)
+    (is (= {::migrate/vacuum-analyze #{"facts" "fact_values" "fact_paths"}}
+           (apply-migration-for-testing! 64)))
 
     (is (= 6 (:count (first (jdbc/query-to-vec "select count(*) from fact_values")))))
     (is (= 12 (:count (first (jdbc/query-to-vec "select count(*) from facts")))))))

@@ -10,6 +10,9 @@
    the migration function will be invoked, and the schema version and current
    time will be recorded in the schema_migrations table.
 
+   A migration function can return a map with ::vacuum-analyze to indicate what tables
+   need to be analyzed post-migration.
+
    NOTE: in order to support bug-fix schema changes to older branches without
    breaking the ability to upgrade, it is possible to define a sequence of
    migrations with non-sequential integers.  e.g., if the 1.0.x branch
@@ -60,7 +63,9 @@
             [puppetlabs.puppetdb.jdbc :as jdbc :refer [query-to-vec]]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.i18n.core :refer [trs]]
-            [puppetlabs.puppetdb.scf.hash :as hash])
+            [puppetlabs.puppetdb.scf.hash :as hash]
+            [clojure.set :as set]
+            [clojure.string :as str])
   (:import [org.postgresql.util PGobject]))
 
 (defn init-through-2-3-8
@@ -1415,7 +1420,9 @@
      FOREIGN KEY (factset_id)
      REFERENCES factsets(id)
      ON UPDATE CASCADE
-     ON DELETE CASCADE;"))
+     ON DELETE CASCADE;")
+
+  {::vacuum-analyze #{"facts" "fact_values" "fact_paths"}})
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
@@ -1564,12 +1571,21 @@
                    unexpected))))
 
     (if-let [pending (seq (pending-migrations))]
-      (do
-        (jdbc/with-db-transaction []
-          (doseq [[version migration] pending]
-            (log/info (trs "Applying database migration version {0}" version))
-            (sql-or-die (fn [] (migration) (record-migration! version)))))
-        (sutils/analyze-small-tables small-tables)
+      (let [tables-to-analyze (jdbc/with-db-transaction []
+                                (->> pending
+                                     (map (fn [[version migration]]
+                                            (log/info (trs "Applying database migration version {0}" version))
+                                            (sql-or-die (fn [] (let [result (migration)]
+                                                                    (record-migration! version)
+                                                                    result)))))
+                                     (filter map?)
+                                     (map ::vacuum-analyze)
+                                     (apply set/union small-tables)
+                                     sort))]
+        (log/info (trs "Updating table statistics for: {0}" (str/join ", " tables-to-analyze)))
+        (->> tables-to-analyze
+             (map #(str "vacuum analyze " %))
+             (apply jdbc/do-commands-outside-txn))
         true)
       (do
         (log/info (trs "There are no pending migrations"))
