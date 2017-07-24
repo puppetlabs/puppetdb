@@ -1305,7 +1305,11 @@
    "create index catalogs_job_id_idx on catalogs(job_id) where job_id is not null"))
 
 (defn rededuplicate-facts []
-  (log/info (trs "[1/6] Creating new fact storage tables..."))
+  (log/info (trs "[1/7] Cleaning up unreferenced facts..."))
+  (jdbc/do-commands
+   "DELETE FROM facts WHERE factset_id NOT IN (SELECT id FROM factsets)")
+
+  (log/info (trs "[2/7] Creating new fact storage tables..."))
   (jdbc/do-commands
    "CREATE SEQUENCE fact_values_id_seq;"
 
@@ -1331,7 +1335,7 @@
        fact_value_id bigint NOT NULL
     );")
 
-  (log/info (trs "[2/6] Copying unique fact values into fact_values"))
+  (log/info (trs "[3/7] Copying unique fact values into fact_values"))
   (jdbc/do-commands
    "INSERT INTO fact_values (value, value_integer, value_float, value_string, value_boolean, value_type_id)
        SELECT distinct value, value_integer, value_float, value_string, value_boolean, value_type_id FROM facts")
@@ -1339,7 +1343,7 @@
 
   ;; Handle null fv.value separately; allowing them here leads to an intractable
   ;; query plan
-  (log/info (trs "[3/6] Reconstructing facts to refer to fact_value..."))
+  (log/info (trs "[4/7] Reconstructing facts to refer to fact_values..."))
   (jdbc/do-commands
    "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
        SELECT f.factset_id, f.fact_path_id, fv.id
@@ -1362,7 +1366,7 @@
         WHERE f.value IS NULL AND fv.value IS NULL")
 
   ;; populate fact_values.value_hash
-  (log/info (trs "[4/6] Computing fact value hashes..."))
+  (log/info (trs "[5/7] Computing fact value hashes..."))
   (jdbc/call-with-query-rows
    ["select id, value::text from fact_values"]
    (fn [rows]
@@ -1381,7 +1385,7 @@
            (sutils/array-to-param "bytea" PGobject hashes)])))))
 
 
-  (log/info (trs "[5/6] Indexing fact_values table..."))
+  (log/info (trs "[6/7] Indexing fact_values table..."))
   (jdbc/do-commands
    "DROP TABLE facts"
    "ALTER TABLE facts_transform rename to facts"
@@ -1391,7 +1395,7 @@
    "CREATE INDEX fact_values_value_float_idx ON fact_values USING btree (value_float);"
    "CREATE INDEX fact_values_value_integer_idx ON fact_values USING btree (value_integer);")
 
-  (log/info (trs "[6/6] Indexing facts table..."))
+  (log/info (trs "[7/7] Indexing facts table..."))
   (jdbc/do-commands
    "ALTER TABLE facts ADD CONSTRAINT facts_factset_id_fact_path_id_fact_key UNIQUE (factset_id, fact_path_id);"
    "CREATE INDEX facts_fact_path_id_idx ON facts USING btree (fact_path_id);"
