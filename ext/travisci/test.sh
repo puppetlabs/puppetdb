@@ -27,6 +27,7 @@ case "$PDB_TEST_LANG" in
   ruby)
     ruby -v
     gem install bundler
+    export PUPPET_VERSION='4.6.2'
     bundle install --without acceptance
     cd puppet
     bundle exec rspec spec/
