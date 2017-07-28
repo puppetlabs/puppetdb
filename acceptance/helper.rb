@@ -383,6 +383,16 @@ module PuppetDBExtensions
     CGI.escape(Time.rfc2822(result.stdout).iso8601)
   end
 
+  def enable_https_apt_sources(host)
+    manifest = <<-EOS
+      if ($facts['osfamily'] == 'Debian']) {
+        package { 'apt-transport-https': ensure => installed }
+      }
+    EOS
+
+    apply_manifest_on(host, manifest)
+  end
+
   def postgres_manifest
     manifest = <<-EOS
       # get the pg server up and running
