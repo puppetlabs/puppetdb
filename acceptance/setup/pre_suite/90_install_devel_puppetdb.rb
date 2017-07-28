@@ -7,6 +7,7 @@ step "Install development build of PuppetDB on the PuppetDB server" do
       Log.notify("Install puppetdb from source")
       Log.error database
 
+      enable_https_apt_sources(database)
       install_postgres(database)
       install_puppetdb_via_rake(database)
       start_puppetdb(database)
