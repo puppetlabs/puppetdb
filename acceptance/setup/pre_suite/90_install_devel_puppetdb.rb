@@ -14,6 +14,7 @@ step "Install development build of PuppetDB on the PuppetDB server" do
     when :package
       Log.notify("Installing puppetdb from package; install mode: '#{test_config[:install_mode].inspect}'")
 
+      enable_https_apt_sources(database)
       install_puppetdb(database)
 
       if test_config[:validate_package_version]
