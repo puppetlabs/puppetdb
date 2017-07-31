@@ -388,7 +388,7 @@ module PuppetDBExtensions
 
   def enable_https_apt_sources(host)
     manifest = <<-EOS
-      if ($facts['osfamily'] == 'Debian']) {
+      if ($facts['osfamily'] == 'Debian') {
         package { 'apt-transport-https': ensure => installed }
       }
     EOS
