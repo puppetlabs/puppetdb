@@ -3,6 +3,7 @@
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.query-eng.engine :refer :all]
             [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx]]
+            [honeysql.core :as hcore]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.testutils :refer [get-request parse-result]]
@@ -42,12 +43,12 @@
          [:is-not (:field col1) nil]
          (->NullExpression col1 false)
 
-         "WITH inactive_nodes AS (SELECT certname FROM certnames WHERE (deactivated IS NOT NULL OR expired IS NOT NULL)) SELECT table.foo AS foo FROM table WHERE (1 = 1)"
+         (hcore/raw " ( WITH inactive_nodes AS (SELECT certname FROM certnames WHERE (deactivated IS NOT NULL OR expired IS NOT NULL)) SELECT table.foo AS foo FROM table WHERE (1 = 1) ) ")
          (map->Query {:projections {"foo" {:type :string
                                            :queryable? true
                                            :field :table.foo}}
                       :alias "thefoo"
-                      :subquery? false
+                      :wrap? true
                       :where (->BinaryExpression := 1 1)
                       :selection {:from [:table]}
                       :source-table "table"}))))
@@ -88,6 +89,34 @@
          (expand-user-query [["=" "prop" "foo"]
                              ["=" ["parameter" "bar"] "baz"]])))
 
+
+  (is (= [["from" "package_inventory"
+           ["extract" ["package_name" "version" "provider" ["function" "count"]]
+            ["in" ["package_name" "version" "provider"]
+             ["from" "packages"
+              ["extract" ["package_name" "version" "provider"] ["~" "version" "foo"]]
+               ["limit"100] ["offset" 100]]]
+             ["group_by" "package_name" "version" "provider"]]]]
+         (expand-user-query
+           [["from" "package_inventory"
+            ["extract" ["package_name" "version" "provider" ["function" "count"]]
+             ["~" "version" "foo"] ["group_by" "package_name" "version" "provider"]]
+            ["limit" 100] ["offset" 100]]])))
+
+
+  (is (= [["from" "package_inventory"
+           ["extract" ["package_name" "version" "provider" ["function" "count"]]
+            ["in" ["package_name" "version" "provider"]
+             ["from" "packages"
+              ["extract" ["package_name" "version" "provider"]]
+              ["offset" 100]]]
+             ["group_by" "package_name" "version" "provider"]]]]
+         (expand-user-query
+           [["from" "package_inventory"
+             ["extract" ["package_name" "version" "provider" ["function" "count"]]
+              ["group_by" "package_name" "version" "provider"]]
+             ["offset" 100]]])))
+
   (testing "implicit subqueries"
     (are [context in out]
       (= (expand-user-query
@@ -126,22 +155,38 @@
 
 (deftest test-extract-with-no-subexpression-compiles
   (is (re-find #"SELECT .*certname FROM reports"
-               (->> ["extract" "certname"]
+               (->> ["from" "reports" ["extract" "certname"]]
                     (compile-user-query->sql reports-query)
                     :results-query
+                    first)))
+  (is (re-find #"SELECT count\(\*\) count FROM reports"
+               (->> {:include_total true}
+                    (compile-user-query->sql reports-query ["from" "reports" ["extract" "certname"]])
+                    :count-query
                     first)))
   (is (re-find #"SELECT .*certname FROM reports"
-               (->> ["extract" ["certname"]]
+               (->> ["from" "reports" ["extract" ["certname"]]]
                     (compile-user-query->sql reports-query)
                     :results-query
+                    first)))
+  (is (re-find #"SELECT count\(\*\) count FROM reports"
+               (->> {:include_total true}
+                    (compile-user-query->sql reports-query ["extract" ["certname"]])
+                    :count-query
                     first)))
   (is (re-find #"SELECT count\(reports.certname\) count FROM reports"
-               (->> ["extract" [["function" "count" "certname"]]]
+               (->> ["from" "reports" ["extract" [["function" "count" "certname"]]]]
                     (compile-user-query->sql reports-query)
                     :results-query
                     first)))
+  (is (re-find #"SELECT count\(\*\) FROM \("
+               (->> {:include_total true}
+                    (compile-user-query->sql reports-query ["from" "reports"
+                                                            ["extract" [["function" "count" "certname"]]]])
+                    :count-query
+                    first)))
   (is (re-find #"SELECT .*certname AS certname, count\(\*\) .* FROM reports"
-               (->> ["extract" [["function" "count"] "certname"] ["group_by" "certname"]]
+               (->> ["from" "reports" ["extract" [["function" "count"] "certname"] ["group_by" "certname"]]]
                     (compile-user-query->sql reports-query)
                     :results-query
                     first))))
@@ -154,20 +199,23 @@
 (deftest test-valid-subqueries
   (is (thrown-with-msg? IllegalArgumentException
                         #"Unsupported subquery `foo`"
-                        (compile-user-query->sql facts-query ["and",
-                                                              ["=", "name", "uptime_hours"],
-                                                              ["in", "certname",
-                                                               ["extract", "certname",
-                                                                ["foo",
-                                                                 ["=", "facts_environment", "production"]]]]])))
+                        (compile-user-query->sql facts-query ["from" "facts"
+                                                              ["and",
+                                                               ["=", "name", "uptime_hours"],
+                                                               ["in", "certname",
+                                                                ["extract", "certname",
+                                                                 ["foo",
+                                                                  ["=", "facts_environment", "production"]]]]]])))
   (is (thrown-with-msg? IllegalArgumentException
                         #"Unsupported subquery `select-facts` - did you mean `select_facts`?"
-                        (compile-user-query->sql fact-contents-query ["in", "certname",
-                                                                      ["extract", "certname",
-                                                                       ["select-facts",
-                                                                        ["=", "name", "osfamily"]]]])))
-  (is (not (nil? (:results-query (compile-user-query->sql reports-query ["extract", ["hash"],
-                                                                         ["or", ["=", "certname", "host-3"]]]))))))
+                        (compile-user-query->sql fact-contents-query ["from"
+                                                                      "fact_contents" ["in", "certname",
+                                                                                       ["extract", "certname",
+                                                                                        ["select-facts",
+                                                                                         ["=", "name", "osfamily"]]]]])))
+  (is (not (nil? (:results-query (compile-user-query->sql reports-query ["from" "reports"
+                                                                         ["extract", ["hash"],
+                                                                          ["or", ["=", "certname", "host-3"]]]]))))))
 
 (deftest-http-app query-recs-are-swappable
   [version [:v4]

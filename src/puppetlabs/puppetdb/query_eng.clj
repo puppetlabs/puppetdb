@@ -82,6 +82,49 @@
                     (:queryable? projection-value))]
      (keyword projection-key))))
 
+(defn legacy-engine-query-context
+  "Parse a query and possibly some paging clauses from a query to the legacy
+   engine. Required because top-level paging options supplied in the query are
+   not otherwise handled by the engine, so they must be merged with
+   param-supplied paging options and dealt with at the top level."
+  [version query warn]
+  (cm/match
+    query
+    ["from" (entity-str :guard #(string? %)) & remaining-query]
+    (let [remaining-query (cm/match
+                            remaining-query
+
+                            [(c :guard eng/paging-clause?) & clauses]
+                            (let [paging-clauses (eng/create-paging-map (cons c clauses))]
+                              {:paging-clauses paging-clauses :query []})
+
+                            [(q :guard vector?)]
+                            {:query q}
+
+                            [(q :guard vector?) & clauses]
+                            (let [paging-clauses (eng/create-paging-map clauses)]
+                              {:query q :paging-clauses paging-clauses})
+
+                            []
+                            {:query []}
+                            :else (throw
+                                    (IllegalArgumentException.
+                                      (str
+                                        (tru "Your `from` query accepts an optional query only as a second argument.")
+                                        " "
+                                        (tru "Check your query and try again.")))))
+          entity (keyword (utils/underscores->dashes entity-str))]
+      (when warn
+        (eng/warn-experimental entity))
+      {:remaining-query (:query remaining-query)
+       :paging-clauses (:paging-clauses remaining-query)})
+
+    :else (throw (IllegalArgumentException.
+                   (str
+                     (trs "Your initial query must be of the form: [\"from\",<entity>,(<optional-query>)].")
+                     " "
+                     (trs "Check your query and try again."))))))
+
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
    return nodes matching the `query`."
@@ -92,17 +135,27 @@
           (or (not (:include_total paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
 
-  (cond
-    (= :aggregate-event-counts entity)
-    (aggregate-event-counts/query->sql version query paging-options)
 
-    (= :event-counts entity)
-    (event-counts/query->sql version query paging-options)
+  (if (or (= :aggregate-event-counts entity)
+          (= :event-counts entity)
+          (and (= :events entity) (:distinct_resources paging-options)))
 
-    (and (= :events entity) (:distinct_resources paging-options))
-    (events/legacy-query->sql false version query paging-options)
+    (let [{:keys [remaining-query paging-clauses]} (legacy-engine-query-context version query true)
+          paging-clauses (some-> paging-clauses
+                                 (rename-keys {:order-by :order_by})
+                                 (update :order_by paging/munge-query-ordering)
+                                 utils/strip-nil-values)
+          paging-options (merge paging-options (utils/strip-nil-values paging-clauses))]
+      (cond
+        (= :aggregate-event-counts entity)
+        (aggregate-event-counts/query->sql version remaining-query paging-options)
 
-    :else
+        (= :event-counts entity)
+        (event-counts/query->sql version remaining-query paging-options)
+
+        (and (= :events entity) (:distinct_resources paging-options))
+        (events/legacy-query->sql false version remaining-query paging-options)))
+
     (let [query-rec (get-in @entity-fn-idx [entity :rec])
           columns (orderable-columns query-rec)]
       (paging/validate-order-by! columns paging-options)
@@ -137,11 +190,11 @@
    (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print]
           :or {warn-experimental true
                pretty-print false}} options
-         {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)
+         {:keys [query entity]} (eng/parse-query-context version query warn-experimental)
          munge-fn (get-munge-fn entity version paging-options url-prefix)]
      (jdbc/with-transacted-connection scf-read-db
        (let [{:keys [results-query]}
-             (query->sql remaining-query entity version paging-options)]
+             (query->sql query entity version paging-options)]
          (jdbc/call-with-array-converted-query-rows results-query
                                                     (comp row-fn munge-fn)))))))
 
@@ -160,17 +213,11 @@
   ([version query-map] (user-query->engine-query version query-map false))
   ([version query-map warn-experimental]
    (let [query (:query query-map)
-         {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context
-                                                          version query warn-experimental)
-         paging-options (some-> paging-clauses
-                                (rename-keys {:order-by :order_by})
-                                (update :order_by paging/munge-query-ordering)
-                                utils/strip-nil-values)
+         {:keys [query entity]} (eng/parse-query-context
+                                  version query warn-experimental)
          query-options (->> (dissoc query-map :query)
-                            utils/strip-nil-values
-                            (merge {:limit nil :offset nil :order_by nil}
-                                   paging-options))]
-     {:query query :remaining-query remaining-query :entity entity :query-options query-options})))
+                            utils/strip-nil-values)]
+     {:query query :entity entity :query-options query-options})))
 
 (pls/defn-validated produce-streaming-body
   "Given a query, and database connection, return a Ring response with
@@ -183,12 +230,12 @@
   (let [{:keys [scf-read-db url-prefix warn-experimental pretty-print]
          :or {warn-experimental true
               pretty-print false}} options
-        {:keys [query remaining-query entity query-options]} (user-query->engine-query version query-map warn-experimental)]
+        {:keys [query entity query-options]} (user-query->engine-query version query-map warn-experimental)]
 
     (try
       (jdbc/with-transacted-connection scf-read-db
         (let [munge-fn (get-munge-fn entity version query-options url-prefix)
-              {:keys [results-query count-query]} (-> remaining-query
+              {:keys [results-query count-query]} (-> query
                                                       coerce-from-json
                                                       (query->sql entity version query-options))
               query-error (promise)

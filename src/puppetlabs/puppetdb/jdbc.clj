@@ -288,17 +288,17 @@
   "Takes a sql string and returns a modified sql string that will select
   the count of results that would be returned by the original sql."
   [sql :- String]
-  (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))
+  (format "SELECT COUNT(*) FROM (%s) results_to_count" sql))
 
 (pls/defn-validated get-result-count :- s/Num
   "Takes a sql string, executes a `COUNT` statement against the database,
-  and returns the number of results that the original query would have returned."
+   and returns the number of results that the original query would have returned."
   [[count-sql & params]]
   {:pre [(string? count-sql)]}
   (-> (apply vector count-sql params)
       query-to-vec
       first
-      :result_count))
+      :count))
 
 (defn table-count
   "Returns the number of rows in the supplied table"
