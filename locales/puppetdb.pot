@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 2cba12b796933d47f4886aaf1feab999a54a5f48\n"
+"X-Git-Ref: 16aa6a67b8cd7597eafd7cdd017640fceddc17b9\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1034,6 +1034,37 @@ msgid "Cleaning up orphaned edges"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "[1/7] Cleaning up unreferenced facts..."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "[2/7] Creating new fact storage tables..."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "[3/7] Copying unique fact values into fact_values"
+msgstr ""
+
+#. Handle null fv.value separately; allowing them here leads to an intractable
+#. query plan
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "[4/7] Reconstructing facts to refer to fact_values..."
+msgstr ""
+
+#. populate fact_values.value_hash
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "[5/7] Computing fact value hashes..."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "[6/7] Indexing fact_values table..."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "[7/7] Indexing facts table..."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "Caught SQLException during migration"
 msgstr ""
 
@@ -1068,6 +1099,10 @@ msgid "Applying database migration version {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "Updating table statistics for: {0}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "There are no pending migrations"
 msgstr ""
 
@@ -1076,7 +1111,7 @@ msgid "Creating additional index `fact_paths_path_trgm`"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "Creating additional index `facts_value_string_trgm`"
+msgid "Creating additional index `fact_values_string_trgm`"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
@@ -1101,14 +1136,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
 msgid "Not replacing catalog for certname {0} because local data is newer."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "Fact value {0} has unexpected type"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/storage.clj
-msgid "Unexpected type {0} for {1}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/storage.clj
