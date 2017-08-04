@@ -269,6 +269,14 @@
    :prefix "/pdb/meta"
    :version (or version :v1)})
 
+(defn metrics-base-url
+  [host port & [version]]
+  {:protocol "http"
+   :host host
+   :port port
+   :prefix "/metrics"
+   :version (or version :v1)})
+
 (defn assoc-if-exists
   "Assoc only if the key is already present"
   [m & ks]

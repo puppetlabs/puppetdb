@@ -11,6 +11,16 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s]))
 
+(defn get-metric [base-url metric-name]
+  (let [url (str (utils/base-url->str base-url)
+                 "/mbeans/"
+                 (java.net.URLEncoder/encode metric-name "UTF-8"))]
+    (:body
+     (http-client/get url {:throw-exceptions false
+                            :content-type :json
+                            :character-encoding "UTF-8"
+                            :accept :json}))) )
+
 (defn-validated submit-command-via-http!
   "Submits `payload` as a valid command of type `command` and
    `version` to the PuppetDB instance specified by `host` and
