@@ -86,7 +86,7 @@
 (def database-metrics-registry (get-in metrics/metrics-registries [:database :registry]))
 
 (def clean-options
-  #{"expire_nodes" "purge_nodes" "purge_reports" "package_gc" "other"})
+  #{"expire_nodes" "purge_nodes" "purge_reports" "gc_packages" "other"})
 
 (def purge-nodes-opts-schema {:batch_limit s/Int})
 
@@ -168,10 +168,10 @@
     (catch Exception e
       (log/error e (trs "Error while sweeping reports")))))
 
-(defn gc-packages! [ttl db]
+(defn gc-packages! [db]
   {:pre [(map? db)]}
   (try
-    (kitchensink/demarcate (trs "package gc")
+    (kitchensink/demarcate (trs "gc packages")
       (jdbc/with-transacted-connection db
         (scf-store/delete-unassociated-packages!)))
     (catch Exception e
