@@ -1,5 +1,4 @@
 language: clojure
-lein: lein2
 sudo: false
 # By running 'true' it forces travis-ci to skip its own installation steps
 install: true
@@ -8,7 +7,7 @@ jdk:
 notifications:
     email: false
 script:
-    - ext/travisci/test.sh --lein lein2 --pg-sandbox
+    - ext/travisci/test.sh --pg-sandbox
 addons:
   postgresql: "9.4"
 services: postgresql
