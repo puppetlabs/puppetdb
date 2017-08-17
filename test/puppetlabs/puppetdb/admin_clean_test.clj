@@ -64,7 +64,7 @@
     (is (= http/status-ok (:status (post-clean ["expire_nodes"]))))
     (is (= http/status-ok (:status (post-clean ["purge_nodes"]))))
     (is (= http/status-ok (:status (post-clean ["purge_reports"]))))
-    (is (= http/status-ok (:status (post-clean ["package_gc"]))))
+    (is (= http/status-ok (:status (post-clean ["gc_packages"]))))
     (is (= http/status-ok (:status (post-clean ["other"]))))
     (is (= http/status-bad-request (:status (post-clean ["?"]))))))
 
@@ -112,7 +112,7 @@
                                     "purge_nodes"
                                     ["purge_nodes" {"batch_limit" 10}]
                                     "purge_reports"
-                                    "package_gc"
+                                    "gc_packages"
                                     "other"]
                                    3)]
           (let [expected (-> what
@@ -193,7 +193,7 @@
 (defn- check-counts [get-counts]
   (with-pdb-with-no-gc
     (doseq [requested (combinations ["expire_nodes" "purge_nodes"
-                                     "purge_reports" "package_gc" "other"]
+                                     "purge_reports" "gc_packages" "other"]
                                     3)]
       (let [requested (set requested)
             before (get-counts)
