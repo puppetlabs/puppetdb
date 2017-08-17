@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 16aa6a67b8cd7597eafd7cdd017640fceddc17b9\n"
+"X-Git-Ref: 5a149e9055af5857224edc2c8d38404a5db5044c\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -236,7 +236,7 @@ msgid "Error while sweeping reports"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
-msgid "package gc"
+msgid "gc packages"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/cli/services.clj
