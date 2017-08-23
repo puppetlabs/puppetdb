@@ -948,7 +948,10 @@
       (let [row {:factset_id factset-id
                  :fact_path_id fact-path-id
                  :value_type_id value-type-id
-                 :value (sutils/munge-jsonb-for-storage value)}]
+                 ;; reduplicated facts code stored sql NULL for nil values in
+                 ;; this column, not json null
+                 :value (some-> value sutils/munge-jsonb-for-storage)}]
+
         (jdbc/insert! :facts (case value_key
                                (:value_null :value_json) row
                                (assoc row value_key value)))))

@@ -1309,6 +1309,9 @@
    "create index reports_job_id_idx on reports(job_id) where job_id is not null"
    "create index catalogs_job_id_idx on catalogs(job_id) where job_id is not null"))
 
+(defn maybe-parse-json [s]
+  (some-> s json/parse))
+
 (defn rededuplicate-facts []
   (log/info (trs "[1/7] Cleaning up unreferenced facts..."))
   (jdbc/do-commands
@@ -1378,7 +1381,7 @@
      (doseq [batch (partition-all 500 rows)]
        (let [ids (map :id batch)
              hashes (map #(-> (:value %)
-                              json/parse
+                              maybe-parse-json
                               hash/generic-identity-hash
                               sutils/munge-hash-for-storage)
                          batch)]
