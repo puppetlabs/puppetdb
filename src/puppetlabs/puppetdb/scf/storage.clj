@@ -1356,13 +1356,21 @@
     (dissoc row-map :environment_id)
     row-map))
 
+(defn replace-null-bytes [x]
+  (if-not (string? x)
+    x
+    (let [^String s x]
+      (if (= -1 (.indexOf s (int \u0000)))
+        s
+        (.replace s \u0000 \ufffd)))))
+
 (defn normalize-resource-event
   "Prep `event` for comparison/computation of a hash"
   [event]
   (-> event
       (update :timestamp to-timestamp)
-      (update :old_value sutils/db-serialize)
-      (update :new_value sutils/db-serialize)
+      (update :old_value (comp sutils/db-serialize replace-null-bytes))
+      (update :new_value (comp sutils/db-serialize replace-null-bytes))
       (assoc :containing_class (find-containing-class (:containment_path event)))))
 
 (defn normalize-report

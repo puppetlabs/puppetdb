@@ -1702,6 +1702,17 @@
       (is (= (shash/report-identity-hash (normalize-report z-report))
              (shash/report-identity-hash (normalize-report offset-report))))))
 
+  (deftest-db report-with-null-bytes-in-events
+    (store-example-report!
+     (-> report
+         (assoc-in [:resource_events :data 0 :new_value] "foo\u0000bar")
+         (assoc-in [:resource_events :data 0 :old_value] "foo\u0000bar"))
+     timestamp)
+
+    (is (= [{:old_value "\"foo\ufffdbar\""
+             :new_value "\"foo\ufffdbar\""}]
+           (query-to-vec ["SELECT old_value, new_value from resource_events where old_value ~ 'foo'"]))))
+
   (deftest-db report-storage-with-environment
     (is (nil? (environment-id "DEV")))
 
@@ -1713,13 +1724,13 @@
            [{:certname (:certname report)
              :environment_id (environment-id "DEV")}])))
 
- (deftest-db report-storage-with-producer
-   (let [prod-id (ensure-producer "bar.com")]
-     (store-example-report! (assoc report :producer "bar.com") timestamp)
+  (deftest-db report-storage-with-producer
+    (let [prod-id (ensure-producer "bar.com")]
+      (store-example-report! (assoc report :producer "bar.com") timestamp)
 
-     (is (= (query-to-vec ["SELECT certname, producer_id FROM reports"])
-            [{:certname (:certname report)
-              :producer_id prod-id}]))))
+      (is (= (query-to-vec ["SELECT certname, producer_id FROM reports"])
+             [{:certname (:certname report)
+               :producer_id prod-id}]))))
 
   (deftest-db report-storage-with-status
     (is (nil? (status-id "unchanged")))

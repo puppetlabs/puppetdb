@@ -546,6 +546,7 @@
          "facts.operatingsystem.κόσμε"
          "facts.\"quoted field\".foo"
          "facts.\"field.with.dot\".foo"
+         "facts.\"field-with-dash\".foo"
          "trusted.authenticated"
          "parameters.😁"
          "latest_report?")
