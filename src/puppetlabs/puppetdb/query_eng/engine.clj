@@ -2076,16 +2076,6 @@
 
             :else nil))
 
-(defn dashes-to-underscores
-  "Convert field names with dashes to underscores"
-  [node state]
-  (cm/match [node]
-            [[(op :guard binary-operators) (field :guard string?) value]]
-            {:node (with-meta [op (utils/dashes->underscores field) value]
-                     (meta node))
-             :state state}
-            :else {:node node :state state}))
-
 (defn valid-operator?
   [operator]
   (or (contains? #{"from" "in" "extract" "subquery" "and"
@@ -2112,7 +2102,7 @@
                                              []
                                              [(annotate-with-context context)
                                               validate-query-fields
-                                              dashes-to-underscores ops-to-lower])]
+                                              ops-to-lower])]
     (when (seq errors)
       (throw (IllegalArgumentException. (str/join \newline errors))))
 
