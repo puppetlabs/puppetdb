@@ -30,7 +30,7 @@ The following examples use the PuppetDB CLI to execute a query:
 
 **Without SSL:**
 
-    puppet query 'nodes { certname = \"macbook-pro.local\" }' \
+    puppet query 'nodes { certname = "macbook-pro.local" }' \
       --urls http://puppetdb.example.com:8080/pdb/query/v4
 
 This requires that PuppetDB be
@@ -39,7 +39,7 @@ only accept unencrypted traffic from `localhost`.
 
 **With SSL:**
 
-    puppet query 'nodes { certname = \"macbook-pro.local\" }' \
+    puppet query 'nodes { certname = "macbook-pro.local" }' \
       --urls https://puppetdb.example.com:8081/pdb/query/v4 \
       --cacert /etc/puppetlabs/puppet/ssl/certs/ca.pem \
       --cert /etc/puppetlabs/puppet/ssl/certs/thisnode.pem \
