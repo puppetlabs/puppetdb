@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.scf.storage-utils
-  (:require [clojure.java.jdbc :as sql]
+  (:require [cheshire.factory :refer [*json-factory*]]
+            [clojure.java.jdbc :as sql]
             [clojure.tools.logging :as log]
             [honeysql.core :as hcore]
             [honeysql.format :as hfmt]
@@ -280,11 +281,12 @@
     (str->pgobject "json" json-str)))
 
 (defn munge-jsonb-for-storage
-  "Prepare a clojure object for storage depending on db type."
+  "Prepare a clojure object for storage.  Rewrite all null (\\u0000)
+  characters to the replacement character (\\ufffd) because Postgres
+  cannot handle them in its JSON values."
   [value]
-  (let [json-str (-> (json/generate-string value)
-                     (.replaceAll "\\\\u0000" "\\\ufffd"))]
-    (str->pgobject "jsonb" json-str)))
+  (binding [*json-factory* json/null-replacing-json-factory]
+    (str->pgobject "jsonb" (json/generate-string value))))
 
 (defn db-up?
   [db-spec]

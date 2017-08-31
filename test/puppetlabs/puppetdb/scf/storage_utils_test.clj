@@ -66,3 +66,7 @@
   (testing "dotted path with quote"
     (is (= (dotted-query->path "facts.\"foo.bar\"baz\".biz")
            ["facts" "\"foo.bar\"baz\"" "biz"]))))
+
+(deftest json-adjustments-for-pg
+  (is (= "[\"\\ufffd\"]"
+         (-> ["\u0000"] munge-jsonb-for-storage .getValue))))
