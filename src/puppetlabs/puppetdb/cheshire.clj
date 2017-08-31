@@ -50,8 +50,8 @@
       (.writeString jsonGenerator (to-string data))))
   (add-encoder
     RawJsonString
-    (fn [^String data ^JsonGenerator jsonGenerator]
-      (.writeRawValue jsonGenerator (:data data)))))
+    (fn [data ^JsonGenerator jsonGenerator]
+      (.writeRawValue jsonGenerator ^String (:data data)))))
 
 (def
   ^{:doc "Registers some common encoders for cheshire JSON encoding.

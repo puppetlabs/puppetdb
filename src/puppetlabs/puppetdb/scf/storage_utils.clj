@@ -11,13 +11,15 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s])
-  (:import [org.postgresql.util PGobject]))
+  (:import [java.sql Connection]
+           [java.util UUID]
+           [org.postgresql.util PGobject]))
 
 ;; SCHEMA
 
 (defn array-to-param
   [col-type java-type values]
-  (.createArrayOf (:connection (jdbc/db))
+  (.createArrayOf ^Connection (:connection (jdbc/db))
                   col-type
                   (into-array java-type values)))
 
@@ -42,7 +44,7 @@
 ;; FUNCTIONS
 (defn db-metadata-fn
   []
-  (let [db-metadata (.getMetaData (:connection (jdbc/db)))]
+  (let [db-metadata (.getMetaData ^Connection (:connection (jdbc/db)))]
     {:database (.getDatabaseProductName db-metadata)
      :version [(.getDatabaseMajorVersion db-metadata)
                (.getDatabaseMinorVersion db-metadata)]}))
@@ -171,7 +173,7 @@
   [coll]
   (->> coll
        (into-array Object)
-       (.createArrayOf (:connection (jdbc/db)) "varchar")))
+       (.createArrayOf ^Connection (:connection (jdbc/db)) "varchar")))
 
 (defn legacy-sql-regexp-match
   "Returns the SQL for performing a regexp match."
@@ -260,16 +262,16 @@
     (sql/execute! db ["vacuum analyze"] :transaction? false)))
 
 (defn parse-db-hash
-  [db-hash]
+  [^PGobject db-hash]
   (clojure.string/replace (.getValue db-hash) "\\x" ""))
 
 (defn parse-db-uuid
-  [db-uuid]
+  [^UUID db-uuid]
   (.toString db-uuid))
 
 (pls/defn-validated parse-db-json
   "Produce a function for parsing an object stored as json."
-  [db-json :- (s/maybe (s/cond-pre s/Str PGobject))]
+  [^PGobject db-json :- (s/maybe (s/cond-pre s/Str PGobject))]
   (some-> db-json .getValue (json/parse-string true)))
 
 (pls/defn-validated str->pgobject :- PGobject
