@@ -16,7 +16,7 @@ run-unit-tests()
   export PGHOST=127.0.0.1
   export PGPORT=5432
   ext/bin/setup-pdb-pg "$pgdir"
-  ext/bin/pdb-test-env "$pgdir" lein2 test
+  ext/bin/pdb-test-env "$pgdir" lein test
 )
 
 case "$PDB_TEST_LANG" in
