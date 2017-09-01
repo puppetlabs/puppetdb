@@ -362,6 +362,7 @@
                             ["purge_nodes" {:batch_limit limit}])))
              (when (some-> (:report-ttl config) seconds-pos?)
                "purge_reports")
+             "gc_packages"
              "other"])))
 
 (defn collect-garbage
