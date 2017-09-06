@@ -19,8 +19,6 @@
 
 ;; SCHEMA
 
-(set! *warn-on-reflection* true)
-
 (defn array-to-param
   [col-type java-type values]
   (.createArrayOf ^Connection (:connection (jdbc/db))
