@@ -13,6 +13,7 @@
    This namespace when 'required' will also setup some common JSON encoders
    globally, so you can avoid doing this for each call."
   (:import [com.fasterxml.jackson.core JsonGenerator]
+           [com.fasterxml.jackson.core.io CharacterEscapes SerializedString]
            [org.postgresql.util PGobject]
            [java.io ByteArrayInputStream Writer])
   (:require [cheshire.core :as core]
@@ -50,8 +51,8 @@
       (.writeString jsonGenerator (to-string data))))
   (add-encoder
     RawJsonString
-    (fn [^String data ^JsonGenerator jsonGenerator]
-      (.writeRawValue jsonGenerator (:data data)))))
+    (fn [data ^JsonGenerator jsonGenerator]
+      (.writeRawValue jsonGenerator ^String (:data data)))))
 
 (def
   ^{:doc "Registers some common encoders for cheshire JSON encoding.
@@ -102,6 +103,21 @@
      (generate-pretty-stream obj writer default-pretty-opts))
   ([obj writer opts]
      (generate-stream obj writer (merge default-pretty-opts opts))))
+
+(def encoder-escaping-null-as-replacement
+  (let [ascii-escapes (CharacterEscapes/standardAsciiEscapesForJSON)
+        replacement (SerializedString. "\\ufffd")]
+    (aset ascii-escapes 0 CharacterEscapes/ESCAPE_CUSTOM)
+    (proxy [CharacterEscapes] []
+      (getEscapeSequence [ch]
+        (when (zero? ch)
+          replacement))
+      (getEscapeCodesForAscii []
+        ascii-escapes))))
+
+(def null-replacing-json-factory
+  (doto (factory/make-json-factory factory/default-factory-options)
+    (.setCharacterEscapes encoder-escaping-null-as-replacement)))
 
 (def parse-string core/parse-string)
 
