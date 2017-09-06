@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.cheshire-test
-  (:require [clj-time.core :as clj-time]
+  (:require [cheshire.factory :refer [*json-factory*]]
+            [clj-time.core :as clj-time]
             [puppetlabs.puppetdb.testutils :as tu]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.cheshire :refer :all])
@@ -68,3 +69,10 @@
       (spit-json json-out (sorted-map "a" 1 "b" 2))
       (is (= "{\n  \"a\" : 1,\n  \"b\" : 2\n}"
              (slurp json-out))))))
+
+(deftest test-null-replacing-encoder
+  (binding [*json-factory* null-replacing-json-factory]
+    (are [json src] (= json (generate-string src))
+         "\"\\ufffd\"" "\u0000"
+         "\"\\\\u0000\"" "\\u0000"
+         "[\"\\ufffd\"]" ["\u0000"])))
