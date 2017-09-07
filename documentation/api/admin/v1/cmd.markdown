@@ -21,7 +21,7 @@ The POST request should specify `Content-Type: application/json` and
 the request body should look like this:
 
   ```json
-  {"version" : 1, "payload" : ["REQUESTED_OPERATION", "..."]}
+  {"version" : 1, "command" : "clean", "payload" : ["REQUESTED_OPERATION", "..."]}
   ```
 
 where valid `REQUESTED_OPERATION`s are `expire_nodes`, `purge_nodes`,
