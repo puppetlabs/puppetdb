@@ -22,7 +22,7 @@ The maintenance operations must be triggered by a POST.
 The POST request should specify `Content-Type: application/json` and
 the request body should look like this:
 
-  ```json
+  ``` json
   {"version" : 1, "payload" : [REQUESTED_OPERATION, ...]}
   ```
 
@@ -31,7 +31,7 @@ where valid `REQUESTED_OPERATION`s are `"expire_nodes"`,
 In addition, a purge_nodes operation can be structured like this to
 specify a batch_limit:
 
-  ```json
+  ``` json
   ["purge_nodes" {"batch_limit" : 50}]
   ```
 
@@ -50,14 +50,14 @@ An empty payload vector requests all maintenance operations.
 The response type will be `application/json`, and upon success will
 include this JSON map:
 
-  ```json
+  ``` json
   {"ok": true}
   ```
 
 If any other maintenance operation is already in progress the HTTP
 response status will be 409 (conflict), will include a map like this
 
-  ```json
+  ``` json
   {"kind": "conflict",
    "msg": "Another cleanup is already in progress",
    "details": null}
@@ -71,7 +71,7 @@ and no additional maintenance will be performed.  The `msg` and
 
 [Using `curl` from localhost][curl]:
 
-  ```sh
+  ``` sh
   $ curl -X POST http://localhost:8080/pdb/admin/v1/cmd \
         -H 'Accept: application/json' \
         -H 'Content-Type: application/json' \
