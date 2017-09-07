@@ -9,7 +9,7 @@ For documentation on this product, consult the [latest documentation][docs].
 
 ## Contributing
 
-If you would like to contribute to PuppetDB, please take a look at our [contributing doc][contributing]
+If you would like to contribute to PuppetDB, please take a look at our [contributing doc][contributing].
 
 ## Maintenance
 
