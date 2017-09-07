@@ -25,7 +25,7 @@ Install it now
 
 To start using PuppetDB today:
 
-* Review [the system requirements below](#system-requirements) (and, optionally,
+* Review [the system requirements below](#system-requirements) (and optionally,
   [our scaling recommendations][scaling]).
 * Choose your installation method:
     * [Easy install][install_via_module] using the PuppetDB puppet module on our
