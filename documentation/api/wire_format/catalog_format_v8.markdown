@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.0: Catalog wire format, version 8"
+title: "PuppetDB 5.1: Catalog wire format, version 8"
 layout: default
 canonical: "/puppetdb/latest/api/wire_format/catalog_format_v8.html"
 ---

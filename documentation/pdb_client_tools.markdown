@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.0: PuppetDB CLI"
+title: "PuppetDB 5.1: PuppetDB CLI"
 layout: default
 ---
 

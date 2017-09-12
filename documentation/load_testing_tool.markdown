@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.0: Load testing"
+title: "PuppetDB 5.1: Load testing"
 layout: default
 ---
 

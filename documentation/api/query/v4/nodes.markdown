@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.0: Nodes endpoint"
+title: "PuppetDB 5.1: Nodes endpoint"
 layout: default
 canonical: "/puppetdb/latest/api/query/v4/nodes.html"
 ---
