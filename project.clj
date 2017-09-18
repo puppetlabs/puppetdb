@@ -5,8 +5,8 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(def pdb-version "4.2.3.6-SNAPSHOT")
-(def pe-pdb-version "4.2.3.6-SNAPSHOT")
+(def pdb-version "4.2.3.6")
+(def pe-pdb-version "4.2.3.6")
 
 (def rbac-client-version "0.1.5")
 (def rbac-version "1.2.19")
