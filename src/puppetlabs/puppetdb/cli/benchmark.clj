@@ -513,6 +513,7 @@
                                                          threads)
         populate-finished-ch (start-populate-queue mq-ch numhosts run-interval pdb-host
                                                    catalogs reports facts)
+        _ (<!! populate-finished-ch)
         _ (start-simulation-loop numhosts run-interval nummsgs rand-perc
                                  simulation-threads command-send-ch mq-ch)
         join-fn (fn join-benchmark
