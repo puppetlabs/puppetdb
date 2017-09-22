@@ -196,5 +196,6 @@ Which returns:
 
 This query endpoint supports paged results via the common PuppetDB paging
 URL parameters. For more information, please see the documentation
-on [paging][paging]. When the `order_by` parameter is set to "value", the
-ordering will be lexicographical.
+on [paging][paging]. As with the `facts` endpoint, the `order_by` parameter for
+`fact_contents` does not support the `value` field.
+
