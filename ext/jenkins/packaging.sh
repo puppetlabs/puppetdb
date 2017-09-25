@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+
+######################################################
+## This script is deprecated!
+##
+## Packaging script is now managed in ci-job-configs!
+######################################################
+
 echo "**********************************************"
 echo "PARAMS FROM UPSTREAM:"
 echo ""
