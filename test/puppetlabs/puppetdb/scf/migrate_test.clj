@@ -934,7 +934,8 @@
                        [2 "float_fact"]
                        [3 "bool_fact"]
                        [4 "null_fact"]
-                       [5 "json_fact"]]]
+                       [5 "json_fact"]
+                       [6 "json_null_fact"]]]
       (jdbc/insert! :fact_paths {:id id :depth 0 :name name :path name}))
 
     (doseq [[fact-path-id value-type-id value_key value]
@@ -943,15 +944,19 @@
              [2 2 :value_float 4.2]
              [3 3 :value_boolean false]
              [4 4 :value_null nil]
-             [5 5 :value_json {:foo "bar"}]]
+             [5 5 :value_json {:foo "bar"}]
+             ;; some databases have a fact value for both json null and sql null
+             [6 5  :value_json ::json-null]]
             factset-id [0 1]]
       (let [row {:factset_id factset-id
                  :fact_path_id fact-path-id
                  :value_type_id value-type-id
                  ;; reduplicated facts code stored sql NULL for nil values in
                  ;; this column, not json null
-                 :value (some-> value sutils/munge-jsonb-for-storage)}]
-
+                 :value (case value
+                          nil nil
+                          ::json-null (sutils/munge-jsonb-for-storage nil)
+                          (sutils/munge-jsonb-for-storage value))}]
         (jdbc/insert! :facts (case value_key
                                (:value_null :value_json) row
                                (assoc row value_key value)))))
@@ -960,4 +965,4 @@
            (apply-migration-for-testing! 64)))
 
     (is (= 6 (:count (first (jdbc/query-to-vec "select count(*) from fact_values")))))
-    (is (= 12 (:count (first (jdbc/query-to-vec "select count(*) from facts")))))))
+    (is (= 14 (:count (first (jdbc/query-to-vec "select count(*) from facts")))))))
