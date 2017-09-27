@@ -1,6 +1,6 @@
 (def pdb-version "5.1.1-SNAPSHOT")
-(def puppetserver-version "5.0.0")
-(def clj-parent-version "1.3.1")
+(def puppetserver-version "5.1.0")
+(def clj-parent-version "1.4.2")
 
 (defn deploy-info
   "Generate deployment information from the URL supplied and the username and
@@ -59,7 +59,7 @@
                  [puppetlabs/trapperkeeper-status]
 
                  ;; Various
-                 [cheshire "5.7.1"]
+                 [cheshire]
                  [clj-stacktrace]
                  [clj-time]
                  [com.rpl/specter "0.5.7"]
@@ -148,7 +148,11 @@
                                    [clj-time com.andrewmcveigh/cljs-time instaparse joda-time org.clojure/clojure]]
                                   [environ "1.0.2"]
                                   [riddley "0.1.12"]
-                                  [io.forward/yaml "1.0.5"]]
+                                  [io.forward/yaml "1.0.5"]
+
+                                  ;; Only needed for :integration tests
+                                  [puppetlabs/trapperkeeper-authorization nil]
+                                  [puppetlabs/trapperkeeper-filesystem-watcher nil]]
                    :injections [(do
                                   (require 'schema.core)
                                   (schema.core/set-fn-validation! true))]}
