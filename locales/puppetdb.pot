@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 5a149e9055af5857224edc2c8d38404a5db5044c\n"
+"X-Git-Ref: 722499dc601e4f925f7129fbf53e7ab169c1552b\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1034,34 +1034,41 @@ msgid "Cleaning up orphaned edges"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "[1/7] Cleaning up unreferenced facts..."
+msgid "[1/8] Cleaning up unreferenced facts..."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "[2/7] Creating new fact storage tables..."
+msgid "[2/8] Creating new fact storage tables..."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "[3/7] Copying unique fact values into fact_values"
+msgid "[3/8] Copying unique fact values into fact_values"
 msgstr ""
 
 #. Handle null fv.value separately; allowing them here leads to an intractable
 #. query plan
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "[4/7] Reconstructing facts to refer to fact_values..."
-msgstr ""
-
-#. populate fact_values.value_hash
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "[5/7] Computing fact value hashes..."
+msgid "[4/8] Reconstructing facts to refer to fact_values..."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "[6/7] Indexing fact_values table..."
+msgid "[5/8] Cleaning up duplicate null values..."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "[7/7] Indexing facts table..."
+msgid "  ... none found"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "[6/8] Computing fact value hashes..."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "[7/8] Indexing fact_values table..."
+msgstr ""
+
+#: src/puppetlabs/puppetdb/scf/migrate.clj
+msgid "[8/8] Indexing facts table..."
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
