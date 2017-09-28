@@ -67,6 +67,8 @@ responses.
 * `status` (string): the status associated to report's node. Possible values for
   this field come from Puppet's report status, which can be found
   [here][statuses].
+  
+*  `job_id` (string): the job id associated with the report (not present if the run wasn't part of a job)
 
 * `noop` (Boolean): a flag indicating whether the report was produced by a noop
   run.
