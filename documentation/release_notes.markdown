@@ -17,6 +17,18 @@ canonical: "/puppetdb/latest/release_notes.html"
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
 
+5.1.1
+-----
+PuppetDB 5.1.1 is a bugfix release.
+
+### Bug Fixes
+* This release contains a fix for a uniqueness bug in the recent fact data
+  migration.
+  ([PDB-3692](https://tickets.puppetlabs.com/browse/PDB-3692))
+
+### Contributors
+Morgan Rhodes, Rob Browning, Russell Mull, and Zachary Kent
+
 5.1.0
 -----
 
@@ -70,6 +82,10 @@ binary data in several places.
   contain the value '\0' by default.
   ([PDB-3058](https://tickets.puppetlabs.com/browse/PDB-3058))
 
+### Contributors
+Britt Gresham, Dan Lidral-PorterJoe Pinsonault, Jorie Tappa, Josh Cooper,
+Melissa Stone, Mike Eller, Rob Browning, Romain Tartière, Russell Mull,
+Scott Walker, and Wyatt Alt
 
 5.0.1
 -----
