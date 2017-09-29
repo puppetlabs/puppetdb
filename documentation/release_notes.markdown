@@ -1,5 +1,5 @@
 ---
-title: "PuppetDB 5.0: Release notes"
+title: "PuppetDB 5.1: Release notes"
 layout: default
 canonical: "/puppetdb/latest/release_notes.html"
 ---
@@ -15,6 +15,60 @@ canonical: "/puppetdb/latest/release_notes.html"
 [pqltutorial]: ./api/query/tutorial-pql.html
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
+
+
+5.1.0
+-----
+
+PuppetDB 5.1.0 is a bugfix and performance release. It contains significant
+schema migrations, most notably for fact storage. It also improves handling of
+binary data in several places.
+
+### Upgrading
+
+* Before upgrading you should ensure you have as much free disk space as you
+  have data. Database schema changes (also known as migrations) may require
+  temporary duplication of table data and may mean you have to wait during the
+  upgrade as these migrations run.
+
+### Improvements
+
+* Improve data storage performance by optimizing the query which
+  updates the contents of the fact_values table.
+  ([PDB-3639](https://tickets.puppetlabs.com/browse/PDB-3639))
+
+* PuppetDB no longer sends redundant "SET TRANSACTION READ COMMITTED"
+  commands to the database.
+  ([PDB-3195](https://tickets.puppetlabs.com/browse/PDB-3195))
+
+### Bug Fixes
+
+* PuppetDB 4.4.x and 5.0.x updated fact storage to optimize write throughput. It
+  unfortunately had negative consequences on query performance under heavy load.
+  This rolls back to the older (4.3.x) fact storage style, which has worse write
+  performance but better query performance.
+  ([PDB-3611](https://tickets.puppetlabs.com/browse/PDB-3611))
+
+* PuppetDB has historically had issues dealing with binary data. Specifically,
+  unicode-escaped null characters cannot be stored in PostgreSQL. The release
+  directly configures the JSON library used by PuppetDB to replace such
+  characters, which should completely eliminate the problem in a large class of
+  cases. ([PDB-3648](https://tickets.puppetlabs.com/browse/PDB-3648))
+
+* The puppetdb terminus would fail if the catalog contained resources using the
+  "alias" metaparameter, causing the agent run to fail. This is a regression
+  introduced in Puppet 5.
+  ([PDB-3620](https://tickets.puppetlabs.com/browse/PDB-3620))
+
+* Some text fields in puppetdb (notably report.config_version) had
+  artificial size limits applied to them in the database schema. These limits
+  have been removed.
+  ([PDB-3400](https://tickets.puppetlabs.com/browse/PDB-3400))
+
+* PuppetDB now filters null bytes in Resource Events fields; this fixes a
+  problem when dealing with certain entries in the Windows registry which
+  contain the value '\0' by default.
+  ([PDB-3058](https://tickets.puppetlabs.com/browse/PDB-3058))
 
 
 5.0.1

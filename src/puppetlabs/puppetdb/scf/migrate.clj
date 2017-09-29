@@ -1313,11 +1313,11 @@
   (some-> s json/parse))
 
 (defn rededuplicate-facts []
-  (log/info (trs "[1/7] Cleaning up unreferenced facts..."))
+  (log/info (trs "[1/8] Cleaning up unreferenced facts..."))
   (jdbc/do-commands
    "DELETE FROM facts WHERE factset_id NOT IN (SELECT id FROM factsets)")
 
-  (log/info (trs "[2/7] Creating new fact storage tables..."))
+  (log/info (trs "[2/8] Creating new fact storage tables..."))
   (jdbc/do-commands
    "CREATE SEQUENCE fact_values_id_seq;"
 
@@ -1343,7 +1343,7 @@
        fact_value_id bigint NOT NULL
     );")
 
-  (log/info (trs "[3/7] Copying unique fact values into fact_values"))
+  (log/info (trs "[3/8] Copying unique fact values into fact_values"))
   (jdbc/do-commands
    "INSERT INTO fact_values (value, value_integer, value_float, value_string, value_boolean, value_type_id)
        SELECT distinct value, value_integer, value_float, value_string, value_boolean, value_type_id FROM facts")
@@ -1351,7 +1351,7 @@
 
   ;; Handle null fv.value separately; allowing them here leads to an intractable
   ;; query plan
-  (log/info (trs "[4/7] Reconstructing facts to refer to fact_values..."))
+  (log/info (trs "[4/8] Reconstructing facts to refer to fact_values..."))
   (jdbc/do-commands
    "INSERT INTO facts_transform (factset_id, fact_path_id, fact_value_id)
        SELECT f.factset_id, f.fact_path_id, fv.id
@@ -1373,8 +1373,24 @@
                AND fv.value IS NOT DISTINCT FROM f.value
         WHERE f.value IS NULL AND fv.value IS NULL")
 
-  ;; populate fact_values.value_hash
-  (log/info (trs "[5/7] Computing fact value hashes..."))
+  (log/info (trs "[5/8] Cleaning up duplicate null values..."))
+  (let [json-null-value-id (some-> (jdbc/query-to-vec "select id from fact_values
+                                                       where value_type_id = 5 and value = 'null'")
+                                   first
+                                   :id)
+        real-null-value-id (some-> (jdbc/query-to-vec "select id from fact_values
+                                                       where value_type_id = 4 and value is null")
+                                   first
+                                   :id)]
+    (if (and json-null-value-id real-null-value-id)
+      (do
+        (jdbc/do-prepared "update facts_transform set fact_value_id = (?) where fact_value_id = (?)"
+                          [real-null-value-id json-null-value-id])
+        (jdbc/do-prepared "delete from fact_values where id = (?)"
+                          [json-null-value-id]))
+      (log/info (trs "  ... none found"))))
+
+  (log/info (trs "[6/8] Computing fact value hashes..."))
   (jdbc/call-with-query-rows
    ["select id, value::text from fact_values"]
    (fn [rows]
@@ -1392,8 +1408,7 @@
           [(sutils/array-to-param "bigint" Long ids)
            (sutils/array-to-param "bytea" PGobject hashes)])))))
 
-
-  (log/info (trs "[6/7] Indexing fact_values table..."))
+  (log/info (trs "[7/8] Indexing fact_values table..."))
   (jdbc/do-commands
    "DROP TABLE facts"
    "ALTER TABLE facts_transform rename to facts"
@@ -1403,7 +1418,7 @@
    "CREATE INDEX fact_values_value_float_idx ON fact_values USING btree (value_float);"
    "CREATE INDEX fact_values_value_integer_idx ON fact_values USING btree (value_integer);")
 
-  (log/info (trs "[7/7] Indexing facts table..."))
+  (log/info (trs "[8/8] Indexing facts table..."))
   (jdbc/do-commands
    "ALTER TABLE facts ADD CONSTRAINT facts_factset_id_fact_path_id_fact_key UNIQUE (factset_id, fact_path_id);"
    "CREATE INDEX facts_fact_path_id_idx ON facts USING btree (fact_path_id);"
@@ -1419,11 +1434,7 @@
       ON UPDATE RESTRICT
       ON DELETE RESTRICT;"
 
-   "ALTER TABLE facts ADD CONSTRAINT factset_id_fk
-     FOREIGN KEY (factset_id)
-     REFERENCES factsets(id)
-     ON UPDATE CASCADE
-     ON DELETE CASCADE;")
+   "ALTER TABLE facts ADD CONSTRAINT factset_id_fk FOREIGN KEY (factset_id) REFERENCES factsets(id) ON UPDATE CASCADE ON DELETE CASCADE;")
 
   {::vacuum-analyze #{"facts" "fact_values" "fact_paths"}})
 
