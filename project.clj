@@ -1,4 +1,4 @@
-(def pdb-version "4.4.2")
+(def pdb-version "4.4.3-SNAPSHOT")
 (def puppetserver-version "2.7.2")
 (def clj-parent-version "0.6.0")
 
@@ -176,7 +176,7 @@
                                                [puppetlabs/trapperkeeper-webserver-jetty9 nil]
                                                [org.clojure/tools.nrepl nil]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "1.1.10"]]}
+                      :plugins [[puppetlabs/lein-ezbake "1.6.3"]]}
              :testutils {:source-paths ^:replace ["test"]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}
              :test {:jvm-opts ~(if need-permgen?
