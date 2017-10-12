@@ -1,4 +1,4 @@
-(def pdb-version "4.2.3.7")
+(def pdb-version "4.2.3.8-SNAPSHOT")
 
 (defn deploy-info
   "Generate deployment information from the URL supplied and the username and
@@ -144,7 +144,7 @@
              :ezbake {:dependencies ^:replace [[puppetlabs/puppetdb ~pdb-version]
                                                [org.clojure/tools.nrepl "0.2.3"]]
                       :name "puppetdb"
-                      :plugins [[puppetlabs/lein-ezbake "1.1.10"
+                      :plugins [[puppetlabs/lein-ezbake "1.6.3"
                                  :exclusions [org.clojure/clojure]]]}
              :testutils {:source-paths ^:replace ["test"]}
              :ci {:plugins [[lein-pprint "1.1.1"]]}}
