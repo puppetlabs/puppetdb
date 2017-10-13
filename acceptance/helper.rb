@@ -295,8 +295,12 @@ module PuppetDBExtensions
     elsif host['platform'].include?('fedora')
       version_tag = host['platform'].match(/^fedora-(\d+)/)[1]
       "#{version}.fc#{version_tag}"
-    elsif host['platform'].include?('ubuntu') or host['platform'].include?('debian')
-      "#{version}puppetlabs1"
+    elsif host['platform'].include?('ubuntu-16.04')
+      "#{version}xenial"
+    elsif host['platform'].include?('debian-8')
+      "#{version}jessie"
+    elsif host['platform'].include?('debian-9')
+      "#{version}stretch"
     else
       raise ArgumentError, "Unsupported platform: '#{host['platform']}'"
     end
