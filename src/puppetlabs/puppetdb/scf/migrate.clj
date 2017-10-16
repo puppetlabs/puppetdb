@@ -1374,21 +1374,32 @@
         WHERE f.value IS NULL AND fv.value IS NULL")
 
   (log/info (trs "[5/8] Cleaning up duplicate null values..."))
-  (let [json-null-value-id (some-> (jdbc/query-to-vec "select id from fact_values
-                                                       where value_type_id = 5 and value = 'null'")
-                                   first
-                                   :id)
-        real-null-value-id (some-> (jdbc/query-to-vec "select id from fact_values
-                                                       where value_type_id = 4 and value is null")
-                                   first
-                                   :id)]
-    (if (and json-null-value-id real-null-value-id)
-      (do
-        (jdbc/do-prepared "update facts_transform set fact_value_id = (?) where fact_value_id = (?)"
-                          [real-null-value-id json-null-value-id])
-        (jdbc/do-prepared "delete from fact_values where id = (?)"
-                          [json-null-value-id]))
-      (log/info (trs "  ... none found"))))
+  ;; only do this if the DB has some null values
+  (when (pos? (-> (jdbc/query-to-vec "select count(*) from fact_values
+                                      where value_type_id in (4,5)
+                                      and value in (null, 'null')")
+                  first
+                  :count))
+   (let [real-null-value-id (let [existing-id (some-> (jdbc/query-to-vec
+                                                       "select id from fact_values
+                                                       where value_type_id=4 and value is null")
+                                                      first
+                                                      :id)]
+                              (or existing-id
+                                  (-> (jdbc/query-to-vec
+                                       "insert into fact_values (value_type_id, value) values (4, null) returning id")
+                                      first
+                                      :id)))
+         bad-null-value-ids (->> (jdbc/query-to-vec "select id from fact_values
+                                                    where (value_type_id = 5 and value = 'null')
+                                                       or (value_type_id = 5 and value is null)
+                                                       or (value_type_id = 4 and value = 'null')")
+                                 (map :id))]
+     (doseq [id bad-null-value-ids]
+       (jdbc/do-prepared "update facts_transform set fact_value_id = (?) where fact_value_id = (?)"
+                         [real-null-value-id id])
+       (jdbc/do-prepared "delete from fact_values where id = (?)"
+                         [id]))))
 
   (log/info (trs "[6/8] Computing fact value hashes..."))
   (jdbc/call-with-query-rows

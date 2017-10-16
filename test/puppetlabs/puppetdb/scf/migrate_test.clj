@@ -935,7 +935,8 @@
                        [3 "bool_fact"]
                        [4 "null_fact"]
                        [5 "json_fact"]
-                       [6 "json_null_fact"]]]
+                       [6 "json_null_with_json_type"]
+                       [7 "json_null_with_null_type"]]]
       (jdbc/insert! :fact_paths {:id id :depth 0 :name name :path name}))
 
     (doseq [[fact-path-id value-type-id value_key value]
@@ -946,7 +947,8 @@
              [4 4 :value_null nil]
              [5 5 :value_json {:foo "bar"}]
              ;; some databases have a fact value for both json null and sql null
-             [6 5  :value_json ::json-null]]
+             [6 5 :value_json ::json-null]
+             [7 4 :value_null ::json-null]]
             factset-id [0 1]]
       (let [row {:factset_id factset-id
                  :fact_path_id fact-path-id
@@ -965,4 +967,57 @@
            (apply-migration-for-testing! 64)))
 
     (is (= 6 (:count (first (jdbc/query-to-vec "select count(*) from fact_values")))))
-    (is (= 14 (:count (first (jdbc/query-to-vec "select count(*) from facts")))))))
+    (is (= 16 (:count (first (jdbc/query-to-vec "select count(*) from facts")))))))
+
+(deftest migration-64-rededuplicate-facts-with-no-good-null-value
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 63)
+
+    (jdbc/insert! :environments {:id 0 :environment "testing"})
+    (jdbc/insert! :certnames {:certname "a.com"})
+    (jdbc/insert! :factsets {:id 0
+                             :certname "a.com"
+                             :timestamp (to-timestamp (now))
+                             :producer_timestamp (to-timestamp (now))
+                             :environment_id 0
+                             :hash (sutils/munge-hash-for-storage "abcd1234")})
+
+
+    (jdbc/insert! :fact_paths {:id 0
+                               :depth 0
+                               :name "json_null_with_json_type"
+                               :path "json_null_with_json_type"})
+
+    (jdbc/insert! :facts {:factset_id 0
+                          :fact_path_id 0
+                          :value_type_id 5
+                          :value (sutils/munge-jsonb-for-storage nil)})
+
+
+    (jdbc/insert! :fact_paths {:id 1
+                               :depth 0
+                               :name "json_null_with_null_type"
+                               :path "json_null_with_null"})
+
+    (jdbc/insert! :facts {:factset_id 1
+                          :fact_path_id 1
+                          :value_type_id 5
+                          :value (sutils/munge-jsonb-for-storage nil)})
+
+
+    (jdbc/insert! :fact_paths {:id 2
+                               :depth 0
+                               :name "sql_null_with_json_type"
+                               :path "sql_null_with_json_type"})
+
+    (jdbc/insert! :facts {:factset_id 2
+                          :fact_path_id 2
+                          :value_type_id 5
+                          :value (sutils/munge-jsonb-for-storage nil)})
+
+
+    (is (= {::migrate/vacuum-analyze #{"facts" "fact_values" "fact_paths"}}
+           (apply-migration-for-testing! 64)))
+
+    (is (= 1 (:count (first (jdbc/query-to-vec "select count(*) from fact_values")))))))
