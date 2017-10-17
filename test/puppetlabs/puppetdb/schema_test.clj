@@ -260,4 +260,9 @@
   (testing "conversion from double to integer"
     (let [schema {:foo Long}]
       (is (= {:foo 10}
-             (convert-to-schema schema {:foo 10.0}))))))
+             (convert-to-schema schema {:foo 10.0})))))
+
+  (testing "blacklisted facts conversion"
+    (let [schema {:facts-blacklist clojure.lang.LazySeq}]
+      (is (= {:facts-blacklist '("fact1" "fact2")}
+             (convert-to-schema schema {:facts-blacklist "fact1, fact2"}))))))
