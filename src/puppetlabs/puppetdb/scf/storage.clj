@@ -838,6 +838,114 @@
     :packages
     ["not exists (select * from certname_packages cp where cp.package_id = packages.id)"])))
 
+
+;;; Packages
+
+(defn find-certname-id-and-hash [certname]
+  (first (jdbc/query-to-vec [(format "SELECT id, %s as package_hash FROM certnames WHERE certname=?"
+                                     (sutils/sql-hash-as-str "package_hash"))
+                             certname])))
+
+(defn create-package-map [certname-id]
+  (jdbc/call-with-query-rows ["SELECT id, name, version, provider FROM package_inventory WHERE certname_id=?"
+                              certname-id]
+                             (fn [rows]
+                               (->> rows
+                                    (map (fn [{id :id package_name :name version :version provider :provider}]
+                                           [[package_name version provider] id]))
+                                    (into {})))))
+
+(defn find-package-hashes [package-hashes]
+  (jdbc/call-with-query-rows [(format "SELECT id, %s as package_hash FROM packages WHERE hash = ANY(?)"
+                                      (sutils/sql-hash-as-str "hash"))
+                              (sutils/array-to-param "bytea" PGobject
+                                                     (map sutils/munge-hash-for-storage package-hashes))]
+                             (fn [rows]
+                               (reduce (fn [acc {:keys [id package_hash]}]
+                                         (assoc acc package_hash id))
+                                       {} rows))))
+
+(defn package-id-set-for-certname [certname-id]
+  (jdbc/call-with-query-rows ["SELECT package_id FROM certname_packages WHERE certname_id=?"
+                              certname-id]
+                             (fn [rows]
+                               (set (map :package_id rows)))))
+
+(defn insert-missing-packages [existing-hashes-map new-hashed-package-tuples]
+  (let [packages-to-create (remove (fn [hashed-package-tuple]
+                                     (get existing-hashes-map (pkg-util/package-tuple-hash hashed-package-tuple)))
+                                   new-hashed-package-tuples)
+        results (jdbc/insert-multi! :packages
+                                    (map (fn [[package_name version provider package-hash]]
+                                           {:name package_name
+                                            :version version
+                                            :provider provider
+                                            :hash (sutils/munge-hash-for-storage package-hash)})
+                                         packages-to-create))]
+    (merge existing-hashes-map
+           (zipmap (map pkg-util/package-tuple-hash packages-to-create)
+                   (map :id results)))))
+
+(s/defn update-packages
+  "Compares `inventory` to the stored package inventory for
+  `certname`. Differences will result in updates to the database"
+  [certname_id :- s/Int
+   package_hash :- (s/maybe s/Str)
+   inventory :- [pkg-util/package-tuple]]
+  (let [hashed-package-tuples (map shash/package-identity-hash inventory)
+        new-package-hash (shash/package-similarity-hash hashed-package-tuples)]
+
+    (when-not (= new-package-hash package_hash)
+      (let [just-hashes (map pkg-util/package-tuple-hash hashed-package-tuples)
+            existing-package-hashes (find-package-hashes just-hashes)
+            full-hashes-map (insert-missing-packages existing-package-hashes hashed-package-tuples)
+            new-package-id-set (set (vals full-hashes-map))
+            [new-package-ids old-package-ids _] (clojure.data/diff new-package-id-set
+                                                                   (package-id-set-for-certname certname_id))]
+        (jdbc/update! :certnames
+                      {:package_hash (when (seq inventory)
+                                       (sutils/munge-hash-for-storage new-package-hash))}
+                      ["id=?" certname_id])
+
+        (when (seq new-package-ids)
+          (jdbc/insert-multi! :certname_packages
+                              ["certname_id" "package_id"]
+                              (map #(vector certname_id %) new-package-ids)))
+
+        (when (seq old-package-ids)
+
+          (let [old-package-id-sql-param (sutils/array-to-param "bigint" Long
+                                                                (map long old-package-ids))]
+            (jdbc/delete! :certname_packages
+                          ["certname_id = ? and package_id = ANY(?)"
+                           certname_id
+                           old-package-id-sql-param])
+
+            (jdbc/delete! :packages
+                          [(str "id = any(?) "
+                                "and not exists "
+                                "(select 1 from certname_packages where package_id=id)")
+                           old-package-id-sql-param])))))))
+
+(defn insert-packages [certname inventory]
+  (let [certname-id (:id (find-certname-id-and-hash certname))
+        hashed-package-tuples (map shash/package-identity-hash inventory)
+        new-packageset-hash (shash/package-similarity-hash hashed-package-tuples)
+        just-hashes (map pkg-util/package-tuple-hash hashed-package-tuples)
+        existing-package-hashes (find-package-hashes just-hashes)
+        ;; a map of package hash to id in the packages table
+        full-hashes-map (insert-missing-packages existing-package-hashes hashed-package-tuples)
+        new-package-ids (vals full-hashes-map)]
+
+    (jdbc/update! :certnames
+                  {:package_hash (sutils/munge-hash-for-storage new-packageset-hash)}
+                  ["id=?" certname-id])
+
+    (jdbc/insert-multi! :certname_packages
+                        ["certname_id" "package_id"]
+                        (map (fn [package-id] [certname-id package-id])
+                             (vals full-hashes-map)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Facts
 
@@ -1062,111 +1170,6 @@
                  (realize-fact-values! )
                  (map #(vector (:value_hash %) (:id %))))))
     {}))
-
-(defn find-certname-id-and-hash [certname]
-  (first (jdbc/query-to-vec [(format "SELECT id, %s as package_hash FROM certnames WHERE certname=?"
-                                     (sutils/sql-hash-as-str "package_hash"))
-                             certname])))
-
-(defn create-package-map [certname-id]
-  (jdbc/call-with-query-rows ["SELECT id, name, version, provider FROM package_inventory WHERE certname_id=?"
-                              certname-id]
-                             (fn [rows]
-                               (->> rows
-                                    (map (fn [{id :id package_name :name version :version provider :provider}]
-                                           [[package_name version provider] id]))
-                                    (into {})))))
-
-(defn find-package-hashes [package-hashes]
-  (jdbc/call-with-query-rows [(format "SELECT id, %s as package_hash FROM packages WHERE hash = ANY(?)"
-                                      (sutils/sql-hash-as-str "hash"))
-                              (sutils/array-to-param "bytea" PGobject
-                                                     (map sutils/munge-hash-for-storage package-hashes))]
-                             (fn [rows]
-                               (reduce (fn [acc {:keys [id package_hash]}]
-                                         (assoc acc package_hash id))
-                                       {} rows))))
-
-(defn package-id-set-for-certname [certname-id]
-  (jdbc/call-with-query-rows ["SELECT package_id FROM certname_packages WHERE certname_id=?"
-                              certname-id]
-                             (fn [rows]
-                               (set (map :package_id rows)))))
-
-(defn insert-missing-packages [existing-hashes-map new-hashed-package-tuples]
-  (let [packages-to-create (remove (fn [hashed-package-tuple]
-                                     (get existing-hashes-map (pkg-util/package-tuple-hash hashed-package-tuple)))
-                                   new-hashed-package-tuples)
-        results (jdbc/insert-multi! :packages
-                                    (map (fn [[package_name version provider package-hash]]
-                                           {:name package_name
-                                            :version version
-                                            :provider provider
-                                            :hash (sutils/munge-hash-for-storage package-hash)})
-                                         packages-to-create))]
-    (merge existing-hashes-map
-           (zipmap (map pkg-util/package-tuple-hash packages-to-create)
-                   (map :id results)))))
-
-(s/defn update-packages
-  "Compares `inventory` to the stored package inventory for
-  `certname`. Differences will result in updates to the database"
-  [certname_id :- s/Int
-   package_hash :- (s/maybe s/Str)
-   inventory :- [pkg-util/package-tuple]]
-  (let [hashed-package-tuples (map shash/package-identity-hash inventory)
-        new-package-hash (shash/package-similarity-hash hashed-package-tuples)]
-
-    (when-not (= new-package-hash package_hash)
-      (let [just-hashes (map pkg-util/package-tuple-hash hashed-package-tuples)
-            existing-package-hashes (find-package-hashes just-hashes)
-            full-hashes-map (insert-missing-packages existing-package-hashes hashed-package-tuples)
-            new-package-id-set (set (vals full-hashes-map))
-            [new-package-ids old-package-ids _] (clojure.data/diff new-package-id-set
-                                                                   (package-id-set-for-certname certname_id))]
-        (jdbc/update! :certnames
-                      {:package_hash (when (seq inventory)
-                                       (sutils/munge-hash-for-storage new-package-hash))}
-                      ["id=?" certname_id])
-
-        (when (seq new-package-ids)
-          (jdbc/insert-multi! :certname_packages
-                              ["certname_id" "package_id"]
-                              (map #(vector certname_id %) new-package-ids)))
-
-        (when (seq old-package-ids)
-
-          (let [old-package-id-sql-param (sutils/array-to-param "bigint" Long
-                                                                (map long old-package-ids))]
-            (jdbc/delete! :certname_packages
-                          ["certname_id = ? and package_id = ANY(?)"
-                           certname_id
-                           old-package-id-sql-param])
-
-            (jdbc/delete! :packages
-                          [(str "id = any(?) "
-                                "and not exists "
-                                "(select 1 from certname_packages where package_id=id)")
-                           old-package-id-sql-param])))))))
-
-(defn insert-packages [certname inventory]
-  (let [certname-id (:id (find-certname-id-and-hash certname))
-        hashed-package-tuples (map shash/package-identity-hash inventory)
-        new-packageset-hash (shash/package-similarity-hash hashed-package-tuples)
-        just-hashes (map pkg-util/package-tuple-hash hashed-package-tuples)
-        existing-package-hashes (find-package-hashes just-hashes)
-        ;; a map of package hash to id in the packages table
-        full-hashes-map (insert-missing-packages existing-package-hashes hashed-package-tuples)
-        new-package-ids (vals full-hashes-map)]
-
-    (jdbc/update! :certnames
-                  {:package_hash (sutils/munge-hash-for-storage new-packageset-hash)}
-                  ["id=?" certname-id])
-
-    (jdbc/insert-multi! :certname_packages
-                        ["certname_id" "package_id"]
-                        (map (fn [package-id] [certname-id package-id])
-                             (vals full-hashes-map)))))
 
 (pls/defn-validated add-facts!
   "Given a certname and a map of fact names to values, store records for those
