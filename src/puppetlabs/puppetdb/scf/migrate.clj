@@ -1461,6 +1461,16 @@
      alter column containing_class type text,
      alter column file type text"))
 
+(defn jsonb-facts []
+  ;; TODO data migration
+  (jdbc/do-commands
+   "alter table factsets add column stable jsonb"
+   "alter table factsets add column stable_hash bigint"
+   "alter table factsets add column volatile jsonb"
+   "create index idx_factsets_jsonb_merged on factsets using gin((stable||volatile) jsonb_path_ops);")
+
+  {::vacuum-analyze #{"factsets"}})
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1503,7 +1513,8 @@
    62 reports-partial-indices
    63 add-job-id
    64 rededuplicate-facts
-   65 varchar-columns-to-text})
+   65 varchar-columns-to-text
+   66 jsonb-facts})
 
 (def desired-schema-version (apply max (keys migrations)))
 
