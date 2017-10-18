@@ -24,7 +24,8 @@
     :received (now)
     :version     catalog-version
     :certname (:certname catalog-payload)}
-   *db*))
+   *db*
+   nil))
 
 (defn munge-catalog-for-comparison
   "Given a catalog object (represented as a map, either having come out of a

@@ -80,9 +80,18 @@
         dlo-dir (fs/temp-dir "test-msg-handler-dlo")
         dlo (dlo/initialize (.toPath dlo-dir)
                              (:registry (new-metrics "puppetlabs.puppetdb.dlo"
-                                                     :jmx? false)))]
+                                                     :jmx? false)))
+        blacklisted-facts ["blacklisted-fact"]]
     (map->CommandHandlerContext
-     {:handle-message (message-handler q command-chan dlo delay-pool *db* response-chan stats)
+     {:handle-message (message-handler
+                       q
+                       command-chan
+                       dlo
+                       delay-pool
+                       *db*
+                       response-chan
+                       stats
+                       blacklisted-facts)
       :command-chan command-chan
       :dlo dlo
       :delay-pool delay-pool
@@ -687,6 +696,29 @@
       one-day   (* 24 60 60 1000)
       yesterday (to-timestamp (- (System/currentTimeMillis) one-day))
       tomorrow  (to-timestamp (+ (System/currentTimeMillis) one-day))]
+
+  (deftest facts-blacklist
+    (dotestseq [version fact-versions
+                :let [command (update facts :values #(assoc % "blacklisted-fact" "val"))]]
+      (testing "should ignore the blacklisted fact"
+        (with-message-handler {:keys [handle-message dlo delay-pool q]}
+          (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
+          (is (= (query-to-vec
+                  "SELECT fp.path as name,
+                          COALESCE(f.value_string,
+                                   cast(f.value_integer as text),
+                                   cast(f.value_boolean as text),
+                                   cast(f.value_float as text),
+                                   '') as value,
+                          fs.certname
+                   FROM factsets fs
+                     INNER JOIN facts as f on fs.id = f.factset_id
+                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
+                   WHERE fp.depth = 0
+                   ORDER BY name ASC")
+                 [{:certname certname :name "a" :value "1"}
+                  {:certname certname :name "b" :value "2"}
+                  {:certname certname :name "c" :value "3"}]))))))
 
   (deftest replace-facts-no-facts
     (dotestseq [version fact-versions

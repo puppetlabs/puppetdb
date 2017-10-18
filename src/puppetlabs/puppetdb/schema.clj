@@ -4,6 +4,7 @@
             [schema.core :as s]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.coerce :as sc]
+            [clojure.string :as str]
             [schema.utils :as su]
             [cheshire.custom :as json]
             [slingshot.slingshot :refer [throw+]]))
@@ -45,6 +46,11 @@
      (if (integer? x)
        x
        (Integer/valueOf x)))))
+
+(defn comma-string->lazyseq
+  "Take a comma seperated string and break elements into a LazySeq"
+  [s]
+  (map str/trim (str/split s #",")))
 
 (defn period?
   "True if `x` is a JodaTime Period"
@@ -118,7 +124,8 @@
     org.joda.time.Days (comp time/days coerce-to-int)
     org.joda.time.Seconds (comp time/seconds coerce-to-int)
     Boolean (comp #(Boolean/valueOf %) str)
-    Long long}))
+    Long long
+    clojure.lang.LazySeq comma-string->lazyseq}))
 
 (defn convert-to-schema
   "Convert `data` to the format specified by `schema`"
