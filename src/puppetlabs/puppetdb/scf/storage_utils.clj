@@ -224,6 +224,12 @@
     (hcore/raw (format "(%s->%s)::text ~ ?::text and %s ?? ?"
                        column delimited-qmarks column))))
 
+(defn jsonb-scalar-regex
+  "Produce a predicate that matches a regex against a scalar jsonb value "
+  [column]
+  ;; This gets the unwrapped json value as text
+  (hcore/raw (format "(%s#>>'{}')::text ~ ?" column)))
+
 (defn db-serialize
   "Serialize `value` into a form appropriate for querying against a
   serialized database column."
