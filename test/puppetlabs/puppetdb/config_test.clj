@@ -97,7 +97,25 @@
                        configure-read-db)]
         (is (= (get-in config [:read-database :classname]) "something"))
         (is (= "more stuff" (get-in config [:read-database :subprotocol])))
-        (is (= "stuff" (get-in config [:read-database :subname])))))))
+        (is (= "stuff" (get-in config [:read-database :subname])))))
+
+    (testing "facts-blacklist string from .ini is converted correctly"
+      (let [config (-> {:database {:classname "something"
+                                   :subname "stuff"
+                                   :subprotocol "more stuff"
+                                   :facts-blacklist "fact1, fact2, fact3"}}
+                       (configure-section :database write-database-config-in write-database-config-out)
+                       configure-read-db)]
+        (is (= (get-in config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))))
+
+    (testing "facts-blacklist array from .conf converted correctly"
+      (let [config (-> {:database {:classname "something"
+                                   :subname "stuff"
+                                   :subprotocol "more stuff"
+                                   :facts-blacklist ["fact1" "fact2" "fact3"]}}
+                       (configure-section :database write-database-config-in write-database-config-out)
+                       configure-read-db)]
+        (is (= (get-in config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))))))
 
 (deftest garbage-collection
   (let [config-with (fn [base-config]

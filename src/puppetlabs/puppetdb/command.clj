@@ -276,13 +276,16 @@
 ;; Fact replacement
 
 (defn replace-facts*
-  [{:keys [payload annotations version]} start-time db]
+  [{:keys [payload annotations version]} start-time db facts-blacklist]
   (let [{:keys [id]} annotations
         {:keys [certname values] :as fact-data} payload
-        producer-timestamp (:producer_timestamp fact-data)]
+        producer-timestamp (:producer_timestamp fact-data)
+        trimmed-facts (if (seq facts-blacklist)
+                        (update fact-data :values #(apply dissoc % facts-blacklist))
+                        fact-data)]
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
-      (scf-storage/replace-facts! fact-data))
+      (scf-storage/replace-facts! trimmed-facts))
     (log/infof "[%s] [%s ms] [%s] %s"
                id
                (in-millis (interval start-time (now)))
@@ -290,7 +293,7 @@
                certname)))
 
 (defn replace-facts [{:keys [payload version annotations] :as command}
-                     start-time db]
+                     start-time db facts-blacklist]
   (let [{received-timestamp :received} annotations
         validated-payload (upon-error-throw-fatality
                            (-> (case version
@@ -303,7 +306,7 @@
                                (assoc :timestamp received-timestamp)))]
     (-> command
         (assoc :payload validated-payload)
-        (replace-facts* start-time db))))
+        (replace-facts* start-time db facts-blacklist))))
 
 ;; Node deactivation
 
@@ -387,11 +390,11 @@
 (defn process-command!
   "Takes a command object and processes it to completion. Dispatch is
   based on the command's name and version information"
-  [{command-name :command version :version :as command} db]
+  [{command-name :command version :version :as command} db facts-blacklist]
   (let [start (now)]
     (condp supported-command-version? [command-name version]
       "replace catalog" (replace-catalog command start db)
-      "replace facts" (replace-facts command start db)
+      "replace facts" (replace-facts command start db facts-blacklist)
       "store report" (store-report command start db)
       "deactivate node" (deactivate-node command start db))))
 
@@ -448,11 +451,11 @@
         (recur (dec n))
         result))))
 
-(defn process-command-and-respond! [cmd db response-pub-chan stats-atom]
+(defn process-command-and-respond! [cmd db response-pub-chan stats-atom facts-blacklist]
   (try
     (let [result (call-with-quick-retry 4
                   (fn []
-                    (process-command! cmd db)))]
+                    (process-command! cmd db facts-blacklist)))]
       (swap! stats-atom update :executed-commands inc)
       (async/>!! response-pub-chan
                  (make-cmd-processed-message cmd nil))
@@ -485,10 +488,11 @@
           {:keys [response-chan response-pub]} context
           factory (-> (conf/mq-broker-url (get-config))
                       (mq/activemq-connection-factory))
-          connection (.createConnection factory)]
+          connection (.createConnection factory)
+          facts-blacklist (get-in (get-config) [:database :facts-blacklist])]
       (register-listener
        supported-command?
-       #(process-command-and-respond! % scf-write-db response-chan (:stats context)))
+       #(process-command-and-respond! % scf-write-db response-chan (:stats context) facts-blacklist))
       (assoc context
              :factory factory
              :connection connection)))

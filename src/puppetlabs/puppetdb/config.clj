@@ -70,7 +70,9 @@
      :stats (pls/defaulted-maybe String "true")
      :log-statements (pls/defaulted-maybe String "true")
      :statements-cache-size (pls/defaulted-maybe s/Int 0)
-     :connection-timeout (pls/defaulted-maybe s/Int 3000)}))
+     :connection-timeout (pls/defaulted-maybe s/Int 3000)
+     :facts-blacklist (s/conditional string? String
+                                     sequential? [s/Str])}))
 
 (def write-database-config-in
   "Includes the common database config params, also the write-db specific ones"
@@ -103,7 +105,8 @@
    (s/optional-key :username) String
    (s/optional-key :user) String
    (s/optional-key :password) String
-   (s/optional-key :syntax_pgs) String})
+   (s/optional-key :syntax_pgs) String
+   (s/optional-key :facts-blacklist) clojure.lang.PersistentVector})
 
 (def write-database-config-out
   "Schema for parsed/processed database config that includes write database params"
