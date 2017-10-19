@@ -1021,3 +1021,35 @@
            (apply-migration-for-testing! 64)))
 
     (is (= 1 (:count (first (jdbc/query-to-vec "select count(*) from fact_values")))))))
+
+(deftest migration-64-fixes-single-fact-with-sql-null-in-json-type
+  (jdbc/with-db-connection *db*
+    (clear-db-for-testing!)
+    (fast-forward-to-migration! 63)
+
+    (jdbc/insert! :environments {:id 0 :environment "testing"})
+    (jdbc/insert! :certnames {:certname "a.com"})
+    (jdbc/insert! :factsets {:id 0
+                             :certname "a.com"
+                             :timestamp (to-timestamp (now))
+                             :producer_timestamp (to-timestamp (now))
+                             :environment_id 0
+                             :hash (sutils/munge-hash-for-storage "abcd1234")})
+
+    (jdbc/insert! :fact_paths {:id 0
+                               :depth 0
+                               :name "sql_null_with_json_type"
+                               :path "sql_null_with_json_type"})
+
+    (jdbc/insert! :facts {:factset_id 0
+                          :fact_path_id 0
+                          :value_type_id 5
+                          :value nil})
+
+
+    (is (= {::migrate/vacuum-analyze #{"facts" "fact_values" "fact_paths"}}
+           (apply-migration-for-testing! 64)))
+
+    (is (= [{:value_type_id 4
+              :value nil}]
+           (jdbc/query-to-vec "select value_type_id, value from fact_values")))))

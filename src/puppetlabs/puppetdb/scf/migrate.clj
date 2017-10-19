@@ -1377,23 +1377,23 @@
   ;; only do this if the DB has some null values
   (when (pos? (-> (jdbc/query-to-vec "select count(*) from fact_values
                                       where value_type_id in (4,5)
-                                      and value in (null, 'null')")
+                                      and (value = 'null' or value is null)")
                   first
                   :count))
-   (let [real-null-value-id (let [existing-id (some-> (jdbc/query-to-vec
-                                                       "select id from fact_values
-                                                       where value_type_id=4 and value is null")
-                                                      first
-                                                      :id)]
-                              (or existing-id
-                                  (-> (jdbc/query-to-vec
-                                       "insert into fact_values (value_type_id, value) values (4, null) returning id")
-                                      first
-                                      :id)))
-         bad-null-value-ids (->> (jdbc/query-to-vec "select id from fact_values
-                                                    where (value_type_id = 5 and value = 'null')
-                                                       or (value_type_id = 5 and value is null)
-                                                       or (value_type_id = 4 and value = 'null')")
+    (let [existing-id (some-> (jdbc/query-to-vec
+                               "select id from fact_values
+                                where value_type_id=4 and value is null")
+                              first
+                              :id)
+          real-null-value-id (or existing-id
+                                 (-> (jdbc/query-to-vec
+                                      "insert into fact_values (value_type_id, value) values (4, null) returning id")
+                                     first
+                                     :id))
+          bad-null-value-ids (->> (jdbc/query-to-vec "select id from fact_values
+                                                      where (value_type_id = 5 and value = 'null')
+                                                         or (value_type_id = 5 and value is null)
+                                                         or (value_type_id = 4 and value = 'null')")
                                  (map :id))]
      (doseq [id bad-null-value-ids]
        (jdbc/do-prepared "update facts_transform set fact_value_id = (?) where fact_value_id = (?)"
