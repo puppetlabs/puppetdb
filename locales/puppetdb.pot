@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: puppetlabs.puppetdb \n"
-"X-Git-Ref: 722499dc601e4f925f7129fbf53e7ab169c1552b\n"
+"X-Git-Ref: 581d1dae555448273a79463371d565044045855a\n"
 "Report-Msgid-Bugs-To: docs@puppet.com\n"
 "POT-Creation-Date: \n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -1053,10 +1053,6 @@ msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
 msgid "[5/8] Cleaning up duplicate null values..."
-msgstr ""
-
-#: src/puppetlabs/puppetdb/scf/migrate.clj
-msgid "  ... none found"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/scf/migrate.clj
