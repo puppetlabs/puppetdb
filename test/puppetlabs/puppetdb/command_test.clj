@@ -112,8 +112,9 @@
   `(let [log-output#     (atom [])
          publish#        (call-counter)
          discard-dir#    (fs/temp-dir "test-msg-handler")
+         facts-blacklist# ["blacklisted-fact"]
          handle-message# (mql/create-message-handler
-                          publish# discard-dir# #(process-command! % ~db))
+                          publish# discard-dir# #(process-command! % ~db facts-blacklist#))
          msg#            {:headers {:id "foo-id-1"
                                     :received (tfmt/unparse (tfmt/formatters :date-time) (now))}
                           :body (json/generate-string ~command)}]
@@ -149,13 +150,13 @@
               (is (empty? (fs/list-dir discard-dir))))))
 
         (testing "when a fatal error occurs should be discarded to the dead letter queue"
-          (with-redefs [process-command! (fn [cmd db] (throw+ (fatality (Exception. "fatal error"))))]
+          (with-redefs [process-command! (fn [cmd db fbl] (throw+ (fatality (Exception. "fatal error"))))]
             (test-msg-handler command publish discard-dir
               (is (= 0 (times-called publish)))
               (is (= 1 (count (fs/list-dir discard-dir)))))))
 
         (testing "when a non-fatal error occurs should be requeued with the error recorded"
-          (with-redefs [process-command! (fn [cmd db] (throw+ (Exception. "non-fatal error")))]
+          (with-redefs [process-command! (fn [cmd db fbl] (throw+ (Exception. "non-fatal error")))]
             (test-msg-handler command publish discard-dir
               (is (empty? (fs/list-dir discard-dir)))
               (let [[msg & _] (first (args-supplied publish))
@@ -657,6 +658,32 @@
       one-day   (* 24 60 60 1000)
       yesterday (to-timestamp (- (System/currentTimeMillis) one-day))
       tomorrow  (to-timestamp (+ (System/currentTimeMillis) one-day))]
+
+  (deftest facts-blacklist
+    (dotestseq [version fact-versions
+                :let [command (update-in v4-command
+                                         [:payload :values]
+                                         #(assoc % "blacklisted-fact" "val"))]]
+      (testing "blacklisted facts ignored"
+        (with-test-db
+          (test-msg-handler command publish discard-dir
+            (is (= (query-to-vec
+                    "SELECT fp.path as name,
+                          COALESCE(fv.value_string,
+                                   cast(fv.value_integer as text),
+                                   cast(fv.value_boolean as text),
+                                   cast(fv.value_float as text),
+                                   '') as value,
+                          fs.certname
+                   FROM factsets fs
+                     INNER JOIN facts as f on fs.id = f.factset_id
+                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
+                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
+                   WHERE fp.depth = 0
+                   ORDER BY name ASC")
+                   [{:certname certname :name "a" :value "1"}
+                    {:certname certname :name "b" :value "2"}
+                    {:certname certname :name "c" :value "3"}])))))))
 
   (deftest replace-facts-no-facts
     (dotestseq [version fact-versions
