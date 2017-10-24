@@ -4,6 +4,7 @@
             [schema.core :as s]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.coerce :as sc]
+            [clojure.string :as str]
             [schema.utils :as su]
             [cheshire.custom :as json]
             [slingshot.slingshot :refer [throw+]]))
@@ -45,6 +46,17 @@
      (if (integer? x)
        x
        (Integer/valueOf x)))))
+
+(defn blacklist->vector
+  "Take a facts list as either a comma seperated string
+   or a sequence and return a vector of those facts"
+  [fact-list]
+  (cond
+    string? (->> (str/split fact-list #",")
+                 (map str/trim)
+                 (apply vector))
+    sequential? (vec fact-list)
+    :else (throw (Exception. "Invalid facts blacklist format"))))
 
 (defn period?
   "True if `x` is a JodaTime Period"
@@ -118,7 +130,8 @@
     org.joda.time.Days (comp time/days coerce-to-int)
     org.joda.time.Seconds (comp time/seconds coerce-to-int)
     Boolean (comp #(Boolean/valueOf %) str)
-    Long long}))
+    Long long
+    clojure.lang.PersistentVector blacklist->vector}))
 
 (defn convert-to-schema
   "Convert `data` to the format specified by `schema`"
