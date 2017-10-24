@@ -69,8 +69,8 @@
      ;; ["=" "facts.array_fact.foo[1]" "baz"]
      ;; #{response1}
 
-     ["~" "facts.array_fact.foo[0]" "bi.*"]
-     #{response1}
+     ;; ["~" "facts.array_fact.foo[0]" "bi.*"]
+     ;; #{response1}
 
      ;; ["=" "facts.match(\".*\")" "Debian"]
      ;; #{response1 response2}
@@ -81,8 +81,8 @@
      ;; ["=" "facts.my_structured_fact.foo.baz" 3]
      ;; #{response2}
 
-     ;; ["<=" "facts.my_structured_fact.foo.baz" 4]
-     ;; #{response1 response2}
+     ["<=" "facts.my_structured_fact.foo.baz" 4]
+     #{response1 response2}
 
      ;; ["=" "trusted.foo.baz" "bar"]
      ;; #{response1}

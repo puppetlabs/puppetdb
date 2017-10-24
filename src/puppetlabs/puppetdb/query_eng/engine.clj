@@ -1422,8 +1422,10 @@
 
 (defn parse-json-regex-query
   [{:keys [field value] :as node} state]
-  (let [[column & path] (map utils/maybe-strip-escaped-quotes
-                             (su/dotted-query->path field))
+  (let [[column & path] (->> field
+                             su/dotted-query->path
+                             (map utils/maybe-strip-escaped-quotes)
+                             (su/expand-array-access-in-path))
         qmarks (repeat (count path) "?" )
         parameters (concat path [value (first path)])]
     {:node (assoc node :value qmarks :field column)
