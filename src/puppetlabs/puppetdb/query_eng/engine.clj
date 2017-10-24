@@ -94,15 +94,16 @@
    column-data :- column-schema
    value])
 
-(s/defrecord JsonbPathEqualsExpression
+(s/defrecord JsonbPathBinaryExpression
     [field :- s/Str
      column-data :- column-schema
-     value])
+     value
+     operator :- s/Keyword])
 
-(s/defrecord JsonbRegexExpression
-    [field :- s/Str
-     column-data :- column-schema
-     value])
+;; (s/defrecord JsonbRegexExpression
+;;     [field :- s/Str
+;;      column-data :- column-schema
+;;      value])
 
 (s/defrecord JsonbScalarRegexExpression
   [field :- s/Str
@@ -1303,19 +1304,20 @@
                         (-> column-data :field :s)
                         field)))
 
-  JsonbPathEqualsExpression
-  (-plan->sql [{:keys [field value column-data]}]
-    (su/jsonb-path-equals (if (instance? SqlRaw (:field column-data))
-                            (-> column-data :field :s)
-                            field)
-                          value))
+  JsonbPathBinaryExpression
+  (-plan->sql [{:keys [field value column-data operator]}]
+    (su/jsonb-path-binary-expression operator
+                                     (if (instance? SqlRaw (:field column-data))
+                                       (-> column-data :field :s)
+                                       field)
+                                     value))
 
-  JsonbRegexExpression
-  (-plan->sql [{:keys [field value column-data]}]
-    (su/jsonb-regex (if (instance? SqlRaw (:field column-data))
-                      (-> column-data :field :s)
-                      field)
-                    value))
+  ;; JsonbRegexExpression
+  ;; (-plan->sql [{:keys [field value column-data]}]
+  ;;   (su/jsonb-regex (if (instance? SqlRaw (:field column-data))
+  ;;                     (-> column-data :field :s)
+  ;;                     field)
+  ;;                   value))
 
   JsonbScalarRegexExpression
   (-plan->sql [{:keys [field]}]
@@ -1420,16 +1422,16 @@
     {:node (assoc node :value qmarks :field column)
      :state (reduce conj state parameters)}))
 
-(defn parse-json-regex-query
-  [{:keys [field value] :as node} state]
-  (let [[column & path] (->> field
-                             su/dotted-query->path
-                             (map utils/maybe-strip-escaped-quotes)
-                             (su/expand-array-access-in-path))
-        qmarks (repeat (count path) "?" )
-        parameters (concat path [value (first path)])]
-    {:node (assoc node :value qmarks :field column)
-     :state (reduce conj state parameters)}))
+;; (defn parse-json-regex-query
+;;   [{:keys [field value] :as node} state]
+;;   (let [[column & path] (->> field
+;;                              su/dotted-query->path
+;;                              (map utils/maybe-strip-escaped-quotes)
+;;                              (su/expand-array-access-in-path))
+;;         qmarks (repeat (count path) "?" )
+;;         parameters (concat path [value (first path)])]
+;;     {:node (assoc node :value qmarks :field column)
+;;      :state (reduce conj state parameters)}))
 
 (defn extract-params
   "Extracts the node's expression value, puts it in state
@@ -1443,11 +1445,11 @@
     (instance? JsonContainsExpression node)
     (parse-dot-query node state)
 
-    (instance? JsonbPathEqualsExpression node)
+    (instance? JsonbPathBinaryExpression node)
     (parse-dot-query-with-array-elements node state)
 
-    (instance? JsonbRegexExpression node)
-    (parse-json-regex-query node state)
+    ;; (instance? JsonbRegexExpression node)
+    ;; (parse-json-regex-query node state)
 
     (instance? JsonbScalarRegexExpression node)
     {:node (assoc node :value "?")
@@ -1705,7 +1707,7 @@
                      "Argument \"{0}\" is incompatible with numeric field \"{1}\"."
                      value (name field))))))
 
-              [[(:or ">" ">=" "<" "<=") field _]]
+              [[(:or ">" ">=" "<" "<=")  (field :guard #(not (str/includes? %  "."))) _]]
               (let [col-type (get-in query-context [:projections field :type])]
                 (when-not (or (vec? field)
                               (contains? #{:float :integer :timestamp :multi :jsonb-scalar}
@@ -1923,10 +1925,6 @@
             [["=" column-name value]]
             (let [colname (first (str/split column-name #"\."))
                   cinfo (get-in query-rec [:projections colname])]
-              (prn ">>> user-node->plan-node")
-              (prn colname)
-              (prn cinfo)
-              (println)
               (case (:type cinfo)
                :timestamp
                (map->BinaryExpression {:operator :=
@@ -1944,9 +1942,10 @@
 
                :queryable-json
                (if (string/includes? column-name "[")
-                 (map->JsonbPathEqualsExpression {:field column-name
+                 (map->JsonbPathBinaryExpression {:field column-name
                                                   :column-data cinfo
-                                                  :value value})
+                                                  :value value
+                                                  :operator :=})
                  (map->JsonContainsExpression {:field column-name
                                                :column-data cinfo
                                                :value value}))
@@ -2006,8 +2005,8 @@
                                                                    (map str value))})))
 
             [[(op :guard #{">" "<" ">=" "<="}) column-name value]]
-            (let [{:keys [type] :as cinfo} (get-in query-rec
-                                                   [:projections column-name])]
+            (let [colname (first (str/split column-name #"\."))
+                  cinfo (get-in query-rec [:projections colname])] 
               (cond
                 (= :timestamp type)
                 (map->BinaryExpression {:operator (keyword op)
@@ -2023,6 +2022,12 @@
                 (map->BinaryExpression {:operator (keyword op)
                                         :column cinfo
                                         :value (su/munge-jsonb-for-storage value)})
+
+                :queryable-json
+                (map->JsonbPathBinaryExpression {:field column-name
+                                                 :column-data cinfo
+                                                 :value (su/munge-jsonb-for-storage value)
+                                                 :operator (keyword op)})
 
                 :else
                 (throw
@@ -2047,9 +2052,10 @@
                                        :value value})
 
                 :queryable-json
-                (map->JsonbRegexExpression {:field column-name
-                                            :column-data cinfo
-                                            :value value})
+                (map->JsonbPathBinaryExpression {:operator (keyword "~")
+                                                 :field column-name
+                                                 :column-data cinfo
+                                                 :value value})
 
                 :jsonb-scalar
                 (map->JsonbScalarRegexExpression {:field column-name

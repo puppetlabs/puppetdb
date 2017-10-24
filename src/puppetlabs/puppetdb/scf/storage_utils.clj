@@ -12,7 +12,8 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s]
-            [puppetlabs.i18n.core :refer [trs]])
+            [puppetlabs.i18n.core :refer [trs]]
+            [clojure.string :as string])
   (:import [java.sql Connection]
            [java.util UUID]
            [org.postgresql.util PGobject]))
@@ -214,21 +215,19 @@
   [field]
   (hcore/raw (format "%s @> ?" field)))
 
-(defn jsonb-regex
-  "Produce a predicate that matches a regex against a nested value and checks
-   the existence of a (presumably) top-level value. The existence check is
-   necessary because -> is not indexable but ?? is. Assumes a GIN index on the
-   column supplied."
-  [column qmarks]
-  (let [delimited-qmarks (str/join "->" qmarks)]
-    (hcore/raw (format "(%s->%s)::text ~ ?::text and %s ?? ?"
-                       column delimited-qmarks column))))
-
-(defn jsonb-path-equals
-  [column qmarks]
-  (let [delimited-qmarks (str/join "->" qmarks)]
-    (hcore/raw (format "(%s->%s) = ? and %s ?? ?"
-                       column delimited-qmarks column))))
+(defn jsonb-path-binary-expression
+  "Produce a predicate that compares agains4t nested value with op and checks the
+  existence of a (presumably) top-level value. The existence check is necessary
+  because -> is not indexable (with GIN) but ?? is. Assumes a GIN index on the
+  column supplied."
+  [op column qmarks]
+  (let [delimited-qmarks (str/join "->" qmarks)
+        re? (= "~" (name op))]
+    (hcore/raw (string/join \space
+                            [(str "(" column "->" delimited-qmarks ")" (when re? "::text"))
+                             (name op)
+                             (str "?" (when re? "::text"))
+                             "and" column "??" "?"]))))
 
 (defn jsonb-scalar-regex
   "Produce a predicate that matches a regex against a scalar jsonb value "
