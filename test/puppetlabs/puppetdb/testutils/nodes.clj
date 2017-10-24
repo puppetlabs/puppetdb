@@ -81,7 +81,10 @@
     (scf-store/replace-catalog! (assoc web1-catalog :certname web1) (now))
     (scf-store/replace-catalog! (assoc puppet-catalog :certname puppet) (plus (now) (seconds 1)))
     (scf-store/replace-catalog! (assoc db-catalog :certname db) (plus (now) (seconds 2)))
-    (scf-store/add-report! (basic-report-for-node web1) (now))
+    (scf-store/add-report! (-> web1
+                               basic-report-for-node
+                               (assoc :job_id "0987654321"))
+                           (now))
     (scf-store/add-report! (basic-report-for-node puppet) (plus (now) (seconds 2)))
     (scf-store/add-report! (basic-report-for-node db) (plus (now) (seconds 3)))
     {:web1    web1

@@ -243,6 +243,9 @@
                              "latest_report_corrective_change" {:type :boolean
                                                                 :queryable? true
                                                                 :field :reports.corrective_change}
+                             "latest_report_job_id" {:type :string
+                                                     :queryable? true
+                                                     :field :reports.job_id}
                              "cached_catalog_status" {:type :string
                                                       :queryable? true
                                                       :field :reports.cached_catalog_status}
