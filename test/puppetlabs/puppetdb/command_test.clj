@@ -705,14 +705,15 @@
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
           (is (= (query-to-vec
                   "SELECT fp.path as name,
-                          COALESCE(f.value_string,
-                                   cast(f.value_integer as text),
-                                   cast(f.value_boolean as text),
-                                   cast(f.value_float as text),
+                          COALESCE(fv.value_string,
+                                   cast(fv.value_integer as text),
+                                   cast(fv.value_boolean as text),
+                                   cast(fv.value_float as text),
                                    '') as value,
                           fs.certname
                    FROM factsets fs
                      INNER JOIN facts as f on fs.id = f.factset_id
+                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
                      INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
                    WHERE fp.depth = 0
                    ORDER BY name ASC")
