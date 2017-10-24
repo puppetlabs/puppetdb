@@ -102,7 +102,26 @@
                        (configure-section :database write-database-config-in write-database-config-out)
                        configure-read-db)]
         (is (= (get-in config [:read-database :maximum-pool-size]) 25))
-        (is (= (get-in config [:database :maximum-pool-size]) 25))))))
+        (is (= (get-in config [:database :maximum-pool-size]) 25))))
+
+    (testing "facts-blacklist string from .ini converted correctly"
+      (let [config (-> {:database {:classname "something"
+                                   :subname "stuff"
+                                   :subprotocol "more stuff"
+                                   :facts-blacklist "fact1, fact2, fact3"}}
+                       (configure-section :database write-database-config-in write-database-config-out)
+                       configure-read-db)]
+        (is (= (get-in config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))))
+
+    (testing "facts-blacklist array from .conf converted correctly"
+      (let [config (-> {:database {:classname "something"
+                                   :subname "stuff"
+                                   :subprotocol "more stuff"
+                                   :facts-blacklist ["fact1" "fact2" "fact3"]}}
+                       (configure-section :database write-database-config-in write-database-config-out)
+                       configure-read-db)]
+        (is (= (get-in config [:database :facts-blacklist]) ["fact1" "fact2" "fact3"]))))))
+
 
 (deftest garbage-collection
   (let [config-with (fn [base-config]

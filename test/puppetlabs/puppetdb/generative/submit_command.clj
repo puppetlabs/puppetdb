@@ -100,7 +100,7 @@
              gen/no-shrink
              gen/convert)]
    (with-test-db
-     (t/is (= nil (cmd/process-command! cmd *db*))))))
+     (t/is (= nil (cmd/process-command! cmd *db* nil))))))
 
 (tc/defspec same-command-produces-equal-snapshots 25
   (prop/for-all
@@ -109,21 +109,21 @@
              gen/no-shrink
              gen/convert)]
    (let [state-1 (with-test-db
-                   (cmd/process-command! cmd *db*)
+                   (cmd/process-command! cmd *db* nil)
                    (state-snapshot *db*))
          state-2 (with-test-db
-                   (cmd/process-command! cmd *db*)
+                   (cmd/process-command! cmd *db* nil)
                    (state-snapshot *db*))]
      (t/is (= state-1 state-2)))))
 
 (defn check-commands-commute [cmd1 cmd2]
   (let [state-1 (with-test-db
-                  (cmd/process-command! cmd1 *db*)
-                  (cmd/process-command! cmd2 *db*)
+                  (cmd/process-command! cmd1 *db* nil)
+                  (cmd/process-command! cmd2 *db* nil)
                   (state-snapshot *db*))
         state-2 (with-test-db
-                  (cmd/process-command! cmd2 *db*)
-                  (cmd/process-command! cmd1 *db*)
+                  (cmd/process-command! cmd2 *db* nil)
+                  (cmd/process-command! cmd1 *db* nil)
                   (state-snapshot *db*))]
     (t/is (= state-1 state-2))))
 
