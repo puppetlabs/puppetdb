@@ -67,6 +67,13 @@
     (is (= (dotted-query->path "facts.\"foo.bar\"baz\".biz")
            ["facts" "\"foo.bar\"baz\"" "biz"]))))
 
+(deftest expand-array-access-in-path-test
+  (are [in out] (= out (expand-array-access-in-path in))
+    ["a" "b[0]" "c"] ["a" "b" 0 "c"]
+    ["a" "b" "c"] ["a" "b" "c"]
+    ["a[0]"] ["a" 0]
+    ["a[0]foo"] ["a[0]foo"]))
+
 (deftest json-adjustments-for-pg
   (are [db-value src] (= db-value (-> src munge-jsonb-for-storage .getValue))
        "\"\\ufffd\"" "\u0000"
