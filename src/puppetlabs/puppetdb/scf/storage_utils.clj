@@ -224,6 +224,12 @@
     (hcore/raw (format "(%s->%s)::text ~ ?::text and %s ?? ?"
                        column delimited-qmarks column))))
 
+(defn jsonb-path-equals
+  [column qmarks]
+  (let [delimited-qmarks (str/join "->" qmarks)]
+    (hcore/raw (format "(%s->%s) = ? and %s ?? ?"
+                       column delimited-qmarks column))))
+
 (defn jsonb-scalar-regex
   "Produce a predicate that matches a regex against a scalar jsonb value "
   [column]
@@ -349,3 +355,14 @@
           (let [[x xs] (handle-quoted-path-segment v)]
             (recur xs (conj result x)))
           (recur splits (conj result s)))))))
+
+(defn expand-array-access-in-path
+  "Given a path like [\"a\" \"b[0]\" \"c\"], expand the [0] to get
+   [\"a\" \"b\" 0 \"c\"]"
+  [path]
+  (mapcat (fn [el]
+            (let [[[_ field index-str]] (re-seq #"^(.*)\[(\d+)\]$" el)]
+              (if index-str
+                [field (Integer/parseInt index-str)]
+                [el])))
+          path))

@@ -191,6 +191,7 @@
               {:keys [results-query count-query]} (-> remaining-query
                                                       coerce-from-json
                                                       (query->sql entity version query-options))
+              _ (prn results-query)
               ;; _ (prn (jdbc/query-to-vec "select certname, environment_id, (jsonb_each((stable||volatile))).* from factsets"))
               query-error (promise)
               resp (http/streamed-response

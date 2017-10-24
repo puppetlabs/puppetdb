@@ -54,41 +54,45 @@
   (let [response1 (assoc inventory1 :timestamp (to-string timestamp))
         response2 (assoc inventory2 :timestamp (to-string timestamp))]
     (omap/ordered-map
-      nil
-      #{response1 response2}
+     ;; nil
+     ;; #{response1 response2}
 
-      ["=" "certname" "bar.com"]
-      #{response1}
+     ;; ["=" "certname" "bar.com"]
+     ;; #{response1}
 
-      ["=" "facts.kernel" "Linux"]
-      #{response1}
+     ;; ["=" "facts.kernel" "Linux"]
+     ;; #{response1}
 
-      ["=" "facts.array_fact.foo[1]" "baz"]
-      #{response1}
+     ;; ["~" "facts.kernel" "Li.*"]
+     ;; #{response1}
 
-      ["~" "facts.array_fact.foo[0]" "bi.*"]
-      #{response1}
+     ;; ["=" "facts.array_fact.foo[1]" "baz"]
+     ;; #{response1}
 
-      ["=" "facts.match(\".*\")" "Debian"]
-      #{response1 response2}
+     ["~" "facts.array_fact.foo[0]" "bi.*"]
+     #{response1}
 
-      ["=" "facts.match(\".*\")" "Windows"]
-      #{response2}
+     ;; ["=" "facts.match(\".*\")" "Debian"]
+     ;; #{response1 response2}
 
-      ["=" "facts.my_structured_fact.foo.baz" 3]
-      #{response2}
+     ;; ["=" "facts.match(\".*\")" "Windows"]
+     ;; #{response2}
 
-      ["<=" "facts.my_structured_fact.foo.baz" 4]
-      #{response1 response2}
+     ;; ["=" "facts.my_structured_fact.foo.baz" 3]
+     ;; #{response2}
 
-      ["=" "trusted.foo.baz" "bar"]
-      #{response1}
+     ;; ["<=" "facts.my_structured_fact.foo.baz" 4]
+     ;; #{response1 response2}
 
-      ["~" "trusted.foo.baz" "ba.*"]
-      #{response1}
+     ;; ["=" "trusted.foo.baz" "bar"]
+     ;; #{response1}
 
-      ["=" "facts.my_weird_fact.blah.\"dotted.thing\".\"dashed-thing\".\"quoted\"thing\"" "foo"]
-      #{response1})))
+     ;; ["~" "trusted.foo.baz" "ba.*"]
+     ;; #{response1}
+
+     ;; ["=" "facts.my_weird_fact.blah.\"dotted.thing\".\"dashed-thing\".\"quoted\"thing\"" "foo"]
+     ;; #{response1}
+     )))
 
 (deftest-http-app inventory-queries
   [[version endpoint] inventory-endpoints
@@ -126,7 +130,7 @@
                             (get-request endpoint (json/generate-string query))
                             (get-request endpoint))
                   {:keys [status body headers]} (*app* request)]
-              (is (= status http/status-ok))
+              (is (= http/status-ok status))
               (is (http/json-utf8-ctype? (headers "Content-Type")))
               (is (= (set result)
                      (set (json/parse-string (slurp body) true)))))))))))
