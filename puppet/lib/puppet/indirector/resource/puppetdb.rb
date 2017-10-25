@@ -57,7 +57,10 @@ class Puppet::Resource::Puppetdb < Puppet::Indirector::REST
             Puppet::Parser::Resource::Param.new(:name => name, :value => value)
           end
           attrs = {:parameters => params, :scope => scope}
-          result = Puppet::Parser::Resource.new(res['type'], res['title'], attrs)
+
+          t = res['type']
+          t = Puppet::Pops::Evaluator::Runtime3ResourceSupport.find_resource_type(scope, t) unless t == 'class' || t == 'node'
+          result = Puppet::Parser::Resource.new(t, res['title'], attrs)
           result.collector_id = "#{res['certname']}|#{res['type']}|#{res['title']}"
           result
         end
