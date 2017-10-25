@@ -16,6 +16,23 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
+5.1.2
+-----
+
+PuppetDB 5.1.2 includes bugfixes and performance improvements.
+
+### Bug Fixes
+* A recent fact data migration should no longer crash when the existing 
+  data has unexpected null value representations.
+  ([PDB-3692](https://tickets.puppetlabs.com/browse/PDB-3692))
+
+### Improvements
+* An optional facts blacklist feature has been added to the PDB config file 
+  that allows users to specify facts that will be ignored during ingestion.
+  ([PDB-3630](https://tickets.puppetlabs.com/browse/PDB-3630))
+
+### Contributors
+Morgan Rhodes, Rob Browning, Russell Mull, and Zachary Kent
 
 5.1.1
 -----
