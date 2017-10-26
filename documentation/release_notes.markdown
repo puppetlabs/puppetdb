@@ -16,10 +16,10 @@ canonical: "/puppetdb/latest/release_notes.html"
 [stockpile]: https://github.com/puppetlabs/stockpile
 [queue_support_guide]: ./pdb_support_guide.html#message-queue
 
-5.1.2
+5.1.3
 -----
 
-PuppetDB 5.1.2 includes bugfixes and performance improvements.
+PuppetDB 5.1.3 includes bugfixes and performance improvements.
 
 ### Bug Fixes
 * A recent fact data migration should no longer crash when the existing 
