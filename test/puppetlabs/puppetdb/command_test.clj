@@ -683,6 +683,11 @@
   "Support fact command versions"
   [:v4])
 
+(defn query-factsets [& cols]
+  (->> (query-to-vec "select certname, (stable||volatile) as facts, environment, producer_timestamp from factsets")
+       (map #(update % :facts (comp json/parse-string str)))
+       (map #(select-keys % cols))))
+
 (let [certname  "foo.example.com"
       facts     {:certname certname
                  :environment "DEV"
@@ -727,23 +732,9 @@
       (testing "should store the facts"
         (with-message-handler {:keys [handle-message dlo delay-pool q]}
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
-          (is (= (query-to-vec
-                  "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY name ASC")
-                 [{:certname certname :name "a" :value "1"}
-                  {:certname certname :name "b" :value "2"}
-                  {:certname certname :name "c" :value "3"}]))
+          (is (= [{:certname certname
+                   :facts {"a" "1", "b" "2", "c" "3"}}]
+                 (query-factsets :certname :facts)))
           (is (= 0 (task-count delay-pool)))
           (is (empty? (fs/list-dir (:path dlo))))
           (let [result (query-to-vec "SELECT certname,environment_id FROM factsets")]
@@ -773,23 +764,9 @@
                         yesterday))
               (is (= (scf-store/environment-id "DEV") (:environment_id result))))
 
-            (is (= (query-to-vec
-                    "SELECT fp.path as name,
-                          COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
-                                   cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
-                                   '') as value,
-                          fs.certname
-                   FROM factsets fs
-                     INNER JOIN facts as f on fs.id = f.factset_id
-                     INNER JOIN fact_values as fv on f.fact_value_id = fv.id
-                     INNER JOIN fact_paths as fp on f.fact_path_id = fp.id
-                   WHERE fp.depth = 0
-                   ORDER BY fp.path ASC")
-                   [{:certname certname :name "a" :value "1"}
-                    {:certname certname :name "b" :value "2"}
-                    {:certname certname :name "c" :value "3"}]))
+            (is (= [{:certname certname
+                     :facts {"a" "1", "b" "2", "c" "3"}}]
+                   (query-factsets :certname :facts)))
             (is (= 0 (task-count delay-pool)))
             (is (empty? (fs/list-dir (:path dlo)))))))))
 
@@ -811,7 +788,10 @@
 
           (is (= (query-to-vec "SELECT certname,timestamp,environment_id FROM factsets")
                  [(with-env {:certname certname :timestamp tomorrow})]))
-          (is (= (query-to-vec
+          (is (= [{:certname certname
+                   :facts {"x" "24", "y" "25", "z" "26"}}]
+                 (query-factsets :certname :facts)))
+          #_(is (= (query-to-vec
                   "SELECT fp.path as name,
                           COALESCE(fv.value_string,
                                    cast(fv.value_integer as text),
@@ -842,7 +822,10 @@
           (handle-message (queue/store-command q (facts->command-req (version-kwd->num version) command)))
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated nil}]))
-          (is (= (query-to-vec
+          (is (= [{:certname certname
+                   :facts {"a" "1", "b" "2", "c" "3"}}]
+                 (query-factsets)))
+         #_ (is (= (query-to-vec
                   "SELECT fp.path as name,
                           COALESCE(fv.value_string,
                                    cast(fv.value_integer as text),
@@ -872,7 +855,10 @@
 
           (is (= (query-to-vec "SELECT certname,deactivated FROM certnames")
                  [{:certname certname :deactivated tomorrow}]))
-          (is (= (query-to-vec
+          (is (= [{:certname certname
+                   :facts {"a" "1", "b" "2", "c" "3"}}]
+                 (query-factsets :certname :facts)))
+          #_ (is (= (query-to-vec
                   "SELECT fp.path as name,
                           COALESCE(fv.value_string,
                                    cast(fv.value_integer as text),
@@ -910,7 +896,12 @@
     (with-message-handler {:keys [handle-message dlo delay-pool q]}
       (handle-message (queue/store-command q (facts->command-req 3 facts-cmd)))
 
-      (is (= (query-to-vec
+      (is (= [{:certname certname
+               :facts {"a" "1", "b" "2", "c" "3"}
+               :producer-timestamp producer-time
+               :environment "DEV"}]
+             (query-factsets :certnames :facts :producer-timestamp :environment)))
+      #_(is (= (query-to-vec
               "SELECT fp.path as name,
                           COALESCE(fv.value_string,
                                    cast(fv.value_integer as text),
@@ -947,7 +938,10 @@
 
       (handle-message (queue/store-command q (facts->command-req 2 facts-cmd)))
 
-      (is (= (query-to-vec
+      (is (= [{:certname certname
+               :facts {"a" "1", "b" "2", "c" "3"}}]
+             (query-factsets)))
+     #_ (is (= (query-to-vec
               "SELECT fp.path as name,
                           COALESCE(fv.value_string,
                                    cast(fv.value_integer as text),

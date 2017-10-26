@@ -485,41 +485,27 @@
 (def fact-contents-query
   "Query for fact nodes"
   (if @scf-store/enable-json-facts
-    (map->Query {:projections {"path" {:type :path
-                                       :queryable? true
-                                       :field :fp.path}
-                               "value" {:type :multi
-                                        :queryable? false
-                                        :field :fv.value}
-                               "certname" {:type :string
+    (map->Query {:projections {"certname" {:type :string
                                            :queryable? true
                                            :field :fs.certname}
-                               "name" {:type :string
-                                       :queryable? true
-                                       :field :fp.name}
                                "environment" {:type :string
                                               :queryable? true
                                               :field :env.environment}
-                               "type" {:type :string
-                                       :queryable? false
-                                       :field :vt.type
-                                       :query-only? true}}
-
-                 :selection {:from [[:factsets :fs]]
-                             [[:facts :f]
-                              [:= :fs.id :f.factset_id]
-
-                              [:fact_values :fv]
-                              [:= :f.fact_value_id :fv.id]
-
-                              [:fact_paths :fp]
-                              [:= :f.fact_path_id :fp.id]
-
-                              [:value_types :vt]
-                              [:= :fv.value_type_id :vt.id]] :join
+                               "path" {:type :string
+                                       :queryable? true
+                                       :field :fs.key}
+                               "name" {:type :string
+                                       :queryable? true
+                                       :field :fs.key}
+                               "value" {:type :jsonb-scalar
+                                        :queryable? true
+                                        :field :fs.value}}
+                 :selection {:from [[(hcore/raw "(select certname,
+                                                         environment_id,
+                                                         (jsonb_each((stable||volatile))).*
+                                                  from factsets)") :fs]]
                              :left-join [[:environments :env]
-                                         [:= :fs.environment_id :env.id]]
-                             :where [:!= :vt.id 5]}
+                                         [:= :fs.environment_id :env.id]]}
 
                  :relationships (merge certname-relations
                                        {"facts" {:columns ["certname" "name"]}
@@ -527,7 +513,7 @@
                                                         :foreign-columns ["name"]}})
 
                  :alias "fact_nodes"
-                 :source-table "facts"
+                 :source-table "factsets"
                  :subquery? false})
     (map->Query {:projections {"path" {:type :path
                                        :queryable? true
@@ -1147,56 +1133,97 @@
 
 (def factsets-query
   "Query for the top level facts query"
-  (map->Query
-    {:projections
-     {"timestamp" {:type :timestamp
+  (if @scf-store/enable-json-facts
+    (map->Query
+     {:projections
+      {"timestamp" {:type :timestamp
+                    :queryable? true
+                    :field :timestamp}
+       "facts" {:type :queryable-json
+                :queryable? true
+                :field (hcore/raw "(stable||volatile)")}
+       "certname" {:type :string
                    :queryable? true
-                   :field :timestamp}
-      "facts" {:type :json
+                   :field :factsets.certname}
+       "hash" {:type :string
                :queryable? true
-               :field {:select [(h/row-to-json :facts_data)]
-                       :from [[{:select [[(json-agg-row :t) :data]
-                                         [(hsql-hash-as-href "factsets.certname" :factsets :facts) :href]]
-                                :from [[{:select [:fp.name (h/scast :fv.value :jsonb)]
-                                         :from [[:facts :f]]
-                                         :join [[:fact_values :fv] [:= :fv.id :f.fact_value_id]
-                                                [:fact_paths :fp] [:= :fp.id :f.fact_path_id]
-                                                [:value_types :vt] [:= :vt.id :fv.value_type_id]]
-                                         :where [:and [:= :depth 0] [:= :f.factset_id :factsets.id]]}
-                                        :t]]}
-                               :facts_data]]}}
-      "certname" {:type :string
-                  :queryable? true
-                  :field :factsets.certname}
-      "hash" {:type :string
-              :queryable? true
-              :field (hsql-hash-as-str :factsets.hash)}
-      "producer_timestamp" {:type :timestamp
-                            :queryable? true
-                            :field :factsets.producer_timestamp}
-      "producer" {:type :string
-                  :queryable? true
-                  :field :producers.name}
-      "environment" {:type :string
-                     :queryable? true
-                     :field :environments.environment}}
+               :field (hsql-hash-as-str :factsets.hash)}
+       "producer_timestamp" {:type :timestamp
+                             :queryable? true
+                             :field :factsets.producer_timestamp}
+       "producer" {:type :string
+                   :queryable? true
+                   :field :producers.name}
+       "environment" {:type :string
+                      :queryable? true
+                      :field :environments.environment}}
 
-     :selection {:from [:factsets]
-                 :left-join [:environments
-                             [:= :factsets.environment_id :environments.id]
-                             :producers
-                             [:= :producers.id :factsets.producer_id]]}
+      :selection {:from [:factsets]
+                  :left-join [:environments
+                              [:= :factsets.environment_id :environments.id]
+                              :producers
+                              [:= :producers.id :factsets.producer_id]]}
 
-     :relationships (merge certname-relations
-                           {"environments" {:local-columns ["environment"]
-                                            :foreign-columns ["name"]}
-                            "producers" {:local-columns ["producer"]
-                                         :foreign-columns ["name"]}})
+      :relationships (merge certname-relations
+                            {"environments" {:local-columns ["environment"]
+                                             :foreign-columns ["name"]}
+                             "producers" {:local-columns ["producer"]
+                                          :foreign-columns ["name"]}})
 
-     :alias "factsets"
-     :entity :factsets
-     :source-table "factsets"
-     :subquery? false}))
+      :alias "factsets"
+      :entity :factsets
+      :source-table "factsets"
+      :subquery? false})
+    (map->Query
+     {:projections
+      {"timestamp" {:type :timestamp
+                    :queryable? true
+                    :field :timestamp}
+       "facts" {:type :json
+                :queryable? true
+                :field {:select [(h/row-to-json :facts_data)]
+                        :from [[{:select [[(json-agg-row :t) :data]
+                                          [(hsql-hash-as-href "factsets.certname" :factsets :facts) :href]]
+                                 :from [[{:select [:fp.name (h/scast :fv.value :jsonb)]
+                                          :from [[:facts :f]]
+                                          :join [[:fact_values :fv] [:= :fv.id :f.fact_value_id]
+                                                 [:fact_paths :fp] [:= :fp.id :f.fact_path_id]
+                                                 [:value_types :vt] [:= :vt.id :fv.value_type_id]]
+                                          :where [:and [:= :depth 0] [:= :f.factset_id :factsets.id]]}
+                                         :t]]}
+                                :facts_data]]}}
+       "certname" {:type :string
+                   :queryable? true
+                   :field :factsets.certname}
+       "hash" {:type :string
+               :queryable? true
+               :field (hsql-hash-as-str :factsets.hash)}
+       "producer_timestamp" {:type :timestamp
+                             :queryable? true
+                             :field :factsets.producer_timestamp}
+       "producer" {:type :string
+                   :queryable? true
+                   :field :producers.name}
+       "environment" {:type :string
+                      :queryable? true
+                      :field :environments.environment}}
+
+      :selection {:from [:factsets]
+                  :left-join [:environments
+                              [:= :factsets.environment_id :environments.id]
+                              :producers
+                              [:= :producers.id :factsets.producer_id]]}
+
+      :relationships (merge certname-relations
+                            {"environments" {:local-columns ["environment"]
+                                             :foreign-columns ["name"]}
+                             "producers" {:local-columns ["producer"]
+                                          :foreign-columns ["name"]}})
+
+      :alias "factsets"
+      :entity :factsets
+      :source-table "factsets"
+      :subquery? false})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion from plan to SQL
@@ -1293,10 +1320,21 @@
         sql)))
 
   InExpression
-  (-plan->sql [{:keys [column subquery]}]
+  (-plan->sql [{:keys [column subquery] :as this}]
+    ;; 'column' is actually a vector of columns.
+
     (s/validate [column-schema] column)
-    [:in (mapv :field column)
-     (-plan->sql subquery)])
+    ;; if a field has type jsonb, cast that field in the subquery to jsonb
+    (let [fields (mapv :field column)]
+      [:in fields
+       (if (contains? (set (map :type column)) :jsonb-scalar)
+         {:select (map (fn [col]
+                         (if (= :jsonb-scalar (:type col))
+                           (hcore/call "jsonb" (:field col))
+                           (:field col)))
+                       column)
+          :from [[(-plan->sql subquery) :sub]]}
+         (-plan->sql subquery))]))
 
   JsonContainsExpression
   (-plan->sql [{:keys [field column-data]}]
@@ -1508,6 +1546,8 @@
             [[(op :guard (classic-facts-pred #{"=" "~" ">" "<" "<=" ">="})) "value" value]]
             (when (= :facts (get-in (meta node) [:query-context :entity]))
               ["and" ["=" "depth" 0] [op "value" value]])
+
+
 
             [["=" ["node" "active"] value]]
             (expand-query-node ["=" "node_state" (if value "active" "inactive")])
