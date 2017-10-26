@@ -9,7 +9,8 @@
             [puppetlabs.puppetdb.scf.hash :as hash]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.utils :as utils]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [puppetlabs.puppetdb.scf.storage :as scf-store]))
 
 ;; SCHEMA
 
@@ -52,11 +53,15 @@
   (zipmap (map (comp keyword :name) facts)
           (map :value facts)))
 
-(pls/defn-validated facts-expanded->wire-v5 :- {s/Keyword s/Any}
+(pls/defn-validated facts-expanded->wire-v5-classic :- {s/Keyword s/Any}
   [facts :- facts-expanded-query-schema]
   (facts-list-to-map
-   (map fact-query->wire-v5
-        (:data facts))))
+   (map fact-query->wire-v5 (:data facts))))
+
+(defn facts-expanded->wire-v5 [facts]
+  (if @scf-store/enable-json-facts
+    facts
+    (facts-expanded->wire-v5-classic facts)))
 
 (defn factsets-query->wire-v5 [factsets]
   (map
