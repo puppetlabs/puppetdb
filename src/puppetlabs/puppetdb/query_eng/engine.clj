@@ -1127,9 +1127,9 @@
 
                :relationships certname-relations
 
-               :alias "package_inventory"
+               :alias "package_inventory
                :subquery? false
-               :source-table "packages"}))
+               :source-table packages"}))
 
 (def factsets-query
   "Query for the top level facts query"
@@ -1141,16 +1141,24 @@
                     :field :timestamp}
        "facts" {:type :queryable-json
                 :queryable? true
-                :field (hcore/raw "(stable||volatile)")}
+                :field {:select [(h/row-to-json :facts_data)]
+                        :from [[{:select [[(hcore/raw "json_agg(json_build_object('name', t.name, 'value', t.value))")
+                                           :data]
+                                          [(hsql-hash-as-href "fs.certname" :factsets :facts)
+                                           :href]]
+                                 :from [[{:select [[:key :name] :value :certname]
+                                          :from [(hcore/raw "jsonb_each(fs.volatile || fs.stable)")]}
+                                         :t]]}
+                                :facts_data]]}}
        "certname" {:type :string
                    :queryable? true
-                   :field :factsets.certname}
+                   :field :fs.certname}
        "hash" {:type :string
                :queryable? true
-               :field (hsql-hash-as-str :factsets.hash)}
+               :field (hsql-hash-as-str :fs.hash)}
        "producer_timestamp" {:type :timestamp
                              :queryable? true
-                             :field :factsets.producer_timestamp}
+                             :field :fs.producer_timestamp}
        "producer" {:type :string
                    :queryable? true
                    :field :producers.name}
@@ -1158,11 +1166,11 @@
                       :queryable? true
                       :field :environments.environment}}
 
-      :selection {:from [:factsets]
+      :selection {:from [[:factsets :fs]]
                   :left-join [:environments
-                              [:= :factsets.environment_id :environments.id]
+                              [:= :fs.environment_id :environments.id]
                               :producers
-                              [:= :producers.id :factsets.producer_id]]}
+                              [:= :producers.id :fs.producer_id]]}
 
       :relationships (merge certname-relations
                             {"environments" {:local-columns ["environment"]
@@ -1998,7 +2006,7 @@
 
             [[(op :guard #{">" "<" ">=" "<="}) column-name value]]
             (let [colname (first (str/split column-name #"\."))
-                  cinfo (get-in query-rec [:projections colname])] 
+                  {:keys [type] :as cinfo} (get-in query-rec [:projections colname])]
               (cond
                 (= :timestamp type)
                 (map->BinaryExpression {:operator (keyword op)
@@ -2015,7 +2023,7 @@
                                         :column cinfo
                                         :value (su/munge-jsonb-for-storage value)})
 
-                :queryable-json
+                (= :queryable-json type)
                 (map->JsonbPathBinaryExpression {:field column-name
                                                  :column-data cinfo
                                                  :value (su/munge-jsonb-for-storage value)
