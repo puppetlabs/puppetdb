@@ -1145,13 +1145,10 @@
        "facts" {:type :queryable-json
                 :queryable? true
                 :field {:select [(h/row-to-json :facts_data)]
-                        :from [[{:select [
-                                          [(hcore/raw "json_agg(json_build_object('name', t.name, 'value', t.value))") :data]
-                                          [(hsql-hash-as-href "fs.certname" :factsets :facts) :href]
-                                          ]
+                        :from [[{:select [[(hcore/raw "json_agg(json_build_object('name', t.name, 'value', t.value))") :data]
+                                          [(hsql-hash-as-href "fs.certname" :factsets :facts) :href]]
                                   :from [[{:select [[:key :name] :value :certname]
-                                           :from [(hcore/raw "jsonb_each(fs.volatile || fs.stable)")]
-                                           } :t]]}
+                                           :from [(hcore/raw "jsonb_each(fs.volatile || fs.stable)")]} :t]]}
                                 :facts_data]]}}
        "certname" {:type :string
                    :queryable? true
@@ -2059,7 +2056,7 @@
             (let [colname (first (str/split column-name #"\."))
                   cinfo (get-in query-rec [:projections colname])]
               (cond
-                (= :timestamp type)
+                (= :timestamp (:type cinfo))
                 (map->BinaryExpression {:operator (keyword op)
                                         :column cinfo
                                         :value (to-timestamp value)})
@@ -2074,7 +2071,7 @@
                                         :column cinfo
                                         :value (su/munge-jsonb-for-storage value)})
 
-                :queryable-json
+                (= :queryable-json (:type cinfo))
                 (map->JsonbPathBinaryExpression {:field column-name
                                                  :column-data cinfo
                                                  :value (su/munge-jsonb-for-storage value)

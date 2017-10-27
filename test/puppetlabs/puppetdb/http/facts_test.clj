@@ -1448,6 +1448,7 @@
       (is (= (into [] (nth responses 4))
              [{"certname" "foo1"
                "hash" "b966980c39a141ab3c82b51951bb51a2e3787ac7"}]))
+(println "RESPONSES" responses)
      (is (= (munge-factsets-response (into [] (nth responses 5)))
             (map munge-factset-response
                  [{"facts" {"href" (str "/pdb/query/" (name version) "/factsets/foo2/facts")
