@@ -47,7 +47,7 @@
                :catalog_environment :facts_environment :report_environment
                :latest_report_status :latest_report_hash :latest_report_noop
                :latest_report_noop_pending :cached_catalog_status
-               :latest_report_corrective_change} (keyset res))
+               :latest_report_corrective_change :latest_report_job_id} (keyset res))
           (str "Query was: " query))
       (is (= (set expected) (set (mapv :certname result)))
           (str "Query was: " query)))
@@ -87,6 +87,15 @@
 
     (testing "all nodes have last corrective_change status null"
       (is-query-result' ["null?" "latest_report_corrective_change" true] [db puppet web1 web2]))
+
+    (testing "query on last job_id returns an empty result"
+      (is-query-result' ["=" "latest_report_job_id" "1234567890"] []))
+
+    (testing "query on last job_id returns web1"
+      (is-query-result' ["=" "latest_report_job_id" "0987654321"] [web1]))
+
+    (testing "all nodes have last job_id null"
+      (is-query-result' ["null?" "latest_report_job_id" true] [db puppet web2]))
 
     (testing "regular expressions are supported for name"
       (is-query-result' ["~" "certname" "web\\d+.example.com"] [web1 web2])

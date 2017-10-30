@@ -78,6 +78,8 @@ The below fields are allowed as filter criteria and are returned in all response
 
 * `latest_report_hash` (string): a hash of the latest report for the node.
 
+* `latest_report_job_id` (string): the job id associated with the latest report (not present if the run wasn't part of a job).
+
 * `["fact", <FACT NAME>]` (string, number, Boolean): the value of `<FACT NAME>` for a node. Inequality operators are allowed, and will skip non-numeric values.
 
     Note that nodes which are missing a fact referenced by a `not` query will match
@@ -100,7 +102,8 @@ The response is a JSON array of hashes, where each hash has the form:
      "latest_report_status": <string>,
      "latest_report_noop": <boolean>,
      "latest_report_noop_pending": <boolean>,
-     "latest_report_hash": <string>
+     "latest_report_hash": <string>,
+     "latest_report_job_id": <string or null>
     }
 
 At least one of the `_timestamp` fields will be non-null.
@@ -158,7 +161,8 @@ of `["=", "certname", "<NODE>"]`.
         "latest_report_status": "success",
         "latest_report_noop": false,
         "latest_report_noop_pending": true,
-        "latest_report_hash": "2625d1b601e98ed1e281ccd79ca8d16b9f74fea6"
+        "latest_report_hash": "2625d1b601e98ed1e281ccd79ca8d16b9f74fea6",
+        "latest_report_job_id": null
     }
 
 ### URL parameters / query operators / query fields
