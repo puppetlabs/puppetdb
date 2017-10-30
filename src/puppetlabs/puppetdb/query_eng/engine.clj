@@ -2054,9 +2054,9 @@
 
             [[(op :guard #{">" "<" ">=" "<="}) column-name value]]
             (let [colname (first (str/split column-name #"\."))
-                  cinfo (get-in query-rec [:projections colname])]
+                  {:keys [type] :as cinfo} (get-in query-rec [:projections colname])]
               (cond
-                (= :timestamp (:type cinfo))
+                (= :timestamp type)
                 (map->BinaryExpression {:operator (keyword op)
                                         :column cinfo
                                         :value (to-timestamp value)})
@@ -2071,7 +2071,7 @@
                                         :column cinfo
                                         :value (su/munge-jsonb-for-storage value)})
 
-                (= :queryable-json (:type cinfo))
+                (= :queryable-json type)
                 (map->JsonbPathBinaryExpression {:field column-name
                                                  :column-data cinfo
                                                  :value (su/munge-jsonb-for-storage value)
