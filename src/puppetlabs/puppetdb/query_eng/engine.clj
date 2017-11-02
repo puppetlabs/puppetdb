@@ -490,19 +490,20 @@
                                "environment" {:type :string
                                               :queryable? true
                                               :field :env.environment}
-                               "path" {:type :fact-path
+                               "path" {:type :path
                                        :queryable? true
-                                       :field :fs.key}
+                                       :field :fs.path}
                                "name" {:type :string
                                        :queryable? true
-                                       :field :fs.key}
+                                       :field :fs.name}
                                "value" {:type :jsonb-scalar
                                         :queryable? true
-                                        :field :fact_value}}
+                                        :field :value}}
                  :selection {:from [[(hcore/raw "(select certname,
-                                                         jsonb_extract_path(stable||volatile, variadic path_array) as fact_value,
-                                                         environment_id,
-                                                         (jsonb_each((stable||volatile))).*
+                                                         jsonb_extract_path(stable||volatile, variadic path_array) as value,
+                                                         path,
+                                                         name,
+                                                         environment_id
                                                   from factsets
                                                  cross join fact_paths
                                                  where jsonb_extract_path(stable||volatile, variadic path_array) is not null)") :fs]]
