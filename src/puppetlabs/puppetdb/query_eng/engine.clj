@@ -505,7 +505,11 @@
                                            "        name,"
                                            "        environment_id"
                                            "   from factsets"
-                                           "     cross join fact_paths"
+                                           "     cross join (select distinct on (path)"
+                                           "                        path,"
+                                           "                        path_array,"
+                                           "                        name"
+                                           "                   from fact_paths) distinct_paths"
                                            "   where jsonb_extract_path(stable||volatile,"
                                            "                            variadic path_array)"
                                            "           is not null)"))
