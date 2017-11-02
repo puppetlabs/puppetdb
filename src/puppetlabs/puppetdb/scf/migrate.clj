@@ -1467,7 +1467,11 @@
    "alter table factsets add column stable jsonb"
    "alter table factsets add column stable_hash bigint"
    "alter table factsets add column volatile jsonb"
-   "create index idx_factsets_jsonb_merged on factsets using gin((stable||volatile) jsonb_path_ops);")
+   "create index idx_factsets_jsonb_merged on factsets using gin((stable||volatile) jsonb_path_ops);"
+
+   "alter table fact_paths add column path_array text[]"
+   "update fact_paths set path_array = regexp_split_to_array(path, '#~')"
+   )
 
   {::vacuum-analyze #{"factsets"}})
 
