@@ -230,10 +230,7 @@
    (merge common-subquery-tests
           (omap/ordered-map
            ;; vectored fact-contents subquery
-           ["in" ["name" "certname"]
-            ["extract" ["name" "certname"]
-             ["select_fact_contents"
-              ["and" ["<" "value" 10000] ["~>" "path" ["up.*"]]]]]]
+           ["in" ["name" "certname"] ["extract" ["name" "certname"] ["select_fact_contents" ["and" ["<" "value" 10000] ["~>" "path" ["up.*"]]]]]]
            #{{:value 12, :name "uptime_seconds", :environment "DEV", :certname "bar"}}))))
 
 (def versioned-invalid-subqueries

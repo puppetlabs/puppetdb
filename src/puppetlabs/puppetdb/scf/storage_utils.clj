@@ -221,6 +221,7 @@
   because -> is not indexable (with GIN) but ?? is. Assumes a GIN index on the
   column supplied."
   [op column qmarks]
+  (println "HELLO WORLD")
   (let [delimited-qmarks (str/join "->" qmarks)
         re? (= "~" (name op))]
     (hcore/raw (string/join \space

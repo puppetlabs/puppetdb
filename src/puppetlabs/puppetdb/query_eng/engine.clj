@@ -353,20 +353,16 @@
                              "path" {:type :path
                                      :queryable? true
                                      :field :path}
+                             "name" {:type :string
+                                     :queryable? true
+                                     :field :name}
                              "depth" {:type :integer
                                       :queryable? true
                                       :query-only? true
                                       :field :fp.depth}}
                :selection {:from [[:fact_paths :fp]]
-                           :join [[:facts :f]
-                                  [:= :f.fact_path_id :fp.id]
-
-                                  [:fact_values :fv]
-                                  [:= :f.fact_value_id :fv.id]
-
                                   [:value_types :vt]
-                                  [:= :fv.value_type_id :vt.id]]
-                           :modifiers [:distinct]
+                                  [:= :fv.value_type_id :vt.id]
                            :where [:!= :fv.value_type_id 5]}
 
                :relationships {;; Children - direct
@@ -494,7 +490,7 @@
                                "environment" {:type :string
                                               :queryable? true
                                               :field :env.environment}
-                               "path" {:type :string
+                               "path" {:type :fact-path
                                        :queryable? true
                                        :field :fs.key}
                                "name" {:type :string
@@ -502,11 +498,14 @@
                                        :field :fs.key}
                                "value" {:type :jsonb-scalar
                                         :queryable? true
-                                        :field :fs.value}}
+                                        :field :fact_value}}
                  :selection {:from [[(hcore/raw "(select certname,
+                                                         jsonb_extract_path(stable||volatile, variadic path_array) as fact_value,
                                                          environment_id,
                                                          (jsonb_each((stable||volatile))).*
-                                                  from factsets)") :fs]]
+                                                  from factsets
+                                                 cross join fact_paths
+                                                 where jsonb_extract_path(stable||volatile, variadic path_array) is not null)") :fs]]
                              :left-join [[:environments :env]
                                          [:= :fs.environment_id :env.id]]}
 
@@ -518,6 +517,10 @@
                  :alias "fact_nodes"
                  :source-table "factsets"
                  :subquery? false})
+
+
+
+
     (map->Query {:projections {"path" {:type :path
                                        :queryable? true
                                        :field :fp.path}
@@ -553,6 +556,7 @@
                                        :queryable? false
                                        :field :vt.type
                                        :query-only? true}}
+
 
                  :selection {:from [[:factsets :fs]]
                              :join [[:facts :f]

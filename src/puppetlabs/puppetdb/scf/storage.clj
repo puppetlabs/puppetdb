@@ -980,86 +980,6 @@
       str
       json/parse-string))
 
-(pls/defn-validated add-facts-jsonb
-  "Given a certname and a map of fact names to values, store records for those
-  facts associated with the certname."
-  ([fact-data] (add-facts-jsonb fact-data true))
-  ([{:keys [certname values environment timestamp producer_timestamp producer package_inventory]
-     :as fact-data} :- facts-schema
-    include-hash? :- s/Bool]
-   (jdbc/with-db-transaction []
-     (jdbc/insert! :factsets
-                   (merge
-                    {:certname certname
-                     :timestamp (to-timestamp timestamp)
-                     :environment_id (ensure-environment environment)
-                     :producer_timestamp (to-timestamp producer_timestamp)
-                     :producer_id (ensure-producer producer)
-                     :stable (sutils/munge-jsonb-for-storage values)
-                     :stable_hash (hash values)
-                     ;; need at least an empty map for the jsonb || operator
-                     :volatile (sutils/munge-jsonb-for-storage {})}
-                    (when include-hash?
-                      {:hash (sutils/munge-hash-for-storage
-                              (shash/fact-identity-hash fact-data))})))
-
-     (when (seq package_inventory)
-       (insert-packages certname package_inventory)))))
-
-(s/defn update-facts-jsonb
-  "Given a certname, querys the DB for existing facts for that
-   certname and will update, delete or insert the facts as necessary
-   to match the facts argument. (cf. add-facts!)"
-  [{:keys [certname values environment timestamp producer_timestamp producer package_inventory] :as fact-data}
-   :- facts-schema]
-  (jdbc/with-db-transaction []
-    (let [{:keys [package_hash certname_id factset_id stable_hash volatile_fact_names]}
-          (certname-factset-metadata certname)
-
-          ;; split facts into stable and volatile maps. Everything that was
-          ;; previously volatile stays that way. Any stable value that changes
-          ;; becomes volatile. Newly volatile facts are removed from the stable
-          ;; map.
-          current-volatile-fact-keys (volatile-fact-keys-for-factset factset_id)
-          incoming-volatile-facts (select-keys values current-volatile-fact-keys)
-          incoming-stable-facts (apply dissoc values current-volatile-fact-keys)
-          incoming-stable-fact-hash (hash incoming-stable-facts)
-          fact-json-updates (if (not= stable_hash incoming-stable-fact-hash)
-                              ;; stable facts are different; load the json and move the ones that
-                              ;; changed into volatile
-                              (let [current-stable-facts (load-stable-facts factset_id)
-                                    changed-facts (->> incoming-stable-facts
-                                                       (filter (fn [[fact new-value]]
-                                                                 (when-let [current (get current-stable-facts fact)]
-                                                                   (not= new-value current))))
-                                                       (into {}))
-                                    new-stable-facts (->> incoming-stable-facts
-                                                          (remove (fn [[fact _]] (get changed-facts fact)))
-                                                          (into {}))
-                                    new-volatile-facts (merge incoming-volatile-facts
-                                                              changed-facts)]
-                                {:stable (sutils/munge-jsonb-for-storage new-stable-facts)
-                                 :stable_hash (hash new-stable-facts)
-                                 :volatile (sutils/munge-jsonb-for-storage new-volatile-facts)})
-
-                              ;; no change to stable facts, so just update volatile
-                              {:volatile (sutils/munge-jsonb-for-storage incoming-volatile-facts)})]
-
-      (when (or package_hash (seq package_inventory))
-        (update-packages certname_id package_hash package_inventory))
-
-      (jdbc/update! :factsets
-                    (merge
-                     {:timestamp (to-timestamp timestamp)
-                      :environment_id (ensure-environment environment)
-                      :producer_timestamp (to-timestamp producer_timestamp)
-                      :hash (-> fact-data
-                                shash/fact-identity-hash
-                                sutils/munge-hash-for-storage)
-                      :producer_id (ensure-producer producer)}
-                     fact-json-updates)
-                    ["id=?" factset_id]))))
-
 ;;; Classic Facts
 
 (defn-validated select-pid-vid-pairs-for-factset
@@ -1307,6 +1227,94 @@
 
      (when (seq package_inventory)
        (insert-packages certname package_inventory)))))
+
+(pls/defn-validated add-facts-jsonb
+  "Given a certname and a map of fact names to values, store records for those
+  facts associated with the certname."
+  ([fact-data] (add-facts-jsonb fact-data true))
+  ([{:keys [certname values environment timestamp producer_timestamp producer package_inventory]
+     :as fact-data} :- facts-schema
+    include-hash? :- s/Bool]
+   (jdbc/with-db-transaction []
+     (jdbc/insert! :factsets
+                   (merge
+                    {:certname certname
+                     :timestamp (to-timestamp timestamp)
+                     :environment_id (ensure-environment environment)
+                     :producer_timestamp (to-timestamp producer_timestamp)
+                     :producer_id (ensure-producer producer)
+                     :stable (sutils/munge-jsonb-for-storage values)
+                     :stable_hash (hash values)
+                     ;; need at least an empty map for the jsonb || operator
+                     :volatile (sutils/munge-jsonb-for-storage {})}
+                    (when include-hash?
+                      {:hash (sutils/munge-hash-for-storage
+                              (shash/fact-identity-hash fact-data))})))
+
+     (let [paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
+           pathstrs (map (comp facts/factpath-to-string first) paths-and-valuemaps)]
+       (realize-paths! pathstrs))
+
+     (when (seq package_inventory)
+       (insert-packages certname package_inventory)))))
+
+(s/defn update-facts-jsonb
+  "Given a certname, querys the DB for existing facts for that
+   certname and will update, delete or insert the facts as necessary
+   to match the facts argument. (cf. add-facts!)"
+  [{:keys [certname values environment timestamp producer_timestamp producer package_inventory] :as fact-data}
+   :- facts-schema]
+  (jdbc/with-db-transaction []
+    (let [{:keys [package_hash certname_id factset_id stable_hash volatile_fact_names]}
+          (certname-factset-metadata certname)
+
+          ;; split facts into stable and volatile maps. Everything that was
+          ;; previously volatile stays that way. Any stable value that changes
+          ;; becomes volatile. Newly volatile facts are removed from the stable
+          ;; map.
+          current-volatile-fact-keys (volatile-fact-keys-for-factset factset_id)
+          incoming-volatile-facts (select-keys values current-volatile-fact-keys)
+          incoming-stable-facts (apply dissoc values current-volatile-fact-keys)
+          incoming-stable-fact-hash (hash incoming-stable-facts)
+          fact-json-updates (if (not= stable_hash incoming-stable-fact-hash)
+                              ;; stable facts are different; load the json and move the ones that
+                              ;; changed into volatile
+                              (let [current-stable-facts (load-stable-facts factset_id)
+                                    changed-facts (->> incoming-stable-facts
+                                                       (filter (fn [[fact new-value]]
+                                                                 (when-let [current (get current-stable-facts fact)]
+                                                                   (not= new-value current))))
+                                                       (into {}))
+                                    new-stable-facts (->> incoming-stable-facts
+                                                          (remove (fn [[fact _]] (get changed-facts fact)))
+                                                          (into {}))
+                                    new-volatile-facts (merge incoming-volatile-facts
+                                                              changed-facts)]
+                                {:stable (sutils/munge-jsonb-for-storage new-stable-facts)
+                                 :stable_hash (hash new-stable-facts)
+                                 :volatile (sutils/munge-jsonb-for-storage new-volatile-facts)})
+
+                              ;; no change to stable facts, so just update volatile
+                              {:volatile (sutils/munge-jsonb-for-storage incoming-volatile-facts)})]
+
+      (when (or package_hash (seq package_inventory))
+        (update-packages certname_id package_hash package_inventory))
+
+     (let [paths-and-valuemaps (facts/facts->paths-and-valuemaps values)
+           pathstrs (map (comp facts/factpath-to-string first) paths-and-valuemaps)]
+       (realize-paths! pathstrs))
+
+      (jdbc/update! :factsets
+                    (merge
+                     {:timestamp (to-timestamp timestamp)
+                      :environment_id (ensure-environment environment)
+                      :producer_timestamp (to-timestamp producer_timestamp)
+                      :hash (-> fact-data
+                                shash/fact-identity-hash
+                                sutils/munge-hash-for-storage)
+                      :producer_id (ensure-producer producer)}
+                     fact-json-updates)
+                    ["id=?" factset_id]))))
 
 
 (s/defn update-facts-classic
