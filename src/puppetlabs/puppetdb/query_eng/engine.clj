@@ -522,9 +522,6 @@
                  :source-table "factsets"
                  :subquery? false})
 
-
-
-
     (map->Query {:projections {"path" {:type :path
                                        :queryable? true
                                        :field :fp.path}
