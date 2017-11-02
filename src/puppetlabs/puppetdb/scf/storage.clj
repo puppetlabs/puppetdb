@@ -1169,9 +1169,8 @@
                               (map first new-paths)
                               (map #(-> (count %) dec int) new-paths)
                               (->> new-paths
-                                   (map facts/factpath-to-string)
-                                   (map #(str/split % #"#~"))
-                                   (map #(sutils/array-to-param "text" String %))))
+                                   (map #(sutils/array-to-param
+                                           "text" String (map str %)))))
                          (partition-all ps-chunksize))]
         (->> chunks
              (mapcat #(jdbc/insert-multi! :fact_paths %))
