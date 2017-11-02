@@ -1680,7 +1680,7 @@
      (delete-unassociated-environments!))
    ;; These require serializable because they make the decision to
    ;; delete based on row counts in another table.
-   (jdbc/with-transacted-connection' db :serializable
-     (delete-orphaned-paths! *orphaned-path-gc-limit*))
+ ;  (jdbc/with-transacted-connection' db :serializable
+ ;    (delete-orphaned-paths! *orphaned-path-gc-limit*))
    (jdbc/with-transacted-connection' db :serializable
      (delete-orphaned-values! *orphaned-value-gc-limit*))))

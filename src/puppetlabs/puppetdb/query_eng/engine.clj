@@ -509,7 +509,9 @@
                                                  cross join (select distinct on (path) path,
                                                              path_array, name from fact_paths) distinct_paths
                                                  where jsonb_extract_path(stable||volatile,
-                                                                          variadic path_array) is not null)")
+                                                                          variadic path_array) is not null
+                                                 and jsonb_typeof(jsonb_extract_path(stable||volatile,
+                                                                                     variadic path_array)) <> 'object')")
                                      :fs]]
                              :left-join [[:environments :env]
                                          [:= :fs.environment_id :env.id]]}
