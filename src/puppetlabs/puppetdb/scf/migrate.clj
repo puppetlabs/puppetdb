@@ -1496,6 +1496,12 @@
 
   {::vacuum-analyze #{"factsets"}})
 
+(defn autovacuum-vacuum-scale-factor-factsets-catalogs-certnames []
+  (jdbc/do-commands
+    "ALTER TABLE factsets  SET ( autovacuum_vacuum_scale_factor=0.80 );"
+    "ALTER TABLE catalogs  SET ( autovacuum_vacuum_scale_factor=0.75 );"
+    "ALTER TABLE certnames SET ( autovacuum_vacuum_scale_factor=0.75 );"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1539,7 +1545,8 @@
    63 add-job-id
    64 rededuplicate-facts
    65 varchar-columns-to-text
-   66 jsonb-facts})
+   66 jsonb-facts
+   67 autovacuum-vacuum-scale-factor-factsets-catalogs-certnames})
 
 (def desired-schema-version (apply max (keys migrations)))
 
