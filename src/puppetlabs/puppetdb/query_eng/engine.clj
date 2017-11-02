@@ -357,8 +357,8 @@
                                       :field :fp.depth}}
                :selection {:from [[:fact_paths :fp]]
                                   [:value_types :vt]
-                                  [:= :fv.value_type_id :vt.id]
-                           :where [:!= :fv.value_type_id 5]}
+                                  [:= :fp.value_type_id :vt.id]
+                           :where [:!= :fp.value_type_id 5]}
 
                :relationships {;; Children - direct
                                "facts" {:columns ["name"]}
