@@ -1147,33 +1147,36 @@
               (jdbc/insert-multi! :fact_values)
               (map :id)))))
 
+(def ps-chunksize 6000)
+
 (defn realize-paths!
   "Ensures that all paths exist in the database and returns a map of
   paths to ids."
   [pathstrs]
   (when-let [pathstrs (seq pathstrs)]
-    (let [array-to-param sutils/array-to-param
-          existing-path-ids (jdbc/call-with-query-rows
+    (let [existing-path-ids (jdbc/call-with-query-rows
                              [(str "select path, id from fact_paths"
                                    "  where path in (select * from unnest(?))")
-                              (array-to-param "text" String pathstrs)]
+                              (sutils/array-to-param "text" String pathstrs)]
                              {:as-arrays? true}
                              (fn [[col-names & rows]]
                                (into {} rows)))
           missing-db-paths (set/difference (set pathstrs)
                                            (set (keys existing-path-ids)))
           new-paths (map facts/string-to-factpath missing-db-paths)]
-
-      (jdbc/call-with-query-rows
-       [(str "insert into fact_paths (path, name, depth)"
-             "  (select * from unnest(?, ?, ?)) returning path, id")
-        (array-to-param "text" String (map facts/factpath-to-string new-paths))
-        (array-to-param "text" String (map first new-paths))
-        (array-to-param "integer" Integer (map #(-> (count %) dec int)
-                                               new-paths))]
-       {:as-arrays? true}
-       (fn [[col-names & rows]]
-         (into existing-path-ids rows))))))
+      (let [chunks (->> (map #(hash-map :path %1 :name %2 :depth %3 :path_array %4)
+                              (map facts/factpath-to-string new-paths)
+                              (map first new-paths)
+                              (map #(-> (count %) dec int) new-paths)
+                              (->> new-paths
+                                   (map facts/factpath-to-string)
+                                   (map #(str/split % #"#~"))
+                                   (map #(sutils/array-to-param "text" String %))))
+                         (partition-all ps-chunksize))]
+        (->> chunks
+             (mapcat #(jdbc/insert-multi! :fact_paths %))
+             (map #(select-keys % [:path :name]))
+             (reduce #(assoc %1 (:path %2) (:id %2)) existing-path-ids))))))
 
 (defn realize-values!
   "Ensures that all valuemaps exist in the database and returns a
